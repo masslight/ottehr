@@ -34,6 +34,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useAppFlags } from 'src/shared/contexts/useAppFlags';
 import { useAppointmentData, useChartData } from 'src/shared/hooks/appointment/appointment.store';
 import { useChartFields } from 'src/shared/hooks/appointment/useChartFields';
+import { useGetAppointmentAwaitingSupervisorApproval } from 'src/shared/hooks/appointment/useGetAppointmentAwaitingSupervisorApproval';
 import { usePatientInstructionsVisibility } from 'src/shared/hooks/appointment/usePatientInstructionsVisibility';
 import {
   useChangeTelemedAppointmentStatusMutation,
@@ -42,7 +43,6 @@ import {
 import { useOystehrAPIClient } from 'src/shared/hooks/useOystehrAPIClient';
 import {
   examConfig,
-  getVisitStatus,
   LabType,
   NOTE_TYPE,
   progressNoteChartDataRequestedFields,
@@ -129,12 +129,7 @@ export const ProgressNoteDetails: FC = () => {
   const showVitalsObservations =
     !!(vitalsObservations && vitalsObservations.length > 0) || !!(vitalsNotes && vitalsNotes.length > 0);
 
-  let isAwaitingSupervisorApproval = false;
-  if (appointment) {
-    isAwaitingSupervisorApproval =
-      getVisitStatus(appointment, encounter, FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED) ===
-      'awaiting supervisor approval';
-  }
+  const isAwaitingSupervisorApproval = useGetAppointmentAwaitingSupervisorApproval();
 
   const medicalHistorySections = [
     <AllergiesContainer notes={allergyNotes} />,

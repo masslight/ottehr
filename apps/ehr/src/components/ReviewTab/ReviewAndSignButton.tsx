@@ -10,6 +10,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useAppointmentData, useChartData } from 'src/shared/hooks/appointment/appointment.store';
 import { useChartFields } from 'src/shared/hooks/appointment/useChartFields';
 import { useGetAppointmentAccessibility } from 'src/shared/hooks/appointment/useGetAppointmentAccessibility';
+import { useGetAppointmentAwaitingSupervisorApproval } from 'src/shared/hooks/appointment/useGetAppointmentAwaitingSupervisorApproval';
 import {
   useChangeTelemedAppointmentStatusMutation,
   useSignAppointmentMutation,
@@ -77,13 +78,18 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const isLoading = isChangeLoading || isSignLoading || isEncounterUpdatePending || isPendingSupervisorApproval;
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
-
+  const isAwaitingSupervisorApproval = useGetAppointmentAwaitingSupervisorApproval();
   const completed = useMemo(() => {
     if (inPerson) {
-      return appointmentAccessibility.isAppointmentLocked;
+      return appointmentAccessibility.isAppointmentLocked || isAwaitingSupervisorApproval;
     }
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
-  }, [inPerson, appointmentAccessibility.status, appointmentAccessibility.isAppointmentLocked]);
+  }, [
+    inPerson,
+    appointmentAccessibility.status,
+    appointmentAccessibility.isAppointmentLocked,
+    isAwaitingSupervisorApproval,
+  ]);
 
   const errorMessage = useMemo(() => {
     const messages: string[] = [];
