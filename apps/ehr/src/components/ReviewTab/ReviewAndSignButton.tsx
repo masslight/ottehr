@@ -8,9 +8,9 @@ import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { usePendingSupervisorApproval } from 'src/features/telemed';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useAppointmentData, useChartData } from 'src/shared/hooks/appointment/appointment.store';
+import { useAwaitingSupervisorApproval } from 'src/shared/hooks/appointment/useAwaitingSupervisorApproval';
 import { useChartFields } from 'src/shared/hooks/appointment/useChartFields';
 import { useGetAppointmentAccessibility } from 'src/shared/hooks/appointment/useGetAppointmentAccessibility';
-import { useGetAppointmentAwaitingSupervisorApproval } from 'src/shared/hooks/appointment/useGetAppointmentAwaitingSupervisorApproval';
 import {
   useChangeTelemedAppointmentStatusMutation,
   useSignAppointmentMutation,
@@ -78,7 +78,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const isLoading = isChangeLoading || isSignLoading || isEncounterUpdatePending || isPendingSupervisorApproval;
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
-  const isAwaitingSupervisorApproval = useGetAppointmentAwaitingSupervisorApproval();
+  const isAwaitingSupervisorApproval = useAwaitingSupervisorApproval();
   const completed = useMemo(() => {
     if (inPerson) {
       return appointmentAccessibility.isAppointmentLocked || isAwaitingSupervisorApproval;

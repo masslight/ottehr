@@ -33,8 +33,8 @@ import { isEligibleSupervisor } from 'src/helpers';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { useAppFlags } from 'src/shared/contexts/useAppFlags';
 import { useAppointmentData, useChartData } from 'src/shared/hooks/appointment/appointment.store';
+import { useAwaitingSupervisorApproval } from 'src/shared/hooks/appointment/useAwaitingSupervisorApproval';
 import { useChartFields } from 'src/shared/hooks/appointment/useChartFields';
-import { useGetAppointmentAwaitingSupervisorApproval } from 'src/shared/hooks/appointment/useGetAppointmentAwaitingSupervisorApproval';
 import { usePatientInstructionsVisibility } from 'src/shared/hooks/appointment/usePatientInstructionsVisibility';
 import {
   useChangeTelemedAppointmentStatusMutation,
@@ -129,7 +129,7 @@ export const ProgressNoteDetails: FC = () => {
   const showVitalsObservations =
     !!(vitalsObservations && vitalsObservations.length > 0) || !!(vitalsNotes && vitalsNotes.length > 0);
 
-  const isAwaitingSupervisorApproval = useGetAppointmentAwaitingSupervisorApproval();
+  const isAwaitingSupervisorApproval = useAwaitingSupervisorApproval();
 
   const medicalHistorySections = [
     <AllergiesContainer notes={allergyNotes} />,
