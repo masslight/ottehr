@@ -1475,6 +1475,10 @@ export default function AppointmentPage(): ReactElement {
                     loading={loading}
                     encounterId={encounter.id ?? ''}
                     patientSelectSelfPay={selfPay}
+                    responsibleParty={{
+                      fullName: fullNameResponsiblePartyString,
+                      email: getAnswerStringFor('responsible-party-email', flattenedItems),
+                    }}
                   />
                 )}
                 {/* Insurance information */}
