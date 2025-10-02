@@ -20,27 +20,27 @@ import React from 'react';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
+import { Task } from 'utils';
 
 interface Props {
-  category: string;
-  createdDate: string;
-  title: string;
-  subtitle: string;
-  actionButton?: {
-    text: string;
-    onClick: () => void;
-  };
-  statusSection?: {
-    status: 'completed' | 'in progress';
-    details: string;
-  };
-  onAssignMeClick?: () => void;
-  onUnassignMeClick?: () => void;
-  onAssignSomeoneElseClick?: () => void;
-  alertText?: string;
+  task: Task;
+  showAlert?: boolean;
+  showActionButton?: boolean;
+  showAssignMeButton?: boolean;
+  showStatus?: boolean;
+  showUnassignMeItem?: boolean;
+  showAssignSomeoneElseItem?: boolean;
 }
 
-export const TaskRow: React.FC<Props> = (props) => {
+export const TaskRow: React.FC<Props> = ({
+  task,
+  showAlert,
+  showActionButton,
+  showAssignMeButton,
+  showStatus,
+  showUnassignMeItem,
+  showAssignSomeoneElseItem,
+}) => {
   const [moreActionsPopoverAnchor, setMoreActionsPopoverAnchor] = React.useState<HTMLButtonElement | null>(null);
 
   const closeMoreActionsPopover = (): void => {
@@ -62,24 +62,24 @@ export const TaskRow: React.FC<Props> = (props) => {
           justifyContent="center"
         >
           <Typography variant="body2" display="inline" style={{ color: '#2169F5', fontSize: '13px' }}>
-            {props.category}
+            {task.category}
           </Typography>
         </Box>
         <Typography variant="body2" display="inline" style={{ color: '#00000099', display: 'block' }}>
-          {props.createdDate}
+          {task.createdDate}
         </Typography>
       </Box>
       <Box style={{ flexGrow: 1 }}>
         <Typography variant="body1" display="inline" style={{ color: '#000000DE', display: 'block', fontWeight: 500 }}>
-          {props.title}
+          {task.title}
         </Typography>
         <Typography variant="body2" display="inline" style={{ color: '#00000099' }}>
-          {props.subtitle}
+          {task.subtitle}
         </Typography>
       </Box>
       <Stack direction="row" spacing={1} alignItems="center">
-        {props.alertText ? (
-          <GenericToolTip title={props.alertText} placement="top">
+        {showAlert && task.alert ? (
+          <GenericToolTip title={task.alert} placement="top">
             <PriorityHighOutlinedIcon
               style={{
                 width: '15px',
@@ -92,26 +92,23 @@ export const TaskRow: React.FC<Props> = (props) => {
             />
           </GenericToolTip>
         ) : null}
-        {props.actionButton ? (
-          <RoundedButton variant="contained" onClick={props.actionButton.onClick}>
-            {props.actionButton.text}
+        {showActionButton && task.action ? (
+          <RoundedButton variant="contained" onClick={() => console.log(task.action?.link)}>
+            {task.action.name}
           </RoundedButton>
         ) : null}
-        {props.onAssignMeClick ? (
-          <RoundedButton variant="outlined" onClick={props.onAssignMeClick}>
+        {showAssignMeButton ? (
+          <RoundedButton variant="outlined" onClick={() => console.log('Assign Me')}>
             Assign Me
           </RoundedButton>
         ) : null}
-        {props.statusSection ? (
+        {showStatus ? (
           <Stack alignItems="flex-end">
-            <StatusChip
-              status={props.statusSection.status}
-              style={props.statusSection.status === 'completed' ? 'green' : 'orange'}
-            />
-            <Typography variant="body2">{props.statusSection.details}</Typography>
+            <StatusChip status={task.status} style={task.status === 'completed' ? 'green' : 'orange'} />
+            <Typography variant="body2">{task.assignee?.name + ' ' + task.assignee?.date}</Typography>
           </Stack>
         ) : null}
-        {props.onUnassignMeClick || props.onAssignSomeoneElseClick ? (
+        {showUnassignMeItem || showAssignSomeoneElseItem ? (
           <IconButton color="primary" onClick={(e) => setMoreActionsPopoverAnchor(e.currentTarget)}>
             <MoreVertIcon fontSize="medium" />
           </IconButton>
@@ -126,11 +123,11 @@ export const TaskRow: React.FC<Props> = (props) => {
           }}
         >
           <List>
-            {props.onUnassignMeClick ? (
+            {showUnassignMeItem ? (
               <ListItem disablePadding>
                 <ListItemButton
                   onClick={() => {
-                    props.onUnassignMeClick?.();
+                    console.log('Unassign me');
                     closeMoreActionsPopover();
                   }}
                 >
@@ -141,11 +138,11 @@ export const TaskRow: React.FC<Props> = (props) => {
                 </ListItemButton>
               </ListItem>
             ) : null}
-            {props.onAssignSomeoneElseClick ? (
+            {showAssignSomeoneElseItem ? (
               <ListItem disablePadding>
                 <ListItemButton
                   onClick={() => {
-                    props.onAssignSomeoneElseClick?.();
+                    console.log('Assign to someone else');
                     closeMoreActionsPopover();
                   }}
                 >
