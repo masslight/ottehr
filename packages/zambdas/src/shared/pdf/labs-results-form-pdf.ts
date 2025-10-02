@@ -1443,6 +1443,7 @@ const parseObservationForPDF = (
       resultCodeDisplay: '',
       resultValue: '',
       attachmentText: `${initialText} attachment is included at the end of this document`,
+      observationStatus: observation.status,
     };
     return {
       labResult: attachmentResult,
@@ -1496,6 +1497,7 @@ const parseObservationForPDF = (
     performingLabAddress: getPerformingLabAddressFromObs(observation, oystehr),
     performingLabPhone: getPerformingLabPhoneFromObs(observation),
     performingLabDirectorFullName: getPerformingLabDirectorNameFromObs(observation, oystehr),
+    observationStatus: observation.status,
   };
 
   return { labResult, interpretationDisplay };
@@ -1575,6 +1577,9 @@ const writeResultDetailLinesInPdf = (
   pdfClient.newLine(14);
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
   pdfClient.newLine(5);
+
+  pdfClient.drawText(`Result status: ${labResult.observationStatus}`, textStyles.text);
+  pdfClient.newLine(STANDARD_NEW_LINE);
 
   if (labResult.attachmentText) {
     pdfClient.drawText(labResult.attachmentText, textStyles.text);

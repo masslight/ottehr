@@ -177,6 +177,7 @@ export interface ExternalLabResult {
   performingLabAddress?: string;
   performingLabPhone?: string;
   performingLabDirectorFullName?: string;
+  observationStatus: string;
 }
 
 export interface InHouseLabResult {
