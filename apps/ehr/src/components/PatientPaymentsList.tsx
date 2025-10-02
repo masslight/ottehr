@@ -68,7 +68,7 @@ export default function PatientPaymentList({
   patientSelectSelfPay,
   responsibleParty,
 }: PaymentListProps): ReactElement {
-  const { oystehr } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
@@ -119,7 +119,7 @@ export default function PatientPaymentList({
   }, [encounterId, oystehr, paymentData]);
 
   const sendReceipt = async (formData: SendReceiptFormData): Promise<void> => {
-    if (!oystehr) return;
+    if (!oystehrZambda) return;
     try {
       if (!receiptDocRefId) throw new Error("unable to send email, don't have receipt docRefId");
       const sendReceiptParams: SendReceiptByEmailZambdaInput = {
@@ -127,7 +127,7 @@ export default function PatientPaymentList({
         email: formData.recipientEmail,
         receiptDocRefId: receiptDocRefId,
       };
-      await sendReceiptByEmail(oystehr, sendReceiptParams);
+      await sendReceiptByEmail(oystehrZambda, sendReceiptParams);
       setSendReceiptByEmailDialogOpen(false);
       enqueueSnackbar('Receipt sent successfully', { variant: 'success' });
     } catch {
