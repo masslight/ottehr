@@ -872,7 +872,7 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
   console.log(
     `Drawing results date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Results Date:', data.resultsReceivedDate);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Reported Date & Time:', data.resultsReceivedDate);
   pdfClient.newLine(STANDARD_FONT_SIZE);
   pdfClient.newLine(STANDARD_FONT_SIZE);
 
@@ -980,7 +980,7 @@ async function createExternalLabsResultsFormPdfBytes(
   console.log(
     `Drawing results date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Results Date:', data.resultsReceivedDate);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Reported Date & Time:', data.resultsReceivedDate);
   pdfClient.newLine(STANDARD_FONT_SIZE);
   pdfClient.newLine(STANDARD_FONT_SIZE);
 
