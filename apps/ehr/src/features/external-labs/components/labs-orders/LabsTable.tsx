@@ -1,7 +1,7 @@
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getExternalLabOrderEditUrl, getReflexExternalLabEditUrl } from 'src/features/css-module/routing/helpers';
+import { getExternalLabOrderEditUrl, getReflexExternalLabEditUrl } from 'src/features/in-person/routing/helpers';
 import {
   getColumnHeader,
   getColumnWidth,

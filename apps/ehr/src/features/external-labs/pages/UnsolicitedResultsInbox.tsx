@@ -1,6 +1,6 @@
 import { Box, CircularProgress, Stack, Typography } from '@mui/material';
 import PageContainer from 'src/layout/PageContainer';
-import { useGetUnsolicitedResultsTasks } from 'src/telemed';
+import { useGetUnsolicitedResultsTasks } from 'src/shared/hooks/appointment/appointment.queries';
 import { UnsolicitedResultsRequestType } from 'utils';
 import { UnsolicitedResultsTaskCard } from '../components/unsolicited-results/UnsolicitedResultsTaskCard';
 

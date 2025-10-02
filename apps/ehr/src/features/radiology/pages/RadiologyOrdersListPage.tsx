@@ -1,9 +1,9 @@
 import { Box, Button, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGetAppointmentAccessibility } from 'src/telemed';
-import { PageTitle } from 'src/telemed/components/PageTitle';
-import { useAppointmentData } from '../../../telemed/state/appointment/appointment.store';
+import { useAppointmentData } from 'src/shared/hooks/appointment/appointment.store';
+import { useGetAppointmentAccessibility } from 'src/shared/hooks/appointment/useGetAppointmentAccessibility';
+import { PageTitle } from '../../../components/PageTitle';
 import { RadiologyTable, RadiologyTableColumn } from '../components/RadiologyTable';
 
 const radiologyColumns: RadiologyTableColumn[] = ['studyType', 'dx', 'ordered', 'stat', 'status', 'actions'];

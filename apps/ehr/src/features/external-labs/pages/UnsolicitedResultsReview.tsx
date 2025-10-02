@@ -6,7 +6,7 @@ import { updateLabOrderResources } from 'src/api/api';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useGetUnsolicitedResultsDetail } from 'src/telemed';
+import { useGetUnsolicitedResultsDetail } from 'src/shared/hooks/appointment/appointment.queries';
 import { TaskReviewedParameters, UnsolicitedResultsRequestType } from 'utils';
 import { DetailsWithResults } from '../components/details/DetailsWithResults';
 

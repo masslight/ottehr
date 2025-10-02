@@ -19,12 +19,12 @@ import { Attachment, Patient } from 'fhir/r4b';
 import React, { ChangeEvent, FC, ReactElement, useCallback, useState } from 'react';
 import Cropper from 'react-easy-crop';
 import { Area, Point } from 'react-easy-crop';
-import { useAppointmentData } from 'src/telemed/state/appointment/appointment.store';
+import { useAppointmentData } from 'src/shared/hooks/appointment/appointment.store';
 import { uploadPatientProfilePhoto } from '../api/api';
 import {
   useEditPatientProfilePhotoMutation,
   useGetSignedPatientProfilePhotoUrlQuery,
-} from '../features/css-module/queries/css.queries';
+} from '../features/in-person/queries/in-person.queries';
 import { getCroppedImg, ImageCropResult } from '../helpers/canvasUtils';
 import { useApiClients } from '../hooks/useAppClients';
 

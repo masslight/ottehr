@@ -1,6 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
-import { CssHeader } from '../CssHeader';
+import { InPersonHeader } from '../InPersonHeader';
 import { SideMenu } from '../SideMenu';
 
 export class AllergiesPage {
@@ -10,13 +10,14 @@ export class AllergiesPage {
     this.#page = page;
   }
 
-  cssHeader(): CssHeader {
-    return new CssHeader(this.#page);
+  inPersonHeader(): InPersonHeader {
+    return new InPersonHeader(this.#page);
   }
 
   sideMenu(): SideMenu {
     return new SideMenu(this.#page);
   }
+
   async addAllergy(allergy: string): Promise<void> {
     const input = await this.#page.getByTestId(dataTestIds.allergies.knownAllergiesInput).locator('input');
     await input.fill(allergy);
@@ -25,15 +26,18 @@ export class AllergiesPage {
     await expect(this.#page.getByTestId(dataTestIds.allergies.knownAllergiesList)).toBeVisible();
     await expect(this.#page.getByTestId(dataTestIds.allergies.knownAllergiesList)).toContainText(allergy);
   }
+
   async checkAddedAllergyIsShownInHeader(allergy: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.cssHeader.allergies)).toContainText(allergy);
+    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.allergies)).toContainText(allergy);
   }
+
   async removeAllergy(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(this.#page.getByTestId(dataTestIds.allergies.knownAllergiesList)).not.toBeVisible();
   }
+
   async checkRemovedAllergyIsNotShownInHeader(allergy: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.cssHeader.allergies)).not.toContainText(allergy);
+    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.allergies)).not.toContainText(allergy);
   }
 }
 

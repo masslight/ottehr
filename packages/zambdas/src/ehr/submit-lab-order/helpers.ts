@@ -318,7 +318,7 @@ function makeInsurancePromise(
     .then((bundle) => {
       const unbundledResults = bundle.unbundle();
       const coverages = unbundledResults.filter((resource) => resource.resourceType === 'Coverage');
-      if (!coverages.length) throw EXTERNAL_LAB_ERROR('no coverage is not found');
+      if (!coverages.length) throw EXTERNAL_LAB_ERROR('no coverage found');
 
       const insuranceOrganizations = unbundledResults.filter((resource) => resource.resourceType === 'Organization');
       if (!insuranceOrganizations.length) throw EXTERNAL_LAB_ERROR('organizations for insurance were not found');

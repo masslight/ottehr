@@ -5,7 +5,7 @@ import { FC } from 'react';
 import { formatDOB } from 'utils';
 import { PATIENT_INDIVIDUAL_PRONOUNS_URL } from 'utils/lib/types';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { getExtensionValue } from '../../../features/css-module/parser';
+import { getExtensionValue } from '../../../features/in-person/parser';
 
 type Props = {
   id?: string;
