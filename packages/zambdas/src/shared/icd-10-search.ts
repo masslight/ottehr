@@ -1,5 +1,4 @@
 import * as fs from 'fs';
-import path from 'path';
 import * as xml2js from 'xml2js';
 
 interface DiagNode {
@@ -38,7 +37,7 @@ async function loadAndParseIcd10Data(): Promise<Icd10Code[]> {
 
   console.log('Loading and parsing ICD-10-CM data...');
 
-  const xmlFilePath = path.join(process.cwd(), 'icd-10-cm-tabular', 'icd10cm_tabular_2026.xml');
+  const xmlFilePath = './icd-10-cm-tabular/icd10cm_tabular_2026.xml';
 
   if (!fs.existsSync(xmlFilePath)) {
     throw new Error(`ICD-10-CM data file not found at ${xmlFilePath}`);

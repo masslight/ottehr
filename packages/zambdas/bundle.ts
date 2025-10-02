@@ -132,9 +132,12 @@ const main = async (): Promise<void> => {
   const zambdas = zambdasList();
   console.log('Bundling...');
   console.time('Bundle time');
-  const icd10SearchZambda = zambdas.filter((zambda) => zambda.name === 'icd-10-search');
+
+  const zambdasWithIcd10Search = ['icd-10-search', 'radiology-create-order'];
+  const icd10SearchZambdas = zambdas.filter((zambda) => zambdasWithIcd10Search.includes(zambda.name));
   const icd10AssetDir = '.dist/icd-10-cm-tabular';
-  await build(icd10SearchZambda, ['icd-10-cm-tabular/*'], [icd10AssetDir], '.dist/ehr/icd-10-search');
+  await build(icd10SearchZambdas, ['icd-10-cm-tabular/*'], [icd10AssetDir], '.dist/ehr/icd-10-search');
+
   const mostZambdas = zambdas.filter((zambda) => zambda.name !== 'icd-10-search');
   const assetsDir = '.dist/assets';
   await build(mostZambdas, ['assets/*'], [assetsDir], '.dist');
@@ -145,7 +148,7 @@ const main = async (): Promise<void> => {
   console.timeEnd('Source maps time');
   console.log('Zipping...');
   console.time('Zip time');
-  await zip(icd10SearchZambda, icd10AssetDir, 'icd-10-cm-tabular');
+  await zip(icd10SearchZambdas, icd10AssetDir, 'icd-10-cm-tabular');
   await zip(mostZambdas, assetsDir, 'assets');
   console.timeEnd('Zip time');
   console.log('Zambdas successfully bundled and zipped into .dist/zips');
