@@ -56,7 +56,7 @@ describe('PrimaryCareContainer', () => {
     [FormFields.primaryCarePhysician.lastName.key]: 'Smith',
     [FormFields.primaryCarePhysician.practiceName.key]: 'Family Medical Center',
     [FormFields.primaryCarePhysician.address.key]: '123 Main St, AnyTown, ST 12345',
-    [FormFields.primaryCarePhysician.phone.key]: '5551234567',
+    [FormFields.primaryCarePhysician.phone.key]: '(555) 123-4567',
   };
 
   it('should display correct checkbox label', () => {
