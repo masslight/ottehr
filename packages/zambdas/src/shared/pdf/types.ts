@@ -202,7 +202,6 @@ export interface LabResultsData
     | 'labOrganizationName'
     | 'orderSubmitDate'
     | 'providerTitle'
-    | 'providerNPI'
     | 'patientAddress'
     | 'sampleCollectionDate'
     | 'billClass'

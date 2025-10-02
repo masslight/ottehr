@@ -28,6 +28,7 @@ import {
   getFullestAvailableName,
   getOrderNumber,
   getOrderNumberFromDr,
+  getPractitionerNPIIdentifier,
   getTimezone,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
@@ -94,6 +95,7 @@ interface CommonDataConfigResources {
   patient: Patient;
   diagnosticReport: DiagnosticReport;
   providerName: string | undefined;
+  providerNPI: string | undefined;
   testName: string | undefined;
 }
 
@@ -156,7 +158,9 @@ const getResultDataConfigForDrResources = (
     locationZip: undefined,
     locationPhone: undefined,
     locationFax: undefined,
+    // TODO LABS: labcorp is probably not going to like if we don't have provider info for reflex results, and frankly unsolicited too
     providerName: '',
+    providerNPI: '',
     patientFirstName: patient.name?.[0].given?.[0] || '',
     patientMiddleName: patient.name?.[0].given?.[1],
     patientLastName: patient.name?.[0].family || '',
@@ -216,7 +220,7 @@ const getResultDataConfig = (
   let config: ResultDataConfig | undefined;
   const now = DateTime.now();
 
-  const { location, timezone, serviceRequest, patient, diagnosticReport, providerName, testName } =
+  const { location, timezone, serviceRequest, patient, diagnosticReport, providerName, providerNPI, testName } =
     commonResourceConfig;
   const { type, specificResources } = specificResourceConfig;
 
@@ -229,6 +233,7 @@ const getResultDataConfig = (
     locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
     locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
     providerName: providerName || '',
+    providerNPI: (providerNPI || '') as string,
     patientFirstName: patient.name?.[0].given?.[0] || '',
     patientMiddleName: patient.name?.[0].given?.[1],
     patientLastName: patient.name?.[0].family || '',
@@ -505,6 +510,7 @@ export async function createExternalLabResultPDF(
     patient,
     diagnosticReport,
     providerName: getFullestAvailableName(provider),
+    providerNPI: getPractitionerNPIIdentifier(provider)?.value,
     testName: diagnosticReport.code.coding?.[0].display,
   };
   const dataConfig = getResultDataConfig(commonResources, externalSpecificResources);
@@ -530,7 +536,7 @@ export async function createInHouseLabResultPDF(
   patient: Patient,
   location: Location | undefined,
   schedule: Schedule,
-  _attendingPractitioner: Practitioner,
+  attendingPractitioner: Practitioner,
   attendingPractitionerName: string | undefined,
   inputRequestTask: Task,
   observations: Observation[],
@@ -587,6 +593,7 @@ export async function createInHouseLabResultPDF(
     patient,
     diagnosticReport,
     providerName: attendingPractitionerName,
+    providerNPI: getPractitionerNPIIdentifier(attendingPractitioner)?.value,
     testName: activityDefinition.title,
   };
   const dataConfig = getResultDataConfig(commonResources, inHouseSpecificResources);
@@ -854,11 +861,8 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
   // pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting Physician:', data.providerName);
   // pdfClient.newLine(STANDARD_NEW_LINE);
 
-  // console.log(
-  //   `Drawing ordering physician. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  // );
-  // pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering Physician:', data.providerName);
-  // pdfClient.newLine(STANDARD_NEW_LINE);
+  // TODO LABS: we should consider putting provider name and npi info on reflex and unsolicited results because labcorp will surely want to see it
+  // related to OYST-2804
 
   // will only have for reflex
   if ('orderNumber' in data) {
@@ -946,11 +950,7 @@ async function createExternalLabsResultsFormPdfBytes(
   );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting Physician:', data.providerName);
   pdfClient.newLine(STANDARD_NEW_LINE);
-
-  console.log(
-    `Drawing ordering physician. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering Physician:', data.providerName);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'NPI:', data.providerNPI ?? '');
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   console.log(
