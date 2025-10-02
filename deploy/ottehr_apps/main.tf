@@ -12,12 +12,18 @@ module "ehr_public_dir" {
   source   = "hashicorp/dir/template"
   base_dir = "${path.module}/../../apps/ehr/public"
 }
-resource "terraform_data" "build_ehr" {
-  triggers_replace = [
+
+locals {
+  # Combine all relevant triggers to rebuild the EHR app
+  ehr_build_triggers = [
     local_sensitive_file.ehr_env.content_md5,
     base64encode(join("", [for k, v in module.ehr_src_dir.files : v.digests.md5])),
-    base64encode(join("", [for k, v in module.ehr_public_dir.files : v.digests.md5]))
+    base64encode(join("", [for k, v in module.ehr_public_dir.files : v.digests.md5])),
   ]
+}
+
+resource "terraform_data" "build_ehr" {
+  triggers_replace = local.ehr_build_triggers
   provisioner "local-exec" {
     command     = "npm run build:${var.environment}"
     working_dir = "${path.module}/../../apps/ehr"
@@ -38,12 +44,18 @@ module "patient_portal_public_dir" {
   source   = "hashicorp/dir/template"
   base_dir = "${path.module}/../../apps/intake/public"
 }
-resource "terraform_data" "build_patient_portal" {
-  triggers_replace = [
+
+locals {
+  # Combine all relevant triggers to rebuild the Patient Portal app
+  patient_portal_build_triggers = [
     local_sensitive_file.patient_portal_env.content_md5,
     base64encode(join("", [for k, v in module.patient_portal_src_dir.files : v.digests.md5])),
-    base64encode(join("", [for k, v in module.patient_portal_public_dir.files : v.digests.md5]))
+    base64encode(join("", [for k, v in module.patient_portal_public_dir.files : v.digests.md5])),
   ]
+}
+
+resource "terraform_data" "build_patient_portal" {
+  triggers_replace = local.patient_portal_build_triggers
   provisioner "local-exec" {
     command     = "npm run build:${var.environment}"
     working_dir = "${path.module}/../../apps/intake"
