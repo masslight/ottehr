@@ -5,7 +5,9 @@ import {
   useMeetingManager,
   useMeetingStatus,
 } from 'amazon-chime-sdk-component-library-react';
+import { useLogger } from 'amazon-chime-sdk-component-library-react';
 import { MeetingSessionConfiguration } from 'amazon-chime-sdk-js';
+import { LogLevel } from 'amazon-chime-sdk-js';
 import { FC, useCallback, useEffect, useState } from 'react';
 import { getSelectors } from 'utils';
 import { useVideoCallStore } from '../../state';
@@ -19,6 +21,9 @@ export const VideoChatContainer: FC = () => {
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
   const meetingStatus = useMeetingStatus();
   const [isCameraTurnedOnForStart, setIsCameraTurnedOnForStart] = useState(false);
+
+  const logger = useLogger();
+  logger.setLogLevel(LogLevel.OFF);
 
   const stopAudioVideoUsage = useCallback(async (): Promise<void> => {
     await audioVideo?.stopVideoInput();
