@@ -23,6 +23,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import {
+  ABNORMAL_RESULT_DR_TAG,
   DiagnosticReportLabDetailPageDTO,
   DynamicAOEInput,
   EncounterExternalLabResult,
@@ -492,13 +493,16 @@ export const makeEncounterLabResults = async (
             externalLabOrderResults.push(...externalResultConfigs);
           }
         } else if (relatedSRDetail.type === LabType.inHouse) {
+          const drIsTaggedAbnormal = !!relatedDR.meta?.tag?.find(
+            (tag) => tag.system === ABNORMAL_RESULT_DR_TAG.system && tag.code === ABNORMAL_RESULT_DR_TAG.code
+          );
           const sr = relatedSRDetail.resource;
           const testName = sr.code?.text;
           const { inHouseResultConfigs } = await getLabOrderResultPDFConfig(
             docRef,
             testName || 'missing test details',
             m2mToken,
-            { type: LabType.inHouse }
+            { type: LabType.inHouse, containsAbnormalResult: drIsTaggedAbnormal }
           );
           inHouseLabOrderResults.push(...inHouseResultConfigs);
         }
@@ -555,6 +559,7 @@ const getLabOrderResultPDFConfig = async (
       }
     | {
         type: LabType.inHouse;
+        containsAbnormalResult: boolean;
         simpleResultValue?: string; // todo not implemented, displaying this is a post mvp feature
       }
 ): Promise<{ externalResultConfigs: ExternalLabOrderResultConfig[]; inHouseResultConfigs: InHouseLabResult[] }> => {
@@ -581,6 +586,7 @@ const getLabOrderResultPDFConfig = async (
         const labResult: InHouseLabResult = {
           name: formattedName,
           url,
+          containsAbnormalResult: resultDetails.containsAbnormalResult,
           simpleResultValue: resultDetails?.simpleResultValue,
         };
         inHouseResults.push(labResult);
