@@ -13,7 +13,7 @@ import { usePatientLabOrders } from 'src/features/external-labs/components/labs-
 import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
-import { useGetMedicationOrders } from 'src/shared/hooks/appointment/appointment.queries';
+import { useGetMedicationOrders } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   ExtendedMedicationDataForResponse,

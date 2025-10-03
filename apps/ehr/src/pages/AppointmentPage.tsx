@@ -39,7 +39,6 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { generatePaperworkPdf } from 'src/api/api';
-import { PencilIconButton } from 'src/components/PencilIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { isPaperworkPdfOutdated, useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
@@ -78,7 +77,8 @@ import PatientPaymentList from '../components/PatientPaymentsList';
 import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
-import { ChangeStatusDropdown } from '../features/in-person/components/ChangeStatusDropdown';
+import { ChangeStatusDropdown } from '../features/visits/in-person/components/ChangeStatusDropdown';
+import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {
   ActivityLogData,
@@ -1232,7 +1232,16 @@ export default function AppointmentPage(): ReactElement {
                     />
                   </Grid>
                   <Grid item xs={12} sm={6} paddingLeft={{ xs: 0, sm: 2 }}>
-                    <PatientPaymentList patient={patient} loading={loading} encounterId={encounter?.id ?? ''} />
+                    <PatientPaymentList
+                      patient={patient}
+                      loading={loading}
+                      encounterId={encounter.id ?? ''}
+                      patientSelectSelfPay={selfPay}
+                      responsibleParty={{
+                        fullName: '',
+                        email: '',
+                      }}
+                    />
                   </Grid>
                 </Grid>
                 <Grid container item direction="row">

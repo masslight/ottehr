@@ -22,8 +22,15 @@ import { useNavigate } from 'react-router-dom';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { useGetCreateExternalLabResources, useICD10SearchNew } from 'src/shared/hooks/appointment/appointment.queries';
-import { useAppointmentData, useChartData, useSaveChartData } from 'src/shared/hooks/appointment/appointment.store';
+import {
+  useGetCreateExternalLabResources,
+  useICD10SearchNew,
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import {
+  useAppointmentData,
+  useChartData,
+  useSaveChartData,
+} from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   DiagnosisDTO,

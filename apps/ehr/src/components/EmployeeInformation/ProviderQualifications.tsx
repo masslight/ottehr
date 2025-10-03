@@ -1,9 +1,9 @@
 import { otherColors } from '@ehrTheme/colors';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
+  Autocomplete,
   Card,
   FormControl,
-  FormLabel,
   IconButton,
   Stack,
   Switch,
@@ -13,9 +13,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Typography,
 } from '@mui/material';
-import { Autocomplete, TextField } from '@mui/material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
@@ -44,66 +44,67 @@ export function ProviderQualifications({
 }: ProviderQualificationsProps): JSX.Element {
   return (
     <FormControl sx={{ width: '100%' }}>
-      <FormLabel sx={{ mt: 3, fontWeight: '600 !important' }}>Provider Qualifications</FormLabel>
       <Stack mt={1} gap={2}>
-        <TableContainer>
-          <Table data-testid={dataTestIds.employeesPage.qualificationsTable}>
-            <TableHead>
-              <TableRow>
-                <TableCell>State</TableCell>
-                <TableCell align="left">Qualification</TableCell>
-                <TableCell align="left">License</TableCell>
-                <TableCell align="left">Operate in state</TableCell>
-                <TableCell align="left">Delete License</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {newLicenses.map((license, index) => (
-                <TableRow key={index} data-testid={dataTestIds.employeesPage.qualificationRow(license.code)}>
-                  <TableCell>{license.state}</TableCell>
-                  <TableCell align="left">{license.code}</TableCell>
-                  <TableCell align="left">
-                    {license.number && <Typography>{license.number}</Typography>}
-                    {license.date && (
-                      <Typography variant="body2" color="secondary.light">
-                        till {DateTime.fromISO(license.date).toFormat('MM/dd/yyyy')}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell align="center">
-                    <Switch
-                      checked={license.active}
-                      onChange={async () => {
-                        const updatedLicenses = [...newLicenses];
-                        updatedLicenses[index].active = !updatedLicenses[index].active;
-                        setNewLicenses(updatedLicenses);
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      sx={{
-                        color: 'error.dark',
-                        ':hover': {
-                          backgroundColor: 'error.light',
-                          color: 'error.contrastText',
-                        },
-                      }}
-                      onClick={async () => {
-                        const updatedLicenses = [...newLicenses];
-                        updatedLicenses.splice(index, 1);
-                        setNewLicenses(updatedLicenses);
-                      }}
-                      data-testid={dataTestIds.employeesPage.deleteQualificationButton}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </TableCell>
+        {newLicenses.length > 0 && (
+          <TableContainer>
+            <Table data-testid={dataTestIds.employeesPage.qualificationsTable}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>State</TableCell>
+                  <TableCell align="left">Qualification</TableCell>
+                  <TableCell align="left">License</TableCell>
+                  <TableCell align="left">Operate in state</TableCell>
+                  <TableCell align="left">Delete License</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {newLicenses.map((license, index) => (
+                  <TableRow key={index} data-testid={dataTestIds.employeesPage.qualificationRow(license.code)}>
+                    <TableCell>{license.state}</TableCell>
+                    <TableCell align="left">{license.code}</TableCell>
+                    <TableCell align="left">
+                      {license.number && <Typography>{license.number}</Typography>}
+                      {license.date && (
+                        <Typography variant="body2" color="secondary.light">
+                          till {DateTime.fromISO(license.date).toFormat('MM/dd/yyyy')}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Switch
+                        checked={license.active}
+                        onChange={async () => {
+                          const updatedLicenses = [...newLicenses];
+                          updatedLicenses[index].active = !updatedLicenses[index].active;
+                          setNewLicenses(updatedLicenses);
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <IconButton
+                        sx={{
+                          color: 'error.dark',
+                          ':hover': {
+                            backgroundColor: 'error.light',
+                            color: 'error.contrastText',
+                          },
+                        }}
+                        onClick={async () => {
+                          const updatedLicenses = [...newLicenses];
+                          updatedLicenses.splice(index, 1);
+                          setNewLicenses(updatedLicenses);
+                        }}
+                        data-testid={dataTestIds.employeesPage.deleteQualificationButton}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
 
         <Card
           sx={{ p: 2, backgroundColor: otherColors.formCardBg }}

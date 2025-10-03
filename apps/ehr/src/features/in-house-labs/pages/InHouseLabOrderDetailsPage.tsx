@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { useAppointmentData } from 'src/shared/hooks/appointment/appointment.store';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { InHouseOrderDetailPageItemDTO, LoadingState, MarkAsCollectedData } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
