@@ -1,7 +1,7 @@
-import { DatePicker } from '@mui/lab';
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { FormSelect, FormTextField } from 'src/components/form';
+import { BasicDatePicker } from 'src/components/form/DatePicker';
 import { Row, Section } from 'src/components/layout';
 import { FormFields, PRONOUN_OPTIONS, SEX_OPTIONS } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -57,7 +57,7 @@ export const AboutPatientContainer: FC = () => {
         />
       </Row>
       <Row label="Date of birth" inputId={patientSummary.birthDate.key} required>
-        <DatePicker
+        <BasicDatePicker
           id={patientSummary.birthDate.key}
           name={patientSummary.birthDate.key}
           control={control}

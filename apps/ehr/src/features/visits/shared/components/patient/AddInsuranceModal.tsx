@@ -1,5 +1,4 @@
 import { Close } from '@mui/icons-material';
-import { DatePicker } from '@mui/lab';
 import {
   Autocomplete,
   Button,
@@ -17,6 +16,7 @@ import { Questionnaire } from 'fhir/r4b';
 import React, { useEffect } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { FormSelect, FormTextField, LabeledField, Option } from 'src/components/form';
+import { BasicDatePicker } from 'src/components/form/DatePicker';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { FormFields, RELATIONSHIP_TO_INSURED_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -320,7 +320,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
             </Grid>
             <Grid item xs={3}>
               <LabeledField label="Policy holder's date of birth" required error={!!errors[insurance.birthDate.key]}>
-                <DatePicker
+                <BasicDatePicker
                   name={insurance.birthDate.key}
                   variant="outlined"
                   control={control}

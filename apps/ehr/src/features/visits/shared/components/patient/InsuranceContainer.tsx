@@ -1,9 +1,10 @@
-import { DatePicker, LoadingButton } from '@mui/lab';
+import { LoadingButton } from '@mui/lab';
 import { Autocomplete, Box, Checkbox, FormControlLabel, TextField, Typography, useTheme } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { FormSelect, FormTextField } from 'src/components/form';
+import { BasicDatePicker } from 'src/components/form/DatePicker';
 import { Row, Section } from 'src/components/layout';
 import { RefreshableStatusChip, StatusStyleObject } from 'src/components/RefreshableStatusWidget';
 import {
@@ -393,7 +394,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             required
             dataTestId={dataTestIds.insuranceContainer.policyHoldersDateOfBirth}
           >
-            <DatePicker
+            <BasicDatePicker
               name={FormFields.birthDate.key}
               control={control}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
