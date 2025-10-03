@@ -77,7 +77,7 @@ const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2 = 'testing2';
 const NEW_PATIENT_INSURANCE_CARRIER = '20446 - 6 Degrees Health Incorporated';
 const NEW_PATIENT_INSURANCE_PLAN_TYPE = '11 - Other Non-Federal Programs';
-const NEW_PATIENT_INSURANCE_CARRIER_2 = 'AAA - Minnesota/Iowa';
+const NEW_PATIENT_INSURANCE_CARRIER_2 = '11983 - AAA - Minnesota/Iowa';
 const NEW_PATIENT_INSURANCE_PLAN_TYPE_2 = '14 - EPO';
 
 test.describe('Insurance Information Section non-mutating tests', () => {
