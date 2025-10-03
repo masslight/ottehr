@@ -73,7 +73,7 @@ module.exports = {
       },
     },
     {
-      files: ['scripts/refactoring/*.js'],
+      files: ['scripts/**/*.js'],
       rules: {
         '@typescript-eslint/no-require-imports': 'off',
         '@typescript-eslint/explicit-function-return-type': 'off',

@@ -14,5 +14,5 @@ old-ottehr/
 cdk.out/
 playwright-report*/
 apps/**/playwright-report*/
-scripts/
+scripts/**/*.js
 *.js
