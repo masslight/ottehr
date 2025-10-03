@@ -1,11 +1,12 @@
 import { test } from '@playwright/test';
-import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { Organization, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  chooseJson,
+  createReference,
   getConsentStepAnswers,
   getContactInformationAnswers,
   getPatientDetailsStepAnswers,
+  getPayerId,
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
@@ -467,26 +468,43 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
     ];
   });
   const oystehr = await ResourceHandler.getOystehr();
-  const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
-    id: 'get-answer-options',
-    answerSource: {
+  const insuranceCarriersOptions = (
+    await oystehr.fhir.search<Organization>({
       resourceType: 'Organization',
-      query: `active=true&type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+      params: [
+        {
+          name: 'active',
+          value: 'true',
+        },
+        {
+          name: 'type',
+          value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+        },
+      ],
+    })
+  ).unbundle();
+  const ic1 = insuranceCarriersOptions.at(0);
+  const ic2 = insuranceCarriersOptions.at(1);
+  insuranceCarrier1 = {
+    valueReference: {
+      reference: ic1 && createReference(ic1).reference,
+      display: ic1?.name,
     },
-  });
-
-  const insuranceCarriersOptions = chooseJson(insuranceCarriersOptionsResponse) as QuestionnaireItemAnswerOption[];
-  insuranceCarrier1 = insuranceCarriersOptions.at(0);
-  insuranceCarrier2 = insuranceCarriersOptions.at(1);
+  };
+  insuranceCarrier2 = {
+    valueReference: {
+      reference: ic2 && createReference(ic2).reference,
+      display: ic2?.name,
+    },
+  };
+  const insuranceCarrier1ForResult = `${getPayerId(ic1)} - ${ic1?.name}`;
+  const insuranceCarrier2ForResult = `${getPayerId(ic2)} - ${ic2?.name}`;
+  console.log('carrier: ', JSON.stringify(insuranceCarrier1ForResult));
 
   await resourceHandler.setResources();
   await Promise.all([
     resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
     resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
   ]);
-  return [
-    resourceHandler,
-    insuranceCarrier1?.valueReference?.display ?? '',
-    insuranceCarrier2?.valueReference?.display ?? '',
-  ];
+  return [resourceHandler, insuranceCarrier1ForResult ?? '', insuranceCarrier2ForResult ?? ''];
 }
