@@ -5,6 +5,8 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import {
+  celsiusToFahrenheit,
+  fahrenheitToCelsius,
   toVitalTemperatureObservationMethod,
   VitalFieldNames,
   VitalsTemperatureObservationDTO,
@@ -15,7 +17,7 @@ import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { HISTORY_ELEMENT_SKELETON_TEXT, VitalsCardProps } from '../types';
-import { celsiusToFahrenheit, fahrenheitToCelsius, textToTemperatureNumber } from './helpers';
+import { textToTemperatureNumber } from './helpers';
 
 type VitalsTemperatureCardProps = VitalsCardProps<VitalsTemperatureObservationDTO>;
 const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({

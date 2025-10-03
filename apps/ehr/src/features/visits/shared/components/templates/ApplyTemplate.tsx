@@ -16,7 +16,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { applyTemplate } from 'src/api/api';
-import { CHART_DATA_QUERY_KEY_BASE } from 'src/constants';
+import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { ExamType } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
@@ -77,7 +77,11 @@ export const ApplyTemplate: React.FC = () => {
         });
 
         // TODO: use window.location.reload() if there are issues with queryClient.invalidateQueries
-        await queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY_BASE, encounter.id] });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id] }),
+          queryClient.invalidateQueries({ queryKey: [CHART_FIELDS_QUERY_KEY, encounter.id] }),
+        ]);
+
         enqueueSnackbar('Template applied successfully!', { variant: 'success' });
       } catch (error) {
         console.log('error', JSON.stringify(error));
@@ -154,8 +158,7 @@ export const ApplyTemplate: React.FC = () => {
             }}
           >
             Are you sure you want to apply the <strong>{getTemplateName(pendingTemplate)}</strong> template? Applying
-            the template will override the content in the following sections: Exam, MDM, Dx, Patient Instructions,
-            Disposition.
+            the template will override the content in the following sections: Exam, MDM, Dx, Patient Instructions.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>

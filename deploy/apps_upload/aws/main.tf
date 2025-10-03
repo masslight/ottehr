@@ -45,7 +45,7 @@ resource "terraform_data" "ehr_invalidation" {
     base64encode(join("", [for k, v in module.ehr_directory.files : v.digests.md5])),
   ]
   provisioner "local-exec" {
-    command = "aws cloudfront create-invalidation --profile ${var.aws_profile} --distribution-id ${var.ehr_cloudfront_distribution_id} --paths '/*'"
+    command = "aws cloudfront create-invalidation --profile ${var.aws_profile} --distribution-id ${var.ehr_cdn_distribution_id} --paths '/*'"
   }
 }
 
@@ -87,6 +87,6 @@ resource "terraform_data" "patient_portal_invalidation" {
     base64encode(join("", [for k, v in module.patient_portal_directory.files : v.digests.md5])),
   ]
   provisioner "local-exec" {
-    command = "aws cloudfront create-invalidation --profile ${var.aws_profile} --distribution-id ${var.patient_portal_cloudfront_distribution_id} --paths '/*'"
+    command = "aws cloudfront create-invalidation --profile ${var.aws_profile} --distribution-id ${var.patient_portal_cdn_distribution_id} --paths '/*'"
   }
 }
