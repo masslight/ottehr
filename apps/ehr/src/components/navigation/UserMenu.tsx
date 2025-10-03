@@ -124,6 +124,13 @@ export const UserMenu: FC = () => {
             <Divider />
           </>
         )}
+        <Link to="/settings" style={{ textDecoration: 'none' }}>
+          <MenuItem>
+            <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>
+              Settings
+            </Typography>
+          </MenuItem>
+        </Link>
         <Link to="/logout" style={{ textDecoration: 'none' }}>
           <MenuItem>
             <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>

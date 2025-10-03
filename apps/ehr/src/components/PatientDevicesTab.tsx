@@ -19,7 +19,7 @@ export const PatientDevicesTab: FC<{
   const [openConfirmModal, setOpenConfirmModal] = useState(false);
   const [selectUnassignDevice, setSelectUnassignDevice] = useState<string>('');
   const [assignedDevices, setAssignedDevices] = useState<DeviceColumns[]>([]);
-  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 5 });
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 10 });
   const [totalCount, setTotalCount] = useState(0);
   const { oystehrZambda } = useApiClients();
   const [toastOpen, setToastOpen] = useState(false);
@@ -255,7 +255,7 @@ export const PatientDevicesTab: FC<{
           initialState={{
             pagination: {
               paginationModel: {
-                pageSize: 5,
+                pageSize: 10,
               },
             },
           }}

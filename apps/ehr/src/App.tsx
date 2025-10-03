@@ -35,6 +35,7 @@ import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
 import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
+import Settings from './pages/Settings';
 import { TelemedAdminPage } from './pages/TelemedAdminPage';
 import { Claim, Claims } from './rcm';
 import { useNavStore } from './state/nav.store';
@@ -160,6 +161,7 @@ function App(): ReactElement {
               {roleUnknown && (
                 <>
                   <Route path="/logout" element={<Logout />} />
+                  <Route path="/settings" element={<Settings />} />
                   <Route path="*" element={<LoadingScreen />} />
                 </>
               )}
@@ -172,6 +174,7 @@ function App(): ReactElement {
                 <>
                   <Route path="/" element={<Navigate to="/visits" />} />
                   <Route path="/logout" element={<Logout />} />
+                  <Route path="/settings" element={<Settings />} />
                   <Route path="/visits" element={<AppointmentsPage />} />
                   <Route path="/visits/add" element={<AddPatient />} />
                   <Route path="/visit/:id" element={<AppointmentPage />} />
@@ -220,6 +223,7 @@ function App(): ReactElement {
                 <>
                   <Route path="/" element={<Navigate to="/visits" />} />
                   <Route path="/logout" element={<Logout />} />
+                  <Route path="/settings" element={<Settings />} />
                   <Route path="/visits" element={<AppointmentsPage />} />
                   <Route path="/visits/add" element={<AddPatient />} />
                   <Route path="/visit/:id" element={<AppointmentPage />} />

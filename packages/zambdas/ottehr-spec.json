@@ -33,6 +33,14 @@
       "name": "PROJECT_API",
       "value": "#var/PROJECT_API"
     },
+    "API_TOKEN": {
+      "name": "API_TOKEN",
+      "value": "#var/API_TOKEN"
+    },
+    "API_BASE_URL": {
+      "name": "API_BASE_URL",
+      "value": "#var/API_BASE_URL"
+    },
     "ENVIRONMENT": {
       "name": "ENVIRONMENT",
       "value": "#var/ENVIRONMENT"

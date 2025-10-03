@@ -257,13 +257,13 @@ export function ThresholdsTable(): ReactElement {
 
   return (
     <>
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', maxWidth: '700px', justifyContent: 'center', alignItems: 'center' }}>
         {isFetching ? (
           <TableContainer component={Paper} sx={{ border: 'none', boxShadow: 'none' }}>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>View Vitals</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Vitals</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Variance (%)</TableCell>
@@ -298,7 +298,7 @@ export function ThresholdsTable(): ReactElement {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>View Vitals</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Vitals</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Variance (%)</TableCell>

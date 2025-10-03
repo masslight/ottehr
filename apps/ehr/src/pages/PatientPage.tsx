@@ -112,46 +112,49 @@ export default function PatientPage(): JSX.Element {
           <Paper
             sx={{
               display: 'flex',
-              flexDirection: { xs: 'column', md: 'row' },
+              justifyContent: 'space-between',
+              flexDirection: { xs: 'column', sm: 'row', md: 'row' },
               alignItems: { xs: 'stretch', md: 'center' },
-              flexWrap: 'wrap',
-              gap: 3,
+              flexWrap: { xs: 'wrap', sm: 'wrap', md: 'nowrap' },
+              gap: 7,
               p: 3,
             }}
           >
-            <PatientAvatar id={id} />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
+              <PatientAvatar id={id} />
 
-            <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <IdentifiersRow id={id} />
-              <FullNameDisplay patient={patient} loading={loading} />
-              <Summary patient={patient} loading={loading} />
-              <Contacts patient={patient} loading={loading} />
+              <Box sx={{ flexGrow: 1, maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <IdentifiersRow id={id} />
+                <FullNameDisplay patient={patient} loading={loading} />
+                <Summary patient={patient} loading={loading} />
+                <Contacts patient={patient} loading={loading} />
 
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <RoundedButton
-                  to={`/patient/${id}/info`}
-                  data-testid={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
-                >
-                  See All Patient Info
-                </RoundedButton>
-                <RoundedButton to={`/patient/${id}/docs`}>Review Docs</RoundedButton>
-                <RoundedButton onClick={handleOpenSummaryModal}>Summary</RoundedButton>
-                {latestAppointment && (
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   <RoundedButton
-                    target="_blank"
-                    to={
-                      latestAppointment.serviceMode === ServiceMode.virtual
-                        ? `/telemed/appointments/${latestAppointment.id}?tab=sign`
-                        : `/in-person/${latestAppointment.id}/progress-note`
-                    }
+                    to={`/patient/${id}/info`}
+                    data-testid={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
                   >
-                    Recent Progress Note
+                    See All Patient Info
                   </RoundedButton>
-                )}
+                  <RoundedButton to={`/patient/${id}/docs`}>Review Docs</RoundedButton>
+                  <RoundedButton onClick={handleOpenSummaryModal}>Summary</RoundedButton>
+                  {latestAppointment && (
+                    <RoundedButton
+                      target="_blank"
+                      to={
+                        latestAppointment.serviceMode === ServiceMode.virtual
+                          ? `/telemed/appointments/${latestAppointment.id}?tab=sign`
+                          : `/in-person/${latestAppointment.id}/progress-note`
+                      }
+                    >
+                      Recent Progress Note
+                    </RoundedButton>
+                  )}
+                </Box>
               </Box>
             </Box>
 
-            <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 auto' } }}>
+            <Box>
               <ThresholdsTable />
             </Box>
           </Paper>
