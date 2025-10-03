@@ -633,7 +633,7 @@ export default function AppointmentPage(): ReactElement {
       }
     }
 
-    if (patient?.id && appointmentID && oystehr && !imagesLoading) {
+    if (patient?.id && appointmentID && oystehr) {
       getFileResources(patient.id, appointmentID).catch((error) => console.log(error));
     }
   }, [appointmentID, oystehr, getAccessTokenSilently, patient?.id, selfPay, imagesLoading]);
@@ -1187,102 +1187,104 @@ export default function AppointmentPage(): ReactElement {
             </Grid>
 
             <Grid container item direction="column">
-              <Grid item container sx={{ backgroundColor: 'lightgray', padding: '10px' }} marginBottom={2}>
+              <Grid item container sx={{ padding: '10px' }} marginBottom={2}>
                 <Typography variant="h3" color="primary.dark">
                   About this visit
                 </Typography>
-                <Grid container item direction="row">
-                  <Grid item xs={12} sm={6} paddingRight={{ xs: 0, sm: 2 }}>
-                    <PatientInformation
-                      title="Booking details"
-                      loading={loading}
-                      patientDetails={{
-                        ...(unconfirmedDOB
-                          ? {
-                              "Patient's date of birth (Unmatched)": formatDateUsingSlashes(unconfirmedDOB),
-                            }
-                          : {}),
-                        'Reason for visit': reasonForVisit,
-                        'Authorized non-legal guardian(s)': patient?.extension?.find(
-                          (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
-                        )?.valueString,
-                      }}
-                      icon={{
-                        "Patient's date of birth (Unmatched)": (
-                          <PriorityIconWithBorder fill={theme.palette.warning.main} />
-                        ),
-                      }}
-                      editValue={{
-                        "Patient's date of birth (Original)": (
-                          <PencilIconButton
-                            onClick={() => setConfirmDOBModalOpen(true)}
-                            size="16px"
-                            sx={{ mr: '5px', padding: '10px' }}
-                          />
-                        ),
-                        "Patient's date of birth": (
-                          <PencilIconButton
-                            onClick={() => setConfirmDOBModalOpen(true)}
-                            size="16px"
-                            sx={{ mr: '5px', padding: '10px' }}
-                          />
-                        ),
-                      }}
-                      lastModifiedBy={{ "Patient's date of birth": dobLastModifiedOld || dobLastModified }}
-                    />
+                <Grid container item direction="row" spacing={3}>
+                  <Grid container item direction="column" xs={12} sm={6}>
+                    <Grid item>
+                      <PatientInformation
+                        title="Booking details"
+                        loading={loading}
+                        patientDetails={{
+                          ...(unconfirmedDOB
+                            ? {
+                                "Patient's date of birth (Unmatched)": formatDateUsingSlashes(unconfirmedDOB),
+                              }
+                            : {}),
+                          'Reason for visit': reasonForVisit,
+                          'Authorized non-legal guardian(s)': patient?.extension?.find(
+                            (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+                          )?.valueString,
+                        }}
+                        icon={{
+                          "Patient's date of birth (Unmatched)": (
+                            <PriorityIconWithBorder fill={theme.palette.warning.main} />
+                          ),
+                        }}
+                        editValue={{
+                          "Patient's date of birth (Original)": (
+                            <PencilIconButton
+                              onClick={() => setConfirmDOBModalOpen(true)}
+                              size="16px"
+                              sx={{ mr: '5px', padding: '10px' }}
+                            />
+                          ),
+                          "Patient's date of birth": (
+                            <PencilIconButton
+                              onClick={() => setConfirmDOBModalOpen(true)}
+                              size="16px"
+                              sx={{ mr: '5px', padding: '10px' }}
+                            />
+                          ),
+                        }}
+                        lastModifiedBy={{ "Patient's date of birth": dobLastModifiedOld || dobLastModified }}
+                      />
+                    </Grid>
+                    <Grid item>
+                      {/* Completed pre-visit forms */}
+                      {/* todo: grab these things from the Consent resources themselves */}
+                      <PatientInformation
+                        title="Completed consent forms"
+                        loading={loading}
+                        editValue={consentEditProp()}
+                        patientDetails={{
+                          ...signedConsentForm,
+                          Signature: getAnswerStringFor('signature', []),
+                          'Full name': getAnswerStringFor('full-name', []),
+                          'Relationship to patient': getAnswerStringFor('consent-form-signer-relationship', []),
+                          Date: formatDateUsingSlashes(questionnaireResponse?.authored),
+                          IP: questionnaireResponse?.extension?.find(
+                            (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/ip-address'
+                          )?.valueString,
+                        }}
+                      />
+                    </Grid>
                   </Grid>
-                  <Grid item xs={12} sm={6} paddingLeft={{ xs: 0, sm: 2 }}>
-                    <PatientPaymentList
-                      patient={patient}
-                      loading={loading}
-                      encounterId={encounter.id ?? ''}
-                      patientSelectSelfPay={selfPay}
-                      responsibleParty={{
-                        fullName: '',
-                        email: '',
-                      }}
-                    />
-                  </Grid>
-                </Grid>
-                <Grid container item direction="row">
-                  <Grid item xs={12} sm={6} paddingRight={{ xs: 0, sm: 2 }}>
-                    {/* Completed pre-visit forms */}
-                    {/* todo: grab these things from the Consent resources themselves */}
-                    <PatientInformation
-                      title="Completed consent forms"
-                      loading={loading}
-                      editValue={consentEditProp()}
-                      patientDetails={{
-                        ...signedConsentForm,
-                        Signature: getAnswerStringFor('signature', []),
-                        'Full name': getAnswerStringFor('full-name', []),
-                        'Relationship to patient': getAnswerStringFor('consent-form-signer-relationship', []),
-                        Date: formatDateUsingSlashes(questionnaireResponse?.authored),
-                        IP: questionnaireResponse?.extension?.find(
-                          (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/ip-address'
-                        )?.valueString,
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6} paddingLeft={{ xs: 0, sm: 2 }}>
-                    <AppointmentNotesHistory
-                      appointment={appointment}
-                      location={location}
-                      curNoteAndHistory={notesHistory}
-                      user={user}
-                      oystehr={oystehr}
-                      setAppointment={setAppointment}
-                      getAndSetHistoricResources={getAndSetHistoricResources}
-                    ></AppointmentNotesHistory>
+                  <Grid container item xs={12} sm={6} direction="column">
+                    <Grid item>
+                      <PatientPaymentList
+                        patient={patient}
+                        loading={loading}
+                        encounterId={encounter?.id ?? ''}
+                        patientSelectSelfPay={selfPay}
+                        responsibleParty={{
+                          fullName: '',
+                          email: '',
+                        }}
+                      />
+                    </Grid>
+                    <Grid item>
+                      <AppointmentNotesHistory
+                        appointment={appointment}
+                        location={location}
+                        curNoteAndHistory={notesHistory}
+                        user={user}
+                        oystehr={oystehr}
+                        setAppointment={setAppointment}
+                        getAndSetHistoricResources={getAndSetHistoricResources}
+                      ></AppointmentNotesHistory>
+                    </Grid>
                   </Grid>
                 </Grid>
               </Grid>
-              <Grid item paddingY="10px" sx={{ backgroundColor: 'lightgray', padding: '10px' }} marginBottom={2}>
-                <Typography variant="h3" color="primary.dark">
-                  About this patient
-                </Typography>
-                <PatientAccountComponent id={patient?.id} />
-              </Grid>
+            </Grid>
+            <Grid item paddingY="10px" sx={{ padding: '10px' }} marginBottom={2}>
+              <Typography variant="h3" color="primary.dark" marginBottom={2}>
+                About this patient
+              </Typography>
+              <PatientAccountComponent id={patient?.id} />
             </Grid>
           </Grid>
         </Grid>
