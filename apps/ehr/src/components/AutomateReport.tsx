@@ -175,10 +175,7 @@ export const AutomateReport = (): JSX.Element => {
       setToastSeverity('success');
       setToastMessage(result?.message || 'Automate report saved.');
       setToastOpen(true);
-
-      setTimeout(() => {
-        void fetchSettings();
-      }, 1000);
+      void fetchSettings();
     } catch (error) {
       setToastMessage('Error saving report.');
       setToastSeverity('warning');
