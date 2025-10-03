@@ -3,17 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { updateLabOrderResources } from 'src/api/api';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { ReflexLabDTO, TaskReviewedParameters } from 'utils';
+import { PdfAttachmentDTO, ReflexLabDTO, TaskReviewedParameters } from 'utils';
 import { LabBreadcrumbs } from '../labs-orders/LabBreadcrumbs';
 import { DetailsWithResults } from './DetailsWithResults';
 
-interface ReflexResultDetailsProps {
-  reflexResult: ReflexLabDTO;
+interface DiagnosticReportCentricResultDetailsProps {
+  results: ReflexLabDTO | PdfAttachmentDTO;
   loadingOrders: boolean;
   appointmentId: string;
 }
 
-export const ReflexResultDetails: FC<ReflexResultDetailsProps> = ({ reflexResult, loadingOrders, appointmentId }) => {
+export const DiagnosticReportCentricResultDetails: FC<DiagnosticReportCentricResultDetailsProps> = ({
+  results,
+  loadingOrders,
+  appointmentId,
+}) => {
   const [markingAsReviewed, setMarkingAsReviewed] = useState<boolean>(false);
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
@@ -42,9 +46,9 @@ export const ReflexResultDetails: FC<ReflexResultDetailsProps> = ({ reflexResult
 
   return (
     <DetailPageContainer>
-      <LabBreadcrumbs sectionName={reflexResult.testItem}>
+      <LabBreadcrumbs sectionName={results.testItem}>
         <DetailsWithResults
-          labOrder={reflexResult}
+          labOrder={results}
           markTaskAsReviewed={markAsReviewed}
           loading={loadingOrders || markingAsReviewed}
         />

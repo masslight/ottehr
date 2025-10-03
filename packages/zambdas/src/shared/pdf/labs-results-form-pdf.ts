@@ -36,6 +36,7 @@ import {
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
+  LabDrTypeTagCode,
   LabType,
   ObsContentType,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
@@ -54,6 +55,7 @@ import { fetchResultResourcesForRepeatServiceRequest } from '../../ehr/shared/in
 import {
   getExternalLabOrderResourcesViaDiagnosticReport,
   getExternalLabOrderResourcesViaServiceRequest,
+  isLabDrTypeTagCode,
 } from '../../ehr/shared/labs';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
@@ -114,7 +116,7 @@ type LabTypeSpecificResources =
     }
   | { type: LabType.inHouse; specificResources: { inHouseLabResults: InHouseLabResultConfig[] } }
   | {
-      type: LabType.unsolicited | LabType.reflex;
+      type: LabDrTypeTagCode;
       specificResources: Omit<ExternalLabSpecificResources, 'collectionDate' | 'orderSubmitDate'> & {
         testName: string | undefined;
         patient: Patient;
@@ -123,8 +125,8 @@ type LabTypeSpecificResources =
     };
 
 const getResultDataConfigForDrResources = (
-  specificResourceConfig: Extract<LabTypeSpecificResources, { type: LabType.unsolicited | LabType.reflex }>,
-  type: LabType
+  specificResourceConfig: Extract<LabTypeSpecificResources, { type: LabDrTypeTagCode }>,
+  type: LabDrTypeTagCode
 ): ResultDataConfig => {
   console.log('configuring diagnostic report result data to create pdf');
   const now = DateTime.now();
@@ -186,8 +188,8 @@ const getResultDataConfigForDrResources = (
     resultsReceivedDate,
   };
 
-  if (type === LabType.reflex) {
-    console.log('reflex result pdf to be made');
+  if (type === LabType.reflex || type === LabType.pdfAttachment) {
+    console.log('reflex or pdf attachment result pdf to be made');
     const orderNumber = getOrderNumberFromDr(diagnosticReport) || '';
     const reflexResultData: Omit<ReflexExternalLabResultsData, keyof LabResultsData> = {
       ...unsolicitedResultData,
@@ -361,7 +363,7 @@ const getTaskCompletedByAndWhen = async (
 
 export async function createExternalLabResultPDFBasedOnDr(
   oystehr: Oystehr,
-  type: 'reflex' | 'unsolicited',
+  type: LabDrTypeTagCode,
   diagnosticReportID: string,
   reviewed: boolean,
   secrets: Secrets | null,
@@ -384,7 +386,7 @@ export async function createExternalLabResultPDFBasedOnDr(
   } = await getResultsDetailsForPDF(oystehr, diagnosticReport, observations);
 
   const externalSpecificResources: LabTypeSpecificResources = {
-    type: type === 'reflex' ? LabType.reflex : LabType.unsolicited,
+    type,
     specificResources: {
       testName: diagnosticReport.code.coding?.[0].display,
       patient,
@@ -399,7 +401,7 @@ export async function createExternalLabResultPDFBasedOnDr(
     },
   };
 
-  const dataConfig = getResultDataConfigForDrResources(externalSpecificResources, LabType[type]);
+  const dataConfig = getResultDataConfigForDrResources(externalSpecificResources, type);
   const pdfDetail = await createLabsResultsFormPDF(dataConfig, patient.id, secrets, token);
 
   await makeLabPdfDocumentReference({
@@ -820,7 +822,7 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
   if (type === LabType.external) {
     console.log('Getting pdf bytes for external lab results');
     pdfBytes = await createExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
-  } else if (type === LabType.unsolicited || type === LabType.reflex) {
+  } else if (type === LabType.unsolicited || type === LabType.reflex || type === LabType.pdfAttachment) {
     console.log('Getting pdf bytes for unsolicited external lab results');
     pdfBytes = await createDiagnosticReportExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
   } else if (type === LabType.inHouse) {
@@ -1188,7 +1190,12 @@ async function createLabsResultsFormPDF(
   const bucketName = BUCKET_NAMES.LABS;
   let fileName = undefined;
   const { type, data } = dataConfig;
-  if (type === 'external' || type === 'unsolicited' || type === 'reflex') {
+  if (
+    type === LabType.external ||
+    type === LabType.unsolicited ||
+    type === LabType.reflex ||
+    type === LabType.pdfAttachment
+  ) {
     fileName = generateLabResultFileName(
       type,
       dataConfig.data.testName,
@@ -1254,7 +1261,7 @@ export async function makeLabPdfDocumentReference({
   reviewed,
 }: {
   oystehr: Oystehr;
-  type: 'order' | 'results' | 'unsolicited' | 'reflex';
+  type: 'order' | 'results' | LabDrTypeTagCode;
   pdfInfo: PdfInfo;
   patientID: string;
   encounterID: string | undefined; // will be undefined for unsolicited results;
@@ -1263,12 +1270,13 @@ export async function makeLabPdfDocumentReference({
   diagnosticReportID?: string;
   reviewed?: boolean;
 }): Promise<DocumentReference> {
-  if (type !== 'unsolicited' && type !== 'reflex' && !encounterID) {
+  const typeIsLabDrTypeTagCode = isLabDrTypeTagCode(type);
+  if (!typeIsLabDrTypeTagCode && !encounterID) {
     throw Error('encounterID is required for solicited results and order document references');
   }
 
   let docType;
-  if (type === 'results' || type === 'unsolicited' || type === 'reflex') {
+  if (type === 'results' || typeIsLabDrTypeTagCode) {
     docType = {
       coding: [LAB_RESULT_DOC_REF_CODING_CODE],
       text: 'Lab result document',

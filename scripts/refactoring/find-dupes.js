@@ -31,7 +31,7 @@ let IGNORE_PATTERNS = ['node_modules', '.*']; // Ignore node_modules and hidden 
 // Check for --ignore flag
 const ignoreIndex = args.indexOf('--ignore');
 if (ignoreIndex !== -1 && args[ignoreIndex + 1]) {
-  const customPatterns = args[ignoreIndex + 1].split(',').map(p => p.trim());
+  const customPatterns = args[ignoreIndex + 1].split(',').map((p) => p.trim());
   IGNORE_PATTERNS = customPatterns;
 }
 
@@ -53,24 +53,24 @@ if (!fs.existsSync(DIR)) {
 function shouldIgnorePath(pathStr) {
   const fileName = path.basename(pathStr);
   const fullPath = pathStr;
-  
+
   return IGNORE_PATTERNS.some((pattern) => {
     // Match exact directory name (e.g., "node_modules")
     if (fullPath.includes(path.sep + pattern + path.sep) || fullPath.endsWith(path.sep + pattern)) {
       return true;
     }
-    
+
     // Match pattern with wildcards (e.g., "*.test.ts", ".*")
     const regex = new RegExp('^' + pattern.replace(/\*/g, '.*').replace(/\./g, '\\.') + '$');
     if (regex.test(fileName)) {
       return true;
     }
-    
+
     // Match hidden files/folders (starting with .)
     if (pattern === '.*' && fileName.startsWith('.')) {
       return true;
     }
-    
+
     return false;
   });
 }
@@ -81,12 +81,12 @@ function getAllFiles(dir, files = []) {
     const items = fs.readdirSync(dir);
     for (const item of items) {
       const fullPath = path.join(dir, item);
-      
+
       // Skip ignored paths
       if (shouldIgnorePath(fullPath)) {
         continue;
       }
-      
+
       const stat = fs.statSync(fullPath);
 
       if (stat.isDirectory()) {
