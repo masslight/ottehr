@@ -3,7 +3,7 @@ import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useDebounceNotesField } from '../../../../hooks';
-import { useChartData } from '../../../../state';
+import { useChartFields } from '../../../../state';
 
 type MedicalDecisionFieldProps = {
   loading: boolean;
@@ -11,7 +11,13 @@ type MedicalDecisionFieldProps = {
 };
 
 export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, setIsUpdating }) => {
-  const { chartData } = useChartData();
+  const { data: chartData } = useChartFields({
+    requestedFields: {
+      medicalDecision: {
+        _tag: 'medical-decision',
+      },
+    },
+  });
 
   const methods = useForm({
     defaultValues: {

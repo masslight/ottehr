@@ -1,4 +1,4 @@
-import { Practitioner } from 'fhir/r4b';
+import { Coverage, Organization, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
@@ -7,6 +7,7 @@ import {
   InHouseLabResult as IInHouseLabResult,
   LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
+  ObservationDTO,
   QuantityComponent,
   SupportedObsImgAttachmentTypes,
   VitalsVisitNoteData,
@@ -141,15 +142,26 @@ export interface LabsData {
   isManualOrder: boolean;
   isPscOrder: boolean;
 }
+
+export type CoverageAndOrgForOrderForm = {
+  coverage: Coverage;
+  insuranceOrganization: Organization;
+  coverageRank: number;
+};
+
+export type OrderFormInsuranceInfo = {
+  insuranceRank: number;
+  insuredName?: string;
+  insuredAddress?: string;
+  insuranceName?: string;
+  insuranceAddress?: string;
+  insuranceSubNum?: string;
+};
 export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessments'> {
   labOrganizationName: string;
   billClass: string;
   testDetails: testDataForOrderForm[];
-  insuredName?: string;
-  insuredAddress?: string;
-  primaryInsuranceName?: string;
-  primaryInsuranceAddress?: string;
-  primaryInsuranceSubNum?: string;
+  insuranceDetails?: OrderFormInsuranceInfo[];
 }
 
 export interface ExternalLabResult {
@@ -212,7 +224,6 @@ export interface ExternalLabResultsData extends LabResultsData {
   accessionNumber: string;
   orderSubmitDate: string;
   collectionDate: string;
-  resultPhase: string;
   resultsReceivedDate: string;
   reviewed?: boolean; // todo why is this possibly undefined ??
   reviewingProvider: Practitioner | undefined;
@@ -271,11 +282,8 @@ export interface VisitNoteData extends PdfExaminationBlockData {
   inHouseMedications?: string[];
   inHouseMedicationsNotes?: string[];
   immunizationOrders?: string[];
-  additionalQuestions: Record<string, string>;
   screening?: {
-    seenInLastThreeYears?: string;
-    historyObtainedFrom?: string;
-    historyObtainedFromOther?: string;
+    additionalQuestions: { [fieldFhirId: string]: ObservationDTO };
     currentASQ?: string;
     notes?: string[];
   };

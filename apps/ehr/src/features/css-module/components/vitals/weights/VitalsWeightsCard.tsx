@@ -1,6 +1,6 @@
-import { Box, Grid, TextField, Typography } from '@mui/material';
+import { Box, Grid, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { JSX, useCallback, useMemo, useState } from 'react';
+import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import { kgToLbs, textToWeightNumber, VitalFieldNames, VitalsWeightObservationDTO } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer, useGetAppointmentAccessibility } from '../../../../../telemed';
@@ -17,6 +17,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
   historicalObs,
 }): JSX.Element => {
   const [weightValueText, setWeightValueText] = useState('');
+  const [weightValueTextLbs, setWeightValueTextLbs] = useState('');
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
@@ -27,12 +28,6 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
   const latestWeightValue = currentObs[0]?.value;
 
   const [isSaving, setIsSaving] = useState(false);
-
-  const enteredWeightInLb: number | undefined = useMemo(() => {
-    const weightKg = textToWeightNumber(weightValueText);
-    if (!weightKg) return;
-    return kgToLbs(weightKg);
-  }, [weightValueText]);
 
   const handleSaveWeightObservation = async (weightValueText: string): Promise<void> => {
     const weightValueNumber = textToWeightNumber(weightValueText);
@@ -45,12 +40,20 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
       };
       await handleSaveVital(vitalObs);
       setWeightValueText('');
+      setWeightValueTextLbs('');
     } catch {
       enqueueSnackbar('Error saving Weight data', { variant: 'error' });
     } finally {
       setIsSaving(false);
     }
   };
+
+  const handleTextInputChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+    const weightAsText = e.target.value;
+    setWeightValueText(weightAsText);
+    const weightAsNumber = textToWeightNumber(weightAsText);
+    setWeightValueTextLbs(weightAsNumber ? kgToLbs(weightAsNumber).toString() : '');
+  }, []);
 
   const renderRightColumn = (): JSX.Element => {
     return (
@@ -98,11 +101,12 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                 }}
               >
                 {/* Weight Input Field column */}
-                <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 1, sm: 1, md: 1 }}>
+                <Grid item xs={12} sm={8} md={8} lg={8} order={{ xs: 1, sm: 1, md: 1 }}>
                   <Box
                     sx={{
                       display: 'flex',
                       flexDirection: 'row',
+                      gap: 1,
                     }}
                   >
                     <VitalsTextInputFiled
@@ -110,22 +114,15 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                       value={weightValueText}
                       disabled={isSaving}
                       isInputError={false}
-                      onChange={(e) => setWeightValueText(e.target.value)}
+                      onChange={handleTextInputChange}
                     />
-                    <Typography fontSize={25} sx={{ ml: 1 }}>
-                      =
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      size="small"
+                    <Typography fontSize={25}>=</Typography>
+                    <VitalsTextInputFiled
                       label="Weight (lbs)"
-                      sx={{
-                        '& fieldset': { border: 'none' },
-                        maxWidth: '110px',
-                      }}
-                      disabled
-                      InputLabelProps={{ shrink: true }}
-                      value={enteredWeightInLb ?? ''}
+                      value={weightValueTextLbs}
+                      disabled={true}
+                      isInputError={false}
+                      onChange={() => {}}
                     />
                   </Box>
                 </Grid>

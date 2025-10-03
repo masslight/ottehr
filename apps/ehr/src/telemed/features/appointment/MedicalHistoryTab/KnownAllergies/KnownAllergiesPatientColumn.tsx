@@ -54,7 +54,7 @@ export const KnownAllergiesPatientColumn: FC = () => {
         flexDirection: 'column',
         gap: 1,
       }}
-      data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesPatientProvidedList}
+      data-testid={dataTestIds.allergies.knownAllergiesPatientProvidedList}
     >
       {renderAllergies()}
 

@@ -34,7 +34,8 @@ export interface AIChatDetails {
   providers: Practitioner[];
 }
 
-export interface ChartDataFields {
+// todo: need to refactor and simplify types; there are different sets of fields for useChartData and useChartFields, but this types contains all possible values and not very useful
+export interface AllChartValues {
   chiefComplaint?: FreeTextNoteDTO;
   ros?: FreeTextNoteDTO;
   conditions?: MedicalConditionDTO[];
@@ -66,7 +67,27 @@ export interface ChartDataFields {
   procedures?: ProcedureDTO[];
 }
 
-export type ChartDataFieldsKeys = keyof ChartDataFields;
+export type RequestedFields =
+  | 'surgicalHistoryNote'
+  | 'chiefComplaint'
+  | 'ros'
+  | 'episodeOfCare'
+  | 'prescribedMedications'
+  | 'disposition'
+  | 'notes'
+  | 'vitalsObservations'
+  | 'externalLabResults'
+  | 'inHouseLabResults'
+  | 'practitioners'
+  | 'medicalDecision'
+  | 'birthHistory'
+  | 'patientInfoConfirmed'
+  | 'addendumNote'
+  | 'medications'
+  | 'inhouseMedications'
+  | 'observations';
+
+export type AllChartValuesKeys = keyof AllChartValues;
 
 export type ChartDataResources =
   | AllergyIntolerance

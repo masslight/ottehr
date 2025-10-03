@@ -23,3 +23,39 @@ variable "sendgrid_api_key" {
   nullable    = false
   sensitive   = true
 }
+
+# TODO: remove?
+variable "environment" {
+  description = "Deployment environment"
+  type        = string
+  nullable    = false
+  default     = "local"
+}
+
+variable "ehr_domain" {
+  description = "EHR domain"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "patient_portal_domain" {
+  description = "Patient portal domain"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "aws_profile" {
+  description = "AWS profile to use for deployment"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "gcp_project" {
+  description = "GCP project to use for deployment"
+  type        = string
+  nullable    = true
+  default     = null
+}

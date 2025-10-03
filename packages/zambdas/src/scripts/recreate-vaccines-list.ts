@@ -27,7 +27,9 @@ const recreateVaccines = async (config: any): Promise<void> => {
 
   const vaccinesJson = JSON.parse(fs.readFileSync(`../../config/oystehr/vaccines.json`, 'utf8'));
 
-  for (const medicationResourceToCreate of Object.values(vaccinesJson.fhirResources) as Medication[]) {
+  for (const medicationResourceToCreate of Object.values(vaccinesJson.fhirResources).map(
+    (res) => (res as any).resource
+  ) as Medication[]) {
     const newResource = await oystehr.fhir.create(medicationResourceToCreate);
     console.log(`Created FHIR Medication: ${getMedicationName(newResource)}, with id: ${newResource.id}`);
   }

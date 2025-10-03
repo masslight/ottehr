@@ -6,7 +6,7 @@ import Oystehr, {
 } from '@oystehr/sdk';
 import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import { randomUUID } from 'crypto';
-import { Operation, RemoveOperation } from 'fast-json-patch';
+import { applyPatch, Operation, RemoveOperation } from 'fast-json-patch';
 import {
   Account,
   AccountGuarantor,
@@ -27,6 +27,7 @@ import {
   Practitioner,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
+  QuestionnaireResponseItemAnswer,
   Reference,
   RelatedPerson,
   Task,
@@ -36,6 +37,7 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   CANDID_PLAN_TYPE_SYSTEM,
+  codeableConcept,
   CONSENT_CODE,
   ConsentSigner,
   consolidateOperations,
@@ -99,6 +101,7 @@ import {
   PHOTO_ID_BACK_ID,
   PHOTO_ID_CARD_CODE,
   PHOTO_ID_FRONT_ID,
+  PREFERRED_PHARMACY_EXTENSION_URL,
   PRIVACY_POLICY_CODE,
   PRIVATE_EXTENSION_BASE_URL,
   relatedPersonFieldPaths,
@@ -115,7 +118,10 @@ import {
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { createPdfBytes } from '../../../shared';
 
+export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
+
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
+const PATIENT_UPDATE_MAX_RETRIES = 3;
 
 interface ResponsiblePartyContact {
   birthSex: 'Male' | 'Female' | 'Intersex';
@@ -770,12 +776,23 @@ export interface PatientMasterRecordResources {
   patient: Patient;
 }
 
+function updatePatientData(patient: Patient, questionnaireResponseItems: QuestionnaireResponseItem[]): void {
+  const patientPatchOps = createMasterRecordPatchOperations(questionnaireResponseItems, patient);
+  patient = applyPatch(patient, patientPatchOps.patient.patchOpsForDirectUpdate, true).newDocument;
+
+  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
+    questionnaireResponseItems as IntakeQuestionnaireItem[]
+  ) as QuestionnaireResponseItem[];
+
+  updatePharmacy(patient, flattenedPaperwork);
+}
+
 export function createMasterRecordPatchOperations(
-  questionnaireResponse: QuestionnaireResponse,
+  questionnaireResponseItems: QuestionnaireResponseItem[],
   patient: Patient
 ): MasterRecordPatchOperations {
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    questionnaireResponse.item as IntakeQuestionnaireItem[]
+    questionnaireResponseItems as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
 
   const result: MasterRecordPatchOperations = {
@@ -1134,6 +1151,39 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
     }
   }
   return operations;
+};
+
+const updatePharmacy = (patient: Patient, flattenedItems: QuestionnaireResponseItem[]): void => {
+  const inputPharmacyName = getAnswer('pharmacy-name', flattenedItems)?.valueString;
+  const inputPharmacyAddress = getAnswer('pharmacy-address', flattenedItems)?.valueString;
+  const newContained = (patient.contained ?? []).filter((resource) => resource.id !== PATIENT_CONTAINED_PHARMACY_ID);
+  const newExtensions = (patient.extension ?? []).filter(
+    (extension) => extension.url !== PREFERRED_PHARMACY_EXTENSION_URL
+  );
+  if (inputPharmacyName || inputPharmacyAddress) {
+    const pharmacy: Organization = {
+      resourceType: 'Organization',
+      id: PATIENT_CONTAINED_PHARMACY_ID,
+      name: inputPharmacyName ?? '-',
+      type: [codeableConcept('pharmacy', FHIR_EXTENSION.Organization.organizationType.url)],
+      address: inputPharmacyAddress
+        ? [
+            {
+              text: inputPharmacyAddress,
+            },
+          ]
+        : undefined,
+    };
+    newContained.push(pharmacy);
+    newExtensions.push({
+      url: PREFERRED_PHARMACY_EXTENSION_URL,
+      valueReference: {
+        reference: '#' + PATIENT_CONTAINED_PHARMACY_ID,
+      },
+    });
+  }
+  patient.contained = newContained;
+  patient.extension = newExtensions;
 };
 
 function separateResourceUpdates(
@@ -2987,23 +3037,35 @@ export const updatePatientAccountFromQuestionnaire = async (
     guarantorResource: existingGuarantorResource,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
 
-  const patientPatchOps = createMasterRecordPatchOperations(
-    { item: questionnaireResponseItem } as QuestionnaireResponse,
-    patient
-  );
-  console.time('patching patient resource');
-  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
+  console.time('updating patient resource');
+  let patientToUpdate = patient;
+  let retryCount = 0;
+  while (retryCount < PATIENT_UPDATE_MAX_RETRIES) {
     try {
-      await oystehr.fhir.patch({
-        resourceType: 'Patient',
-        id: patient.id!,
-        operations: patientPatchOps.patient.patchOpsForDirectUpdate,
+      updatePatientData(patientToUpdate, questionnaireResponseItem ?? []);
+      await oystehr.fhir.update(patientToUpdate, {
+        optimisticLockingVersionId: patientToUpdate.meta?.versionId,
       });
+      break;
     } catch (error: unknown) {
       console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
     }
+    try {
+      patientToUpdate = await oystehr.fhir.get({
+        resourceType: 'Patient',
+        id: patient.id!,
+      });
+    } catch (error: unknown) {
+      console.log(`Failed to read Patient: ${JSON.stringify(error)}`);
+    }
+    retryCount++;
   }
-  console.timeEnd('patching patient resource');
+
+  if (retryCount === PATIENT_UPDATE_MAX_RETRIES) {
+    console.log(`Failed to update Patient using optimistic lock`);
+  }
+
+  console.timeEnd('updating patient resource');
 
   /*
   console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
@@ -3072,3 +3134,7 @@ export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Pr
     throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
   }
 };
+
+function getAnswer(linkId: string, items: QuestionnaireResponseItem[]): QuestionnaireResponseItemAnswer | undefined {
+  return items.find((data) => data.linkId === linkId)?.answer?.[0];
+}

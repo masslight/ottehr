@@ -13,78 +13,87 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
   }
   const oystehrClient = createOystehrClient(token, envConfig);
   try {
-    const folder = fs.readdirSync(
-      path.join(__dirname, '../../../../packages/utils/lib/deployed-resources/questionnaires')
-    );
+    const folder = fs.readdirSync(path.join(__dirname, '../../../../config/oystehr'));
     const requests = await Promise.all(
-      folder.flatMap(async (file) => {
-        const questionnaireData = JSON.parse(
-          fs.readFileSync(
-            path.join(__dirname, '../../../../packages/utils/lib/deployed-resources/questionnaires', file),
-            'utf8'
-          )
-        );
-        const { resource: questionnaire } = questionnaireData;
-
-        const existingQuestionnaire = (
-          await oystehrClient.fhir.search<Questionnaire>({
-            resourceType: 'Questionnaire',
-            params: [
-              {
-                name: 'url',
-                value: questionnaire.url,
-              },
-              {
-                name: 'version',
-                value: questionnaire.version,
-              },
-            ],
-          })
-        ).unbundle();
-
-        if (!existingQuestionnaire.length) {
-          const createRequest: BatchInputPostRequest<Questionnaire> = {
-            method: 'POST',
-            url: '/Questionnaire',
-            resource: questionnaire,
-          };
-          return createRequest;
-        } else {
-          console.log('existing Questionnaire id: ', existingQuestionnaire[0].id);
-          const existing = existingQuestionnaire.find(
-            (eq: Questionnaire) => eq.url === questionnaire.url && eq.version === questionnaire.version
+      folder
+        .filter((file) => file.endsWith('questionnaire.json'))
+        .flatMap(async (file) => {
+          const questionnaireData = JSON.parse(
+            fs.readFileSync(path.join(__dirname, '../../../../config/oystehr', file), 'utf8')
           );
-          if (!existing) {
-            throw new Error('Questionnaire missing unexpectedly');
+          // console.log('questionnaireData', JSON.stringify(questionnaireData, null, 2));
+          const { fhirResources: questionnaires } = questionnaireData;
+
+          if (!questionnaires) {
+            throw new Error(`Questionnaires missing in file ${file}`);
           }
-          const updateRequest: BatchInputPutRequest<Questionnaire> = {
-            method: 'PUT',
-            url: `/Questionnaire/${existing.id}`,
-            resource: {
-              ...questionnaire,
-              id: existing.id,
-            },
-          };
-          return updateRequest;
-        }
-      })
+
+          return await Promise.all(
+            (Object.values(questionnaires) as Questionnaire[]).map(async (resourceHolder: any) => {
+              const questionnaire: Questionnaire = resourceHolder.resource;
+              if (!questionnaire.url || !questionnaire.version) {
+                throw new Error(`Questionnaire missing url or version in file ${file}`);
+              }
+              const existingQuestionnaire = (
+                await oystehrClient.fhir.search<Questionnaire>({
+                  resourceType: 'Questionnaire',
+                  params: [
+                    {
+                      name: 'url',
+                      value: questionnaire.url,
+                    },
+                    {
+                      name: 'version',
+                      value: questionnaire.version,
+                    },
+                  ],
+                })
+              ).unbundle();
+
+              if (!existingQuestionnaire.length) {
+                const createRequest: BatchInputPostRequest<Questionnaire> = {
+                  method: 'POST',
+                  url: '/Questionnaire',
+                  resource: questionnaire,
+                };
+                return createRequest;
+              } else {
+                console.log('existing Questionnaire id: ', existingQuestionnaire[0].id);
+                const existing = existingQuestionnaire.find(
+                  (eq: Questionnaire) => eq.url === questionnaire.url && eq.version === questionnaire.version
+                );
+                if (!existing) {
+                  throw new Error('Questionnaire missing unexpectedly');
+                }
+                const updateRequest: BatchInputPutRequest<Questionnaire> = {
+                  method: 'PUT',
+                  url: `/Questionnaire/${existing.id}`,
+                  resource: {
+                    ...questionnaire,
+                    id: existing.id,
+                  },
+                };
+                return updateRequest;
+              }
+            })
+          );
+        })
     );
     await oystehrClient.fhir.transaction({ requests: requests.flatMap((r) => r) });
 
     const newSecrets: any = {};
-    folder.forEach((file) => {
-      const questionnaireData = JSON.parse(
-        fs.readFileSync(
-          path.join(__dirname, '../../../../packages/utils/lib/deployed-resources/questionnaires', file),
-          'utf8'
-        )
-      );
-      const { resource: questionnaire, envVarName } = questionnaireData;
-      if (envVarName && questionnaire?.url && questionnaire?.version) {
-        const canonical = `${questionnaire.url}|${questionnaire.version}`;
-        newSecrets[envVarName] = canonical;
-      }
-    });
+    folder
+      .filter((file) => file.endsWith('questionnaire.json'))
+      .forEach((file) => {
+        const questionnaireData = JSON.parse(
+          fs.readFileSync(path.join(__dirname, '../../../../config/oystehr', file), 'utf8')
+        );
+        const { resource: questionnaire, envVarName } = questionnaireData;
+        if (envVarName && questionnaire?.url && questionnaire?.version) {
+          const canonical = `${questionnaire.url}|${questionnaire.version}`;
+          newSecrets[envVarName] = canonical;
+        }
+      });
 
     const newLocalEnv = { ...envConfig, ...newSecrets };
     const envString = JSON.stringify(newLocalEnv, null, 2);

@@ -1,6 +1,7 @@
 import { DiagnosticReport, Location, Organization, ServiceRequest } from 'fhir/r4b';
 import {
   LAB_ACCOUNT_NUMBER_SYSTEM,
+  LabsTableColumn,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
@@ -74,3 +75,63 @@ export function getAccountNumberFromLocationAndOrganization(location: Location, 
 export async function openPdf(url: string): Promise<void> {
   window.open(url, '_blank');
 }
+
+export const getColumnWidth = (column: LabsTableColumn): string => {
+  switch (column) {
+    case 'testType':
+      return '15%';
+    case 'visit':
+      return '10%';
+    case 'orderAdded':
+      return '10%';
+    case 'provider':
+      return '13%';
+    case 'ordered':
+      return '15%';
+    case 'dx':
+      return '13%';
+    case 'resultsReceived':
+      return '15%';
+    case 'accessionNumber':
+      return '10%';
+    case 'status':
+      return '5%';
+    case 'detail':
+      return '2%';
+    case 'actions':
+      return '1%';
+    default:
+      return '10%';
+  }
+};
+
+export const getColumnHeader = (column: LabsTableColumn): string => {
+  switch (column) {
+    case 'testType':
+      return 'Test type';
+    case 'visit':
+      return 'Visit';
+    case 'orderAdded':
+      return 'Order added';
+    case 'provider':
+      return 'Provider';
+    case 'ordered':
+      return 'Ordered';
+    case 'dx':
+      return 'Dx';
+    case 'resultsReceived':
+      return 'Results received';
+    case 'accessionNumber':
+      return 'Accession Number';
+    case 'requisitionNumber':
+      return 'Requisition Number';
+    case 'status':
+      return 'Status';
+    case 'detail':
+      return '';
+    case 'actions':
+      return '';
+    default:
+      return '';
+  }
+};

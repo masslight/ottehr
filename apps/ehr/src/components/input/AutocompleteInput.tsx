@@ -13,6 +13,8 @@ type Props = {
   selectOnly?: boolean;
   onInputTextChanged?: (text: string) => void;
   noOptionsText?: string;
+  valueToOption?: (value: any) => Option;
+  optionToValue?: (value: Option) => any;
 };
 
 export const AutocompleteInput: React.FC<Props> = ({
@@ -25,6 +27,8 @@ export const AutocompleteInput: React.FC<Props> = ({
   selectOnly,
   onInputTextChanged,
   noOptionsText,
+  valueToOption,
+  optionToValue,
 }) => {
   const { control } = useFormContext();
   if (loading && !options) {
@@ -35,35 +39,49 @@ export const AutocompleteInput: React.FC<Props> = ({
       name={name}
       control={control}
       rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false, validate: validate }}
-      render={({ field, fieldState: { error } }) => (
-        <Box sx={{ width: '100%' }}>
-          <Autocomplete
-            value={
-              field.value != null
-                ? options?.find((option) => option.value === field.value) ?? { label: field.value, value: field.value }
-                : null
-            }
-            options={options ?? []}
-            noOptionsText={noOptionsText}
-            getOptionLabel={(option) => option.label}
-            onChange={(_e, option: any) => field.onChange(option?.value ?? null)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label={label + (required ? '*' : '')}
-                placeholder={`Select ${label}`}
-                inputProps={{ ...params.inputProps, readOnly: selectOnly }}
-                error={error != null}
-                size="small"
-                onChange={onInputTextChanged ? (e) => onInputTextChanged(e.target.value) : undefined}
-              />
-            )}
-            loading={loading}
-            fullWidth
-          />
-          {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}
-        </Box>
-      )}
+      render={({ field, fieldState: { error } }) => {
+        let valueOption: Option | null = null;
+        if (field.value != null && valueToOption) {
+          valueOption = valueToOption(field.value);
+        } else if (field.value != null) {
+          valueOption = options?.find((option) => option.value === field.value) ?? null;
+        }
+        const optionsToUse = options ?? [];
+        if (
+          valueOption &&
+          !options?.find((option) => option.value === valueOption?.value && option.label === valueOption.label)
+        ) {
+          optionsToUse?.push(valueOption);
+        }
+        return (
+          <Box sx={{ width: '100%' }}>
+            <Autocomplete
+              value={valueOption}
+              options={optionsToUse}
+              noOptionsText={noOptionsText}
+              getOptionLabel={(option) => option.label}
+              isOptionEqualToValue={(option, tempValue) => option.value === tempValue.value}
+              onChange={(_e, option: any) =>
+                field.onChange((option && optionToValue ? optionToValue(option) : option?.value) ?? null)
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={label + (required ? '*' : '')}
+                  placeholder={`Select ${label}`}
+                  inputProps={{ ...params.inputProps, readOnly: selectOnly }}
+                  error={error != null}
+                  size="small"
+                  onChange={onInputTextChanged ? (e) => onInputTextChanged(e.target.value) : undefined}
+                />
+              )}
+              loading={loading}
+              fullWidth
+            />
+            {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}
+          </Box>
+        );
+      }}
     />
   );
 };

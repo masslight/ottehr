@@ -6,8 +6,10 @@ export const VAR_REGEX = /#\{var\/([^}]+)\}/g;
 export const REF_REGEX = /#\{ref\/([^}/]+)\/([^}/]+)\/([^}]+)\}/g;
 
 export type Spec20250319 = {
+  project: { [key: string]: any };
   apps: { [key: string]: any };
   buckets: { [key: string]: any };
+  faxNumbers: { [key: string]: any };
   fhirResources: { [key: string]: any };
   labRoutes: { [key: string]: any };
   m2ms: { [key: string]: any };
@@ -38,8 +40,10 @@ export class Schema20250319 implements Schema<Spec20250319> {
       if (
         ![
           'schema-version',
+          'project',
           'apps',
           'buckets',
+          'faxNumbers',
           'fhirResources',
           'labRoutes',
           'm2ms',
@@ -52,12 +56,21 @@ export class Schema20250319 implements Schema<Spec20250319> {
       }
     }
     if (
-      !['apps', 'buckets', 'fhirResources', 'labRoutes', 'm2ms', 'roles', 'secrets', 'zambdas'].some((key) =>
-        Object.prototype.hasOwnProperty.call(spec, key)
-      )
+      ![
+        'project',
+        'apps',
+        'buckets',
+        'faxNumbers',
+        'fhirResources',
+        'labRoutes',
+        'm2ms',
+        'roles',
+        'secrets',
+        'zambdas',
+      ].some((key) => Object.prototype.hasOwnProperty.call(spec, key))
     ) {
       throw new Error(
-        `${specFile.path} must have at least one of the following top-level keys: apps, buckets, fhirResources, labRoutes, m2ms, roles, secrets, zambdas.`
+        `${specFile.path} must have at least one of the following top-level keys: project, apps, buckets, faxNumbers, fhirResources, labRoutes, m2ms, roles, secrets, zambdas.`
       );
     }
     return spec as Spec20250319;
@@ -65,8 +78,10 @@ export class Schema20250319 implements Schema<Spec20250319> {
 
   async generate(): Promise<void> {
     const resources: Spec20250319 = {
+      project: {},
       apps: {},
       buckets: {},
+      faxNumbers: {},
       fhirResources: {},
       labRoutes: {},
       m2ms: {},
@@ -76,8 +91,10 @@ export class Schema20250319 implements Schema<Spec20250319> {
     };
     for (const [_, specFile] of this.specFiles.entries()) {
       const spec = this.validate(specFile);
+      resources.project = { ...resources.project, ...(spec.project as object) };
       resources.apps = { ...resources.apps, ...(spec.apps as object) };
       resources.buckets = { ...resources.buckets, ...(spec.buckets as object) };
+      resources.faxNumbers = { ...resources.faxNumbers, ...(spec.faxNumbers as object) };
       resources.fhirResources = { ...resources.fhirResources, ...(spec.fhirResources as object) };
       resources.labRoutes = { ...resources.labRoutes, ...(spec.labRoutes as object) };
       resources.m2ms = { ...resources.m2ms, ...(spec.m2ms as object) };
@@ -105,9 +122,32 @@ export class Schema20250319 implements Schema<Spec20250319> {
         console.log('Warning: could not resolve reference', fullMatch);
       }
     }
-    await fs.writeFile(outputsOutFile, JSON.stringify(outputDirectives, null, 2));
+    if (Object.keys(outputDirectives.output).length) {
+      await fs.writeFile(outputsOutFile, JSON.stringify(outputDirectives, null, 2));
+    } else {
+      await fs.rm(outputsOutFile, { force: true });
+    }
 
     // Write out resources
+    const projectOutFile = path.join(this.outputPath, 'project.tf.json');
+    const projectResources: { resource: { oystehr_project_configuration: { [key: string]: any } } } = {
+      resource: { oystehr_project_configuration: {} },
+    };
+    const projects = Object.entries(resources.project);
+    if (projects.length) {
+      projectResources.resource.oystehr_project_configuration[projects[0][0]] = {
+        name: this.getValue(projects[0][1].name, resources),
+        description: this.getValue(projects[0][1].description, resources),
+        signup_enabled: this.getValue(projects[0][1].signupEnabled, resources),
+        default_patient_role_id: this.getValue(projects[0][1].defaultPatientRoleId, resources),
+      };
+    }
+    if (Object.keys(projectResources.resource.oystehr_project_configuration).length) {
+      await fs.writeFile(projectOutFile, JSON.stringify(projectResources, null, 2));
+    } else {
+      await fs.rm(projectOutFile, { force: true });
+    }
+
     const appOutFile = path.join(this.outputPath, 'apps.tf.json');
     const appResources: { resource: { oystehr_application: { [key: string]: any } } } = {
       resource: { oystehr_application: {} },
@@ -130,8 +170,18 @@ export class Schema20250319 implements Schema<Spec20250319> {
         logo_uri: this.getValue(app.logoUri, resources),
         refresh_token_enabled: this.getValue(app.refreshTokenEnabled, resources),
       };
+      // If there is project configuration, we need to wait on it being set up in case they are changing relevant values
+      if (Object.keys(projects).length) {
+        appResources.resource.oystehr_application[appName].depends_on = [
+          `oystehr_project_configuration.${projects[0][0]}`,
+        ];
+      }
     }
-    await fs.writeFile(appOutFile, JSON.stringify(appResources, null, 2));
+    if (Object.keys(appResources.resource.oystehr_application).length) {
+      await fs.writeFile(appOutFile, JSON.stringify(appResources, null, 2));
+    } else {
+      await fs.rm(appOutFile, { force: true });
+    }
 
     const bucketOutFile = path.join(this.outputPath, 'buckets.tf.json');
     const bucketResources: { resource: { oystehr_z3_bucket: { [key: string]: any } } } = {
@@ -142,7 +192,24 @@ export class Schema20250319 implements Schema<Spec20250319> {
         name: this.getValue(bucket.name, resources),
       };
     }
-    await fs.writeFile(bucketOutFile, JSON.stringify(bucketResources, null, 2));
+    if (Object.keys(bucketResources.resource.oystehr_z3_bucket).length) {
+      await fs.writeFile(bucketOutFile, JSON.stringify(bucketResources, null, 2));
+    } else {
+      await fs.rm(bucketOutFile, { force: true });
+    }
+
+    const faxOutFile = path.join(this.outputPath, 'fax.tf.json');
+    const faxResources: { resource: { oystehr_fax_number: { [key: string]: any } } } = {
+      resource: { oystehr_fax_number: {} },
+    };
+    for (const [faxName] of Object.entries(resources.faxNumbers)) {
+      faxResources.resource.oystehr_fax_number[faxName] = {};
+    }
+    if (Object.keys(faxResources.resource.oystehr_fax_number).length) {
+      await fs.writeFile(faxOutFile, JSON.stringify(faxResources, null, 2));
+    } else {
+      await fs.rm(faxOutFile, { force: true });
+    }
 
     const fhirOutFile = path.join(this.outputPath, 'fhir-resources.tf.json');
     const fhirResources: { resource: { oystehr_fhir_resource: { [key: string]: any } } } = {
@@ -158,7 +225,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         managed_fields: managedFields,
       };
     }
-    await fs.writeFile(fhirOutFile, JSON.stringify(fhirResources, null, 2));
+    if (Object.keys(fhirResources.resource.oystehr_fhir_resource).length) {
+      await fs.writeFile(fhirOutFile, JSON.stringify(fhirResources, null, 2));
+    } else {
+      await fs.rm(fhirOutFile, { force: true });
+    }
 
     const labRoutesOutFile = path.join(this.outputPath, 'lab-routes.tf.json');
     const labRoutesResources: { resource: { oystehr_lab_route: { [key: string]: any } } } = {
@@ -170,7 +241,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         lab_id: this.getValue(route.labId, resources),
       };
     }
-    await fs.writeFile(labRoutesOutFile, JSON.stringify(labRoutesResources, null, 2));
+    if (Object.keys(labRoutesResources.resource.oystehr_lab_route).length) {
+      await fs.writeFile(labRoutesOutFile, JSON.stringify(labRoutesResources, null, 2));
+    } else {
+      await fs.rm(labRoutesOutFile, { force: true });
+    }
 
     const m2msOutFile = path.join(this.outputPath, 'm2ms.tf.json');
     const m2mResources: { resource: { oystehr_m2m: { [key: string]: any } } } = {
@@ -187,7 +262,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         jwks_url: this.getValue(m2m.jwksUrl, resources),
       };
     }
-    await fs.writeFile(m2msOutFile, JSON.stringify(m2mResources, null, 2));
+    if (Object.keys(m2mResources.resource.oystehr_m2m).length) {
+      await fs.writeFile(m2msOutFile, JSON.stringify(m2mResources, null, 2));
+    } else {
+      await fs.rm(m2msOutFile, { force: true });
+    }
 
     const rolesOutFile = path.join(this.outputPath, 'roles.tf.json');
     const roleResources: { resource: { oystehr_role: { [key: string]: any } } } = {
@@ -202,7 +281,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         },
       };
     }
-    await fs.writeFile(rolesOutFile, JSON.stringify(roleResources, null, 2));
+    if (Object.keys(roleResources.resource.oystehr_role).length) {
+      await fs.writeFile(rolesOutFile, JSON.stringify(roleResources, null, 2));
+    } else {
+      await fs.rm(rolesOutFile, { force: true });
+    }
 
     const secretsOutFile = path.join(this.outputPath, 'secrets.tf.json');
     const secretResources: { resource: { oystehr_secret: { [key: string]: any } } } = {
@@ -214,7 +297,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         value: this.getValue(secret.value, resources),
       };
     }
-    await fs.writeFile(secretsOutFile, JSON.stringify(secretResources, null, 2));
+    if (Object.keys(secretResources.resource.oystehr_secret).length) {
+      await fs.writeFile(secretsOutFile, JSON.stringify(secretResources, null, 2));
+    } else {
+      await fs.rm(secretsOutFile, { force: true });
+    }
 
     const zambdasOutFile = path.join(this.outputPath, 'zambdas.tf.json');
     const zambdaResources: { resource: { oystehr_zambda: { [key: string]: any } } } = {
@@ -231,7 +318,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         source: path.join(this.zambdasDirPath, this.getValue(zambda.zip, resources)),
       };
     }
-    await fs.writeFile(zambdasOutFile, JSON.stringify(zambdaResources, null, 2));
+    if (Object.keys(zambdaResources.resource.oystehr_zambda).length) {
+      await fs.writeFile(zambdasOutFile, JSON.stringify(zambdaResources, null, 2));
+    } else {
+      await fs.rm(zambdasOutFile, { force: true });
+    }
   }
 
   getValue(value: any, spec: Spec20250319): any {
@@ -285,12 +376,16 @@ export class Schema20250319 implements Schema<Spec20250319> {
         return 'oystehr_application';
       case 'buckets':
         return 'oystehr_z3_bucket';
+      case 'faxNumbers':
+        return 'oystehr_fax_number';
       case 'fhirResources':
         return 'oystehr_fhir_resource';
       case 'labRoutes':
         return 'oystehr_lab_route';
       case 'm2ms':
         return 'oystehr_m2m';
+      case 'project':
+        return 'oystehr_project_configuration';
       case 'roles':
         return 'oystehr_role';
       case 'secrets':
@@ -303,13 +398,22 @@ export class Schema20250319 implements Schema<Spec20250319> {
   }
 
   isResourceType(resourceType: string): resourceType is keyof Spec20250319 {
-    return ['apps', 'buckets', 'fhirResources', 'labRoutes', 'm2ms', 'roles', 'secrets', 'zambdas'].includes(
-      resourceType
-    );
+    return [
+      'apps',
+      'buckets',
+      'faxNumbers',
+      'fhirResources',
+      'labRoutes',
+      'm2ms',
+      'project',
+      'roles',
+      'secrets',
+      'zambdas',
+    ].includes(resourceType);
   }
 
   getTerraformResourceOutputName(fullMatch: string, module?: string): string {
-    return `${module ? `module.${module}.` : ''}${fullMatch.replace(/\//g, '_').slice(2, -1)}`;
+    return `${module ? `module.${module}.` : ''}${fullMatch.replace(/\//g, '_').replace(/\./g, '_').slice(2, -1)}`;
   }
 
   isObject(spec: any): spec is { [key: string]: unknown } {

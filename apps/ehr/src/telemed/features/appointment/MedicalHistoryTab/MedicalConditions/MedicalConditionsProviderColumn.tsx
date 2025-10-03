@@ -7,6 +7,7 @@ import {
   debounce,
   Divider,
   FormControlLabel,
+  Skeleton,
   Switch,
   TextField,
   Typography,
@@ -31,26 +32,9 @@ import {
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 
 export const MedicalConditionsProviderColumn: FC = () => {
-  const { chartData, chartDataSetState } = useChartData();
+  const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const featureFlags = useFeatureFlags();
-
-  const { isLoading: isChartDataLoading } = useChartData({
-    requestedFields: {
-      conditions: {},
-    },
-    onSuccess: (data) => {
-      chartDataSetState((prevState) => ({
-        ...prevState,
-        chartData: {
-          ...prevState?.chartData,
-          patientId: prevState?.chartData?.patientId || '',
-          conditions: data?.conditions,
-        },
-      }));
-    },
-  });
-
   const conditions = chartData?.conditions || [];
   const length = conditions.length;
 
@@ -301,6 +285,10 @@ const AddMedicalConditionField: FC = () => {
     window.open('https://docs.oystehr.com/ottehr/setup/terminology/', '_blank');
   };
 
+  if (isChartDataLoading) {
+    return <Skeleton variant="rectangular" width="100%" height={56} />;
+  }
+
   return (
     <Card
       elevation={0}
@@ -329,6 +317,7 @@ const AddMedicalConditionField: FC = () => {
             fullWidth
             size="small"
             loading={isSearching}
+            loadingText={'Loading...'}
             blurOnSelect
             disabled={isChartDataLoading || isLoading}
             options={icdSearchOptions}

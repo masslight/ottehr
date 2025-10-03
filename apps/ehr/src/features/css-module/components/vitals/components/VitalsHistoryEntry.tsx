@@ -4,6 +4,8 @@ import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import React, { JSX, useState } from 'react';
 import {
+  celsiusToFahrenheit,
+  cmToFeet,
   cmToInches,
   formatDateTimeToLocalTimezone,
   getVisionExtraOptionsFormattedString,
@@ -115,7 +117,7 @@ const getObservationValueElements = (
   // todo: it would be cool if the units came from the Observation resource
   switch (historyEntry.field) {
     case 'vital-temperature':
-      return [`${historyEntry.value} C`];
+      return [`${historyEntry.value} C`, ` = ${celsiusToFahrenheit(historyEntry.value).toFixed(1)} F`];
     case 'vital-oxygen-sat':
       return [`${historyEntry.value}%`];
     case 'vital-heartbeat':
@@ -127,7 +129,11 @@ const getObservationValueElements = (
     case 'vital-weight':
       return [`${historyEntry.value} kg`, ` = ${kgToLbs(historyEntry.value).toFixed(1)} lb`];
     case 'vital-height':
-      return [`${historyEntry.value} cm`, ` = ${cmToInches(historyEntry.value).toFixed(0)} in`];
+      return [
+        `${historyEntry.value} cm`,
+        ` = ${cmToInches(historyEntry.value).toFixed(1)} in`,
+        ` = ${cmToFeet(historyEntry.value).toFixed(1)} ft`,
+      ];
     case 'vital-vision':
       return [
         <>

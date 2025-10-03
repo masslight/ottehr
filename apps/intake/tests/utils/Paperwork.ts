@@ -73,6 +73,7 @@ export const RELATIONSHIP_RESPONSIBLE_PARTY_SELF = 'Self';
 export const PHONE_NUMBER = '1234567890';
 export const EMAIL = 'ibenham+knownothing@masslight.com';
 export const CARD_NUMBER = '4242424242424242';
+export const CARD_NUMBER_OBSCURED = 'XXXX - XXXX - XXXX - 4242';
 export const CARD_CVV = '123';
 export const CARD_EXP_DATE = '11/30';
 
@@ -163,6 +164,7 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     const pcpData = await this.fillPrimaryCarePhysician();
     await this.locator.clickContinueButton();
+    await this.locator.clickContinueButton(); // skip Preferred pharmacy page
     let insuranceData: {
       insuranceRequiredData: InsuranceRequiredData;
       insuranceOptionalData: InsuranceOptionalData;
@@ -250,6 +252,7 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     const pcpData = await this.fillPrimaryCarePhysician();
     await this.locator.clickContinueButton();
+    await this.locator.clickContinueButton(); // skip Preferred pharmacy page
     const medicationData = await this.paperworkTelemed.fillAndCheckFilledCurrentMedications();
     await this.locator.clickContinueButton();
     const allergiesData = await this.paperworkTelemed.fillAndCheckFilledCurrentAllergies();
@@ -281,9 +284,8 @@ export class Paperwork {
     } else {
       await this.selectSelfPayPayment();
       await this.locator.clickContinueButton();
-      // Need to uncomment when https://github.com/masslight/ottehr/issues/2043 is fixed
-      //  await this.fillAndAddCreditCard();
     }
+    await this.fillAndAddCreditCard();
     await this.locator.clickContinueButton();
     let responsiblePartyData: ResponsibleParty | null = null;
     if (responsibleParty === 'self') {
@@ -353,6 +355,7 @@ export class Paperwork {
     await this.fillPatientDetailsTelemedAllFields();
     await this.locator.clickContinueButton();
     await this.skipPrimaryCarePhysician();
+    await this.skipPreferredPharmacy();
     await this.locator.clickContinueButton();
     await this.paperworkTelemed.fillAndCheckEmptyCurrentMedications();
     await this.locator.clickContinueButton();
@@ -365,6 +368,8 @@ export class Paperwork {
     await this.paperworkTelemed.fillAndCheckAdditionalQuestions();
     await this.locator.clickContinueButton();
     await this.selectSelfPayPayment();
+    await this.locator.clickContinueButton();
+    await this.fillAndAddCreditCard();
     await this.locator.clickContinueButton();
     await this.fillResponsiblePartyDataSelf();
     await this.locator.clickContinueButton();
@@ -384,6 +389,7 @@ export class Paperwork {
     await this.fillPatientDetailsRequiredFields();
     await this.locator.clickContinueButton();
     await this.skipPrimaryCarePhysician();
+    await this.skipPreferredPharmacy();
     await this.locator.clickContinueButton();
     await this.selectSelfPayPayment();
     await this.locator.clickContinueButton();
@@ -537,6 +543,9 @@ export class Paperwork {
   async skipPrimaryCarePhysician(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
   }
+  async skipPreferredPharmacy(): Promise<void> {
+    await this.CommonLocatorsHelper.clickContinue();
+  }
   async fillPrimaryCarePhysician(): Promise<{
     firstName: string;
     lastName: string;
@@ -596,6 +605,7 @@ export class Paperwork {
     await this.locator.creditCardCVC.fill(CARD_CVV);
     await this.locator.creditCardExpiry.fill(CARD_EXP_DATE);
     await this.locator.addCardButton.click();
+    await expect(this.page.getByText(CARD_NUMBER_OBSCURED)).toBeVisible();
   }
   async selectInsurancePayment(): Promise<void> {
     await this.locator.insuranceOption.check();

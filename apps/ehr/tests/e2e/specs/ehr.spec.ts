@@ -128,7 +128,7 @@ test('CSS intake assessment page is available', async ({ page }) => {
   await awaitCSSHeaderInit(page);
 });
 
-test.describe('Patient search', () => {
+test.describe('Patient search', { tag: '@flaky' }, () => {
   const patientData = {
     firstName: PATIENT_FIRST_NAME,
     lastName: PATIENT_LAST_NAME,
@@ -187,7 +187,7 @@ test.describe('Patient search', () => {
     });
   });
 
-  test.skip('Search by Address', { tag: '@flaky' }, async ({ page }) => {
+  test.skip('Search by Address', async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);

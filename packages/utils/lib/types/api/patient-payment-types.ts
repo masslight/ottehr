@@ -10,7 +10,7 @@ export interface CardPaymentDTO {
 }
 
 export interface CashPaymentDTO {
-  paymentMethod: 'cash' | 'check';
+  paymentMethod: 'cash' | 'check' | 'card-reader'; // a card reader payment is treated like cash/check because we have no link to the payment beyond what the user submits
   amountInCents: number;
   dateISO: string;
   fhirPaymentNotificationId?: string;
@@ -38,7 +38,7 @@ interface CardPayment {
 }
 
 interface CashPayment {
-  paymentMethod: 'cash' | 'check';
+  paymentMethod: 'cash' | 'check' | 'card-reader'; // a card reader payment is treated like cash/check because we have no link to the payment beyond what the user submits
   amountInCents: number;
   description?: string;
 }

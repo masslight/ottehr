@@ -1,6 +1,6 @@
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router-dom';
-import { useAppointmentData, useChartData } from 'src/telemed';
+import { useAppointmentData, useChartData, useChartFields } from 'src/telemed';
 import { CSSModal } from '../components/CSSModal';
 import { sidebarMenuIcons } from '../components/Sidebar';
 import { ROUTER_PATH, routesCSS } from '../routing/routesCSS';
@@ -64,7 +64,13 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
   const [_disabledNavigationState, _setDisabledNavigationState] = useState<Record<string, boolean>>({});
   const { isAppointmentLoading, visitState } = useAppointmentData();
   const { encounter } = visitState;
-  const { chartData, isChartDataLoading } = useChartData();
+  const { chartData, isLoading } = useChartData();
+
+  const { data: chartFields, isLoading: isFieldsLoading } = useChartFields({
+    requestedFields: { episodeOfCare: {} },
+  });
+
+  const isChartDataLoading = isLoading || isFieldsLoading;
 
   const setInteractionMode = useCallback(
     (mode: InteractionMode, shouldNavigate: boolean): void => {
@@ -250,7 +256,7 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
           return chartData?.surgicalHistory?.length ? 'Surgical History Confirmed' : 'Confirmed No Surgical History';
         case 'hospitalization':
           return `${
-            chartData?.episodeOfCare?.length ? 'Hospitalization Confirmed' : 'Confirmed No Hospitalization'
+            chartFields?.episodeOfCare?.length ? 'Hospitalization Confirmed' : 'Confirmed No Hospitalization'
           } AND Complete Intake`;
         default:
           return isLastPage ? 'Complete' : 'Next';

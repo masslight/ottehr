@@ -211,10 +211,10 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
       (cache.pageId !== pageId || !_.isEqual(cache.items, items) || !_.isEqual(cache.defaultValues, defaultValues))
     ) {
       setCache({ pageId, items, defaultValues });
-      console.log('resetting form with default values');
-      reset({
+      reset((formValues) => ({
+        ...formValues,
         ...(defaultValues ?? {}),
-      });
+      }));
     }
   }, [cache, defaultValues, items, reset, pageId]);
   return (
@@ -257,9 +257,7 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   const { isSubmitting, isLoading, errors } = formState;
 
   const errorMessage = makeFormErrorMessage(items, errors);
-  // console.log('errors', errors);
   const { formValues } = useQRState();
-  // console.log('form values', formValues);
 
   const submitHandler = useCallback(async () => {
     setIsSavingProgress(true);
@@ -400,7 +398,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
         render={(renderProps) => (
           <FormControl
             variant="standard"
-            required={item.isRequired}
+            required={item.dataType !== 'Payment Validation' && item.isRequired}
             error={hasError}
             fullWidth={item.isFullWidth}
             hiddenLabel={true}
@@ -603,7 +601,13 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
           <Button
             variant="outlined"
             type="button"
-            onClick={smartOnChange}
+            onClick={
+              item.type !== 'boolean'
+                ? smartOnChange
+                : () => {
+                    smartOnChange(!unwrappedValue);
+                  }
+            }
             sx={{
               color: colorForButton,
               borderColor: colorForButton,
@@ -643,7 +647,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
                     outline: '1px solid #295F75',
                   },
                 }}
-                onChange={smartOnChange}
+                onChange={() => smartOnChange(!unwrappedValue)}
                 required={item.required}
               />
             }
@@ -708,7 +712,9 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
           return <RenderItems parentItem={item} items={item.item ?? []} fieldId={fieldId} />;
         }
       case 'Credit Card':
-        return <CreditCardVerification value={unwrappedValue} onChange={smartOnChange} />;
+        return (
+          <CreditCardVerification value={unwrappedValue} required={item.required ?? false} onChange={smartOnChange} />
+        );
       default:
         return <></>;
     }

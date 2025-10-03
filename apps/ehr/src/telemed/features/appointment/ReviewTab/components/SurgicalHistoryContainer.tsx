@@ -2,14 +2,23 @@ import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { NoteDTO } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { useChartData } from '../../../../state';
+import { useChartData, useChartFields } from '../../../../state';
 import { AssessmentTitle } from '../../AssessmentTab/components/AssessmentTitle';
 
 export const SurgicalHistoryContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
+  const { data: chartFields } = useChartFields({
+    requestedFields: {
+      surgicalHistoryNote: {
+        _tag: 'surgical-history-note',
+      },
+    },
+  });
+
   const { chartData } = useChartData();
+
   const theme = useTheme();
   const procedures = chartData?.surgicalHistory;
-  const surgicalHistoryNote = chartData?.surgicalHistoryNote?.text;
+  const surgicalHistoryNote = chartFields?.surgicalHistoryNote?.text;
 
   return (
     <Box
