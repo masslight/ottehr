@@ -6,7 +6,7 @@ import { Box, Button, Divider, Stack, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCancelMatchUnsolicitedResultTask } from 'src/shared/hooks/appointment/appointment.queries';
+import { useCancelMatchUnsolicitedResultTask } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { ExternalLabsStatus, LAB_ORDER_UPDATE_RESOURCES_EVENTS } from 'utils';
 
 interface FinalCardViewProps {

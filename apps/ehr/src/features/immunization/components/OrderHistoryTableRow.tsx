@@ -10,9 +10,12 @@ import { OrderStatusChip } from 'src/features/immunization/components/OrderStatu
 import {
   ReasonListCodes,
   reasonListValues,
-} from 'src/features/in-person/components/medication-administration/medicationTypes';
-import { useCancelImmunizationOrder } from 'src/features/in-person/hooks/useImmunization';
-import { getImmunizationOrderEditUrl, getImmunizationVaccineDetailsUrl } from 'src/features/in-person/routing/helpers';
+} from 'src/features/visits/in-person/components/medication-administration/medicationTypes';
+import { useCancelImmunizationOrder } from 'src/features/visits/in-person/hooks/useImmunization';
+import {
+  getImmunizationOrderEditUrl,
+  getImmunizationVaccineDetailsUrl,
+} from 'src/features/visits/in-person/routing/helpers';
 import { ImmunizationOrder, searchRouteByCode } from 'utils';
 
 interface Props {

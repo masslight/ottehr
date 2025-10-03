@@ -1,7 +1,7 @@
 import { Button, Typography } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PageTitleStyled } from 'src/components/PageTitle';
+import { PageTitleStyled } from 'src/features/visits/shared/components/PageTitle';
 import {
   LabOrderDetailedPageDTO,
   PdfAttachmentDTO,
