@@ -2,8 +2,8 @@ import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getSecret, LAB_ORDER_TASK, Secrets, SecretsKeys } from 'utils';
-import { diagnosticReportIsReflex, diagnosticReportIsUnsolicited } from '../../../ehr/shared/labs';
+import { getSecret, LAB_DR_TYPE_TAG, LAB_ORDER_TASK, LabType, Secrets, SecretsKeys } from 'utils';
+import { diagnosticReportSpecificResultType } from '../../../ehr/shared/labs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   createExternalLabResultPDF,
@@ -35,22 +35,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('already have token');
     }
 
-    const isUnsolicited = diagnosticReportIsUnsolicited(diagnosticReport);
+    const specificDrTypeFromTag = diagnosticReportSpecificResultType(diagnosticReport);
+    const isUnsolicited = specificDrTypeFromTag === LAB_DR_TYPE_TAG.code.unsolicited;
     const isUnsolicitedAndMatched = isUnsolicited && !!diagnosticReport.subject?.reference?.startsWith('Patient/');
-
-    const isReflex = diagnosticReportIsReflex(diagnosticReport);
 
     const serviceRequestID = diagnosticReport?.basedOn
       ?.find((temp) => temp.reference?.startsWith('ServiceRequest/'))
       ?.reference?.split('/')[1];
 
-    console.log('isUnsolicited:', isUnsolicited);
+    console.log('specificDrTypeFromTag', specificDrTypeFromTag);
     console.log('isUnsolicitedAndMatched:', isUnsolicitedAndMatched);
-    console.log('isReflex:', isReflex);
     console.log('diagnosticReport: ', diagnosticReport.id);
     console.log('serviceRequestID:', serviceRequestID);
 
-    if (!serviceRequestID && !isUnsolicited && !isReflex) {
+    if (!serviceRequestID && specificDrTypeFromTag === undefined) {
       throw new Error('ServiceRequest id is not found');
     }
 
@@ -124,13 +122,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     if (serviceRequestID) {
       await createExternalLabResultPDF(oystehr, serviceRequestID, diagnosticReport, false, secrets, oystehrToken);
-    } else if (isUnsolicited || isReflex) {
+    } else if (specificDrTypeFromTag !== undefined) {
       // unsolicited result pdfs will be created after matching to a patient
-      if (isUnsolicitedAndMatched || isReflex) {
+      if (isUnsolicitedAndMatched || [LabType.reflex, LabType.pdfAttachment].includes(specificDrTypeFromTag)) {
         if (!diagnosticReport.id) throw Error('unable to parse id from diagnostic report');
-        const type = isUnsolicitedAndMatched ? 'unsolicited' : 'reflex';
-        console.log(`creating pdf for ${type} result`);
-        await createExternalLabResultPDFBasedOnDr(oystehr, type, diagnosticReport.id, false, secrets, oystehrToken);
+        console.log(`creating pdf for ${specificDrTypeFromTag} result`);
+        await createExternalLabResultPDFBasedOnDr(
+          oystehr,
+          specificDrTypeFromTag,
+          diagnosticReport.id,
+          false,
+          secrets,
+          oystehrToken
+        );
       } else {
         console.log(
           'skipping pdf creating for unsolicited result since it is not matched',
