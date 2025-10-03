@@ -3,10 +3,9 @@ import { otherColors } from '@ehrTheme/colors';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import { Box, Button, Card, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import React, { FC, useEffect, useState } from 'react';
-import { ClaimsQueueItemStatus, getPresignedURL } from 'utils';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useClaimStore } from '../../state';
+import { FC, useEffect, useState } from 'react';
+import { useClaimStore } from 'src/rcm/state/claim/claim.store';
+import { ClaimsQueueItemStatus, getPresignedURL, getSelectors } from 'utils';
 import { ClaimStatusChip } from '../claims-queue';
 
 const formatDate = (date: string): string => {

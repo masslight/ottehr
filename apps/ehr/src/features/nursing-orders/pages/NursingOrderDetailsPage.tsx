@@ -2,7 +2,7 @@ import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCi
 import { Box, Button, CircularProgress, Collapse, Divider, IconButton, Paper, Typography } from '@mui/material';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ButtonRounded } from 'src/features/in-person/components/RoundedButton';
+import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { BreadCrumbs } from '../components/BreadCrumbs';
 import { History } from '../components/details/History';
 import { OrderDetails } from '../components/details/OrderDetails';
