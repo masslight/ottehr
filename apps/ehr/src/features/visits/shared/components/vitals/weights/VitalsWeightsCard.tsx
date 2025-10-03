@@ -4,7 +4,7 @@ import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { kgToLbs, lbsToKg, textToWeightNumber, VitalFieldNames, VitalsWeightObservationDTO } from 'utils';
+import { kgToLbs, textToWeightNumber, VitalFieldNames, VitalsWeightObservationDTO } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
@@ -55,13 +55,6 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
     setWeightValueText(weightAsText);
     const weightAsNumber = textToWeightNumber(weightAsText);
     setWeightValueTextLbs(weightAsNumber ? kgToLbs(weightAsNumber).toString() : '');
-  }, []);
-
-  const handleTextInputChangeLbs = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const weightAsText = e.target.value;
-    setWeightValueTextLbs(weightAsText);
-    const weightAsNumber = textToWeightNumber(weightAsText);
-    setWeightValueText(weightAsNumber ? lbsToKg(weightAsNumber).toString() : '');
   }, []);
 
   const renderRightColumn = (): JSX.Element => {
@@ -129,9 +122,9 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                     <VitalsTextInputFiled
                       label="Weight (lbs)"
                       value={weightValueTextLbs}
-                      disabled={isSaving}
+                      disabled={true}
                       isInputError={false}
-                      onChange={handleTextInputChangeLbs}
+                      onChange={() => {}}
                     />
                   </Box>
                 </Grid>
