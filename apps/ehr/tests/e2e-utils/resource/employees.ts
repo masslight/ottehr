@@ -10,10 +10,12 @@ import {
   getMiddleName,
   getPractitionerNPIIdentifier,
   getSuffixFromProviderTypeExtension,
+  isProviderTypeCode,
   makeProviderTypeExtension,
   makeQualificationForPractitioner,
   PractitionerLicense,
   PROVIDER_TYPE_EXTENSION_URL,
+  ProviderTypeCode,
   RoleType,
 } from 'utils';
 
@@ -25,7 +27,7 @@ export interface TestEmployeeInviteParams {
   familyName?: string;
   telecomPhone: string;
   npi: string;
-  providerType: string;
+  providerType: ProviderTypeCode;
   providerTypeText?: string;
   roles: RoleType[];
   qualification: PractitionerLicense[];
@@ -233,12 +235,12 @@ async function parseTestUser(user: UserResponse, oystehr: Oystehr): Promise<Test
 
   const providerTypeExtension = practitioner.extension?.find((e) => e.url === PROVIDER_TYPE_EXTENSION_URL);
 
-  const providerType = providerTypeExtension?.valueCodeableConcept?.coding?.[0]?.code;
+  const providerType = providerTypeExtension?.valueCodeableConcept?.coding?.[0]?.code as ProviderTypeCode;
   const providerTypeText = providerTypeExtension?.valueCodeableConcept?.text;
 
   if (!phone) throw new Error(`No phone for this user: ${user.id}`);
   if (!npi) throw new Error(`No npi for this user: ${user.id}`);
-  if (!providerType) throw new Error(`No providerType for this user: ${user.id}`);
+  if (!providerType || isProviderTypeCode(providerType)) throw new Error(`No providerType for this user: ${user.id}`);
 
   return {
     id: user.id,
