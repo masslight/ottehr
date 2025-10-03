@@ -7,9 +7,10 @@ type Props = {
   name: string;
   label: string;
   required?: boolean;
+  dataTestId?: string;
 };
 
-export const SingleCptCodeInput: React.FC<Props> = ({ name, label, required }) => {
+export const SingleCptCodeInput: React.FC<Props> = ({ name, label, required, dataTestId }) => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const { isFetching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'CPT' });
   const options = ((data as { codes?: CPTCodeDTO[] })?.codes || []).map((cptCodeDto) => {
@@ -33,6 +34,7 @@ export const SingleCptCodeInput: React.FC<Props> = ({ name, label, required }) =
       required={required}
       onInputTextChanged={debouncedHandleInputChange}
       noOptionsText={debouncedSearchTerm.length === 0 ? 'Start typing to load results' : undefined}
+      dataTestId={dataTestId}
     />
   );
 };

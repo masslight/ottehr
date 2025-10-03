@@ -105,10 +105,10 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
           {grayText(order.administrationDetails?.administeredProvider?.name)}
         </span>
       </TableCell>
-      <TableCell>
+      <TableCell data-testid={dataTestIds.immunizationPage.marTableStatusCell}>
         <Stack direction="row" justifyContent="space-between">
           <Stack>
-            <OrderStatusChip data-testid={dataTestIds.immunizationPage.marTableStatusCell} status={order.status} />
+            <OrderStatusChip status={order.status} />
             {reasonListValues[order.reason as ReasonListCodes] ?? order.reason}
           </Stack>
           {showActions && order.status === 'pending' ? (

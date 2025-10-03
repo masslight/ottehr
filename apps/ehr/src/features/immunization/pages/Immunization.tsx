@@ -93,8 +93,8 @@ export const Immunization: React.FC = () => {
             }}
           >
             <Tabs value={tabName === 'mar' ? 0 : 1} onChange={onTabChanged} aria-label="medication tabs">
-              <Tab label="MAR" />
-              <Tab label="Vaccine Details" />
+              <Tab label="MAR" data-testid={dataTestIds.immunizationPage.marTab} />
+              <Tab label="Vaccine Details" data-testid={dataTestIds.immunizationPage.vaccineDetailsTab} />
             </Tabs>
           </Box>
         </AppBar>

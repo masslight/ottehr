@@ -3,6 +3,7 @@ import React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { CSSModal } from 'src/features/css-module/components/CSSModal';
 import {
   ReasonListCodes,
@@ -51,14 +52,14 @@ export const AdministrationConfirmationDialog: React.FC<Props> = ({
       closeButtonText="Cancel"
       ContentComponent={
         <Box display="flex" flexDirection="column" gap={1}>
-          <Typography>
+          <Typography data-testid={dataTestIds.administrationConfirmationDialog.patient}>
             <strong>Patient:</strong> {patientName}
           </Typography>
-          <Typography>
+          <Typography data-testid={dataTestIds.administrationConfirmationDialog.vaccine}>
             <strong>Vaccine:</strong> {medicationName} / {dose}
             {unit} / {route}
           </Typography>
-          <Typography>
+          <Typography data-testid={dataTestIds.administrationConfirmationDialog.message}>
             Please confirm that you want to mark this immunization order as{' '}
             {<strong>{administrationType.label}</strong>}
             {administrationType.type !== 'administered' ? ' and select the reason.' : '.'}

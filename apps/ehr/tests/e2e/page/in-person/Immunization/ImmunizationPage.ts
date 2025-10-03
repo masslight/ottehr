@@ -20,46 +20,48 @@ export class ImmunizationPage {
     status: string;
   }): Promise<void> {
     await expect(
-      this.#page.getByTestId(dataTestIds.immunizationPage.marTableRow).filter({
-        has: this.#page
-          .getByTestId(dataTestIds.immunizationPage.marTableVaccineCell)
-          .filter({ hasText: input.vaccineName }),
-      })
-      /*.filter({
+      this.#page
+        .getByTestId(dataTestIds.immunizationPage.marTableRow)
+        .filter({
+          has: this.#page
+            .getByTestId(dataTestIds.immunizationPage.marTableVaccineCell)
+            .filter({ hasText: input.vaccineName }),
+        })
+        .filter({
           has: this.#page
             .getByTestId(dataTestIds.immunizationPage.marTableDoseRouteCell)
             .filter({ hasText: input.doseRoute }),
-        })*/
-      /*.filter({
+        })
+        .filter({
           has: this.#page
             .getByTestId(dataTestIds.immunizationPage.marTableInstructionsCell)
             .filter({ hasText: input.instructions }),
-        })*/
-      /*.filter({
+        })
+        .filter({
           has: this.#page
             .getByTestId(dataTestIds.immunizationPage.marTableOrderedDateCell)
             .filter({ hasText: input.orderedDate }),
-        })*/
-      /*.filter({
+        })
+        .filter({
           has: this.#page
             .getByTestId(dataTestIds.immunizationPage.marTableOrderedPersonCell)
             .filter({ hasText: input.orderedPerson }),
-        })*/
-      /*.filter({
+        })
+        .filter({
           has: this.#page
             .getByTestId(dataTestIds.immunizationPage.marTableGivenDateCell)
             .filter({ hasText: input.givenDate }),
-        })*/
-      /*.filter({
+        })
+        .filter({
           has: this.#page
             .getByTestId(dataTestIds.immunizationPage.marTableGivenPersonCell)
             .filter({ hasText: input.givenPerson }),
-        })*/
-      /*.filter({
+        })
+        .filter({
           has: this.#page
             .getByTestId(dataTestIds.immunizationPage.marTableStatusCell)
             .filter({ hasText: input.status }),
-        })*/
+        })
     ).toBeVisible();
   }
 
@@ -72,6 +74,14 @@ export class ImmunizationPage {
       .getByTestId(dataTestIds.immunizationPage.pencilIconButton)
       .click();
     return expectEditVaccineOrderPage(this.#page);
+  }
+
+  async clickVaccineDetailsTab(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.immunizationPage.vaccineDetailsTab).click();
+  }
+
+  async clickMarTab(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.immunizationPage.marTab).click();
   }
 }
 
