@@ -157,6 +157,60 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   // adding initial page when initializing pdfClient
   addNewPage(initialStyles.initialPage);
 
+  /**
+   * Designed to be called after all content has been written. Goes through each page of the document and writes a page number in the
+   * bottom margin. If margin is 0 or smaller than the text height, we can't write page numbers; it is a no-op in this case.
+   */
+  const numberPages = (textStyle: TextStyle): void => {
+    console.log('Numbering pages');
+    const bottomMargin = pageStyles.pageMargins.bottom;
+    if (!bottomMargin) {
+      console.warn('Unable to number pages, no bottom margin is set or no space is available.');
+      return;
+    }
+
+    const midMargin = bottomMargin / 2;
+    const textHeight = getTextDimensions('Page 1 of 2', textStyle).height;
+    if (textHeight >= midMargin) {
+      console.warn('Unable to number pages, text height exceeds half of margin available space.');
+      return;
+    }
+
+    const { font, fontSize, color, side } = textStyle;
+
+    const totalPages = pages.length;
+    // set current page back to index 0
+    // for each page, go through each one, write the page number, and then continue
+    for (let i = 0; i < totalPages; i++) {
+      currXPos = pageLeftBound;
+      // set y to middle of the margin
+      currYPos = midMargin;
+
+      currentPageIndex = i;
+      setPageByIndex(currentPageIndex);
+      const text = `Page ${i + 1} of ${totalPages}`;
+      const { width: lineWidth } = getTextDimensions(text, textStyle);
+      console.log(
+        `currXPos is ${currXPos}. currYPos is ${currYPos}. currentPageIndex is ${currentPageIndex}. Writing text '${text}'`
+      );
+
+      if (side === 'right') currXPos = pageLeftBound + pageTextWidth() - lineWidth;
+      else if (side === 'center') currXPos = pageLeftBound + (pageTextWidth() - lineWidth) / 2;
+
+      page.drawText(text, {
+        font: font,
+        size: fontSize,
+        x: currXPos,
+        y: currYPos,
+        color,
+      });
+      console.log(
+        `After draw text. currXPos is ${currXPos}. currYPos is ${currYPos}. currentPageIndex is ${currentPageIndex}. Wrote text '${text}'`
+      );
+    }
+    return;
+  };
+
   const drawText = (text: string, textStyle: TextStyle): void => {
     const { font, fontSize, color, side, spacing } = textStyle;
     currXPos = pageLeftBound;
@@ -650,6 +704,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     setPageByIndex,
     getTotalPages,
     drawLink,
+    numberPages,
   };
 }
 
@@ -780,6 +835,13 @@ export async function getTextStylesForLabsPDF(pdfClient: PdfClient): Promise<Lab
       spacing: 6,
       font: fontBold,
       color: LAB_PDF_STYLES.color.grey,
+    },
+    pageNumber: {
+      fontSize: 10,
+      spacing: 6,
+      font: fontRegular,
+      color: LAB_PDF_STYLES.color.grey,
+      side: 'right',
     },
   };
   return textStyles;

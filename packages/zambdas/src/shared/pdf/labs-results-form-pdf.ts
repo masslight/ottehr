@@ -938,6 +938,7 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
     }
   }
 
+  pdfClient.numberPages(textStyles.pageNumber);
   return await pdfClient.save();
 }
 
@@ -1056,6 +1057,8 @@ async function createExternalLabsResultsFormPdfBytes(
     }
   }
 
+  pdfClient.numberPages(textStyles.pageNumber);
+
   return await pdfClient.save();
 }
 
@@ -1140,6 +1143,8 @@ async function createInHouseLabsResultsFormPdfBytes(
     );
     pdfClient.newLine(24);
   }
+
+  pdfClient.numberPages(textStyles.pageNumber);
 
   return await pdfClient.save();
 }

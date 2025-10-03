@@ -97,6 +97,7 @@ export interface PdfClient {
   setPageByIndex: (pageIndex: number) => void;
   getTotalPages: () => number;
   drawLink: (text: string, url: string, textStyle: TextStyle) => void;
+  numberPages: (textStyle: TextStyle) => void;
 }
 
 export interface PdfExaminationBlockData {
