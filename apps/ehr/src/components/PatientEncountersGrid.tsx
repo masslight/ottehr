@@ -15,7 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
-import { getAppointmentStatusChip as getTelemedAppointmentStatusChip } from 'src/features/telemed/utils';
+import { getAppointmentStatusChip } from 'src/features/visits/telemed/utils/getAppointmentStatusChip';
 import { VisitTypeToLabel, VisitTypeToLabelTelemed } from 'src/types/types';
 import {
   EmployeeDetails,
@@ -78,7 +78,7 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
           return;
         }
         const status = mapStatusToTelemed(encounter.status, appointment.status);
-        return getTelemedAppointmentStatusChip(status);
+        return getAppointmentStatusChip(status);
       } else {
         if (!encounter) return;
         const encounterStatus = getVisitStatus(appointment, encounter);

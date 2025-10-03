@@ -1,10 +1,9 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { LoadingButton } from '@mui/lab';
 import { Box, DialogProps, DialogTitle, IconButton, Typography } from '@mui/material';
-import { FC, ReactNode } from 'react';
-import { InnerStateDialog } from 'src/components/InnerStateDialog';
+import { FC, PropsWithChildren, ReactNode } from 'react';
+import { InnerStateDialog } from 'src/features/visits/shared/components/InnerStateDialog';
 import { RoundedButton } from '../../../../../components/RoundedButton';
-import { PropsWithChildren } from '../../../../../shared/types';
 
 type EditModalProps = PropsWithChildren<{
   onSave: (hideDialog: () => void) => void;

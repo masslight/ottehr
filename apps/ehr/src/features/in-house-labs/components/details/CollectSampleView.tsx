@@ -20,9 +20,9 @@ import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useAppointmentData } from 'src/shared/hooks/appointment/appointment.store';
-import { useGetAppointmentAccessibility } from 'src/shared/hooks/appointment/useGetAppointmentAccessibility';
 import {
   getFormattedDiagnoses,
   InHouseOrderDetailPageItemDTO,
