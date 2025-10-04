@@ -1,8 +1,8 @@
-import React, { FC, useMemo } from 'react';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useClaimStore } from '../../state';
+import { FC, useMemo } from 'react';
+import { useClaimStore } from 'src/rcm/state/claim/claim.store';
+import { getSelectors } from 'utils/lib/store';
 import { ClaimListCard } from './ClaimListCard';
-import { SLBProviderModal } from './modals';
+import { SLBProviderModal } from './modals/SLBProviderModal';
 
 export const SLBProviderCard: FC = () => {
   const { organizations, facilities, claimData, coverageData } = getSelectors(useClaimStore, [
