@@ -255,6 +255,11 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           items: itemItems,
           guarantorResource: accountInfo?.guarantorResource,
         });
+      } else if (EMERGENCY_CONTACT_ITEMS.includes(item.linkId)) {
+        return mapEmergencyContactToQuestionnaireResponseItems({
+          items: itemItems,
+          emergencyContactResource: accountInfo?.emergencyContactResource,
+        });
       } else if (COVERAGE_ITEMS.includes(item.linkId)) {
         return mapCoveragesToQuestionnaireResponseItems({
           items: itemItems,
