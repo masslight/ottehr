@@ -18,6 +18,7 @@ import {
   getAllergiesStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
+  getEmergencyContactStepAnswers,
   getInviteParticipantStepAnswers,
   getMedicalConditionsStepAnswers,
   getMedicationsStepAnswers,
@@ -333,6 +334,7 @@ const processPaperwork = async (
           getPreferredPharmacyStepAnswers(),
           getPaymentOptionSelfPayAnswers(),
           getResponsiblePartyStepAnswers({}),
+          getEmergencyContactStepAnswers({}),
           getConsentStepAnswers({}),
         ];
 

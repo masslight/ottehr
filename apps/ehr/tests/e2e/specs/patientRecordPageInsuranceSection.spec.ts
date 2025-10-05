@@ -5,6 +5,7 @@ import {
   chooseJson,
   getConsentStepAnswers,
   getContactInformationAnswers,
+  getEmergencyContactStepAnswers,
   getPatientDetailsStepAnswers,
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
@@ -462,6 +463,7 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
         insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
       }),
       getResponsiblePartyStepAnswers({}),
+      getEmergencyContactStepAnswers({}),
       getConsentStepAnswers({}),
       getPrimaryCarePhysicianStepAnswers({}),
     ];
