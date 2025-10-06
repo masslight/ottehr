@@ -396,6 +396,10 @@
           {
             "url": "patient-info-confirmed",
             "valueBoolean": true
+          },
+          {
+            "url": "https://fhir.ottehr.com/Extension/payment-variant",
+            "valueString": "selfPay"
           }
         ],
         "hospitalization": {
