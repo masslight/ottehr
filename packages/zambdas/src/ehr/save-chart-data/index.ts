@@ -22,7 +22,7 @@ import {
   createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
-  generateIcdCodesFromClinicalNotes,
+  generateIcdTenCodesFromNotes,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
@@ -270,29 +270,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     // 9.1 Generate AI ICD codes when HPI or MDM is updated
-    const hpiText = chiefComplaint?.text?.trim();
-    const mdmText = medicalDecision?.text?.trim();
-    
+    const hpiText = chiefComplaint?.text;
+    const mdmText = medicalDecision?.text;
+
     // If either HPI or MDM is being updated and has meaningful content, generate AI suggestions
-    if ((chiefComplaint || medicalDecision) && ((hpiText && hpiText.length > 0) || (mdmText && mdmText.length > 0))) {
+    if (hpiText || mdmText) {
       try {
-        console.log('Generating AI ICD codes from clinical notes...');
-        const potentialDiagnoses = await generateIcdCodesFromClinicalNotes(
-          hpiText,
-          mdmText,
-          secrets
-        );
+        console.log('Generating ICD-10 codes from clinical notes');
+        const potentialDiagnoses = await generateIcdTenCodesFromNotes(hpiText, mdmText, secrets);
 
         if (potentialDiagnoses.length > 0) {
-          console.log(`Generated ${potentialDiagnoses.length} potential AI diagnoses`);
-          
-          // Add new AI potential diagnoses
           potentialDiagnoses.forEach((diagnosis) => {
             saveOrUpdateRequests.push(
               saveOrUpdateResourceRequest(
                 makeDiagnosisConditionResource(
                   encounterId,
-                  patient.id,
+                  patient.id!,
                   {
                     code: diagnosis.icd10,
                     display: diagnosis.diagnosis,
@@ -304,10 +297,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             );
           });
         }
-        // Note: If AI generates no suggestions, we don't clear existing ones
       } catch (error) {
-        console.error('Error generating AI ICD codes:', error);
-        // Continue processing even if AI generation fails
+        console.log('Error generating ICD-10 codes', error);
       }
     }
 

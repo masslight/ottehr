@@ -1,6 +1,6 @@
 import { enqueueSnackbar } from 'notistack';
 import { useRef } from 'react';
-import { useDeleteChartData, useSaveChartData } from 'src/shared/hooks/appointment/appointment.store';
+import { useChartData, useDeleteChartData, useSaveChartData } from 'src/shared/hooks/appointment/appointment.store';
 import { useChartFields } from 'src/shared/hooks/appointment/useChartFields';
 import { AllChartValues, GetChartDataResponse } from 'utils';
 
@@ -41,6 +41,7 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   isChartDataLoading: boolean;
   hasPendingApiRequests: boolean; // we can use it later to prevent navigation if there are pending api requests
 } => {
+  const { refetch } = useChartData();
   const {
     isLoading: isChartDataLoading,
     data: chartFields,
@@ -109,6 +110,13 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
             // skip ui update if value was changed, we need to set only actual value
             if (latestValueFromUserRef.current === valueToSave?.[nameToTypeEnum[name]]) {
               setQueryCache({ [name]: valueToSave });
+            }
+
+            if (name === 'chiefComplaint' || name === 'medicalDecision') {
+              // refetch chart data to update chief complaint and medical decision in the exam tab
+              refetch()
+                .then(() => console.log('Successfully refetched'))
+                .catch(() => console.log('Error refetching'));
             }
 
             hasPendingApiRequestsRef.current = false;
