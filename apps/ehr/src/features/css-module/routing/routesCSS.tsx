@@ -56,7 +56,7 @@ export enum ROUTER_PATH {
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
   EXTERNAL_LAB_ORDER_CREATE = `external-lab-orders/create`,
   EXTERNAL_LAB_ORDER_DETAILS = `external-lab-orders/:serviceRequestID/order-details`,
-  EXTERNAL_LAB_ORDER_REFLEX_DETAILS = `external-lab-orders/reflex/:diagnosticReportId/order-details`,
+  EXTERNAL_LAB_ORDER_REFLEX_DETAILS = `external-lab-orders/dr/:diagnosticReportId/order-details`,
 
   RADIOLOGY_ORDER = 'radiology',
   RADIOLOGY_ORDER_CREATE = `radiology/create`,
