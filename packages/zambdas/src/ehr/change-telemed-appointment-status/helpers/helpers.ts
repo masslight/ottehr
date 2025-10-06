@@ -323,8 +323,8 @@ export async function makeReceiptPdfDocumentReference(
     ],
     listResources,
   });
-  const documentReference = docRefs[0];
-  if (documentReference.id) {
+  const documentReference = docRefs.find((docRef) => docRef.status === 'current');
+  if (documentReference?.id) {
     try {
       await oystehr.fhir.patch({
         resourceType: 'DocumentReference',
@@ -343,5 +343,5 @@ export async function makeReceiptPdfDocumentReference(
       throw new Error(errorMsg);
     }
   }
-  return docRefs[0];
+  return documentReference!;
 }
