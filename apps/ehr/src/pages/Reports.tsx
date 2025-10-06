@@ -101,6 +101,12 @@ export default function Reports(): React.ReactElement {
       icon: <AssessmentIcon />,
       path: '/reports/visits-overview',
     },
+    {
+      title: 'Workflow Efficiency',
+      description: 'Analyze visit metrics, time-to-provider statistics, and appointment status workflows',
+      icon: <AssessmentIcon />,
+      path: '/reports/workflow-efficiency',
+    },
   ];
 
   const handleTileClick = (path: string): void => {
