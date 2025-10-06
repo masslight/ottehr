@@ -1,9 +1,10 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Task as FhirTask } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { getCoding, TASK_INPUT_SYSTEM } from 'utils';
+import { getCoding, TASK_INPUT_SYSTEM, TASK_TYPE_SYSTEM } from 'utils';
 
 const GET_TASKS_KEY = 'get-tasks';
+const GO_TO_LAB_TEST = 'Go to Lab Test';
 
 export interface Task {
   id: string;
@@ -119,27 +120,54 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
 };
 
 function fhirTaskToTask(task: FhirTask): Task {
+  const category = task.groupIdentifier?.value ?? '';
+  const type = getCoding(task.code, TASK_TYPE_SYSTEM)?.code ?? '';
+  const appointmentId = getInput('appointmentId', task);
+  const orderId = getInput('orderId', task);
+  let action: any = undefined;
+  if (category === 'external-labs') {
+    if (type === 'collect-sample' || type === 'review-results') {
+      action = {
+        name: GO_TO_LAB_TEST,
+        link: `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`,
+      };
+    }
+    if (type === 'match-unsolicited') {
+      action = {
+        name: 'Match',
+        link: `/unsolicited-results/${getInput('diagnosticReportId', task)}/match`,
+      };
+    }
+    if (type === 'review-unsolicited') {
+      action = {
+        name: GO_TO_LAB_TEST,
+        link: `/in-person/${appointmentId}/external-lab-orders`,
+      };
+    }
+  }
+  if (category === 'in-house-labs') {
+    action = {
+      name: GO_TO_LAB_TEST,
+      link: `/in-person/${appointmentId}/in-house-lab-orders/${orderId}/order-details`,
+    };
+  }
   return {
     id: task.id ?? '',
-    category: task.groupIdentifier?.value ?? '',
+    category: category,
     createdDate: task.authoredOn ?? '',
-    title: task.input?.find((input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === 'title')?.valueString ?? '',
-    subtitle:
-      task.input?.find((input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === 'subtitle')?.valueString ?? '',
+    title: getInput('title', task) ?? '',
+    subtitle: getInput('subtitle', task) ?? '',
     status: task.status,
-    action: {
-      name:
-        task.input?.find((input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === 'action-name')?.valueString ??
-        '',
-      link:
-        task.input?.find((input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === 'action-link')?.valueString ??
-        '',
-    },
+    action: action,
     assignee: {
       id: task.owner?.id ?? '',
       name: task.owner?.display ?? '',
       date: task.lastModified ?? '',
     },
-    alert: task.input?.find((input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === 'alert')?.valueString ?? '',
+    alert: getInput('alert', task) ?? '',
   };
+}
+
+function getInput(code: string, task: FhirTask): string | undefined {
+  return task.input?.find((input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === code)?.valueString;
 }

@@ -17,6 +17,7 @@ import {
   Typography,
 } from '@mui/material';
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
@@ -41,6 +42,7 @@ export const TaskRow: React.FC<Props> = ({
   showUnassignMeItem,
   showAssignSomeoneElseItem,
 }) => {
+  const navigate = useNavigate();
   const [moreActionsPopoverAnchor, setMoreActionsPopoverAnchor] = React.useState<HTMLButtonElement | null>(null);
 
   const closeMoreActionsPopover = (): void => {
@@ -93,7 +95,7 @@ export const TaskRow: React.FC<Props> = ({
           </GenericToolTip>
         ) : null}
         {showActionButton && task.action ? (
-          <RoundedButton variant="contained" onClick={() => console.log(task.action?.link)}>
+          <RoundedButton variant="contained" onClick={() => navigate(task.action?.link ?? '#')}>
             {task.action.name}
           </RoundedButton>
         ) : null}
