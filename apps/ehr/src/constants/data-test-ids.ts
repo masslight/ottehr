@@ -355,6 +355,7 @@ export const dataTestIds = {
     emCodeLink: 'em-code-link',
     visitNoteCard: 'visit-note-card',
     procedureItem: 'procedure-item',
+    vaccineItem: 'vaccine-item',
     labsTitle: (labType: string) => `title-${labType.toLowerCase().replace(/\s+/g, '-')}`,
   },
   assessmentCard: {

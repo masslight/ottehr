@@ -41,6 +41,13 @@ export abstract class BaseProgressNotePage {
     }
   }
 
+  async verifyVaccine(vaccineInfo: string, vaccineDate: string): Promise<void> {
+    const matcher = expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.vaccineItem).filter({ hasText: vaccineInfo })
+    );
+    await matcher.toContainText(vaccineDate);
+  }
+
   async verifyInHouseLabs(sectionTitle: string, testName: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toBeVisible();
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toContainText(testName);

@@ -5,7 +5,10 @@ import { expectAdministrationConfirmationDialogue } from 'tests/e2e/page/in-pers
 import { openCreateVaccineOrderPage } from 'tests/e2e/page/in-person/Immunization/EditVaccineOrderPage';
 import { openImmunizationPage } from 'tests/e2e/page/in-person/Immunization/ImmunizationPage';
 import { expectVaccineDetailsPage } from 'tests/e2e/page/in-person/Immunization/VaccineDetailsPage';
-import { InPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
+import {
+  InPersonProgressNotePage,
+  openInPersonProgressNotePage,
+} from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 
 const DTAP = 'No drugId vaccine'; //'Dtap (Diptheria, Tetanus, Pertussis)';
@@ -158,6 +161,12 @@ test.describe('Immunization Page mutating tests', () => {
       instructions: TEST_VACCINE_INSTRUCTIONS,
       status: ADMINISTERED,
     });
+
+    const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+    await progressNotePage.verifyVaccine(
+      DTAP + ' - ' + DOSE_0_5 + ' ' + MG + ' / ' + BODY_CAVITY_ROUTE + ' - ' + EAR_LEFT,
+      ADMINISTERED_DATE + ' ' + ADMINISTERED_TIME
+    );
   });
 });
 
