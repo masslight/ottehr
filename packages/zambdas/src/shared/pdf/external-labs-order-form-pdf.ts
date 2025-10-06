@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Coverage, FhirResource, HumanName, RelatedPerson } from 'fhir/r4b';
+import { Address, Coverage, FhirResource, HumanName, Patient, RelatedPerson } from 'fhir/r4b';
 import { min } from 'lodash';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI, getFullestAvailableName, ORDER_ITEM_UNKNOWN, Secrets } from 'utils';
@@ -356,7 +356,7 @@ export function getOrderFormDataConfig(
     dateIncludedInFileName: testDetails[0].serviceRequestCreatedDate,
     orderPriority: testDetails[0].testPriority || ORDER_ITEM_UNKNOWN, // used for file name
     billClass,
-    insuranceDetails: getInsuranceDetails(coveragesAndOrgs, oystehr),
+    insuranceDetails: getInsuranceDetails(coveragesAndOrgs, patient, oystehr),
     testDetails,
     isManualOrder,
     isPscOrder,
@@ -367,6 +367,7 @@ export function getOrderFormDataConfig(
 
 function getInsuranceDetails(
   coveragesAndOrgs: CoverageAndOrgForOrderForm[] | undefined,
+  patient: Patient,
   oystehr: Oystehr
 ): OrderFormInsuranceInfo[] | undefined {
   if (!coveragesAndOrgs || !coveragesAndOrgs.length) return undefined;
@@ -374,7 +375,7 @@ function getInsuranceDetails(
   const insuranceInfo: OrderFormInsuranceInfo[] = [];
   coveragesAndOrgs.forEach((covAndOrg) => {
     const { coverage, insuranceOrganization, coverageRank } = covAndOrg;
-    const { insuredName, insuredAddress } = getInsuredInfoFromCoverageSubscriber(coverage);
+    const { insuredName, insuredAddress } = getInsuredInfoFromCoverageSubscriber(coverage, patient);
     insuranceInfo.push({
       insuranceName: insuranceOrganization?.name,
       insuranceAddress: insuranceOrganization?.address
@@ -391,12 +392,27 @@ function getInsuranceDetails(
   return insuranceInfo;
 }
 
-function getInsuredInfoFromCoverageSubscriber(coverage: Coverage): {
+function getInsuredInfoFromCoverageSubscriber(
+  coverage: Coverage,
+  patient: Patient
+): {
   insuredName: HumanName[] | undefined;
   insuredAddress: Address[] | undefined;
 } {
   const subscriberRef = coverage.subscriber?.reference;
   console.log(`subscriberRef for Coverage/${coverage.id} is: ${subscriberRef}`);
+
+  if (subscriberRef === `Patient/${patient.id}`) {
+    console.log(`Coverage reference matched Patient/${patient.id}. Setting insuredName and address to patient info`);
+    return {
+      insuredName: patient.name,
+      insuredAddress: patient.address,
+    };
+  }
+
+  console.log(
+    `Coverage reference did not match Patient/${patient.id}. Checking for contained RelatedPerson subscriber`
+  );
 
   const emptyResponse = { insuredName: undefined, insuredAddress: undefined };
   // for the moment always assume we're going to get the subscriber as a contained resource
