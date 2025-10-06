@@ -14,7 +14,7 @@ import {
   SecretsKeys,
   VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
-import { makeDiagnosisConditionResource, makeObservationResource } from './chart-data/index';
+import { makeObservationResource } from './chart-data/index';
 import { assertDefined } from './helpers';
 import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.helpers';
 
@@ -93,7 +93,8 @@ export async function createResourcesFromAiInterview(
   let fields =
     'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history and potential diagnoses';
   // if there is a provider user profile, it is a recording
-  if (providerUserProfile) {
+  const source = providerUserProfile ? 'audio-recording' : 'chat';
+  if (source === 'audio-recording') {
     fields = 'labs, erx, procedures, ' + fields;
   }
   const aiResponseString = (
@@ -122,7 +123,6 @@ export async function createResourcesFromAiInterview(
     )
   );
   requests.push(...createObservations(aiResponse, documentReferenceCreateUrl, encounterId, patientId));
-  requests.push(...createDiagnosis(aiResponse, encounterId, patientId));
   console.log('Transaction requests: ' + JSON.stringify(requests, null, 2));
   const transactionBundle = await oystehr.fhir.transaction({
     requests: requests,
@@ -232,23 +232,6 @@ function createObservations(
       ];
     }
     return [];
-  });
-}
-
-function createDiagnosis(aiResponse: any, encounterId: string, patientId: string): BatchInputPostRequest<Condition>[] {
-  return aiResponse.potentialDiagnoses?.map((diagnosis: { diagnosis: any; icd10: string }) => {
-    return saveResourceRequest(
-      makeDiagnosisConditionResource(
-        encounterId,
-        patientId,
-        {
-          code: diagnosis.icd10,
-          display: diagnosis.diagnosis,
-          isPrimary: false,
-        },
-        'ai-potential-diagnosis'
-      )
-    );
   });
 }
 

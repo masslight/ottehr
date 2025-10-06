@@ -1,7 +1,16 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { CodeableConcept, DocumentReference, Encounter, FhirResource, List, Patient, Practitioner } from 'fhir/r4b';
+import {
+  CodeableConcept,
+  Condition,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  List,
+  Patient,
+  Practitioner,
+} from 'fhir/r4b';
 import {
   addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -12,6 +21,7 @@ import {
   getPatchBinary,
   OTTEHR_MODULE,
   PATIENT_VITALS_META_SYSTEM,
+  PRIVATE_EXTENSION_BASE_URL,
   SCHOOL_WORK_NOTE,
   Secrets,
   userMe,
@@ -22,7 +32,6 @@ import {
   createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
-  generateIcdTenCodesFromNotes,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
@@ -46,6 +55,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { generateIcdTenCodesFromNotes } from '../../shared/ai';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import {
@@ -278,25 +288,34 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       try {
         console.log('Generating ICD-10 codes from clinical notes');
         const potentialDiagnoses = await generateIcdTenCodesFromNotes(hpiText, mdmText, secrets);
+        const existingAiDiagnoses: Condition[] = allResources.filter(
+          (resource) =>
+            resource.resourceType === 'Condition' &&
+            resource.meta?.tag?.find((tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/ai-potential-diagnosis`)
+              ?.code === 'ai-potential-diagnosis'
+        ) as Condition[];
 
-        if (potentialDiagnoses.length > 0) {
-          potentialDiagnoses.forEach((diagnosis) => {
-            saveOrUpdateRequests.push(
-              saveOrUpdateResourceRequest(
-                makeDiagnosisConditionResource(
-                  encounterId,
-                  patient.id!,
-                  {
-                    code: diagnosis.icd10,
-                    display: diagnosis.diagnosis,
-                    isPrimary: false,
-                  },
-                  'ai-potential-diagnosis'
-                )
+        potentialDiagnoses.forEach((diagnosis) => {
+          // Try to not create duplicate suggestions
+          if (existingAiDiagnoses.some((temp) => temp.code?.coding?.[0]?.code === diagnosis.icd10)) {
+            return;
+          }
+          saveOrUpdateRequests.push(
+            saveOrUpdateResourceRequest(
+              makeDiagnosisConditionResource(
+                encounterId,
+                patient.id!,
+                {
+                  code: diagnosis.icd10,
+                  display: diagnosis.diagnosis,
+                  isPrimary: false,
+                },
+                'ai-potential-diagnosis',
+                'hpi-mdm'
               )
-            );
-          });
-        }
+            )
+          );
+        });
       } catch (error) {
         console.log('Error generating ICD-10 codes', error);
       }
