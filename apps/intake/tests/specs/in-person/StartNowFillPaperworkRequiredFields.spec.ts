@@ -76,15 +76,20 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
   test('SNPRF-5 Fill responsible party details', async () => {
     await paperwork.fillResponsiblePartyDataSelf();
     await commonLocatorsHelper.clickContinue();
+    await expect(locator.flowHeading).toHaveText('Emergency Contact');
+  });
+  test('SNPRF-6 Fill emergency contact details', async () => {
+    await paperwork.fillEmergencyContactInformation();
+    await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Photo ID');
   });
-  test('SNPRF-6 Skip photo ID and complete consent forms', async () => {
+  test('SNPRF-7 Skip photo ID and complete consent forms', async () => {
     await paperwork.skipPhotoID();
     await paperwork.fillConsentForms();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Review and submit');
   });
-  test('SNPRF-7 Submit paperwork', async () => {
+  test('SNPRF-8 Submit paperwork', async () => {
     await commonLocatorsHelper.clickContinue();
     await expect(locator.checkInHeading).toBeVisible();
   });
