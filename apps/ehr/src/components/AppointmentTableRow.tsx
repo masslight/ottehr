@@ -46,6 +46,7 @@ import {
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
+import { InfoIconsToolTip } from '../features/visits/shared/components/InfoIconsToolTip';
 import { checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder, isEligibleSupervisor } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
@@ -58,7 +59,6 @@ import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
 import { GenericToolTip } from './GenericToolTip';
 import GoToButton from './GoToButton';
-import { InfoIconsToolTip } from './InfoIconsToolTip';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ReasonsForVisit from './ReasonForVisit';

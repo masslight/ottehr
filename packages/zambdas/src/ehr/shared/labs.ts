@@ -41,6 +41,7 @@ import {
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
+  LabDrTypeTagCode,
   LabelPdf,
   LabOrderPDF,
   LabOrderResultDetails,
@@ -747,16 +748,26 @@ export const documentReferenceIsLabs = (docRef: DocumentReference): boolean => {
   );
 };
 
+// todo labs we should be able to get rid of this
 export const diagnosticReportIsReflex = (dr: DiagnosticReport): boolean => {
   return !!dr?.meta?.tag?.find(
     (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
   );
 };
 
-export const diagnosticReportIsUnsolicited = (dr: DiagnosticReport): boolean => {
-  return !!dr?.meta?.tag?.find(
-    (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.unsolicited
-  );
+export const isLabDrTypeTagCode = (code: any): code is LabDrTypeTagCode => {
+  return Object.values(LAB_DR_TYPE_TAG.code).includes(code);
+};
+
+/**
+ * Returns diagnostic report result-type tag if any exists and validates the code is one of the known LabDrTypeTagCode values.
+ *
+ * @param dr - The diagnostic report to extract the tag code from.
+ * @returns The validated tag ('unsolicited', 'reflex', 'pdfAttachment') or undefined.
+ */
+export const diagnosticReportSpecificResultType = (dr: DiagnosticReport): LabDrTypeTagCode | undefined => {
+  const code = dr?.meta?.tag?.find((t) => t.system === LAB_DR_TYPE_TAG.system)?.code;
+  return isLabDrTypeTagCode(code) ? code : undefined;
 };
 
 export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
@@ -1065,8 +1076,8 @@ const getResultDetailsBasedOnDr = async (
 
   const resultPdfUrl = documentReference ? await getResultPDFUrlBasedOnDr(documentReference, token) : '';
 
-  const isReflex = diagnosticReportIsReflex(diagnosticReport);
-  const testType = isReflex ? 'reflex' : 'unsolicited';
+  const testType = diagnosticReportSpecificResultType(diagnosticReport);
+  if (!testType) throw new Error(`no result-type tag on the DiagnosticReport ${diagnosticReport.id}`);
 
   const resultDetail: LabOrderResultDetails = {
     testItem: getTestNameOrCodeFromDr(diagnosticReport),

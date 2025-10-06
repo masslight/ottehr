@@ -15,7 +15,7 @@ import {
 import { Patient, Task } from 'fhir/r4b';
 import { FC, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { InnerStateDialog } from 'src/components/InnerStateDialog';
+import { InnerStateDialog } from 'src/features/visits/shared/components/InnerStateDialog';
 import { RoundedButton } from '../RoundedButton';
 import { useGetPatientForUpdate } from './queries';
 

@@ -2,9 +2,9 @@ import { Box, CircularProgress, Divider, Paper, Stack, TextField, Typography } f
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createNursingOrder } from 'src/api/api';
-import { ButtonRounded } from 'src/features/in-person/components/RoundedButton';
+import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useAppointmentData } from 'src/shared/hooks/appointment/appointment.store';
 import { CreateNursingOrderInput } from 'utils';
 import { BreadCrumbs } from '../components/BreadCrumbs';
 

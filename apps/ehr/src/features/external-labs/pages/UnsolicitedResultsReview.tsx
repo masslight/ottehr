@@ -5,8 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { updateLabOrderResources } from 'src/api/api';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { useGetUnsolicitedResultsDetail } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useGetUnsolicitedResultsDetail } from 'src/shared/hooks/appointment/appointment.queries';
 import { TaskReviewedParameters, UnsolicitedResultsRequestType } from 'utils';
 import { DetailsWithResults } from '../components/details/DetailsWithResults';
 

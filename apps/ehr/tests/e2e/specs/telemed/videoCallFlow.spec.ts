@@ -52,7 +52,7 @@ test('Appointment status should be "on-video" during the call', async () => {
 });
 
 test('Should end video call and check status "unsigned"', async () => {
-  await page.getByTestId(dataTestIds.telemedEhrFlow.endVideoCallButton).click();
+  await page.getByTestId(dataTestIds.telemedEhrFlow.finishVisitButton).click();
   await telemedDialogConfirm(page);
   const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
   await expect(statusChip).toBeVisible();
