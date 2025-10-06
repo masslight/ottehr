@@ -1,11 +1,11 @@
 import { Box, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getNursingOrderCreateUrl } from 'src/features/css-module/routing/helpers';
-import { useGetAppointmentAccessibility } from 'src/telemed';
-import { PageTitle } from '../../../telemed/components/PageTitle';
-import { useAppointmentData } from '../../../telemed/state/appointment/appointment.store';
-import { ButtonRounded } from '../../css-module/components/RoundedButton';
+import { getNursingOrderCreateUrl } from 'src/features/visits/in-person/routing/helpers';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { ButtonRounded } from '../../visits/in-person/components/RoundedButton';
+import { PageTitle } from '../../visits/shared/components/PageTitle';
 import { NursingOrdersTable, NursingOrdersTableColumn } from '../components/orders/NursingOrdersTable';
 
 const nursingOrdersColumns: NursingOrdersTableColumn[] = ['order', 'orderAdded', 'status'];

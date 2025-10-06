@@ -1,7 +1,7 @@
 import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
-import React, { FC } from 'react';
+import { FC } from 'react';
+import { claimStatusOptions } from 'src/rcm/utils/claims-queue-columns.helper';
 import { ClaimsQueueGetRequest } from 'utils';
-import { claimStatusOptions } from '../../../utils';
 
 type StatusFilterProps = {
   value: ClaimsQueueGetRequest['status'];

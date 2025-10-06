@@ -6,13 +6,16 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs';
+import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
 import {
   ReasonListCodes,
   reasonListValues,
-} from 'src/features/css-module/components/medication-administration/medicationTypes';
-import { useCancelImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
-import { getImmunizationOrderEditUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
-import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
+} from 'src/features/visits/in-person/components/medication-administration/medicationTypes';
+import { useCancelImmunizationOrder } from 'src/features/visits/in-person/hooks/useImmunization';
+import {
+  getImmunizationOrderEditUrl,
+  getImmunizationVaccineDetailsUrl,
+} from 'src/features/visits/in-person/routing/helpers';
 import { ImmunizationOrder, searchRouteByCode } from 'utils';
 
 interface Props {
