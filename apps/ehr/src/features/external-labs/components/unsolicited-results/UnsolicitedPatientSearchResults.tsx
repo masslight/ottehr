@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
-import { SEARCH_CONFIG } from 'src/components/PatientsSearch/constants';
+import { SEARCH_CONFIG } from 'src/features/visits/shared/components/patients-search/constants';
 import {
   PartialSearchOptionsState,
   SearchOptionsState,
@@ -22,7 +22,7 @@ import {
   SearchResultParsedPatient,
   SortField,
   SortOrder,
-} from 'src/components/PatientsSearch/types';
+} from 'src/features/visits/shared/components/patients-search/types';
 
 interface UnsolicitedPatientSearchResultsProps {
   search: (params?: PartialSearchOptionsState) => void;

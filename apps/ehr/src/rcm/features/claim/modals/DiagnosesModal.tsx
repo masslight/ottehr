@@ -2,11 +2,12 @@ import AddIcon from '@mui/icons-material/Add';
 import { Box, Divider, Typography } from '@mui/material';
 import { FC, Fragment } from 'react';
 import { FormProvider, useFieldArray, useForm } from 'react-hook-form';
+import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { useEditClaimInformationMutation } from 'src/rcm/state';
+import { ClaimState, useClaimStore } from 'src/rcm/state/claim/claim.store';
+import { DIAGNOSES_SEQUENCE_LETTER, DiagnosesFormValues, mapDiagnosesToClaimResource } from 'src/rcm/utils';
+import { getSelectors } from 'utils/lib/store';
 import { RoundedButton } from '../../../../components/RoundedButton';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { DeleteIconButton } from '../../../../telemed';
-import { ClaimState, useClaimStore, useEditClaimInformationMutation } from '../../../state';
-import { DIAGNOSES_SEQUENCE_LETTER, DiagnosesFormValues, mapDiagnosesToClaimResource } from '../../../utils';
 import { DiagnosisController, EditModal, TextFieldController } from './components';
 
 const getDefaultValues = (claimData: ClaimState['claimData']): DiagnosesFormValues => ({
@@ -22,6 +23,7 @@ export const DiagnosesModal: FC = () => {
   const methods = useForm<DiagnosesFormValues>({
     defaultValues: getDefaultValues(claimData),
   });
+
   const { control, handleSubmit, reset } = methods;
 
   const { fields, append, remove } = useFieldArray({

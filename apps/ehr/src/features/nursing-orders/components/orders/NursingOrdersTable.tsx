@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getNursingOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
+import { getNursingOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
 import { NursingOrdersSearchBy } from 'utils';
 import { NursingOrdersTableRow } from './NursingOrdersTableRow';
 import { useGetNursingOrders } from './useNursingOrders';

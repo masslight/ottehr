@@ -44,11 +44,7 @@ import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
 } from '../../shared/pdf/labs-results-form-pdf';
-import {
-  diagnosticReportIsReflex,
-  diagnosticReportIsUnsolicited,
-  getExternalLabOrderResourcesViaServiceRequest,
-} from '../shared/labs';
+import { diagnosticReportSpecificResultType, getExternalLabOrderResourcesViaServiceRequest } from '../shared/labs';
 import {
   getSpecimenPatchAndMostRecentCollectionDate,
   handleMatchUnsolicitedRequest,
@@ -243,14 +239,14 @@ const handleReviewedEvent = async ({
   const diagnosticReport = resources.find(
     (r: any) => r.resourceType === 'DiagnosticReport' && r.id === diagnosticReportId
   ) as DiagnosticReport;
-  const isUnsolicited = diagnosticReportIsUnsolicited(diagnosticReport);
-  console.log('handleReviewedEvent isUnsolicited', isUnsolicited);
-  const isReflex = diagnosticReportIsReflex(diagnosticReport);
-  console.log('handleReviewedEvent isReflex', isReflex);
+  const specificDrTypeFromTag = diagnosticReportSpecificResultType(diagnosticReport);
+  const resultIsDrDriven = !!specificDrTypeFromTag;
+  console.log('handleReviewedEvent specificDrTypeFromTag', specificDrTypeFromTag);
+  console.log('resultIsDrDriven', resultIsDrDriven);
 
   const task = resources.find((r: any) => r.resourceType === 'Task' && r.id === taskId) as Task;
 
-  if (!serviceRequest && !isUnsolicited && !isReflex) {
+  if (!serviceRequest && !resultIsDrDriven) {
     throw new Error(`ServiceRequest/${serviceRequestId} not found for diagnostic report, ${diagnosticReportId}`);
   }
 
@@ -345,10 +341,16 @@ const handleReviewedEvent = async ({
     requests,
   });
 
-  if (isUnsolicited || isReflex) {
+  if (specificDrTypeFromTag) {
     console.log('creating pdf for unsolicited result:', diagnosticReportId);
-    const type = isUnsolicited ? 'unsolicited' : 'reflex';
-    await createExternalLabResultPDFBasedOnDr(oystehr, type, diagnosticReportId, true, secrets, m2mToken);
+    await createExternalLabResultPDFBasedOnDr(
+      oystehr,
+      specificDrTypeFromTag,
+      diagnosticReportId,
+      true,
+      secrets,
+      m2mToken
+    );
   } else if (serviceRequestId) {
     console.log('creating pdf for solicited result:', diagnosticReportId);
     await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mToken);

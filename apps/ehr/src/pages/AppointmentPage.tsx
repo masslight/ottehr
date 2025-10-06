@@ -81,7 +81,8 @@ import PatientPaymentList from '../components/PatientPaymentsList';
 import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
-import { ChangeStatusDropdown } from '../features/css-module/components/ChangeStatusDropdown';
+import { ChangeStatusDropdown } from '../features/visits/in-person/components/ChangeStatusDropdown';
+import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {
   ActivityLogData,
@@ -100,7 +101,6 @@ import { formatDateUsingSlashes, getTimezone } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
-import { PencilIconButton } from '../telemed';
 import { appointmentTypeLabels, DocumentInfo, DocumentType } from '../types/types';
 
 interface Documents {
@@ -1470,7 +1470,16 @@ export default function AppointmentPage(): ReactElement {
               <Grid item xs={12} sm={6} paddingLeft={{ xs: 0, sm: 2 }}>
                 {/* credit cards and copay */}
                 {appointmentID && patient && (
-                  <PatientPaymentList patient={patient} loading={loading} encounterId={encounter.id ?? ''} />
+                  <PatientPaymentList
+                    patient={patient}
+                    loading={loading}
+                    encounterId={encounter.id ?? ''}
+                    patientSelectSelfPay={selfPay}
+                    responsibleParty={{
+                      fullName: fullNameResponsiblePartyString,
+                      email: getAnswerStringFor('responsible-party-email', flattenedItems),
+                    }}
+                  />
                 )}
                 {/* Insurance information */}
                 {!selfPay && (

@@ -5,6 +5,18 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
+import { ActionBar } from 'src/features/visits/shared/components/patient/ActionBar';
+import { AddInsuranceModal } from 'src/features/visits/shared/components/patient/AddInsuranceModal';
+import { BreadCrumbs } from 'src/features/visits/shared/components/patient/BreadCrumbs';
+import { ContactContainer } from 'src/features/visits/shared/components/patient/ContactContainer';
+import { Header } from 'src/features/visits/shared/components/patient/Header';
+import { InsuranceSection } from 'src/features/visits/shared/components/patient/InsuranceSection';
+import { PatientDetailsContainer } from 'src/features/visits/shared/components/patient/PatientDetailsContainer';
+import { PrimaryCareContainer } from 'src/features/visits/shared/components/patient/PrimaryCareContainer';
+import { ResponsibleInformationContainer } from 'src/features/visits/shared/components/patient/ResponsibleInformationContainer';
+import { WarningBanner } from 'src/features/visits/shared/components/patient/WarningBanner';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import {
   CoverageWithPriority,
   extractFirstValueFromAnswer,
@@ -17,19 +29,6 @@ import {
 } from 'utils';
 import { CustomDialog } from '../components/dialogs';
 import { LoadingScreen } from '../components/LoadingScreen';
-import {
-  AboutPatientContainer,
-  ActionBar,
-  BreadCrumbs,
-  ContactContainer,
-  Header,
-  InsuranceSection,
-  PatientDetailsContainer,
-  PrimaryCareContainer,
-  ResponsibleInformationContainer,
-  WarningBanner,
-} from '../components/patient';
-import { AddInsuranceModal } from '../components/patient/AddInsuranceModal';
 import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
 import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import {
@@ -42,7 +41,6 @@ import {
   useUpdatePatientAccount,
 } from '../hooks/useGetPatient';
 import { createInsurancePlanDto, usePatientStore } from '../state/patient.store';
-import { useOystehrAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 
 const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2'];
 const ANSWER_TYPES: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = [

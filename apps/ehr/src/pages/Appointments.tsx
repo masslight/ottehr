@@ -13,7 +13,8 @@ import { usePatientLabOrders } from 'src/features/external-labs/components/labs-
 import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
-import { useGetMedicationOrders } from 'src/telemed';
+import { useGetMedicationOrders } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   ExtendedMedicationDataForResponse,
   GetRadiologyOrderListZambdaOrder,
@@ -34,7 +35,6 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { adjustTopForBannerHeight } from '../helpers/misc.helper';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { useDebounce } from '../telemed/hooks';
 import { VisitType, VisitTypeToLabel } from '../types/types';
 import { LocationWithWalkinSchedule } from './AddPatient';
 

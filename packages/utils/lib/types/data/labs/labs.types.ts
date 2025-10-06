@@ -8,7 +8,7 @@ import {
   QuestionnaireResponseItem,
   Reference,
 } from 'fhir/r4b';
-import { DiagnosisDTO, Pagination } from '../..';
+import { DiagnosisDTO, LAB_DR_TYPE_TAG, Pagination } from '../..';
 
 export interface OrderableItemSearchResult {
   item: OrderableItem;
@@ -93,7 +93,7 @@ export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceived
 
 export type LabOrderResultDetails = {
   testItem: string;
-  testType: 'reflex' | 'ordered' | 'unsolicited';
+  testType: 'ordered' | LabDrTypeTagCode;
   resultType: 'final' | 'preliminary' | 'cancelled';
   labStatus: ExternalLabsStatus;
   diagnosticReportId: string;
@@ -171,13 +171,21 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
   | 'location'
 >;
 
-export type ReflexLabDTO = DiagnosticReportLabDetailPageDTO & {
-  isReflex: true;
+export type DiagnosticReportDrivenResultDTO = DiagnosticReportLabDetailPageDTO & {
   orderNumber: string;
   encounterId: string;
   appointmentId: string;
 };
 
+export type ReflexLabDTO = DiagnosticReportDrivenResultDTO & {
+  drCentricResultType: 'reflex';
+};
+
+export type PdfAttachmentDTO = DiagnosticReportDrivenResultDTO & {
+  drCentricResultType: 'pdfAttachment';
+};
+
+// todo labs can probably leverage drCentricResultType here as well
 export type UnsolicitedLabDTO = DiagnosticReportLabDetailPageDTO & {
   isUnsolicited: true;
   patientId: string;
@@ -193,13 +201,13 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
   data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
   patientLabItems?: PatientLabItem[];
-  reflexResults: ReflexLabDTO[];
+  drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[];
 };
 
 type orderBundleDTO = {
   bundleName: string;
   abnPdfUrl: string | undefined;
-  orders: (LabOrderListPageDTO | ReflexLabDTO)[];
+  orders: (LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO)[];
 };
 export type LabOrderListPageDTOGrouped = {
   pendingActionOrResults: Record<string, orderBundleDTO>;
@@ -228,9 +236,15 @@ export type LabOrdersPaginationOptions = {
 export enum LabType {
   external = 'external',
   inHouse = 'in-house',
+  // do not change the following values as they are linked to LAB_DR_TYPE_TAG which is defined in oystehr
   unsolicited = 'unsolicited', // external but has less fhir resources available since it did not originate from ottehr
   reflex = 'reflex', // external but has less fhir resources available since it did not originate from ottehr
+  pdfAttachment = 'pdfAttachment', // external but has less fhir resources available since it did not originate from ottehr
 }
+/**
+ * 'unsolicited', 'reflex', 'pdfAttachment'
+ */
+export type LabDrTypeTagCode = (typeof LAB_DR_TYPE_TAG.code)[keyof typeof LAB_DR_TYPE_TAG.code];
 
 export type GetLabOrdersParameters = LabOrdersSearchBy & LabOrdersSearchFilters & LabOrdersPaginationOptions;
 
