@@ -108,16 +108,16 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administrationDetails.mvx" label="MVX code" required />
+                <TextInput name="administrationDetails.mvx" label="MVX code" validate={requiredForAdministration} />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administrationDetails.cvx" label="CVX code" required />
+                <TextInput name="administrationDetails.cvx" label="CVX code" validate={requiredForAdministration} />
               </Grid>
               <Grid xs={3} item>
                 <SingleCptCodeInput name="administrationDetails.cpt" label="CPT code" />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administrationDetails.ndc" label="NDC code" required />
+                <TextInput name="administrationDetails.ndc" label="NDC code" validate={requiredForAdministration} />
               </Grid>
               <Grid xs={3} item>
                 <DateInput
