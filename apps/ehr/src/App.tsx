@@ -39,7 +39,13 @@ import PatientInformationPage from './pages/PatientInformationPage';
 import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
 import Reports from './pages/Reports';
-import { DailyPayments, IncompleteEncounters, VisitsOverview, WorkflowEfficiency } from './pages/reports/index';
+import {
+  DailyPayments,
+  DataExports,
+  IncompleteEncounters,
+  VisitsOverview,
+  WorkflowEfficiency,
+} from './pages/reports/index';
 import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
 import TaskAdmin from './pages/TaskAdmin';
@@ -174,6 +180,7 @@ function App(): ReactElement {
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
                   <Route path="/reports/daily-payments" element={<DailyPayments />} />
+                  <Route path="/reports/data-exports" element={<DataExports />} />
                   <Route path="/reports/workflow-efficiency" element={<WorkflowEfficiency />} />
                   <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 </>
