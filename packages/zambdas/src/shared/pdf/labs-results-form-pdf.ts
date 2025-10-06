@@ -18,7 +18,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Color } from 'pdf-lib';
+import { Color, PDFImage } from 'pdf-lib';
 import {
   BUCKET_NAMES,
   compareDates,
@@ -62,18 +62,16 @@ import {
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import { ICON_STYLE, STANDARD_FONT_SIZE, STANDARD_NEW_LINE } from './pdf-consts';
 import {
-  calculateAge,
   drawFieldLine,
   drawFieldLineRight,
   drawFourColumnText,
   getPdfClientForLabsPDFs,
   LAB_PDF_STYLES,
   LabsPDFTextStyleConfig,
-  PdfInfo,
-  SEPARATED_LINE_STYLE,
-} from './pdf-utils';
+} from './lab-pdf-utils';
+import { ICON_STYLE, STANDARD_FONT_SIZE, STANDARD_NEW_LINE } from './pdf-consts';
+import { calculateAge, PdfInfo, SEPARATED_LINE_STYLE } from './pdf-utils';
 import {
   ExternalLabResult,
   ExternalLabResultAttachments,
@@ -82,6 +80,7 @@ import {
   InHouseLabResultConfig,
   InHouseLabResultsData,
   LabResultsData,
+  PageStyles,
   PdfClient,
   ReflexExternalLabResultsData,
   ResultDataConfig,
@@ -733,10 +732,32 @@ async function getResultsDetailsForPDF(
 async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Promise<Uint8Array> {
   const { type, data } = dataConfig;
 
-  const { pdfClient, callIcon, faxIcon, textStyles } = await getPdfClientForLabsPDFs();
+  let pdfBytes: Uint8Array | undefined;
+  if (type === LabType.unsolicited || type === LabType.reflex || type === LabType.external) {
+    console.log('Getting pdf bytes for general external lab results');
+    pdfBytes = await setUpAndDrawAllExternalLabResultTypesFormPdfBytes(dataConfig);
+  } else if (type === LabType.inHouse) {
+    console.log('Getting pdf bytes for in house lab results');
+    pdfBytes = await createInHouseLabsResultsFormPdfBytes(data);
+  }
+  if (!pdfBytes) throw new Error('pdfBytes could not be drawn');
+  return pdfBytes;
+}
 
-  // draw header which is same for external and in house at the moment
-  // drawFieldLine('Patient Name:', 'test');
+async function drawCommonLabsElements(
+  pdfClient: PdfClient,
+  textStyles: LabsPDFTextStyleConfig,
+  icons: { faxIcon: PDFImage; callIcon: PDFImage },
+  data:
+    | ExternalLabResultsData
+    | InHouseLabResultsData
+    | UnsolicitedExternalLabResultsData
+    | ReflexExternalLabResultsData
+): Promise<PdfClient> {
+  console.log('Drawing common elements');
+
+  const { faxIcon, callIcon } = icons;
+
   console.log(
     `Drawing patient name. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
@@ -829,20 +850,125 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
-  // draw the rest of the pdf which is specific to the type of lab request
-  let pdfBytes: Uint8Array | undefined;
+  return pdfClient;
+}
+
+async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
+  dataConfig: ResultDataConfig
+): Promise<Uint8Array | undefined> {
+  console.log('Setting up common external lab elements');
+  const { data, type } = dataConfig;
+
+  // make typescript happy and make sure the data isn't for inHouse
+  if (type === LabType.inHouse) {
+    console.error('Tried to make general external labs results but received in house lab data');
+    return undefined;
+  }
+
+  const clientInfo = await getPdfClientForLabsPDFs();
+  const { callIcon, faxIcon, textStyles, initialPageStyles } = await getPdfClientForLabsPDFs();
+  let pdfClient = clientInfo.pdfClient;
+
+  const drawRowHelper = (data: { col1: string; col2: string; col3: string }): void => {
+    const wideColumn = 190;
+    const columnConstants: { [key: string]: { startXPos: number; width: number } } = {
+      column1: { startXPos: pdfClient.getLeftBound(), width: wideColumn },
+      column2: { startXPos: pdfClient.getLeftBound() + wideColumn, width: wideColumn },
+      column3: { startXPos: pdfClient.getLeftBound() + 2 * wideColumn, width: 135 },
+    };
+
+    pdfClient.drawVariableWidthColumns(
+      [
+        {
+          startXPos: columnConstants.column1.startXPos,
+          width: columnConstants.column1.width,
+          content: data.col1,
+          textStyle: textStyles.pageHeaderGrey,
+        },
+        {
+          startXPos: columnConstants.column2.startXPos,
+          width: columnConstants.column2.width,
+          content: data.col2,
+          textStyle: textStyles.pageHeaderGrey,
+        },
+        {
+          startXPos: columnConstants.column3.startXPos,
+          width: columnConstants.column3.width,
+          content: data.col3,
+          textStyle: textStyles.pageHeaderGrey,
+        },
+      ],
+      pdfClient.getY(),
+      pdfClient.getCurrentPageIndex()
+    );
+
+    pdfClient.newLine(STANDARD_NEW_LINE - 4);
+  };
+
+  // This is header of each page
+  const drawLabsHeader = (): void => {
+    console.log(
+      `Drawing external labs header on page ${pdfClient.getCurrentPageIndex() + 1}. currYPos is ${pdfClient.getY()}`
+    );
+
+    drawRowHelper({
+      col1: `Patient Name: ${data.patientLastName}, ${data.patientFirstName}${
+        data.patientMiddleName ? `, ${data.patientMiddleName}` : ''
+      }`,
+      col2: `Req #: ${type !== LabType.unsolicited ? data.orderNumber : 'N/A'}`,
+      col3: '',
+    });
+
+    drawRowHelper({
+      col1: `DOB: ${data.patientDOB}`,
+      col2: `Accession #: ${data.accessionNumber}`,
+      col3: '',
+    });
+
+    drawRowHelper({
+      col1: `Age: ${calculateAge(data.patientDOB)} Y`, // TODO LABS: what if this is an infant, is Y appropriate. I think the labs label has a better helper for this
+      col2: `Coll. on: ${type === LabType.external ? data.collectionDate : ''}`,
+      col3: '',
+    });
+
+    drawRowHelper({
+      col1: `Sex: ${data.patientSex}`,
+      col2: `Ordering Phys.: ${data.providerName}`,
+      col3: `Result Status: ${data.resultStatus}`,
+    });
+
+    drawRowHelper({
+      col1: `Patient ID: ${data.patientId}`,
+      col2: `NPI: ${data.providerNPI}`,
+      col3: `Reported on: ${data.resultsReceivedDate}`,
+    });
+
+    pdfClient.drawSeparatedLine({ ...SEPARATED_LINE_STYLE, thickness: 2, color: LAB_PDF_STYLES.color.purple });
+  };
+
+  // We can't set this headline in initial styles, so we draw it and add
+  // it as a header for all subsequent pages to set automatically
+  drawLabsHeader();
+  const pageStylesWithHeadline: PageStyles = {
+    ...initialPageStyles.initialPage,
+    setHeadline: drawLabsHeader,
+  };
+  pdfClient.setPageStyles(pageStylesWithHeadline);
+
+  // Now we can actually start putting content down
+  pdfClient = await drawCommonLabsElements(pdfClient, textStyles, { callIcon, faxIcon }, data);
+
   if (type === LabType.external) {
     console.log('Getting pdf bytes for external lab results');
-    pdfBytes = await createExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
+    return await createExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
   } else if (type === LabType.unsolicited || type === LabType.reflex || type === LabType.pdfAttachment) {
-    console.log('Getting pdf bytes for unsolicited external lab results');
-    pdfBytes = await createDiagnosticReportExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
-  } else if (type === LabType.inHouse) {
-    console.log('Getting pdf bytes for in house lab results');
-    pdfBytes = await createInHouseLabsResultsFormPdfBytes(pdfClient, textStyles, data);
+    console.log('Getting pdf bytes for unsolicited/reflex/attachment external lab results');
+    return await createDiagnosticReportExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
+  } else {
+    // this is an issue
+    console.error('Received unknown external lab data type. Unable to setUpAndDraw remaining content');
+    return undefined;
   }
-  if (!pdfBytes) throw new Error('pdfBytes could not be drawn');
-  return pdfBytes;
 }
 
 async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
@@ -859,7 +985,7 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
     pdfClient = drawFieldLine(pdfClient, textStyles, 'Client ID:', data.accountNumber);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession ID:', data.accessionNumber);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession #:', data.accessionNumber);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   // will only have for reflex
@@ -956,22 +1082,6 @@ async function createExternalLabsResultsFormPdfBytes(
     pdfClient = drawFieldLine(pdfClient, textStyles, 'Client ID:', data.accountNumber);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession ID:', data.accessionNumber);
-  pdfClient.newLine(STANDARD_NEW_LINE);
-
-  console.log(
-    `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Req #:', data.orderNumber);
-  pdfClient.newLine(STANDARD_NEW_LINE);
-
-  console.log(
-    `Drawing requesting physician. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting Physician:', data.providerName);
-  pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'NPI:', data.providerNPI ?? '');
-  pdfClient.newLine(STANDARD_NEW_LINE);
 
   console.log(
     `Drawing order pri. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
@@ -1062,11 +1172,13 @@ async function createExternalLabsResultsFormPdfBytes(
   return await pdfClient.save();
 }
 
-async function createInHouseLabsResultsFormPdfBytes(
-  pdfClient: PdfClient,
-  textStyles: LabsPDFTextStyleConfig,
-  data: InHouseLabResultsData
-): Promise<Uint8Array> {
+async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData): Promise<Uint8Array> {
+  const clientInfo = await getPdfClientForLabsPDFs();
+  const { callIcon, faxIcon, textStyles } = await getPdfClientForLabsPDFs();
+  let pdfClient = clientInfo.pdfClient;
+
+  pdfClient = await drawCommonLabsElements(pdfClient, textStyles, { callIcon, faxIcon }, data);
+
   // Order details
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Number:', data.serviceRequestID);
   pdfClient.newLine(STANDARD_FONT_SIZE + 4);
