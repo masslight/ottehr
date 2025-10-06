@@ -330,11 +330,11 @@ export const DEMO_VISIT_PROVIDER_LAST_NAME = 'Provider last name';
 export const DEMO_VISIT_PRACTICE_NAME = 'Practice name';
 export const DEMO_VISIT_PHYSICIAN_ADDRESS = '441 4th Street, NW';
 export const DEMO_VISIT_PHYSICIAN_MOBILE = '(202) 456-7890';
-export const DEMO_VISIT_EMERGENCY_CONTACT_RELATIONSHIP = 'Parent';
-export const DEMO_VISIT_EMERGENCY_CONTACT_FIRST_NAME = 'John';
-export const DEMO_VISIT_EMERGENCY_CONTACT_MIDDLE_NAME = 'Paul';
-export const DEMO_VISIT_EMERGENCY_CONTACT_LAST_NAME = 'Doe';
-export const DEMO_VISIT_EMERGENCY_CONTACT_PHONE = '(240) 333-3333';
+export const DEMO_VISIT_EMERGENCY_CONTACT_RELATIONSHIP = 'Spouse';
+export const DEMO_VISIT_EMERGENCY_CONTACT_FIRST_NAME = 'Emergen';
+export const DEMO_VISIT_EMERGENCY_CONTACT_MIDDLE_NAME = 'C';
+export const DEMO_VISIT_EMERGENCY_CONTACT_LAST_NAME = 'Contact';
+export const DEMO_VISIT_EMERGENCY_CONTACT_PHONE = '(123) 123-1234';
 
 export function getContactInformationAnswers({
   willBe18 = false,

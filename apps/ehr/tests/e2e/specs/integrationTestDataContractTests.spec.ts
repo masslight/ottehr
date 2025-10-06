@@ -94,9 +94,20 @@ const relatedPersonTests = (e2eResources: Resource[], integrationResources: Reso
 
   expect(e2eRPs.length).toEqual(integrationRPs.length);
 
-  const e2eRP = cleanRelatedPerson(e2eRPs[0]);
-  const integrationRP = cleanRelatedPerson(integrationRPs[0]);
-  checkKeysAndValuesBothWays(e2eRP, integrationRP, 'RelatedPerson');
+  const e2eCleaned = e2eRPs.map((rp) => cleanRelatedPerson(rp));
+  const integrationCleaned = integrationRPs.map((rp) => cleanRelatedPerson(rp));
+
+  e2eCleaned.forEach((e2eRP) => {
+    const integrationRP = integrationCleaned.find(
+      (rp) => rp.relationship?.[0].coding?.[0].code === e2eRP.relationship?.[0].coding?.[0].code
+    );
+    if (!integrationRP) {
+      throw new Error(
+        `Could not find matching RelatedPerson for relationship code ${e2eRP.relationship?.[0].coding?.[0].code}`
+      );
+    }
+    checkKeysAndValuesBothWays(e2eRP, integrationRP, `${e2eRP.relationship} RelatedPerson`);
+  });
 };
 
 const personTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
