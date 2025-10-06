@@ -288,6 +288,21 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       leftBound is ${leftBound}\n
       rightBound is ${rightBound}\n`);
 
+    // if the text contains \n, we need to recursively handle each of those ourselves, otherwise
+    // pdf-lib will try to do it for us, but with unpredictable line break spacing
+    if (text.includes('\n')) {
+      console.log('Found return character in text. recursively drawing each line');
+      const lines = text.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        console.log(`Drawing split line: '${lines[i]}'`);
+        drawTextSequential(lines[i], textStyle, bounds);
+        if (i < lines.length - 1) {
+          newLine(lineHeight + spacing + 2);
+        }
+      }
+      return;
+    }
+
     // Add a new page if there's no space on the current page
     if (currYPos - lineHeight < (pageStyles.pageMargins.bottom ?? 0)) {
       addNewPage(pageStyles, pageLeftBound, pageRightBound);
@@ -370,7 +385,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       });
 
       // Move to the next line and reset x position
-      newLine(lineHeight);
+      newLine(lineHeight + spacing);
 
       // Recursively call the function with the remaining text
       console.log('recursively calling drawTextSequential');

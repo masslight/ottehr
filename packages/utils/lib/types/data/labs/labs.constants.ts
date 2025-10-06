@@ -235,3 +235,12 @@ export const PERFORMING_PHYSICIAN_EXTENSION_URLS = {
 
 export const OYSTEHR_LABS_TRANSMISSION_ACCOUNT_NUMBER_IDENTIFIER_SYSTEM =
   'https://identifiers.fhir.oystehr.com/lab-transmission-account-number';
+
+export const OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL = 'https://extensions.fhir.oystehr.com/pv1-note';
+export const OYSTEHR_LABS_CLINICAL_INFO_EXT_URL = 'https://extensions.fhir.oystehr.com/lab-result-clinical-info';
+export const OYSTEHR_LABS_FASTING_STATUS_EXT_URL = 'https://extensions.fhir.oystehr.com/lab-result-fasting-status';
+
+export const OYSTEHR_LABS_RESULT_SPECIMEN_COLLECTION_VOLUME_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-collection-volume';
+export const OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-specimen-source';

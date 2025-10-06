@@ -229,3 +229,5 @@ export const drawFourColumnText = (
   );
   return pdfClient;
 };
+
+export const LABS_PDF_LEFT_INDENTATION_XPOS = 50;

@@ -42,6 +42,11 @@ import {
   ObsContentType,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
+  OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
+  OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL,
+  OYSTEHR_LABS_RESULT_SPECIMEN_COLLECTION_VOLUME_SYSTEM,
+  OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM,
   OYSTEHR_LABS_TRANSMISSION_ACCOUNT_NUMBER_IDENTIFIER_SYSTEM,
   OYSTEHR_OBR_NOTE_CODING_SYSTEM,
   OYSTEHR_OBS_CONTENT_TYPES,
@@ -68,6 +73,7 @@ import {
   drawFourColumnText,
   getPdfClientForLabsPDFs,
   LAB_PDF_STYLES,
+  LABS_PDF_LEFT_INDENTATION_XPOS,
   LabsPDFTextStyleConfig,
 } from './lab-pdf-utils';
 import { ICON_STYLE, STANDARD_FONT_SIZE, STANDARD_NEW_LINE } from './pdf-consts';
@@ -84,6 +90,7 @@ import {
   PdfClient,
   ReflexExternalLabResultsData,
   ResultDataConfig,
+  ResultSpecimenInfo,
   TextStyle,
   UnsolicitedExternalLabResultsData,
 } from './types';
@@ -176,6 +183,13 @@ const getResultDataConfigForDrResources = (
     resultStatus: diagnosticReport.status.toUpperCase(),
     isPscOrder: false,
     accountNumber: getAccountNumberFromDr(diagnosticReport) || '',
+    resultSpecimenInfo: getResultSpecimenFromDr(diagnosticReport),
+    patientVisitNote: diagnosticReport.extension?.find((ext) => ext.url === OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL)
+      ?.valueString,
+    clinicalInfo: diagnosticReport.extension?.find((ext) => ext.url === OYSTEHR_LABS_CLINICAL_INFO_EXT_URL)
+      ?.valueString,
+    fastingStatus: diagnosticReport.extension?.find((ext) => ext.url === OYSTEHR_LABS_FASTING_STATUS_EXT_URL)
+      ?.valueString,
   };
 
   const unsolicitedResultData: Omit<UnsolicitedExternalLabResultsData, keyof LabResultsData> = {
@@ -254,6 +268,13 @@ const getResultDataConfig = (
     resultStatus: diagnosticReport.status.toUpperCase(),
     isPscOrder: isPSCOrder(serviceRequest),
     accountNumber: getAccountNumberFromDr(diagnosticReport) || '',
+    resultSpecimenInfo: getResultSpecimenFromDr(diagnosticReport),
+    patientVisitNote: diagnosticReport.extension?.find((ext) => ext.url === OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL)
+      ?.valueString,
+    clinicalInfo: diagnosticReport.extension?.find((ext) => ext.url === OYSTEHR_LABS_CLINICAL_INFO_EXT_URL)
+      ?.valueString,
+    fastingStatus: diagnosticReport.extension?.find((ext) => ext.url === OYSTEHR_LABS_FASTING_STATUS_EXT_URL)
+      ?.valueString,
   };
 
   if (type === LabType.inHouse) {
@@ -287,6 +308,7 @@ const getResultDataConfig = (
     if (!orderNumber) {
       throw Error(`requisition number could not be parsed from the service request ${serviceRequest.id}`);
     }
+
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
       orderNumber,
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
@@ -853,6 +875,90 @@ async function drawCommonLabsElements(
   return pdfClient;
 }
 
+async function drawCommonExternalLabElements(
+  pdfClient: PdfClient,
+  textStyles: LabsPDFTextStyleConfig,
+  data: ExternalLabResultsData | ReflexExternalLabResultsData | UnsolicitedExternalLabResultsData
+): Promise<PdfClient> {
+  console.log('Drawing common external lab elements');
+
+  pdfClient.drawText(`GENERAL COMMENTS AND INFORMATION`, textStyles.textBold);
+  pdfClient.newLine(STANDARD_NEW_LINE);
+  let sectionHasContent = false;
+
+  if (data.clinicalInfo) {
+    console.log('Drawing Clinical info');
+    sectionHasContent = true;
+
+    pdfClient.drawText('Clinical Info:', textStyles.textBold);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+
+    // adding a little bit of a left indent for clinical info which could be multiple lines
+    pdfClient.drawTextSequential(data.clinicalInfo, textStyles.text, {
+      leftBound: 50,
+      rightBound: pdfClient.getRightBound(),
+    });
+    pdfClient.newLine(STANDARD_NEW_LINE);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  if (data.fastingStatus) {
+    console.log('Drawing fasting status');
+    sectionHasContent = true;
+    pdfClient = drawFieldLine(pdfClient, textStyles, 'Fasting Status: ', data.fastingStatus);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  if (data.resultSpecimenInfo) {
+    console.log('Drawing result specimen info');
+    sectionHasContent = true;
+
+    if (data.resultSpecimenInfo.quantityString) {
+      pdfClient = drawFieldLine(
+        pdfClient,
+        textStyles,
+        'Sample quantity:',
+        `${data.resultSpecimenInfo.quantityString}${
+          data.resultSpecimenInfo.unit ? ` ${data.resultSpecimenInfo.unit}` : ''
+        }`
+      );
+      pdfClient.newLine(STANDARD_NEW_LINE);
+    }
+
+    if (data.resultSpecimenInfo.bodySite) {
+      pdfClient = drawFieldLine(pdfClient, textStyles, 'Sample Source:', data.resultSpecimenInfo.bodySite);
+      pdfClient.newLine(STANDARD_NEW_LINE);
+    }
+  }
+
+  if (data.fastingStatus || data.resultSpecimenInfo) {
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  if (data.patientVisitNote) {
+    console.log('Drawing patient visit note');
+    sectionHasContent = true;
+
+    pdfClient.drawText('General Notes:', textStyles.textBold);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+
+    // adding a little bit of a left indent for clinical info which could be multiple lines
+    pdfClient.drawTextSequential(data.patientVisitNote, textStyles.text, {
+      leftBound: LABS_PDF_LEFT_INDENTATION_XPOS,
+      rightBound: pdfClient.getRightBound(),
+    });
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  if (!sectionHasContent) {
+    pdfClient.drawText('None', textStyles.text);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
+  return pdfClient;
+}
+
 async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
   dataConfig: ResultDataConfig
 ): Promise<Uint8Array | undefined> {
@@ -957,6 +1063,7 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
 
   // Now we can actually start putting content down
   pdfClient = await drawCommonLabsElements(pdfClient, textStyles, { callIcon, faxIcon }, data);
+  pdfClient = await drawCommonExternalLabElements(pdfClient, textStyles, data);
 
   if (type === LabType.external) {
     console.log('Getting pdf bytes for external lab results');
@@ -1768,7 +1875,7 @@ const writeResultDetailLinesInPdf = (
         else {
           // adding a little bit of a left indent for notes
           pdfClient.drawTextSequential(noteLine, textStyles.text, {
-            leftBound: 50,
+            leftBound: LABS_PDF_LEFT_INDENTATION_XPOS,
             rightBound: pdfClient.getRightBound(),
           });
           pdfClient.newLine(STANDARD_NEW_LINE);
@@ -1874,4 +1981,50 @@ const getAccountNumberFromDr = (diagnosticReport: DiagnosticReport): string | un
   )?.value;
   console.log(`Account number from DiagnosticReport/${diagnosticReport.id} is '${accountNumber}'`);
   return accountNumber;
+};
+
+const getResultSpecimenFromDr = (diagnosticReport: DiagnosticReport): ResultSpecimenInfo | undefined => {
+  console.log('Extracting results specimen from DR');
+  if (!diagnosticReport.specimen || !diagnosticReport.specimen.length) {
+    console.log('No specimen found on DiagnosticReport');
+    return undefined;
+  }
+
+  // We'll assume for now that all of these specimens will be contained because that is what Oystehr is doing
+  const specimenRef = diagnosticReport.specimen.find((sp) => sp.reference !== undefined)?.reference;
+
+  // this won't happen but just for types
+  if (!specimenRef) return undefined;
+
+  const specimen = diagnosticReport.contained?.find(
+    (res): res is Specimen => res.id === specimenRef.replace('#', '') && res.resourceType === 'Specimen'
+  );
+
+  if (!specimen) {
+    console.warn(
+      `DiagnosticReport/${diagnosticReport.id} has a specimen reference ${specimenRef} but not matching contained resource`
+    );
+    return undefined;
+  }
+
+  if (!specimen.collection) {
+    console.warn('No specimen collection info found');
+    return undefined;
+  }
+
+  const collectionInfo: ResultSpecimenInfo = {};
+
+  const quantity = specimen.collection.quantity;
+  if (quantity && quantity.system === OYSTEHR_LABS_RESULT_SPECIMEN_COLLECTION_VOLUME_SYSTEM) {
+    collectionInfo.quantityString = quantity.code;
+    collectionInfo.unit = quantity.unit;
+  }
+
+  if (specimen.collection.bodySite) {
+    collectionInfo.bodySite = specimen.collection.bodySite.coding?.find(
+      (coding) => coding.system === OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM
+    )?.display;
+  }
+
+  return Object.keys(collectionInfo).length ? collectionInfo : undefined;
 };
