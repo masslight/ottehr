@@ -3,17 +3,21 @@ import { Grid, Paper, Stack } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AccordionCard } from 'src/components/AccordionCard';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
-import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
-import { getImmunizationMARUrl, getImmunizationOrderEditUrl } from 'src/features/css-module/routing/helpers';
+import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import { WarningBlock } from 'src/features/visits/in-person/components/WarningBlock';
+import { getImmunizationMARUrl, getImmunizationOrderEditUrl } from 'src/features/visits/in-person/routing/helpers';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { AccordionCard, useAppointmentData } from 'src/telemed';
 import { RoleType } from 'utils';
-import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
-import { useCreateUpdateImmunizationOrder, useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
+import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
+import {
+  useCreateUpdateImmunizationOrder,
+  useGetImmunizationOrders,
+} from '../../visits/in-person/hooks/useImmunization';
 import { OrderDetailsSection } from '../components/OrderDetailsSection';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 
@@ -45,16 +49,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
 
   useEffect(() => {
     const order = ordersResponse?.orders?.find((order) => order.id === orderId);
-    if (order) {
-      methods.reset({
-        ...order,
-        details: {
-          ...order.details,
-          medicationId: order?.details?.medication?.id,
-          orderedProviderId: order?.details?.orderedProvider?.id,
-        },
-      });
-    }
+    methods.reset(order);
   }, [methods, ordersResponse, orderId]);
 
   const currentUser = useEvolveUser();
@@ -63,14 +58,17 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
   const defaultProviderId = currentUserHasProviderRole ? currentUserProviderId : undefined;
 
   useEffect(() => {
-    if (!orderId) {
+    if (!orderId && defaultProviderId) {
       methods.reset({
         details: {
-          orderedProviderId: defaultProviderId,
+          orderedProvider: {
+            id: defaultProviderId,
+            name: currentUser?.userName,
+          },
         },
       });
     }
-  }, [methods, defaultProviderId, orderId]);
+  }, [methods, defaultProviderId, orderId, currentUser]);
 
   return (
     <FormProvider {...methods}>

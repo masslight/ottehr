@@ -8,7 +8,6 @@ import {
   waitForSaveChartDataResponse,
 } from 'test-utils';
 import {
-  AdditionalBooleanQuestionsFieldsNames,
   allLicensesForPractitioner,
   ApptTelemedTab,
   getAdditionalQuestionsAnswers,
@@ -289,7 +288,7 @@ test.describe('Tests interacting with appointment state', () => {
   test('Patient provided hpi data', async () => {
     await test.step('Medical conditions provided by patient', async () => {
       await expect(
-        page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionPatientProvidedList).getByText('Constipation')
+        page.getByTestId(dataTestIds.medicalConditions.medicalConditionPatientProvidedList).getByText('Constipation')
       ).toBeVisible();
     });
 
@@ -301,7 +300,7 @@ test.describe('Tests interacting with appointment state', () => {
     });
 
     await test.step('Known allergies provided by patient', async () => {
-      const list = page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesPatientProvidedList);
+      const list = page.getByTestId(dataTestIds.allergies.knownAllergiesPatientProvidedList);
       // cSpell:disable-next Azithromycin
       await expect(list.getByText('Azithromycin (medication)')).toBeVisible();
       await expect(list.getByText('Fish/ Fish Oil (other)')).toBeVisible();
@@ -315,33 +314,11 @@ test.describe('Tests interacting with appointment state', () => {
     });
 
     await test.step('Additional questions provided by patient', async () => {
-      await expect(
-        page
-          .getByTestId(
-            dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(
-              AdditionalBooleanQuestionsFieldsNames.CovidSymptoms
-            )
-          )
-          .getByText('No')
-      ).toBeVisible();
-      await expect(
-        page
-          .getByTestId(
-            dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(
-              AdditionalBooleanQuestionsFieldsNames.TestedPositiveCovid
-            )
-          )
-          .getByText('Yes')
-      ).toBeVisible();
-      await expect(
-        page
-          .getByTestId(
-            dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(
-              AdditionalBooleanQuestionsFieldsNames.TravelUsa
-            )
-          )
-          .getByText('No')
-      ).toBeVisible();
+      for (const question of ADDITIONAL_QUESTIONS) {
+        await expect(
+          page.getByTestId(dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(question.field))
+        ).toBeVisible();
+      }
     });
 
     await test.step('Reason for visit provided by patient', async () => {
@@ -375,10 +352,10 @@ test.describe('Tests interacting with appointment state', () => {
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
 
     await test.step('await until hpi fields are ready', async () => {
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput)).toBeVisible();
+      await expect(page.getByTestId(dataTestIds.medicalConditions.medicalConditionsInput)).toBeVisible();
       await expect(
         page
-          .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
+          .getByTestId(dataTestIds.medicalConditions.medicalConditionColumn)
           .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
           .first()
       ).not.toBeVisible();
@@ -387,7 +364,7 @@ test.describe('Tests interacting with appointment state', () => {
     await test.step('filling up all editable fields', async () => {
       await fillWaitAndSelectDropdown(
         page,
-        dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput,
+        dataTestIds.medicalConditions.medicalConditionsInput,
         medicalConditionsPattern
       );
 
@@ -444,15 +421,15 @@ test.describe('Tests interacting with appointment state', () => {
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
       await expect(
         page
-          .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
+          .getByTestId(dataTestIds.medicalConditions.medicalConditionColumn)
           .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
           .first()
       ).not.toBeVisible();
     });
 
     await test.step('check medical conditions list', async () => {
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsList)).toBeVisible();
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsList)).toHaveText(
+      await expect(page.getByTestId(dataTestIds.medicalConditions.medicalConditionsList)).toBeVisible();
+      await expect(page.getByTestId(dataTestIds.medicalConditions.medicalConditionsList)).toHaveText(
         RegExp(medicalConditionsPattern)
       );
     });

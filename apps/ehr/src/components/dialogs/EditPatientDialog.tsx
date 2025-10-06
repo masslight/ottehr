@@ -13,16 +13,16 @@ import {
   // Select,
   TextField,
   Typography,
-  // InputLabel,
 } from '@mui/material';
-import { Address, Patient } from 'fhir/r4b';
+import { Address, ContactPoint, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { PatternFormat } from 'react-number-format';
-import { AllStatesToVirtualLocationLabels, standardizePhoneNumber } from 'utils';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useEditPatientInformationMutation } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
+import { AllStatesToVirtualLocationLabels, FHIR_EXTENSION, standardizePhoneNumber } from 'utils';
 import { EMAIL_REGEX, ZIP_REGEX } from '../../constants';
-import { useAppointmentData, useEditPatientInformationMutation } from '../../telemed/state';
 import DateSearch from '../DateSearch';
 import { RoundedButton } from '../RoundedButton';
 
@@ -86,6 +86,45 @@ const createPatientResourcePatchData = (patient: Patient, data: FormInputs): Pat
       rank: 1,
       value: data.primaryPhoneNumber,
     });
+
+    const erxContacts = patientData?.contact?.filter((contact) =>
+      Boolean(
+        contact.telecom?.find((telecom) =>
+          Boolean(telecom?.extension?.find((telExt) => telExt.url === FHIR_EXTENSION.ContactPoint.erxTelecom.url))
+        )
+      )
+    );
+
+    // update also erx phone number in patient.contact
+    const erxContactPoint: ContactPoint = {
+      value: data.primaryPhoneNumber,
+      system: 'phone',
+      extension: [{ url: FHIR_EXTENSION.ContactPoint.erxTelecom.url, valueString: 'erx' }],
+    };
+    if (erxContacts && erxContacts.length > 0) {
+      // Remove duplicates of erxContact, leave just one with updated data
+      // Keep only the first erxContact, remove others
+      const [firstErxContact] = erxContacts;
+      // Remove all erxContacts from patientData.contact except the first one
+      if (patientData.contact) {
+        patientData.contact = patientData.contact.filter(
+          (contact) => !erxContacts.includes(contact) || contact === firstErxContact
+        );
+      }
+      // Update the first erxContact with the new data
+      firstErxContact.telecom = [erxContactPoint];
+      // Add the updated firstErxContact back if not already present
+      if (!patientData.contact?.includes(firstErxContact)) {
+        if (!patientData.contact) patientData.contact = [];
+        patientData.contact.push(firstErxContact);
+      }
+    } else {
+      patientData.contact = [
+        {
+          telecom: [erxContactPoint],
+        },
+      ];
+    }
   }
   if (data.secondaryPhoneNumber) {
     patientData.telecom!.push({

@@ -4,11 +4,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { CSSLoader } from 'src/features/css-module/components/CSSLoader';
-import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
-import { ROUTER_PATH } from 'src/features/css-module/routing/routesCSS';
-import { useGetAppointmentAccessibility } from 'src/telemed';
-import { PageTitle } from 'src/telemed/components/PageTitle';
+import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
+import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
+import { Loader } from 'src/features/visits/shared/components/Loader';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { PageTitle } from '../../visits/shared/components/PageTitle';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { VaccineDetailsCardList } from '../components/VaccineDetailsCardList';
 
@@ -59,7 +59,7 @@ export const Immunization: React.FC = () => {
   }, [isReadOnly]);
 
   if (!content) {
-    return <CSSLoader />;
+    return <Loader />;
   }
 
   return (

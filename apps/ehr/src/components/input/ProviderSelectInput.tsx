@@ -52,6 +52,18 @@ export const ProviderSelectInput: React.FC<Props> = ({ name, label, required, da
       loading={isLoading}
       required={required}
       dataTestId={dataTestId}
+      valueToOption={(value: any) => {
+        return {
+          label: value.name,
+          value: value.id,
+        };
+      }}
+      optionToValue={(option: Option) => {
+        return {
+          name: option.label,
+          id: option.value,
+        };
+      }}
     />
   );
 };

@@ -5,6 +5,7 @@ import fs from 'fs';
 import { Color, PageSizes, PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from 'pdf-lib';
 import { ConsentSigner, formatDateTimeToLocaleString, getSecret, Secrets } from 'utils';
 import { triggerSlackAlarm } from './lambda';
+import { getPdfLogo } from './pdf/pdf-utils';
 
 type PdfInfo = { uploadURL: string; copyFromPath: string; formTitle: string; resourceTitle: string };
 type SectionDetail = { label: string; value: string; valueFont?: PDFFont };
@@ -242,19 +243,21 @@ async function drawFirstPage({
   let currYPos = height - styles.margin.y; // top of page. Content starts after this point
 
   // add Ottehr logo at the top of the PDF
-  const imgPath = './assets/ottehrLogo.png';
-  const imgBytes = fs.readFileSync(imgPath);
-  const img = await pdfDoc.embedPng(new Uint8Array(imgBytes));
-  const imgDimensions = img.scale(0.3);
-  currYPos -= imgDimensions.height / 2;
-  page.drawImage(img, {
-    x: (width - imgDimensions.width) / 2, // center image along x-axis
-    y: currYPos,
-    width: imgDimensions.width,
-    height: imgDimensions.height,
-  });
+  const logoBuffer = await getPdfLogo();
+  if (logoBuffer) {
+    const img = await pdfDoc.embedPng(new Uint8Array(logoBuffer));
+    const imgDimensions = img.scale(0.3);
+    currYPos -= imgDimensions.height / 2;
+    if (img)
+      page.drawImage(img, {
+        x: (width - imgDimensions.width) / 2, // center image along x-axis
+        y: currYPos,
+        width: imgDimensions.width,
+        height: imgDimensions.height,
+      });
 
-  currYPos -= imgDimensions.height / 2; // space after image
+    currYPos -= imgDimensions.height / 2; // space after image
+  }
 
   // add all sections to PDF
   let sIndex = 0;

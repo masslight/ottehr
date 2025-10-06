@@ -31,17 +31,16 @@ import {
   addOperation,
   addOrReplaceOperation,
   AI_OBSERVATION_META_SYSTEM,
+  AllChartValues,
   AllergyDTO,
   BirthHistoryDTO,
   BODY_SITE_SYSTEM,
   BooleanValueDTO,
-  ChartDataFields,
   ClinicalImpressionDTO,
   CommunicationDTO,
   CPTCodeDTO,
   createCodeableConcept,
   createFilesDocumentReferences,
-  CSS_NOTE_ID,
   DiagnosisDTO,
   DispositionDTO,
   DispositionFollowUpType,
@@ -56,6 +55,7 @@ import {
   GetChartDataResponse,
   getVitalObservationFhirInterpretations,
   HospitalizationDTO,
+  IN_PERSON_NOTE_ID,
   isVitalObservation,
   makeVitalsObservationDTO,
   MedicalConditionDTO,
@@ -273,7 +273,7 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
         ? 'as-needed'
         : 'scheduled',
     intakeInfo: {
-      dose: medication.dosage?.[0].text,
+      dose: getMedicationDosage(medication, medication.meta?.tag?.[0].code || ''),
       date: medication.effectiveDateTime,
     },
     status: ['active', 'completed'].includes(medication.status)
@@ -578,7 +578,7 @@ export function makeNoteResource(encounterId: string, patientId: string | undefi
     resourceType: 'Communication',
     encounter: { reference: `Encounter/${encounterId}` },
     status: 'completed',
-    meta: fillMeta(CSS_NOTE_ID, data.type),
+    meta: fillMeta(IN_PERSON_NOTE_ID, data.type),
     subject: { reference: `Patient/${patientId}` },
     sender: {
       reference: `Practitioner/${data.authorId}`,
@@ -1120,10 +1120,10 @@ export const chartDataResourceHasMetaTagBySystem = (resource: Resource, metaTagS
   metaTagSystem ? Boolean(resource?.meta?.tag?.find((tag) => tag.system === metaTagSystem)) : true;
 
 const mapResourceToChartDataFields = (
-  data: ChartDataFields,
+  data: AllChartValues,
   resource: FhirResource,
   encounterId: string
-): { chartDataFields: ChartDataFields; resourceMapped: boolean } => {
+): { chartDataFields: AllChartValues; resourceMapped: boolean } => {
   let resourceMapped = false;
   if (resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'medical-condition')) {
     data.conditions?.push(makeConditionDTO(resource));
@@ -1245,7 +1245,10 @@ const mapResourceToChartDataFields = (
   ) {
     data.instructions?.push(makeCommunicationDTO(resource));
     resourceMapped = true;
-  } else if (resource.resourceType === 'Communication' && chartDataResourceHasMetaTagByCode(resource, CSS_NOTE_ID)) {
+  } else if (
+    resource.resourceType === 'Communication' &&
+    chartDataResourceHasMetaTagByCode(resource, IN_PERSON_NOTE_ID)
+  ) {
     data.notes?.push(makeNoteDTO(resource));
     resourceMapped = true;
   } else if (
@@ -1300,7 +1303,7 @@ export function mapResourceToChartDataResponse(
   };
 }
 
-export function handleCustomDTOExtractions(data: ChartDataFields, resources: FhirResource[]): ChartDataFields {
+export function handleCustomDTOExtractions(data: AllChartValues, resources: FhirResource[]): AllChartValues {
   const encounterResource = resources.find((res) => res.resourceType === 'Encounter') as Encounter;
   if (!encounterResource) return data;
 
@@ -1673,4 +1676,15 @@ function getCode(codeableConcept: CodeableConcept | CodeableConcept[] | undefine
 
 function getExtension(resource: DomainResource, url: string): Extension | undefined {
   return resource.extension?.find((extension) => extension.url === url);
+}
+
+function getMedicationDosage(medication: MedicationStatement, medicationType: string): string | undefined {
+  if (medicationType === 'in-house-medication') {
+    const doseQuantity = medication.dosage?.[0].doseAndRate?.[0].doseQuantity;
+    if (!doseQuantity?.value || !doseQuantity?.unit) {
+      return undefined;
+    }
+    return `${doseQuantity.value} ${doseQuantity.unit}`;
+  }
+  return medication.dosage?.[0].text;
 }

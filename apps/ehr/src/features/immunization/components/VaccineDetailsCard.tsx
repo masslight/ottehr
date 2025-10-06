@@ -11,11 +11,12 @@ import { SingleCptCodeInput } from 'src/components/input/SingleCptInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
-import { useAdministerImmunizationOrder, useGetVaccines } from 'src/features/css-module/hooks/useImmunization';
+import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import { useAdministerImmunizationOrder } from 'src/features/visits/in-person/hooks/useImmunization';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import { ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
-import { useAppointmentData, useGetAppointmentAccessibility } from 'src/telemed';
 import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
@@ -35,11 +36,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const methods = useForm({
     defaultValues: {
       ...order,
-      details: {
-        ...order.details,
-        medicationId: order?.details?.medication?.id,
-        orderedProviderId: order?.details?.orderedProvider?.id,
-      },
       administrationDetails: {
         ...order.administrationDetails,
         administeredDateTime: DateTime.now().toISO(),
@@ -55,7 +51,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
 
   const { id: appointmentId } = useParams();
   const { mappedData } = useAppointmentData(appointmentId);
-  const { data: vaccines } = useGetVaccines();
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
 
@@ -270,7 +265,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
         <AdministrationConfirmationDialog
           administrationType={administrationTypeRef.current}
           patientName={mappedData.patientName}
-          medicationName={vaccines?.find((vaccine) => vaccine.id === methods.getValues('details.medicationId'))?.name}
+          medicationName={methods.getValues('details.medication.name')}
           dose={methods.getValues('details.dose')}
           unit={UNIT_OPTIONS.find((unit) => unit.value === methods.getValues('details.units'))?.label}
           route={ROUTE_OPTIONS.find((route) => route.value === methods.getValues('details.route'))?.label}

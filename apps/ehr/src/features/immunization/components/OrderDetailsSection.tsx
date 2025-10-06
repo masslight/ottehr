@@ -1,12 +1,13 @@
 import { Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
+import { Option } from 'src/components/input/Option';
 import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useGetVaccines } from 'src/features/css-module/hooks/useImmunization';
-import { LOCATION_OPTIONS, ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
+import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunization';
+import { LOCATION_OPTIONS, ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils/options';
 
 export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
@@ -31,10 +32,22 @@ export const OrderDetailsSection: React.FC = () => {
       </Grid>
       <Grid xs={6} item>
         <AutocompleteInput
-          name="details.medicationId"
+          name="details.medication"
           label="Vaccine"
           options={vaccineOptions}
           loading={isLoading}
+          valueToOption={(value: any) => {
+            return {
+              label: value.name,
+              value: value.id,
+            };
+          }}
+          optionToValue={(option: Option) => {
+            return {
+              name: option.label,
+              id: option.value,
+            };
+          }}
           required
           dataTestId={dataTestIds.orderVaccinePage.vaccine}
         />
@@ -72,6 +85,18 @@ export const OrderDetailsSection: React.FC = () => {
           label="Location"
           options={LOCATION_OPTIONS}
           dataTestId={dataTestIds.orderVaccinePage.location}
+          valueToOption={(value: any) => {
+            return {
+              label: value.name,
+              value: value.code,
+            };
+          }}
+          optionToValue={(option: Option) => {
+            return {
+              name: option.label,
+              code: option.value,
+            };
+          }}
         />
       </Grid>
       <Grid xs={12} item>
@@ -83,7 +108,7 @@ export const OrderDetailsSection: React.FC = () => {
         />
       </Grid>
       <Grid xs={6} item>
-        <ProviderSelectInput name="details.orderedProviderId" label="Ordered by" required />
+        <ProviderSelectInput name="details.orderedProvider" label="Ordered by" required />
       </Grid>
     </Grid>
   );

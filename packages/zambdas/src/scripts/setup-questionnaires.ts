@@ -21,49 +21,62 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
           const questionnaireData = JSON.parse(
             fs.readFileSync(path.join(__dirname, '../../../../config/oystehr', file), 'utf8')
           );
-          const { resource: questionnaire } = questionnaireData;
+          // console.log('questionnaireData', JSON.stringify(questionnaireData, null, 2));
+          const { fhirResources: questionnaires } = questionnaireData;
 
-          const existingQuestionnaire = (
-            await oystehrClient.fhir.search<Questionnaire>({
-              resourceType: 'Questionnaire',
-              params: [
-                {
-                  name: 'url',
-                  value: questionnaire.url,
-                },
-                {
-                  name: 'version',
-                  value: questionnaire.version,
-                },
-              ],
-            })
-          ).unbundle();
-
-          if (!existingQuestionnaire.length) {
-            const createRequest: BatchInputPostRequest<Questionnaire> = {
-              method: 'POST',
-              url: '/Questionnaire',
-              resource: questionnaire,
-            };
-            return createRequest;
-          } else {
-            console.log('existing Questionnaire id: ', existingQuestionnaire[0].id);
-            const existing = existingQuestionnaire.find(
-              (eq: Questionnaire) => eq.url === questionnaire.url && eq.version === questionnaire.version
-            );
-            if (!existing) {
-              throw new Error('Questionnaire missing unexpectedly');
-            }
-            const updateRequest: BatchInputPutRequest<Questionnaire> = {
-              method: 'PUT',
-              url: `/Questionnaire/${existing.id}`,
-              resource: {
-                ...questionnaire,
-                id: existing.id,
-              },
-            };
-            return updateRequest;
+          if (!questionnaires) {
+            throw new Error(`Questionnaires missing in file ${file}`);
           }
+
+          return await Promise.all(
+            (Object.values(questionnaires) as Questionnaire[]).map(async (resourceHolder: any) => {
+              const questionnaire: Questionnaire = resourceHolder.resource;
+              if (!questionnaire.url || !questionnaire.version) {
+                throw new Error(`Questionnaire missing url or version in file ${file}`);
+              }
+              const existingQuestionnaire = (
+                await oystehrClient.fhir.search<Questionnaire>({
+                  resourceType: 'Questionnaire',
+                  params: [
+                    {
+                      name: 'url',
+                      value: questionnaire.url,
+                    },
+                    {
+                      name: 'version',
+                      value: questionnaire.version,
+                    },
+                  ],
+                })
+              ).unbundle();
+
+              if (!existingQuestionnaire.length) {
+                const createRequest: BatchInputPostRequest<Questionnaire> = {
+                  method: 'POST',
+                  url: '/Questionnaire',
+                  resource: questionnaire,
+                };
+                return createRequest;
+              } else {
+                console.log('existing Questionnaire id: ', existingQuestionnaire[0].id);
+                const existing = existingQuestionnaire.find(
+                  (eq: Questionnaire) => eq.url === questionnaire.url && eq.version === questionnaire.version
+                );
+                if (!existing) {
+                  throw new Error('Questionnaire missing unexpectedly');
+                }
+                const updateRequest: BatchInputPutRequest<Questionnaire> = {
+                  method: 'PUT',
+                  url: `/Questionnaire/${existing.id}`,
+                  resource: {
+                    ...questionnaire,
+                    id: existing.id,
+                  },
+                };
+                return updateRequest;
+              }
+            })
+          );
         })
     );
     await oystehrClient.fhir.transaction({ requests: requests.flatMap((r) => r) });

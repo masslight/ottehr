@@ -1,6 +1,6 @@
 // cSpell:ignore RCRT, RFRT, RPRT
 import { Pagination } from '..';
-import { LabelConfig } from './labs.types';
+import { LabelConfig, LabType } from './labs.types';
 
 // for order form pdf (we might not want this idk)
 export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
@@ -57,14 +57,16 @@ export const EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE = {
 export const LAB_DR_TYPE_TAG = {
   system: 'result-type',
   code: {
-    reflex: 'reflex',
-    unsolicited: 'unsolicited',
+    reflex: LabType.reflex,
+    unsolicited: LabType.unsolicited,
+    attachment: LabType.pdfAttachment,
   },
   display: {
     reflex: 'reflex',
     unsolicited: 'unsolicited',
+    attachment: 'PDF Attachment',
   },
-};
+} as const;
 
 export const SPECIMEN_CODING_CONFIG = {
   collection: {
@@ -137,6 +139,19 @@ export const OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY = {
   display: 'Outside Lab',
 };
 export const OYSTEHR_OBR_NOTE_CODING_SYSTEM = 'https://identifiers.fhir.oystehr.com/obr-note';
+
+export const OYSTEHR_LAB_DOC_CATEGORY_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/lab-documents';
+export const OYSTEHR_LAB_DOC_CATEGORY_CODING = {
+  system: OYSTEHR_LAB_DOC_CATEGORY_SYSTEM,
+  code: 'abn-document',
+  display: 'Lab ABN Document',
+};
+
+export const OYSTEHR_ABN_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '59284-0',
+  display: 'Consent Document',
+};
 
 // Oystehr Labs APIs
 export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';

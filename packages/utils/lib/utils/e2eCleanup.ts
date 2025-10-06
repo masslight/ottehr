@@ -155,114 +155,122 @@ const getAppointmentGraphByTag = async (
   includeObservations = false
 ): Promise<FhirResource[]> => {
   const { system, code } = tag;
+  const params = [
+    {
+      name: '_tag',
+      value: `${system}|${code}`,
+    },
+    {
+      name: '_sort',
+      value: '-_lastUpdated',
+    },
+    {
+      name: '_include',
+      value: 'Appointment:patient',
+    },
+    {
+      name: '_include',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include',
+      value: 'Appointment:location',
+    },
+    {
+      name: '_revinclude',
+      value: 'Task:focus',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'RelatedPerson:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Encounter:participant',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Encounter:appointment',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'DocumentReference:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'QuestionnaireResponse:encounter',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Person:relatedperson',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Communication:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'MedicationAdministration:context',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'MedicationStatement:part-of',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'ClinicalImpression:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'AuditEvent:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'ServiceRequest:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'DiagnosticReport:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Specimen:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Account:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Coverage:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'MedicationRequest:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Procedure:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Task:based-on',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Task:encounter',
+    },
+  ];
+  if (!code) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    params.push({
+      name: '_lastUpdated',
+      value: `lt${oneHourAgo}`,
+    });
+  }
   const appointmentSearchParams: FhirSearchParams<Appointment | Patient> = {
     resourceType: 'Appointment',
-    params: [
-      {
-        name: '_tag',
-        value: `${system}|${code}`,
-      },
-      {
-        name: '_sort',
-        value: '-_lastUpdated',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:patient',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:slot',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:location',
-      },
-      {
-        name: '_revinclude',
-        value: 'Task:focus',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'RelatedPerson:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Encounter:participant',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Encounter:appointment',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'DocumentReference:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'QuestionnaireResponse:encounter',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Person:relatedperson',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Communication:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'MedicationAdministration:context',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'MedicationStatement:part-of',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'ClinicalImpression:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'AuditEvent:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'ServiceRequest:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'DiagnosticReport:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Specimen:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Account:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Coverage:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'MedicationRequest:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Procedure:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Task:based-on',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Task:encounter',
-      },
-    ],
+    params,
   };
 
   // we limit the matches per search to 20 because the include list is very large and we want to avoid swelling the overall
@@ -308,21 +316,64 @@ const getAppointmentGraphByTag = async (
 };
 
 export const cleanupE2ELocations = async (oystehr: Oystehr, tag: string): Promise<void> => {
+  const params = [
+    {
+      name: '_tag',
+      value: tag,
+    },
+  ];
+  const processId = tag.split('|')[1];
+  if (!processId) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    params.push({
+      name: '_lastUpdated',
+      value: `lt${oneHourAgo}`,
+    });
+  }
   const locationsToDelete = (
     await oystehr.fhir.search({
       resourceType: 'Location',
-      params: [
-        {
-          name: '_tag',
-          value: tag,
-        },
-      ],
+      params,
     })
   ).unbundle();
 
   const batchDeleteRequests: BatchInputDeleteRequest[] = locationsToDelete.map((location) => ({
     method: 'DELETE',
     url: `Location/${location.id}`,
+  }));
+
+  await oystehr.fhir.batch({
+    requests: batchDeleteRequests,
+  });
+};
+
+export const cleanupIntegrationTestLocations = async (oystehr: Oystehr): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const locationsToDelete = (
+    await oystehr.fhir.search({
+      resourceType: 'Location',
+      params: [
+        {
+          name: 'name',
+          value: 'BusySlotsTestLocation',
+        },
+        {
+          name: '_lastUpdated',
+          value: `lt${oneHourAgo}`,
+        },
+        {
+          name: '_revinclude',
+          value: 'Schedule:actor',
+        },
+      ],
+    })
+  ).unbundle();
+
+  console.log(`Found ${locationsToDelete.length} integration test locations to delete`);
+
+  const batchDeleteRequests: BatchInputDeleteRequest[] = locationsToDelete.map((res) => ({
+    method: 'DELETE',
+    url: `${res.resourceType}/${res.id}`,
   }));
 
   await oystehr.fhir.batch({

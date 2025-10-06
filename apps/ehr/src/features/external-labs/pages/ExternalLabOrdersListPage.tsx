@@ -1,21 +1,21 @@
 import { Box, Paper, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AiSuggestion from 'src/components/AiSuggestion';
-import { useGetAppointmentAccessibility } from 'src/telemed';
-import { AiObservationField, ObservationTextFieldDTO } from 'utils';
-import { PageTitle } from '../../../telemed/components/PageTitle';
-import { useAppointmentData, useChartData } from '../../../telemed/state/appointment/appointment.store';
+import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { AiObservationField, LabsTableColumn, ObservationTextFieldDTO } from 'utils';
 import ListViewContainer from '../../common/ListViewContainer';
-import { ButtonRounded } from '../../css-module/components/RoundedButton';
-import { LabsTable, LabsTableColumn } from '../components/labs-orders/LabsTable';
+import { ButtonRounded } from '../../visits/in-person/components/RoundedButton';
+import { PageTitle } from '../../visits/shared/components/PageTitle';
+import { LabsTablePatientChart } from '../components/labs-orders/LabsTablePatientChart';
 
 const externalLabsColumns: LabsTableColumn[] = [
   'testType',
   'dx',
   'ordered',
-  'status',
   'requisitionNumber',
+  'status',
   'detail',
   'actions',
 ];
@@ -69,10 +69,9 @@ export const ExternalLabOrdersListPage: React.FC = () => {
             <AiSuggestion title={'Labs'} chartData={chartData} content={aiExternalLabs} />
           </Paper>
         )}
-        <LabsTable
+        <LabsTablePatientChart
           searchBy={{ searchBy: { field: 'encounterId', value: encounterId } }}
           columns={externalLabsColumns}
-          showFilters={false}
           allowDelete={!isReadOnly}
           allowSubmit={!isReadOnly}
           onCreateOrder={!isReadOnly ? handleCreateOrder : undefined}

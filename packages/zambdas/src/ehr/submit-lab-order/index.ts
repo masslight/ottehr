@@ -67,8 +67,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('calling oystehr submit lab');
 
       const submitLabPromises = Object.entries(bundledOrdersByOrderNumber).map(async ([orderNumber, resources]) => {
-        if (resources.isPscOrder) return { status: 'fulfilled', orderNumber, isPsc: true };
         try {
+          console.log('resources.isPscOrder', resources.isPscOrder);
           const params = {
             serviceRequest: resources.testDetails.map((test) => `ServiceRequest/${test.serviceRequestID}`),
             accountNumber: resources.accountNumber,
@@ -90,7 +90,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
           const result = await res.json();
           const eReq: DocumentReference | undefined = result?.eRequisitionDocumentReference;
-          return { status: 'fulfilled', orderNumber, eReqDocumentReference: eReq };
+          const abn: DocumentReference | undefined = result?.abnDocumentReference;
+          return {
+            status: 'fulfilled',
+            orderNumber,
+            eReqDocumentReference: eReq,
+            abnDocumentReference: abn,
+            isPsc: resources.isPscOrder,
+          };
         } catch (e) {
           return { status: 'rejected', orderNumber, reason: (e as Error).message };
         }
@@ -101,11 +108,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       for (const res of submitLabResults) {
         if (res.status === 'fulfilled') {
           const resources = bundledOrdersByOrderNumber[res.orderNumber];
+          successfulBundledOrders[res.orderNumber] = { ...resources };
           if (res.eReqDocumentReference) {
             console.log(`eReq generated for order ${res.orderNumber} - docRef id: ${res.eReqDocumentReference.id}`);
-            successfulBundledOrders[res.orderNumber] = { ...resources, labGeneratedEReq: res.eReqDocumentReference };
-          } else {
-            successfulBundledOrders[res.orderNumber] = { ...resources };
+            successfulBundledOrders[res.orderNumber].labGeneratedEReq = res.eReqDocumentReference;
+          }
+          if (res.abnDocumentReference) {
+            console.log(`abn generated for order ${res.orderNumber} - docRef id: ${res.abnDocumentReference.id}`);
+            successfulBundledOrders[res.orderNumber].abnDocRef = res.abnDocumentReference;
           }
         } else if (res.status === 'rejected') {
           console.error('rejected result', res);
@@ -162,6 +172,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const hasSuccesses = Object.keys(successfulBundledOrders).length > 0;
+    // if any abn was generated its presigned url will also be included
     const orderPdfUrls = hasSuccesses
       ? await makeOrderFormsAndDocRefs(successfulBundledOrders, now, secrets, m2mToken, oystehr)
       : [];

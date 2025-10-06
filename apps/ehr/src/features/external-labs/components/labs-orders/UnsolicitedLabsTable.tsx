@@ -11,10 +11,9 @@ import {
 } from '@mui/material';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGetUnsolicitedResultsForPatientList } from 'src/telemed';
-import { UnsolicitedLabListPageDTO, UnsolicitedResultsRequestType } from 'utils';
+import { useGetUnsolicitedResultsForPatientList } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { LabsTableColumn, UnsolicitedLabListPageDTO, UnsolicitedResultsRequestType } from 'utils';
 import { LabOrderLoading } from './LabOrderLoading';
-import { LabsTableColumn } from './LabsTable';
 import { LabsTableRow } from './LabsTableRow';
 
 interface UnsolicitedLabsTableProps {
@@ -38,7 +37,7 @@ export const UnsolicitedLabsTable: FC<UnsolicitedLabsTableProps> = ({
   });
   const unsolicitedLabListDTOs = data?.unsolicitedLabListDTOs;
 
-  if (!unsolicitedLabListDTOs) return null;
+  if (!unsolicitedLabListDTOs || unsolicitedLabListDTOs.length === 0) return null;
 
   const onRowClick = (unsolicitedLab: UnsolicitedLabListPageDTO): void => {
     navigate(`/unsolicited-results/${unsolicitedLab.diagnosticReportId}/review`);

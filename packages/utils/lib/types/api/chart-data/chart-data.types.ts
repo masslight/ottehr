@@ -34,7 +34,8 @@ export interface AIChatDetails {
   providers: Practitioner[];
 }
 
-export interface ChartDataFields {
+// todo: need to refactor and simplify types; there are different sets of fields for useChartData and useChartFields, but this types contains all possible values and not very useful
+export interface AllChartValues {
   chiefComplaint?: FreeTextNoteDTO;
   ros?: FreeTextNoteDTO;
   conditions?: MedicalConditionDTO[];
@@ -66,7 +67,27 @@ export interface ChartDataFields {
   procedures?: ProcedureDTO[];
 }
 
-export type ChartDataFieldsKeys = keyof ChartDataFields;
+export type RequestedFields =
+  | 'surgicalHistoryNote'
+  | 'chiefComplaint'
+  | 'ros'
+  | 'episodeOfCare'
+  | 'prescribedMedications'
+  | 'disposition'
+  | 'notes'
+  | 'vitalsObservations'
+  | 'externalLabResults'
+  | 'inHouseLabResults'
+  | 'practitioners'
+  | 'medicalDecision'
+  | 'birthHistory'
+  | 'patientInfoConfirmed'
+  | 'addendumNote'
+  | 'medications'
+  | 'inhouseMedications'
+  | 'observations';
+
+export type AllChartValuesKeys = keyof AllChartValues;
 
 export type ChartDataResources =
   | AllergyIntolerance
@@ -146,7 +167,7 @@ export const NOTHING_TO_EAT_OR_DRINK_ID = 'nothing-to-eat-or-drink'; // fhir url
 export const NOTHING_TO_EAT_OR_DRINK_FIELD = 'nothingToEatOrDrink'; // backend/frontend - disposition field & form field
 export const NOTHING_TO_EAT_OR_DRINK_LABEL = 'Nothing to eat or drink until evaluated in the Emergency Department.'; // frontend form label
 export const PATIENT_INSTRUCTIONS_TEMPLATE_CODE = 'patient-instruction-template';
-export const CSS_NOTE_ID = 'css-note';
+export const IN_PERSON_NOTE_ID = 'css-note';
 
 export interface ExamObservationDTO extends SaveableDTO {
   field: string;

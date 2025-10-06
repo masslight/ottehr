@@ -2,6 +2,7 @@ import { otherColors } from '@ehrTheme/colors';
 import { Box, capitalize, Grid, Modal, TableCell, TableRow, Typography } from '@mui/material';
 import { CSSProperties, ReactElement, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { RecordAudioContainer } from 'src/features/visits/in-person/components/progress-note/RecordAudioContainer';
 import { InPersonAppointmentInformation } from 'utils';
 import { MOBILE_MODAL_STYLE } from '../constants';
 import { ApptTab } from './AppointmentTabs';
@@ -118,6 +119,12 @@ export default function AppointmentTableRowMobile({
             </Grid>
           </Grid>
         </Link>
+        <RecordAudioContainer
+          visitID={appointment.encounterId}
+          width="100%"
+          aiChat={undefined}
+          setRecordingAnchorElement={undefined}
+        />
         <Modal open={timeModalOpen} onClose={() => setTimeModalOpen(false)}>
           <Box sx={MOBILE_MODAL_STYLE}>{timeToolTip}</Box>
         </Modal>

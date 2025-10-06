@@ -169,6 +169,9 @@ jobs:
       - name: Recreate vaccine resources
         run: cd packages/zambdas && npm run recreate-vaccines-list --env=${{ env.ENVIRONMENT }}
 
+      - name: Recreate global templates resources
+        run: cd packages/zambdas && npm run recreate-global-templates --env=${{ env.ENVIRONMENT }}
+
       - name: Setup Document explorer resources
         run: cd packages/zambdas && npm run setup-document-explorer --env=${{ env.ENVIRONMENT }}
 

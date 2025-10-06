@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment name'
+        description: "Environment name"
         required: true
         type: choice
         options:
@@ -13,26 +13,26 @@ on:
           - staging
           - production
       incrementVersion:
-        description: 'Bump Version?'
+        description: "Bump Version?"
         type: boolean
         required: false
       versionType:
-        description: 'Version to bump (major.minor.patch)'
+        description: "Version to bump (major.minor.patch)"
         type: choice
-        default: 'patch'
+        default: "patch"
         options:
           - patch
           - minor
           - major
       confirmProduction:
-        description: 'If you are 100% sure you want to deploy to production, type: Yes'
+        description: "If you are 100% sure you want to deploy to production, type: Yes"
         required: false
 
 jobs:
   deploy:
     env:
-      NODE_VERSION: '20'
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_VERSION: "20"
+      NODE_OPTIONS: "--max_old_space_size=4096"
       ENVIRONMENT: ${{ github.event.inputs.environment }}
       # Override these values, or populate vars and secrets
       AWS_DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE }} # AWS IAM role for deployment
@@ -82,11 +82,11 @@ jobs:
         uses: actions/setup-node@7c12f8017d5436eb855f1ed4399f037a36fbd9e8 # v2 (v2.5.2)
         with:
           node-version: ${{ env.NODE_VERSION }}
-          
+
       - name: HashiCorp - Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3 (v3.1.2)
         with:
-          terraform_version: '1.12.2'
+          terraform_version: "1.12.2"
 
       - name: TruffleHog -- Check for secrets committed to the repository
         uses: trufflesecurity/trufflehog@1aa1871f9ae24a8c8a3a48a9345514acf42beb39 # v3.82.13
@@ -115,24 +115,23 @@ jobs:
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
-          path: 'secrets'
+          path: "secrets"
 
-      - name: Move .env config file into zambdas dir.
-        run: mkdir -p packages/zambdas/.env; cp secrets/zambdas/* packages/zambdas/.env; cp secrets/zambdas/.env.sentry-build-plugin packages/zambdas
-
-      - name: Move app config files into app dirs.
+      - name: Copy secrets to appropriate locations
         run: |
-          mkdir -p apps/intake/env; cp secrets/intake/app/.env.${{ env.ENVIRONMENT }} apps/intake/env
-          mkdir -p apps/ehr/env; cp secrets/ehr/app/.env.${{ env.ENVIRONMENT }} apps/ehr/env
+          npm exec -- tsx ./scripts/secrets.ts populate ${{ env.ENVIRONMENT }}
+          npm exec -- tsx ./scripts/secrets.ts validate ${{ env.ENVIRONMENT }}
+
+      # TODO: Remove this step and references to it once transition to TF is complete
+      - name: Maybe copy import file into aws_infra module
+        id: copy-import-file
+        continue-on-error: true
+        run: |
+          cp secrets/terraform/${{ env.ENVIRONMENT }}_import.tf deploy/aws_infra
 
       - name: Move aws-cdk-deploy-config into scripted deploy dir.
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
         run: mkdir -p scripts/deploy; cp secrets/aws-cdk-deploy-config/deploy-config.${{ env.ENVIRONMENT }}.json scripts/deploy/deploy-config.json
-
-      - name: Move terraform var file and backend file into terraform deploy dir.
-        run: |
-          mkdir -p deploy
-          cp secrets/terraform/${{ env.ENVIRONMENT }}.tfvars deploy
-          cp secrets/terraform/backend.config deploy
 
       - name: Configure AWS Credentials
         id: configure-aws-credentials
@@ -141,7 +140,7 @@ jobs:
           role-to-assume: ${{ env.AWS_DEPLOY_ROLE }}
           aws-region: us-east-1
           output-credentials: true
-          
+
       - name: Configure AWS CLI
         run: |
           aws_profile=$(grep '"aws_profile"' "scripts/deploy/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
@@ -154,14 +153,17 @@ jobs:
 
       # Build once first because CDK checks for everything before deciding which stacks to deploy
       - name: Build Intake
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
         working-directory: apps/intake
         run: npm run build:env --env=${{ env.ENVIRONMENT }}
 
       - name: Build EHR
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
         working-directory: apps/ehr
         run: npm run build:env --env=${{ env.ENVIRONMENT }}
 
       - name: Deploy Cloud Infrastructure Using Legacy Scripted Deploy
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
         working-directory: scripts/deploy/aws
         run: |
           aws_profile=$(grep '"aws_profile"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
@@ -175,14 +177,17 @@ jobs:
           npx ts-node ./bin/update-config.ts --no-update-apps
 
       - name: Build Intake
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
         working-directory: apps/intake
         run: npm run build:env --env=${{ env.ENVIRONMENT}}
 
       - name: Build EHR
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
         working-directory: apps/ehr
         run: npm run build:env --env=${{ env.ENVIRONMENT }}
 
       - name: Deploy Websites Using Legacy Scripted Deploy
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
         working-directory: scripts/deploy/aws
         run: |
           aws_profile=$(grep '"aws_profile"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
@@ -193,15 +198,11 @@ jobs:
           echo "Using stack prefix: ${prefix}"
           npx cdk deploy --require-approval=never --profile "${profile}" "${prefix}-data-stack-${{ env.ENVIRONMENT }}"
 
-      - name: Bundle Zambdas
-        working-directory: packages/zambdas
-        run: npm run bundle
-
       - name: Deploy Ottehr Resources Using Terraform
         working-directory: deploy
         run: |
-          terraform init --backend-config=./backend.config -input=false
-          npm run apply-${{ env.ENVIRONMENT}} -- --auto-approve
+          npm run terraform-init -- -input=false
+          npm run apply-${{ env.ENVIRONMENT }}
 
       - name: Notify Slack
         if: always()
@@ -211,11 +212,11 @@ jobs:
           BRANCH: ${{ github.ref }}
           PACKAGE_VERSION: ${{ steps.package-version.outputs.current-version }}
         with:
-          channel: '#ottehr-notifications'
+          channel: "#ottehr-notifications"
           status: ${{ job.status }}
-          success_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build completed successfully'
-          failure_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build failed'
-          cancelled_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build was cancelled'
+          success_text: "${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build completed successfully"
+          failure_text: "${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build failed"
+          cancelled_text: "${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build was cancelled"
           fields: |
             [{ "title": "Action URL", "value": "${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}"},
             { "title": "Branch", "value": "${env.BRANCH}", "short": true },

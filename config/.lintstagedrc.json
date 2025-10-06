@@ -1,0 +1,5 @@
+{
+  "oystehr/*.json": [
+    "./../scripts/lint-config-syntax.sh"
+  ]
+}

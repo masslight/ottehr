@@ -1,13 +1,13 @@
 // cSpell:ignore abletobearweight, decreasedrom, lowerleg, upperarm
 import { CodeableConcept } from 'fhir/r4b';
 import {
-  ChartDataFields,
+  AllChartValues,
   ChartDataWithResources,
   SchoolWorkNoteExcuseDocDTO,
   SchoolWorkNoteExcuseDocFileDTO,
 } from './chart-data.types';
 
-export interface SaveChartDataRequest extends ChartDataFields {
+export interface SaveChartDataRequest extends AllChartValues {
   encounterId: string;
   /**
    * for the examObservations property
@@ -28,15 +28,4 @@ export interface SNOMEDCodeConceptInterface {
   // we use 'SNOMED note' as code if it's provided, and if not we use main code
   // SNOMED codes map: https://docs.google.com/spreadsheets/d/1Ggi4lYVoh-nT5XIKlWNJDUPipQ0OOgvSqoHHxziIgAE/edit#gid=0
   code: SNOMEDCodeInterface;
-}
-
-export enum AdditionalBooleanQuestionsFieldsNames {
-  TestedPositiveCovid = 'tested-positive-covid',
-  TravelUsa = 'travel-usa',
-  CovidSymptoms = 'covid-symptoms',
-}
-
-export interface AdditionalBooleanQuestion {
-  label: string;
-  field: AdditionalBooleanQuestionsFieldsNames;
 }

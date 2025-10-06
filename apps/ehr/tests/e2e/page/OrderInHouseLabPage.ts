@@ -1,7 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { CollectSamplePage } from './CollectSamplePage';
-import { CssHeader } from './CssHeader';
+import { InPersonHeader } from './InPersonHeader';
 import { SideMenu } from './SideMenu';
 
 export class OrderInHouseLabPage {
@@ -12,8 +12,9 @@ export class OrderInHouseLabPage {
     this.#page = page;
     this.#collectSamplePage = new CollectSamplePage(this.#page);
   }
-  cssHeader(): CssHeader {
-    return new CssHeader(this.#page);
+
+  inPersonHeader(): InPersonHeader {
+    return new InPersonHeader(this.#page);
   }
 
   sideMenu(): SideMenu {
@@ -41,10 +42,13 @@ export class OrderInHouseLabPage {
   async clickOrderAndPrintLabelButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.orderAndPrintLabelButton).click();
   }
-  async selectTestType(testType: string): Promise<void> {
+  async selectTestType(): Promise<string> {
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeField).click();
-    await this.#page.getByText(testType).waitFor({ state: 'visible' });
-    await this.#page.getByText(testType, { exact: true }).click();
+    await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).waitFor({ state: 'visible' });
+    const firstOption = this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).locator('li').first();
+    const optionValue = await firstOption.innerText();
+    await firstOption.click();
+    return optionValue;
   }
   async verifyCPTCode(CPTCode: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.orderInHouseLabPage.CPTCodeField).locator('input')).toHaveValue(

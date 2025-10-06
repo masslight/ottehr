@@ -1,9 +1,8 @@
 import { Box, CircularProgress, Skeleton } from '@mui/material';
-import React, { FC, useEffect, useMemo } from 'react';
+import { FC, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { FHIR_EXTENSION } from 'utils';
+import { FHIR_EXTENSION, getSelectors } from 'utils';
 import CustomBreadcrumbs from '../../components/CustomBreadcrumbs';
-import { getSelectors } from '../../shared/store/getSelectors';
 import {
   AdditionalInformationModal,
   AdditionalInsuranceModal,
@@ -254,7 +253,7 @@ export const Claim: FC = () => {
               items={[
                 {
                   label: '9.Other insured’s name',
-                  value: additionalCoverageData?.firstMiddleLastName,
+                  value: additionalCoverageData?.fullDisplayName,
                 },
                 {
                   label: '9a.Other insured’s policy or group number',

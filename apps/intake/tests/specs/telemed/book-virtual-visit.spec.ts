@@ -37,7 +37,6 @@ test.afterAll(async () => {
 });
 
 test('Should select state and time', async () => {
-  console.log('123');
   await telemedFlow.selectVisitAndContinue();
   const slotAndLocation = await telemedFlow.selectTimeLocationAndContinue();
   firstAvailableTime = slotAndLocation.selectedSlot?.fullSlot ?? '';

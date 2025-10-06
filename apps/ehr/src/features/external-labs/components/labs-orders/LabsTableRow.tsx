@@ -2,13 +2,20 @@ import { otherColors } from '@ehrTheme/colors';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { Box, Button, TableCell, TableRow, Tooltip, Typography, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
-import { formatDateForLabs, LabOrderListPageDTO, PSC_LOCALE, ReflexLabDTO, UnsolicitedLabListPageDTO } from 'utils';
+import {
+  formatDateForLabs,
+  LabOrderListPageDTO,
+  LabsTableColumn,
+  PdfAttachmentDTO,
+  PSC_LOCALE,
+  ReflexLabDTO,
+  UnsolicitedLabListPageDTO,
+} from 'utils';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
-import { LabsTableColumn } from './LabsTable';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];
-  labOrderData: LabOrderListPageDTO | ReflexLabDTO | UnsolicitedLabListPageDTO;
+  labOrderData: LabOrderListPageDTO | ReflexLabDTO | UnsolicitedLabListPageDTO | PdfAttachmentDTO;
   onDeleteOrder?: () => void;
   allowDelete?: boolean;
   onRowClick?: () => void;
@@ -29,9 +36,18 @@ export const LabsTableRow = ({
     }
   };
 
+  const getLabDetail = (lab: ReflexLabDTO | UnsolicitedLabListPageDTO | PdfAttachmentDTO): string => {
+    if ('isUnsolicited' in lab) {
+      return 'UNS';
+    } else if ('drCentricResultType' in lab) {
+      return lab.drCentricResultType === 'reflex' ? 'RFX' : 'PDF';
+    }
+    return '';
+  };
+
   const renderCellContentForLabWithoutSR = (
     column: LabsTableColumn,
-    lab: ReflexLabDTO | UnsolicitedLabListPageDTO
+    lab: ReflexLabDTO | UnsolicitedLabListPageDTO | PdfAttachmentDTO
   ): React.ReactNode => {
     switch (column) {
       case 'testType':
@@ -59,7 +75,7 @@ export const LabsTableRow = ({
       case 'status':
         return <LabsOrderStatusChip status={lab.orderStatus} />;
       case 'detail':
-        return 'isReflex' in lab ? 'RFX' : 'UNS';
+        return getLabDetail(lab);
       case 'actions':
         return null;
       default:
@@ -140,7 +156,7 @@ export const LabsTableRow = ({
     }
   };
 
-  const isLabWithoutSR = 'isReflex' in labOrderData || 'isUnsolicited' in labOrderData;
+  const isLabWithoutSR = 'drCentricResultType' in labOrderData || 'isUnsolicited' in labOrderData;
 
   return (
     <TableRow

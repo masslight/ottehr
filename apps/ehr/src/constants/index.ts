@@ -1,4 +1,4 @@
-import { AdditionalBooleanQuestion, AdditionalBooleanQuestionsFieldsNames } from 'utils';
+import { patientScreeningQuestionsConfig } from 'utils';
 
 export const REASON_FOR_VISIT_OPTIONS: string[] = [
   'Cough and/or congestion',
@@ -40,22 +40,10 @@ export enum LANGUAGES {
   english = 'english',
 }
 
-export const ADDITIONAL_QUESTIONS: AdditionalBooleanQuestion[] = [
-  {
-    label: 'Do you have any COVID symptoms?',
-    field: AdditionalBooleanQuestionsFieldsNames.CovidSymptoms,
-  },
-  {
-    label: 'Have you tested positive for COVID?',
-    field: AdditionalBooleanQuestionsFieldsNames.TestedPositiveCovid,
-  },
-  {
-    label: 'Have you traveled out of the USA in the last 2 weeks?',
-    field: AdditionalBooleanQuestionsFieldsNames.TravelUsa,
-  },
-];
+export const QUERY_STALE_TIME = 5 * 60 * 1000;
 
-export const QUERY_STALE_TIME = 1000 * 60;
+export const CHART_DATA_QUERY_KEY = 'chart-data-query-key'; // useChartData uses this key
+export const CHART_FIELDS_QUERY_KEY = 'chart-fields-query-key'; // useChartField uses this key
 
 export const FLAGGED_REASONS_FOR_VISIT: string[] = [
   'Breathing problem',
@@ -682,3 +670,13 @@ export const InsurancePriorityOptions = [
   FormFields.insurance[0].insurancePriority.key,
   FormFields.insurance[1].insurancePriority.key,
 ];
+
+// Generate additional questions from configuration
+// Only include fields that exist in questionnaire (for now, assuming all are boolean)
+// TODO: only boolean fields are supported for now, add support for other field types when needed
+const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+
+export const ADDITIONAL_QUESTIONS = questionnaireFields.map((field) => ({
+  label: field.question,
+  field: field.fhirField,
+}));

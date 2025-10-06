@@ -2,12 +2,13 @@
 import {
   DocumentReference,
   Encounter,
+  Location,
   Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   Reference,
 } from 'fhir/r4b';
-import { DiagnosisDTO, Pagination } from '../..';
+import { DiagnosisDTO, LAB_DR_TYPE_TAG, Pagination } from '../..';
 
 export interface OrderableItemSearchResult {
   item: OrderableItem;
@@ -65,7 +66,7 @@ export enum ExternalLabsStatus {
   pending = 'pending',
   ready = 'ready',
   sent = 'sent',
-  prelim = 'prelim', // todo: this is not a status, need to refactor
+  prelim = 'prelim',
   received = 'received',
   reviewed = 'reviewed',
   cancelled = 'cancelled',
@@ -92,7 +93,7 @@ export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceived
 
 export type LabOrderResultDetails = {
   testItem: string;
-  testType: 'reflex' | 'ordered' | 'unsolicited';
+  testType: 'ordered' | LabDrTypeTagCode;
   resultType: 'final' | 'preliminary' | 'cancelled';
   labStatus: ExternalLabsStatus;
   diagnosticReportId: string;
@@ -127,6 +128,8 @@ export type LabOrderListPageDTO = {
   accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
   encounterTimezone: string | undefined; // used to format dates correctly on the front end
   orderNumber: string | undefined; // ServiceRequest.identifier.value (system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
+  abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_LAB_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
+  location: Location | undefined; // Location that ordered the test. Was previously not required for lab orders, so can be undefined
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
@@ -164,13 +167,25 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
   | 'accountNumber'
   | 'labelPdfUrl'
   | 'orderPdfUrl'
+  | 'abnPdfUrl'
+  | 'location'
 >;
 
-export type ReflexLabDTO = DiagnosticReportLabDetailPageDTO & {
-  isReflex: true;
+export type DiagnosticReportDrivenResultDTO = DiagnosticReportLabDetailPageDTO & {
   orderNumber: string;
+  encounterId: string;
+  appointmentId: string;
 };
 
+export type ReflexLabDTO = DiagnosticReportDrivenResultDTO & {
+  drCentricResultType: 'reflex';
+};
+
+export type PdfAttachmentDTO = DiagnosticReportDrivenResultDTO & {
+  drCentricResultType: 'pdfAttachment';
+};
+
+// todo labs can probably leverage drCentricResultType here as well
 export type UnsolicitedLabDTO = DiagnosticReportLabDetailPageDTO & {
   isUnsolicited: true;
   patientId: string;
@@ -186,7 +201,17 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
   data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
   patientLabItems?: PatientLabItem[];
-  reflexResults: ReflexLabDTO[];
+  drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[];
+};
+
+type orderBundleDTO = {
+  bundleName: string;
+  abnPdfUrl: string | undefined;
+  orders: (LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO)[];
+};
+export type LabOrderListPageDTOGrouped = {
+  pendingActionOrResults: Record<string, orderBundleDTO>;
+  hasResults: Record<string, orderBundleDTO>;
 };
 
 export type LabOrdersSearchBy = {
@@ -211,9 +236,15 @@ export type LabOrdersPaginationOptions = {
 export enum LabType {
   external = 'external',
   inHouse = 'in-house',
+  // do not change the following values as they are linked to LAB_DR_TYPE_TAG which is defined in oystehr
   unsolicited = 'unsolicited', // external but has less fhir resources available since it did not originate from ottehr
   reflex = 'reflex', // external but has less fhir resources available since it did not originate from ottehr
+  pdfAttachment = 'pdfAttachment', // external but has less fhir resources available since it did not originate from ottehr
 }
+/**
+ * 'unsolicited', 'reflex', 'pdfAttachment'
+ */
+export type LabDrTypeTagCode = (typeof LAB_DR_TYPE_TAG.code)[keyof typeof LAB_DR_TYPE_TAG.code];
 
 export type GetLabOrdersParameters = LabOrdersSearchBy & LabOrdersSearchFilters & LabOrdersPaginationOptions;
 
@@ -227,7 +258,7 @@ export type SubmitLabOrderInput = {
 };
 
 export type SubmitLabOrderOutput = {
-  orderPdfUrls: string[];
+  orderPdfUrls: string[]; // if any abn was generated its presigned url will also be included
   failedOrdersByOrderNumber?: string[];
 };
 
@@ -343,6 +374,12 @@ export interface GetLabelPdfParameters {
   searchParams: { name: string; value: string }[];
 }
 
+// todo labs team absorb LabelPdf in LabPdf
+export interface LabPdf {
+  type: 'abn';
+  documentReference: DocumentReference;
+  presignedURL: string;
+}
 export interface LabelPdf {
   documentReference: DocumentReference;
   presignedURL: string;
@@ -450,3 +487,17 @@ export type GetUnsolicitedResultsResourcesOutput =
   | GetUnsolicitedResultsRelatedRequestsOutput
   | GetUnsolicitedResultsDetailOutput
   | GetUnsolicitedResultsPatientListOutput;
+
+export type LabsTableColumn =
+  | 'testType'
+  | 'visit'
+  | 'orderAdded'
+  | 'ordered'
+  | 'provider'
+  | 'dx'
+  | 'resultsReceived'
+  | 'accessionNumber'
+  | 'requisitionNumber'
+  | 'status'
+  | 'detail'
+  | 'actions';

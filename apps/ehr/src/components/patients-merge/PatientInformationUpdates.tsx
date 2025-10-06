@@ -13,9 +13,9 @@ import {
   Typography,
 } from '@mui/material';
 import { Patient, Task } from 'fhir/r4b';
-import React, { FC, useState } from 'react';
+import { FC, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { InnerStateDialog } from '../../telemed';
+import { InnerStateDialog } from 'src/features/visits/shared/components/InnerStateDialog';
 import { RoundedButton } from '../RoundedButton';
 import { useGetPatientForUpdate } from './queries';
 

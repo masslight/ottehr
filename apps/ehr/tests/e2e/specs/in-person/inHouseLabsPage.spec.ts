@@ -1,19 +1,34 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { CssHeader } from 'tests/e2e/page/CssHeader';
 import { FinalResultPage } from 'tests/e2e/page/FinalResultPage';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
+import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { PerformTestPage } from 'tests/e2e/page/PerformTestPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
 import { expectOrderDetailsPage, OrderInHouseLabPage } from '../../page/OrderInHouseLabPage';
 
+const TEST_TYPE_TO_CPT: Record<string, string> = {
+  'COVID-19 Antigen': '87635',
+  'Flu A': '87501',
+  'Flu B': '87501',
+  'Flu-Vid': '87428',
+  'Glucose Finger/Heel Stick': '82962',
+  'ID Now Strep': '87651',
+  'Monospot test': '86308',
+  'Rapid COVID-19 Antigen': '87426',
+  'Rapid Influenza A': '87804',
+  'Rapid Influenza B': '87804',
+  'Rapid RSV': '87807',
+  'Rapid Strep A': '87880',
+  RSV: '87634',
+  'Stool Guaiac': '82270',
+  'Urinalysis (UA)': '81003',
+  'Urine Pregnancy Test (HCG)': '81025',
+};
 const PROCESS_ID = `inHouseLabsPage.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
-
-const TEST_TYPE = 'Flu A';
-const CPT_CODE = '87501';
 const DIAGNOSIS = 'Situs inversus';
 const SOURCE = 'Nasopharyngeal swab';
 const TEST_RESULT_DETECTED = 'Detected';
@@ -38,11 +53,13 @@ test.afterAll(async () => {
 });
 
 test('IHL-1 In-house labs. Happy Path', async ({ page }) => {
+  let TEST_TYPE: string;
   await test.step('IHL-1.1 Open In-house Labs and place order', async () => {
     const orderInHouseLabPage = await prepareAndOpenInHouseLabsPage(page);
     await orderInHouseLabPage.verifyOrderAndPrintLabeButtonDisabled();
     await orderInHouseLabPage.verifyOrderInHouseLabButtonDisabled();
-    await orderInHouseLabPage.selectTestType(TEST_TYPE);
+    TEST_TYPE = await orderInHouseLabPage.selectTestType();
+    const CPT_CODE = TEST_TYPE_TO_CPT[TEST_TYPE];
     await orderInHouseLabPage.verifyCPTCode(CPT_CODE);
     await orderInHouseLabPage.verifyOrderInHouseLabButtonEnabled();
     await orderInHouseLabPage.verifyOrderAndPrintLabelButtonEnabled();
@@ -84,10 +101,10 @@ test('IHL-1 In-house labs. Happy Path', async ({ page }) => {
 
 async function prepareAndOpenInHouseLabsPage(page: Page): Promise<OrderInHouseLabPage> {
   await page.goto(`in-person/${resourceHandler.appointment.id}`);
-  const cssHeader = new CssHeader(page);
-  await cssHeader.selectIntakePractitioner();
-  await cssHeader.selectProviderPractitioner();
-  await cssHeader.clickSwitchModeButton('provider');
+  const inPersonHeader = new InPersonHeader(page);
+  await inPersonHeader.selectIntakePractitioner();
+  await inPersonHeader.selectProviderPractitioner();
+  await inPersonHeader.clickSwitchModeButton('provider');
   const sideMenu = new SideMenu(page);
   await sideMenu.clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);

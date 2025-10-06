@@ -6,7 +6,8 @@ import { IncomingHttpHeaders } from 'http2';
 import _ from 'lodash';
 import { resolve } from 'path';
 import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json';
-import { REF_REGEX, Schema20250319, Spec20250319 } from '../../../spec/src/schema-20250319';
+import { Schema } from '../../../spec/src/schema';
+import { REF_REGEX, Schema20250925 } from '../../../spec/src/schema-20250925';
 import { ZambdaInput } from '../shared';
 
 export const expressLambda = async (
@@ -69,7 +70,7 @@ async function populateSecrets(): Promise<void> {
   });
   const envFileContents = configString.length > 2 ? JSON.parse(configString) : null;
 
-  const schema = new Schema20250319(
+  const schema = new Schema20250925(
     [{ path: '../../../../config/oystehr/ottehr-spec.json', spec: ottehrSpec }],
     envFileContents,
     '',
@@ -97,6 +98,7 @@ async function populateSecrets(): Promise<void> {
     'SENDGRID_IN_PERSON_CONFIRMATION_TEMPLATE_ID',
     'SENDGRID_IN_PERSON_COMPLETION_TEMPLATE_ID',
     'SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID',
+    'SENDGRID_IN_PERSON_RECEIPT_TEMPLATE_ID',
     'SENDGRID_TELEMED_CANCELATION_TEMPLATE_ID',
     'SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID',
     'SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID',
@@ -110,9 +112,9 @@ async function populateSecrets(): Promise<void> {
   });
 }
 
-export async function replaceSecretValue(
+export async function replaceSecretValue<T>(
   secret: { name: string; value: string; legacyValue?: string },
-  schema: Schema20250319,
+  schema: Schema<T>,
   useIac?: string
 ): Promise<string> {
   const { $ } = await import('execa');
@@ -134,8 +136,8 @@ export async function replaceSecretValue(
     for (const match of refMatches) {
       const [fullMatch, resourceType, resourceName, fieldName] = match;
       const tfRef = schema.getTerraformResourceReference(
-        ottehrSpec,
-        resourceType as keyof Spec20250319,
+        ottehrSpec as T,
+        resourceType as keyof T,
         resourceName,
         fieldName
       );

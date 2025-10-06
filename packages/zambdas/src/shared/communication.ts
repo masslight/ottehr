@@ -1,22 +1,16 @@
 import Oystehr, { TransactionalSMSSendParams } from '@oystehr/sdk';
 import sendgrid from '@sendgrid/mail';
 import { Appointment, Patient } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import {
-  createOystehrClient,
-  DATETIME_FULL_NO_YEAR,
   DynamicTemplateDataRecord,
   EmailTemplate,
   ErrorReportTemplateData,
-  getAddressStringForScheduleResource,
-  getNameFromScheduleResource,
   getSecret,
   InPersonCancelationTemplateData,
   InPersonCompletionTemplateData,
   InPersonConfirmationTemplateData,
+  InPersonReceiptTemplateData,
   InPersonReminderTemplateData,
-  PROJECT_NAME,
-  ScheduleOwnerFhirResource,
   Secrets,
   SecretsKeys,
   SENDGRID_CONFIG,
@@ -27,7 +21,6 @@ import {
   TelemedInvitationTemplateData,
 } from 'utils';
 import { BRANDING_CONFIG } from 'utils/lib/configuration/branding';
-import { getNameForOwner } from '../ehr/schedules/shared';
 import { sendErrors } from './errors';
 import { getRelatedPersonForPatient } from './patients';
 
@@ -49,124 +42,14 @@ export async function getMessageRecipientForAppointment(
   }
 }
 
-interface SendInPersonMessagesInput {
-  email: string | undefined;
-  firstName: string | undefined;
-  messageRecipient: string;
-  startTime: DateTime;
-  secrets: Secrets | null;
-  scheduleResource: ScheduleOwnerFhirResource;
-  appointmentID: string;
-  appointmentType: string;
-  language: string;
-  token: string;
-}
-export async function sendInPersonMessages({
-  email,
-  firstName,
-  messageRecipient,
-  startTime,
-  secrets,
-  scheduleResource,
-  appointmentID,
-  appointmentType,
-  language,
-  token,
-}: SendInPersonMessagesInput): Promise<void> {
-  const start = DateTime.now();
-  const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
-  if (email) {
-    const emailClient = getEmailClient(secrets);
-    const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-    // const SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
-    //   SecretsKeys.IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID,
-    //   secrets
-    // );
-
-    // todo handle these when scheduleResource is a healthcare service or a practitioner
-    let address = getAddressStringForScheduleResource(scheduleResource);
-    if (!address) {
-      if (emailClient.getFeatureFlag()) {
-        throw new Error('Address is required to send reminder email');
-      } else {
-        address = '123 Main St, Anytown, USA'; // placeholder address for local dev when email sending is disabled
-      }
-    }
-    let location = getNameFromScheduleResource(scheduleResource);
-    if (!location) {
-      if (emailClient.getFeatureFlag()) {
-        throw new Error('Location is required to send reminder email');
-      } else {
-        location = 'Test Location'; // placeholder location for local dev when email sending is disabled
-      }
-    }
-
-    const rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule`;
-    const templateData: InPersonConfirmationTemplateData = {
-      time: readableTime,
-      location,
-      address,
-      'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
-      'modify-visit-url': rescheduleUrl,
-      'cancel-visit-url': `${WEBSITE_URL}/visit/${appointmentID}/cancel`,
-      'paperwork-url': `${WEBSITE_URL}/paperwork/${appointmentID}`,
-    };
-    await emailClient.sendInPersonConfirmationEmail(email, templateData);
-  } else {
-    console.log('email undefined');
-  }
-  const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  const messageAll = `Thanks for choosing ${PROJECT_NAME}! Your check-in time for ${firstName} at ${getNameForOwner(
-    scheduleResource
-  )} is ${readableTime}. Please save time at check-in by completing your pre-visit paperwork`;
-  const message =
-    appointmentType === 'walkin' || appointmentType === 'posttelemed'
-      ? `${messageAll}: ${WEBSITE_URL}/paperwork/${appointmentID}`
-      : `You're confirmed! ${messageAll}, or modify/cancel your visit: ${WEBSITE_URL}/visit/${appointmentID}`;
-  // cSpell:disable-next spanish
-  const messageAllSpanish = `¡Gracias por elegir ${PROJECT_NAME}! Su hora de registro para ${firstName} en ${scheduleResource.name} es el día ${startTime}. Nuestra nueva tecnología requiere que los pacientes nuevos Y los recurrentes completen los formularios y se aseguren de que los registros estén actualizados. Para expediar el proceso, antes de su llegada por favor llene el papeleo`;
-  const messageSpanish =
-    appointmentType === 'walkin' || appointmentType === 'posttelemed'
-      ? `${messageAllSpanish}: ${WEBSITE_URL}/paperwork/${appointmentID}`
-      : // cSpell:disable-next spanish
-        `¡Está confirmado! ${messageAllSpanish}. Para completar la documentación o modificar/cancelar su registro, visite: ${WEBSITE_URL}/visit/${appointmentID}`;
-
-  const oystehr = createOystehrClient(
-    token,
-    getSecret(SecretsKeys.FHIR_API, secrets),
-    getSecret(SecretsKeys.PROJECT_API, secrets)
-  );
-
-  let selectedMessage;
-  switch (language?.split('-')?.[0] ?? 'en') {
-    case 'es':
-      selectedMessage = messageSpanish;
-      break;
-    case 'en':
-      selectedMessage = message;
-      break;
-    default:
-      selectedMessage = message;
-      break;
-  }
-
-  try {
-    const commId = await oystehr.transactionalSMS.send({
-      message: selectedMessage,
-      resource: messageRecipient,
-    });
-    console.log('message send successful', commId);
-  } catch (e) {
-    console.log('message send error: ', JSON.stringify(e));
-    void sendErrors(e, getSecret(SecretsKeys.ENVIRONMENT, secrets));
-  } finally {
-    const end = DateTime.now();
-    const messagesExecutionTime = end.toMillis() - start.toMillis();
-    console.log(`sending messages took ${messagesExecutionTime} ms`);
-  }
+export interface EmailAttachment {
+  content: string; // Base64 encoded content
+  filename: string;
+  type: string;
+  disposition?: 'attachment' | 'inline';
+  contentId?: string;
 }
 
-const defaultBCCLowersEmail = 'support@ottehr.com';
 const defaultLowersFromEmail = 'ottehr-support@masslight.com'; // todo: change to support@ottehr.com when doing so does not land things in spam folder
 class EmailClient {
   private config: SendgridConfig;
@@ -191,10 +74,11 @@ class EmailClient {
   private async sendEmail<T extends EmailTemplate>(
     to: string | string[],
     template: T,
-    templateData: DynamicTemplateDataRecord<T>
+    templateData: DynamicTemplateDataRecord<T>,
+    attachments?: EmailAttachment[]
   ): Promise<void> {
     const { templateIdSecretName } = template;
-    let SENDGRID_EMAIL_BCC = [defaultBCCLowersEmail];
+    let SENDGRID_EMAIL_BCC: string[] = [];
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, this.secrets);
     const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
     let templateId = '';
@@ -227,8 +111,8 @@ class EmailClient {
       supportPhoneNumber = locationSupportPhoneNumberMap[(templateData as any).location] || defaultSupportPhoneNumber;
     }
 
-    const fromEmail = ENVIRONMENT === 'production' ? sender : defaultLowersFromEmail;
-    const replyTo = ENVIRONMENT === 'production' ? configReplyTo : defaultLowersFromEmail;
+    const fromEmail = ENVIRONMENT !== 'local' ? sender : defaultLowersFromEmail;
+    const replyTo = ENVIRONMENT !== 'local' ? configReplyTo : defaultLowersFromEmail;
 
     const email = {
       ...emailRest,
@@ -253,6 +137,16 @@ class EmailClient {
           projectDomain,
         },
       },
+      ...(attachments &&
+        attachments.length > 0 && {
+          attachments: attachments.map((attachment) => ({
+            content: attachment.content,
+            filename: attachment.filename,
+            type: attachment.type,
+            disposition: attachment.disposition || 'attachment',
+            ...(attachment.contentId && { content_id: attachment.contentId }),
+          })),
+        }),
     };
 
     const featureFlag = this.config.featureFlag;
@@ -287,8 +181,9 @@ class EmailClient {
   async sendErrorEmail(to: string | string[], templateData: ErrorReportTemplateData): Promise<void> {
     const recipients = typeof to === 'string' ? [to] : [...to];
 
-    if (!recipients.includes(defaultBCCLowersEmail)) {
-      recipients.push(defaultBCCLowersEmail);
+    const ottehrSupportEmail = 'support@ottehr.com';
+    if (!recipients.includes(ottehrSupportEmail)) {
+      recipients.push(ottehrSupportEmail);
     }
 
     await this.sendEmail(recipients, this.config.templates.errorReport, templateData);
@@ -340,6 +235,14 @@ class EmailClient {
 
   async sendInPersonReminderEmail(email: string | string[], templateData: InPersonReminderTemplateData): Promise<void> {
     await this.sendEmail(email, this.config.templates.inPersonReminder, templateData);
+  }
+
+  async sendInPersonReceiptEmail(
+    email: string | string[],
+    templateData: InPersonReceiptTemplateData,
+    attachments?: EmailAttachment[]
+  ): Promise<void> {
+    await this.sendEmail(email, this.config.templates.inPersonReceipt, templateData, attachments);
   }
 }
 
@@ -407,6 +310,11 @@ export const makeBookAgainUrl = (appointmentId: string, secrets: Secrets | null)
 export const makeModifyVisitUrl = (appointmentId: string, secrets: Secrets | null): string => {
   const baseUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
   return `${baseUrl}/visit/${appointmentId}/reschedule`;
+};
+
+export const makeVisitLandingUrl = (appointmentId: string, secrets: Secrets | null): string => {
+  const baseUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  return `${baseUrl}/visit/${appointmentId}`;
 };
 
 export const makeAddressUrl = (address: string): string => {
