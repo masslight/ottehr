@@ -235,7 +235,7 @@ async function parseTestUser(user: UserResponse, oystehr: Oystehr): Promise<Test
 
   const providerTypeExtension = practitioner.extension?.find((e) => e.url === PROVIDER_TYPE_EXTENSION_URL);
 
-  const providerType = providerTypeExtension?.valueCodeableConcept?.coding?.[0]?.code as ProviderTypeCode;
+  const providerType = providerTypeExtension?.valueCodeableConcept?.coding?.[0]?.code as ProviderTypeCode | undefined;
   const providerTypeText = providerTypeExtension?.valueCodeableConcept?.text;
 
   if (!phone) throw new Error(`No phone for this user: ${user.id}`);
