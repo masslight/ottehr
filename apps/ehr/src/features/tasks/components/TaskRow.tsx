@@ -16,6 +16,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
+import { DateTime } from 'luxon';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GenericToolTip } from 'src/components/GenericToolTip';
@@ -49,6 +50,9 @@ export const TaskRow: React.FC<Props> = ({
     setMoreActionsPopoverAnchor(null);
   };
 
+  const createdDate = DateTime.fromISO(task.createdDate);
+  const isCreatedToday = DateTime.now().toISODate() === createdDate.toISODate();
+
   return (
     <Paper style={{ display: 'flex', height: '62px', alignItems: 'center', width: '100%', padding: '16px' }}>
       <Box style={{ width: '150px' }}>
@@ -68,7 +72,7 @@ export const TaskRow: React.FC<Props> = ({
           </Typography>
         </Box>
         <Typography variant="body2" display="inline" style={{ color: '#00000099', display: 'block' }}>
-          {task.createdDate}
+          {isCreatedToday ? 'Today, ' + createdDate.toFormat('h:mm a') : createdDate.toFormat('MM/dd/yyyy, h:mm a')}
         </Typography>
       </Box>
       <Box style={{ flexGrow: 1 }}>

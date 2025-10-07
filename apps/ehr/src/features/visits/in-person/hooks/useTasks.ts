@@ -35,6 +35,10 @@ const STUB_TASK: FhirTask = {
       type: codeableConcept('orderId', TASK_INPUT_SYSTEM),
       valueString: 'stubOrderId',
     },
+    {
+      type: codeableConcept('alert', TASK_INPUT_SYSTEM),
+      valueString: 'ALERT!',
+    },
   ],
 };
 
@@ -191,11 +195,13 @@ function fhirTaskToTask(task: FhirTask): Task {
     subtitle: getInput('subtitle', task) ?? '',
     status: task.status,
     action: action,
-    assignee: {
-      id: task.owner?.id ?? '',
-      name: task.owner?.display ?? '',
-      date: task.lastModified ?? '',
-    },
+    assignee: task.owner
+      ? {
+          id: task.owner?.id ?? '',
+          name: task.owner?.display ?? '',
+          date: task.lastModified ?? '',
+        }
+      : undefined,
     alert: getInput('alert', task) ?? '',
   };
 }
