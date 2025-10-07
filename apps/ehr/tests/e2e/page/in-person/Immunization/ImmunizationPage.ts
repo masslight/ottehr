@@ -1,5 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { Dialog, expectDialog } from '../../patient-information/Dialog';
 import { EditVaccineOrderPage, expectEditVaccineOrderPage } from './EditVaccineOrderPage';
 
 export class ImmunizationPage {
@@ -18,6 +19,7 @@ export class ImmunizationPage {
     givenDate?: string;
     givenPerson?: string;
     status: string;
+    reason?: string;
   }): Promise<void> {
     await expect(
       this.#page
@@ -62,6 +64,11 @@ export class ImmunizationPage {
             .getByTestId(dataTestIds.immunizationPage.marTableStatusCell)
             .filter({ hasText: input.status }),
         })
+        .filter({
+          has: this.#page
+            .getByTestId(dataTestIds.immunizationPage.marTableReasonCell)
+            .filter({ hasText: input.reason }),
+        })
     ).toBeVisible();
   }
 
@@ -74,6 +81,17 @@ export class ImmunizationPage {
       .getByTestId(dataTestIds.immunizationPage.pencilIconButton)
       .click();
     return expectEditVaccineOrderPage(this.#page);
+  }
+
+  async clickDeleteButton(vaccineName: string): Promise<Dialog> {
+    await this.#page
+      .getByTestId(dataTestIds.immunizationPage.marTableRow)
+      .filter({
+        hasText: vaccineName,
+      })
+      .getByTestId(dataTestIds.immunizationPage.deleteButton)
+      .click();
+    return expectDialog(this.#page);
   }
 
   async clickVaccineDetailsTab(): Promise<void> {

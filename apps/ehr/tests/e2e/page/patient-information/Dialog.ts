@@ -1,14 +1,22 @@
-import { Page } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 
-export class DiscardChangesDialog {
+export class Dialog {
   #page: Page;
 
   constructor(page: Page) {
     this.#page = page;
   }
 
-  async clickDiscardChangesButton(): Promise<void> {
+  async verifyMessage(message: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.dialog.message)).toHaveText(message);
+  }
+
+  async verifyTitle(title: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.dialog.title)).toHaveText(title);
+  }
+
+  async clickProceedButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dialog.proceedButton).click();
   }
 
@@ -21,7 +29,7 @@ export class DiscardChangesDialog {
   }
 }
 
-export async function expectDiscardChangesDialog(page: Page): Promise<DiscardChangesDialog> {
+export async function expectDialog(page: Page): Promise<Dialog> {
   await page.getByTestId(dataTestIds.dialog.title).isVisible();
-  return new DiscardChangesDialog(page);
+  return new Dialog(page);
 }

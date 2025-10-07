@@ -81,6 +81,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
           sx={{
             color: theme.palette.text.primary,
           }}
+          data-testid={dataTestIds.dialog.message}
         >
           {description}
         </DialogContentText>

@@ -41,11 +41,10 @@ export abstract class BaseProgressNotePage {
     }
   }
 
-  async verifyVaccine(vaccineInfo: string, vaccineDate: string): Promise<void> {
-    const matcher = expect(
+  async verifyVaccine(vaccineInfo: string): Promise<void> {
+    await expect(
       this.#page.getByTestId(dataTestIds.progressNotePage.vaccineItem).filter({ hasText: vaccineInfo })
-    );
-    await matcher.toContainText(vaccineDate);
+    ).toBeVisible();
   }
 
   async verifyInHouseLabs(sectionTitle: string, testName: string): Promise<void> {

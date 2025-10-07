@@ -108,11 +108,13 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
           {grayText(order.administrationDetails?.administeredProvider?.name)}
         </span>
       </TableCell>
-      <TableCell data-testid={dataTestIds.immunizationPage.marTableStatusCell}>
+      <TableCell>
         <Stack direction="row" justifyContent="space-between">
           <Stack>
-            <OrderStatusChip status={order.status} />
-            {reasonListValues[order.reason as ReasonListCodes] ?? order.reason}
+            <OrderStatusChip status={order.status} dataTestId={dataTestIds.immunizationPage.marTableStatusCell} />
+            <span data-testid={dataTestIds.immunizationPage.marTableReasonCell}>
+              {reasonListValues[order.reason as ReasonListCodes] ?? order.reason}
+            </span>
           </Stack>
           {showActions && order.status === 'pending' ? (
             <Stack direction="row" onClick={(e) => e.stopPropagation()}>

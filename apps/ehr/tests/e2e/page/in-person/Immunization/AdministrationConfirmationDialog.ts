@@ -23,6 +23,11 @@ export class AdministeredDialogue {
     await expect(this.#page.getByTestId(dataTestIds.administrationConfirmationDialog.message)).toHaveText(message);
   }
 
+  async selectReason(reason: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.administrationConfirmationDialog.reasonField).click();
+    await this.#page.getByText(reason, { exact: true }).click();
+  }
+
   async clickMarkAsAdministeredButton(): Promise<AdministeredDialogue> {
     await this.#page.getByTestId(dataTestIds.dialog.proceedButton).click();
     return await expectAdministrationConfirmationDialogue(this.#page);
@@ -30,7 +35,6 @@ export class AdministeredDialogue {
 }
 
 export async function expectAdministrationConfirmationDialogue(page: Page): Promise<AdministeredDialogue> {
-  await page.waitForURL(new RegExp(`/in-person/.*/immunization/vaccine-details`));
-  await expect(page.getByTestId(dataTestIds.immunizationPage.vaccineDetailsTab)).toBeVisible();
+  await expect(page.getByTestId(dataTestIds.inPersonModal.confirmationDialogue)).toBeVisible();
   return new AdministeredDialogue(page);
 }

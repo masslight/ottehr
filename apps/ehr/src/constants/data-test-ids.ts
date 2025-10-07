@@ -176,6 +176,7 @@ export const dataTestIds = {
     cancelButton: 'dialog-cancel-button',
     proceedButton: 'dialog-proceed-button',
     title: 'dialog-title',
+    message: 'dialog-message',
   },
   virtualLocationsPage: {
     locationsSearch: 'locations-search',
@@ -534,9 +535,11 @@ export const dataTestIds = {
     marTableOrderedPersonCell: 'mar-table-ordered-person-cell',
     marTableGivenDateCell: 'mar-table-given-date-cell',
     marTableGivenPersonCell: 'mar-table-given-person-cell',
+    marTableReasonCell: 'mar-table-reason-cell',
     vaccineDetailsTab: 'vaccine-details-tab',
     marTab: 'immunization-mar-tab',
     pencilIconButton: 'EditOutlinedIcon',
+    deleteButton: 'DeleteOutlinedIcon',
   },
 
   vaccineDetailsPage: {
@@ -557,6 +560,7 @@ export const dataTestIds = {
     partlyAdministeredButton: 'partly-administered-button',
     notAdministeredButton: 'not-administered-button',
   },
+
   administrationConfirmationDialog: {
     patient: 'administration-dialog-patient',
     vaccine: 'administration-dialog-vaccine',

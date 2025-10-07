@@ -67,6 +67,7 @@ export const AdministrationConfirmationDialog: React.FC<Props> = ({
           {administrationType.type !== 'administered' ? (
             <Stack spacing={2} sx={{ mt: 2 }}>
               <SelectInput
+                dataTestId={dataTestIds.administrationConfirmationDialog.reasonField}
                 name="reason"
                 label="Reason"
                 options={Object.entries(reasonListValues).map(([value, label]) => {
