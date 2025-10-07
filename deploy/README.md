@@ -9,8 +9,9 @@ This directory contains Terraform configuration for deploying Ottehr.
 This project currently requires the 1.12 version of Terraform. You can download this directly from HashiCorp's releases page and install it into your path. For example to install on an ARM Mac:
 
 ```bash
+brew install wget # or use cURL
 wget https://releases.hashicorp.com/terraform/1.12.2/terraform_1.12.2_darwin_arm64.zip
-unzip unzip terraform_1.12.2_darwin_arm64.zip -d /tmp
+unzip terraform_1.12.2_darwin_arm64.zip -d /tmp
 sudo cp /tmp/terraform /usr/local/bin/terraform
 ```
 

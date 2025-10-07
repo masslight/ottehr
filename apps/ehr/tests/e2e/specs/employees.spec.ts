@@ -62,8 +62,15 @@ async function checkEmployeeFields(page: Page, employee: TestEmployeeInviteParam
 
   // IN CASE EMPLOYEE IS A PROVIDER WE CHECKING CREDENTIALS AND NPI
   if (employee.roles.includes(RoleType.Provider)) {
-    const credentialsField = page.getByTestId(dataTestIds.employeesPage.providerDetailsCredentials).locator('input');
-    await expect.soft(credentialsField).toHaveValue(employee.credentials);
+    const providerTypeField = page.getByTestId(dataTestIds.employeesPage.providerDetailsProviderTypeDropdown);
+    await expect.soft(providerTypeField).toHaveText(employee.providerType || '');
+
+    if (employee.providerType === 'other') {
+      const providerTypeOtherField = page
+        .getByTestId(dataTestIds.employeesPage.providerDetailsProviderTypeOtherText)
+        .locator('input');
+      await expect.soft(providerTypeOtherField).toHaveValue(employee.providerTypeText || '');
+    }
 
     const npiField = page.getByTestId(dataTestIds.employeesPage.providerDetailsNPI).locator('input');
     await expect.soft(npiField).toHaveValue(employee.npi);
@@ -101,8 +108,17 @@ async function updateEmployeesFields(page: Page, employee: TestEmployeeInvitePar
 
   // IN CASE EMPLOYEE IS A PROVIDER WE UPDATING CREDENTIALS AND NPI
   if (employee.roles.includes(RoleType.Provider)) {
-    const credentialsField = page.getByTestId(dataTestIds.employeesPage.providerDetailsCredentials).locator('input');
-    await credentialsField.fill(employee.credentials);
+    const providerTypeField = page.getByTestId(dataTestIds.employeesPage.providerDetailsProviderTypeDropdown);
+    await providerTypeField.getByRole('checkbox').fill(employee.providerType || '');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+
+    if (employee.providerType === 'other') {
+      const providerTypeOtherField = page
+        .getByTestId(dataTestIds.employeesPage.providerDetailsProviderTypeOtherText)
+        .locator('input');
+      await providerTypeOtherField.fill(employee.providerTypeText || '');
+    }
 
     const npiField = page.getByTestId(dataTestIds.employeesPage.providerDetailsNPI).locator('input');
     await npiField.fill(employee.npi);

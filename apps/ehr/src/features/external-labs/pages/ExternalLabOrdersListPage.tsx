@@ -1,13 +1,13 @@
 import { Box, Paper, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AiSuggestion from 'src/components/AiSuggestion';
-import { useGetAppointmentAccessibility } from 'src/telemed';
+import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { AiObservationField, LabsTableColumn, ObservationTextFieldDTO } from 'utils';
-import { PageTitle } from '../../../telemed/components/PageTitle';
-import { useAppointmentData, useChartData } from '../../../telemed/state/appointment/appointment.store';
 import ListViewContainer from '../../common/ListViewContainer';
-import { ButtonRounded } from '../../css-module/components/RoundedButton';
+import { ButtonRounded } from '../../visits/in-person/components/RoundedButton';
+import { PageTitle } from '../../visits/shared/components/PageTitle';
 import { LabsTablePatientChart } from '../components/labs-orders/LabsTablePatientChart';
 
 const externalLabsColumns: LabsTableColumn[] = [

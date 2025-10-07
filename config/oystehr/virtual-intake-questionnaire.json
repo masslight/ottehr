@@ -5,7 +5,7 @@
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-        "version": "1.0.9",
+        "version": "1.0.10",
         "name": "virtual_pre-visit_paperwork (please_do_not_delete)",
         "title": "virtual pre-visit paperwork",
         "status": "active",
@@ -3255,10 +3255,15 @@
               {
                 "linkId": "valid-card-on-file",
                 "type": "boolean",
+                "required": true,
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                     "valueString": "Payment Validation"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
+                    "valueBoolean": true
                   }
                 ]
               }
@@ -4062,13 +4067,25 @@
                 "linkId": "hipaa-acknowledgement",
                 "text": "I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)",
                 "type": "boolean",
-                "required": true
+                "required": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
+                    "valueBoolean": true
+                  }
+                ]
               },
               {
                 "linkId": "consent-to-treat",
                 "text": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)",
                 "type": "boolean",
-                "required": true
+                "required": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
+                    "valueBoolean": true
+                  }
+                ]
               },
               {
                 "linkId": "signature",

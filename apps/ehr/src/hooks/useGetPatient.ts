@@ -16,6 +16,7 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { getVisitTypeLabelForAppointment } from 'src/types/types';
 import {
   getFirstName,
@@ -32,10 +33,9 @@ import {
   useSuccessQuery,
 } from 'utils';
 import ehrInsuranceUpdateFormJson from '../../../../config/oystehr/ehr-insurance-update-questionnaire.json';
+import { OystehrTelemedAPIClient } from '../features/visits/shared/api/oystehrApi';
 import { getTimezone } from '../helpers/formatDateTime';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
-import { OystehrTelemedAPIClient } from '../telemed/data';
-import { useOystehrAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 import { useApiClients } from './useAppClients';
 
 const getTelemedLength = (history?: EncounterStatusHistory[]): number => {
