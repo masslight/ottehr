@@ -15,8 +15,11 @@ export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (prop
   const { label, name, options } = props;
 
   const params = [name].concat(options.map((option) => option.name));
-  const { value: fields, update, isLoading } = useExamObservations(params);
-  const [booleanValue, setBooleanValue] = useState(fields.filter((field) => field.field === name)?.[0].value);
+  let { value: fields } = useExamObservations(params);
+  // appointments made before https://github.com/masslight/ottehr/issues/4055 is ready might have some undefined fields
+  fields = fields.filter((field) => field !== undefined);
+  const { update, isLoading } = useExamObservations(params);
+  const [booleanValue, setBooleanValue] = useState(fields.some((field) => field.value === true));
 
   const onCheckboxChange = (value: boolean): void => {
     setBooleanValue(!booleanValue);
@@ -24,11 +27,15 @@ export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (prop
     if (value === false) {
       // get fields that are checked and update them to be unchecked
       const fieldsToUpdate = fields.filter((field) => field.value === true);
-      update(fieldsToUpdate.map((field) => ({ ...field, value: false })));
+      if (fieldsToUpdate.length > 0) {
+        update(fieldsToUpdate.map((field) => ({ ...field, value: false })));
+      }
     } else {
       // if the checkbox is checked, update only the checkbox
       const field = fields.filter((field) => field.field === name)?.[0];
-      update({ ...field, value });
+      if (field) {
+        update({ ...field, value });
+      }
     }
   };
 
