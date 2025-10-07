@@ -45,6 +45,7 @@ import {
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
   OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
   OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL,
+  OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL,
   OYSTEHR_LABS_RESULT_SPECIMEN_COLLECTION_VOLUME_SYSTEM,
   OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM,
   OYSTEHR_LABS_TRANSMISSION_ACCOUNT_NUMBER_IDENTIFIER_SYSTEM,
@@ -165,9 +166,7 @@ const getResultDataConfigForDrResources = (
     locationZip: undefined,
     locationPhone: undefined,
     locationFax: undefined,
-    // TODO LABS: labcorp is probably not going to like if we don't have provider info for reflex results, and frankly unsolicited too
-    providerName: '',
-    providerNPI: '',
+    ...getProviderNameAndNpiFromDr(diagnosticReport),
     patientFirstName: patient.name?.[0].given?.[0] || '',
     patientMiddleName: patient.name?.[0].given?.[1],
     patientLastName: patient.name?.[0].family || '',
@@ -2028,3 +2027,37 @@ const getResultSpecimenFromDr = (diagnosticReport: DiagnosticReport): ResultSpec
 
   return Object.keys(collectionInfo).length ? collectionInfo : undefined;
 };
+
+function getProviderNameAndNpiFromDr(diagnosticReport: DiagnosticReport): {
+  providerName: string;
+  providerNPI: string;
+} {
+  console.log('Getting provider info from DR');
+  const providerDetails = {
+    providerName: '',
+    providerNPI: '',
+  };
+
+  const providerRef = diagnosticReport.extension?.find(
+    (ext) => ext.url === OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL && ext.valueReference
+  )?.valueReference?.reference;
+  if (!providerRef) {
+    console.log('No provider ref found in extension');
+    return providerDetails;
+  }
+
+  const containedProvider = diagnosticReport.contained?.find(
+    (res): res is Practitioner => res.id === providerRef.replace('#', '')
+  );
+  if (!containedProvider) {
+    console.warn(
+      `A provider ref existed in the extension of DiagnosticReport/${diagnosticReport.id} but no contained resource matched`
+    );
+    return providerDetails;
+  }
+
+  providerDetails.providerName = getFullestAvailableName(containedProvider) ?? '';
+  providerDetails.providerNPI = getPractitionerNPIIdentifier(containedProvider)?.value ?? '';
+
+  return providerDetails;
+}

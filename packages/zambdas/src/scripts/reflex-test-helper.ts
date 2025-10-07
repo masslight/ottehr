@@ -161,7 +161,6 @@ const main = async (): Promise<void> => {
 
   // remove existing id and hl7 extension and basedOn
   // in bundled orders world we wont know which test in the bundle triggered the reflex test, so no basedOn
-  delete reflexDR.extension;
   delete reflexDR.id;
   delete reflexDR.basedOn;
 

@@ -244,3 +244,6 @@ export const OYSTEHR_LABS_RESULT_SPECIMEN_COLLECTION_VOLUME_SYSTEM =
   'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-collection-volume';
 export const OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM =
   'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-specimen-source';
+
+export const OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL =
+  'https://extensions.fhir.oystehr.com/lab-result-ordering-provider-reference';
