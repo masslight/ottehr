@@ -31,7 +31,6 @@ import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
 import AppointmentPage from './pages/AppointmentPage';
 import AppointmentsPage from './pages/Appointments';
-import Data from './pages/Data';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeesPage from './pages/Employees';
 import GroupPage from './pages/GroupPage';
@@ -41,7 +40,13 @@ import PatientInformationPage from './pages/PatientInformationPage';
 import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
 import Reports from './pages/Reports';
-import { DailyPayments, IncompleteEncounters, VisitsOverview } from './pages/reports/index';
+import {
+  DailyPayments,
+  DataExports,
+  IncompleteEncounters,
+  VisitsOverview,
+  WorkflowEfficiency,
+} from './pages/reports/index';
 import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
 import TaskAdmin from './pages/TaskAdmin';
@@ -172,11 +177,12 @@ function App(): ReactElement {
               )}
               {currentUser?.hasRole([RoleType.Administrator]) && (
                 <>
-                  <Route path="/data" element={<Data />} />
                   <Route path="/tasks" element={<TaskAdmin />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
                   <Route path="/reports/daily-payments" element={<DailyPayments />} />
+                  <Route path="/reports/data-exports" element={<DataExports />} />
+                  <Route path="/reports/workflow-efficiency" element={<WorkflowEfficiency />} />
                   <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 </>
               )}
