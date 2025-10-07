@@ -1,22 +1,10 @@
 import Oystehr from '@oystehr/sdk';
-import { CandidApi, CandidApiClient, CandidApiEnvironment } from 'candidhealth';
+import { CandidApi, CandidApiClient } from 'candidhealth';
 import { Appointment, Patient } from 'fhir/r4b';
 import * as fs from 'fs';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
+import { createCandidApiClient } from 'utils';
 import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
-
-function createCandidApiClient(secrets: Secrets | null): CandidApiClient {
-  const candidApiClient: CandidApiClient = new CandidApiClient({
-    clientId: getSecret(SecretsKeys.CANDID_CLIENT_ID, secrets),
-    clientSecret: getSecret(SecretsKeys.CANDID_CLIENT_SECRET, secrets),
-    environment:
-      getSecret(SecretsKeys.CANDID_ENV, secrets) === 'PROD'
-        ? CandidApiEnvironment.Production
-        : CandidApiEnvironment.Staging,
-  });
-  return candidApiClient;
-}
 
 interface PatientInfo {
   fullName: string;

@@ -15,3 +15,4 @@ export * from './visit-note';
 export * from './vitals';
 export * from './medications';
 export * from './screening-questions';
+export * from './candidApi';
