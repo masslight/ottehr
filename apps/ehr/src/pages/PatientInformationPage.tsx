@@ -2,7 +2,7 @@ import { Box, SxProps, Typography, useTheme } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { BundleEntry, Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useEffect, useMemo, useState } from 'react';
+import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
@@ -282,6 +282,8 @@ interface PatientAccountComponentProps {
   renderBreadCrumbs?: boolean;
   renderHeader?: boolean;
   containerSX?: SxProps;
+  loadingComponent?: ReactElement;
+  renderBackButton?: boolean;
 }
 
 export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
@@ -290,6 +292,8 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   renderBreadCrumbs = false,
   renderHeader = false,
   containerSX = {},
+  loadingComponent = <LoadingScreen />,
+  renderBackButton = true,
 }) => {
   const navigate = useNavigate();
   const { setInsurancePlans } = usePatientStore();
@@ -403,7 +407,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   };
 
   if ((isFetching || questionnaireFetching || coveragesFetching) && !patient) {
-    return <LoadingScreen />;
+    return loadingComponent;
   }
 
   if (!patient) return null;
@@ -457,6 +461,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
             loading={submitQR.isPending}
             hidden={false}
             submitDisabled={Object.keys(dirtyFields).length === 0}
+            backButtonHidden={renderBackButton === false}
           />
         </Box>
         <CustomDialog

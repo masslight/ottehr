@@ -953,7 +953,11 @@ export default function AppointmentPage(): ReactElement {
                       <PatientInformation
                         title="Completed consent forms"
                         loading={loading}
-                        editValue={consentEditProp()}
+                        editValue={
+                          signedConsentForm[consentToTreatPatientDetailsKey] === 'Signed'
+                            ? consentEditProp()
+                            : undefined
+                        }
                         patientDetails={{
                           ...signedConsentForm,
                         }}
@@ -992,7 +996,11 @@ export default function AppointmentPage(): ReactElement {
               <Typography variant="h3" color="primary.dark" marginBottom={2}>
                 About this patient
               </Typography>
-              <PatientAccountComponent id={patient?.id} />
+              <PatientAccountComponent
+                id={patient?.id}
+                loadingComponent={<Skeleton width={200} height={40} />}
+                renderBackButton={false}
+              />
             </Grid>
           </Grid>
         </Grid>

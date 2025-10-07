@@ -9,9 +9,17 @@ type ActionBarProps = {
   loading: boolean;
   hidden?: boolean;
   submitDisabled?: boolean;
+  backButtonHidden?: boolean;
 };
 
-export const ActionBar: FC<ActionBarProps> = ({ handleDiscard, handleSave, loading, hidden, submitDisabled }) => {
+export const ActionBar: FC<ActionBarProps> = ({
+  handleDiscard,
+  handleSave,
+  loading,
+  hidden,
+  submitDisabled,
+  backButtonHidden,
+}) => {
   const theme = useTheme();
 
   return (
@@ -35,11 +43,13 @@ export const ActionBar: FC<ActionBarProps> = ({ handleDiscard, handleSave, loadi
           borderRadius: 25,
           textTransform: 'none',
           fontWeight: 'bold',
+          display: backButtonHidden ? 'none' : 'inline-flex',
         }}
         onClick={handleDiscard}
       >
         Back
       </Button>
+      {backButtonHidden && <span />} {/* Placeholder to keep Save changes button on the right */}
       <LoadingButton
         data-testid={dataTestIds.patientInformationPage.saveChangesButton}
         variant="contained"
