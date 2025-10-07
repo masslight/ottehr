@@ -11,6 +11,7 @@ export * from './paperwork';
 export * from './presigned-file-url';
 export * from './rcm';
 export * from './states';
+export * from './tasks';
 export * from './visit-note';
 export * from './vitals';
 export * from './medications';
