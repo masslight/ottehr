@@ -16,6 +16,7 @@ import {
 import {
   getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
+  getCardPaymentStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
   getEmergencyContactStepAnswers,
@@ -311,6 +312,7 @@ const processPaperwork = async (
       getAdditionalQuestionsAnswers({ useRandomAnswers: true }),
       getPaymentOptionSelfPayAnswers(),
       getResponsiblePartyStepAnswers({}),
+      getCardPaymentStepAnswers(),
       getSchoolWorkNoteStepAnswers(),
       getConsentStepAnswers({}),
       getInviteParticipantStepAnswers(),
