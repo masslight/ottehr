@@ -458,20 +458,32 @@ export default function AppointmentTableRow({
         }}
       >
         {isLongWaitingTime && longWaitFlag}
-        {appointment?.visitStatusHistory?.map((statusTemp, index) => {
-          return (
-            <Box key={index} sx={{ display: 'flex', gap: 1 }}>
-              <Typography
-                variant="body2"
-                color={theme.palette.getContrastText(theme.palette.background.default)}
-                style={{ display: 'inline', marginTop: 1 }}
-              >
-                {formatMinutes(getDurationOfStatus(statusTemp, now))} mins
-              </Typography>
-              {getAppointmentStatusChip(statusTemp.status as VisitStatusLabel)}
-            </Box>
-          );
-        })}
+        {appointment?.visitStatusHistory
+          ?.filter((statusTemp) => {
+            // Hide 'discharged' status from history display
+            if (statusTemp.status === 'discharged') {
+              return false;
+            }
+            // If current status is 'arrived', don't show 'pending' status
+            if (appointment.status === 'arrived' && statusTemp.status === 'pending') {
+              return false;
+            }
+            return true;
+          })
+          ?.map((statusTemp, index) => {
+            return (
+              <Box key={index} sx={{ display: 'flex', gap: 1 }}>
+                <Typography
+                  variant="body2"
+                  color={theme.palette.getContrastText(theme.palette.background.default)}
+                  style={{ display: 'inline', marginTop: 1 }}
+                >
+                  {formatMinutes(getDurationOfStatus(statusTemp, now))} mins
+                </Typography>
+                {getAppointmentStatusChip(statusTemp.status as VisitStatusLabel)}
+              </Box>
+            );
+          })}
 
         <Typography
           variant="body2"

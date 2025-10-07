@@ -11,7 +11,7 @@ export const getDurationOfStatus = (statusEntry: VisitStatusHistoryEntry, dateTi
   if (statusEntry.period.start && statusEntry.period.end) {
     return DateTime.fromISO(statusEntry.period.end).diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes;
   } else if (statusEntry.period.start) {
-    const stopCountingForStatus: VisitStatusHistoryLabel[] = ['cancelled', 'no show', 'completed'];
+    const stopCountingForStatus: VisitStatusHistoryLabel[] = ['cancelled', 'no show', 'completed', 'discharged'];
     if (!stopCountingForStatus.includes(statusEntry.status)) {
       return dateTimeNow.diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes;
     }
@@ -26,7 +26,7 @@ export const getVisitTotalTime = (
 ): number => {
   if (appointment.start) {
     return visitStatusHistory
-      .filter((status) => status.status !== 'pending')
+      .filter((status) => status.status !== 'pending' && status.status !== 'discharged')
       .reduce((accumulator, statusTemp) => {
         return accumulator + getDurationOfStatus(statusTemp, dateTimeNow);
       }, 0);
