@@ -28,6 +28,7 @@ interface LabOrderPDFDetail {
   url: string;
 }
 export interface ExternalLabOrderResultConfig extends LabOrderPDFDetail {
+  containsAbnormalResult: boolean;
   orderNumber?: string;
 }
 

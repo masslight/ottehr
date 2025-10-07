@@ -483,8 +483,14 @@ export const makeEncounterLabResults = async (
             formattedName = nameLabTest(reflexTestName, labName, true);
           }
 
+          // this tag would be set by oystehr when the DR is created
+          const drIsTaggedAbnormal = !!relatedDR.meta?.tag?.find(
+            (tag) => tag.system === ABNORMAL_RESULT_DR_TAG.system && tag.code === ABNORMAL_RESULT_DR_TAG.code
+          );
+
           const { externalResultConfigs } = await getLabOrderResultPDFConfig(docRef, formattedName, m2mToken, {
             type: LabType.external,
+            containsAbnormalResult: drIsTaggedAbnormal,
             orderNumber,
           });
           if (isReflex) {
@@ -555,6 +561,7 @@ const getLabOrderResultPDFConfig = async (
   resultDetails:
     | {
         type: LabType.external;
+        containsAbnormalResult: boolean;
         orderNumber?: string;
       }
     | {
@@ -579,6 +586,7 @@ const getLabOrderResultPDFConfig = async (
         const labResult: ExternalLabOrderResultConfig = {
           name: formattedName,
           url,
+          containsAbnormalResult: resultDetails.containsAbnormalResult,
           orderNumber: resultDetails?.orderNumber,
         };
         externalResults.push(labResult);

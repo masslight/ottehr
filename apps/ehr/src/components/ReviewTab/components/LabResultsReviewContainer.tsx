@@ -23,10 +23,7 @@ export const LabResultsReviewContainer: FC<LabResultsReviewContainerProps> = ({ 
   const title = isExternal ? 'External Labs' : 'In-House Labs';
   const keyIdentifier = isExternal ? 'external-lab-result' : 'in-house-lab-result';
 
-  // this flag only exists for inhouse at the moment
   const checkForAbnormalResultFlag = (result: ExternalLabOrderResult | InHouseLabResult): ReactElement | null => {
-    const resultIsInHouse = 'containsAbnormalResult' in result;
-    if (!resultIsInHouse) return null;
     if (!result.containsAbnormalResult) return null;
     return (
       <>
