@@ -1414,6 +1414,51 @@
             ]
           },
           {
+            "linkId": "emergency-contact-page",
+            "item": [
+              {
+                "linkId": "emergency-contact-relationship",
+                "answer": [
+                  {
+                    "valueString": "Spouse"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-first-name",
+                "answer": [
+                  {
+                    "valueString": "Emergen"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-middle-name",
+                "answer": [
+                  {
+                    "valueString": "C"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-last-name",
+                "answer": [
+                  {
+                    "valueString": "Contact"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-number",
+                "answer": [
+                  {
+                    "valueString": "(123) 123-1234"
+                  }
+                ]
+              }
+            ]
+          },
+          {
             "linkId": "photo-id-page",
             "item": [
               {
