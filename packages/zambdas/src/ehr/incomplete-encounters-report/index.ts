@@ -8,6 +8,8 @@ import {
   getVisitStatus,
   IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutput,
+  isInPersonAppointment,
+  isTelemedAppointment,
   OTTEHR_MODULE,
   Secrets,
   SecretsKeys,
@@ -226,9 +228,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         : 'Unknown';
 
       // Determine visit type based on appointment meta tags
-      const visitType = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM)
+      const visitType = isTelemedAppointment(appointment)
         ? 'Telemed'
-        : appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.IP)
+        : isInPersonAppointment(appointment)
         ? 'In-Person'
         : 'Unknown';
 

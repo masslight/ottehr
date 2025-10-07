@@ -15,18 +15,18 @@ import { useQuery } from '@tanstack/react-query';
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
-import { getAppointmentStatusChip } from 'src/features/visits/telemed/utils/getAppointmentStatusChip';
+import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
 import { VisitTypeToLabel, VisitTypeToLabelTelemed } from 'src/types/types';
 import {
   EmployeeDetails,
   formatMinutes,
   getVisitStatus,
+  isInPersonAppointment,
   mapStatusToTelemed,
-  OTTEHR_MODULE,
   ServiceMode,
   TelemedCallStatusesArr,
   useSuccessQuery,
-  Visit_Status_Array,
+  VisitStatusArray,
 } from 'utils';
 import { create } from 'zustand';
 import { getEmployees } from '../api/api';
@@ -34,6 +34,7 @@ import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { AppointmentHistoryRow } from '../hooks/useGetPatient';
 import { RoundedButton } from './RoundedButton';
+import { TelemedAppointmentStatusChip } from './TelemedAppointmentStatusChip';
 
 type PatientEncountersGridProps = {
   appointments?: AppointmentHistoryRow[];
@@ -78,7 +79,7 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
           return;
         }
         const status = mapStatusToTelemed(encounter.status, appointment.status);
-        return getAppointmentStatusChip(status);
+        return !!status && <TelemedAppointmentStatusChip status={status} />;
       } else {
         if (!encounter) return;
         const encounterStatus = getVisitStatus(appointment, encounter);
@@ -140,10 +141,12 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
     headerAlign: 'center',
     width: 120,
     renderCell: ({ row: { id, appointment } }) => {
-      // if it's a pre-booked telemed visit the text is just 'prebook' so use the TM tag instead to support both
-      const isTelemed = !!appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM);
+      if (!id) {
+        return null;
+      }
 
-      return !isTelemed && <RoundedButton to={`/visit/${id}`}>Visit Info</RoundedButton>;
+      const isInPerson = isInPersonAppointment(appointment);
+      return <RoundedButton to={isInPerson ? `/visit/${id}` : getTelemedVisitDetailsUrl(id)}>Visit Info</RoundedButton>;
     },
   },
   {
@@ -287,7 +290,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           onChange={(e) => setStatus(e.target.value)}
         >
           <MenuItem value="all">All</MenuItem>
-          {[...new Set([...TelemedCallStatusesArr, ...Visit_Status_Array.filter((item) => item !== 'cancelled')])].map(
+          {[...new Set([...TelemedCallStatusesArr, ...VisitStatusArray.filter((item) => item !== 'cancelled')])].map(
             (status) => (
               <MenuItem key={status} value={status}>
                 {capitalize(status)}

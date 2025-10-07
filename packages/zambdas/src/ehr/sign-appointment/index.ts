@@ -17,7 +17,7 @@ import {
   getTaskResource,
   getVisitStatus,
   InPersonCompletionTemplateData,
-  OTTEHR_MODULE,
+  isInPersonAppointment,
   progressNoteChartDataRequestedFields,
   SignAppointmentInput,
   SignAppointmentResponse,
@@ -115,14 +115,13 @@ export const performEffect = async (
   await oystehr.fhir.create(sendClaimTaskResource);
   console.timeEnd('create-send-claim-task');
 
-  const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
-
+  const isInPerson = isInPersonAppointment(visitResources.appointment);
   const chartDataPromise = getChartData(oystehr, m2mToken, visitResources.encounter.id!);
   const additionalChartDataPromise = getChartData(
     oystehr,
     m2mToken,
     visitResources.encounter.id!,
-    isInPersonAppointment ? progressNoteChartDataRequestedFields : telemedProgressNoteChartDataRequestedFields
+    isInPerson ? progressNoteChartDataRequestedFields : telemedProgressNoteChartDataRequestedFields
   );
   const medicationOrdersPromise = getMedicationOrders(oystehr, {
     searchBy: {
@@ -183,7 +182,7 @@ export const performEffect = async (
       const presignedUrls = await getPresignedURLs(oystehr, m2mToken, visitResources.encounter.id!);
       const visitNoteUrl = presignedUrls['visit-note'].presignedUrl;
 
-      if (isInPersonAppointment) {
+      if (isInPerson) {
         const missingData: string[] = [];
         if (!patientEmail) missingData.push('patient email');
         if (!appointment.id) missingData.push('appointment ID');

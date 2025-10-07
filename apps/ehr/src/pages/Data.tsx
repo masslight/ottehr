@@ -37,6 +37,7 @@ import { Appointment, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { Bar, Line } from 'react-chartjs-2';
+import { IN_PERSON_CHIP_STATUS_MAP } from 'src/components/InPersonAppointmentStatusChip';
 import { ReportsMenu } from 'src/components/ReportsMenu';
 import {
   FhirAppointmentType,
@@ -47,7 +48,6 @@ import {
   VisitStatusHistoryLabel,
   VisitStatusLabel,
 } from 'utils';
-import { CHIP_STATUS_MAP } from '../components/AppointmentTableRow';
 import LocationSelect from '../components/LocationSelect';
 import { getTimezone } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
@@ -640,7 +640,7 @@ export default function Data(): React.ReactElement {
                             Math.round(appointmentStatuses[keyTemp as VisitStatusHistoryLabel].averageTime)
                           ),
                         backgroundColor: Object.keys(appointmentStatuses).map(
-                          (statusTemp) => CHIP_STATUS_MAP[statusTemp as VisitStatusLabel].color.primary
+                          (statusTemp) => IN_PERSON_CHIP_STATUS_MAP[statusTemp as VisitStatusLabel].color.primary
                         ),
                       },
                     ],

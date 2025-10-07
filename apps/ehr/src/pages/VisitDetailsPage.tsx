@@ -39,9 +39,11 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { generatePaperworkPdf } from 'src/api/api';
+import { InPersonAppointmentStatusChip } from 'src/components/InPersonAppointmentStatusChip';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { TelemedAppointmentStatusChip } from 'src/components/TelemedAppointmentStatusChip';
 import { isPaperworkPdfOutdated, useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
   CONSENT_CODE,
@@ -56,14 +58,16 @@ import {
   getUnconfirmedDOBIdx,
   getVisitStatus,
   INSURANCE_CARD_CODE,
+  isInPersonAppointment,
   isNonPaperworkQuestionnaireResponse,
+  mapStatusToTelemed,
   PAPERWORK_PDF_ATTACHMENT_TITLE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
+  TelemedAppointmentStatus,
   VisitStatusLabel,
 } from 'utils';
 import AppointmentNotesHistory from '../components/AppointmentNotesHistory';
-import { getAppointmentStatusChip } from '../components/AppointmentTableRow';
 import CardGridItem from '../components/CardGridItem';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch from '../components/DateSearch';
@@ -101,7 +105,13 @@ import { formatDateUsingSlashes, getTimezone } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
-import { appointmentTypeLabels, DocumentInfo, DocumentType } from '../types/types';
+import {
+  appointmentTypeLabels,
+  DocumentInfo,
+  DocumentType,
+  fhirAppointmentTypeToVisitType,
+  VisitTypeToLabelTelemed,
+} from '../types/types';
 
 interface Documents {
   photoIdCards: DocumentInfo[];
@@ -157,7 +167,6 @@ const getAnswerBooleanFor = (
 };
 
 const LAST_ACTIVE_THRESHOLD = 2; // minutes
-
 const patientPronounsNotListedValues = ['My pronounces are not listed', 'My pronouns are not listed'];
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
 
@@ -170,7 +179,7 @@ type AppointmentBundleTypes =
   | Flag
   | RelatedPerson;
 
-export default function AppointmentPage(): ReactElement {
+export default function VisitDetailsPage(): ReactElement {
   // variables
   const { id: appointmentID } = useParams();
   const { oystehr, oystehrZambda } = useApiClients();
@@ -184,7 +193,7 @@ export default function AppointmentPage(): ReactElement {
   const [paperworkModifiedFlag, setPaperworkModifiedFlag] = useState<Flag | undefined>(undefined);
   const [paperworkInProgressFlag, setPaperworkInProgressFlag] = useState<Flag | undefined>(undefined);
   const [paperworkStartedFlag, setPaperworkStartedFlag] = useState<Flag | undefined>(undefined);
-  const [status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
+  const [status, setStatus] = useState<VisitStatusLabel | TelemedAppointmentStatus | undefined>(undefined);
   const [errors, setErrors] = useState<{ editName?: boolean; editDOB?: boolean; hopError?: string }>({
     editName: false,
     editDOB: false,
@@ -224,7 +233,7 @@ export default function AppointmentPage(): ReactElement {
   const [activityLogs, setActivityLogs] = useState<ActivityLogData[] | undefined>(undefined);
   const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
   const user = useEvolveUser();
-
+  const isInPerson = isInPersonAppointment(appointment);
   const { documents, isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
 
   const { location, encounter, questionnaireResponse, relatedPerson } = useMemo(() => {
@@ -842,18 +851,30 @@ export default function AppointmentPage(): ReactElement {
     'policy-holder-last-name',
     'policy-holder-middle-name'
   );
+
   const secondaryPolicyHolderFullName = getFullNameString(
     'policy-holder-first-name-2',
     'policy-holder-last-name-2',
     'policy-holder-middle-name-2'
   );
+
   const pcpNameString =
     getAnswerStringFor('pcp-first', flattenedItems) && getAnswerStringFor('pcp-last', flattenedItems)
       ? `${getAnswerStringFor('pcp-first', flattenedItems)} ${getAnswerStringFor('pcp-last', flattenedItems)}`
       : undefined;
+
   const unconfirmedDOB = appointment && getUnconfirmedDOBForAppointment(appointment);
+
   const getAppointmentType = (appointmentType: FhirAppointmentType | undefined): string => {
-    return (appointmentType && appointmentTypeLabels[appointmentType]) || '';
+    if (!appointmentType) {
+      return '';
+    }
+
+    if (isInPerson) {
+      return appointmentTypeLabels[appointmentType] || '';
+    } else {
+      return VisitTypeToLabelTelemed[fhirAppointmentTypeToVisitType[appointmentType]] || '';
+    }
   };
 
   const { nameLastModified, dobLastModified } = useMemo(() => {
@@ -920,13 +941,16 @@ export default function AppointmentPage(): ReactElement {
   }, [activityLogs, setActivityLogs, appointment, locationTimeZone, oystehr, getAndSetHistoricResources]);
 
   useEffect(() => {
-    if (appointment) {
-      const encounterStatus = getVisitStatus(appointment, encounter);
+    if (appointment && encounter) {
+      const encounterStatus = isInPerson
+        ? getVisitStatus(appointment, encounter)
+        : mapStatusToTelemed(encounter.status, appointment.status);
+
       setStatus(encounterStatus);
     } else {
       setStatus(undefined);
     }
-  }, [appointment, encounter]);
+  }, [appointment, encounter, isInPerson]);
 
   // page HTML
   const handleCancelDialogOpen = (): void => {
@@ -1157,8 +1181,13 @@ export default function AppointmentPage(): ReactElement {
                       alignSelf: 'center',
                     }}
                   >
-                    {getAppointmentStatusChip(status)}
+                    {isInPerson ? (
+                      <InPersonAppointmentStatusChip status={status as VisitStatusLabel} />
+                    ) : (
+                      <TelemedAppointmentStatusChip status={status as TelemedAppointmentStatus} />
+                    )}
                   </span>
+
                   {appointment && appointment.status === 'cancelled' && (
                     <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
                       {appointment?.cancelationReason?.coding?.[0]?.display}
@@ -1166,6 +1195,7 @@ export default function AppointmentPage(): ReactElement {
                   )}
                 </>
               )}
+
               {appointment && appointment?.status !== 'cancelled' ? (
                 <>
                   <Button
@@ -1193,6 +1223,7 @@ export default function AppointmentPage(): ReactElement {
                   />
                 </>
               ) : null}
+
               {status === 'arrived' ? (
                 <>
                   <Button
@@ -1390,6 +1421,13 @@ export default function AppointmentPage(): ReactElement {
                 {/* About the patient */}
                 <PatientInformation
                   title="About the patient"
+                  titleButton={
+                    !!patient?.id && (
+                      <Link to={`/patient/${patient?.id}`}>
+                        <RoundedButton>Visit History</RoundedButton>
+                      </Link>
+                    )
+                  }
                   loading={loading}
                   patientDetails={{
                     ...(unconfirmedDOB
@@ -1545,30 +1583,32 @@ export default function AppointmentPage(): ReactElement {
           </Grid>
         </Grid>
         <Grid container direction="row" justifyContent="space-between">
-          <Grid item>
-            {loading || !status ? (
-              <Skeleton sx={{ marginLeft: { xs: 0, sm: 2 } }} aria-busy="true" width={200} />
-            ) : (
-              <div id="user-set-appointment-status">
-                <FormControl size="small" sx={{ marginTop: 2, marginLeft: { xs: 0, sm: 8 } }}>
-                  <ChangeStatusDropdown
-                    appointmentID={appointmentID}
-                    onStatusChange={setStatus}
-                    getAndSetResources={getAndSetHistoricResources}
-                    dataTestId={dataTestIds.appointmentPage.changeStatusDropdown}
-                  />
-                </FormControl>
-                {loading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}
-              </div>
-            )}
-          </Grid>
-          <Grid item sx={{ paddingTop: 2, paddingRight: 3.5 }}>
+          {isInPerson && (
+            <Grid item>
+              {loading || !status ? (
+                <Skeleton sx={{ marginLeft: { xs: 0, sm: 2 } }} aria-busy="true" width={200} />
+              ) : (
+                <div id="user-set-appointment-status">
+                  <FormControl size="small" sx={{ marginTop: 2, marginLeft: { xs: 0, sm: 8 } }}>
+                    <ChangeStatusDropdown
+                      appointmentID={appointmentID}
+                      onStatusChange={isInPerson ? setStatus : () => {}}
+                      getAndSetResources={getAndSetHistoricResources}
+                      dataTestId={dataTestIds.appointmentPage.changeStatusDropdown}
+                    />
+                  </FormControl>
+                  {loading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}
+                </div>
+              )}
+            </Grid>
+          )}
+          <Grid item sx={{ paddingTop: 2, paddingRight: isInPerson ? 3.5 : 0 }}>
             <>
               <Button
                 variant="outlined"
                 sx={{
                   alignSelf: 'center',
-                  marginLeft: { xs: 0, sm: 1 },
+                  marginLeft: { xs: 0, sm: isInPerson ? 1 : 0 },
                   borderRadius: '20px',
                   textTransform: 'none',
                 }}
@@ -1593,7 +1633,7 @@ export default function AppointmentPage(): ReactElement {
           </Grid>
         </Grid>
         <Grid container direction="row">
-          <Grid item sx={{ marginLeft: { xs: 0, sm: 8 }, marginTop: 2, marginBottom: 50 }}>
+          <Grid item sx={{ marginLeft: { xs: 0, sm: isInPerson ? 8 : 0 }, marginTop: 2, marginBottom: 50 }}>
             <>
               <LoadingButton
                 loading={activityLogsLoading}

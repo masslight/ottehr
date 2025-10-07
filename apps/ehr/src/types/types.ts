@@ -1,5 +1,5 @@
 import { Appointment, Slot } from 'fhir/r4b';
-import { FhirAppointmentType, OTTEHR_MODULE, PatientFollowupDetails, ScheduleType, ServiceMode } from 'utils';
+import { FhirAppointmentType, isTelemedAppointment, PatientFollowupDetails, ScheduleType, ServiceMode } from 'utils';
 
 // this likely will be consolidated to utils package. doughty conflict resolver, take heed:
 // the important change to include here is that slot is of type "Slot" rather than string
@@ -89,16 +89,15 @@ export const fhirAppointmentTypeToVisitType: { [type in FhirAppointmentType]: Vi
 
 export const getVisitTypeLabelForAppointment = (appointment: Appointment): string => {
   const fhirAppointmentType = appointment?.appointmentType?.text as FhirAppointmentType;
-  const isFhirAppointmentMetaTagTelemed = appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM);
-
   let visitTypeToLabelEnum = VisitTypeToLabel;
-  if (isFhirAppointmentMetaTagTelemed) {
+
+  if (isTelemedAppointment(appointment)) {
     visitTypeToLabelEnum = VisitTypeToLabelTelemed;
   }
 
   const visitType = fhirAppointmentTypeToVisitType[fhirAppointmentType];
-
   const label = visitTypeToLabelEnum[visitType];
+
   return label || '-';
 };
 
