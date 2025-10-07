@@ -295,6 +295,7 @@ export const dataTestIds = {
     hpiReasonForVisit: 'telemed-reason-for-visit',
     videoRoomContainer: 'telemed-video-room-container',
     endVideoCallButton: 'telemed-end-video-call-button',
+    finishVisitButton: 'telemed-finish-visit-button',
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
