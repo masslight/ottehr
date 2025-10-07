@@ -1110,9 +1110,6 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
   // pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting Physician:', data.providerName);
   // pdfClient.newLine(STANDARD_NEW_LINE);
 
-  // TODO LABS: we should consider putting provider name and npi info on reflex and unsolicited results because labcorp will surely want to see it
-  // related to OYST-2804
-
   console.log(
     `Drawing results date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
@@ -1992,7 +1989,7 @@ const getResultSpecimenFromDr = (diagnosticReport: DiagnosticReport): ResultSpec
   // We'll assume for now that all of these specimens will be contained because that is what Oystehr is doing
   const specimenRef = diagnosticReport.specimen.find((sp) => sp.reference !== undefined)?.reference;
 
-  // this won't happen but just for types
+  // this could happen if no specimen info is sent in the hl7
   if (!specimenRef) return undefined;
 
   const specimen = diagnosticReport.contained?.find(
