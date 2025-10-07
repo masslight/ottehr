@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QueryObserverResult, RefetchOptions } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { CHART_FIELDS_QUERY_KEY, QUERY_STALE_TIME } from 'src/constants';
+import { CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   ChartDataRequestedFields,
@@ -137,7 +137,7 @@ export function useChartFields<T extends ChartDataRequestedFields>({
       return result as Pick<GetChartDataResponse, keyof ChartDataRequestedFields>;
     },
     enabled: !!apiClient && !!encounterId && !!user && enabled,
-    staleTime: QUERY_STALE_TIME,
+    staleTime: 0, // TODO: add QUERY_STALE_TIME; set to 0 for now since not all api calls update cache (e.g., in-house order status changes to "collected")
     refetchInterval: refetchInterval || false,
   });
 
