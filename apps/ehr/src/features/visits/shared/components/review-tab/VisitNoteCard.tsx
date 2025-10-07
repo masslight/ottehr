@@ -1,6 +1,13 @@
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { examConfig, getSpentTime, patientScreeningQuestionsConfig } from 'utils';
+import { PatientVitalsContainer } from 'src/features/visits/in-person/components/progress-note/PatientVitalsContainer';
+import {
+  createVitalsSearchConfig,
+  examConfig,
+  getSpentTime,
+  patientScreeningQuestionsConfig,
+  VitalFieldNames,
+} from 'utils';
 import { AccordionCard } from '../../../../../components/AccordionCard';
 import { useChartFields } from '../../hooks/useChartFields';
 import { usePatientInstructionsVisibility } from '../../hooks/usePatientInstructionsVisibility';
@@ -35,6 +42,14 @@ export const VisitNoteCard: FC = () => {
       },
       chiefComplaint: { _tag: 'chief-complaint' },
       ros: { _tag: 'ros' },
+      vitalsObservations: {
+        _search_by: 'encounter',
+        _sort: '-_lastUpdated',
+        _count: 100,
+        _tag: Object.values(VitalFieldNames)
+          .map((name) => (createVitalsSearchConfig(name, 'encounter').searchParams as { _tag: string })._tag)
+          .join(','),
+      },
     },
   });
 
@@ -49,6 +64,8 @@ export const VisitNoteCard: FC = () => {
   const prescriptions = chartFields?.prescribedMedications;
   const showChiefComplaint = !!((chiefComplaint && chiefComplaint.length > 0) || (spentTime && spentTime.length > 0));
   const showReviewOfSystems = !!(ros && ros.length > 0);
+  const vitalsObservations = chartFields?.vitalsObservations;
+  // const vitalsNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
 
   const showAdditionalQuestions = patientScreeningQuestionsConfig.fields.some((field) => {
     const observation = chartData?.observations?.find((obs) => obs.field === field.fhirField);
@@ -61,12 +78,14 @@ export const VisitNoteCard: FC = () => {
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
+  const showVitalsObservations = !!(vitalsObservations && vitalsObservations.length > 0);
 
   const sections = [
     <PatientInformationContainer />,
     <VisitDetailsContainer />,
     showChiefComplaint && <ChiefComplaintContainer />,
     showReviewOfSystems && <ReviewOfSystemsContainer />,
+    showVitalsObservations && <PatientVitalsContainer encounterId={encounter?.id} />,
     <MedicationsContainer />,
     <AllergiesContainer />,
     <MedicalConditionsContainer />,
