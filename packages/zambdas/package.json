@@ -54,6 +54,7 @@
     "mock-reflex-test": "tsx src/scripts/reflex-test-helper.ts",
     "mock-unsolicited-result": "tsx src/scripts/unsolicited-result-helper.ts",
     "make-in-house-test-items": "tsx src/scripts/load-in-house-labs-tests.ts",
+    "migrate-practitioner-credentials": "tsx src/scripts/migrate-practitioner-credentials.ts",
     "test-emails": "tsx src/scripts/test-emails.ts",
     "remove-payor-orgs": "tsx src/scripts/remove-payor-orgs.ts",
     "update-locations-for-lab-accounts": "tsx src/scripts/update-locations-for-lab-accounts.ts"
