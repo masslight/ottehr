@@ -3,11 +3,11 @@ import { AppBar, Box, Stack, Tab, Tabs, useTheme } from '@mui/material';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { InPersonLoader } from 'src/features/in-person/components/InPersonLoader';
-import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/in-person/routing/helpers';
-import { ROUTER_PATH } from 'src/features/in-person/routing/routesInPerson';
-import { useGetAppointmentAccessibility } from 'src/shared/hooks/appointment/useGetAppointmentAccessibility';
-import { PageTitle } from '../../../components/PageTitle';
+import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
+import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
+import { Loader } from 'src/features/visits/shared/components/Loader';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { PageTitle } from '../../visits/shared/components/PageTitle';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { VaccineDetailsCardList } from '../components/VaccineDetailsCardList';
 
@@ -58,7 +58,7 @@ export const Immunization: React.FC = () => {
   }, [isReadOnly]);
 
   if (!content) {
-    return <InPersonLoader />;
+    return <Loader />;
   }
 
   return (

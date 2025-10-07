@@ -6,22 +6,23 @@ import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import EditInsurance from 'src/features/telemed/features/telemed-admin/EditInsurance';
-import EditVirtualLocationPage from 'src/features/telemed/features/telemed-admin/EditVirtualLocationPage';
-import { PatientVisitDetails } from 'src/features/telemed/pages/PatientVisitDetailsPage';
 import { RoleType, setupSentry } from 'utils';
 import Banner from './components/Banner';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
-import AddPatientFollowup from './components/patient/AddPatientFollowup';
-import PatientFollowup from './components/patient/PatientFollowup';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { TestErrorPage } from './components/TestErrorPage';
 import { CustomThemeProvider } from './CustomThemeProvider';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
+import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
+import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
+import { AppTypeProvider } from './features/visits/shared/stores/contexts/useAppFlags';
+import EditInsurance from './features/visits/telemed/components/telemed-admin/EditInsurance';
+import EditVirtualLocationPage from './features/visits/telemed/components/telemed-admin/EditVirtualLocationPage';
+import { PatientVisitDetails } from './features/visits/telemed/pages/PatientVisitDetailsPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
@@ -29,7 +30,6 @@ import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
 import AppointmentPage from './pages/AppointmentPage';
 import AppointmentsPage from './pages/Appointments';
-import Data from './pages/Data';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeesPage from './pages/Employees';
 import GroupPage from './pages/GroupPage';
@@ -39,13 +39,18 @@ import PatientInformationPage from './pages/PatientInformationPage';
 import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
 import Reports from './pages/Reports';
-import { DailyPayments, IncompleteEncounters, VisitsOverview } from './pages/reports/index';
+import {
+  DailyPayments,
+  DataExports,
+  IncompleteEncounters,
+  VisitsOverview,
+  WorkflowEfficiency,
+} from './pages/reports/index';
 import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
 import TaskAdmin from './pages/TaskAdmin';
 import { TelemedAdminPage } from './pages/TelemedAdminPage';
 import { Claim, Claims } from './rcm';
-import { AppTypeProvider } from './shared/contexts/useAppFlags';
 import { useNavStore } from './state/nav.store';
 
 const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV } = import.meta.env;
@@ -55,15 +60,15 @@ setupSentry({
   environment: VITE_APP_SENTRY_ENV,
 });
 
-const InPersonRoutingLazy = lazy(() => import('./features/in-person/routing/InPersonRouting'));
+const InPersonRoutingLazy = lazy(() => import('./features/visits/in-person/routing/InPersonRouting'));
 
 const TelemedTrackingBoardPageLazy = lazy(async () => {
-  const TrackingBoardPage = await import('./features/telemed/pages/TrackingBoardPage');
+  const TrackingBoardPage = await import('./features/visits/telemed/pages/TrackingBoardPage');
   return { default: TrackingBoardPage.TrackingBoardPage };
 });
 
 const TelemedAppointmentPageLazy = lazy(async () => {
-  const TelemedAppointmentPage = await import('./features/telemed/pages/AppointmentPage');
+  const TelemedAppointmentPage = await import('./features/visits/telemed/pages/AppointmentPage');
   return { default: TelemedAppointmentPage.AppointmentPage };
 });
 
@@ -112,7 +117,14 @@ function App(): ReactElement {
   });
 
   const roleUnknown =
-    !currentUser || !currentUser.hasRole([RoleType.Administrator, RoleType.Staff, RoleType.Manager, RoleType.Provider]);
+    !currentUser ||
+    !currentUser.hasRole([
+      RoleType.Administrator,
+      RoleType.Staff,
+      RoleType.Manager,
+      RoleType.Provider,
+      RoleType.CustomerSupport,
+    ]);
 
   return (
     <CustomThemeProvider>
@@ -140,15 +152,13 @@ function App(): ReactElement {
             <Route
               path="/in-person/:id/*"
               element={
-                <AppTypeProvider flagsToSet={{ isInPerson: true }}>
-                  <ProtectedRoute
-                    showWhenAuthenticated={
-                      <Suspense fallback={<LoadingScreen />}>
-                        <InPersonRoutingLazy />
-                      </Suspense>
-                    }
-                  />
-                </AppTypeProvider>
+                <ProtectedRoute
+                  showWhenAuthenticated={
+                    <Suspense fallback={<LoadingScreen />}>
+                      <InPersonRoutingLazy />
+                    </Suspense>
+                  }
+                />
               }
             />
             <Route
@@ -171,17 +181,18 @@ function App(): ReactElement {
                   <Route path="*" element={<LoadingScreen />} />
                 </>
               )}
-              {currentUser?.hasRole([RoleType.Administrator]) && (
+              {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
                 <>
-                  <Route path="/data" element={<Data />} />
                   <Route path="/tasks" element={<TaskAdmin />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
                   <Route path="/reports/daily-payments" element={<DailyPayments />} />
+                  <Route path="/reports/data-exports" element={<DataExports />} />
+                  <Route path="/reports/workflow-efficiency" element={<WorkflowEfficiency />} />
                   <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 </>
               )}
-              {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager]) && (
+              {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) && (
                 <>
                   <Route path="/" element={<Navigate to="/visits" />} />
                   <Route path="/logout" element={<Logout />} />
@@ -228,7 +239,7 @@ function App(): ReactElement {
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
               )}
-              {currentUser?.hasRole([RoleType.Staff, RoleType.Provider]) && (
+              {currentUser?.hasRole([RoleType.Staff, RoleType.Provider, RoleType.CustomerSupport]) && (
                 <>
                   <Route path="/" element={<Navigate to="/visits" />} />
                   <Route path="/logout" element={<Logout />} />
