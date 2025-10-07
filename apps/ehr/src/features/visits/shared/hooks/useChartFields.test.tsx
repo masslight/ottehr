@@ -624,7 +624,7 @@ describe('useChartDataField', () => {
       renderHook(() => useChartFields({ requestedFields: params2 }), { wrapper });
 
       await waitFor(() => {
-        expect(mockApiClient.getChartData).toHaveBeenCalledTimes(1);
+        expect(mockApiClient.getChartData).toHaveBeenCalledTimes(2); // staleTime is 0, so two calls are expected now
       });
     });
   });

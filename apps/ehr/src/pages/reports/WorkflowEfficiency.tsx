@@ -37,7 +37,6 @@ import { Appointment, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { Bar, Line } from 'react-chartjs-2';
-import { ReportsMenu } from 'src/components/ReportsMenu';
 import {
   FhirAppointmentType,
   getVisitStatus,
@@ -47,12 +46,12 @@ import {
   VisitStatusHistoryLabel,
   VisitStatusLabel,
 } from 'utils';
-import { CHIP_STATUS_MAP } from '../components/AppointmentTableRow';
-import LocationSelect from '../components/LocationSelect';
-import { getTimezone } from '../helpers/formatDateTime';
-import { useApiClients } from '../hooks/useAppClients';
-import PageContainer from '../layout/PageContainer';
-import { LocationWithWalkinSchedule } from './AddPatient';
+import { CHIP_STATUS_MAP } from '../../components/AppointmentTableRow';
+import LocationSelect from '../../components/LocationSelect';
+import { getTimezone } from '../../helpers/formatDateTime';
+import { useApiClients } from '../../hooks/useAppClients';
+import PageContainer from '../../layout/PageContainer';
+import { LocationWithWalkinSchedule } from '../AddPatient';
 
 interface AppointmentCount {
   date: DateTime;
@@ -91,7 +90,7 @@ enum TimeRange {
   Custom = 'Custom',
 }
 
-export default function Data(): React.ReactElement {
+export default function WorkflowEfficiency(): React.ReactElement {
   const [appointmentCountByDate, setAppointmentCountByDate] = React.useState<AppointmentCount[] | undefined>(undefined);
   const [appointmentStatuses, setAppointmentStatuses] = React.useState<
     { [status in VisitStatusHistoryLabel]: VisitStatusMetrics } | undefined
@@ -483,9 +482,6 @@ export default function Data(): React.ReactElement {
                 <ToggleButton value="chart">chart</ToggleButton>
                 <ToggleButton value="table">table</ToggleButton>
               </ToggleButtonGroup>
-            </Grid>
-            <Grid item md={2} xs={8} sx={{ position: 'absolute', right: '30px' }}>
-              <ReportsMenu />
             </Grid>
           </Grid>
         </Grid>

@@ -118,7 +118,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <TextInput
                   name="administrationDetails.mvx"
                   label="MVX code"
-                  required
+                  validate={requiredForAdministration}
                   dataTestId={dataTestIds.vaccineDetailsPage.mvxCode}
                 />
               </Grid>
@@ -126,7 +126,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <TextInput
                   name="administrationDetails.cvx"
                   label="CVX code"
-                  required
+                  validate={requiredForAdministration}
                   dataTestId={dataTestIds.vaccineDetailsPage.cvxCode}
                 />
               </Grid>
@@ -141,7 +141,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <TextInput
                   name="administrationDetails.ndc"
                   label="NDC code"
-                  required
+                  validate={requiredForAdministration}
                   dataTestId={dataTestIds.vaccineDetailsPage.ndcCode}
                 />
               </Grid>
