@@ -23,6 +23,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import {
+  ABNORMAL_RESULT_DR_TAG,
   DiagnosticReportLabDetailPageDTO,
   DynamicAOEInput,
   EncounterExternalLabResult,
@@ -483,8 +484,14 @@ export const makeEncounterLabResults = async (
             formattedName = nameLabTest(reflexTestName, labName, true);
           }
 
+          // this tag would be set by oystehr when the DR is created
+          const drIsTaggedAbnormal = !!relatedDR.meta?.tag?.find(
+            (tag) => tag.system === ABNORMAL_RESULT_DR_TAG.system && tag.code === ABNORMAL_RESULT_DR_TAG.code
+          );
+
           const { externalResultConfigs } = await getLabOrderResultPDFConfig(docRef, formattedName, m2mToken, {
             type: LabType.external,
+            containsAbnormalResult: drIsTaggedAbnormal,
             orderNumber,
           });
           if (isReflex) {
@@ -493,13 +500,16 @@ export const makeEncounterLabResults = async (
             externalLabOrderResults.push(...externalResultConfigs);
           }
         } else if (relatedSRDetail.type === LabType.inHouse) {
+          const drIsTaggedAbnormal = !!relatedDR.meta?.tag?.find(
+            (tag) => tag.system === ABNORMAL_RESULT_DR_TAG.system && tag.code === ABNORMAL_RESULT_DR_TAG.code
+          );
           const sr = relatedSRDetail.resource;
           const testName = sr.code?.text;
           const { inHouseResultConfigs } = await getLabOrderResultPDFConfig(
             docRef,
             testName || 'missing test details',
             m2mToken,
-            { type: LabType.inHouse }
+            { type: LabType.inHouse, containsAbnormalResult: drIsTaggedAbnormal }
           );
           inHouseLabOrderResults.push(...inHouseResultConfigs);
         }
@@ -552,10 +562,12 @@ const getLabOrderResultPDFConfig = async (
   resultDetails:
     | {
         type: LabType.external;
+        containsAbnormalResult: boolean;
         orderNumber?: string;
       }
     | {
         type: LabType.inHouse;
+        containsAbnormalResult: boolean;
         simpleResultValue?: string; // todo not implemented, displaying this is a post mvp feature
       }
 ): Promise<{ externalResultConfigs: ExternalLabOrderResultConfig[]; inHouseResultConfigs: InHouseLabResult[] }> => {
@@ -575,6 +587,7 @@ const getLabOrderResultPDFConfig = async (
         const labResult: ExternalLabOrderResultConfig = {
           name: formattedName,
           url,
+          containsAbnormalResult: resultDetails.containsAbnormalResult,
           orderNumber: resultDetails?.orderNumber,
         };
         externalResults.push(labResult);
@@ -582,6 +595,7 @@ const getLabOrderResultPDFConfig = async (
         const labResult: InHouseLabResult = {
           name: formattedName,
           url,
+          containsAbnormalResult: resultDetails.containsAbnormalResult,
           simpleResultValue: resultDetails?.simpleResultValue,
         };
         inHouseResults.push(labResult);
