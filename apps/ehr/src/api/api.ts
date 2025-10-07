@@ -43,6 +43,7 @@ import {
   DeleteLabOrderZambdaInput,
   DeleteLabOrderZambdaOutput,
   DownloadPatientProfilePhotoInput,
+  EHRVisitDetails,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
   GetConversationInput,
@@ -98,6 +99,7 @@ import {
   UploadPatientProfilePhotoInput,
   UserActivationZambdaInput,
   UserActivationZambdaOutput,
+  VisitDocuments,
   VisitsOverviewReportZambdaInput,
   VisitsOverviewReportZambdaOutput,
 } from 'utils';
@@ -1211,6 +1213,38 @@ export const sendReceiptByEmail = async (
     }
     const response = await oystehr.zambda.execute({
       id: SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getPatientVisitFiles = async (
+  oystehr: Oystehr,
+  parameters: { appointmentId: string }
+): Promise<VisitDocuments> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-visit-files',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getPatientVisitDetails = async (
+  oystehr: Oystehr,
+  parameters: { appointmentId: string }
+): Promise<EHRVisitDetails> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'ehr-get-visit-details',
       ...parameters,
     });
     return chooseJson(response);

@@ -1152,6 +1152,20 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/send-receipt-by-email/index",
       "zip": ".dist/zips/send-receipt-by-email.zip"
+    },
+    "GET-VISIT-FILES": {
+      "name": "get-visit-files",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/visit-details/get-visit-files/index",
+      "zip": ".dist/zips/get-visit-files.zip"
+    },
+    "EHR-GET-VISIT-DETAILS": {
+      "name": "ehr-get-visit-details",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/visit-details/get-visit-details/index",
+      "zip": ".dist/zips/ehr-get-visit-details.zip"
     }
   },
   "faxNumbers": {

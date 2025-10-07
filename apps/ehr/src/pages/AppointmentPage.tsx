@@ -1,8 +1,6 @@
-import { useAuth0 } from '@auth0/auth0-react';
 import { otherColors } from '@ehrTheme/colors';
 import CircleIcon from '@mui/icons-material/Circle';
 import ContentPasteOffIcon from '@mui/icons-material/ContentPasteOff';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -19,43 +17,27 @@ import {
 } from '@mui/material';
 import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
+import { useQuery } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
-import {
-  Appointment,
-  Bundle,
-  BundleEntry,
-  DocumentReference,
-  Encounter,
-  FhirResource,
-  Flag,
-  Location,
-  Patient,
-  QuestionnaireResponse,
-  QuestionnaireResponseItem,
-  RelatedPerson,
-} from 'fhir/r4b';
+import { Appointment, Flag, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { generatePaperworkPdf } from 'src/api/api';
+import { generatePaperworkPdf, getPatientVisitDetails, getPatientVisitFiles } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { isPaperworkPdfOutdated, useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
+import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
-  CONSENT_CODE,
+  DocumentType,
+  EHRVisitDetails,
   FHIR_EXTENSION,
   FhirAppointmentType,
   getFullName,
   getPatchOperationForNewMetaTag,
-  getPresignedURL,
   getUnconfirmedDOBForAppointment,
   getUnconfirmedDOBIdx,
   getVisitStatus,
-  INSURANCE_CARD_CODE,
-  isNonPaperworkQuestionnaireResponse,
-  PAPERWORK_PDF_ATTACHMENT_TITLE,
-  PHOTO_ID_CARD_CODE,
-  PRIVACY_POLICY_CODE,
+  VisitDocuments,
   VisitStatusLabel,
 } from 'utils';
 import AppointmentNotesHistory from '../components/AppointmentNotesHistory';
@@ -86,80 +68,30 @@ import {
   cleanUpStaffHistoryTag,
   formatActivityLogs,
   formatNotesHistory,
-  formatPaperworkStartedLog,
   getAppointmentAndPatientHistory,
   getCriticalUpdateTagOp,
   NoteHistory,
-  sortLogs,
 } from '../helpers/activityLogsUtils';
 import { getPatchBinary } from '../helpers/fhir';
-import { formatDateUsingSlashes, getTimezone } from '../helpers/formatDateTime';
+import { formatDateUsingSlashes } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
-import { appointmentTypeLabels, DocumentInfo, DocumentType } from '../types/types';
+import { appointmentTypeLabels } from '../types/types';
 import { PatientAccountComponent } from './PatientInformationPage';
 
-interface Documents {
-  photoIdCards: DocumentInfo[];
-  insuranceCards: DocumentInfo[];
-  insuranceCardsSecondary: DocumentInfo[];
-  fullCardPdfs: DocumentInfo[];
-  consentPdfUrls: string[];
-}
-
-function getMinutesSinceLastActive(lastActive: string): number {
-  return DateTime.now().toUTC().diff(DateTime.fromISO(lastActive).toUTC()).as('minutes');
-}
-
-function compareCards(
-  cardBackType: DocumentType.PhotoIdBack | DocumentType.InsuranceBack | DocumentType.InsuranceBackSecondary
-) {
-  return (a: DocumentInfo, b: DocumentInfo) => {
-    if (a && b) {
-      return a.type === cardBackType ? 1 : -1;
-    }
-    return 0;
-  };
-}
-
-const getAnswerStringFor = (
-  linkId: string,
-  flattenedItems: QuestionnaireResponseItem[] | undefined
-): string | undefined => {
-  const answer = flattenedItems?.find((response: QuestionnaireResponseItem) => response.linkId === linkId)?.answer?.[0]
-    ?.valueString;
-
-  return answer;
-};
-
-const LAST_ACTIVE_THRESHOLD = 2; // minutes
-
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
-
-type AppointmentBundleTypes =
-  | Appointment
-  | Patient
-  | Location
-  | Encounter
-  | QuestionnaireResponse
-  | Flag
-  | RelatedPerson;
 
 export default function AppointmentPage(): ReactElement {
   // variables
   const { id: appointmentID } = useParams();
   const { oystehr, oystehrZambda } = useApiClients();
-  const { getAccessTokenSilently } = useAuth0();
   const theme = useTheme();
 
   // state variables
-  const [resourceBundle, setResourceBundle] = useState<AppointmentBundleTypes[] | undefined>(undefined);
   const [patient, setPatient] = useState<Patient | undefined>(undefined);
   const [appointment, setAppointment] = useState<Appointment | undefined>(undefined);
   const [paperworkModifiedFlag, setPaperworkModifiedFlag] = useState<Flag | undefined>(undefined);
-  const [paperworkInProgressFlag, setPaperworkInProgressFlag] = useState<Flag | undefined>(undefined);
-  const [paperworkStartedFlag, setPaperworkStartedFlag] = useState<Flag | undefined>(undefined);
   const [status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const [errors, setErrors] = useState<{ editName?: boolean; editDOB?: boolean; hopError?: string }>({
     editName: false,
@@ -185,15 +117,12 @@ export default function AppointmentPage(): ReactElement {
   const [patientSuffix, setPatientSuffix] = useState<string | undefined>(undefined);
 
   // File variables
-  const [z3Documents, setZ3Documents] = useState<DocumentInfo[]>();
-  const [imagesLoading, setImagesLoading] = useState<boolean>(true);
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState<boolean>(false);
   const [hopQueueDialogOpen, setHopQueueDialogOpen] = useState<boolean>(false);
   const [hopLoading, setHopLoading] = useState<boolean>(false);
   const [photoZoom, setPhotoZoom] = useState<boolean>(false);
   const [zoomedIdx, setZoomedIdx] = useState<number>(0);
-  const [loading, setLoading] = useState<boolean>(true);
   const [issueDialogOpen, setIssueDialogOpen] = useState<boolean>(false);
   const [activityLogDialogOpen, setActivityLogDialogOpen] = useState<boolean>(false);
   const [activityLogsLoading, setActivityLogsLoading] = useState<boolean>(true);
@@ -201,23 +130,59 @@ export default function AppointmentPage(): ReactElement {
   const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
   const user = useEvolveUser();
 
-  const { documents, isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
+  const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
 
-  const { location, encounter, questionnaireResponse } = useMemo(() => {
-    const location = resourceBundle?.find(
-      (resource: FhirResource) => resource.resourceType === 'Location'
-    ) as unknown as Location;
+  const { data: imageFileData, isLoading: imagesLoading } = useQuery({
+    queryKey: ['get-visit-files', appointmentID],
 
-    const encounter = resourceBundle?.find(
-      (resource: FhirResource) => resource.resourceType === 'Encounter'
-    ) as unknown as Encounter;
+    queryFn: async (): Promise<VisitDocuments> => {
+      if (oystehrZambda && appointmentID) {
+        return getPatientVisitFiles(oystehrZambda, { appointmentId: appointmentID });
+      }
+      throw new Error('fhir client not defined or patientIds not provided');
+    },
 
-    const questionnaireResponse = resourceBundle?.find(
-      (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse'
-    ) as unknown as QuestionnaireResponse;
+    enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+  });
+  const { photoIdCards, insuranceCards, insuranceCardsSecondary, fullCardPdfs, consentPdfUrls } = imageFileData || {
+    photoIdCards: [],
+    insuranceCards: [],
+    insuranceCardsSecondary: [],
+    fullCardPdfs: [],
+    consentPdfUrls: [],
+  };
 
-    return { location, encounter, questionnaireResponse };
-  }, [resourceBundle]);
+  const {
+    data: visitDetailsData,
+    isLoading: loading,
+    refetch: refetchVisitDetails,
+    error: visitDetailsError,
+  } = useQuery({
+    queryKey: ['get-visit-details', appointmentID],
+
+    queryFn: async (): Promise<EHRVisitDetails> => {
+      if (oystehrZambda && appointmentID) {
+        return getPatientVisitDetails(oystehrZambda, { appointmentId: appointmentID }).then((details) => {
+          setAppointment(details.appointment);
+          setPatient(details.patient);
+          setPaperworkModifiedFlag(
+            details.flags.find(
+              (resource: Flag) =>
+                resource.status === 'active' && resource?.meta?.tag?.find((tag) => tag.code === 'paperwork-edit')
+            ) as Flag | undefined
+          );
+          return details;
+        });
+      }
+      throw new Error('fhir client not defined or appointmentId not provided');
+    },
+    enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
+  });
+
+  const encounter = visitDetailsData?.encounter;
+  const qrId = visitDetailsData?.qrId;
+
+  console.log('visitDetailsData', loading, visitDetailsData, visitDetailsError);
 
   const fullName = useMemo(() => {
     if (patient) {
@@ -227,43 +192,6 @@ export default function AppointmentPage(): ReactElement {
   }, [patient]);
 
   const selfPay = false; // todo: pull from encounter resource
-
-  const getResourceBundle = useCallback(async () => {
-    if (!appointmentID || !oystehr) {
-      return;
-    }
-    // query the fhir database
-    const searchResults = (
-      await oystehr.fhir.search<AppointmentBundleTypes>({
-        resourceType: 'Appointment',
-        params: [
-          { name: '_id', value: appointmentID },
-          {
-            name: '_include',
-            value: 'Appointment:patient',
-          },
-          {
-            name: '_include',
-            value: 'Appointment:location',
-          },
-          {
-            name: '_revinclude:iterate',
-            value: 'Encounter:appointment',
-          },
-          { name: '_revinclude:iterate', value: 'Flag:encounter' },
-        ],
-      })
-    )
-      .unbundle()
-      .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
-
-    if (!searchResults) {
-      throw new Error('Could not get appointment, patient, location, and encounter resources from Zap DB');
-    }
-    setResourceBundle(searchResults || undefined);
-
-    setLoading(false);
-  }, [appointmentID, oystehr]);
 
   useEffect(() => {
     // Update fields in edit patient name dialog
@@ -493,196 +421,14 @@ export default function AppointmentPage(): ReactElement {
     }
   };
 
-  useEffect(() => {
-    // set appointment, patient, and flags
-    async function setPrimaryResources(): Promise<void> {
-      setPatient(
-        resourceBundle?.find((resource: FhirResource) => resource.resourceType === 'Patient') as Patient | undefined
-      );
-      setAppointment(
-        resourceBundle?.find((resource: FhirResource) => resource.resourceType === 'Appointment') as
-          | Appointment
-          | undefined
-      );
-      setPaperworkModifiedFlag(
-        resourceBundle?.find(
-          (resource: FhirResource) =>
-            resource.resourceType === 'Flag' &&
-            resource.status === 'active' &&
-            resource.meta?.tag?.find((tag) => tag.code === 'paperwork-edit')
-        ) as Flag | undefined
-      );
-      setPaperworkInProgressFlag(
-        resourceBundle?.find(
-          (resource: FhirResource) =>
-            resource.resourceType === 'Flag' &&
-            resource.status === 'active' &&
-            resource.meta?.tag?.find((tag) => tag.code === 'paperwork-in-progress') &&
-            resource.period?.start &&
-            getMinutesSinceLastActive(resource.period.start) <= LAST_ACTIVE_THRESHOLD
-        ) as Flag | undefined
-      );
-      setPaperworkStartedFlag(
-        resourceBundle?.find(
-          (resource: FhirResource) =>
-            resource.resourceType === 'Flag' &&
-            resource.status === 'active' &&
-            resource.meta?.tag?.find((tag) => tag.code === 'paperwork-in-progress')
-        ) as Flag | undefined
-      );
-    }
-
-    // call the functions
-    // add checks to make sure functions only run if values are not set
-    if (!resourceBundle && appointmentID && oystehr) {
-      getResourceBundle().catch((error) => {
-        console.log(error);
-      });
-    }
-
-    if (resourceBundle) {
-      setPrimaryResources().catch((error) => {
-        console.log(error);
-      });
-    }
-  }, [appointmentID, oystehr, getResourceBundle, resourceBundle]);
-
-  console.log('imagesLoading', imagesLoading);
-
-  useEffect(() => {
-    async function getFileResources(patientID: string, appointmentID: string): Promise<void> {
-      if (!oystehr) {
-        return;
-      }
-
-      // Search for DocumentReferences
-      try {
-        setImagesLoading(true);
-        const documentReferenceResources: DocumentReference[] = [];
-        const authToken = await getAccessTokenSilently();
-        const docRefBundle = await oystehr.fhir.batch<DocumentReference>({
-          requests: [
-            {
-              // Consent
-              method: 'GET',
-              url: `/DocumentReference?_sort=-_lastUpdated&subject=Patient/${patientID}&related=Appointment/${appointmentID}`,
-            },
-            {
-              // Photo ID & Insurance Cards
-              method: 'GET',
-              url: `/DocumentReference?status=current&related=Patient/${patientID}`,
-            },
-          ],
-        });
-
-        const bundleEntries = docRefBundle?.entry;
-        bundleEntries?.forEach((bundleEntry: BundleEntry) => {
-          const bundleResource = bundleEntry.resource as Bundle;
-          bundleResource.entry?.forEach((entry) => {
-            const docRefResource = entry.resource as DocumentReference;
-            if (docRefResource) {
-              documentReferenceResources.push(docRefResource);
-            }
-          });
-        });
-
-        // Get document info
-        const allZ3Documents: DocumentInfo[] = [];
-
-        for (const docRef of documentReferenceResources) {
-          const docRefCode = docRef.type?.coding?.[0].code;
-
-          if (
-            docRefCode &&
-            ([PHOTO_ID_CARD_CODE, CONSENT_CODE, PRIVACY_POLICY_CODE].includes(docRefCode) ||
-              (docRefCode === INSURANCE_CARD_CODE && !selfPay))
-          ) {
-            for (const content of docRef.content) {
-              const title = content.attachment.title;
-              const z3Url = content.attachment.url;
-
-              if (z3Url && title) {
-                if (
-                  [PHOTO_ID_CARD_CODE, INSURANCE_CARD_CODE].includes(docRefCode) &&
-                  (!title || !Object.values<string>(DocumentType).includes(title))
-                ) {
-                  continue;
-                }
-
-                const presignedUrl = await getPresignedURL(z3Url, authToken);
-                if (presignedUrl) {
-                  allZ3Documents.push({
-                    z3Url: z3Url,
-                    presignedUrl: presignedUrl,
-                    type: title as DocumentType,
-                    code: docRefCode,
-                  });
-                }
-              }
-            }
-          }
-        }
-
-        setZ3Documents(allZ3Documents);
-      } catch (error) {
-        throw new Error(
-          `Failed to get DocumentReferences resources: ${error}. Stringified error: ${JSON.stringify(error)} `
-        );
-      } finally {
-        setImagesLoading(false);
-      }
-    }
-
-    if (patient?.id && appointmentID && oystehr) {
-      getFileResources(patient.id, appointmentID).catch((error) => console.log(error));
-    }
-  }, [appointmentID, oystehr, getAccessTokenSilently, patient?.id, selfPay, imagesLoading]);
-
-  const { photoIdCards, insuranceCards, insuranceCardsSecondary, fullCardPdfs, consentPdfUrls } =
-    useMemo((): Documents => {
-      const documents: Documents = {
-        photoIdCards: [],
-        insuranceCards: [],
-        insuranceCardsSecondary: [],
-        fullCardPdfs: [],
-        consentPdfUrls: [],
-      };
-
-      if (!z3Documents) {
-        return documents;
-      }
-
-      if (z3Documents.length) {
-        documents.photoIdCards = z3Documents
-          .filter((doc) => [DocumentType.PhotoIdFront, DocumentType.PhotoIdBack].includes(doc.type))
-          .sort(compareCards(DocumentType.PhotoIdBack));
-        documents.insuranceCards = z3Documents
-          .filter((doc) => [DocumentType.InsuranceFront, DocumentType.InsuranceBack].includes(doc.type))
-          .sort(compareCards(DocumentType.InsuranceBack));
-        documents.insuranceCardsSecondary = z3Documents
-          .filter((doc) =>
-            [DocumentType.InsuranceFrontSecondary, DocumentType.InsuranceBackSecondary].includes(doc.type)
-          )
-          .sort(compareCards(DocumentType.InsuranceBackSecondary));
-        documents.fullCardPdfs = z3Documents.filter((doc) =>
-          [DocumentType.FullInsurance, DocumentType.FullInsuranceSecondary, DocumentType.FullPhotoId].includes(doc.type)
-        );
-        documents.consentPdfUrls = z3Documents
-          .filter((doc) => doc.code === CONSENT_CODE || doc.code === PRIVACY_POLICY_CODE)
-          .flatMap((doc) => (doc.presignedUrl ? [doc.presignedUrl] : []));
-      }
-
-      return documents;
-    }, [z3Documents]);
-
   // variables for displaying the page
   const appointmentType = (appointment?.appointmentType?.text as FhirAppointmentType) || '';
-  const locationTimeZone = getTimezone(location || '');
+  const locationTimeZone = visitDetailsData?.visitTimezone || '';
   const appointmentStartTime = DateTime.fromISO(appointment?.start ?? '').setZone(locationTimeZone);
   const appointmentTime = appointmentStartTime.toLocaleString(DateTime.TIME_SIMPLE);
   const appointmentDate = formatDateUsingSlashes(appointmentStartTime.toISO() || '', locationTimeZone);
-  const nameLastModifiedOld = formatLastModifiedTag('name', patient, location);
-  const dobLastModifiedOld = formatLastModifiedTag('dob', patient, location);
+  const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
+  const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
   const unconfirmedDOB = appointment && getUnconfirmedDOBForAppointment(appointment);
   const getAppointmentType = (appointmentType: FhirAppointmentType | undefined): string => {
@@ -711,7 +457,7 @@ export default function AppointmentPage(): ReactElement {
               appointment,
               history.appointmentHistory,
               history.patientHistory,
-              paperworkStartedFlag,
+              undefined,
               locationTimeZone
             );
             setActivityLogs(activityLogs);
@@ -724,24 +470,8 @@ export default function AppointmentPage(): ReactElement {
         setActivityLogsLoading(false);
       }
     },
-    [appointment, oystehr, locationTimeZone, paperworkStartedFlag]
+    [appointment, oystehr, locationTimeZone]
   );
-
-  useEffect(() => {
-    if (paperworkStartedFlag) {
-      const paperworkStartedActivityLog = formatPaperworkStartedLog(paperworkStartedFlag, locationTimeZone);
-      setActivityLogs((prevLogs) => {
-        const logsContainPaperworkStarted = prevLogs?.find((log) => log.activityName === ActivityName.paperworkStarted);
-        if (logsContainPaperworkStarted) {
-          return prevLogs;
-        } else {
-          const activityLogCopy = prevLogs ? [...prevLogs] : [];
-          const updatedActivityLogs = [paperworkStartedActivityLog, ...activityLogCopy];
-          return sortLogs(updatedActivityLogs);
-        }
-      });
-    }
-  }, [locationTimeZone, paperworkStartedFlag]);
 
   useEffect(() => {
     if (!activityLogs && appointment && locationTimeZone && oystehr) {
@@ -753,7 +483,7 @@ export default function AppointmentPage(): ReactElement {
   }, [activityLogs, setActivityLogs, appointment, locationTimeZone, oystehr, getAndSetHistoricResources]);
 
   useEffect(() => {
-    if (appointment) {
+    if (appointment && encounter) {
       const encounterStatus = getVisitStatus(appointment, encounter);
       setStatus(encounterStatus);
     } else {
@@ -806,7 +536,23 @@ export default function AppointmentPage(): ReactElement {
 
   const signedConsentForm: {
     [consentToTreatPatientDetailsKey]?: 'Signed' | 'Not signed' | 'Loading...';
-  } = {};
+  } = loading
+    ? { [consentToTreatPatientDetailsKey]: 'Loading...' }
+    : (() => {
+        const consentDetails = visitDetailsData?.consentDetails;
+        if (consentDetails) {
+          return {
+            [consentToTreatPatientDetailsKey]: 'Signed',
+            Signature: consentDetails.signature,
+            'Full name': consentDetails.fullName,
+            'Relationship to patient': consentDetails.relationshipToPatient,
+            Date: consentDetails.date,
+            IP: consentDetails.ipAddress,
+          };
+        } else {
+          return { [consentToTreatPatientDetailsKey]: 'Not signed' };
+        }
+      })();
 
   if (consentPdfUrls.length > 0) {
     signedConsentForm[consentToTreatPatientDetailsKey] = imagesLoading ? 'Loading...' : 'Signed';
@@ -832,32 +578,9 @@ export default function AppointmentPage(): ReactElement {
 
   const downloadPaperworkPdf = async (): Promise<void> => {
     setPaperworkPdfLoading(true);
-    const existingPaperworkPdfs = documents
-      ?.filter((doc) => doc.docName.toLowerCase().includes(PAPERWORK_PDF_ATTACHMENT_TITLE.toLowerCase()))
-      ?.sort((a, b) => {
-        const dateA = a.whenAddedDate ? new Date(a.whenAddedDate).getTime() : 0;
-        const dateB = b.whenAddedDate ? new Date(b.whenAddedDate).getTime() : 0;
-        return dateB - dateA;
-      });
-    const existingPaperworkPdf = existingPaperworkPdfs?.[0];
     try {
-      if (existingPaperworkPdf && !isPaperworkPdfOutdated(existingPaperworkPdf, questionnaireResponse)) {
-        await downloadDocument(existingPaperworkPdf.id);
-        setPaperworkPdfLoading(false);
-        return;
-      }
-    } catch (error) {
-      console.warn('Paperwork PDF check failed, regenerating...', error);
-    }
-
-    if (!oystehrZambda || !questionnaireResponse.id) {
-      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
-      setPaperworkPdfLoading(false);
-      return;
-    }
-    try {
-      const response = await generatePaperworkPdf(oystehrZambda, {
-        questionnaireResponseId: questionnaireResponse.id,
+      const response = await generatePaperworkPdf(oystehrZambda!, {
+        questionnaireResponseId: qrId!,
       });
       await downloadDocument(response.documentReference.split('/')[1]);
     } catch (error) {
@@ -952,7 +675,9 @@ export default function AppointmentPage(): ReactElement {
                 <Skeleton sx={{ marginLeft: 2 }} aria-busy="true" width={200} />
               ) : (
                 <>
-                  <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>{location?.name}</Typography>
+                  <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
+                    {visitDetailsData?.visitLocationName ?? ''}
+                  </Typography>
                   <span
                     style={{
                       marginLeft: 20,
@@ -968,7 +693,7 @@ export default function AppointmentPage(): ReactElement {
                   )}
                 </>
               )}
-              {appointment && appointment?.status !== 'cancelled' ? (
+              {appointment && encounter && appointment?.status !== 'cancelled' ? (
                 <>
                   <Button
                     data-testid={dataTestIds.visitDetailsPage.cancelVisitButton}
@@ -987,7 +712,9 @@ export default function AppointmentPage(): ReactElement {
                   </Button>
                   <CancellationReasonDialog
                     handleClose={handleCancelDialogClose}
-                    getResourceBundle={getResourceBundle}
+                    refetchData={async () => {
+                      refetchVisitDetails().catch((error) => console.log('error refetching visit details', error));
+                    }}
                     appointment={appointment}
                     encounter={encounter}
                     open={cancelDialogOpen}
@@ -1036,17 +763,6 @@ export default function AppointmentPage(): ReactElement {
                 <Typography sx={{ alignSelf: 'center', marginLeft: 4, fontSize: '14px' }}>
                   Name Last Modified {nameLastModifiedOld || nameLastModified}
                 </Typography>
-              </Grid>
-            )}
-
-            {paperworkInProgressFlag && (
-              <Grid container direction="row" marginTop={2}>
-                <PaperworkFlagIndicator
-                  title="Paperwork in progress"
-                  color={otherColors.infoText}
-                  backgroundColor={otherColors.infoBackground}
-                  icon={<InfoOutlinedIcon sx={{ color: otherColors.infoIcon }} />}
-                />
               </Grid>
             )}
 
@@ -1234,20 +950,12 @@ export default function AppointmentPage(): ReactElement {
                     </Grid>
                     <Grid item>
                       {/* Completed pre-visit forms */}
-                      {/* todo: grab these things from the Consent resources themselves */}
                       <PatientInformation
                         title="Completed consent forms"
                         loading={loading}
                         editValue={consentEditProp()}
                         patientDetails={{
                           ...signedConsentForm,
-                          Signature: getAnswerStringFor('signature', []),
-                          'Full name': getAnswerStringFor('full-name', []),
-                          'Relationship to patient': getAnswerStringFor('consent-form-signer-relationship', []),
-                          Date: formatDateUsingSlashes(questionnaireResponse?.authored),
-                          IP: questionnaireResponse?.extension?.find(
-                            (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/ip-address'
-                          )?.valueString,
                         }}
                       />
                     </Grid>
@@ -1268,7 +976,7 @@ export default function AppointmentPage(): ReactElement {
                     <Grid item>
                       <AppointmentNotesHistory
                         appointment={appointment}
-                        location={location}
+                        timezone={locationTimeZone}
                         curNoteAndHistory={notesHistory}
                         user={user}
                         oystehr={oystehr}
@@ -1321,18 +1029,20 @@ export default function AppointmentPage(): ReactElement {
               >
                 Report Issue
               </Button>
-              <ReportIssueDialog
-                open={issueDialogOpen}
-                handleClose={() => setIssueDialogOpen(false)}
-                oystehr={oystehr}
-                patient={patient}
-                appointment={appointment}
-                encounter={encounter}
-                location={location}
-                setSnackbarOpen={setSnackbarOpen}
-                setToastType={setToastType}
-                setToastMessage={setToastMessage}
-              ></ReportIssueDialog>
+              {encounter && (
+                <ReportIssueDialog
+                  open={issueDialogOpen}
+                  handleClose={() => setIssueDialogOpen(false)}
+                  oystehr={oystehr}
+                  patient={patient}
+                  appointment={appointment}
+                  encounter={encounter}
+                  locationId={visitDetailsData.visitLocationId}
+                  setSnackbarOpen={setSnackbarOpen}
+                  setToastType={setToastType}
+                  setToastMessage={setToastMessage}
+                />
+              )}
             </>
           </Grid>
         </Grid>
