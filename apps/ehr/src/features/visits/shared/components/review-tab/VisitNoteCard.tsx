@@ -65,7 +65,6 @@ export const VisitNoteCard: FC = () => {
   const showChiefComplaint = !!((chiefComplaint && chiefComplaint.length > 0) || (spentTime && spentTime.length > 0));
   const showReviewOfSystems = !!(ros && ros.length > 0);
   const vitalsObservations = chartFields?.vitalsObservations;
-  // const vitalsNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
 
   const showAdditionalQuestions = patientScreeningQuestionsConfig.fields.some((field) => {
     const observation = chartData?.observations?.find((obs) => obs.field === field.fhirField);
