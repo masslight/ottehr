@@ -117,7 +117,14 @@ function App(): ReactElement {
   });
 
   const roleUnknown =
-    !currentUser || !currentUser.hasRole([RoleType.Administrator, RoleType.Staff, RoleType.Manager, RoleType.Provider]);
+    !currentUser ||
+    !currentUser.hasRole([
+      RoleType.Administrator,
+      RoleType.Staff,
+      RoleType.Manager,
+      RoleType.Provider,
+      RoleType.CustomerSupport,
+    ]);
 
   return (
     <CustomThemeProvider>
@@ -174,7 +181,7 @@ function App(): ReactElement {
                   <Route path="*" element={<LoadingScreen />} />
                 </>
               )}
-              {currentUser?.hasRole([RoleType.Administrator]) && (
+              {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
                 <>
                   <Route path="/tasks" element={<TaskAdmin />} />
                   <Route path="/reports" element={<Reports />} />
@@ -185,7 +192,7 @@ function App(): ReactElement {
                   <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 </>
               )}
-              {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager]) && (
+              {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) && (
                 <>
                   <Route path="/" element={<Navigate to="/visits" />} />
                   <Route path="/logout" element={<Logout />} />
@@ -232,7 +239,7 @@ function App(): ReactElement {
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
               )}
-              {currentUser?.hasRole([RoleType.Staff, RoleType.Provider]) && (
+              {currentUser?.hasRole([RoleType.Staff, RoleType.Provider, RoleType.CustomerSupport]) && (
                 <>
                   <Route path="/" element={<Navigate to="/visits" />} />
                   <Route path="/logout" element={<Logout />} />
