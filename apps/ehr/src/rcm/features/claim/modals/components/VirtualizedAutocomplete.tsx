@@ -23,7 +23,7 @@ import {
   useRef,
 } from 'react';
 import { ListChildComponentProps, VariableSizeList } from 'react-window';
-import { useWindowResize } from '../../../../hooks';
+import { useWindowResize } from 'src/rcm/hooks/useWindowResize';
 
 const LISTBOX_PADDING = 8;
 

@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { EMPTY_PAGINATION, getSecret, ReflexLabDTO, SecretsKeys } from 'utils';
+import { EMPTY_PAGINATION, getSecret, PdfAttachmentDTO, ReflexLabDTO, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -7,7 +7,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getLabResources, mapReflexResourcesToDrLabDTO, mapResourcesToLabOrderDTOs } from './helpers';
+import { getLabResources, mapResourcesToDrLabDTO, mapResourcesToLabOrderDTOs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -27,7 +27,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
       serviceRequests,
       tasks,
       diagnosticReports,
-      reflexDRsAndRelatedResources,
+      diagnosticReportDrivenResultResources,
       practitioners,
       pagination,
       encounters,
@@ -80,17 +80,17 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
       ENVIRONMENT
     );
 
-    // todo future can probably refactor to do less data massaging for when this is being called from the table view
-    let reflexLabDTOs: ReflexLabDTO[] = [];
-    if (reflexDRsAndRelatedResources) {
-      reflexLabDTOs = await mapReflexResourcesToDrLabDTO(reflexDRsAndRelatedResources, m2mToken);
+    // todo labs future can probably refactor to do less data massaging for when this is being called from the table view
+    let drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[] = [];
+    if (diagnosticReportDrivenResultResources) {
+      drDrivenResults = await mapResourcesToDrLabDTO(diagnosticReportDrivenResultResources, m2mToken);
     }
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         data: labOrders,
-        reflexResults: reflexLabDTOs,
+        drDrivenResults,
         pagination,
         ...(patientLabItems && { patientLabItems }),
       }),
