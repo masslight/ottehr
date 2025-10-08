@@ -38,21 +38,20 @@ import { DateTime } from 'luxon';
 import React from 'react';
 import { Bar, Line } from 'react-chartjs-2';
 import { IN_PERSON_CHIP_STATUS_MAP } from 'src/components/InPersonAppointmentStatusChip';
-import { ReportsMenu } from 'src/components/ReportsMenu';
+import LocationSelect from 'src/components/LocationSelect';
+import { useApiClients } from 'src/hooks/useAppClients';
+import PageContainer from 'src/layout/PageContainer';
 import {
   FhirAppointmentType,
   getInPersonVisitStatus,
+  getTimezone,
   getVisitStatusHistory,
   OTTEHR_MODULE,
   VisitStatusHistoryEntry,
   VisitStatusHistoryLabel,
   VisitStatusLabel,
 } from 'utils';
-import LocationSelect from '../components/LocationSelect';
-import { getTimezone } from '../helpers/formatDateTime';
-import { useApiClients } from '../hooks/useAppClients';
-import PageContainer from '../layout/PageContainer';
-import { LocationWithWalkinSchedule } from './AddPatient';
+import { LocationWithWalkinSchedule } from '../AddPatient';
 
 interface AppointmentCount {
   date: DateTime;
