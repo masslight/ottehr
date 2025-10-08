@@ -39,7 +39,7 @@ export const formatMinutes = (minutes: number): string => {
   return minutes.toLocaleString('en', { maximumFractionDigits: 0 });
 };
 
-export const getVisitStatus = (
+export const getInPersonVisitStatus = (
   appointment: Appointment,
   encounter: Encounter,
   supervisorApprovalEnabled = false
@@ -190,7 +190,7 @@ export const getSupervisorApprovalStatus = (
     return 'loading';
   }
 
-  const visitStatus = getVisitStatus(appointment, encounter, true);
+  const visitStatus = getInPersonVisitStatus(appointment, encounter, true);
 
   if (visitStatus === 'awaiting supervisor approval') {
     return 'waiting-for-approval';

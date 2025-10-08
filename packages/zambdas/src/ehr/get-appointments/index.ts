@@ -21,13 +21,13 @@ import {
   GetAppointmentsZambdaInput,
   getAttendingPractitionerId,
   getChatContainsUnreadMessages,
+  getInPersonVisitStatus,
   getMiddleName,
   getPatientFirstName,
   getPatientLastName,
   getSecret,
   getSMSNumberForIndividual,
   getUnconfirmedDOBForAppointment,
-  getVisitStatus,
   getVisitStatusHistory,
   InPersonAppointmentInformation,
   INSURANCE_CARD_CODE,
@@ -626,7 +626,7 @@ const makeAppointmentInformation = (
   const idCard = docRefComplete('Photo ID cards', 'photo-id-front');
   const insuranceCard = docRefComplete('Insurance cards', 'insurance-card-front');
   const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
-  const status = getVisitStatus(appointment, encounter, supervisorApprovalEnabled);
+  const status = getInPersonVisitStatus(appointment, encounter, supervisorApprovalEnabled);
 
   const unconfirmedDOB = getUnconfirmedDOBForAppointment(appointment);
 
