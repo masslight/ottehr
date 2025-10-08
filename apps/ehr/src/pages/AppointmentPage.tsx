@@ -34,9 +34,11 @@ import {
   FhirAppointmentType,
   getFullName,
   getPatchOperationForNewMetaTag,
+  getPaymentVariantFromEncounter,
   getUnconfirmedDOBForAppointment,
   getUnconfirmedDOBIdx,
   getVisitStatus,
+  PaymentVariant,
   VisitDocuments,
   VisitStatusLabel,
 } from 'utils';
@@ -191,7 +193,12 @@ export default function AppointmentPage(): ReactElement {
     return '';
   }, [patient]);
 
-  const selfPay = false; // todo: pull from encounter resource
+  const selfPay = (() => {
+    const encounter = visitDetailsData?.encounter;
+    if (!encounter) return false;
+    const paymentVariant = getPaymentVariantFromEncounter(encounter);
+    return paymentVariant === PaymentVariant.selfPay;
+  })();
 
   useEffect(() => {
     // Update fields in edit patient name dialog
