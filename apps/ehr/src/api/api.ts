@@ -158,6 +158,7 @@ const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
+const INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID = 'invoiceable-patients-report';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1212,6 +1213,21 @@ export const sendReceiptByEmail = async (
     const response = await oystehr.zambda.execute({
       id: SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID,
       ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const invoiceablePatientsReport = async (oystehr: Oystehr): Promise<void> => {
+  try {
+    if (INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID == null) {
+      throw new Error('invoiceable-patients-report zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID,
     });
     return chooseJson(response);
   } catch (error: unknown) {

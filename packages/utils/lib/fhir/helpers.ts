@@ -885,6 +885,7 @@ export async function getResourcesFromBatchInlineRequests(oystehr: Oystehr, requ
       };
     }),
   });
+  console.log('batchResult', JSON.stringify(batchResult));
   return parseBundleIntoResources(batchResult);
 }
 
