@@ -4,7 +4,7 @@ import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query'
 import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
-import { useSuccessQuery } from 'utils';
+import { mimeTypes, useSuccessQuery } from 'utils';
 import { chooseJson, getPresignedURL } from 'utils';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
@@ -188,7 +188,9 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
               return response.blob();
             })
             .then((blob) => {
-              const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+              const fileExt = parseFileExtension(fileInfo.fileName) ?? 'unknown';
+              const mimeType = mimeTypes[fileExt] || 'application/octet-stream';
+              const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
               window.open(fileBlob, '_blank');
             })
             .catch((error) => {
