@@ -29,7 +29,6 @@ import AddEmployeePage from './pages/AddEmployeePage';
 import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
 import AppointmentsPage from './pages/Appointments';
-import Data from './pages/Data';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeesPage from './pages/Employees';
 import GroupPage from './pages/GroupPage';
@@ -39,7 +38,13 @@ import PatientInformationPage from './pages/PatientInformationPage';
 import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
 import Reports from './pages/Reports';
-import { DailyPayments, IncompleteEncounters, VisitsOverview } from './pages/reports/index';
+import {
+  DailyPayments,
+  DataExports,
+  IncompleteEncounters,
+  VisitsOverview,
+  WorkflowEfficiency,
+} from './pages/reports/index';
 import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
 import TaskAdmin from './pages/TaskAdmin';
@@ -112,7 +117,14 @@ function App(): ReactElement {
   });
 
   const roleUnknown =
-    !currentUser || !currentUser.hasRole([RoleType.Administrator, RoleType.Staff, RoleType.Manager, RoleType.Provider]);
+    !currentUser ||
+    !currentUser.hasRole([
+      RoleType.Administrator,
+      RoleType.Staff,
+      RoleType.Manager,
+      RoleType.Provider,
+      RoleType.CustomerSupport,
+    ]);
 
   return (
     <CustomThemeProvider>
@@ -169,17 +181,18 @@ function App(): ReactElement {
                   <Route path="*" element={<LoadingScreen />} />
                 </>
               )}
-              {currentUser?.hasRole([RoleType.Administrator]) && (
+              {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
                 <>
-                  <Route path="/data" element={<Data />} />
                   <Route path="/tasks" element={<TaskAdmin />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
                   <Route path="/reports/daily-payments" element={<DailyPayments />} />
+                  <Route path="/reports/data-exports" element={<DataExports />} />
+                  <Route path="/reports/workflow-efficiency" element={<WorkflowEfficiency />} />
                   <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 </>
               )}
-              {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager]) && (
+              {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) && (
                 <>
                   <Route path="/" element={<Navigate to="/visits" />} />
                   <Route path="/logout" element={<Logout />} />
@@ -226,7 +239,7 @@ function App(): ReactElement {
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
               )}
-              {currentUser?.hasRole([RoleType.Staff, RoleType.Provider]) && (
+              {currentUser?.hasRole([RoleType.Staff, RoleType.Provider, RoleType.CustomerSupport]) && (
                 <>
                   <Route path="/" element={<Navigate to="/visits" />} />
                   <Route path="/logout" element={<Logout />} />

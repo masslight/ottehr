@@ -10,6 +10,7 @@ import { ActionBar } from 'src/features/visits/shared/components/patient/ActionB
 import { AddInsuranceModal } from 'src/features/visits/shared/components/patient/AddInsuranceModal';
 import { BreadCrumbs } from 'src/features/visits/shared/components/patient/BreadCrumbs';
 import { ContactContainer } from 'src/features/visits/shared/components/patient/ContactContainer';
+import { EmergencyContactContainer } from 'src/features/visits/shared/components/patient/EmergencyContactContainer';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { InsuranceSection } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { PatientDetailsContainer } from 'src/features/visits/shared/components/patient/PatientDetailsContainer';
@@ -431,6 +432,7 @@ const PatientInformationPage: FC = () => {
                     onAddInsurance={() => setOpenAddInsuranceModal(true)}
                   />
                   <ResponsibleInformationContainer />
+                  <EmergencyContactContainer />
                 </Box>
               </Box>
             </Box>

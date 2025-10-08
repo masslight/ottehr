@@ -1,5 +1,6 @@
+import { WarningAmberOutlined } from '@mui/icons-material';
 import { Box, Typography } from '@mui/material';
-import { FC, Fragment } from 'react';
+import { FC, Fragment, ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ExternalLabOrderResult, InHouseLabResult, LabType } from 'utils';
@@ -21,6 +22,19 @@ export const LabResultsReviewContainer: FC<LabResultsReviewContainerProps> = ({ 
   const isExternal = resultDetails.type === LabType.external;
   const title = isExternal ? 'External Labs' : 'In-House Labs';
   const keyIdentifier = isExternal ? 'external-lab-result' : 'in-house-lab-result';
+
+  const checkForAbnormalResultFlag = (result: ExternalLabOrderResult | InHouseLabResult): ReactElement | null => {
+    if (!result.containsAbnormalResult) return null;
+    return (
+      <>
+        <WarningAmberOutlined sx={{ ml: '8px' }} color="warning" />
+        <Typography color="warning.main" sx={{ ml: '4px' }}>
+          Abnormal Result
+        </Typography>
+      </>
+    );
+  };
+
   return (
     <Box
       data-testid={dataTestIds.progressNotePage.labsTitle(title)}
@@ -31,9 +45,12 @@ export const LabResultsReviewContainer: FC<LabResultsReviewContainerProps> = ({ 
       </Typography>
       {resultDetails.results?.map((res, idx) => (
         <Fragment key={`${keyIdentifier}-${idx}`}>
-          <Link to={res.url} target="_blank">
-            {res.name}
-          </Link>
+          <Box sx={{ display: 'flex', alignItems: 'end' }}>
+            <Link to={res.url} target="_blank">
+              {res.name}
+            </Link>
+            {checkForAbnormalResultFlag(res)}
+          </Box>
           {isExternal &&
             'reflexResults' in res &&
             res?.reflexResults?.map((reflexRes, reflexIdx) => (

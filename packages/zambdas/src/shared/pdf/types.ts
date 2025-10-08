@@ -97,6 +97,7 @@ export interface PdfClient {
   setPageByIndex: (pageIndex: number) => void;
   getTotalPages: () => number;
   drawLink: (text: string, url: string, textStyle: TextStyle) => void;
+  numberPages: (textStyle: TextStyle) => void;
 }
 
 export interface PdfExaminationBlockData {
@@ -114,7 +115,7 @@ export interface PdfExaminationBlockData {
 
 // todo might make sense to have a separate interface for the order pdf base
 // and the result pdf base
-export interface LabsData {
+interface LabsData {
   locationName?: string;
   locationStreetAddress?: string;
   locationCity?: string;
@@ -177,6 +178,7 @@ export interface ExternalLabResult {
   performingLabAddress?: string;
   performingLabPhone?: string;
   performingLabDirectorFullName?: string;
+  observationStatus: string;
 }
 
 export interface InHouseLabResult {
@@ -194,6 +196,12 @@ export interface InHouseLabResultConfig {
   results: InHouseLabResult[];
 }
 
+export type ResultSpecimenInfo = {
+  quantityString?: string;
+  unit?: string;
+  bodySite?: string;
+};
+
 export interface LabResultsData
   extends Omit<
     LabsData,
@@ -201,16 +209,18 @@ export interface LabResultsData
     | 'labOrganizationName'
     | 'orderSubmitDate'
     | 'providerTitle'
-    | 'providerNPI'
     | 'patientAddress'
     | 'sampleCollectionDate'
     | 'billClass'
-    | 'accountNumber'
     | 'isManualOrder'
   > {
   testName: string;
   resultStatus: string;
   abnormalResult?: boolean;
+  patientVisitNote?: string;
+  clinicalInfo?: string;
+  fastingStatus?: string;
+  resultSpecimenInfo?: ResultSpecimenInfo;
 }
 
 // will be arrays of base64 encoded strings
@@ -240,7 +250,12 @@ export type UnsolicitedExternalLabResultsData = Omit<
   ExternalLabResultsData,
   'orderNumber' | 'orderSubmitDate' | 'collectionDate'
 >;
-export interface InHouseLabResultsData extends LabResultsData {
+
+export interface InHouseLabResultsData
+  extends Omit<
+    LabResultsData,
+    'accountNumber' | 'patientVisitNote' | 'clinicalInfo' | 'fastingStatus' | 'resultSpecimenInfo'
+  > {
   inHouseLabResults: InHouseLabResultConfig[];
   timezone: string | undefined;
   serviceRequestID: string;

@@ -91,7 +91,7 @@ enum TimeRange {
   Custom = 'Custom',
 }
 
-export default function Data(): React.ReactElement {
+export default function WorkflowEfficiency(): React.ReactElement {
   const [appointmentCountByDate, setAppointmentCountByDate] = React.useState<AppointmentCount[] | undefined>(undefined);
   const [appointmentStatuses, setAppointmentStatuses] = React.useState<
     { [status in VisitStatusHistoryLabel]: VisitStatusMetrics } | undefined
@@ -483,9 +483,6 @@ export default function Data(): React.ReactElement {
                 <ToggleButton value="chart">chart</ToggleButton>
                 <ToggleButton value="table">table</ToggleButton>
               </ToggleButtonGroup>
-            </Grid>
-            <Grid item md={2} xs={8} sx={{ position: 'absolute', right: '30px' }}>
-              <ReportsMenu />
             </Grid>
           </Grid>
         </Grid>
