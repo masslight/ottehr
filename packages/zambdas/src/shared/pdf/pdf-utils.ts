@@ -98,6 +98,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   let pageRightBound = 0;
   let currXPos = 0;
   let currYPos = 0;
+  let bottomOfPageHeaderYPos = 0;
   const pageTextWidth = (): number => {
     return pageRightBound - pageLeftBound;
   };
@@ -125,9 +126,10 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     }
 
     const { height, width } = page.getSize();
-    // Start at the top of the page then move down as elements are added to the PDF.
+    // Start at the top of the page then move down as elements are added to the PDF. If there is a header, then we need to set currYPos differently
     currYPos = height - (styles.pageMargins.top ?? 0); // top of page. Content starts after this point
     currYPos -= Y_POS_GAP; //by default, we have some kind of gap without this subtraction
+
     pageLeftBound = newLeftBound ? newLeftBound : styles.pageMargins.left ?? 0;
     pageRightBound = newRightBound ? newRightBound : width - (styles.pageMargins.right ?? 0);
     currXPos = pageLeftBound;
@@ -137,9 +139,15 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       console.log(`Incrementing page index to ${currentPageIndex}`);
     } else currentPageIndex = 0;
 
+    if (!addedBrandNewPage && styles.setHeadline && currentPageIndex !== 0) {
+      console.log(`On the next page and there is a header, setting currY pos to bottomOfPageHeaderYPos`);
+      currYPos = bottomOfPageHeaderYPos;
+      console.log(`currYPos is ${currYPos}. bottomOfPageHeaderYPos is ${bottomOfPageHeaderYPos}`);
+    }
     if (addedBrandNewPage && styles.setHeadline) {
       console.log('addedBrandNewPage is true and styles.setHeadline is defined. settingHeadline');
       styles.setHeadline();
+      bottomOfPageHeaderYPos = currYPos;
     }
 
     console.log('Done with new page\n');
