@@ -227,3 +227,9 @@ export const updateEncounterPaymentVariantExtension = (input: Encounter, payment
   }
   return encounter;
 };
+
+export const isEncounterSelfPay = (encounter?: Encounter): boolean => {
+  if (!encounter) return false;
+  const paymentVariant = getPaymentVariantFromEncounter(encounter);
+  return paymentVariant === PaymentVariant.selfPay;
+};

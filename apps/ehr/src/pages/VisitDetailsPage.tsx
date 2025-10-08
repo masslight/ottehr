@@ -26,6 +26,7 @@ import React, { ReactElement, useCallback, useEffect, useMemo, useState } from '
 import { useParams } from 'react-router-dom';
 import { generatePaperworkPdf, getPatientVisitDetails, getPatientVisitFiles } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { TelemedAppointmentStatusChip } from 'src/components/TelemedAppointmentStatusChip';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
   DocumentType,
@@ -35,10 +36,12 @@ import {
   getFullName,
   getInPersonVisitStatus,
   getPatchOperationForNewMetaTag,
-  getPaymentVariantFromEncounter,
   getUnconfirmedDOBForAppointment,
   getUnconfirmedDOBIdx,
-  PaymentVariant,
+  isEncounterSelfPay,
+  isInPersonAppointment,
+  mapStatusToTelemed,
+  TelemedAppointmentStatus,
   VisitDocuments,
   VisitStatusLabel,
 } from 'utils';
@@ -79,7 +82,7 @@ import { formatDateUsingSlashes } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
-import { appointmentTypeLabels } from '../types/types';
+import { appointmentTypeLabels, fhirAppointmentTypeToVisitType, visitTypeToTelemedLabel } from '../types/types';
 import { PatientAccountComponent } from './PatientInformationPage';
 
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
@@ -94,7 +97,7 @@ export default function VisitDetailsPage(): ReactElement {
   const [patient, setPatient] = useState<Patient | undefined>(undefined);
   const [appointment, setAppointment] = useState<Appointment | undefined>(undefined);
   const [paperworkModifiedFlag, setPaperworkModifiedFlag] = useState<Flag | undefined>(undefined);
-  const [status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
+  const [status, setStatus] = useState<VisitStatusLabel | TelemedAppointmentStatus | undefined>(undefined);
   const [errors, setErrors] = useState<{ editName?: boolean; editDOB?: boolean; hopError?: string }>({
     editName: false,
     editDOB: false,
@@ -193,12 +196,8 @@ export default function VisitDetailsPage(): ReactElement {
     return '';
   }, [patient]);
 
-  const selfPay = (() => {
-    const encounter = visitDetailsData?.encounter;
-    if (!encounter) return false;
-    const paymentVariant = getPaymentVariantFromEncounter(encounter);
-    return paymentVariant === PaymentVariant.selfPay;
-  })();
+  const selfPay = isEncounterSelfPay(visitDetailsData?.encounter);
+  const isInPerson = isInPersonAppointment(appointment);
 
   useEffect(() => {
     // Update fields in edit patient name dialog
@@ -439,7 +438,15 @@ export default function VisitDetailsPage(): ReactElement {
 
   const unconfirmedDOB = appointment && getUnconfirmedDOBForAppointment(appointment);
   const getAppointmentType = (appointmentType: FhirAppointmentType | undefined): string => {
-    return (appointmentType && appointmentTypeLabels[appointmentType]) || '';
+    if (!appointmentType) {
+      return '';
+    }
+
+    if (isInPerson) {
+      return appointmentTypeLabels[appointmentType] || '';
+    } else {
+      return visitTypeToTelemedLabel[fhirAppointmentTypeToVisitType[appointmentType]] || '';
+    }
   };
 
   const { nameLastModified, dobLastModified } = useMemo(() => {
@@ -491,12 +498,15 @@ export default function VisitDetailsPage(): ReactElement {
 
   useEffect(() => {
     if (appointment && encounter) {
-      const encounterStatus = getInPersonVisitStatus(appointment, encounter);
+      const encounterStatus = isInPerson
+        ? getInPersonVisitStatus(appointment, encounter)
+        : mapStatusToTelemed(encounter.status, appointment.status);
+
       setStatus(encounterStatus);
     } else {
       setStatus(undefined);
     }
-  }, [appointment, encounter]);
+  }, [appointment, encounter, isInPerson]);
 
   // page HTML
   const handleCancelDialogOpen = (): void => {
@@ -691,7 +701,11 @@ export default function VisitDetailsPage(): ReactElement {
                       alignSelf: 'center',
                     }}
                   >
-                    {<InPersonAppointmentStatusChip status={status as VisitStatusLabel} />}
+                    {isInPerson ? (
+                      <InPersonAppointmentStatusChip status={status as VisitStatusLabel} />
+                    ) : (
+                      <TelemedAppointmentStatusChip status={status as TelemedAppointmentStatus} />
+                    )}
                   </span>
                   {appointment && appointment.status === 'cancelled' && (
                     <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
@@ -1011,40 +1025,42 @@ export default function VisitDetailsPage(): ReactElement {
             </Grid>
           </Grid>
         </Grid>
-        <Grid container direction="row" justifyContent="space-between">
-          <Grid item>
-            {loading || !status ? (
-              <Skeleton sx={{ marginLeft: { xs: 0, sm: 2 } }} aria-busy="true" width={200} />
-            ) : (
-              <div id="user-set-appointment-status">
-                <FormControl size="small" sx={{ marginTop: 2, marginLeft: { xs: 0, sm: 8 } }}>
-                  <ChangeStatusDropdown
-                    appointmentID={appointmentID}
-                    onStatusChange={setStatus}
-                    getAndSetResources={getAndSetHistoricResources}
-                    dataTestId={dataTestIds.appointmentPage.changeStatusDropdown}
-                  />
-                </FormControl>
-                {loading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}
-              </div>
+        {!loading && encounter && (
+          <Grid container direction="row" justifyContent="space-between">
+            {isInPerson && (
+              <Grid item>
+                {loading || !status ? (
+                  <Skeleton sx={{ marginLeft: { xs: 0, sm: 2 } }} aria-busy="true" width={200} />
+                ) : (
+                  <div id="user-set-appointment-status">
+                    <FormControl size="small" sx={{ marginTop: 2, marginLeft: { xs: 0, sm: 8 } }}>
+                      <ChangeStatusDropdown
+                        appointmentID={appointmentID}
+                        onStatusChange={isInPerson ? setStatus : () => {}}
+                        getAndSetResources={getAndSetHistoricResources}
+                        dataTestId={dataTestIds.appointmentPage.changeStatusDropdown}
+                      />
+                    </FormControl>
+                    {loading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}
+                  </div>
+                )}
+              </Grid>
             )}
-          </Grid>
-          <Grid item sx={{ paddingTop: 2, paddingRight: 3.5 }}>
-            <>
-              <Button
-                variant="outlined"
-                sx={{
-                  alignSelf: 'center',
-                  marginLeft: { xs: 0, sm: 1 },
-                  borderRadius: '20px',
-                  textTransform: 'none',
-                }}
-                color="error"
-                onClick={() => setIssueDialogOpen(true)}
-              >
-                Report Issue
-              </Button>
-              {encounter && (
+            <Grid item sx={{ paddingTop: 2, paddingRight: isInPerson ? 3.5 : 0 }}>
+              <>
+                <Button
+                  variant="outlined"
+                  sx={{
+                    alignSelf: 'center',
+                    marginLeft: { xs: 0, sm: isInPerson ? 1 : 0 },
+                    borderRadius: '20px',
+                    textTransform: 'none',
+                  }}
+                  color="error"
+                  onClick={() => setIssueDialogOpen(true)}
+                >
+                  Report Issue
+                </Button>
                 <ReportIssueDialog
                   open={issueDialogOpen}
                   handleClose={() => setIssueDialogOpen(false)}
@@ -1057,10 +1073,10 @@ export default function VisitDetailsPage(): ReactElement {
                   setToastType={setToastType}
                   setToastMessage={setToastMessage}
                 />
-              )}
-            </>
+              </>
+            </Grid>
           </Grid>
-        </Grid>
+        )}
         <Grid container direction="row">
           <Grid item sx={{ marginLeft: { xs: 0, sm: 8 }, marginTop: 2, marginBottom: 50 }}>
             <>
