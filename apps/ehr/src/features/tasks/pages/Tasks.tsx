@@ -11,6 +11,7 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Paper,
   Popover,
   Table,
   TableBody,
@@ -20,7 +21,6 @@ import {
   Typography,
 } from '@mui/material';
 import { Stack } from '@mui/system';
-import { DateTime } from 'luxon';
 import React, { ReactElement, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { GenericToolTip } from 'src/components/GenericToolTip';
@@ -31,13 +31,12 @@ import { Task, useGetTasks } from 'src/features/visits/in-person/hooks/useTasks'
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
+import { formatDate } from '../common';
+import { AssignTaskDialog } from '../components/AssignTaskDialog';
+import { CategoryChip } from '../components/CategoryChip';
 
 const UNKNOWN = 'Unknown';
 const COMPLETED = 'completed';
-const TASK_CATEGORY_LABEL: Record<string, string> = {
-  'external-labs': 'External Labs',
-  'in-house-labs': 'In-house Labs',
-};
 const TASK_STATUS_LABEL: Record<string, string> = {
   requested: 'pending',
   'in-progress': 'in progress',
@@ -45,7 +44,6 @@ const TASK_STATUS_LABEL: Record<string, string> = {
 };
 
 export const Tasks: React.FC = () => {
-  const [locationSelected, setLocationSelected] = useState<LocationWithWalkinSchedule | undefined>(undefined);
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = useMemo(() => {
@@ -54,6 +52,14 @@ export const Tasks: React.FC = () => {
   const { data: tasks } = useGetTasks();
   const currentUser = useEvolveUser();
   const currentUserProviderId = currentUser?.profile?.split('/')[1];
+
+  const [locationSelected, setLocationSelected] = useState<LocationWithWalkinSchedule | undefined>(undefined);
+  const [moreActionsPopoverData, setMoreActionsPopoverData] = useState<{
+    element: HTMLButtonElement;
+    task: Task;
+  } | null>(null);
+  const [taskToAssign, setTaskToAssign] = useState<Task | null>(null);
+
   const renderActionButton = (task: Task): ReactElement | null => {
     if (task.status === COMPLETED) {
       return null;
@@ -78,6 +84,7 @@ export const Tasks: React.FC = () => {
     }
     return null;
   };
+
   const renderMoreButton = (task: Task): ReactElement | null => {
     if (task.status === COMPLETED) {
       return null;
@@ -88,16 +95,14 @@ export const Tasks: React.FC = () => {
       </IconButton>
     );
   };
-  const [moreActionsPopoverData, setMoreActionsPopoverData] = useState<{
-    element: HTMLButtonElement;
-    task: Task;
-  } | null>(null);
+
   const closeMoreActionsPopover = (): void => {
     setMoreActionsPopoverData(null);
   };
+
   return (
     <PageContainer>
-      <Stack>
+      <Stack spacing={2}>
         <Stack direction="row">
           <LocationSelect
             queryParams={queryParams}
@@ -108,159 +113,172 @@ export const Tasks: React.FC = () => {
             setLocation={setLocationSelected}
           />
         </Stack>
-        <Table sx={{ width: '100%' }}>
-          <TableHead>
-            <TableRow>
-              <TableCell style={{ width: '150px' }}>
-                <Typography>Category and Date</Typography>
-              </TableCell>
-              <TableCell>
-                <Typography>Task</Typography>
-              </TableCell>
-              <TableCell style={{ width: '200px' }}>
-                <Typography>Assigned To</Typography>
-              </TableCell>
-              <TableCell style={{ width: '200px' }}>
-                <Typography>Status</Typography>
-              </TableCell>
-              <TableCell style={{ width: '200px' }}>
-                <Typography>Action</Typography>
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {(tasks ?? []).map((task) => {
-              return (
-                <TableRow>
-                  <TableCell>
-                    <Box
-                      style={{
-                        background: '#2169F51F',
-                        borderRadius: '16px',
-                        height: '24px',
-                        padding: '0 12px 0 12px',
-                      }}
-                      display="inline-flex"
-                      alignItems="center"
-                      justifyContent="center"
-                    >
-                      <Typography variant="body2" display="inline" style={{ color: '#2169F5', fontSize: '13px' }}>
-                        {TASK_CATEGORY_LABEL[task.category] ?? UNKNOWN}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" display="inline" style={{ color: '#00000099', display: 'block' }}>
-                      {formatDate(task.createdDate)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box>
+        <Paper>
+          <Table sx={{ width: '100%' }}>
+            <TableHead>
+              <TableRow>
+                <TableCell style={{ width: '200px' }}>
+                  <Typography fontWeight="500" fontSize="14px">
+                    Category and Date
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography fontWeight="500" fontSize="14px">
+                    Task
+                  </Typography>
+                </TableCell>
+                <TableCell style={{ width: '200px' }}>
+                  <Typography fontWeight="500" fontSize="14px">
+                    Assigned To
+                  </Typography>
+                </TableCell>
+                <TableCell style={{ width: '200px' }}>
+                  <Typography fontWeight="500" fontSize="14px">
+                    Status
+                  </Typography>
+                </TableCell>
+                <TableCell style={{ width: '200px' }}>
+                  <Typography fontWeight="500" fontSize="14px">
+                    Action
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(tasks ?? []).map((task) => {
+                return (
+                  <TableRow>
+                    <TableCell>
+                      <CategoryChip category={task.category} />
                       <Typography
-                        variant="body1"
+                        variant="body2"
                         display="inline"
-                        style={{
-                          color: '#000000DE',
-                          fontWeight: 500,
-                          textDecoration: task.status === COMPLETED ? 'line-through' : 'none',
-                        }}
+                        style={{ color: '#00000099', display: 'block', marginTop: '5px' }}
                       >
-                        {task.title}
+                        {formatDate(task.createdDate)}
                       </Typography>
-                      {task.alert ? (
-                        <GenericToolTip title={task.alert} placement="top">
-                          <PriorityHighOutlinedIcon
-                            style={{
-                              width: '15px',
-                              height: '15px',
-                              color: '#FFF',
-                              background: otherColors.priorityHighIcon,
-                              borderRadius: '4px',
-                              padding: '1px 2px',
-                              marginLeft: '5px',
-                            }}
-                          />
-                        </GenericToolTip>
-                      ) : null}
-                    </Box>
-                    <Typography variant="body2" display="inline" style={{ color: '#00000099' }}>
-                      {task.subtitle}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {task.assignee ? (
-                      <>
-                        <Typography variant="body2">{task.assignee.name}</Typography>
-                        <Typography variant="body2" display="inline" style={{ color: '#00000099', display: 'block' }}>
-                          {formatDate(task.assignee.date)}
+                    </TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography
+                          variant="body1"
+                          display="inline"
+                          style={{
+                            color: '#000000DE',
+                            fontWeight: 500,
+                            textDecoration: task.status === COMPLETED ? 'line-through' : 'none',
+                          }}
+                        >
+                          {task.title}
                         </Typography>
-                      </>
-                    ) : (
-                      'Not Assigned'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <StatusChip
-                      status={TASK_STATUS_LABEL[task.status] ?? UNKNOWN}
-                      style={task.status === COMPLETED ? 'green' : task.status === 'in-progress' ? 'orange' : 'purple'}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {task.status !== COMPLETED ? (
-                      <Stack direction="row" justifyContent="space-between">
-                        {renderActionButton(task)}
-                        {renderMoreButton(task)}
-                      </Stack>
-                    ) : null}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-        <Popover
-          open={Boolean(moreActionsPopoverData)}
-          anchorEl={moreActionsPopoverData?.element}
-          onClose={closeMoreActionsPopover}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'left',
-          }}
-        >
-          <List>
-            {currentUserProviderId === moreActionsPopoverData?.task?.assignee?.id ? (
+                        {task.alert ? (
+                          <GenericToolTip title={task.alert} placement="top">
+                            <PriorityHighOutlinedIcon
+                              style={{
+                                width: '15px',
+                                height: '15px',
+                                color: '#FFF',
+                                background: otherColors.priorityHighIcon,
+                                borderRadius: '4px',
+                                padding: '1px 2px',
+                                marginLeft: '5px',
+                              }}
+                            />
+                          </GenericToolTip>
+                        ) : null}
+                      </Box>
+                      <Typography variant="body2" display="inline" style={{ color: '#00000099' }}>
+                        {task.subtitle}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {task.assignee ? (
+                        <>
+                          <Typography variant="body2">{task.assignee.name}</Typography>
+                          <Typography variant="body2" display="inline" style={{ color: '#00000099', display: 'block' }}>
+                            {formatDate(task.assignee.date)}
+                          </Typography>
+                        </>
+                      ) : (
+                        'Not Assigned'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <StatusChip
+                        status={TASK_STATUS_LABEL[task.status] ?? UNKNOWN}
+                        style={
+                          task.status === COMPLETED ? 'green' : task.status === 'in-progress' ? 'orange' : 'purple'
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {task.status !== COMPLETED ? (
+                        <Stack direction="row" justifyContent="space-between">
+                          {renderActionButton(task)}
+                          {renderMoreButton(task)}
+                        </Stack>
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Paper>
+        {moreActionsPopoverData ? (
+          <Popover
+            open={true}
+            anchorEl={moreActionsPopoverData.element}
+            onClose={closeMoreActionsPopover}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'left',
+            }}
+          >
+            <List>
+              {currentUserProviderId === moreActionsPopoverData.task?.assignee?.id ? (
+                <ListItem disablePadding>
+                  <ListItemButton
+                    onClick={() => {
+                      console.log('Unassign me');
+                      closeMoreActionsPopover();
+                    }}
+                  >
+                    <ListItemIcon>
+                      <ShortcutIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
+                    </ListItemIcon>
+                    <ListItemText primary="Unassign me" />
+                  </ListItemButton>
+                </ListItem>
+              ) : null}
               <ListItem disablePadding>
                 <ListItemButton
                   onClick={() => {
-                    console.log('Unassign me');
+                    setTaskToAssign(moreActionsPopoverData.task);
+                    console.log('Assign to someone else');
                     closeMoreActionsPopover();
                   }}
                 >
                   <ListItemIcon>
-                    <ShortcutIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
+                    <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
                   </ListItemIcon>
-                  <ListItemText primary="Unassign me" />
+                  <ListItemText primary="Assign to someone else" />
                 </ListItemButton>
               </ListItem>
-            ) : null}
-            <ListItem disablePadding>
-              <ListItemButton
-                onClick={() => {
-                  console.log('Assign to someone else');
-                  closeMoreActionsPopover();
-                }}
-              >
-                <ListItemIcon>
-                  <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
-                </ListItemIcon>
-                <ListItemText primary="Assign to someone else" />
-              </ListItemButton>
-            </ListItem>
-          </List>
-        </Popover>
+            </List>
+          </Popover>
+        ) : null}
+        {taskToAssign ? (
+          <AssignTaskDialog
+            task={taskToAssign}
+            handleClose={() => setTaskToAssign(null)}
+            handleConfirm={() => {
+              // todo assign the task
+              setTaskToAssign(null);
+            }}
+          />
+        ) : null}
       </Stack>
     </PageContainer>
   );
 };
-
-function formatDate(dateIso: string): string {
-  return DateTime.fromISO(dateIso).toFormat('MM/dd/yyyy h:mm a');
-}

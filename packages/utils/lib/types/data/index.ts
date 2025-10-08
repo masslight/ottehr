@@ -17,4 +17,3 @@ export * from './immunization';
 export * from './apply-template.types';
 export * from './list-template.types';
 export * from './screening-questions';
-export * from './task';

@@ -7,40 +7,72 @@ import { codeableConcept, getCoding, TASK_CATEGORY_IDENTIFIER, TASK_INPUT_SYSTEM
 const GET_TASKS_KEY = 'get-tasks';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 
-const STUB_TASK: FhirTask = {
-  resourceType: 'Task',
-  id: '12345',
-  intent: 'unknown',
-  status: 'requested',
-  groupIdentifier: {
-    system: TASK_CATEGORY_IDENTIFIER,
-    value: 'in-house-labs',
+const STUB_TASKS: FhirTask[] = [
+  {
+    resourceType: 'Task',
+    id: '12345',
+    intent: 'unknown',
+    status: 'requested',
+    groupIdentifier: {
+      system: TASK_CATEGORY_IDENTIFIER,
+      value: 'in-house-labs',
+    },
+    code: codeableConcept('collect-sample', TASK_TYPE_SYSTEM),
+    authoredOn: DateTime.now().toISO(),
+    input: [
+      {
+        type: codeableConcept('title', TASK_INPUT_SYSTEM),
+        valueString: 'Task title',
+      },
+      {
+        type: codeableConcept('subtitle', TASK_INPUT_SYSTEM),
+        valueString: 'Task subtitle',
+      },
+      {
+        type: codeableConcept('appointmentId', TASK_INPUT_SYSTEM),
+        valueString: 'stubAppointmentId',
+      },
+      {
+        type: codeableConcept('orderId', TASK_INPUT_SYSTEM),
+        valueString: 'stubOrderId',
+      },
+      {
+        type: codeableConcept('alert', TASK_INPUT_SYSTEM),
+        valueString: 'ALERT!',
+      },
+    ],
   },
-  code: codeableConcept('collect-sample', TASK_TYPE_SYSTEM),
-  authoredOn: DateTime.now().toISO(),
-  input: [
-    {
-      type: codeableConcept('title', TASK_INPUT_SYSTEM),
-      valueString: 'Task title',
+  {
+    resourceType: 'Task',
+    id: '123456',
+    intent: 'unknown',
+    status: 'requested',
+    groupIdentifier: {
+      system: TASK_CATEGORY_IDENTIFIER,
+      value: 'external-labs',
     },
-    {
-      type: codeableConcept('subtitle', TASK_INPUT_SYSTEM),
-      valueString: 'Task subtitle',
-    },
-    {
-      type: codeableConcept('appointmentId', TASK_INPUT_SYSTEM),
-      valueString: 'stubAppointmentId',
-    },
-    {
-      type: codeableConcept('orderId', TASK_INPUT_SYSTEM),
-      valueString: 'stubOrderId',
-    },
-    {
-      type: codeableConcept('alert', TASK_INPUT_SYSTEM),
-      valueString: 'ALERT!',
-    },
-  ],
-};
+    code: codeableConcept('match', TASK_TYPE_SYSTEM),
+    authoredOn: DateTime.now().toISO(),
+    input: [
+      {
+        type: codeableConcept('title', TASK_INPUT_SYSTEM),
+        valueString: 'Task title2',
+      },
+      {
+        type: codeableConcept('subtitle', TASK_INPUT_SYSTEM),
+        valueString: 'Task subtitle2',
+      },
+      {
+        type: codeableConcept('appointmentId', TASK_INPUT_SYSTEM),
+        valueString: 'stubAppointmentId2',
+      },
+      {
+        type: codeableConcept('orderId', TASK_INPUT_SYSTEM),
+        valueString: 'stubOrderId2',
+      },
+    ],
+  },
+];
 
 export interface Task {
   id: string;
@@ -90,7 +122,7 @@ export const useGetTasks = (): UseQueryResult<Task[], Error> => {
           ],
         })
       ).unbundle();*/
-      const tasks = [STUB_TASK];
+      const tasks = STUB_TASKS;
       return tasks.map(fhirTaskToTask);
     },
     enabled: oystehr != null,
