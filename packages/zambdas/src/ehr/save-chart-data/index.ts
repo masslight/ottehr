@@ -298,6 +298,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               ?.code === 'ai-potential-diagnosis'
         ) as Condition[];
 
+        // suggestions that are not suggested any more
+        existingAiDiagnoses.forEach((existingDiagnosis) => {
+          if (
+            existingDiagnosis.id &&
+            !potentialDiagnoses.some((diagnosis) => diagnosis.icd10 === existingDiagnosis.code?.coding?.[0]?.code)
+          ) {
+            console.log(1);
+            saveOrUpdateRequests.push(deleteResourceRequest('Condition', existingDiagnosis.id));
+          }
+        });
+
         potentialDiagnoses.forEach((diagnosis) => {
           // Try to not create duplicate suggestions
           if (existingAiDiagnoses.some((temp) => temp.code?.coding?.[0]?.code === diagnosis.icd10)) {
