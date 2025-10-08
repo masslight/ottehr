@@ -16,17 +16,17 @@ import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
 import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
-import { VisitTypeToLabel, VisitTypeToLabelTelemed } from 'src/types/types';
+import { visitTypeToInPersonLabel, visitTypeToTelemedLabel } from 'src/types/types';
 import {
   EmployeeDetails,
   formatMinutes,
-  getVisitStatus,
+  getInPersonVisitStatus,
   isInPersonAppointment,
   mapStatusToTelemed,
   ServiceMode,
   TelemedCallStatusesArr,
   useSuccessQuery,
-  VisitStatusArray,
+  visitStatusArray,
 } from 'utils';
 import { create } from 'zustand';
 import { getEmployees } from '../api/api';
@@ -82,7 +82,7 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
         return !!status && <TelemedAppointmentStatusChip status={status} />;
       } else {
         if (!encounter) return;
-        const encounterStatus = getVisitStatus(appointment, encounter);
+        const encounterStatus = getInPersonVisitStatus(appointment, encounter);
         if (!encounterStatus) {
           return;
         }
@@ -236,7 +236,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     const appointmentStatus =
       appointmentHistory.serviceMode === ServiceMode.virtual
         ? mapStatusToTelemed(appointmentHistory.encounter.status, appointmentHistory.appointment.status)
-        : getVisitStatus(appointmentHistory.appointment, appointmentHistory.encounter);
+        : getInPersonVisitStatus(appointmentHistory.appointment, appointmentHistory.encounter);
     return filterStatus === appointmentStatus;
   }
 
@@ -259,11 +259,13 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       <Box sx={{ display: 'flex', gap: 2 }}>
         <TextField size="small" fullWidth label="Type" select value={type} onChange={(e) => setType(e.target.value)}>
           <MenuItem value="all">All</MenuItem>
-          <MenuItem value={VisitTypeToLabel['walk-in']}>{VisitTypeToLabel['walk-in']}</MenuItem>
-          <MenuItem value={VisitTypeToLabel['post-telemed']}>{VisitTypeToLabel['post-telemed']}</MenuItem>
-          <MenuItem value={VisitTypeToLabel['pre-booked']}>{VisitTypeToLabel['pre-booked']}</MenuItem>
-          <MenuItem value={VisitTypeToLabelTelemed['pre-booked']}>{VisitTypeToLabelTelemed['pre-booked']}</MenuItem>
-          <MenuItem value={VisitTypeToLabelTelemed['walk-in']}>{VisitTypeToLabelTelemed['walk-in']}</MenuItem>
+          <MenuItem value={visitTypeToInPersonLabel['walk-in']}>{visitTypeToInPersonLabel['walk-in']}</MenuItem>
+          <MenuItem value={visitTypeToInPersonLabel['post-telemed']}>
+            {visitTypeToInPersonLabel['post-telemed']}
+          </MenuItem>
+          <MenuItem value={visitTypeToInPersonLabel['pre-booked']}>{visitTypeToInPersonLabel['pre-booked']}</MenuItem>
+          <MenuItem value={visitTypeToTelemedLabel['pre-booked']}>{visitTypeToTelemedLabel['pre-booked']}</MenuItem>
+          <MenuItem value={visitTypeToTelemedLabel['walk-in']}>{visitTypeToTelemedLabel['walk-in']}</MenuItem>
         </TextField>
 
         <TextField
@@ -290,7 +292,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           onChange={(e) => setStatus(e.target.value)}
         >
           <MenuItem value="all">All</MenuItem>
-          {[...new Set([...TelemedCallStatusesArr, ...VisitStatusArray.filter((item) => item !== 'cancelled')])].map(
+          {[...new Set([...TelemedCallStatusesArr, ...visitStatusArray.filter((item) => item !== 'cancelled')])].map(
             (status) => (
               <MenuItem key={status} value={status}>
                 {capitalize(status)}

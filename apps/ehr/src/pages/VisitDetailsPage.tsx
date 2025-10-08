@@ -52,11 +52,11 @@ import {
   flattenItems,
   formatPhoneNumber,
   getFullName,
+  getInPersonVisitStatus,
   getPatchOperationForNewMetaTag,
   getPresignedURL,
   getUnconfirmedDOBForAppointment,
   getUnconfirmedDOBIdx,
-  getVisitStatus,
   INSURANCE_CARD_CODE,
   isInPersonAppointment,
   isNonPaperworkQuestionnaireResponse,
@@ -110,7 +110,7 @@ import {
   DocumentInfo,
   DocumentType,
   fhirAppointmentTypeToVisitType,
-  VisitTypeToLabelTelemed,
+  visitTypeToTelemedLabel,
 } from '../types/types';
 
 interface Documents {
@@ -873,7 +873,7 @@ export default function VisitDetailsPage(): ReactElement {
     if (isInPerson) {
       return appointmentTypeLabels[appointmentType] || '';
     } else {
-      return VisitTypeToLabelTelemed[fhirAppointmentTypeToVisitType[appointmentType]] || '';
+      return visitTypeToTelemedLabel[fhirAppointmentTypeToVisitType[appointmentType]] || '';
     }
   };
 
@@ -943,7 +943,7 @@ export default function VisitDetailsPage(): ReactElement {
   useEffect(() => {
     if (appointment && encounter) {
       const encounterStatus = isInPerson
-        ? getVisitStatus(appointment, encounter)
+        ? getInPersonVisitStatus(appointment, encounter)
         : mapStatusToTelemed(encounter.status, appointment.status);
 
       setStatus(encounterStatus);

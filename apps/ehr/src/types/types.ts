@@ -49,13 +49,13 @@ export enum VisitType {
   PostTelemed = 'post-telemed',
 }
 
-export const VisitTypeToLabel: { [visitType in VisitType]: string } = {
+export const visitTypeToInPersonLabel: { [visitType in VisitType]: string } = {
   'walk-in': 'Walk-in In Person Visit',
   'pre-booked': 'Pre-booked In Person Visit',
   'post-telemed': 'Post Telemed Lab Only',
 };
 
-export const VisitTypeToLabelTelemed: { [visitType in VisitType]: string } = {
+export const visitTypeToTelemedLabel: { [visitType in VisitType]: string } = {
   'walk-in': 'On-demand Telemed',
   'pre-booked': 'Pre-booked Telemed',
   'post-telemed': 'Post Telemed Lab Only',
@@ -89,10 +89,10 @@ export const fhirAppointmentTypeToVisitType: { [type in FhirAppointmentType]: Vi
 
 export const getVisitTypeLabelForAppointment = (appointment: Appointment): string => {
   const fhirAppointmentType = appointment?.appointmentType?.text as FhirAppointmentType;
-  let visitTypeToLabelEnum = VisitTypeToLabel;
+  let visitTypeToLabelEnum = visitTypeToInPersonLabel;
 
   if (isTelemedAppointment(appointment)) {
-    visitTypeToLabelEnum = VisitTypeToLabelTelemed;
+    visitTypeToLabelEnum = visitTypeToTelemedLabel;
   }
 
   const visitType = fhirAppointmentTypeToVisitType[fhirAppointmentType];

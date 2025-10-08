@@ -3,7 +3,7 @@ import { ReactElement, ReactNode } from 'react';
 
 interface Props {
   text: string;
-  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  onClick: () => void;
   loading?: boolean;
   children: ReactNode | ReactNode[];
   dataTestId?: string;
@@ -50,7 +50,7 @@ export default function GoToButton(props: Props): ReactElement {
           },
         },
       }}
-      onClick={props.onClick ? (e) => props.onClick!(e) : undefined}
+      onClick={props.onClick}
     >
       {props.children}
       {props.text}

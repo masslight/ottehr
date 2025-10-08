@@ -41,7 +41,7 @@ import { IN_PERSON_CHIP_STATUS_MAP } from 'src/components/InPersonAppointmentSta
 import { ReportsMenu } from 'src/components/ReportsMenu';
 import {
   FhirAppointmentType,
-  getVisitStatus,
+  getInPersonVisitStatus,
   getVisitStatusHistory,
   OTTEHR_MODULE,
   VisitStatusHistoryEntry,
@@ -192,7 +192,7 @@ export default function Data(): React.ReactElement {
               if (encounter) {
                 const fhirEncounter = encounter as Encounter;
                 appointmentEncounterMap[fhirAppointment.id] = fhirEncounter;
-                const visitStatus = getVisitStatus(fhirAppointment, fhirEncounter);
+                const visitStatus = getInPersonVisitStatus(fhirAppointment, fhirEncounter);
                 const visitStatusHistory = getVisitStatusHistory(fhirEncounter);
                 formattedAppointments.push({ id: fhirAppointment.id, visitStatus, visitStatusHistory });
               }
