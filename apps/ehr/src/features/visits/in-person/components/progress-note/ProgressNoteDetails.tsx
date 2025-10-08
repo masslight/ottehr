@@ -27,7 +27,6 @@ import { ProceduresContainer } from 'src/features/visits/shared/components/revie
 import { ReviewOfSystemsContainer } from 'src/features/visits/shared/components/review-tab/components/ReviewOfSystemsContainer';
 import { SurgicalHistoryContainer } from 'src/features/visits/shared/components/review-tab/components/SurgicalHistoryContainer';
 import { SectionList } from 'src/features/visits/shared/components/SectionList';
-import { useAwaitingSupervisorApproval } from 'src/features/visits/shared/hooks/useAwaitingSupervisorApproval';
 import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { usePatientInstructionsVisibility } from 'src/features/visits/shared/hooks/usePatientInstructionsVisibility';
@@ -41,6 +40,7 @@ import { isEligibleSupervisor } from 'src/helpers';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   examConfig,
+  getSupervisorApprovalStatus,
   LabType,
   NOTE_TYPE,
   progressNoteChartDataRequestedFields,
@@ -127,7 +127,7 @@ export const ProgressNoteDetails: FC = () => {
   const showVitalsObservations =
     !!(vitalsObservations && vitalsObservations.length > 0) || !!(vitalsNotes && vitalsNotes.length > 0);
 
-  const isAwaitingSupervisorApproval = useAwaitingSupervisorApproval();
+  const approvalStatus = getSupervisorApprovalStatus(appointment, encounter);
 
   const medicalHistorySections = [
     <AllergiesContainer notes={allergyNotes} />,
@@ -152,7 +152,7 @@ export const ProgressNoteDetails: FC = () => {
       </Typography>
       <ExaminationContainer examConfig={examConfig.inPerson.default.components} />
     </Stack>,
-    ...(!isAwaitingSupervisorApproval ? medicalHistorySections : []),
+    ...(!(approvalStatus === 'waiting-for-approval') ? medicalHistorySections : []),
     showAssessment && <AssessmentContainer />,
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,
@@ -205,7 +205,7 @@ export const ProgressNoteDetails: FC = () => {
   return (
     <AccordionCard label="Visit Note" dataTestId={dataTestIds.progressNotePage.visitNoteCard}>
       {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED &&
-        isAwaitingSupervisorApproval &&
+        approvalStatus === 'waiting-for-approval' &&
         user &&
         isEligibleSupervisor(user.profileResource!) && (
           <>

@@ -2,6 +2,7 @@ import { Appointment, Encounter, EncounterParticipant, EncounterStatusHistory } 
 import { DateTime } from 'luxon';
 import {
   InPersonAppointmentInformation,
+  SupervisorApprovalStatus,
   VisitStatusHistoryEntry,
   VisitStatusHistoryLabel,
   VisitStatusLabel,
@@ -179,4 +180,23 @@ const getInProgressVisitHistories = (
   }
 
   return histories;
+};
+
+export const getSupervisorApprovalStatus = (
+  appointment?: Appointment,
+  encounter?: Encounter
+): SupervisorApprovalStatus => {
+  if (!appointment || !encounter) {
+    return 'loading';
+  }
+
+  const visitStatus = getVisitStatus(appointment, encounter, true);
+
+  if (visitStatus === 'awaiting supervisor approval') {
+    return 'waiting-for-approval';
+  } else if (visitStatus === 'completed') {
+    return 'approved';
+  }
+
+  return 'unknown';
 };
