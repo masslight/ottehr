@@ -54,4 +54,12 @@ export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFiel
   surgicalHistoryNote: {
     _tag: 'surgical-history-note',
   },
+  vitalsObservations: {
+    _search_by: 'encounter',
+    _sort: '-_lastUpdated',
+    _count: 100,
+    _tag: Object.values(VitalFieldNames)
+      .map((name) => (createVitalsSearchConfig(name, 'encounter').searchParams as { _tag: string })._tag)
+      .join(','),
+  },
 };
