@@ -11,6 +11,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPatientName } from 'src/shared/utils';
 import {
   getProviderType,
+  getSupervisorApprovalStatus,
   getVisitStatus,
   isPhysicianProviderType,
   PRACTITIONER_CODINGS,
@@ -77,13 +78,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const isLoading = isChangeLoading || isSignLoading || isEncounterUpdatePending || isPendingSupervisorApproval;
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
-
+  const approvalStatus = getSupervisorApprovalStatus(appointment, encounter);
   const completed = useMemo(() => {
     if (isInPerson) {
-      return appointmentAccessibility.isAppointmentLocked;
+      return appointmentAccessibility.isAppointmentLocked || approvalStatus === 'waiting-for-approval';
     }
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
-  }, [isInPerson, appointmentAccessibility.status, appointmentAccessibility.isAppointmentLocked]);
+  }, [isInPerson, appointmentAccessibility.status, appointmentAccessibility.isAppointmentLocked, approvalStatus]);
 
   const errorMessage = useMemo(() => {
     const messages: string[] = [];

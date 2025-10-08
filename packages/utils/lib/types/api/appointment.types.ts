@@ -54,6 +54,8 @@ export type VisitStatusLabel = VISIT_STATUS_TYPE[number];
 export type VisitStatusWithoutUnknown = Exclude<VisitStatusLabel, 'unknown'>;
 export type VisitStatusHistoryLabel = Exclude<VisitStatusWithoutUnknown, 'ready'>;
 
+export type SupervisorApprovalStatus = 'loading' | 'waiting-for-approval' | 'approved' | 'unknown';
+
 export const visitStatusToFhirAppointmentStatusMap: Record<VisitStatusWithoutUnknown, FhirAppointmentStatus> = {
   pending: 'booked',
   arrived: 'arrived',
