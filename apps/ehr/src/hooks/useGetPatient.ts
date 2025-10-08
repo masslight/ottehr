@@ -298,7 +298,8 @@ export const useRemovePatientCoverage = (): UseMutationResult<void, Error, Remov
 };
 
 export const useUpdatePatientAccount = (
-  onSuccess?: () => void
+  onSuccess?: () => void,
+  successMessage: string = 'Patient information updated successfully'
 ): UseMutationResult<void, Error, QuestionnaireResponse> => {
   const apiClient = useOystehrAPIClient();
 
@@ -318,7 +319,7 @@ export const useUpdatePatientAccount = (
     },
 
     onSuccess: () => {
-      enqueueSnackbar('Patient information updated successfully', {
+      enqueueSnackbar(successMessage, {
         variant: 'success',
       });
       if (onSuccess) {
