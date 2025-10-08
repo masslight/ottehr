@@ -32,24 +32,17 @@ export const AssignTaskDialog: React.FC<Props> = ({ task, handleClose, handleCon
       closeButtonText="Cancel"
       ContentComponent={
         <FormProvider {...methods}>
-          <Stack>
-            <Stack direction="row">
+          <Stack minWidth="500px" spacing={1}>
+            <Stack direction="row" alignItems="center" spacing={1}>
               <CategoryChip category={task.category} />
               <Typography variant="body2" display="inline" style={{ color: '#00000099', display: 'block' }}>
                 {formatDate(task.createdDate)}
               </Typography>
             </Stack>
-            <Typography
-              variant="body1"
-              display="inline"
-              style={{
-                color: '#000000DE',
-                fontWeight: 500,
-              }}
-            >
+            <Typography variant="body1" display="inline" fontWeight="500">
               {task.title}
             </Typography>
-            <Typography variant="body2" display="inline" style={{ color: '#00000099' }}>
+            <Typography variant="body2" display="inline">
               {task.subtitle}
             </Typography>
             <ProviderSelectInput name="assignee" label="Assignee" />
