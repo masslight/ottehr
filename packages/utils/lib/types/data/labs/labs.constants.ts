@@ -46,6 +46,12 @@ export const LAB_RESULT_DOC_REF_CODING_CODE = {
   display: 'Laboratory report',
 };
 
+export const LAB_RESULT_HL7_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '56444-3',
+  display: 'Healthcare communication document',
+};
+
 // there is no loinc code specifically for specimen labels or container labels, closest is 74384-9 "Specimen container [Type]"
 // so opted for something custom her
 export const EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE = {
