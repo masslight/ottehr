@@ -729,7 +729,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await addInsuranceDialog.enterAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
     await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
 
-    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.verifyCoverageAddedSuccessfullyMessageShown();
     await patientInformationPage.reloadPatientInformationPage();
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     await primaryInsuranceCard.clickShowMoreButton();
@@ -769,7 +769,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await addInsuranceDialog.enterAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2);
     await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
 
-    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.verifyCoverageAddedSuccessfullyMessageShown();
     await patientInformationPage.reloadPatientInformationPage();
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
     await secondaryInsuranceCard.clickShowMoreButton();
