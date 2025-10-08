@@ -96,7 +96,7 @@ export interface Task {
 export interface AssignTaskRequest {
   taskId: string;
   assignee: {
-    reference: string;
+    id: string;
     name: string;
   };
 }
@@ -145,7 +145,7 @@ export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskReques
             op: 'replace',
             path: 'owner',
             value: {
-              reference: input.assignee.reference,
+              reference: 'Practitioner/' + input.assignee.id,
               display: input.assignee.name,
             },
           },

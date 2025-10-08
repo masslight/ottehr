@@ -3,20 +3,28 @@ import React from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
-import { Task } from 'src/features/visits/in-person/hooks/useTasks';
+import { Task, useAssignTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { formatDate } from '../common';
 import { CategoryChip } from './CategoryChip';
 
 interface Props {
   task: Task;
   handleClose: () => void;
-  handleConfirm: () => void;
 }
 
-export const AssignTaskDialog: React.FC<Props> = ({ task, handleClose, handleConfirm }) => {
+export const AssignTaskDialog: React.FC<Props> = ({ task, handleClose }) => {
   const methods = useForm();
   const assignee = methods.watch('assignee');
-  console.log(assignee);
+  const { mutateAsync: assignTask } = useAssignTask();
+  const handleConfirm = async (): Promise<void> => {
+    await assignTask({
+      taskId: task.id,
+      assignee: {
+        id: assignee.id,
+        name: assignee.name,
+      },
+    });
+  };
   return (
     <InPersonModal
       color="primary.main"
