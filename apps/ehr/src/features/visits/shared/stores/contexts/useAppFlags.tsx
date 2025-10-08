@@ -1,27 +1,27 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-export type FeatureFlags = {
+export type AppFlags = {
   isInPerson: boolean;
 };
 
-const initialFlags: FeatureFlags = {
+const initialFlags: AppFlags = {
   isInPerson: false,
 };
 
-interface FeatureFlagsContextType {
-  setFlag: <Flag extends keyof FeatureFlags>(key: Flag, value: FeatureFlags[Flag]) => void;
-  flags: FeatureFlags;
+interface AppFlagsContextType {
+  setFlag: <Flag extends keyof AppFlags>(key: Flag, value: AppFlags[Flag]) => void;
+  flags: AppFlags;
 }
 
-const AppTypeContext = createContext<FeatureFlagsContextType | null>(null);
+const AppFlagsContext = createContext<AppFlagsContextType | null>(null);
 
-export const AppTypeProvider: React.FC<{ children: React.ReactNode; flagsToSet?: Partial<FeatureFlags> }> = ({
+export const AppFlagsProvider: React.FC<{ children: React.ReactNode; flagsToSet?: Partial<AppFlags> }> = ({
   children,
   flagsToSet,
 }) => {
-  const [flags, setFlags] = useState<FeatureFlags>({ ...initialFlags, ...flagsToSet });
+  const [flags, setFlags] = useState<AppFlags>({ ...initialFlags, ...flagsToSet });
 
-  const setFlag = useCallback((key: keyof FeatureFlags, value: FeatureFlags[keyof FeatureFlags]) => {
+  const setFlag = useCallback((key: keyof AppFlags, value: AppFlags[keyof AppFlags]) => {
     setFlags((prevFlags) => {
       if (prevFlags[key] === value) return prevFlags;
       return { ...prevFlags, [key]: value };
@@ -36,13 +36,19 @@ export const AppTypeProvider: React.FC<{ children: React.ReactNode; flagsToSet?:
     [setFlag, flags]
   );
 
-  return <AppTypeContext.Provider value={value}>{children}</AppTypeContext.Provider>;
+  return <AppFlagsContext.Provider value={value}>{children}</AppFlagsContext.Provider>;
 };
 
-export function useAppFlags(): FeatureFlags;
-export function useAppFlags(flagsToSet: Partial<FeatureFlags>): FeatureFlags; // set flags
-export function useAppFlags(arg?: Partial<FeatureFlags> | keyof FeatureFlags): FeatureFlags {
-  const context = useContext(AppTypeContext);
+/**
+ * These are not feature flags.
+ * This functionality allows implementing DI (Dependency Injection) - dynamically passing values
+ * to different parts of the React tree and overriding them in other parts.
+ * It can be useful in components that are rendered in different parts of the application.
+ */
+export function useAppFlags(): AppFlags;
+export function useAppFlags(flagsToSet: Partial<AppFlags>): AppFlags; // set flags
+export function useAppFlags(arg?: Partial<AppFlags> | keyof AppFlags): AppFlags {
+  const context = useContext(AppFlagsContext);
 
   useEffect(() => {
     if (!context) {
@@ -52,7 +58,7 @@ export function useAppFlags(arg?: Partial<FeatureFlags> | keyof FeatureFlags): F
     if (arg && typeof arg === 'object') {
       Object.entries(arg).forEach(([key, value]) => {
         if (typeof value === 'boolean') {
-          context?.setFlag(key as keyof FeatureFlags, value);
+          context?.setFlag(key as keyof AppFlags, value);
         }
       });
     }

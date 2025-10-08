@@ -23,10 +23,10 @@ import {
   getLastName,
   getVisitStatusHistory,
   getVisitTotalTime,
-  isAppointmentVirtual,
+  isInPersonAppointment,
+  isTelemedAppointment,
   ORG_TYPE_CODE_SYSTEM,
   ORG_TYPE_PAYER_CODE,
-  OTTEHR_MODULE,
   PromiseReturnType,
   RemoveCoverageZambdaInput,
   ServiceMode,
@@ -151,8 +151,7 @@ export const useGetPatient = (
       const patientTemp: Patient = patientResources.find((resource) => resource.resourceType === 'Patient') as Patient;
       const appointmentsTemp: Appointment[] = patientResources.filter(
         (resource) =>
-          resource.resourceType === 'Appointment' &&
-          resource.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP || tag.code === OTTEHR_MODULE.TM) // this is unnecessary now; there are no BH patients to worry about
+          resource.resourceType === 'Appointment' && (isInPersonAppointment(resource) || isTelemedAppointment(resource)) // this is unnecessary now; there are no BH patients to worry about
       ) as Appointment[];
       const locations: Location[] = patientResources.filter(
         (resource) => resource.resourceType === 'Location'
@@ -186,7 +185,7 @@ export const useGetPatient = (
           : undefined;
         const typeLabel = getVisitTypeLabelForAppointment(appointment);
 
-        const serviceMode = isAppointmentVirtual(appointment) ? ServiceMode.virtual : ServiceMode['in-person'];
+        const serviceMode = isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person'];
 
         return {
           id: appointment.id,
