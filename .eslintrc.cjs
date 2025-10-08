@@ -72,5 +72,13 @@ module.exports = {
         '@tanstack/query/no-rest-destructuring': 'warn',
       },
     },
+    {
+      files: ['scripts/**/*.js'],
+      rules: {
+        '@typescript-eslint/no-require-imports': 'off',
+        '@typescript-eslint/explicit-function-return-type': 'off',
+        '@typescript-eslint/no-unused-vars': 'off',
+      },
+    },
   ],
 };

@@ -1,7 +1,7 @@
 import { Grid, Stack, Typography } from '@mui/material';
 import React from 'react';
-import { PageTitleStyled } from 'src/components/PageTitle';
-import { useGetAppointmentAccessibility } from 'src/shared/hooks/appointment/useGetAppointmentAccessibility';
+import { PageTitleStyled } from 'src/features/visits/shared/components/PageTitle';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { LabOrderDetailedPageDTO, PSC_LOCALE } from 'utils';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 import { OrderCollection } from '../OrderCollection';

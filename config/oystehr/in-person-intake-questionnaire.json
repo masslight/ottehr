@@ -5,7 +5,7 @@
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-        "version": "1.0.9",
+        "version": "1.0.10",
         "name": "in-person_pre-visit_paperwork",
         "title": "in-person pre-visit paperwork",
         "status": "active",
@@ -3028,13 +3028,23 @@
                 "linkId": "hipaa-acknowledgement",
                 "text": "I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)",
                 "type": "boolean",
-                "required": true
+                "required": true,
+                "extension": [{
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
+                    "valueBoolean": true
+                  }]
               },
               {
                 "linkId": "consent-to-treat",
                 "text": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)",
                 "type": "boolean",
-                "required": true
+                "required": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
+                    "valueBoolean": true
+                  }
+                ]
               },
               {
                 "linkId": "signature",
