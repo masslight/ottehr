@@ -5,6 +5,7 @@ import {
   formatScreeningQuestionValue,
   getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
+  getCardPaymentStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
   getInviteParticipantStepAnswers,
@@ -62,14 +63,14 @@ test.describe('Check all hpi fields common functionality, without changing data'
   });
 
   test('Medical conditions. Should display message before typing in field', async ({ page }) => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput).locator('input').click();
+    await page.getByTestId(dataTestIds.medicalConditions.medicalConditionsInput).locator('input').click();
     await expect(page.locator('.MuiAutocomplete-noOptions')).toHaveText(startTypingMessage);
   });
 
   test('Medical conditions. Should check not-in-list item search try', async ({ page }) => {
     await checkDropdownNoOptions(
       page,
-      dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput,
+      dataTestIds.medicalConditions.medicalConditionsInput,
       searchOptionThatNotInList,
       noOptionsMessage
     );
@@ -136,13 +137,13 @@ test.describe('Medical conditions', async () => {
   test.describe.configure({ mode: 'serial' });
 
   test('Should search medical condition, and select it', async () => {
-    await checkDropdownHasOptionAndSelectIt(page, dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput, conditionName);
+    await checkDropdownHasOptionAndSelectIt(page, dataTestIds.medicalConditions.medicalConditionsInput, conditionName);
   });
 
   test('Should search medical condition by ICD10 code, and select it', async () => {
     await checkDropdownHasOptionAndSelectIt(
       page,
-      dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput,
+      dataTestIds.medicalConditions.medicalConditionsInput,
       conditionIcdCode
     );
   });
@@ -151,18 +152,18 @@ test.describe('Medical conditions', async () => {
     await test.step('reload and wait until data is loaded', async () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)).toBeVisible();
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsList)).toBeVisible();
+      await expect(page.getByTestId(dataTestIds.medicalConditions.medicalConditionColumn)).toBeVisible();
+      await expect(page.getByTestId(dataTestIds.medicalConditions.medicalConditionsList)).toBeVisible();
     });
 
     await test.step('check medical condition saved', async () => {
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsList)).toHaveText(
+      await expect(page.getByTestId(dataTestIds.medicalConditions.medicalConditionsList)).toHaveText(
         RegExp(conditionName, 'i')
       );
     });
 
     await test.step('check medical condition searched by ICD10 code saved', async () => {
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsList)).toHaveText(
+      await expect(page.getByTestId(dataTestIds.medicalConditions.medicalConditionsList)).toHaveText(
         RegExp(conditionIcdCode, 'i')
       );
     });
@@ -170,20 +171,20 @@ test.describe('Medical conditions', async () => {
 
   test('Should check medical conditions appear in Review&Sign tab', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicalConditionsContainer)).toHaveText(
+    await expect(page.getByTestId(dataTestIds.progressNotePage.medicalConditionsContainer)).toHaveText(
       new RegExp(conditionName, 'i')
     );
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicalConditionsContainer)).toHaveText(
+    await expect(page.getByTestId(dataTestIds.progressNotePage.medicalConditionsContainer)).toHaveText(
       new RegExp(conditionIcdCode, 'i')
     );
   });
 
   test('Should delete medical condition', async () => {
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsList)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.medicalConditions.medicalConditionsList)).toBeVisible();
 
     const medicalConditionListItem = page
-      .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionListItem)
+      .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
       .filter({ hasText: new RegExp(conditionName, 'i') })
       .first();
     await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
@@ -195,7 +196,7 @@ test.describe('Medical conditions', async () => {
     await test.step('Confirm deletion in hpi tab', async () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-      const column = page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn);
+      const column = page.getByTestId(dataTestIds.medicalConditions.medicalConditionColumn);
       await expect(column).toBeVisible();
       await expect(column.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()).not.toBeVisible({
         timeout: 30000,
@@ -208,7 +209,7 @@ test.describe('Medical conditions', async () => {
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
       await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
 
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicalConditionsContainer)).toBeVisible();
+      await expect(page.getByTestId(dataTestIds.progressNotePage.medicalConditionsContainer)).toBeVisible();
       await expect(page.getByText(new RegExp(conditionName, 'i'))).not.toBeVisible();
     });
   });
@@ -597,6 +598,7 @@ test.describe('Additional questions', () => {
       getAdditionalQuestionsAnswers(),
       getPaymentOptionSelfPayAnswers(),
       getResponsiblePartyStepAnswers({}),
+      getCardPaymentStepAnswers(),
       getSchoolWorkNoteStepAnswers(),
       getConsentStepAnswers({}),
       getInviteParticipantStepAnswers(),
@@ -667,6 +669,7 @@ test.describe("Additional questions. Check cases where patient didn't answered o
         getSurgicalHistoryStepAnswers(),
         getPaymentOptionSelfPayAnswers(),
         getResponsiblePartyStepAnswers({}),
+        getCardPaymentStepAnswers(),
         getSchoolWorkNoteStepAnswers(),
         getConsentStepAnswers({}),
         getInviteParticipantStepAnswers(),

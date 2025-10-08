@@ -3,11 +3,11 @@ import React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
-import { CSSModal } from 'src/features/css-module/components/CSSModal';
+import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import {
   ReasonListCodes,
   reasonListValues,
-} from 'src/features/css-module/components/medication-administration/medicationTypes';
+} from 'src/features/visits/in-person/components/medication-administration/medicationTypes';
 import { ADMINISTERED, AdministrationType } from '../common';
 
 interface Props {
@@ -37,7 +37,7 @@ export const AdministrationConfirmationDialog: React.FC<Props> = ({
   const reason = methods.watch('reason');
   const otherReason = methods.watch('otherReason');
   return (
-    <CSSModal
+    <InPersonModal
       color="primary.main"
       icon={null}
       showEntityPreview={false}

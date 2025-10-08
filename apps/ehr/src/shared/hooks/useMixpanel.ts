@@ -1,6 +1,6 @@
 import mixpanel from 'mixpanel-browser';
 import { useContext } from 'react';
-import { MixpanelContext } from '../contexts/mixpanel.context';
+import { MixpanelContext } from 'src/features/visits/shared/stores/contexts/mixpanel.context';
 
 export const useMixpanel = (): ((mixpanelCall: (mixpanelApi: typeof mixpanel) => void) => void) => {
   const mixpanelContext = useContext(MixpanelContext);

@@ -209,6 +209,7 @@ export async function convertSearchResultsToResponse(
   const resources = parseBundleResources(bundle);
 
   const chartDataResources: Resource[] = [];
+
   resources.forEach((resource) => {
     // handle additional get-chart-data related fields
     if (resource.resourceType === 'Practitioner') {

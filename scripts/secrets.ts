@@ -11,7 +11,27 @@ function checkDirectory(dirPath: string): boolean {
   }
 }
 
-function getFilePaths(environment: string): Record<string, any> {
+interface PathConfig {
+  source: string;
+  target: string;
+}
+
+interface ZambdasConfig extends PathConfig {
+  sentry: PathConfig;
+}
+
+interface TerraformConfig extends PathConfig {
+  backend: PathConfig;
+}
+
+interface GetFilePathConfig {
+  zambdas: ZambdasConfig;
+  ehr: PathConfig;
+  patientPortal: PathConfig;
+  terraform: TerraformConfig;
+}
+
+function getFilePaths(environment: string): GetFilePathConfig {
   const repoRoot = process.cwd();
   const secretsPath = path.join(repoRoot, 'secrets');
   return {

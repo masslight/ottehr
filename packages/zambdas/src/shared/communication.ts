@@ -9,6 +9,7 @@ import {
   InPersonCancelationTemplateData,
   InPersonCompletionTemplateData,
   InPersonConfirmationTemplateData,
+  InPersonReceiptTemplateData,
   InPersonReminderTemplateData,
   Secrets,
   SecretsKeys,
@@ -41,6 +42,14 @@ export async function getMessageRecipientForAppointment(
   }
 }
 
+export interface EmailAttachment {
+  content: string; // Base64 encoded content
+  filename: string;
+  type: string;
+  disposition?: 'attachment' | 'inline';
+  contentId?: string;
+}
+
 const defaultLowersFromEmail = 'ottehr-support@masslight.com'; // todo: change to support@ottehr.com when doing so does not land things in spam folder
 class EmailClient {
   private config: SendgridConfig;
@@ -65,7 +74,8 @@ class EmailClient {
   private async sendEmail<T extends EmailTemplate>(
     to: string | string[],
     template: T,
-    templateData: DynamicTemplateDataRecord<T>
+    templateData: DynamicTemplateDataRecord<T>,
+    attachments?: EmailAttachment[]
   ): Promise<void> {
     const { templateIdSecretName } = template;
     let SENDGRID_EMAIL_BCC: string[] = [];
@@ -127,6 +137,16 @@ class EmailClient {
           projectDomain,
         },
       },
+      ...(attachments &&
+        attachments.length > 0 && {
+          attachments: attachments.map((attachment) => ({
+            content: attachment.content,
+            filename: attachment.filename,
+            type: attachment.type,
+            disposition: attachment.disposition || 'attachment',
+            ...(attachment.contentId && { content_id: attachment.contentId }),
+          })),
+        }),
     };
 
     const featureFlag = this.config.featureFlag;
@@ -215,6 +235,14 @@ class EmailClient {
 
   async sendInPersonReminderEmail(email: string | string[], templateData: InPersonReminderTemplateData): Promise<void> {
     await this.sendEmail(email, this.config.templates.inPersonReminder, templateData);
+  }
+
+  async sendInPersonReceiptEmail(
+    email: string | string[],
+    templateData: InPersonReceiptTemplateData,
+    attachments?: EmailAttachment[]
+  ): Promise<void> {
+    await this.sendEmail(email, this.config.templates.inPersonReceipt, templateData, attachments);
   }
 }
 
