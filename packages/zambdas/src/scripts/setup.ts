@@ -448,7 +448,7 @@ export async function setupEHR(
   try {
     console.log('Configuring In-House Lab resources...');
     const { stdout: stdout1, stderr: stderr1 } = await execPromise(
-      `cd packages/zambdas && npm run make-in-house-test-items ${environment}`
+      `cd packages/zambdas && npm run make-in-house-test-items -- -d default -e ${environment} -m api`
     );
     if (stderr1) {
       console.log(`Command executed with warnings: ${stderr1}`);

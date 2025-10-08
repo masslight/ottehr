@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.19.6",
+  "version": "1.19.7",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -183,6 +183,7 @@
     "web-vitals": "^2.1.4"
   },
   "optionalDependencies": {
+    "@esbuild/linux-x64": "^0.25.10",
     "@rollup/rollup-linux-x64-gnu": "4.24.0"
   }
 }

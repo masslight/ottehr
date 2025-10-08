@@ -38,7 +38,7 @@ export const formatMinutes = (minutes: number): string => {
   return minutes.toLocaleString('en', { maximumFractionDigits: 0 });
 };
 
-export const getVisitStatus = (
+export const getInPersonVisitStatus = (
   appointment: Appointment,
   encounter: Encounter,
   supervisorApprovalEnabled = false

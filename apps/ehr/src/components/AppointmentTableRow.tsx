@@ -41,7 +41,6 @@ import {
   OrdersForTrackingBoardRow,
   PROJECT_NAME,
   ROOM_EXTENSION_URL,
-  VisitStatusLabel,
 } from 'utils';
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -59,6 +58,7 @@ import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
 import { GenericToolTip } from './GenericToolTip';
 import GoToButton from './GoToButton';
+import { IN_PERSON_CHIP_STATUS_MAP, InPersonAppointmentStatusChip } from './InPersonAppointmentStatusChip';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ReasonsForVisit from './ReasonForVisit';
@@ -76,147 +76,6 @@ interface AppointmentTableRowProps {
 }
 
 const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
-
-export function getAppointmentStatusChip(status: VisitStatusLabel | undefined, count?: number): ReactElement {
-  if (!status) {
-    return <span>todo1</span>;
-  }
-  if (!CHIP_STATUS_MAP[status]) {
-    return <span>todo2</span>;
-  }
-
-  return (
-    <span
-      data-testid={dataTestIds.dashboard.appointmentStatus}
-      style={{
-        fontSize: '12px',
-        borderRadius: '4px',
-        border: `${['pending', 'checked out'].includes(status) ? '1px solid #BFC2C6' : 'none'}`,
-        textTransform: 'uppercase',
-        background: CHIP_STATUS_MAP[status].background.primary,
-        color: CHIP_STATUS_MAP[status].color.primary,
-        display: 'inline-block',
-        padding: '2px 8px 0 8px',
-        verticalAlign: 'middle',
-      }}
-    >
-      {count ? `${status} - ${count}` : status}
-    </span>
-  );
-}
-
-export const CHIP_STATUS_MAP: {
-  [status in VisitStatusLabel]: {
-    background: {
-      primary: string;
-      secondary?: string;
-    };
-    color: {
-      primary: string;
-      secondary?: string;
-    };
-  };
-} = {
-  pending: {
-    background: {
-      primary: '#FFFFFF',
-    },
-    color: {
-      primary: '#546E7A',
-    },
-  },
-  arrived: {
-    background: {
-      primary: '#ECEFF1',
-      secondary: '#9E9E9E',
-    },
-    color: {
-      primary: '#37474F',
-    },
-  },
-  ready: {
-    background: {
-      primary: '#C8E6C9',
-      secondary: '#43A047',
-    },
-    color: {
-      primary: '#1B5E20',
-    },
-  },
-  intake: {
-    background: {
-      primary: '#e0b6fc',
-    },
-    color: {
-      primary: '#412654',
-    },
-  },
-  'ready for provider': {
-    background: {
-      primary: '#D1C4E9',
-      secondary: '#673AB7',
-    },
-    color: {
-      primary: '#311B92',
-    },
-  },
-  provider: {
-    background: {
-      primary: '#B3E5FC',
-    },
-    color: {
-      primary: '#01579B',
-    },
-  },
-  discharged: {
-    background: {
-      primary: '#B2EBF2',
-    },
-    color: {
-      primary: '#006064',
-    },
-  },
-  completed: {
-    background: {
-      primary: '#FFFFFF',
-    },
-    color: {
-      primary: '#546E7A',
-    },
-  },
-  'awaiting supervisor approval': {
-    background: {
-      primary: '#FFFFFF',
-    },
-    color: {
-      primary: '#546E7A',
-    },
-  },
-  cancelled: {
-    background: {
-      primary: '#FECDD2',
-    },
-    color: {
-      primary: '#B71C1C',
-    },
-  },
-  'no show': {
-    background: {
-      primary: '#DFE5E9',
-    },
-    color: {
-      primary: '#212121',
-    },
-  },
-  unknown: {
-    background: {
-      primary: '#FFFFFF',
-    },
-    color: {
-      primary: '#000000',
-    },
-  },
-};
 
 const linkStyle = {
   display: 'contents',
@@ -468,7 +327,7 @@ export default function AppointmentTableRow({
               >
                 {formatMinutes(getDurationOfStatus(statusTemp, now))} mins
               </Typography>
-              {getAppointmentStatusChip(statusTemp.status as VisitStatusLabel)}
+              <InPersonAppointmentStatusChip status={statusTemp.status} />
             </Box>
           );
         })}
@@ -583,7 +442,7 @@ export default function AppointmentTableRow({
         tab={tab}
         formattedPriorityHighIcon={formattedPriorityHighIcon}
         statusTime={statusTime}
-        statusChip={getAppointmentStatusChip(appointment.status)}
+        statusChip={<InPersonAppointmentStatusChip status={appointment.status} />}
         isLongWaitingTime={isLongWaitingTime}
         patientDateOfBirth={patientDateOfBirth}
         statusTimeEl={showTime ? statusTimeEl : undefined}
@@ -764,7 +623,7 @@ export default function AppointmentTableRow({
         position: 'relative',
         ...(appointment.next && {
           // borderTop: '2px solid #43A047',
-          boxShadow: `inset 0 0 0 1px ${CHIP_STATUS_MAP[appointment.status].background.secondary}`,
+          boxShadow: `inset 0 0 0 1px ${IN_PERSON_CHIP_STATUS_MAP[appointment.status].background.secondary}`,
         }),
       }}
     >
@@ -772,7 +631,7 @@ export default function AppointmentTableRow({
         {appointment.next && (
           <Box
             sx={{
-              backgroundColor: CHIP_STATUS_MAP[appointment.status].background.secondary,
+              backgroundColor: IN_PERSON_CHIP_STATUS_MAP[appointment.status].background.secondary,
               position: 'absolute',
               width: '22px',
               bottom: 0,
@@ -811,7 +670,11 @@ export default function AppointmentTableRow({
         <Typography variant="body1">
           <strong>{start}</strong>
         </Typography>
-        {tab !== ApptTab.prebooked && <Box mt={1}>{getAppointmentStatusChip(appointment.status)}</Box>}
+        {tab !== ApptTab.prebooked && (
+          <Box mt={1}>
+            <InPersonAppointmentStatusChip status={appointment.status} />
+          </Box>
+        )}
       </TableCell>
       {/* placeholder until time stamps for waiting and in exam or something comparable are made */}
       {/* <TableCell sx={{ verticalAlign: 'top' }}><Typography variant="body1" aria-owns={hoverElement ? 'status-popover' : undefined} aria-haspopup='true' sx={{ verticalAlign: 'top' }} onMouseOver={(event) => setHoverElement(event.currentTarget)} onMouseLeave={() => setHoverElement(undefined)}>{statusTime}</Typography></TableCell>

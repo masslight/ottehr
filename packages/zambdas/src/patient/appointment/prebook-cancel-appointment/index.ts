@@ -21,8 +21,8 @@ import {
   getPatientFirstName,
   getRelatedPersonForPatient,
   getSecret,
-  isAppointmentVirtual,
   isPostTelemedAppointment,
+  isTelemedAppointment,
   POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
   ScheduleOwnerFhirResource,
   Secrets,
@@ -95,7 +95,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
 
       console.log(`checking appointment with id ${appointmentID} is not checked in`);
       if (appointment.status !== 'booked') {
-        if (isAppointmentVirtual(appointment)) {
+        if (isTelemedAppointment(appointment)) {
           // https://github.com/masslight/ottehr/issues/2431
           // todo: remove this once prebooked virtual appointments begin in 'booked' status
           console.log(`appointment is virtual, allowing cancellation`);

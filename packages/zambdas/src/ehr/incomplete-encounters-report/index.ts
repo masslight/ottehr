@@ -2,12 +2,14 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Patient, Practitioner } from 'fhir/r4b';
 import {
   getAttendingPractitionerId,
+  getInPersonVisitStatus,
   getPatientFirstName,
   getPatientLastName,
   getSecret,
-  getVisitStatus,
   IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutput,
+  isInPersonAppointment,
+  isTelemedAppointment,
   OTTEHR_MODULE,
   Secrets,
   SecretsKeys,
@@ -194,7 +196,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
 
       // Get visit status
-      const visitStatus = getVisitStatus(appointment, encounter, true);
+      const visitStatus = getInPersonVisitStatus(appointment, encounter, true);
 
       // Terminal states that should be excluded from the report
       const terminalStates = ['completed', 'cancelled', 'no-show'];
@@ -226,13 +228,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         : 'Unknown';
 
       // Determine visit type based on appointment meta tags
-      const visitType = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM)
+      const visitType = isTelemedAppointment(appointment)
         ? 'Telemed'
-        : appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.IP)
+        : isInPersonAppointment(appointment)
         ? 'In-Person'
         : 'Unknown';
 
-      const visitStatus = appointment ? getVisitStatus(appointment, encounter, true) : 'unknown';
+      const visitStatus = appointment ? getInPersonVisitStatus(appointment, encounter, true) : 'unknown';
 
       return {
         appointmentId: appointment?.id || '',

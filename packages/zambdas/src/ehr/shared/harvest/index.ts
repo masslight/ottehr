@@ -135,6 +135,14 @@ interface ResponsiblePartyContact {
   number?: string;
 }
 
+interface EmergencyContact {
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  relationship: 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
+  number: string;
+}
+
 interface PolicyHolder {
   address: Address;
   birthSex: 'Male' | 'Female' | 'Intersex';
@@ -789,6 +797,7 @@ export function createMasterRecordPatchOperations(
     'responsible-party-number': { system: 'phone', use: 'mobile' },
     'responsible-party-email': { system: 'email' },
     'pcp-number': { system: 'phone' },
+    'emergency-contact-number': { system: 'phone' },
   };
 
   const pcpItems: QuestionnaireResponseItem[] = [];
@@ -1754,6 +1763,24 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
   return undefined;
 }
 
+export function extractEmergencyContact(items: QuestionnaireResponseItem[]): EmergencyContact | undefined {
+  const findAnswer = (linkId: string): string | undefined =>
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+
+  const contact: EmergencyContact = {
+    middleName: findAnswer('emergency-contact-middle-name') ?? '',
+    firstName: findAnswer('emergency-contact-first-name') ?? '',
+    lastName: findAnswer('emergency-contact-last-name') ?? '',
+    relationship: findAnswer('emergency-contact-relationship') as 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other',
+    number: findAnswer('emergency-contact-number') ?? '',
+  };
+
+  if (contact.firstName && contact.lastName && contact.number && contact.relationship) {
+    return contact;
+  }
+  return undefined;
+}
+
 // note: this function assumes items have been flattened before being passed in
 interface InsuranceDetails {
   org: Organization;
@@ -1968,13 +1995,15 @@ export interface GetAccountOperationsInput {
   existingGuarantorResource?: RelatedPerson | Patient;
   existingAccount?: Account;
   preserveOmittedCoverages?: boolean;
+  existingEmergencyContact?: RelatedPerson;
 }
 
 export interface GetAccountOperationsOutput {
   coveragePosts: BatchInputPostRequest<Coverage>[];
   patch: BatchInputPatchRequest<Coverage | RelatedPerson>[];
-  put: BatchInputPutRequest<Account>[];
+  put: BatchInputPutRequest<Account | RelatedPerson>[];
   accountPost?: Account;
+  emergencyContactPost?: BatchInputPostRequest<RelatedPerson>;
 }
 
 // this function is exported for testing purposes
@@ -1987,6 +2016,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     organizationResources,
     existingAccount,
     preserveOmittedCoverages,
+    existingEmergencyContact,
   } = input;
 
   if (!patient.id) {
@@ -1996,6 +2026,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   const flattenedItems = flattenItems(questionnaireResponseItem ?? []);
 
   const guarantorData = extractAccountGuarantor(flattenedItems);
+
+  const emergencyContactData = extractEmergencyContact(flattenedItems);
   /*console.log(
     'insurance plan resources',
     JSON.stringify(insurancePlanResources, null, 2),
@@ -2015,13 +2047,15 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
 
   const patch: BatchInputPatchRequest<Coverage | RelatedPerson | Account>[] = [];
   const coveragePosts: BatchInputPostRequest<Coverage>[] = [];
-  const put: BatchInputPutRequest<Account>[] = [];
+  const puts: BatchInputPutRequest<Account | RelatedPerson>[] = [];
   let accountPost: Account | undefined;
+  let emergencyContactPost: BatchInputPostRequest<RelatedPerson> | undefined;
 
   console.log(
-    'getting account operations for patient, guarantorData, coverages, account',
+    'getting account operations for patient, guarantorData, emergencyContactData, coverages, account',
     JSON.stringify(patient, null, 2),
     JSON.stringify(guarantorData, null, 2),
+    JSON.stringify(emergencyContactData, null, 2),
     JSON.stringify(existingCoverages, null, 2),
     JSON.stringify(existingAccount, null, 2)
   );
@@ -2111,18 +2145,86 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       coverage: suggestedNewCoverageObject,
     };
 
-    put.push({
+    puts.push({
       method: 'PUT',
       url: `Account/${existingAccount.id}`,
       resource: updatedAccount,
     });
   }
 
+  // Emergency Contact
+  if (existingEmergencyContact && emergencyContactData) {
+    const emergencyContactResourceToPut: RelatedPerson = {
+      ...existingEmergencyContact,
+    };
+    const givenNames = [emergencyContactData?.firstName];
+    if (emergencyContactData?.middleName) {
+      givenNames.push(emergencyContactData.middleName);
+    }
+    emergencyContactResourceToPut.name = [
+      {
+        given: givenNames,
+        family: emergencyContactData?.lastName,
+      },
+    ];
+    emergencyContactResourceToPut.telecom = [
+      {
+        value: formatPhoneNumber(emergencyContactData?.number),
+        system: 'phone',
+      },
+    ];
+    puts.push({
+      method: 'PUT',
+      url: `RelatedPerson/${existingEmergencyContact.id}`,
+      resource: emergencyContactResourceToPut,
+    });
+  } else if (emergencyContactData) {
+    const emergencyContactResourceToCreate: RelatedPerson = {
+      resourceType: 'RelatedPerson',
+      patient: {
+        reference: `Patient/${patient.id}`,
+      },
+      relationship: [
+        {
+          coding: [
+            {
+              system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+              code: 'EP',
+              display: emergencyContactData.relationship,
+            },
+          ],
+        },
+      ],
+    };
+    const givenNames = [emergencyContactData?.firstName];
+    if (emergencyContactData?.middleName) {
+      givenNames.push(emergencyContactData.middleName);
+    }
+    emergencyContactResourceToCreate.name = [
+      {
+        given: givenNames,
+        family: emergencyContactData?.lastName,
+      },
+    ];
+    emergencyContactResourceToCreate.telecom = [
+      {
+        value: formatPhoneNumber(emergencyContactData?.number),
+        system: 'phone',
+      },
+    ];
+    emergencyContactPost = {
+      method: 'POST',
+      url: 'RelatedPerson',
+      resource: emergencyContactResourceToCreate,
+    };
+  }
+
   return {
     coveragePosts,
     accountPost,
     patch,
-    put,
+    put: puts,
+    emergencyContactPost,
   };
 };
 
@@ -2901,12 +3003,25 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     (res): res is Organization => res.resourceType === 'Organization'
   );
 
+  const emergencyContactResource = resources.find(
+    (res): res is RelatedPerson =>
+      (res.resourceType === 'RelatedPerson' &&
+        res.relationship?.some(
+          (rel) =>
+            rel.coding?.some(
+              (coding) => coding.code === 'EP' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131'
+            )
+        )) ||
+      false
+  );
+
   return {
     patient,
     account: existingAccount,
     coverages: existingCoverages,
     insuranceOrgs,
     guarantorResource: existingGuarantorResource,
+    emergencyContactResource,
   };
 };
 
@@ -3008,6 +3123,7 @@ export const updatePatientAccountFromQuestionnaire = async (
     coverages: existingCoverages,
     account: existingAccount,
     guarantorResource: existingGuarantorResource,
+    emergencyContactResource: existingEmergencyContact,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
 
   console.time('updating patient resource');
@@ -3053,11 +3169,12 @@ export const updatePatientAccountFromQuestionnaire = async (
     existingAccount,
     existingGuarantorResource,
     preserveOmittedCoverages,
+    existingEmergencyContact,
   });
 
   console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
 
-  const { patch, accountPost, put, coveragePosts } = accountOperations;
+  const { patch, accountPost, put, coveragePosts, emergencyContactPost } = accountOperations;
 
   const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient>[] = [
     ...coveragePosts,
@@ -3070,6 +3187,9 @@ export const updatePatientAccountFromQuestionnaire = async (
       method: 'POST',
       resource: accountPost,
     });
+  }
+  if (emergencyContactPost) {
+    transactionRequests.push(emergencyContactPost);
   }
 
   try {

@@ -21,13 +21,13 @@ import {
   getSpentTime,
   ImmunizationOrder,
   isDropdownComponent,
+  isInPersonAppointment,
   isMultiSelectComponent,
   mapDispositionTypeToLabel,
   mapEncounterStatusHistory,
   mapVitalsToDisplay,
   NOTE_TYPE,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
-  OTTEHR_MODULE,
   patientScreeningQuestionsConfig,
   searchRouteByCode,
   Secrets,
@@ -51,14 +51,11 @@ export async function composeAndCreateVisitNotePdf(
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
-  const isInPersonAppointment = !!appointmentPackage.appointment.meta?.tag?.find(
-    (tag) => tag.code === OTTEHR_MODULE.IP
-  );
-
+  const isInPerson = isInPersonAppointment(appointmentPackage.appointment as Appointment);
   console.log('Start composing data for pdf');
-  const data = composeDataForPdf(allChartData, appointmentPackage, isInPersonAppointment);
+  const data = composeDataForPdf(allChartData, appointmentPackage, isInPerson);
   console.log('Start creating pdf');
-  return await createVisitNotePDF(data, appointmentPackage.patient!, secrets, token, isInPersonAppointment);
+  return await createVisitNotePDF(data, appointmentPackage.patient!, secrets, token, isInPerson);
 }
 
 function composeDataForPdf(

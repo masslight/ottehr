@@ -33,17 +33,16 @@ import {
   FHIR_EXTENSION,
   FhirAppointmentType,
   getFullName,
+  getInPersonVisitStatus,
   getPatchOperationForNewMetaTag,
   getPaymentVariantFromEncounter,
   getUnconfirmedDOBForAppointment,
   getUnconfirmedDOBIdx,
-  getVisitStatus,
   PaymentVariant,
   VisitDocuments,
   VisitStatusLabel,
 } from 'utils';
 import AppointmentNotesHistory from '../components/AppointmentNotesHistory';
-import { getAppointmentStatusChip } from '../components/AppointmentTableRow';
 import CardGridItem from '../components/CardGridItem';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch from '../components/DateSearch';
@@ -55,6 +54,7 @@ import {
   ReportIssueDialog,
 } from '../components/dialogs';
 import ImageCarousel, { ImageCarouselObject } from '../components/ImageCarousel';
+import { InPersonAppointmentStatusChip } from '../components/InPersonAppointmentStatusChip';
 import PaperworkFlagIndicator from '../components/PaperworkFlagIndicator';
 import PatientInformation, { IconProps } from '../components/PatientInformation';
 import PatientPaymentList from '../components/PatientPaymentsList';
@@ -491,7 +491,7 @@ export default function VisitDetailsPage(): ReactElement {
 
   useEffect(() => {
     if (appointment && encounter) {
-      const encounterStatus = getVisitStatus(appointment, encounter);
+      const encounterStatus = getInPersonVisitStatus(appointment, encounter);
       setStatus(encounterStatus);
     } else {
       setStatus(undefined);
@@ -691,7 +691,7 @@ export default function VisitDetailsPage(): ReactElement {
                       alignSelf: 'center',
                     }}
                   >
-                    {getAppointmentStatusChip(status)}
+                    {<InPersonAppointmentStatusChip status={status as VisitStatusLabel} />}
                   </span>
                   {appointment && appointment.status === 'cancelled' && (
                     <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>

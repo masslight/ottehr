@@ -6,6 +6,7 @@ import {
   chooseJson,
   getConsentStepAnswers,
   getContactInformationAnswers,
+  getEmergencyContactStepAnswers,
   getPatientDetailsStepAnswers,
   getPaymentOptionInsuranceAnswers,
   getResponsiblePartyStepAnswers,
@@ -154,6 +155,7 @@ test.describe('Book appointment filling insurances information on payment option
         insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
       }),
       getResponsiblePartyStepAnswers({}),
+      getEmergencyContactStepAnswers({}),
       getConsentStepAnswers({}),
     ];
   });
