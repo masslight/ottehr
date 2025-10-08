@@ -1,7 +1,7 @@
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PatientVitalsContainer } from 'src/features/visits/in-person/components/progress-note/PatientVitalsContainer';
-import { examConfig, getSpentTime, patientScreeningQuestionsConfig, vitalsObservationsRequest } from 'utils';
+import { buildVitalsObservationsRequest, examConfig, getSpentTime, patientScreeningQuestionsConfig } from 'utils';
 import { AccordionCard } from '../../../../../components/AccordionCard';
 import { useChartFields } from '../../hooks/useChartFields';
 import { usePatientInstructionsVisibility } from '../../hooks/usePatientInstructionsVisibility';
@@ -36,7 +36,7 @@ export const VisitNoteCard: FC = () => {
       },
       chiefComplaint: { _tag: 'chief-complaint' },
       ros: { _tag: 'ros' },
-      vitalsObservations: vitalsObservationsRequest,
+      vitalsObservations: buildVitalsObservationsRequest(),
     },
   });
 
