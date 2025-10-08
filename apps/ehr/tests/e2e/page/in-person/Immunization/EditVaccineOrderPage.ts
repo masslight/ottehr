@@ -28,7 +28,6 @@ export async function expectCreateVaccineOrderPage(page: Page): Promise<EditVacc
 
 export async function expectEditVaccineOrderPage(page: Page): Promise<EditVaccineOrderPage> {
   await page.waitForURL(new RegExp(`/in-person/.*/immunization/.*`));
-  // todo fix expect(page.url().includes('order')).toBeFalsy();
   await expect(page.getByTestId(dataTestIds.orderVaccinePage.title)).toBeVisible();
   return new EditVaccineOrderPage(page);
 }

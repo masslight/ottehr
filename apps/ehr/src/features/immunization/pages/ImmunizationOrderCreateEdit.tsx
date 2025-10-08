@@ -61,6 +61,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     if (!orderId && defaultProviderId) {
       methods.reset({
         details: {
+          ...methods.getValues('details'),
           orderedProvider: {
             id: defaultProviderId,
             name: currentUser?.userName,

@@ -108,7 +108,12 @@ export const OrderDetailsSection: React.FC = () => {
         />
       </Grid>
       <Grid xs={6} item>
-        <ProviderSelectInput name="details.orderedProvider" label="Ordered by" required />
+        <ProviderSelectInput
+          name="details.orderedProvider"
+          label="Ordered by"
+          required
+          dataTestId={dataTestIds.orderVaccinePage.orderedBy}
+        />
       </Grid>
     </Grid>
   );

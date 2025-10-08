@@ -3,7 +3,8 @@ import { DateTime } from 'luxon';
 import { expectAdministrationConfirmationDialogue } from 'tests/e2e/page/in-person/Immunization/AdministrationConfirmationDialog';
 import { openCreateVaccineOrderPage } from 'tests/e2e/page/in-person/Immunization/EditVaccineOrderPage';
 import { openImmunizationPage } from 'tests/e2e/page/in-person/Immunization/ImmunizationPage';
-import { expectVaccineDetailsPage } from 'tests/e2e/page/in-person/Immunization/VaccineDetailsPage';
+import { OrderDetailsSection } from 'tests/e2e/page/in-person/Immunization/OrderDetailsSection';
+import { VaccineDetailsPage } from 'tests/e2e/page/in-person/Immunization/VaccineDetailsPage';
 import {
   InPersonProgressNotePage,
   openInPersonProgressNotePage,
@@ -11,37 +12,68 @@ import {
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 
-const DTAP = 'No drugId vaccine'; //'Dtap (Diptheria, Tetanus, Pertussis)';
-const DOSE_0_5 = '0.5';
-const MG = 'mg';
-const BODY_CAVITY_ROUTE = 'Body cavity route (qualifier value)';
-const EAR_LEFT = 'Ear, Left';
-const TEST_VACCINE_INSTRUCTIONS = 'test vaccine instructions';
+interface VaccineInfo {
+  vaccine: string;
+  dose: string;
+  units: string;
+  route: string;
+  location: string;
+  instructions: string;
+}
+
+interface AdministrationDetails {
+  lotNumber: string;
+  expiredDate: string;
+  mvxCode: string;
+  cvxCode: string;
+  ndcCode: string;
+  cptCode: string;
+  adminiosteredDate: string;
+  adminiosteredTime: string;
+  visGivenDate: string;
+  relationship: string;
+  fullName: string;
+  mobile: string;
+}
+
+const VACCINE_A: VaccineInfo = {
+  vaccine: 'No drugId vaccine', //'Dtap (Diptheria, Tetanus, Pertussis)'
+  dose: '0.5',
+  units: 'mg',
+  route: 'Body cavity route (qualifier value)',
+  location: 'Ear, Left',
+  instructions: 'test vaccine instructions',
+};
+
+const VACCINE_B: VaccineInfo = {
+  vaccine: 'Tdap (Tetanus, Diphtheria, Pertussis)',
+  dose: '1',
+  units: 'mL',
+  route: 'Caudal route (qualifier value)',
+  location: 'Eye, Left',
+  instructions: 'test vaccine instructions edited',
+};
+
+const ADMINISTRATION_DETAILS: AdministrationDetails = {
+  lotNumber: '1234567',
+  expiredDate: '01/01/2030',
+  mvxCode: '1111fff',
+  cvxCode: 'aaa222',
+  cptCode: '11900',
+  ndcCode: '555555ftf',
+  adminiosteredDate: '02/10/2025',
+  adminiosteredTime: '10:50 AM',
+  visGivenDate: '03/10/2025',
+  relationship: 'Parent',
+  fullName: 'John Doe',
+  mobile: '(202) 713-9680',
+};
+
 const PENDING = 'PENDING';
 const ADMINISTERED = 'ADMINISTERED';
 const PARTLY_ADMINISTERED = 'PARTLY-ADMINISTERED';
 const NOT_ADMINISTRED = 'NOT-ADMINISTERED';
 const CANCELLED = 'CANCELLED';
-
-const TDAP = 'Tdap (Tetanus, Diphtheria, Pertussis)';
-const DOSE_1_0 = '1';
-const ML = 'mL';
-const CAUDAL_ROUTE = 'Caudal route (qualifier value)';
-const EYE_LEFT = 'Eye, Left';
-const TEST_VACCINE_INSTRUCTIONS_EDITED = 'test vaccine instructions edited';
-
-const LOT_NUMBER = '1234567';
-const EXP_DATE = '01/01/2030';
-const MVX_CODE = '1111fff';
-const CVX_CODE = 'aaa222';
-const CPT_CODE = '11900';
-const NDC_CODE = '7777frttty';
-const ADMINISTERED_DATE = '02/10/2025';
-const ADMINISTERED_TIME = '10:50 AM';
-const VIS_GIVEN_DATE = '03/10/2025';
-const RELATIONSHIP = 'Parent';
-const FULL_NAME = 'John Doe';
-const MOBILE = '(202) 713-9680';
 const PATIENT_REFUSED = 'Patient refused';
 
 const resourceHandler = new ResourceHandler(`immunization-mutating-${DateTime.now().toMillis()}`);
@@ -63,107 +95,55 @@ test.describe('Immunization Page mutating tests', () => {
 
   test('Immunization happy path for creating and editing order', async ({ page }) => {
     const createOrderPage = await openCreateVaccineOrderPage(resourceHandler.appointment.id!, page);
-    await createOrderPage.orderDetailsSection.selectVaccine(DTAP);
-    await createOrderPage.orderDetailsSection.enterDose(DOSE_0_5);
-    await createOrderPage.orderDetailsSection.selectUnits(MG);
-    await createOrderPage.orderDetailsSection.selectRoute(BODY_CAVITY_ROUTE);
-    await createOrderPage.orderDetailsSection.selectLocation(EAR_LEFT);
-    await createOrderPage.orderDetailsSection.enterInstructions(TEST_VACCINE_INSTRUCTIONS);
+    await enterVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
     await createOrderPage.clickConfirmationButton();
 
     let immunizationPage = await openImmunizationPage(resourceHandler.appointment.id!, page);
     await immunizationPage.verifyVaccinePresent({
-      vaccineName: DTAP,
-      doseRoute: DOSE_0_5 + ' ' + MG + ' / ' + BODY_CAVITY_ROUTE,
-      instructions: TEST_VACCINE_INSTRUCTIONS,
+      ...VACCINE_A,
       status: PENDING,
     });
 
-    let editOrderPage = await immunizationPage.clickEditOrderButton(DTAP);
-    await editOrderPage.orderDetailsSection.verifyVaccine(DTAP);
-    await editOrderPage.orderDetailsSection.verifyDose(DOSE_0_5);
-    await editOrderPage.orderDetailsSection.verifyUnits(MG);
-    await editOrderPage.orderDetailsSection.verifyRoute(BODY_CAVITY_ROUTE);
-    await editOrderPage.orderDetailsSection.verifyLocation(EAR_LEFT);
-    await editOrderPage.orderDetailsSection.verifyInstructions(TEST_VACCINE_INSTRUCTIONS);
-    // edit order, click save
-    await editOrderPage.orderDetailsSection.selectVaccine(TDAP);
-    await editOrderPage.orderDetailsSection.enterDose(DOSE_1_0);
-    await editOrderPage.orderDetailsSection.selectUnits(ML);
-    await editOrderPage.orderDetailsSection.selectRoute(CAUDAL_ROUTE);
-    await editOrderPage.orderDetailsSection.selectLocation(EYE_LEFT);
-    await editOrderPage.orderDetailsSection.enterInstructions(TEST_VACCINE_INSTRUCTIONS_EDITED);
+    let editOrderPage = await immunizationPage.clickEditOrderButton(VACCINE_A.vaccine);
+    await verifyVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
+    await enterVaccineInfo(VACCINE_B, createOrderPage.orderDetailsSection);
     await editOrderPage.clickConfirmationButton();
-
-    // check immunization table
     immunizationPage = await openImmunizationPage(resourceHandler.appointment.id!, page);
     await immunizationPage.verifyVaccinePresent({
-      vaccineName: TDAP,
-      doseRoute: DOSE_1_0 + ' ' + ML + ' / ' + CAUDAL_ROUTE,
-      instructions: TEST_VACCINE_INSTRUCTIONS_EDITED,
+      ...VACCINE_B,
       status: PENDING,
     });
 
-    editOrderPage = await immunizationPage.clickEditOrderButton(TDAP);
-    await editOrderPage.orderDetailsSection.verifyVaccine(TDAP);
-    await editOrderPage.orderDetailsSection.verifyDose(DOSE_1_0);
-    await editOrderPage.orderDetailsSection.verifyUnits(ML);
-    await editOrderPage.orderDetailsSection.verifyRoute(CAUDAL_ROUTE);
-    await editOrderPage.orderDetailsSection.verifyLocation(EYE_LEFT);
-    await editOrderPage.orderDetailsSection.verifyInstructions(TEST_VACCINE_INSTRUCTIONS_EDITED);
-    //todo: cancel order
-    const deleteDialog = await immunizationPage.clickDeleteButton(TDAP);
+    editOrderPage = await immunizationPage.clickEditOrderButton(VACCINE_B.vaccine);
+    await verifyVaccineInfo(VACCINE_B, createOrderPage.orderDetailsSection);
+
+    immunizationPage = await openImmunizationPage(resourceHandler.appointment.id!, page);
+    const deleteDialog = await immunizationPage.clickDeleteButton(VACCINE_B.vaccine);
     await deleteDialog.verifyTitle('Delete vaccine order');
     await deleteDialog.verifyMessage('Are you sure you want to delete the vaccine order?');
-    await deleteDialog.clickCancelButton();
+    await deleteDialog.clickProceedButton();
     await immunizationPage.verifyVaccinePresent({
-      vaccineName: TDAP,
-      doseRoute: DOSE_1_0 + ' ' + ML + ' / ' + CAUDAL_ROUTE,
-      instructions: TEST_VACCINE_INSTRUCTIONS_EDITED,
+      ...VACCINE_B,
       status: CANCELLED,
     });
   });
 
   test('Immunization happy path for making order administered', async ({ page }) => {
     const createOrderPage = await openCreateVaccineOrderPage(resourceHandler.appointment.id!, page);
-    await createOrderPage.orderDetailsSection.selectVaccine(DTAP);
-    await createOrderPage.orderDetailsSection.enterDose(DOSE_0_5);
-    await createOrderPage.orderDetailsSection.selectUnits(MG);
-    await createOrderPage.orderDetailsSection.selectRoute(BODY_CAVITY_ROUTE);
-    await createOrderPage.orderDetailsSection.selectLocation(EAR_LEFT);
-    await createOrderPage.orderDetailsSection.enterInstructions(TEST_VACCINE_INSTRUCTIONS);
+    await enterVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
     await createOrderPage.clickConfirmationButton();
 
     const immunizationPage = await openImmunizationPage(resourceHandler.appointment.id!, page);
-    await immunizationPage.clickVaccineDetailsTab();
-    const vaccineDetailsPage = await expectVaccineDetailsPage(page);
-    await vaccineDetailsPage.orderDetailsSection.verifyVaccine(DTAP);
-    await vaccineDetailsPage.orderDetailsSection.verifyDose(DOSE_0_5);
-    await vaccineDetailsPage.orderDetailsSection.verifyUnits(MG);
-    await vaccineDetailsPage.orderDetailsSection.verifyRoute(BODY_CAVITY_ROUTE);
-    await vaccineDetailsPage.orderDetailsSection.verifyLocation(EAR_LEFT);
-    await vaccineDetailsPage.orderDetailsSection.verifyInstructions(TEST_VACCINE_INSTRUCTIONS);
-    await vaccineDetailsPage.enterLotNumber(LOT_NUMBER);
-    await vaccineDetailsPage.enterExpiredDate(EXP_DATE);
-    await vaccineDetailsPage.enterMvxCode(MVX_CODE);
-    await vaccineDetailsPage.enterCvxCode(CVX_CODE);
-    await vaccineDetailsPage.selectCptCode(CPT_CODE);
-    await vaccineDetailsPage.enterNdcCode(NDC_CODE);
-    await vaccineDetailsPage.enterAdministeredDate(ADMINISTERED_DATE);
-    await vaccineDetailsPage.enterAdministeredTime(ADMINISTERED_TIME);
-    await vaccineDetailsPage.setVisCheckboxChecked(true);
-    await vaccineDetailsPage.enterVisGivenDate(VIS_GIVEN_DATE);
-    await vaccineDetailsPage.selectRelationship(RELATIONSHIP);
-    await vaccineDetailsPage.enterFullName(FULL_NAME);
-    await vaccineDetailsPage.enterMobile(MOBILE);
-    await vaccineDetailsPage.clickAdministeredButton();
-    const administrationConfirmationDialog = await expectAdministrationConfirmationDialogue(page);
+    const vaccineDetailsPage = await immunizationPage.clickVaccineDetailsTab();
+    await verifyVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
+    await enterAdministrationDetails(ADMINISTRATION_DETAILS, vaccineDetailsPage);
+    const administrationConfirmationDialog = await vaccineDetailsPage.clickAdministeredButton();
     await administrationConfirmationDialog.verifyTitle('Order Administered');
     await administrationConfirmationDialog.verifyPatientName(
       'Patient: ' + resourceHandler.patient?.name?.[0]?.family + ', ' + resourceHandler.patient?.name?.[0]?.given?.[0]
     );
     await administrationConfirmationDialog.verifyVaccine(
-      'Vaccine: ' + DTAP + ' / ' + DOSE_0_5 + MG + ' / ' + BODY_CAVITY_ROUTE
+      'Vaccine: ' + VACCINE_A.vaccine + ' / ' + VACCINE_A.dose + VACCINE_A.units + ' / ' + VACCINE_A.route
     );
     await administrationConfirmationDialog.verifyMessage(
       'Please confirm that you want to mark this immunization order as Administered.'
@@ -171,51 +151,25 @@ test.describe('Immunization Page mutating tests', () => {
     await administrationConfirmationDialog.clickMarkAsAdministeredButton();
     await immunizationPage.clickMarTab();
     await immunizationPage.verifyVaccinePresent({
-      vaccineName: DTAP,
-      doseRoute: DOSE_0_5 + ' ' + MG + ' / ' + BODY_CAVITY_ROUTE,
-      instructions: TEST_VACCINE_INSTRUCTIONS,
+      ...VACCINE_A,
       status: ADMINISTERED,
       //todo: check Given column data
     });
 
     const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyVaccine(
-      DTAP + ' - ' + DOSE_0_5 + ' ' + MG + ' / ' + BODY_CAVITY_ROUTE + ' - ' + EAR_LEFT
-    );
+    await progressNotePage.verifyVaccine(VACCINE_A);
   });
 
   test('Immunization happy path for making order partly administered', async ({ page }) => {
     const createOrderPage = await openCreateVaccineOrderPage(resourceHandler.appointment.id!, page);
-    await createOrderPage.orderDetailsSection.selectVaccine(DTAP);
-    await createOrderPage.orderDetailsSection.enterDose(DOSE_0_5);
-    await createOrderPage.orderDetailsSection.selectUnits(MG);
-    await createOrderPage.orderDetailsSection.selectRoute(BODY_CAVITY_ROUTE);
-    await createOrderPage.orderDetailsSection.selectLocation(EAR_LEFT);
-    await createOrderPage.orderDetailsSection.enterInstructions(TEST_VACCINE_INSTRUCTIONS);
+    await enterVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
+
     await createOrderPage.clickConfirmationButton();
 
     const immunizationPage = await openImmunizationPage(resourceHandler.appointment.id!, page);
-    await immunizationPage.clickVaccineDetailsTab();
-    const vaccineDetailsPage = await expectVaccineDetailsPage(page);
-    await vaccineDetailsPage.orderDetailsSection.verifyVaccine(DTAP);
-    await vaccineDetailsPage.orderDetailsSection.verifyDose(DOSE_0_5);
-    await vaccineDetailsPage.orderDetailsSection.verifyUnits(MG);
-    await vaccineDetailsPage.orderDetailsSection.verifyRoute(BODY_CAVITY_ROUTE);
-    await vaccineDetailsPage.orderDetailsSection.verifyLocation(EAR_LEFT);
-    await vaccineDetailsPage.orderDetailsSection.verifyInstructions(TEST_VACCINE_INSTRUCTIONS);
-    await vaccineDetailsPage.enterLotNumber(LOT_NUMBER);
-    await vaccineDetailsPage.enterExpiredDate(EXP_DATE);
-    await vaccineDetailsPage.enterMvxCode(MVX_CODE);
-    await vaccineDetailsPage.enterCvxCode(CVX_CODE);
-    await vaccineDetailsPage.selectCptCode(CPT_CODE);
-    await vaccineDetailsPage.enterNdcCode(NDC_CODE);
-    await vaccineDetailsPage.enterAdministeredDate(ADMINISTERED_DATE);
-    await vaccineDetailsPage.enterAdministeredTime(ADMINISTERED_TIME);
-    await vaccineDetailsPage.setVisCheckboxChecked(true);
-    await vaccineDetailsPage.enterVisGivenDate(VIS_GIVEN_DATE);
-    await vaccineDetailsPage.selectRelationship(RELATIONSHIP);
-    await vaccineDetailsPage.enterFullName(FULL_NAME);
-    await vaccineDetailsPage.enterMobile(MOBILE);
+    const vaccineDetailsPage = await immunizationPage.clickVaccineDetailsTab();
+    await verifyVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
+    await enterAdministrationDetails(ADMINISTRATION_DETAILS, vaccineDetailsPage);
     await vaccineDetailsPage.clickPartlyAdministeredButton();
     const administrationConfirmationDialog = await expectAdministrationConfirmationDialogue(page);
     await administrationConfirmationDialog.verifyTitle('Order Partly Administered');
@@ -223,7 +177,7 @@ test.describe('Immunization Page mutating tests', () => {
       'Patient: ' + resourceHandler.patient?.name?.[0]?.family + ', ' + resourceHandler.patient?.name?.[0]?.given?.[0]
     );
     await administrationConfirmationDialog.verifyVaccine(
-      'Vaccine: ' + DTAP + ' / ' + DOSE_0_5 + MG + ' / ' + BODY_CAVITY_ROUTE
+      'Vaccine: ' + VACCINE_A.vaccine + ' / ' + VACCINE_A.dose + VACCINE_A.units + ' / ' + VACCINE_A.route
     );
     await administrationConfirmationDialog.verifyMessage(
       'Please confirm that you want to mark this immunization order as Partly Administered and select the reason.'
@@ -232,60 +186,33 @@ test.describe('Immunization Page mutating tests', () => {
     await administrationConfirmationDialog.clickMarkAsAdministeredButton();
     await immunizationPage.clickMarTab();
     await immunizationPage.verifyVaccinePresent({
-      vaccineName: DTAP,
-      doseRoute: DOSE_0_5 + ' ' + MG + ' / ' + BODY_CAVITY_ROUTE,
-      instructions: TEST_VACCINE_INSTRUCTIONS,
+      ...VACCINE_A,
       status: PARTLY_ADMINISTERED,
       reason: PATIENT_REFUSED,
       //todo: check Given column data
     });
 
     const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyVaccine(
-      DTAP + ' - ' + DOSE_0_5 + ' ' + MG + ' / ' + BODY_CAVITY_ROUTE + ' - ' + EAR_LEFT
-    );
+    await progressNotePage.verifyVaccine(VACCINE_A);
   });
 
   test('Immunization happy path for making order not administered', async ({ page }) => {
     const createOrderPage = await openCreateVaccineOrderPage(resourceHandler.appointment.id!, page);
-    await createOrderPage.orderDetailsSection.selectVaccine(DTAP);
-    await createOrderPage.orderDetailsSection.enterDose(DOSE_0_5);
-    await createOrderPage.orderDetailsSection.selectUnits(MG);
-    await createOrderPage.orderDetailsSection.selectRoute(BODY_CAVITY_ROUTE);
-    await createOrderPage.orderDetailsSection.selectLocation(EAR_LEFT);
-    await createOrderPage.orderDetailsSection.enterInstructions(TEST_VACCINE_INSTRUCTIONS);
+    await enterVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
     await createOrderPage.clickConfirmationButton();
 
     const immunizationPage = await openImmunizationPage(resourceHandler.appointment.id!, page);
-    await immunizationPage.clickVaccineDetailsTab();
-    const vaccineDetailsPage = await expectVaccineDetailsPage(page);
-    await vaccineDetailsPage.orderDetailsSection.verifyVaccine(DTAP);
-    await vaccineDetailsPage.orderDetailsSection.verifyDose(DOSE_0_5);
-    await vaccineDetailsPage.orderDetailsSection.verifyUnits(MG);
-    await vaccineDetailsPage.orderDetailsSection.verifyRoute(BODY_CAVITY_ROUTE);
-    await vaccineDetailsPage.orderDetailsSection.verifyLocation(EAR_LEFT);
-    await vaccineDetailsPage.orderDetailsSection.verifyInstructions(TEST_VACCINE_INSTRUCTIONS);
-    await vaccineDetailsPage.enterLotNumber(LOT_NUMBER);
-    await vaccineDetailsPage.enterExpiredDate(EXP_DATE);
-    await vaccineDetailsPage.enterMvxCode(MVX_CODE);
-    await vaccineDetailsPage.enterCvxCode(CVX_CODE);
-    await vaccineDetailsPage.selectCptCode(CPT_CODE);
-    await vaccineDetailsPage.enterNdcCode(NDC_CODE);
-    await vaccineDetailsPage.enterAdministeredDate(ADMINISTERED_DATE);
-    await vaccineDetailsPage.enterAdministeredTime(ADMINISTERED_TIME);
-    await vaccineDetailsPage.setVisCheckboxChecked(true);
-    await vaccineDetailsPage.enterVisGivenDate(VIS_GIVEN_DATE);
-    await vaccineDetailsPage.selectRelationship(RELATIONSHIP);
-    await vaccineDetailsPage.enterFullName(FULL_NAME);
-    await vaccineDetailsPage.enterMobile(MOBILE);
-    await vaccineDetailsPage.clickPartlyAdministeredButton();
+    const vaccineDetailsPage = await immunizationPage.clickVaccineDetailsTab();
+    await verifyVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
+    await enterAdministrationDetails(ADMINISTRATION_DETAILS, vaccineDetailsPage);
+    await vaccineDetailsPage.clickNotAdministeredButton();
     const administrationConfirmationDialog = await expectAdministrationConfirmationDialogue(page);
     await administrationConfirmationDialog.verifyTitle('Order Not Administered');
     await administrationConfirmationDialog.verifyPatientName(
       'Patient: ' + resourceHandler.patient?.name?.[0]?.family + ', ' + resourceHandler.patient?.name?.[0]?.given?.[0]
     );
     await administrationConfirmationDialog.verifyVaccine(
-      'Vaccine: ' + DTAP + ' / ' + DOSE_0_5 + MG + ' / ' + BODY_CAVITY_ROUTE
+      'Vaccine: ' + VACCINE_A.vaccine + ' / ' + VACCINE_A.dose + VACCINE_A.units + ' / ' + VACCINE_A.route
     );
     await administrationConfirmationDialog.verifyMessage(
       'Please confirm that you want to mark this immunization order as Not Administered and select the reason.'
@@ -294,9 +221,7 @@ test.describe('Immunization Page mutating tests', () => {
     await administrationConfirmationDialog.clickMarkAsAdministeredButton();
     await immunizationPage.clickMarTab();
     await immunizationPage.verifyVaccinePresent({
-      vaccineName: DTAP,
-      doseRoute: DOSE_0_5 + ' ' + MG + ' / ' + BODY_CAVITY_ROUTE,
-      instructions: TEST_VACCINE_INSTRUCTIONS,
+      ...VACCINE_A,
       status: NOT_ADMINISTRED,
       reason: PATIENT_REFUSED,
       //todo: check Given column data
@@ -312,5 +237,42 @@ test.describe('Immunization Page mutating tests', () => {
     await inPersonHeader.selectProviderPractitioner();
     await inPersonHeader.clickSwitchModeButton('provider');
     await progressNotePage.expectLoaded();
+  }
+
+  async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {
+    await orderDetailsSection.selectVaccine(vaccineInfo.vaccine);
+    await orderDetailsSection.enterDose(vaccineInfo.dose);
+    await orderDetailsSection.selectUnits(vaccineInfo.units);
+    await orderDetailsSection.selectRoute(vaccineInfo.route);
+    await orderDetailsSection.selectLocation(vaccineInfo.location);
+    await orderDetailsSection.enterInstructions(vaccineInfo.instructions);
+  }
+
+  async function verifyVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {
+    await orderDetailsSection.verifyVaccine(vaccineInfo.vaccine);
+    await orderDetailsSection.verifyDose(vaccineInfo.dose);
+    await orderDetailsSection.verifyUnits(vaccineInfo.units);
+    await orderDetailsSection.verifyRoute(vaccineInfo.route);
+    await orderDetailsSection.verifyLocation(vaccineInfo.location);
+    await orderDetailsSection.verifyInstructions(vaccineInfo.instructions);
+  }
+
+  async function enterAdministrationDetails(
+    administrationDetails: AdministrationDetails,
+    vaccineDetailsPage: VaccineDetailsPage
+  ): Promise<void> {
+    await vaccineDetailsPage.enterLotNumber(administrationDetails.lotNumber);
+    await vaccineDetailsPage.enterExpiredDate(administrationDetails.expiredDate);
+    await vaccineDetailsPage.enterMvxCode(administrationDetails.mvxCode);
+    await vaccineDetailsPage.enterCvxCode(administrationDetails.cvxCode);
+    await vaccineDetailsPage.selectCptCode(administrationDetails.cptCode);
+    await vaccineDetailsPage.enterNdcCode(administrationDetails.ndcCode);
+    await vaccineDetailsPage.enterAdministeredDate(administrationDetails.adminiosteredDate);
+    await vaccineDetailsPage.enterAdministeredTime(administrationDetails.adminiosteredTime);
+    await vaccineDetailsPage.setVisCheckboxChecked(true);
+    await vaccineDetailsPage.enterVisGivenDate(administrationDetails.visGivenDate);
+    await vaccineDetailsPage.selectRelationship(administrationDetails.relationship);
+    await vaccineDetailsPage.enterFullName(administrationDetails.fullName);
+    await vaccineDetailsPage.enterMobile(administrationDetails.mobile);
   }
 });

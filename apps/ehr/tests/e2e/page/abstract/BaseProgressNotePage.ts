@@ -41,9 +41,26 @@ export abstract class BaseProgressNotePage {
     }
   }
 
-  async verifyVaccine(vaccineInfo: string): Promise<void> {
+  async verifyVaccine(vaccine: {
+    vaccine: string;
+    dose: string;
+    units: string;
+    route: string;
+    location: string;
+  }): Promise<void> {
     await expect(
-      this.#page.getByTestId(dataTestIds.progressNotePage.vaccineItem).filter({ hasText: vaccineInfo })
+      this.#page.getByTestId(dataTestIds.progressNotePage.vaccineItem).filter({
+        hasText:
+          vaccine.vaccine +
+          ' - ' +
+          vaccine.dose +
+          ' ' +
+          vaccine.units +
+          ' / ' +
+          vaccine.route +
+          ' - ' +
+          vaccine.location,
+      })
     ).toBeVisible();
   }
 

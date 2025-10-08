@@ -2,6 +2,7 @@ import { expect, Page } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { Dialog, expectDialog } from '../../patient-information/Dialog';
 import { EditVaccineOrderPage, expectEditVaccineOrderPage } from './EditVaccineOrderPage';
+import { expectVaccineDetailsPage, VaccineDetailsPage } from './VaccineDetailsPage';
 
 export class ImmunizationPage {
   #page: Page;
@@ -11,8 +12,10 @@ export class ImmunizationPage {
   }
 
   async verifyVaccinePresent(input: {
-    vaccineName: string;
-    doseRoute: string;
+    vaccine: string;
+    dose: string;
+    units: string;
+    route: string;
     instructions: string;
     orderedDate?: string;
     orderedPerson?: string;
@@ -27,12 +30,12 @@ export class ImmunizationPage {
         .filter({
           has: this.#page
             .getByTestId(dataTestIds.immunizationPage.marTableVaccineCell)
-            .filter({ hasText: input.vaccineName }),
+            .filter({ hasText: input.vaccine }),
         })
         .filter({
           has: this.#page
             .getByTestId(dataTestIds.immunizationPage.marTableDoseRouteCell)
-            .filter({ hasText: input.doseRoute }),
+            .filter({ hasText: input.dose + ' ' + input.units + ' / ' + input.route }),
         })
         .filter({
           has: this.#page
@@ -94,8 +97,9 @@ export class ImmunizationPage {
     return expectDialog(this.#page);
   }
 
-  async clickVaccineDetailsTab(): Promise<void> {
+  async clickVaccineDetailsTab(): Promise<VaccineDetailsPage> {
     await this.#page.getByTestId(dataTestIds.immunizationPage.vaccineDetailsTab).click();
+    return expectVaccineDetailsPage(this.#page);
   }
 
   async clickMarTab(): Promise<void> {
