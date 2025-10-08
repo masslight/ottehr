@@ -373,6 +373,25 @@ export const RELATIONSHIP_OPTIONS = [
   },
 ];
 
+export const EMERGENCY_CONTACT_RELATIONSHIP_OPTIONS = [
+  {
+    label: 'Spouse',
+    value: 'Spouse',
+  },
+  {
+    label: 'Parent',
+    value: 'Parent',
+  },
+  {
+    label: 'Legal Guardian',
+    value: 'Legal Guardian',
+  },
+  {
+    label: 'Other',
+    value: 'Other',
+  },
+];
+
 export const ETHNICITY_OPTIONS = [
   {
     label: 'Hispanic or Latino',
@@ -639,6 +658,13 @@ export const FormFields = {
     city: { key: 'responsible-party-city', type: 'String', label: 'City' },
     state: { key: 'responsible-party-state', type: 'String', label: 'State' },
     zip: { key: 'responsible-party-zip', type: 'String', label: 'Zip' },
+  },
+  emergencyContact: {
+    relationship: { key: 'emergency-contact-relationship', type: 'String', label: 'Relationship to the patient' },
+    firstName: { key: 'emergency-contact-first-name', type: 'String', label: 'First name' },
+    middleName: { key: 'emergency-contact-middle-name', type: 'String', label: 'Middle name' },
+    lastName: { key: 'emergency-contact-last-name', type: 'String', label: 'Last name' },
+    phone: { key: 'emergency-contact-number', type: 'String', label: 'Phone' },
   },
 };
 

@@ -16,6 +16,7 @@ export interface PatientAccountAndCoverageResources {
   insuranceOrgs: Organization[];
   account?: Account;
   guarantorResource?: RelatedPerson | Patient;
+  emergencyContactResource?: RelatedPerson;
 }
 
 export interface CoverageWithPriority {
