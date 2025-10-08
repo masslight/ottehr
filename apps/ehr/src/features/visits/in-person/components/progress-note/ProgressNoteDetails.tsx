@@ -127,7 +127,9 @@ export const ProgressNoteDetails: FC = () => {
   const showVitalsObservations =
     !!(vitalsObservations && vitalsObservations.length > 0) || !!(vitalsNotes && vitalsNotes.length > 0);
 
-  const approvalStatus = getSupervisorApprovalStatus(appointment, encounter);
+  const approvalStatus = FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED
+    ? getSupervisorApprovalStatus(appointment, encounter)
+    : 'unknown';
 
   const medicalHistorySections = [
     <AllergiesContainer notes={allergyNotes} />,
