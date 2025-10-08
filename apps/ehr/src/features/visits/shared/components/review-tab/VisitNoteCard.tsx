@@ -1,13 +1,7 @@
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PatientVitalsContainer } from 'src/features/visits/in-person/components/progress-note/PatientVitalsContainer';
-import {
-  createVitalsSearchConfig,
-  examConfig,
-  getSpentTime,
-  patientScreeningQuestionsConfig,
-  VitalFieldNames,
-} from 'utils';
+import { examConfig, getSpentTime, patientScreeningQuestionsConfig, vitalsObservationsRequest } from 'utils';
 import { AccordionCard } from '../../../../../components/AccordionCard';
 import { useChartFields } from '../../hooks/useChartFields';
 import { usePatientInstructionsVisibility } from '../../hooks/usePatientInstructionsVisibility';
@@ -42,14 +36,7 @@ export const VisitNoteCard: FC = () => {
       },
       chiefComplaint: { _tag: 'chief-complaint' },
       ros: { _tag: 'ros' },
-      vitalsObservations: {
-        _search_by: 'encounter',
-        _sort: '-_lastUpdated',
-        _count: 100,
-        _tag: Object.values(VitalFieldNames)
-          .map((name) => (createVitalsSearchConfig(name, 'encounter').searchParams as { _tag: string })._tag)
-          .join(','),
-      },
+      vitalsObservations: vitalsObservationsRequest,
     },
   });
 
