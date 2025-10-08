@@ -284,7 +284,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const mdmText = medicalDecision?.text;
 
     // If either HPI or MDM is being updated and has meaningful content, generate AI suggestions
-    if (hpiText || mdmText) {
+    if (
+      (hpiText || mdmText) &&
+      (chiefComplaint?.createICDRecommendations || medicalDecision?.createICDRecommendations)
+    ) {
       try {
         console.log('Generating ICD-10 codes from clinical notes');
         const potentialDiagnoses = await generateIcdTenCodesFromNotes(hpiText, mdmText, secrets);
