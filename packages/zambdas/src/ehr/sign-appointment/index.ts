@@ -12,10 +12,10 @@ import {
   getAppointmentLockMetaTagOperations,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
+  getInPersonVisitStatus,
   getPatchBinary,
   getPatientContactEmail,
   getTaskResource,
-  getVisitStatus,
   InPersonCompletionTemplateData,
   isInPersonAppointment,
   progressNoteChartDataRequestedFields,
@@ -99,7 +99,7 @@ export const performEffect = async (
   }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
-  const currentStatus = getVisitStatus(appointment, encounter);
+  const currentStatus = getInPersonVisitStatus(appointment, encounter);
   if (currentStatus) {
     await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, supervisorApprovalEnabled);
   }

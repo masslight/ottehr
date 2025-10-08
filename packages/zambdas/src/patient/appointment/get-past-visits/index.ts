@@ -5,12 +5,12 @@ import {
   AppointmentStatus,
   appointmentTypeMap,
   createOystehrClient,
+  getInPersonVisitStatus,
   getParticipantIdFromAppointment,
   GetPastVisitsResponse,
   getPatientsForUser,
   getSecret,
   getTimezone,
-  getVisitStatus,
   mapStatusToTelemed,
   SecretsKeys,
   TIMEZONE_EXTENSION_URL,
@@ -102,7 +102,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         if (appointmentType === 'Telemedicine') {
           status = mapStatusToTelemed(encounter.status, fhirAppointment.status);
         } else if (appointmentType === 'In-Person') {
-          status = getVisitStatus(fhirAppointment, encounter);
+          status = getInPersonVisitStatus(fhirAppointment, encounter);
         }
 
         if (!status) {
