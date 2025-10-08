@@ -84,7 +84,7 @@ import { PatientAccountComponent } from './PatientInformationPage';
 
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
 
-export default function AppointmentPage(): ReactElement {
+export default function VisitDetailsPage(): ReactElement {
   // variables
   const { id: appointmentID } = useParams();
   const { oystehr, oystehrZambda } = useApiClients();
