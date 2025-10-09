@@ -10,8 +10,8 @@ import { usePendingSupervisorApproval } from 'src/features/visits/telemed/hooks/
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPatientName } from 'src/shared/utils';
 import {
+  getInPersonVisitStatus,
   getPractitionerQualificationByLocation,
-  getVisitStatus,
   isPhysicianQualification,
   PRACTITIONER_CODINGS,
   TelemedAppointmentStatusEnum,
@@ -76,7 +76,10 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const { isEncounterUpdatePending } = usePractitionerActions(encounter, 'end', PRACTITIONER_CODINGS.Attender);
 
   const isLoading = isChangeLoading || isSignLoading || isEncounterUpdatePending || isPendingSupervisorApproval;
-  const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
+  const inPersonStatus = useMemo(
+    () => appointment && getInPersonVisitStatus(appointment, encounter),
+    [appointment, encounter]
+  );
 
   const completed = useMemo(() => {
     if (isInPerson) {

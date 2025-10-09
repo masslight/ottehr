@@ -10,7 +10,7 @@ import {
   getPatientFirstName,
   getSecret,
   InPersonConfirmationTemplateData,
-  OTTEHR_MODULE,
+  isTelemedAppointment,
   SecretsKeys,
   TaskStatus,
   TelemedConfirmationTemplateData,
@@ -149,7 +149,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     let smsOutcome: 'success' | 'failed' | 'skipped' = 'skipped';
 
     if (fhirAppointment.id && startTime.isValid) {
-      const isTelemed = Boolean(fhirAppointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM));
+      const isTelemed = isTelemedAppointment(fhirAppointment);
       const patientEmail = getPatientContactEmail(fhirPatient);
       const firstName = getPatientFirstName(fhirPatient);
       let ownerName = getNameFromScheduleResource(fhirSchedule);

@@ -214,7 +214,7 @@ export default function PatientPaymentList({
   });
 
   useEffect(() => {
-    if (encounter && !isEncounterRefetching) {
+    if (encounter) {
       const variant = getPaymentVariantFromEncounter(encounter);
       if (variant) setPaymentVariant(variant);
       else if (variant === undefined) {
@@ -228,7 +228,7 @@ export default function PatientPaymentList({
         );
       }
     }
-  }, [encounter, isEncounterRefetching, patientSelectSelfPay, updateEncounter]);
+  }, [encounter, patientSelectSelfPay, updateEncounter]);
 
   const errorMessage = (() => {
     const networkError = createNewPayment.error;
