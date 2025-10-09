@@ -90,7 +90,7 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
       {
         // Consent
         method: 'GET',
-        url: `/DocumentReference?_sort=-_lastUpdated&subject=Patient/${patientId}&related=Appointment/${appointmentId}`,
+        url: `/DocumentReference?status=current&_sort=-_lastUpdated&subject=Patient/${patientId}&related=Appointment/${appointmentId}`,
       },
       {
         // Photo ID & Insurance Cards
