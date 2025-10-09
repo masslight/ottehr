@@ -104,16 +104,12 @@ function getErrorDetailsFromCoverageResponse(
 ): Array<{ code: string; text: string }> | undefined {
   if (!eligibilityCheck) return undefined;
 
-  console.log('Extracting errors from eligibility check:', eligibilityCheck);
-
   // First, try to extract errors from the errors field if available
   if (eligibilityCheck.errors && eligibilityCheck.errors.length > 0) {
-    console.log('Found errors:', eligibilityCheck.errors);
     return eligibilityCheck.errors.map((error) => {
       // Extract code and text from FHIR CodeableConcept
       const code = error.code?.coding?.[0]?.code || error.code?.text || 'UNKNOWN';
       const text = error.code?.text || 'No error details available';
-      console.log('Extracted error:', { code, text });
       return { code, text };
     });
   }
@@ -135,7 +131,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   initialEligibilityCheck,
   handleRemoveClick,
 }) => {
-  //console.log('insuranceId', insuranceId);
   const theme = useTheme();
   const { insurancePlans } = usePatientStore();
 
@@ -244,7 +239,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   });
 
   const handleRecheckEligibility = async (): Promise<void> => {
-    console.log('recheck eligibility', recheckEligibility);
     try {
       const result = await recheckEligibility.mutateAsync();
       if (result) {
@@ -332,13 +326,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   };
 
   const copayBenefits = eligibilityStatus?.copay ?? [];
-  console.log('InsuranceContainer - copayBenefits (used by CopayWidget):', copayBenefits);
-  console.log('InsuranceContainer - copayBenefits count:', copayBenefits.length);
 
   // Get the most current eligibility data, combining initial data with any updates
   const getCurrentEligibilityData = (): CoverageCheckWithDetails | undefined => {
-    console.log('getCurrentEligibilityData - eligibilityStatus:', eligibilityStatus);
-    console.log('getCurrentEligibilityData - initialEligibilityCheck:', initialEligibilityCheck);
     if (!initialEligibilityCheck && !eligibilityStatus) {
       return undefined;
     }
@@ -356,8 +346,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             : initialEligibilityCheck.copay,
         errors: eligibilityStatus.errors || initialEligibilityCheck.errors,
       };
-      console.log('getCurrentEligibilityData - merged copay:', mergedData.copay);
-      console.log('getCurrentEligibilityData - merged copay count:', mergedData.copay?.length);
+
       return mergedData;
     }
 
