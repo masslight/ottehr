@@ -24,8 +24,8 @@ import {
   OD_DISPLAY_CONFIG,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
 } from 'utils';
-import { createOystehrClient, getAuth0Token } from '../shared';
-import { testItems as baseTestItems } from './data/base-in-house-lab-seed-data';
+import { createOystehrClient, getAuth0Token } from '../../shared';
+import { testItems as baseTestItems } from '../data/base-in-house-lab-seed-data';
 
 const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
 
