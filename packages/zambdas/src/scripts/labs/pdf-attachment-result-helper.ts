@@ -4,7 +4,7 @@ import { CodeableConcept, DiagnosticReport, Observation, ServiceRequest } from '
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import { LAB_DR_TYPE_TAG } from 'utils';
-import { createOystehrClient, getAuth0Token } from './../../shared';
+import { createOystehrClient, getAuth0Token } from '../../shared';
 
 // Creates a DiagnosticReport and an Observation to mock a pdf attachment
 // npm run mock-pdf-result ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]

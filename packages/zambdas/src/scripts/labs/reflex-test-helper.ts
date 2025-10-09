@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { CodeableConcept, DiagnosticReport, Observation, ServiceRequest } from 'fhir/r4b';
 import fs from 'fs';
 import { LAB_DR_TYPE_TAG } from 'utils';
-import { createOystehrClient, getAuth0Token } from '../shared';
+import { createOystehrClient, getAuth0Token } from '../../shared';
 
 // Creates a DiagnosticReport and Observation(s) to mock a reflex test
 // npm run mock-reflex-test ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
