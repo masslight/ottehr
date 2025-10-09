@@ -96,6 +96,7 @@ import {
   UpdateScheduleParams,
   UpdateUserParams,
   UpdateUserZambdaOutput,
+  UpdateVisitDetailsInput,
   UploadPatientProfilePhotoInput,
   UserActivationZambdaInput,
   UserActivationZambdaOutput,
@@ -1248,6 +1249,21 @@ export const getPatientVisitDetails = async (
       ...parameters,
     });
     return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updatePatientVisitDetails = async (
+  oystehr: Oystehr,
+  parameters: UpdateVisitDetailsInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'ehr-update-visit-details',
+      ...parameters,
+    });
   } catch (error: unknown) {
     console.log(error);
     throw error;

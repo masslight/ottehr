@@ -1166,6 +1166,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/visit-details/get-visit-details/index",
       "zip": ".dist/zips/ehr-get-visit-details.zip"
+    },
+     "EHR-UPDATE-VISIT-DETAILS": {
+      "name": "ehr-update-visit-details",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/visit-details/update-visit-details/index",
+      "zip": ".dist/zips/ehr-update-visit-details.zip"
     }
   },
   "faxNumbers": {
