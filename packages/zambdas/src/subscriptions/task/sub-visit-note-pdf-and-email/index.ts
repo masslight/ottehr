@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -60,176 +59,153 @@ let taskId: string | undefined;
 
 const ZAMBDA_NAME = 'sub-send-claim';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.group('validateRequestParameters');
+  const validatedParameters = validateRequestParameters(input);
+  const { task, secrets } = validatedParameters;
+  console.log('task ID', task.id);
+  if (!task.id) {
+    throw new Error('Task ID is required');
+  }
+  taskId = task.id;
+  console.groupEnd();
+  console.debug('validateRequestParameters success');
+
+  if (!oystehrToken) {
+    console.log('getting token');
+    oystehrToken = await getAuth0Token(secrets);
+  } else {
+    console.log('already have token');
+  }
+
+  oystehr = createOystehrClient(oystehrToken, secrets);
+
+  console.log('getting appointment Id from the task');
+  const appointmentId =
+    task.focus?.type === 'Appointment' ? task.focus?.reference?.replace('Appointment/', '') : undefined;
+  console.log('appointment ID parsed: ', appointmentId);
+
+  if (!appointmentId) {
+    console.log('no appointment ID found on task');
+    throw new Error('no appointment ID found on task focus');
+  }
+
+  const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
+  if (!visitResources) {
+    {
+      throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
+    }
+  }
+
+  const { encounter, patient, appointment, location, listResources } = visitResources;
+
+  if (encounter?.subject?.reference === undefined) {
+    throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
+  }
+  if (!patient) {
+    throw new Error(`No patient found for encounter ${encounter.id}`);
+  }
+
+  const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
+
+  const chartDataPromise = getChartData(oystehr, oystehrToken, visitResources.encounter.id!);
+  const additionalChartDataPromise = getChartData(
+    oystehr,
+    oystehrToken,
+    visitResources.encounter.id!,
+    isInPersonAppointment ? progressNoteChartDataRequestedFields : telemedProgressNoteChartDataRequestedFields
+  );
+  const medicationOrdersPromise = getMedicationOrders(oystehr, {
+    searchBy: {
+      field: 'encounterId',
+      value: visitResources.encounter.id!,
+    },
+  });
+
+  const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(
+    (promise) => promise.response
+  );
+  const medicationOrders = (await medicationOrdersPromise).orders;
+  const immunizationOrders = (
+    await getImmunizationOrders(oystehr, {
+      encounterId: visitResources.encounter.id!,
+    })
+  ).orders;
+
+  console.log('Chart data received');
   try {
-    console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
-    const { task, secrets } = validatedParameters;
-    console.log('task ID', task.id);
-    if (!task.id) {
-      throw new Error('Task ID is required');
-    }
-    taskId = task.id;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+    const pdfInfo = await composeAndCreateVisitNotePdf(
+      { chartData, additionalChartData, medicationOrders, immunizationOrders },
+      visitResources,
+      secrets,
+      oystehrToken
+    );
+    if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
+    console.log(`Creating visit note pdf docRef`);
+    await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
 
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(secrets);
-    } else {
-      console.log('already have token');
-    }
-
-    oystehr = createOystehrClient(oystehrToken, secrets);
-
-    console.log('getting appointment Id from the task');
-    const appointmentId =
-      task.focus?.type === 'Appointment' ? task.focus?.reference?.replace('Appointment/', '') : undefined;
-    console.log('appointment ID parsed: ', appointmentId);
-
-    if (!appointmentId) {
-      console.log('no appointment ID found on task');
-      throw new Error('no appointment ID found on task focus');
-    }
-
-    const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
-    if (!visitResources) {
-      {
-        throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
+    const emailClient = getEmailClient(secrets);
+    const emailEnabled = emailClient.getFeatureFlag();
+    if (emailEnabled) {
+      const patientEmail = getPatientContactEmail(patient);
+      let prettyStartTime = '';
+      let locationName = '';
+      let address = '';
+      if (appointment.start && visitResources.timezone) {
+        prettyStartTime = DateTime.fromISO(appointment.start)
+          .setZone(visitResources.timezone)
+          .toFormat(DATETIME_FULL_NO_YEAR);
       }
-    }
+      if (location) {
+        locationName = getNameForOwner(location);
+        address = getAddressStringForScheduleResource(location) ?? '';
+      }
+      const presignedUrls = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
+      const visitNoteUrl = presignedUrls['visit-note'].presignedUrl;
 
-    const { encounter, patient, appointment, location, listResources } = visitResources;
-
-    if (encounter?.subject?.reference === undefined) {
-      throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
-    }
-    if (!patient) {
-      throw new Error(`No patient found for encounter ${encounter.id}`);
-    }
-
-    const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
-
-    const chartDataPromise = getChartData(oystehr, oystehrToken, visitResources.encounter.id!);
-    const additionalChartDataPromise = getChartData(
-      oystehr,
-      oystehrToken,
-      visitResources.encounter.id!,
-      isInPersonAppointment ? progressNoteChartDataRequestedFields : telemedProgressNoteChartDataRequestedFields
-    );
-    const medicationOrdersPromise = getMedicationOrders(oystehr, {
-      searchBy: {
-        field: 'encounterId',
-        value: visitResources.encounter.id!,
-      },
-    });
-
-    const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(
-      (promise) => promise.response
-    );
-    const medicationOrders = (await medicationOrdersPromise).orders;
-    const immunizationOrders = (
-      await getImmunizationOrders(oystehr, {
-        encounterId: visitResources.encounter.id!,
-      })
-    ).orders;
-
-    console.log('Chart data received');
-    try {
-      const pdfInfo = await composeAndCreateVisitNotePdf(
-        { chartData, additionalChartData, medicationOrders, immunizationOrders },
-        visitResources,
-        secrets,
-        oystehrToken
-      );
-      if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
-      console.log(`Creating visit note pdf docRef`);
-      await makeVisitNotePdfDocumentReference(
-        oystehr,
-        pdfInfo,
-        patient.id,
-        appointmentId,
-        encounter.id!,
-        listResources
-      );
-    } catch (error) {
-      console.error(`Error creating visit note pdf: ${error}`);
-      captureException(error, {
-        tags: {
-          appointmentId,
-          encounterId: encounter.id,
-        },
-      });
-    }
-
-    try {
-      const emailClient = getEmailClient(secrets);
-      const emailEnabled = emailClient.getFeatureFlag();
-      if (emailEnabled) {
-        const patientEmail = getPatientContactEmail(patient);
-        let prettyStartTime = '';
-        let locationName = '';
-        let address = '';
-        if (appointment.start && visitResources.timezone) {
-          prettyStartTime = DateTime.fromISO(appointment.start)
-            .setZone(visitResources.timezone)
-            .toFormat(DATETIME_FULL_NO_YEAR);
-        }
-        if (location) {
-          locationName = getNameForOwner(location);
-          address = getAddressStringForScheduleResource(location) ?? '';
-        }
-        const presignedUrls = await getPresignedURLs(oystehr, oystehrToken, visitResources.encounter.id!);
-        const visitNoteUrl = presignedUrls['visit-note'].presignedUrl;
-
-        if (isInPersonAppointment) {
-          const missingData: string[] = [];
-          if (!patientEmail) missingData.push('patient email');
-          if (!appointment.id) missingData.push('appointment ID');
-          if (!locationName) missingData.push('location name');
-          if (!address) missingData.push('address');
-          if (!prettyStartTime) missingData.push('appointment time');
-          if (!visitNoteUrl) missingData.push('visit note URL');
-          if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
-            // note: it's assumed that location is the schedule owner here, which is incorrect for Provider schedules
-            const templateData: InPersonCompletionTemplateData = {
-              location: getNameForOwner(location),
-              time: prettyStartTime,
-              address,
-              'address-url': makeAddressUrl(address),
-              'visit-note-url': visitNoteUrl,
-            };
-            await emailClient.sendInPersonCompletionEmail(patientEmail, templateData);
-          } else {
-            console.error(
-              `Not sending in-person completion email, missing the following data: ${missingData.join(', ')}`
-            );
-          }
+      if (isInPersonAppointment) {
+        const missingData: string[] = [];
+        if (!patientEmail) missingData.push('patient email');
+        if (!appointment.id) missingData.push('appointment ID');
+        if (!locationName) missingData.push('location name');
+        if (!address) missingData.push('address');
+        if (!prettyStartTime) missingData.push('appointment time');
+        if (!visitNoteUrl) missingData.push('visit note URL');
+        if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
+          // note: it's assumed that location is the schedule owner here, which is incorrect for Provider schedules
+          const templateData: InPersonCompletionTemplateData = {
+            location: getNameForOwner(location),
+            time: prettyStartTime,
+            address,
+            'address-url': makeAddressUrl(address),
+            'visit-note-url': visitNoteUrl,
+          };
+          await emailClient.sendInPersonCompletionEmail(patientEmail, templateData);
         } else {
-          const missingData: string[] = [];
-          if (!patientEmail) missingData.push('patient email');
-          if (!appointment.id) missingData.push('appointment ID');
-          if (!locationName) missingData.push('location name');
-          if (!visitNoteUrl) missingData.push('visit note URL');
-          if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
-            const templateData: TelemedCompletionTemplateData = {
-              location: getNameForOwner(location),
-              'visit-note-url': visitNoteUrl,
-            };
-            await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
-          } else {
-            console.error(
-              `Not sending virtual completion email, missing the following data: ${missingData.join(', ')}`
-            );
-          }
+          console.error(
+            `Not sending in-person completion email, missing the following data: ${missingData.join(', ')}`
+          );
+        }
+      } else {
+        const missingData: string[] = [];
+        if (!patientEmail) missingData.push('patient email');
+        if (!appointment.id) missingData.push('appointment ID');
+        if (!locationName) missingData.push('location name');
+        if (!visitNoteUrl) missingData.push('visit note URL');
+        if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
+          const templateData: TelemedCompletionTemplateData = {
+            location: getNameForOwner(location),
+            'visit-note-url': visitNoteUrl,
+          };
+          await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
+        } else {
+          console.error(`Not sending virtual completion email, missing the following data: ${missingData.join(', ')}`);
         }
       }
-    } catch (error: any) {
-      console.error('Error sending completion email:', error);
     }
 
     // update task status and status reason
     console.log('making patch request to update task status');
-    const patchedTask = await patchTaskStatus(oystehr, task.id, 'completed', 'claim sent successfully');
+    const patchedTask = await patchTaskStatus(oystehr, task.id, 'completed', 'PDF created and emailed successfully');
 
     const response = {
       taskStatus: patchedTask.status,
