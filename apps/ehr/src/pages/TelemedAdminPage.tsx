@@ -50,13 +50,13 @@ export function TelemedAdminPage(): JSX.Element {
               </TabList>
             </Box>
             <ButtonRounded
-              onClick={() => navigate(`/data`)}
+              onClick={() => navigate(`/reports`)}
               variant="outlined"
               sx={{
                 whiteSpace: 'nowrap',
               }}
             >
-              Data Reports
+              Reports
             </ButtonRounded>
           </Box>
           <Paper sx={{ marginTop: 5 }}>
