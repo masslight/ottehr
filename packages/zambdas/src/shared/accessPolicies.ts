@@ -354,6 +354,10 @@ export const PROVIDER_RULES: AccessPolicy = {
   ],
 };
 
+export const CUSTOMER_SUPPORT_RULES: AccessPolicy = {
+  rule: [...ADMINISTRATOR_RULES.rule, ...PROVIDER_RULES.rule],
+};
+
 export const PRESCRIBER_RULES: AccessPolicy['rule'] = [
   {
     action: ['FHIR:Search', 'FHIR:Read'],

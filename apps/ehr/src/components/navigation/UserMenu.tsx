@@ -14,16 +14,16 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { FC, MouseEvent, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ProviderNotifications } from 'src/features';
 import { UnsolicitedResultsIcon } from 'src/features/external-labs/components/unsolicited-results/UnsolicitedResultsIcon';
 import {
   useCheckPractitionerEnrollment,
   useConnectPractitionerToERX,
   useEnrollPractitionerToERX,
-} from 'src/shared/hooks/appointment/appointment.queries';
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { getPractitionerMissingFields } from 'src/shared/utils';
 import { getFullestAvailableName, PROJECT_NAME, RoleType } from 'utils';
 import { dataTestIds } from '../../constants/data-test-ids';
-import { ProviderNotifications } from '../../features';
 import useEvolveUser from '../../hooks/useEvolveUser';
 
 export const UserMenu: FC = () => {

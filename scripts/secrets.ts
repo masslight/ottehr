@@ -1,4 +1,4 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env npm exec -- tsx
 
 import * as fs from 'fs';
 import * as path from 'path';

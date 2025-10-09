@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getExternalLabOrdersUrl } from 'src/features/in-person/routing/helpers';
+import { getExternalLabOrdersUrl } from 'src/features/visits/in-person/routing/helpers';
 import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
   DeleteLabOrderZambdaInput,
@@ -14,6 +14,7 @@ import {
   LabOrdersSearchBy,
   PaginatedResponse,
   PatientLabItem,
+  PdfAttachmentDTO,
   ReflexLabDTO,
   SpecimenDateChangedParameters,
   TaskReviewedParameters,
@@ -25,7 +26,7 @@ import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLa
 
 interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   labOrders: LabOrderDTO<SearchBy>[];
-  reflexResults: ReflexLabDTO[];
+  drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[];
   loading: boolean;
   error: Error | null;
   totalPages: number;
@@ -63,7 +64,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   const [groupedLabOrdersForChartTable, setGroupedLabOrdersForChartTable] = useState<
     LabOrderListPageDTOGrouped | undefined
   >(undefined);
-  const [reflexResults, setReflexResults] = useState<ReflexLabDTO[]>([]);
+  const [drDrivenResults, setDrDrivenResults] = useState<(ReflexLabDTO | PdfAttachmentDTO)[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [totalPages, setTotalPages] = useState(1);
@@ -132,7 +133,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
             data: [],
             pagination: EMPTY_PAGINATION,
             patientLabItems: [],
-            reflexResults: [],
+            drDrivenResults: [],
           };
           console.error('Error fetching external lab orders:', err);
           setError(err instanceof Error ? err : new Error('Unknown error occurred'));
@@ -141,10 +142,10 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
         if (response?.data) {
           setLabOrders(response.data as LabOrderDTO<SearchBy>[]);
           setPatientLabItems(response.patientLabItems || []);
-          setReflexResults(response.reflexResults as ReflexLabDTO[]);
+          setDrDrivenResults(response.drDrivenResults as ReflexLabDTO[]);
 
           if (searchParams.searchBy.field === 'encounterId') {
-            setGroupedLabOrdersForChartTable(groupLabOrderListPageDTOs(response.data, response.reflexResults));
+            setGroupedLabOrdersForChartTable(groupLabOrderListPageDTOs(response.data, response.drDrivenResults));
           }
 
           if (response.pagination) {
@@ -156,7 +157,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
           }
         } else {
           setLabOrders([]);
-          setReflexResults([]);
+          setDrDrivenResults([]);
           setPatientLabItems([]);
           setTotalPages(1);
           setShowPagination(false);
@@ -293,7 +294,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
   return {
     labOrders,
-    reflexResults,
+    drDrivenResults,
     loading,
     error,
     totalPages,
@@ -315,7 +316,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
 const groupLabOrderListPageDTOs = (
   labOrders: LabOrderListPageDTO[],
-  reflexResults: ReflexLabDTO[]
+  drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[]
 ): LabOrderListPageDTOGrouped | undefined => {
   if (!labOrders.length) return;
 
@@ -327,7 +328,10 @@ const groupLabOrderListPageDTOs = (
     ExternalLabsStatus.corrected,
   ]);
 
-  const addToGroup = (item: LabOrderListPageDTO | ReflexLabDTO, orders: LabOrderListPageDTOGrouped): void => {
+  const addToGroup = (
+    item: LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO,
+    orders: LabOrderListPageDTOGrouped
+  ): void => {
     const requisitionNumber = item.orderNumber;
 
     if (!requisitionNumber) {
@@ -350,7 +354,7 @@ const groupLabOrderListPageDTOs = (
     }
   };
 
-  [...labOrders, ...reflexResults].forEach((item) => addToGroup(item, orders));
+  [...labOrders, ...drDrivenResults].forEach((item) => addToGroup(item, orders));
 
   return orders;
 };

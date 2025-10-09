@@ -255,6 +255,11 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           items: itemItems,
           guarantorResource: accountInfo?.guarantorResource,
         });
+      } else if (EMERGENCY_CONTACT_ITEMS.includes(item.linkId)) {
+        return mapEmergencyContactToQuestionnaireResponseItems({
+          items: itemItems,
+          emergencyContactResource: accountInfo?.emergencyContactResource,
+        });
       } else if (COVERAGE_ITEMS.includes(item.linkId)) {
         return mapCoveragesToQuestionnaireResponseItems({
           items: itemItems,
@@ -348,7 +353,15 @@ export interface PrePopulationFromPatientRecordInput extends PatientAccountRespo
 export const makePrepopulatedItemsFromPatientRecord = (
   input: PrePopulationFromPatientRecordInput
 ): QuestionnaireResponseItem[] => {
-  const { patient, questionnaire, primaryCarePhysician, coverages, guarantorResource, insuranceOrgs } = input;
+  const {
+    patient,
+    questionnaire,
+    primaryCarePhysician,
+    coverages,
+    guarantorResource,
+    insuranceOrgs,
+    emergencyContactResource,
+  } = input;
   console.log('making prepopulated items from patient record', coverages);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
@@ -376,6 +389,9 @@ export const makePrepopulatedItemsFromPatientRecord = (
       }
       if (GUARANTOR_ITEMS.includes(item.linkId)) {
         return mapGuarantorToQuestionnaireResponseItems({ items: itemItems, guarantorResource });
+      }
+      if (EMERGENCY_CONTACT_ITEMS.includes(item.linkId)) {
+        return mapEmergencyContactToQuestionnaireResponseItems({ items: itemItems, emergencyContactResource });
       }
       return [];
     })();
@@ -993,6 +1009,70 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
     }
     if (linkId === 'responsible-party-zip' && zip) {
       answer = makeAnswer(zip);
+    }
+    return {
+      linkId,
+      answer,
+    };
+  });
+};
+
+const EMERGENCY_CONTACT_ITEMS = ['emergency-contact-section', 'emergency-contact-page'];
+interface MapEmergencyContactInput {
+  items: QuestionnaireItem[];
+  emergencyContactResource?: RelatedPerson;
+}
+
+const mapEmergencyContactToQuestionnaireResponseItems = (
+  input: MapEmergencyContactInput
+): QuestionnaireResponseItem[] => {
+  const { emergencyContactResource, items } = input;
+
+  const phone = formatPhoneNumberDisplay(
+    emergencyContactResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''
+  );
+
+  let firstName = '';
+  let middleName = '';
+  let lastName = '';
+  if (emergencyContactResource) {
+    firstName = getFirstName(emergencyContactResource) ?? '';
+    middleName = getMiddleName(emergencyContactResource) ?? '';
+    lastName = getLastName(emergencyContactResource) ?? '';
+  }
+
+  let relationship: string | undefined;
+  if (emergencyContactResource) {
+    const relationCode = emergencyContactResource?.relationship;
+    if (relationCode?.[0]) {
+      const cc = relationCode[0];
+      const coding = cc?.coding?.[0];
+
+      // would be an improvement not to have to rely on display like this
+      if (coding && coding.display) {
+        relationship = coding.display;
+      }
+    }
+  }
+
+  return items.map((item) => {
+    let answer: QuestionnaireResponseItemAnswer[] | undefined;
+    const { linkId } = item;
+
+    if (linkId === 'emergency-contact-relationship' && relationship) {
+      answer = makeAnswer(relationship);
+    }
+    if (linkId === 'emergency-contact-first-name' && firstName) {
+      answer = makeAnswer(firstName);
+    }
+    if (linkId === 'emergency-contact-middle-name' && middleName) {
+      answer = makeAnswer(middleName);
+    }
+    if (linkId === 'emergency-contact-last-name' && lastName) {
+      answer = makeAnswer(lastName);
+    }
+    if (linkId === 'emergency-contact-number' && phone) {
+      answer = makeAnswer(phone);
     }
     return {
       linkId,

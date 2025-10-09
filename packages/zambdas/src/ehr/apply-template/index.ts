@@ -261,7 +261,6 @@ const makeCreateRequests = (
       resourceToCreate.code?.coding?.find((c) => c.system === 'http://hl7.org/fhir/sid/icd-10')
     ) {
       const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
-        console.log('alex ', d.condition.reference?.split('/')[1], containedResource.id, ')');
         return d.condition.reference?.split('/')[1] === containedResource.id;
       });
       encounterDiagnoses.push({

@@ -30,10 +30,15 @@ const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
 
 interface CreditCardVerificationProps {
   onChange: (event: { target: { value: boolean } }) => void;
+  required: boolean;
   value?: boolean;
 }
 
-export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value: validCreditCardOnFile, onChange }) => {
+export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
+  value: validCreditCardOnFile,
+  required,
+  onChange,
+}) => {
   const [cards, setCards] = useState<CreditCardInfo[]>([]);
   const [selectedOption, setSelectedOption] = useState<string | undefined>(cards.find((card) => card.default)?.id);
   const { patient } = usePaperworkContext();
@@ -89,20 +94,6 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
   };
 
   const isInitialLoad = (setupData === undefined && isSetupDataLoading) || (cards.length === 0 && cardsAreLoading);
-  if (isInitialLoad) {
-    console.log(
-      'bottleneck check (setupData === undefined && isSetupDataLoading)',
-      setupData === undefined && isSetupDataLoading,
-      setupData === undefined,
-      isSetupDataLoading
-    );
-    console.log(
-      'bottleneck check (cards.length === 0 && cardsAreLoading)',
-      cards.length === 0 && cardsAreLoading,
-      cards.length === 0,
-      cardsAreLoading
-    );
-  }
   return (
     <Box
       sx={{
@@ -126,6 +117,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
           selectedOption={selectedOption}
           cards={cards}
           disabled={disabled}
+          required={required}
           errorMessage={errorMessage}
           setErrorMessage={setErrorMessage}
           onMakePrimary={onMakePrimary}
@@ -142,6 +134,7 @@ interface CreditCardContentProps {
   selectedOption: string | undefined;
   cards: CreditCardInfo[];
   disabled: boolean;
+  required: boolean;
   errorMessage: string | undefined;
   setErrorMessage: (message: string | undefined) => void;
   onMakePrimary: (id: string, refreshOnSuccess?: boolean) => void;
@@ -156,6 +149,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     selectedOption,
     disabled,
     errorMessage,
+    required,
     setErrorMessage,
     onMakePrimary,
     handleNewPaymentMethod,
@@ -167,7 +161,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         <BoldPurpleInputLabel
           id="default-card-selection-label"
           htmlFor="default-card-selection-group"
-          required={true}
+          required={required}
           sx={(theme) => ({
             whiteSpace: 'pre-wrap',
             position: 'unset',
