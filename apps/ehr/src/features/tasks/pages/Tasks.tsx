@@ -21,16 +21,18 @@ import {
   Typography,
 } from '@mui/material';
 import { Stack } from '@mui/system';
-import React, { ReactElement, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { ReactElement, useEffect, useState } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import { GenericToolTip } from 'src/components/GenericToolTip';
-import LocationSelect from 'src/components/LocationSelect';
+import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
+import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
+import { SelectInput } from 'src/components/input/SelectInput';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
 import { Task, useAssignTask, useGetTasks, useUnassignTask } from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
-import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { formatDate } from '../common';
 import { AssignTaskDialog } from '../components/AssignTaskDialog';
 import { CategoryChip } from '../components/CategoryChip';
@@ -44,18 +46,13 @@ const TASK_STATUS_LABEL: Record<string, string> = {
 };
 
 export const Tasks: React.FC = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const queryParams = useMemo(() => {
-    return new URLSearchParams(location.search);
-  }, [location.search]);
   const { data: tasks } = useGetTasks();
   const { mutateAsync: assignTask, isPending: isAssigning } = useAssignTask();
   const { mutateAsync: unassignTask } = useUnassignTask();
   const currentUser = useEvolveUser();
   const currentUserProviderId = currentUser?.profile?.split('/')[1];
 
-  const [locationSelected, setLocationSelected] = useState<LocationWithWalkinSchedule | undefined>(undefined);
   const [moreActionsPopoverData, setMoreActionsPopoverData] = useState<{
     element: HTMLButtonElement;
     task: Task;
@@ -116,19 +113,33 @@ export const Tasks: React.FC = () => {
     setMoreActionsPopoverData(null);
   };
 
+  const methods = useForm();
+
+  useEffect(() => {
+    const callback = methods.subscribe({
+      formState: {
+        values: true,
+      },
+      callback: ({ values }) => {
+        console.log(values);
+      },
+    });
+    return () => callback();
+  }, [methods]);
+
   return (
     <PageContainer>
       <Stack spacing={2}>
-        <Stack direction="row">
-          <LocationSelect
-            queryParams={queryParams}
-            //handleSubmit={handleSubmit}
-            location={locationSelected}
-            updateURL={true}
-            storeLocationInLocalStorage={true}
-            setLocation={setLocationSelected}
-          />
-        </Stack>
+        <FormProvider {...methods}>
+          <Paper>
+            <Stack direction="row" spacing={2} padding="8px">
+              <LocationSelectInput name="location" label="Location" />
+              <SelectInput name="category" label="Category" options={[]} />
+              <ProviderSelectInput name="asignedTo" label="Asigned to" />
+              <SelectInput name="status" label="Status" options={[]} />
+            </Stack>
+          </Paper>
+        </FormProvider>
         <Paper>
           <Table sx={{ width: '100%' }}>
             <TableHead>
