@@ -680,7 +680,7 @@ export default function AppointmentPage(): ReactElement {
             {
               // Consent
               method: 'GET',
-              url: `/DocumentReference?_sort=-_lastUpdated&subject=Patient/${patientID}&related=Appointment/${appointmentID}`,
+              url: `/DocumentReference?status=current&_sort=-_lastUpdated&subject=Patient/${patientID}&related=Appointment/${appointmentID}`,
             },
             {
               // Photo ID & Insurance Cards
