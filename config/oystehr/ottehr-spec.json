@@ -1152,6 +1152,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/send-receipt-by-email/index",
       "zip": ".dist/zips/send-receipt-by-email.zip"
+    },
+    "INVOICEABLE_PATIENTS_REPORT": {
+      "name": "invoiceable-patients-report",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/invoiceable-patients-report/index",
+      "zip": ".dist/zips/invoiceable-patients-report.zip"
     }
   },
   "faxNumbers": {
