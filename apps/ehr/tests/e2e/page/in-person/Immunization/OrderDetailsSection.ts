@@ -65,4 +65,10 @@ export class OrderDetailsSection {
       this.#page.getByTestId(dataTestIds.orderVaccinePage.instructions).locator('textarea').locator('visible=true')
     ).toHaveValue(instructions);
   }
+
+  async verifyOrderedBy(orderedBy: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.orderVaccinePage.orderedBy).locator('input')).toHaveValue(
+      orderedBy
+    );
+  }
 }
