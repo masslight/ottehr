@@ -142,7 +142,7 @@ export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskReques
         id: input.taskId,
         operations: [
           {
-            op: 'replace',
+            op: 'add',
             path: 'owner',
             value: {
               reference: 'Practitioner/' + input.assignee.id,

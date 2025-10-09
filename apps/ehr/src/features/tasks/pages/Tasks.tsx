@@ -27,7 +27,7 @@ import { GenericToolTip } from 'src/components/GenericToolTip';
 import LocationSelect from 'src/components/LocationSelect';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
-import { Task, useGetTasks } from 'src/features/visits/in-person/hooks/useTasks';
+import { Task, useAssignTask, useGetTasks, useUnassignTask } from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
@@ -50,6 +50,8 @@ export const Tasks: React.FC = () => {
     return new URLSearchParams(location.search);
   }, [location.search]);
   const { data: tasks } = useGetTasks();
+  const { mutateAsync: assignTask, isPending: isAssigning } = useAssignTask();
+  const { mutateAsync: unassignTask } = useUnassignTask();
   const currentUser = useEvolveUser();
   const currentUserProviderId = currentUser?.profile?.split('/')[1];
 
@@ -66,7 +68,21 @@ export const Tasks: React.FC = () => {
     }
     if (!task.assignee) {
       return (
-        <RoundedButton variant="outlined" onClick={() => console.log('Assign Me')}>
+        <RoundedButton
+          variant="outlined"
+          onClick={async () => {
+            if (currentUserProviderId && currentUser?.name) {
+              await assignTask({
+                taskId: task.id,
+                assignee: {
+                  id: currentUserProviderId,
+                  name: currentUser.name,
+                },
+              });
+            }
+          }}
+          loading={isAssigning}
+        >
           Assign Me
         </RoundedButton>
       );
@@ -236,48 +252,41 @@ export const Tasks: React.FC = () => {
             }}
           >
             <List>
-              {currentUserProviderId === moreActionsPopoverData.task?.assignee?.id ? (
+              {moreActionsPopoverData.task?.assignee?.id ? (
                 <ListItem disablePadding>
                   <ListItemButton
-                    onClick={() => {
-                      console.log('Unassign me');
+                    onClick={async () => {
+                      await unassignTask({
+                        taskId: moreActionsPopoverData.task.id,
+                      });
                       closeMoreActionsPopover();
                     }}
                   >
                     <ListItemIcon>
                       <ShortcutIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
                     </ListItemIcon>
-                    <ListItemText primary="Unassign me" />
+                    <ListItemText primary="Unassign" />
                   </ListItemButton>
                 </ListItem>
-              ) : null}
-              <ListItem disablePadding>
-                <ListItemButton
-                  onClick={() => {
-                    setTaskToAssign(moreActionsPopoverData.task);
-                    console.log('Assign to someone else');
-                    closeMoreActionsPopover();
-                  }}
-                >
-                  <ListItemIcon>
-                    <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
-                  </ListItemIcon>
-                  <ListItemText primary="Assign to someone else" />
-                </ListItemButton>
-              </ListItem>
+              ) : (
+                <ListItem disablePadding>
+                  <ListItemButton
+                    onClick={() => {
+                      setTaskToAssign(moreActionsPopoverData.task);
+                      closeMoreActionsPopover();
+                    }}
+                  >
+                    <ListItemIcon>
+                      <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
+                    </ListItemIcon>
+                    <ListItemText primary="Assign to someone else" />
+                  </ListItemButton>
+                </ListItem>
+              )}
             </List>
           </Popover>
         ) : null}
-        {taskToAssign ? (
-          <AssignTaskDialog
-            task={taskToAssign}
-            handleClose={() => setTaskToAssign(null)}
-            handleConfirm={() => {
-              // todo assign the task
-              setTaskToAssign(null);
-            }}
-          />
-        ) : null}
+        {taskToAssign ? <AssignTaskDialog task={taskToAssign} handleClose={() => setTaskToAssign(null)} /> : null}
       </Stack>
     </PageContainer>
   );
