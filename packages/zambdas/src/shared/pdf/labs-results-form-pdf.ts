@@ -754,7 +754,12 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
   const { type, data } = dataConfig;
 
   let pdfBytes: Uint8Array | undefined;
-  if (type === LabType.unsolicited || type === LabType.reflex || type === LabType.external) {
+  if (
+    type === LabType.unsolicited ||
+    type === LabType.reflex ||
+    type === LabType.external ||
+    type === LabType.pdfAttachment
+  ) {
     console.log('Getting pdf bytes for general external lab results');
     pdfBytes = await setUpAndDrawAllExternalLabResultTypesFormPdfBytes(dataConfig);
   } else if (type === LabType.inHouse) {

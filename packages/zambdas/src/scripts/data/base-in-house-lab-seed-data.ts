@@ -1,4 +1,4 @@
-import { TestItem } from '../load-in-house-labs-tests';
+import { TestItem } from '../labs/load-in-house-labs-tests';
 
 // seed data for base ottehr and UK
 export const testItems: TestItem[] = [
