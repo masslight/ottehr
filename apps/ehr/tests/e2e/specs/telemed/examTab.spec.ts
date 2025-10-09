@@ -34,8 +34,8 @@ test.describe('Fields tests', async () => {
   test("Should enter some text in 'Provider' field", async () => {
     await page
       .getByTestId(dataTestIds.telemedEhrFlow.examTabTable)
-      .locator("input[type='text']:not([role='combobox'])")
-      .first()
+      .getByRole('row', { name: 'General' })
+      .getByRole('textbox')
       .fill(providerComment);
     await waitForSaveChartDataResponse(page);
   });
