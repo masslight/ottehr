@@ -26,7 +26,7 @@ export const LabsTablePatientRecord = ({
 }: LabsTablePatientRecordProps): ReactElement => {
   const {
     labOrders,
-    reflexResults,
+    drDrivenResults,
     loading,
     totalPages,
     page,
@@ -137,7 +137,7 @@ export const LabsTablePatientRecord = ({
               ) : (
                 <LabsTable
                   columns={columns}
-                  labOrders={[...labOrders, ...reflexResults]}
+                  labOrders={[...labOrders, ...drDrivenResults]}
                   allowDelete={false}
                   showDeleteLabOrderDialog={showDeleteLabOrderDialog}
                 />

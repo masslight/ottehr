@@ -11,8 +11,8 @@ import {
   getAvailableSlotsForSchedules,
   getSecret,
   getTaskResource,
-  isAppointmentVirtual,
   isPostTelemedAppointment,
+  isTelemedAppointment,
   isValidUUID,
   normalizeSlotToUTC,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
@@ -104,7 +104,7 @@ export const index = wrapHandler('update-appointment', async (input: ZambdaInput
     console.log(`checking appointment with id ${appointmentID} is not checked in`);
     // https://github.com/masslight/ottehr/issues/2431
     // todo: remove the second condition once virtual prebook appointments begin in 'booked' status
-    if (fhirAppointment.status === 'arrived' && !isAppointmentVirtual(fhirAppointment)) {
+    if (fhirAppointment.status === 'arrived' && !isTelemedAppointment(fhirAppointment)) {
       throw CANT_UPDATE_CHECKED_IN_APT_ERROR;
     } else if (fhirAppointment.status === 'cancelled') {
       throw CANT_UPDATE_CANCELED_APT_ERROR;

@@ -1,7 +1,7 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { CssHeader } from 'tests/e2e/page/CssHeader';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
+import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { MedicalConditionsPage } from 'tests/e2e/page/MedicalConditionsPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
@@ -45,10 +45,10 @@ test('MC-1 Medical Conditions. Happy Path', async ({ page }) => {
 
 async function prepareAndOpenMedicalConditions(page: Page): Promise<MedicalConditionsPage> {
   await page.goto(`in-person/${resourceHandler.appointment.id}`);
-  const cssHeader = new CssHeader(page);
-  await cssHeader.selectIntakePractitioner();
-  await cssHeader.selectProviderPractitioner();
-  await cssHeader.clickSwitchModeButton('provider');
+  const inPersonHeader = new InPersonHeader(page);
+  await inPersonHeader.selectIntakePractitioner();
+  await inPersonHeader.selectProviderPractitioner();
+  await inPersonHeader.clickSwitchModeButton('provider');
   const sideMenu = new SideMenu(page);
   const medicalConditionsPage = await sideMenu.clickMedicalConditions();
   return medicalConditionsPage;

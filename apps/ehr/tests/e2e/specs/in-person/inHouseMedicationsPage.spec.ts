@@ -1,6 +1,6 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { CssHeader } from 'tests/e2e/page/CssHeader';
+import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { Field } from '../../page/EditMedicationCard';
@@ -203,10 +203,10 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
 
 async function prepareAndOpenOrderMedicationPage(page: Page): Promise<OrderMedicationPage> {
   await page.goto(`in-person/${resourceHandler.appointment.id}`);
-  const cssHeader = new CssHeader(page);
-  await cssHeader.selectIntakePractitioner();
-  await cssHeader.selectProviderPractitioner();
-  await cssHeader.clickSwitchModeButton('provider');
+  const inPersonHeader = new InPersonHeader(page);
+  await inPersonHeader.selectIntakePractitioner();
+  await inPersonHeader.selectProviderPractitioner();
+  await inPersonHeader.clickSwitchModeButton('provider');
   const sideMenu = new SideMenu(page);
   await sideMenu.clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);

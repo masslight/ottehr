@@ -1,9 +1,9 @@
 import { Box, IconButton, TableCell, TableRow } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
-import { CSSModal } from 'src/features/css-module/components/CSSModal';
+import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
+import { deleteIcon } from 'src/themes/ottehr';
 import { NursingOrder } from 'utils';
-import { deleteIcon } from '../../../../themes/ottehr';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 import { NursingOrdersTableColumn } from './NursingOrdersTable';
 import { useUpdateNursingOrder } from './useNursingOrders';
@@ -96,7 +96,7 @@ export const NursingOrdersTableRow = ({
           <TableCell key={column}>{renderCellContent(column)}</TableCell>
         ))}
       </TableRow>
-      <CSSModal
+      <InPersonModal
         title="Cancel Nursing Order"
         description={`Are you sure you want to cancel this order "${nursingOrderData.note}"?`}
         open={isDeleteDialogOpen}

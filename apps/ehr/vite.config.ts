@@ -8,6 +8,8 @@ import svgr from 'vite-plugin-svgr';
 import viteTsconfigPaths from 'vite-tsconfig-paths';
 
 export default ({ mode }: { mode: string }): UserConfig => {
+  console.log(`Mode is: ${mode}`);
+
   const envDir = './env';
   const env = loadEnv(mode, path.join(process.cwd(), envDir), '');
 

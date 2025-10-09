@@ -3,10 +3,10 @@ import { Box, Paper, Tab } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useMatch, useNavigate } from 'react-router-dom';
 import { VIRTUAL_LOCATIONS_URL } from 'src/App';
-import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
+import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import Insurances from '../features/visits/telemed/components/telemed-admin/Insurance';
+import States from '../features/visits/telemed/components/telemed-admin/VirtualLocationsPage';
 import PageContainer from '../layout/PageContainer';
-import Insurances from '../telemed/features/telemed-admin/Insurance';
-import States from '../telemed/features/telemed-admin/VirtualLocationsPage';
 
 enum PageTab {
   insurance = 'insurances',
@@ -50,13 +50,13 @@ export function TelemedAdminPage(): JSX.Element {
               </TabList>
             </Box>
             <ButtonRounded
-              onClick={() => navigate(`/data`)}
+              onClick={() => navigate(`/reports`)}
               variant="outlined"
               sx={{
                 whiteSpace: 'nowrap',
               }}
             >
-              Data Reports
+              Reports
             </ButtonRounded>
           </Box>
           <Paper sx={{ marginTop: 5 }}>

@@ -1,28 +1,21 @@
-import { FormControl, FormLabel, TextField } from '@mui/material';
+import { FormControl, TextField, Typography, useTheme } from '@mui/material';
 import { Controller } from 'react-hook-form';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { isNPIValid, RoleType } from 'utils';
-import { dataTestIds } from '../../constants/data-test-ids';
+import { ProviderTypeField } from './ProviderType';
 import { ProviderDetailsProps } from './types';
 
-export function ProviderDetails({ control, photoSrc, roles }: ProviderDetailsProps): JSX.Element {
+export function ProviderDetails({ control, setValue, photoSrc, roles }: ProviderDetailsProps): JSX.Element {
+  const theme = useTheme();
+
   return (
     <FormControl sx={{ width: '100%' }}>
-      <FormLabel sx={{ mt: 3, fontWeight: '600 !important' }}>Provider details</FormLabel>
+      <Typography sx={{ ...theme.typography.h4, color: theme.palette.primary.dark, mb: 2 }}>
+        Provider details
+      </Typography>
       {photoSrc && <img src={photoSrc} width="110" height="110" style={{ borderRadius: '50%' }} />}
-      <Controller
-        name="nameSuffix"
-        control={control}
-        render={({ field: { onChange, value } }) => (
-          <TextField
-            label="Credentials"
-            data-testid={dataTestIds.employeesPage.providerDetailsCredentials}
-            value={value || ''}
-            onChange={onChange}
-            sx={{ marginTop: 3, width: '100%' }}
-            margin="dense"
-          />
-        )}
-      />
+      <ProviderTypeField control={control} setValue={setValue} />
+
       <Controller
         name="npi"
         control={control}

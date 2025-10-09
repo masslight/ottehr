@@ -8,9 +8,9 @@ import {
   getAppointmentLockMetaTagOperations,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
+  getInPersonVisitStatus,
   getPatchBinary,
   getTaskResource,
-  getVisitStatus,
   SignAppointmentInput,
   SignAppointmentResponse,
   TaskIndicator,
@@ -82,7 +82,7 @@ export const performEffect = async (
   }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
-  const currentStatus = getVisitStatus(appointment, encounter);
+  const currentStatus = getInPersonVisitStatus(appointment, encounter);
   if (currentStatus) {
     await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, supervisorApprovalEnabled);
   }
