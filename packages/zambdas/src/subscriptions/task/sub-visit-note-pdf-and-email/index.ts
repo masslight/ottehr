@@ -57,7 +57,7 @@ let oystehrToken: string;
 let oystehr: Oystehr;
 let taskId: string | undefined;
 
-const ZAMBDA_NAME = 'sub-send-claim';
+const ZAMBDA_NAME = 'sub-visit-note-pdf-and-email';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
