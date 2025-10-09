@@ -116,12 +116,12 @@ export class VaccineDetailsPage {
 
   async clickNotAdministeredButton(): Promise<AdministeredDialogue> {
     await this.#page.getByTestId(dataTestIds.vaccineDetailsPage.notAdministeredButton).click();
-    return await expectAdministrationConfirmationDialogue(this.#page);
+    return expectAdministrationConfirmationDialogue(this.#page);
   }
 
   async clickPartlyAdministeredButton(): Promise<AdministeredDialogue> {
     await this.#page.getByTestId(dataTestIds.vaccineDetailsPage.partlyAdministeredButton).click();
-    return await expectAdministrationConfirmationDialogue(this.#page);
+    return expectAdministrationConfirmationDialogue(this.#page);
   }
 }
 export async function expectVaccineDetailsPage(page: Page): Promise<VaccineDetailsPage> {

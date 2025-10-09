@@ -1,6 +1,5 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { expectAdministrationConfirmationDialogue } from 'tests/e2e/page/in-person/Immunization/AdministrationConfirmationDialog';
 import { openCreateVaccineOrderPage } from 'tests/e2e/page/in-person/Immunization/EditVaccineOrderPage';
 import { openImmunizationPage } from 'tests/e2e/page/in-person/Immunization/ImmunizationPage';
 import { OrderDetailsSection } from 'tests/e2e/page/in-person/Immunization/OrderDetailsSection';
@@ -170,8 +169,7 @@ test.describe('Immunization Page mutating tests', () => {
     const vaccineDetailsPage = await immunizationPage.clickVaccineDetailsTab();
     await verifyVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
     await enterAdministrationDetails(ADMINISTRATION_DETAILS, vaccineDetailsPage);
-    await vaccineDetailsPage.clickPartlyAdministeredButton();
-    const administrationConfirmationDialog = await expectAdministrationConfirmationDialogue(page);
+    const administrationConfirmationDialog = await vaccineDetailsPage.clickPartlyAdministeredButton();
     await administrationConfirmationDialog.verifyTitle('Order Partly Administered');
     await administrationConfirmationDialog.verifyPatientName(
       'Patient: ' + resourceHandler.patient?.name?.[0]?.family + ', ' + resourceHandler.patient?.name?.[0]?.given?.[0]
@@ -205,8 +203,7 @@ test.describe('Immunization Page mutating tests', () => {
     const vaccineDetailsPage = await immunizationPage.clickVaccineDetailsTab();
     await verifyVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
     await enterAdministrationDetails(ADMINISTRATION_DETAILS, vaccineDetailsPage);
-    await vaccineDetailsPage.clickNotAdministeredButton();
-    const administrationConfirmationDialog = await expectAdministrationConfirmationDialogue(page);
+    const administrationConfirmationDialog = await vaccineDetailsPage.clickNotAdministeredButton();
     await administrationConfirmationDialog.verifyTitle('Order Not Administered');
     await administrationConfirmationDialog.verifyPatientName(
       'Patient: ' + resourceHandler.patient?.name?.[0]?.family + ', ' + resourceHandler.patient?.name?.[0]?.given?.[0]
