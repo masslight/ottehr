@@ -125,13 +125,6 @@ const main = async (): Promise<void> => {
   };
   pdfAttachmentDR.result = resultRefs;
 
-  // override existing filler id value
-  const randomString = Math.random().toString(36).substring(2, 14).toUpperCase();
-  const fillerIdIdx = pdfAttachmentDR.identifier?.findIndex((item) => item.type?.coding?.[0].code === 'FILL');
-  if (fillerIdIdx !== undefined && fillerIdIdx >= 0 && pdfAttachmentDR.identifier?.[fillerIdIdx]) {
-    pdfAttachmentDR.identifier[fillerIdIdx].value = randomString;
-  }
-
   // remove existing id and basedOn
   delete pdfAttachmentDR.id;
   delete pdfAttachmentDR.basedOn;
