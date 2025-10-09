@@ -1,8 +1,8 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { CssHeader } from './CssHeader';
 import { EditMedicationCard } from './EditMedicationCard';
 import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './in-person/InHouseMedicationsPage';
+import { InPersonHeader } from './InPersonHeader';
 import { SideMenu } from './SideMenu';
 
 export class OrderMedicationPage {
@@ -14,8 +14,8 @@ export class OrderMedicationPage {
     this.#editMedicationCard = new EditMedicationCard(this.#page);
   }
 
-  cssHeader(): CssHeader {
-    return new CssHeader(this.#page);
+  inPersonHeader(): InPersonHeader {
+    return new InPersonHeader(this.#page);
   }
 
   sideMenu(): SideMenu {
@@ -36,7 +36,7 @@ export class OrderMedicationPage {
 
   async clickBackButton(): Promise<InHouseMedicationsPage> {
     await this.#page.getByTestId(dataTestIds.orderMedicationPage.backButton).click();
-    const dialog = this.#page.getByTestId(dataTestIds.cssModal.confirmationDialogue);
+    const dialog = this.#page.getByTestId(dataTestIds.inPersonModal.confirmationDialogue);
     await dialog.waitFor({ state: 'visible', timeout: 500 }).catch(() => null);
     if (await dialog.isVisible()) {
       await this.#page.getByTestId(dataTestIds.dialog.cancelButton).click();

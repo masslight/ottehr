@@ -55,8 +55,9 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
 
     const inactiveRoleId = existingRoles.find((role: any) => role.name === RoleType.Inactive)?.id;
     const providerRoleId = existingRoles.find((role: any) => role.name === RoleType.Provider)?.id;
-    if (!inactiveRoleId || !providerRoleId) {
-      throw new Error('Error searching for Inactive or Provider role.');
+    const customerSupportRoleId = existingRoles.find((role: any) => role.name === RoleType.CustomerSupport)?.id;
+    if (!inactiveRoleId || !providerRoleId || !customerSupportRoleId) {
+      throw new Error('Error searching for Inactive, Provider or CustomerSupport role.');
     }
 
     console.log('Preparing the FHIR batch request.');
@@ -74,11 +75,13 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     const mixedPromises = [
       getRoleMembers(inactiveRoleId, oystehr),
       getRoleMembers(providerRoleId, oystehr),
+      getRoleMembers(customerSupportRoleId, oystehr),
       getResourcesRequest,
     ];
 
-    const [inactiveRoleMembers, providerRoleMembers, resources] = <
+    const [inactiveRoleMembers, providerRoleMembers, customerSupportRoleMembers, resources] = <
       [
+        PromiseInnerType<ReturnType<typeof getRoleMembers>>,
         PromiseInnerType<ReturnType<typeof getRoleMembers>>,
         PromiseInnerType<ReturnType<typeof getRoleMembers>>,
         Resource[],
@@ -86,12 +89,13 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     >await Promise.all(mixedPromises);
 
     console.log(
-      `Fetched ${inactiveRoleMembers.length} Inactive and ${providerRoleMembers.length} Provider role members.`
+      `Fetched ${inactiveRoleMembers.length} Inactive, ${providerRoleMembers.length} Provider and ${customerSupportRoleMembers.length} CustomerSupport role members.`
     );
 
     const inactiveMemberIds =
       inactiveRoleMembers.length > 0 ? inactiveRoleMembers?.map((member: { id: string }) => member.id) : undefined;
     const providerMemberIds = providerRoleMembers.map((member: { id: string }) => member.id);
+    const customerSupportMemberIds = customerSupportRoleMembers.map((member: { id: string }) => member.id);
 
     const recentlyActivePractitioners: string[] = extractParticipantsRefsFromResources(resources as FhirResource[]);
 
@@ -128,6 +132,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
         email: employee.email,
         status: status,
         isProvider: Boolean(providerMemberIds.includes(employee.id)),
+        isCustomerSupport: Boolean(customerSupportMemberIds.includes(employee.id)),
         lastLogin: practitioner?.meta?.tag?.find((tag) => tag.system === 'last-login')?.code ?? '',
         firstName: practitioner?.name?.[0].given?.join(' ') ?? '',
         lastName: practitioner?.name?.[0].family ?? '',

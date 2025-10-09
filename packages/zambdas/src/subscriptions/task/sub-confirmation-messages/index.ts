@@ -10,7 +10,7 @@ import {
   getPatientFirstName,
   getSecret,
   InPersonConfirmationTemplateData,
-  OTTEHR_MODULE,
+  isTelemedAppointment,
   SecretsKeys,
   TaskStatus,
   TelemedConfirmationTemplateData,
@@ -149,7 +149,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     let smsOutcome: 'success' | 'failed' | 'skipped' = 'skipped';
 
     if (fhirAppointment.id && startTime.isValid) {
-      const isTelemed = Boolean(fhirAppointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM));
+      const isTelemed = isTelemedAppointment(fhirAppointment);
       const patientEmail = getPatientContactEmail(fhirPatient);
       const firstName = getPatientFirstName(fhirPatient);
       let ownerName = getNameFromScheduleResource(fhirSchedule);
@@ -185,7 +185,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             }
             const url = makeVisitLandingUrl(fhirAppointment.id, secrets);
             const prep = fhirSchedule.resourceType === 'Location' ? 'at' : 'with';
-            const message = `You're confirmed! Thanks for choosing ${BRANDING_CONFIG.projectName}! Your check-in time for ${firstName} ${prep} ${ownerName} is ${readableTime}. Use this URL ${url} to: 1. Join the waiting room for your session 2. Complete your pre-visit paperwork and 3. Modify or Cancel your session.`;
+            const message = `You're confirmed! Thanks for choosing ${BRANDING_CONFIG.projectName}! Your check-in time for ${firstName} ${prep} ${ownerName} is ${readableTime}. Use this URL ${url} to: 1. Complete your pre-visit paperwork 2. Once you've completed the paperwork, you may join the session.`;
             const messageRecipient = `RelatedPerson/${fhirRelatedPerson?.id}`;
             const commId = await oystehr.transactionalSMS.send({
               message,

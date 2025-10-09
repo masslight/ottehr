@@ -3,8 +3,8 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, Encounter } from 'fhir/r4b';
 import {
   getAppointmentMetaTagOpForStatusUpdate,
+  getInPersonVisitStatus,
   getPatchBinary,
-  getVisitStatus,
   PRACTITIONER_CODINGS,
   User,
 } from 'utils';
@@ -30,7 +30,7 @@ export const assignPractitionerIfPossible = async (
     }),
   ];
 
-  const visitStatus = getVisitStatus(appointment, encounter);
+  const visitStatus = getInPersonVisitStatus(appointment, encounter);
   console.log('current visitStatus: ', visitStatus);
 
   // i believe the only time this will get hit is if the user does not assign a provider before clicking "complete intake"

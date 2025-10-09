@@ -13,8 +13,8 @@ export const dataTestIds = {
   header: {
     userName: 'header-user-name',
   },
-  cssHeader: {
-    container: 'css-header-container',
+  inPersonHeader: {
+    container: 'in-person-header-container',
     patientName: 'patient-name',
     appointmentStatus: 'appointment-status',
     switchModeButton: (status: string) => `switch-status-to-${status}`,
@@ -231,7 +231,8 @@ export const dataTestIds = {
     addressZip: 'employee-address-zip',
     rolesSection: 'employee-roles-section',
     roleRow: (employeeRole: RoleType): string => `employee-${employeeRole}-role`,
-    providerDetailsCredentials: 'employees-provider-details-credentials',
+    providerDetailsProviderTypeDropdown: 'employees-provider-details-provider-type-dropdown',
+    providerDetailsProviderTypeOtherText: 'employees-provider-details-provider-type',
     providerDetailsNPI: 'employees-provider-details-npi',
     submitButton: 'employees-form-submit-button',
     qualificationsTable: 'employee-qualifications-table',
@@ -294,6 +295,7 @@ export const dataTestIds = {
     hpiReasonForVisit: 'telemed-reason-for-visit',
     videoRoomContainer: 'telemed-video-room-container',
     endVideoCallButton: 'telemed-end-video-call-button',
+    finishVisitButton: 'telemed-finish-visit-button',
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
@@ -324,7 +326,7 @@ export const dataTestIds = {
     completeIntakeButton: 'complete-intake-button',
     sideMenuItem: (item: string): string => `menu-item-${item}`,
   },
-  cssModal: {
+  inPersonModal: {
     confirmationDialogue: 'confirmation-dialogue',
   },
   hospitalizationPage: {

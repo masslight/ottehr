@@ -1,7 +1,7 @@
 import { CodeableConcept } from 'fhir/r4b';
 import { ERX_MEDICATION_META_TAG_CODE } from '../../../fhir/constants';
 import { SCHOOL_WORK_NOTE } from '../../data';
-import { CSS_NOTE_ID, NOTHING_TO_EAT_OR_DRINK_ID } from './chart-data.types';
+import { IN_PERSON_NOTE_ID, NOTHING_TO_EAT_OR_DRINK_ID } from './chart-data.types';
 
 export type ProviderChartDataFieldsNames =
   | 'chief-complaint'
@@ -24,7 +24,7 @@ export type ProviderChartDataFieldsNames =
   | 'patient-info-confirmed'
   | 'addendum-note'
   | typeof NOTHING_TO_EAT_OR_DRINK_ID
-  | typeof CSS_NOTE_ID
+  | typeof IN_PERSON_NOTE_ID
   | 'birth-history'
   | 'ai-potential-diagnosis'
   | 'procedure'

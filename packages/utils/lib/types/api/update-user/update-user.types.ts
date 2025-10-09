@@ -6,7 +6,8 @@ export interface UpdateUserParams {
   firstName?: string;
   middleName?: string;
   lastName?: string;
-  nameSuffix?: string;
+  providerType?: string;
+  providerTypeText?: string;
   selectedRoles?: RoleType[];
   licenses?: PractitionerLicense[];
   phoneNumber?: string;

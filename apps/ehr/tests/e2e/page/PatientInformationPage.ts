@@ -829,6 +829,10 @@ export class PatientInformationPage {
     await this.#page.getByTestId(dataTestIds.patientInformationPage.addInsuranceButton).isVisible();
   }
 
+  async verifyCoverageAddedSuccessfullyMessageShown(): Promise<void> {
+    await expect(this.#page.getByText('Coverage added to patient account successfully.')).toBeVisible();
+  }
+
   async verifyCoverageRemovedMessageShown(): Promise<void> {
     await expect(this.#page.getByText('Coverage removed from patient account')).toBeVisible();
   }

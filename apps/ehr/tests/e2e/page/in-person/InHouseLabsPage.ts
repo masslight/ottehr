@@ -1,6 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
-import { CssHeader } from '../CssHeader';
+import { InPersonHeader } from '../InPersonHeader';
 import { expectOrderInHouseLabPage, OrderInHouseLabPage } from '../OrderInHouseLabPage';
 import { SideMenu } from '../SideMenu';
 
@@ -11,8 +11,8 @@ export class InHouseLabsPage {
     this.#page = page;
   }
 
-  cssHeader(): CssHeader {
-    return new CssHeader(this.#page);
+  inPersonHeader(): InPersonHeader {
+    return new InPersonHeader(this.#page);
   }
 
   sideMenu(): SideMenu {
