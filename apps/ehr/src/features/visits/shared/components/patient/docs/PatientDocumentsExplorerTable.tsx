@@ -119,7 +119,7 @@ export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProp
           },
         },
         sorting: {
-          sortModel: [{ field: 'whenAdded', sort: 'desc' }],
+          sortModel: [{ field: 'whenAddedDate', sort: 'desc' }],
         },
       }}
       autoHeight
