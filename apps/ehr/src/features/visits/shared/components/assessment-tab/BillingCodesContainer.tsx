@@ -3,11 +3,13 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
+import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { TooltipWrapper } from 'src/components/WithTooltip';
 import { CPT_TOOLTIP_PROPS } from 'src/components/WithTooltip';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
+import { APIErrorCode } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useGetIcd10Search } from '../../stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
@@ -20,7 +22,11 @@ export const BillingCodesContainer: FC = () => {
   const emCode = Array.isArray(chartData?.emCode) ? null : chartData?.emCode;
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'CPT' });
+  const {
+    isFetching: isSearching,
+    data,
+    error: icdSearchError,
+  } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'CPT' });
   const cptSearchOptions = data?.codes || [];
 
   const { mutate: saveEMChartData, isPending: isSaveEMLoading } = useSaveChartData();
@@ -118,6 +124,12 @@ export const BillingCodesContainer: FC = () => {
     }
   };
 
+  const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
+
+  const handleSetup = (): void => {
+    window.open('https://docs.oystehr.com/ottehr/setup/terminology/', '_blank');
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -178,6 +190,8 @@ export const BillingCodesContainer: FC = () => {
           </>
         )}
       </Box>
+
+      {nlmApiKeyMissing && <CompleteConfiguration handleSetup={handleSetup} />}
 
       {emCode && (
         <Box
