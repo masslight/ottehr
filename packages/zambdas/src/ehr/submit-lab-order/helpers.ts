@@ -367,7 +367,10 @@ function makeQuestionnairePromise(
   }
 
   const answers = questionnaireResponse.item;
-  if (!answers) throw Error(`QuestionnaireResponse is missing item, ${questionnaireResponse.id}`);
+  if (!answers) {
+    // this will happen when there is an aoe but all the questions are optional and the user does not answer them
+    return Promise.resolve({ serviceRequestID, questionsAndAnswers: undefined });
+  }
 
   return fetch(questionnaireUrl, {
     headers: {
