@@ -88,12 +88,6 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     return `skipped: status=${qr.status}`;
   }
 
-  const authored = qr.authored;
-  if (!authored) {
-    console.log(`Skipping harvest for QR ${qr.id} — no authored timestamp`);
-    return 'skipped: not a submit';
-  }
-
   const tasksFailed: string[] = [];
 
   console.time('querying for resources to support qr harvest');
@@ -143,18 +137,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     throw new Error('Patient resource not found');
   }
 
-  const submitIdentifier = `authored:${authored}`;
-
-  const alreadyProcessed = appointmentResource?.meta?.tag?.some(
-    (tag) => tag.system === 'harvested-qr-submission' && tag.code === submitIdentifier
-  );
-
-  if (alreadyProcessed) {
-    console.log(`Skipping harvest for QR ${qr.id} — authored ${authored} already processed`);
-    return `skipped: already processed authored=${authored}`;
-  }
-
-  console.log(`Running harvest for QR ${qr.id} (authored=${authored})`);
+  console.log(`Running harvest for QR ${qr.id}`);
 
   try {
     await updatePatientAccountFromQuestionnaire(
@@ -345,14 +328,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   try {
     console.time('Patching appointment resource tags');
-    const newTags: Coding[] = [
-      FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
-      {
-        system: 'harvested-qr-submission',
-        code: submitIdentifier,
-        display: `Processed QR submit at ${authored}`,
-      },
-    ];
+    const newTags: Coding[] = [FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG];
 
     const patchOps = getPatchOperationsForNewMetaTags(appointmentResource, newTags);
 
