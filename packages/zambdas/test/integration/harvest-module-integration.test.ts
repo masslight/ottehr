@@ -73,7 +73,6 @@ describe('Harvest Module Integration Tests', () => {
   const QR_WITH_PATIENT_GUARANTOR = (): QuestionnaireResponse => ({
     ...BASE_QR,
     item: replaceGuarantorWithPatient(BASE_QR.item ?? []),
-    authored: new Date().toISOString(),
   });
   const QR_WITH_PATIENT_PRIMARY_SUBSCRIBER = (): QuestionnaireResponse => ({
     ...BASE_QR,
@@ -2923,7 +2922,6 @@ describe('Harvest Module Integration Tests', () => {
       expect(getPaymentVariantFromEncounter(encounter)).toBe(undefined);
 
       qr = selectSelfPayOption(qr);
-      qr.authored = new Date().toISOString();
       let effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
       expect(['1 failed: update stripe customer', 'all tasks executed successfully']).toContain(effect);
 
@@ -2953,7 +2951,6 @@ describe('Harvest Module Integration Tests', () => {
       expect(getPaymentVariantFromEncounter(encounter)).toBe(undefined);
 
       qr = selectSelfPayOption(qr);
-      qr.authored = new Date().toISOString();
       effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
       expect(['1 failed: update stripe customer', 'all tasks executed successfully']).toContain(effect);
 
@@ -2979,7 +2976,6 @@ describe('Harvest Module Integration Tests', () => {
       expect(getPaymentVariantFromEncounter(encounter)).toBe(PaymentVariant.insurance);
 
       qr = selectSelfPayOption(qr);
-      qr.authored = new Date().toISOString();
       effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
       expect(['1 failed: update stripe customer', 'all tasks executed successfully']).toContain(effect);
 
@@ -3033,7 +3029,6 @@ describe('Harvest Module Integration Tests', () => {
       expect(encounter.extension).toBeDefined();
       expect(getPaymentVariantFromEncounter(encounter)).toBe(undefined);
 
-      qr.authored = new Date(Date.now() + 1000).toISOString();
       effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
       expect(['1 failed: update stripe customer', 'all tasks executed successfully']).toContain(effect);
 
@@ -3058,7 +3053,6 @@ describe('Harvest Module Integration Tests', () => {
       expect(encounter.extension).not.toBe(undefined);
       expect(getPaymentVariantFromEncounter(encounter)).toBe(PaymentVariant.selfPay);
 
-      qr.authored = new Date(Date.now() + 2000).toISOString();
       effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
       expect(['1 failed: update stripe customer', 'all tasks executed successfully']).toContain(effect);
 
