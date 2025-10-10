@@ -1,78 +1,11 @@
+import { SearchParam } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Task as FhirTask } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { codeableConcept, getCoding, TASK_CATEGORY_IDENTIFIER, TASK_INPUT_SYSTEM, TASK_TYPE_SYSTEM } from 'utils';
+import { getCoding, TASK_CATEGORY_IDENTIFIER, TASK_INPUT_SYSTEM, TASK_LOCATION_SYSTEM, TASK_TYPE_SYSTEM } from 'utils';
 
 const GET_TASKS_KEY = 'get-tasks';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
-
-const STUB_TASKS: FhirTask[] = [
-  {
-    resourceType: 'Task',
-    id: '12345',
-    intent: 'unknown',
-    status: 'requested',
-    groupIdentifier: {
-      system: TASK_CATEGORY_IDENTIFIER,
-      value: 'in-house-labs',
-    },
-    code: codeableConcept('collect-sample', TASK_TYPE_SYSTEM),
-    authoredOn: DateTime.now().toISO(),
-    input: [
-      {
-        type: codeableConcept('title', TASK_INPUT_SYSTEM),
-        valueString: 'Task title',
-      },
-      {
-        type: codeableConcept('subtitle', TASK_INPUT_SYSTEM),
-        valueString: 'Task subtitle',
-      },
-      {
-        type: codeableConcept('appointmentId', TASK_INPUT_SYSTEM),
-        valueString: 'stubAppointmentId',
-      },
-      {
-        type: codeableConcept('orderId', TASK_INPUT_SYSTEM),
-        valueString: 'stubOrderId',
-      },
-      {
-        type: codeableConcept('alert', TASK_INPUT_SYSTEM),
-        valueString: 'ALERT!',
-      },
-    ],
-  },
-  {
-    resourceType: 'Task',
-    id: '123456',
-    intent: 'unknown',
-    status: 'requested',
-    groupIdentifier: {
-      system: TASK_CATEGORY_IDENTIFIER,
-      value: 'external-labs',
-    },
-    code: codeableConcept('match', TASK_TYPE_SYSTEM),
-    authoredOn: DateTime.now().toISO(),
-    input: [
-      {
-        type: codeableConcept('title', TASK_INPUT_SYSTEM),
-        valueString: 'Task title2',
-      },
-      {
-        type: codeableConcept('subtitle', TASK_INPUT_SYSTEM),
-        valueString: 'Task subtitle2',
-      },
-      {
-        type: codeableConcept('appointmentId', TASK_INPUT_SYSTEM),
-        valueString: 'stubAppointmentId2',
-      },
-      {
-        type: codeableConcept('orderId', TASK_INPUT_SYSTEM),
-        valueString: 'stubOrderId2',
-      },
-    ],
-  },
-];
 
 export interface Task {
   id: string;
@@ -93,6 +26,13 @@ export interface Task {
   alert?: string;
 }
 
+export interface TasksSearchParams {
+  assignedTo?: string | null;
+  category?: string | null;
+  location?: string | null;
+  status?: string | null;
+}
+
 export interface AssignTaskRequest {
   taskId: string;
   assignee: {
@@ -105,29 +45,66 @@ export interface UnassignTaskRequest {
   taskId: string;
 }
 
-export const useGetTasks = (): UseQueryResult<Task[], Error> => {
+export const useGetTasks = ({
+  assignedTo,
+  category,
+  location,
+  status,
+}: TasksSearchParams): UseQueryResult<Task[], Error> => {
   const { oystehr } = useApiClients();
   return useQuery({
-    queryKey: [GET_TASKS_KEY],
+    queryKey: [GET_TASKS_KEY, assignedTo, category, location, status],
     queryFn: async () => {
       if (!oystehr) throw new Error('oystehr not defined');
-      /*const tasks = (
+      const params: SearchParam[] = [
+        {
+          name: '_tag',
+          value: 'task',
+        },
+        {
+          name: '_sort',
+          value: '-authored-on',
+        },
+        {
+          name: '_count',
+          value: '100',
+        },
+      ];
+      if (assignedTo) {
+        params.push({
+          name: 'owner',
+          value: 'Practitioner/' + assignedTo,
+        });
+      }
+      if (category) {
+        params.push({
+          name: 'group-identifier',
+          value: TASK_CATEGORY_IDENTIFIER + '|' + category,
+        });
+      }
+      if (location) {
+        params.push({
+          name: '_tag',
+          value: TASK_LOCATION_SYSTEM + '|' + location,
+        });
+      }
+      if (status) {
+        params.push({
+          name: 'status',
+          value: status,
+        });
+      }
+      const tasks = (
         await oystehr.fhir.search<FhirTask>({
           resourceType: 'Task',
-          params: [
-            {
-              name: '_tag',
-              value: 'task',
-            },
-          ],
+          params,
         })
-      ).unbundle();*/
-      const tasks = STUB_TASKS;
+      ).unbundle();
       return tasks.map(fhirTaskToTask);
     },
     enabled: oystehr != null,
     retry: 2,
-    staleTime: 10 * 1000,
+    staleTime: 5 * 1000,
   });
 };
 

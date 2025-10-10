@@ -5,6 +5,7 @@ import PriorityHighOutlinedIcon from '@mui/icons-material/PriorityHighOutlined';
 import ShortcutIcon from '@mui/icons-material/Shortcut';
 import {
   Box,
+  CircularProgress,
   IconButton,
   List,
   ListItem,
@@ -60,7 +61,6 @@ const STATUS_OPTIONS: Option[] = Object.entries(TASK_STATUS_LABEL).map((entry) =
 
 export const Tasks: React.FC = () => {
   const navigate = useNavigate();
-  const { data: tasks } = useGetTasks();
   const { mutateAsync: assignTask, isPending: isAssigning } = useAssignTask();
   const { mutateAsync: unassignTask } = useUnassignTask();
   const currentUser = useEvolveUser();
@@ -166,6 +166,13 @@ export const Tasks: React.FC = () => {
     return () => callback();
   }, [methods, navigate, setSearchParams]);
 
+  const { data: tasks, isLoading: isTasksLoading } = useGetTasks({
+    assignedTo: searchParams.get('assignedTo'),
+    category: searchParams.get('category'),
+    location: searchParams.get('location'),
+    status: searchParams.get('status'),
+  });
+
   return (
     <PageContainer>
       <Stack spacing={2}>
@@ -211,83 +218,102 @@ export const Tasks: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {(tasks ?? []).map((task) => {
-                return (
-                  <TableRow>
-                    <TableCell>
-                      <CategoryChip category={task.category} />
-                      <Typography
-                        variant="body2"
-                        display="inline"
-                        style={{ color: '#00000099', display: 'block', marginTop: '5px' }}
-                      >
-                        {formatDate(task.createdDate)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box>
+              {isTasksLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
+                    <CircularProgress />
+                  </TableCell>
+                </TableRow>
+              ) : null}
+              {!isTasksLoading && (tasks ?? []).length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
+                    <Typography variant="body2">No tasks</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : null}
+              {!isTasksLoading &&
+                (tasks ?? []).map((task) => {
+                  return (
+                    <TableRow>
+                      <TableCell>
+                        <CategoryChip category={task.category} />
                         <Typography
-                          variant="body1"
+                          variant="body2"
                           display="inline"
-                          style={{
-                            color: '#000000DE',
-                            fontWeight: 500,
-                            textDecoration: task.status === COMPLETED ? 'line-through' : 'none',
-                          }}
+                          style={{ color: '#00000099', display: 'block', marginTop: '5px' }}
                         >
-                          {task.title}
+                          {formatDate(task.createdDate)}
                         </Typography>
-                        {task.alert ? (
-                          <GenericToolTip title={task.alert} placement="top">
-                            <PriorityHighOutlinedIcon
-                              style={{
-                                width: '15px',
-                                height: '15px',
-                                color: '#FFF',
-                                background: otherColors.priorityHighIcon,
-                                borderRadius: '4px',
-                                padding: '1px 2px',
-                                marginLeft: '5px',
-                              }}
-                            />
-                          </GenericToolTip>
-                        ) : null}
-                      </Box>
-                      <Typography variant="body2" display="inline" style={{ color: '#00000099' }}>
-                        {task.subtitle}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {task.assignee ? (
-                        <>
-                          <Typography variant="body2">{task.assignee.name}</Typography>
-                          <Typography variant="body2" display="inline" style={{ color: '#00000099', display: 'block' }}>
-                            {formatDate(task.assignee.date)}
+                      </TableCell>
+                      <TableCell>
+                        <Box>
+                          <Typography
+                            variant="body1"
+                            display="inline"
+                            style={{
+                              color: '#000000DE',
+                              fontWeight: 500,
+                              textDecoration: task.status === COMPLETED ? 'line-through' : 'none',
+                            }}
+                          >
+                            {task.title}
                           </Typography>
-                        </>
-                      ) : (
-                        'Not Assigned'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <StatusChip
-                        status={TASK_STATUS_LABEL[task.status] ?? UNKNOWN}
-                        style={
-                          task.status === COMPLETED ? 'green' : task.status === 'in-progress' ? 'orange' : 'purple'
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {task.status !== COMPLETED ? (
-                        <Stack direction="row" justifyContent="space-between">
-                          {renderActionButton(task)}
-                          {renderMoreButton(task)}
-                        </Stack>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                          {task.alert ? (
+                            <GenericToolTip title={task.alert} placement="top">
+                              <PriorityHighOutlinedIcon
+                                style={{
+                                  width: '15px',
+                                  height: '15px',
+                                  color: '#FFF',
+                                  background: otherColors.priorityHighIcon,
+                                  borderRadius: '4px',
+                                  padding: '1px 2px',
+                                  marginLeft: '5px',
+                                }}
+                              />
+                            </GenericToolTip>
+                          ) : null}
+                        </Box>
+                        <Typography variant="body2" display="inline" style={{ color: '#00000099' }}>
+                          {task.subtitle}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {task.assignee ? (
+                          <>
+                            <Typography variant="body2">{task.assignee.name}</Typography>
+                            <Typography
+                              variant="body2"
+                              display="inline"
+                              style={{ color: '#00000099', display: 'block' }}
+                            >
+                              {formatDate(task.assignee.date)}
+                            </Typography>
+                          </>
+                        ) : (
+                          'Not Assigned'
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <StatusChip
+                          status={TASK_STATUS_LABEL[task.status] ?? UNKNOWN}
+                          style={
+                            task.status === COMPLETED ? 'green' : task.status === 'in-progress' ? 'orange' : 'purple'
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {task.status !== COMPLETED ? (
+                          <Stack direction="row" justifyContent="space-between">
+                            {renderActionButton(task)}
+                            {renderMoreButton(task)}
+                          </Stack>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
             </TableBody>
           </Table>
         </Paper>
