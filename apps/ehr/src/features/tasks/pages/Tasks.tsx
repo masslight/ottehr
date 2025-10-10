@@ -131,9 +131,9 @@ export const Tasks: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
     const filtersValues = {
-      asignedTo: searchParams.get('asignedTo')
+      assignedTo: searchParams.get('assignedTo')
         ? {
-            id: searchParams.get('asignedTo'),
+            id: searchParams.get('assignedTo'),
           }
         : null,
       category: searchParams.get('category'),
@@ -174,7 +174,7 @@ export const Tasks: React.FC = () => {
             <Stack direction="row" spacing={2} padding="8px">
               <LocationSelectInput name="location" label="Location" />
               <SelectInput name="category" label="Category" options={CATEGORY_OPTIONS} />
-              <ProviderSelectInput name="asignedTo" label="Asigned to" />
+              <ProviderSelectInput name="assignedTo" label="Asigned to" />
               <SelectInput name="status" label="Status" options={STATUS_OPTIONS} />
             </Stack>
           </Paper>
