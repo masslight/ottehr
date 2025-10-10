@@ -18,6 +18,7 @@ import {
   TableBody,
   TableCell,
   TableHead,
+  TablePagination,
   TableRow,
   Typography,
 } from '@mui/material';
@@ -32,7 +33,13 @@ import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
-import { Task, useAssignTask, useGetTasks, useUnassignTask } from 'src/features/visits/in-person/hooks/useTasks';
+import {
+  Task,
+  TASKS_PAGE_SIZE,
+  useAssignTask,
+  useGetTasks,
+  useUnassignTask,
+} from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
 import { formatDate } from '../common';
@@ -166,11 +173,14 @@ export const Tasks: React.FC = () => {
     return () => callback();
   }, [methods, navigate, setSearchParams]);
 
+  const [pageNumber, setPageNumber] = React.useState(0);
+
   const { data: tasks, isLoading: isTasksLoading } = useGetTasks({
     assignedTo: searchParams.get('assignedTo'),
     category: searchParams.get('category'),
     location: searchParams.get('location'),
     status: searchParams.get('status'),
+    page: pageNumber,
   });
 
   return (
@@ -316,6 +326,16 @@ export const Tasks: React.FC = () => {
                 })}
             </TableBody>
           </Table>
+          <TablePagination
+            rowsPerPageOptions={[TASKS_PAGE_SIZE]}
+            component="div"
+            count={-1}
+            rowsPerPage={TASKS_PAGE_SIZE}
+            page={pageNumber}
+            onPageChange={(_e, newPageNumber) => {
+              setPageNumber(newPageNumber);
+            }}
+          />
         </Paper>
         {moreActionsPopoverData ? (
           <Popover

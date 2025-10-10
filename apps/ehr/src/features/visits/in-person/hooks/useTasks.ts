@@ -7,6 +7,8 @@ import { getCoding, TASK_CATEGORY_IDENTIFIER, TASK_INPUT_SYSTEM, TASK_LOCATION_S
 const GET_TASKS_KEY = 'get-tasks';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 
+export const TASKS_PAGE_SIZE = 20;
+
 export interface Task {
   id: string;
   category: string;
@@ -31,6 +33,7 @@ export interface TasksSearchParams {
   category?: string | null;
   location?: string | null;
   status?: string | null;
+  page?: number;
 }
 
 export interface AssignTaskRequest {
@@ -50,10 +53,11 @@ export const useGetTasks = ({
   category,
   location,
   status,
+  page,
 }: TasksSearchParams): UseQueryResult<Task[], Error> => {
   const { oystehr } = useApiClients();
   return useQuery({
-    queryKey: [GET_TASKS_KEY, assignedTo, category, location, status],
+    queryKey: [GET_TASKS_KEY, assignedTo, category, location, status, page],
     queryFn: async () => {
       if (!oystehr) throw new Error('oystehr not defined');
       const params: SearchParam[] = [
@@ -67,9 +71,15 @@ export const useGetTasks = ({
         },
         {
           name: '_count',
-          value: '100',
+          value: TASKS_PAGE_SIZE,
         },
       ];
+      if (page) {
+        params.push({
+          name: '_offset',
+          value: page * TASKS_PAGE_SIZE,
+        });
+      }
       if (assignedTo) {
         params.push({
           name: 'owner',
