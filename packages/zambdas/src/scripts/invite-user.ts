@@ -1,4 +1,4 @@
-import Oystehr, { AccessPolicy, Role, RoleListItem } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
 import {
   AllStatesValues,
@@ -9,89 +9,13 @@ import {
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import { allNonPatientRoles } from '../shared';
+import { filterIdsOnlyToTheseRoles, updateUserRoles } from '../shared';
 
 const DEFAULTS = {
   firstName: 'Example',
   lastName: 'Doctor',
   phone: '+12125551212',
   npi: '1234567890',
-};
-
-const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
-  console.log('Updating user roles.');
-
-  console.log('searching for existing roles for the project');
-  let existingRoles: RoleListItem[];
-  try {
-    existingRoles = await oystehr.role.list();
-  } catch {
-    throw new Error('Error searching for existing roles');
-  }
-  console.log('existingRoles: ', existingRoles);
-
-  let adminUserRole = undefined;
-  let prescriberUserRole = undefined;
-  let providerUserRole = undefined;
-  let managerUserRole = undefined;
-
-  for (const role of allNonPatientRoles) {
-    const roleName = role.name;
-    let foundRole;
-    if (existingRoles.length > 0) {
-      foundRole = existingRoles.find((existingRole: any) => existingRole.name === roleName);
-    }
-    let roleResult: Role;
-    if (foundRole) {
-      console.log(`${roleName} role found: `, foundRole);
-      try {
-        roleResult = await oystehr.role.update({
-          roleId: foundRole.id,
-          accessPolicy: role.accessPolicy as AccessPolicy,
-        });
-        console.log(`${roleName} role accessPolicy patched: `, roleResult, JSON.stringify(roleResult.accessPolicy));
-      } catch (err) {
-        console.error(err);
-        throw new Error(`Failed to patch role ${roleName}`);
-      }
-    } else {
-      console.log(`creating ${roleName} role`);
-      try {
-        roleResult = await oystehr.role.create({ name: roleName, accessPolicy: role.accessPolicy as AccessPolicy });
-        console.log(`${roleName} role: `, roleResult, JSON.stringify(roleResult.accessPolicy));
-      } catch (err) {
-        console.error(err);
-        throw new Error(`Failed to create role ${roleName}`);
-      }
-    }
-
-    if (roleResult.name === RoleType.Administrator) {
-      adminUserRole = roleResult;
-    }
-    if (roleResult.name === RoleType.Prescriber) {
-      prescriberUserRole = roleResult;
-    }
-    if (roleResult.name === RoleType.Provider) {
-      providerUserRole = roleResult;
-    }
-    if (roleResult.name === RoleType.Manager) {
-      managerUserRole = roleResult;
-    }
-  }
-
-  if (!adminUserRole) {
-    throw new Error('Could not create adminUserRole');
-  }
-  if (!prescriberUserRole) {
-    throw new Error('Could not create prescriberUserRole');
-  }
-  if (!providerUserRole) {
-    throw new Error('Could not create providerUserRole');
-  }
-  if (!managerUserRole) {
-    throw new Error('Could not create managerUserRole');
-  }
-  return [adminUserRole, prescriberUserRole, providerUserRole, managerUserRole];
 };
 
 export async function inviteUser(
@@ -103,7 +27,9 @@ export async function inviteUser(
   includeDefaultSchedule?: boolean,
   slug?: string
 ): Promise<{ invitationUrl: string | undefined; userProfileId: string | undefined }> {
-  const defaultRoles = await updateUserRoles(oystehr);
+  const defaultRoleNames = [RoleType.Administrator, RoleType.Prescriber, RoleType.Provider, RoleType.Manager];
+  const allRoleIds = await updateUserRoles(oystehr);
+  const defaultRoleIds = filterIdsOnlyToTheseRoles(allRoleIds, defaultRoleNames);
 
   const practitionerQualificationExtension: any = [];
   (
@@ -172,7 +98,7 @@ export async function inviteUser(
         email: email,
         applicationId: applicationId,
         resource: practitioner,
-        roles: defaultRoles.map((role) => role.id),
+        roles: defaultRoleIds,
       });
       console.log('User invited:', invitedUser);
       return { invitationUrl: invitedUser.invitationUrl, userProfileId: invitedUser.profile.split('/')[1] };
