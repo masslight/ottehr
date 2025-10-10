@@ -1,7 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import React from 'react';
 
-const TASK_CATEGORY_LABEL: Record<string, string> = {
+export const TASK_CATEGORY_LABEL: Record<string, string> = {
   'external-labs': 'External Labs',
   'in-house-labs': 'In-house Labs',
 };

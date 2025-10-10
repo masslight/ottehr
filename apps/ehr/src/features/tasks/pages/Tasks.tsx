@@ -26,6 +26,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
+import { Option } from 'src/components/input/Option';
 import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { RoundedButton } from 'src/components/RoundedButton';
@@ -35,7 +36,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
 import { formatDate } from '../common';
 import { AssignTaskDialog } from '../components/AssignTaskDialog';
-import { CategoryChip } from '../components/CategoryChip';
+import { CategoryChip, TASK_CATEGORY_LABEL } from '../components/CategoryChip';
 
 const UNKNOWN = 'Unknown';
 const COMPLETED = 'completed';
@@ -44,6 +45,18 @@ const TASK_STATUS_LABEL: Record<string, string> = {
   'in-progress': 'in progress',
   completed: 'completed',
 };
+const CATEGORY_OPTIONS: Option[] = Object.entries(TASK_CATEGORY_LABEL).map((entry) => {
+  return {
+    label: entry[1],
+    value: entry[0],
+  };
+});
+const STATUS_OPTIONS: Option[] = Object.entries(TASK_STATUS_LABEL).map((entry) => {
+  return {
+    label: entry[1],
+    value: entry[0],
+  };
+});
 
 export const Tasks: React.FC = () => {
   const navigate = useNavigate();
@@ -121,11 +134,20 @@ export const Tasks: React.FC = () => {
         values: true,
       },
       callback: ({ values }) => {
-        console.log(values);
+        const queryParams = new URLSearchParams();
+        for (const key in values) {
+          const value = values[key]?.id ?? values[key];
+          if (value) {
+            queryParams.set(key, value);
+          }
+        }
+        if (queryParams.size > 0) {
+          navigate(`?${queryParams?.toString()}`);
+        }
       },
     });
     return () => callback();
-  }, [methods]);
+  }, [methods, navigate]);
 
   return (
     <PageContainer>
@@ -134,9 +156,9 @@ export const Tasks: React.FC = () => {
           <Paper>
             <Stack direction="row" spacing={2} padding="8px">
               <LocationSelectInput name="location" label="Location" />
-              <SelectInput name="category" label="Category" options={[]} />
+              <SelectInput name="category" label="Category" options={CATEGORY_OPTIONS} />
               <ProviderSelectInput name="asignedTo" label="Asigned to" />
-              <SelectInput name="status" label="Status" options={[]} />
+              <SelectInput name="status" label="Status" options={STATUS_OPTIONS} />
             </Stack>
           </Paper>
         </FormProvider>
