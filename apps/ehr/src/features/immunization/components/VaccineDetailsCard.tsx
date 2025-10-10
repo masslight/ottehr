@@ -10,6 +10,7 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { SingleCptCodeInput } from 'src/components/input/SingleCptInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { useAdministerImmunizationOrder } from 'src/features/visits/in-person/hooks/useImmunization';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -98,32 +99,58 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 </Typography>
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administrationDetails.lot" label="LOT number" validate={requiredForAdministration} />
+                <TextInput
+                  name="administrationDetails.lot"
+                  label="LOT number"
+                  validate={requiredForAdministration}
+                  dataTestId={dataTestIds.vaccineDetailsPage.lotNumber}
+                />
               </Grid>
               <Grid xs={3} item>
                 <DateInput
                   name="administrationDetails.expDate"
                   label="Exp. Date"
                   validate={requiredForAdministration}
+                  dataTestId={dataTestIds.vaccineDetailsPage.expiredDate}
                 />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administrationDetails.mvx" label="MVX code" validate={requiredForAdministration} />
+                <TextInput
+                  name="administrationDetails.mvx"
+                  label="MVX code"
+                  validate={requiredForAdministration}
+                  dataTestId={dataTestIds.vaccineDetailsPage.mvxCode}
+                />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administrationDetails.cvx" label="CVX code" validate={requiredForAdministration} />
+                <TextInput
+                  name="administrationDetails.cvx"
+                  label="CVX code"
+                  validate={requiredForAdministration}
+                  dataTestId={dataTestIds.vaccineDetailsPage.cvxCode}
+                />
               </Grid>
               <Grid xs={3} item>
-                <SingleCptCodeInput name="administrationDetails.cpt" label="CPT code" />
+                <SingleCptCodeInput
+                  name="administrationDetails.cpt"
+                  label="CPT code"
+                  dataTestId={dataTestIds.vaccineDetailsPage.cptCode}
+                />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administrationDetails.ndc" label="NDC code" validate={requiredForAdministration} />
+                <TextInput
+                  name="administrationDetails.ndc"
+                  label="NDC code"
+                  validate={requiredForAdministration}
+                  dataTestId={dataTestIds.vaccineDetailsPage.ndcCode}
+                />
               </Grid>
               <Grid xs={3} item>
                 <DateInput
                   name="administrationDetails.administeredDateTime"
                   label="Administered date"
                   validate={requiredForAdministration}
+                  dataTestId={dataTestIds.vaccineDetailsPage.administeredDate}
                 />
               </Grid>
               <Grid xs={3} item>
@@ -131,6 +158,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   name="administrationDetails.administeredDateTime"
                   label="Administered time"
                   validate={requiredForAdministration}
+                  dataTestId={dataTestIds.vaccineDetailsPage.administeredTime}
                 />
               </Grid>
               <Grid xs={6} item>
@@ -147,6 +175,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     name="visGiven"
                     label="VIS was given to the patient"
                     validate={requiredForAdministration}
+                    dataTestId={dataTestIds.vaccineDetailsPage.visCheckbox}
                   />
                 </Box>
               </Grid>
@@ -155,6 +184,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   name="administrationDetails.visGivenDate"
                   label="VIS given date"
                   validate={requiredForAdministration}
+                  dataTestId={dataTestIds.vaccineDetailsPage.visGivenDate}
                 />
               </Grid>
               <Grid xs={12} item>
@@ -173,6 +203,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   label="Relationship"
                   options={RELATIONSHIP_OPTIONS}
                   validate={requiredForAdministration}
+                  dataTestId={dataTestIds.vaccineDetailsPage.relationship}
                 />
               </Grid>
               <Grid xs={4} item>
@@ -180,6 +211,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   name="administrationDetails.emergencyContact.fullName"
                   label="Full name"
                   validate={requiredForAdministration}
+                  dataTestId={dataTestIds.vaccineDetailsPage.fullName}
                 />
               </Grid>
               <Grid xs={4} item>
@@ -187,6 +219,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   name="administrationDetails.emergencyContact.mobile"
                   label="Mobile"
                   validate={requiredForAdministration}
+                  dataTestId={dataTestIds.vaccineDetailsPage.mobile}
                 />
               </Grid>
               <Grid xs={12} item>
@@ -199,6 +232,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                       size="large"
                       onClick={async () => onAdministrationActionClick(NOT_ADMINISTERED)}
                       disabled={isReadOnly}
+                      data-testid={dataTestIds.vaccineDetailsPage.notAdministeredButton}
                     >
                       Not Administered
                     </ButtonRounded>
@@ -208,6 +242,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                       size="large"
                       onClick={async () => onAdministrationActionClick(PARTLY_ADMINISTERED)}
                       disabled={isReadOnly}
+                      data-testid={dataTestIds.vaccineDetailsPage.partlyAdministeredButton}
                     >
                       Partly Administered
                     </ButtonRounded>
@@ -217,6 +252,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                       size="large"
                       onClick={async () => onAdministrationActionClick(ADMINISTERED)}
                       disabled={isReadOnly}
+                      data-testid={dataTestIds.vaccineDetailsPage.administeredButton}
                     >
                       Administered
                     </ButtonRounded>

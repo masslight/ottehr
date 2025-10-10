@@ -1,6 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ImmunizationOrder, searchRouteByCode } from 'utils';
 
 export const ImmunizationContainer: FC<{
@@ -12,7 +13,7 @@ export const ImmunizationContainer: FC<{
         Immunization
       </Typography>
       {orders.map((order) => (
-        <Stack key={order.id}>
+        <Stack key={order.id} data-testid={dataTestIds.progressNotePage.vaccineItem}>
           <Typography sx={{ fontWeight: '500' }}>{`${order.details.medication.name} - ${order.details.dose} ${
             order.details.units
           } / ${searchRouteByCode(order.details.route)?.display ?? ''} - ${
