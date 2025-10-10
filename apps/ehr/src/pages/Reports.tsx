@@ -101,6 +101,12 @@ export default function Reports(): React.ReactElement {
       icon: <AssessmentIcon />,
       path: '/reports/visits-overview',
     },
+    {
+      title: 'Invoiceable patients',
+      description: 'View invoiceable patients report',
+      icon: <AssessmentIcon />,
+      path: '/reports/invoiceable-patients',
+    },
   ];
 
   const handleTileClick = (path: string): void => {
