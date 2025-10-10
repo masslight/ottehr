@@ -27,7 +27,6 @@ const administratorNavbarItems: NavbarItems = {
   Employees: { urls: ['/employees', '/employee'] },
   'Telemedicine:Admin': { urls: ['/telemed-admin'] },
   Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
-  Tasks: { urls: ['/tasks-list'] },
 };
 
 const managerNavbarItems: NavbarItems = {
@@ -37,21 +36,18 @@ const managerNavbarItems: NavbarItems = {
   Employees: { urls: ['/employees', '/employee'] },
   'Telemedicine:Admin': { urls: ['/telemed-admin'] },
   Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
-  Tasks: { urls: ['/tasks-list'] },
 };
 
 const staffNavbarItems: NavbarItems = {
   'In Person': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Telemedicine: { urls: ['/telemed/appointments'] },
-  Tasks: { urls: ['/tasks-list'] },
 };
 
 const providerNavbarItems: NavbarItems = {
   'In Person': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
   Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
-  Tasks: { urls: ['/tasks-list'] },
 };
 
 const customerSupportNavbarItems: NavbarItems = {
