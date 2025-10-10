@@ -23,7 +23,7 @@ import { useApiClients } from '../../hooks/useAppClients';
 
 interface CancellationReasonDialogProps {
   handleClose: () => void;
-  getResourceBundle: () => Promise<void>;
+  refetchData: () => Promise<void>;
   appointment: Appointment;
   encounter: Encounter;
   open: boolean;
@@ -32,7 +32,7 @@ interface CancellationReasonDialogProps {
 
 export default function CancellationReasonDialog({
   handleClose,
-  getResourceBundle,
+  refetchData,
   appointment,
   encounter,
   open,
@@ -84,7 +84,7 @@ export default function CancellationReasonDialog({
       apiErr = true;
     } finally {
       if (response && !apiErr) {
-        await getResourceBundle();
+        await refetchData();
         await getAndSetResources({ logs: true }).catch((error: any) => {
           console.log('error getting activity logs after cancellation', error);
         });

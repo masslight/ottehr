@@ -18,7 +18,7 @@ import {
 } from 'utils';
 import { EvolveUser } from '../hooks/useEvolveUser';
 import { getCriticalUpdateTagOp } from './activityLogsUtils';
-import { formatDateUsingSlashes, getTimezone } from './formatDateTime';
+import { formatDateUsingSlashes } from './formatDateTime';
 
 export const classifyAppointments = (appointments: InPersonAppointmentInformation[]): Map<any, any> => {
   const statusCounts = new Map();
@@ -105,12 +105,11 @@ export const sortLocationsByLabel = (locations: LocationOptionConfig[]): { label
 export const formatLastModifiedTag = (
   field: string,
   resource: Resource | undefined,
-  location: Location
+  locationTimeZone: string | undefined
 ): string | undefined => {
   if (!resource) return;
   const codeString = resource?.meta?.tag?.find((tag) => tag.system === `staff-update-history-${field}`)?.code;
   if (codeString) {
-    const locationTimeZone = getTimezone(location);
     const codeJson = JSON.parse(codeString) as any;
     const date = DateTime.fromISO(codeJson.lastModifiedDate).setZone(locationTimeZone);
     const timeFormatted = date.toLocaleString(DateTime.TIME_SIMPLE);
