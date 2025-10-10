@@ -10,6 +10,7 @@ import {
 } from 'utils';
 import {
   ADMINISTRATOR_RULES,
+  CUSTOMER_SUPPORT_RULES,
   INACTIVE_RULES,
   MANAGER_RULES,
   PRESCRIBER_RULES,
@@ -32,6 +33,7 @@ export const enum RoleType {
   Provider = 'Provider',
   Prescriber = 'Prescriber',
   Administrator = 'Administrator',
+  CustomerSupport = 'CustomerSupport',
 }
 
 const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
@@ -50,6 +52,7 @@ const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
   const staffAccessPolicy = { rule: [...STAFF_RULES.rule, ...zambdaRules] };
   const providerAccessPolicy = { rule: [...PROVIDER_RULES.rule, ...zambdaRules] };
   const prescriberAccessPolicy = { rule: [...PRESCRIBER_RULES, ...zambdaRules] };
+  const customerSupportAccessPolicy = { rule: [...CUSTOMER_SUPPORT_RULES.rule, ...zambdaRules] };
 
   const roles = [
     { name: RoleType.Inactive, accessPolicy: inactiveAccessPolicy },
@@ -58,6 +61,7 @@ const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
     { name: RoleType.Staff, accessPolicy: staffAccessPolicy },
     { name: RoleType.Provider, accessPolicy: providerAccessPolicy },
     { name: RoleType.Prescriber, accessPolicy: prescriberAccessPolicy },
+    { name: RoleType.CustomerSupport, accessPolicy: customerSupportAccessPolicy },
   ];
 
   console.log('searching for existing roles for the project');
@@ -73,6 +77,7 @@ const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
   let prescriberUserRole = undefined;
   let providerUserRole = undefined;
   let managerUserRole = undefined;
+  let customerSupportUserRole = undefined;
 
   for (const role of roles) {
     const roleName = role.name;
@@ -116,6 +121,9 @@ const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
     if (roleResult.name === RoleType.Manager) {
       managerUserRole = roleResult;
     }
+    if (roleResult.name === RoleType.CustomerSupport) {
+      customerSupportUserRole = roleResult;
+    }
   }
 
   // console.group(`Setting defaultSSOUserRole for project to Administrator user role ${adminUserRole.id}`);
@@ -143,7 +151,10 @@ const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
   if (!managerUserRole) {
     throw new Error('Could not create adminUserRole');
   }
-  return [adminUserRole, prescriberUserRole, providerUserRole, managerUserRole];
+  if (!customerSupportUserRole) {
+    throw new Error('Could not create customerSupportUserRole');
+  }
+  return [adminUserRole, prescriberUserRole, providerUserRole, managerUserRole, customerSupportUserRole];
 };
 
 export async function inviteUser(
