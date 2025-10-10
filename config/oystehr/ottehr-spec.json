@@ -822,7 +822,7 @@
       "src": "src/subscriptions/questionnaire-response/sub-intake-harvest/index",
       "zip": ".dist/zips/sub-intake-harvest.zip",
       "subscription": {
-        "criteria": "QuestionnaireResponse?questionnaire=https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson,https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
+        "criteria": "QuestionnaireResponse?status=completed,amended&questionnaire=https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson,https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
         "reason": "paperwork harvest",
         "event": "update"
       }
@@ -1449,7 +1449,7 @@
         "resourceType": "Subscription",
         "status": "active",
         "reason": "paperwork harvest",
-        "criteria": "QuestionnaireResponse?questionnaire=https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson,https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
+        "criteria": "QuestionnaireResponse?status=completed,amended&questionnaire=https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson,https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-INTAKE-HARVEST/id}"
