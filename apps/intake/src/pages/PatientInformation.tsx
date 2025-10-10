@@ -4,6 +4,7 @@ import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useBeforeUnload, useNavigate } from 'react-router-dom';
 import {
+  BOOKING_CONFIG,
   DateComponents,
   getDateComponentsFromISOString,
   isoStringFromDateComponents,
@@ -21,7 +22,6 @@ import {
   PatientInfoInProgress,
   PatientInformationKnownPatientFieldsDisplay,
   PatientSexOptions,
-  ReasonForVisitOptions,
 } from '../features/patients';
 import { getPatientAgeDependentDataWithPatientData } from '../helpers/validation';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
@@ -200,7 +200,7 @@ const PatientInformation = (): JSX.Element => {
           name: 'reasonForVisit',
           label: t('aboutPatient.reasonForVisit.label'),
           defaultValue: patientInfo?.reasonForVisit,
-          selectOptions: ReasonForVisitOptions.map((reason) => {
+          selectOptions: BOOKING_CONFIG.reasonForVisitOptions.map((reason) => {
             return { value: reason, label: t(`paperworkPages.${reason}`) };
           }),
           required: true,
@@ -305,7 +305,7 @@ const PatientInformation = (): JSX.Element => {
           name: 'reasonForVisit',
           label: t('aboutPatient.reasonForVisit.label'),
           defaultValue: patientInfo?.reasonForVisit,
-          selectOptions: ReasonForVisitOptions.map((reason) => {
+          selectOptions: BOOKING_CONFIG.reasonForVisitOptions.map((reason) => {
             return { value: reason, label: t(`paperworkPages.${reason}`) };
           }),
           required: true,

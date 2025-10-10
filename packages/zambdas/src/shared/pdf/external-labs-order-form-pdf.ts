@@ -23,7 +23,7 @@ export async function createExternalLabsOrderFormPDF(
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
-  console.log('Creating labs order form pdf bytes');
+  console.log('Creating external labs order form pdf bytes');
   const pdfBytes = await createExternalLabsOrderFormPdfBytes(input).catch((error) => {
     throw new Error('failed creating labs order form pdfBytes: ' + error.message);
   });

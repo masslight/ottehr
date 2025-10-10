@@ -1,7 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Box, Grid } from '@mui/material';
 import { ReactElement } from 'react';
-import { DocumentInfo } from '../types/types';
+import { DocumentInfo } from 'utils';
 import DownloadImagesButton from './DownloadImagesButton';
 
 interface CardGridItemProps {

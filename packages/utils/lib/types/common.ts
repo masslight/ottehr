@@ -6,6 +6,7 @@ import {
   ContactPoint,
   DocumentReference,
   Encounter,
+  FhirResource,
   HealthcareService,
   Location,
   Practitioner,
@@ -507,8 +508,13 @@ export interface TaskSubscriptionInput {
 type Appointment_Update_Task_Codes = 'cancelled' | 'ready' | 'checkin' | 'record-wait-time';
 type Appointment_Created_Task_Codes = 'create-appointment-confirmation-messages';
 type Send_Claim_Task_Codes = 'send-claim';
+type Task_Visit_Note_PDF_And_Email_Codes = 'visit-note-pdf-and-email';
 
-type Task_Codes = Appointment_Update_Task_Codes | Appointment_Created_Task_Codes | Send_Claim_Task_Codes;
+type Task_Codes =
+  | Appointment_Update_Task_Codes
+  | Appointment_Created_Task_Codes
+  | Send_Claim_Task_Codes
+  | Task_Visit_Note_PDF_And_Email_Codes;
 
 export const Task_Email_Communication_Url = 'urgent-care-email';
 export const Task_Text_Communication_Url = 'urgent-care-text';
@@ -516,6 +522,7 @@ export const Task_Update_Appointment_Url = 'urgent-care-update-appointment';
 export const Task_Send_Messages_Url = 'urgent-care-send-messages';
 export const Task_Sync_DocumentRef_Url = 'urgent-care-sync-document-ref';
 export const Task_Claims_System_Url = 'https://fhir.ottehr.com/CodeSystem/claim-sync';
+export const Task_Visit_Note_PDF_And_Email_Url = 'https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email';
 
 type Task_System_Member =
   | typeof Task_Email_Communication_Url
@@ -523,14 +530,22 @@ type Task_System_Member =
   | typeof Task_Update_Appointment_Url
   | typeof Task_Send_Messages_Url
   | typeof Task_Sync_DocumentRef_Url
-  | typeof Task_Claims_System_Url;
+  | typeof Task_Claims_System_Url
+  | typeof Task_Visit_Note_PDF_And_Email_Url;
 
 export type TaskCoding = {
   readonly system: Task_System_Member;
   readonly code: Task_Codes;
 };
 
-type TaskId = 'cancelEmail' | 'readyText' | 'checkInText' | 'recordWaitTime' | 'confirmationMessages' | 'sendClaim';
+type TaskId =
+  | 'cancelEmail'
+  | 'readyText'
+  | 'checkInText'
+  | 'recordWaitTime'
+  | 'confirmationMessages'
+  | 'sendClaim'
+  | 'visitNotePDFAndEmail';
 type TaskIndicator = {
   [key in TaskId]: TaskCoding;
 };
@@ -559,6 +574,10 @@ export const TaskIndicator: TaskIndicator = {
   sendClaim: {
     system: Task_Claims_System_Url,
     code: 'send-claim',
+  },
+  visitNotePDFAndEmail: {
+    system: Task_Visit_Note_PDF_And_Email_Url,
+    code: 'visit-note-pdf-and-email',
   },
 };
 
@@ -710,3 +729,7 @@ export type Timezone = (typeof TIMEZONES)[number];
 export interface GetVisitLabelInput {
   encounterId: string;
 }
+
+export type PersistedFhirResource<T extends FhirResource> = T & {
+  id: string;
+};

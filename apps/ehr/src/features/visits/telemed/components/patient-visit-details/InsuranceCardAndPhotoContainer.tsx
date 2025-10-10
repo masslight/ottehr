@@ -4,10 +4,16 @@ import ContentPasteOffIcon from '@mui/icons-material/ContentPasteOff';
 import { Box, CircularProgress, Grid, Paper, Typography } from '@mui/material';
 import { Bundle, BundleEntry, DocumentReference } from 'fhir/r4b';
 import { FC, useMemo, useState } from 'react';
-import { getPresignedURL, getQuestionnaireResponseByLinkId, INSURANCE_CARD_CODE, PHOTO_ID_CARD_CODE } from 'utils';
+import {
+  DocumentInfo,
+  DocumentType,
+  getPresignedURL,
+  getQuestionnaireResponseByLinkId,
+  INSURANCE_CARD_CODE,
+  PHOTO_ID_CARD_CODE,
+} from 'utils';
 import DownloadImagesButton from '../../../../../components/DownloadImagesButton';
 import ImageCarousel, { ImageCarouselObject } from '../../../../../components/ImageCarousel';
-import { DocumentInfo, DocumentType } from '../../../../../types/types';
 import { useGetDocumentReferences } from '../../../shared/stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 
