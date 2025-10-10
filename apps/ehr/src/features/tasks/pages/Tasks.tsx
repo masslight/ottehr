@@ -23,7 +23,7 @@ import {
 import { Stack } from '@mui/system';
 import React, { ReactElement, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { Option } from 'src/components/input/Option';
@@ -128,6 +128,25 @@ export const Tasks: React.FC = () => {
 
   const methods = useForm();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const filtersValues = {
+      asignedTo: searchParams.get('asignedTo')
+        ? {
+            id: searchParams.get('asignedTo'),
+          }
+        : null,
+      category: searchParams.get('category'),
+      location: searchParams.get('location')
+        ? {
+            id: searchParams.get('location'),
+          }
+        : null,
+      status: searchParams.get('status'),
+    };
+    methods.reset(filtersValues);
+  }, [searchParams, methods]);
+
   useEffect(() => {
     const callback = methods.subscribe({
       formState: {
@@ -141,13 +160,11 @@ export const Tasks: React.FC = () => {
             queryParams.set(key, value);
           }
         }
-        if (queryParams.size > 0) {
-          navigate(`?${queryParams?.toString()}`);
-        }
+        setSearchParams(queryParams);
       },
     });
     return () => callback();
-  }, [methods, navigate]);
+  }, [methods, navigate, setSearchParams]);
 
   return (
     <PageContainer>

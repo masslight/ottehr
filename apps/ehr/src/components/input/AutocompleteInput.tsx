@@ -47,10 +47,7 @@ export const AutocompleteInput: React.FC<Props> = ({
           valueOption = options?.find((option) => option.value === field.value) ?? null;
         }
         const optionsToUse = options ?? [];
-        if (
-          valueOption &&
-          !options?.find((option) => option.value === valueOption?.value && option.label === valueOption.label)
-        ) {
+        if (valueOption && !options?.find((option) => option.value === valueOption?.value)) {
           optionsToUse?.push(valueOption);
         }
         return (
@@ -59,7 +56,7 @@ export const AutocompleteInput: React.FC<Props> = ({
               value={valueOption}
               options={optionsToUse}
               noOptionsText={noOptionsText}
-              getOptionLabel={(option) => option.label}
+              getOptionLabel={(option) => option.label ?? options?.find((o) => o.value === option.value)?.label}
               isOptionEqualToValue={(option, tempValue) => option.value === tempValue.value}
               onChange={(_e, option: any) =>
                 field.onChange((option && optionToValue ? optionToValue(option) : option?.value) ?? null)
