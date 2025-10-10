@@ -1357,20 +1357,22 @@
       }
     },
     "SUB_VISIT_NOTE_PDF_AND_EMAIL_SUBSCRIPTION": {
-      "resourceType": "Subscription",
-      "status": "active",
-      "reason": "send visit note PDF and email",
-      "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email|visit-note-pdf-and-email&status=requested",
-      "channel": {
-        "type": "rest-hook",
-        "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-VISIT-NOTE-PDF-AND-EMAIL/id}"
-      },
-      "extension": [
-        {
-          "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-          "valueString": "create"
-        }
-      ]
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "send visit note PDF and email",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email|visit-note-pdf-and-email&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-VISIT-NOTE-PDF-AND-EMAIL/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
     },
     "SUB_CHECK_IN_TEXT_SUBSCRIPTION": {
       "resource": {
