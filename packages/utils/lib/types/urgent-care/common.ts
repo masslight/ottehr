@@ -8,6 +8,7 @@ export enum CancellationReasonOptionsInPerson {
   'Insurance issue' = 'Insurance issue',
   'Service never offered' = 'Service never offered',
   'Duplicate visit or account error' = 'Duplicate visit or account error',
+  'Provider deems acuity too high for clinic' = 'Provider deems acuity too high for clinic',
 }
 
 export const CancellationReasonCodesInPerson: { [key in CancellationReasonOptionsInPerson]: string } = {
@@ -20,4 +21,5 @@ export const CancellationReasonCodesInPerson: { [key in CancellationReasonOption
   'Insurance issue': 'insurance-issue',
   'Service never offered': 'service-not-offered',
   'Duplicate visit or account error': 'duplicate-visit-or-account-error',
+  'Provider deems acuity too high for clinic': 'provider-deems-acuity-too-high-for-clinic',
 };
