@@ -9,12 +9,12 @@ import {
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
   getPractitionerNPIIdentifier,
-  getPractitionerQualificationByLocation,
   InPersonAppointmentInformation,
-  isPhysicianQualification,
+  isPhysician,
+  isPhysicianProviderType,
   OrdersForTrackingBoardRow,
-  PractitionerQualificationCode,
   PROJECT_NAME,
+  ProviderTypeCode,
 } from 'utils';
 import { EvolveUser } from '../hooks/useEvolveUser';
 import { getCriticalUpdateTagOp } from './activityLogsUtils';
@@ -172,16 +172,11 @@ export const hasAtLeastOneOrder = (orders: OrdersForTrackingBoardRow): boolean =
   return Object.values(orders).some((orderList) => Array.isArray(orderList) && orderList.length > 0);
 };
 
-export function isEligibleSupervisor(
-  practitioner: Practitioner,
-  location: Location,
-  attenderQualification?: PractitionerQualificationCode
-): boolean {
-  if (!practitioner || !location) return false;
+export function isEligibleSupervisor(practitioner: Practitioner, attenderProviderType?: ProviderTypeCode): boolean {
+  if (!practitioner) return false;
 
-  const isAttenderPhysician = isPhysicianQualification(attenderQualification);
-  const qualification = getPractitionerQualificationByLocation(practitioner, location);
-  const isPractitionerPhysician = isPhysicianQualification(qualification);
+  const isAttenderPhysician = isPhysicianProviderType(attenderProviderType);
+  const isPractitionerPhysician = isPhysician(practitioner);
   const npiIdentifier = getPractitionerNPIIdentifier(practitioner);
 
   return !isAttenderPhysician && isPractitionerPhysician && Boolean(npiIdentifier?.value);

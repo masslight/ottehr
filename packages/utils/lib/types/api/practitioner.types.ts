@@ -322,3 +322,7 @@ export enum AppointmentProviderNotificationTypes {
   patient_waiting = 'patient-waiting',
   unsigned_charts = 'unsigned-charts',
 }
+
+export const PROVIDER_TYPE_VALUES = ['MD', 'DO', 'PA', 'NP', 'other'] as const;
+export type ProviderTypeCode = (typeof PROVIDER_TYPE_VALUES)[number];
+export const PHYSICIAN_TYPES: ProviderTypeCode[] = ['MD', 'DO'];
