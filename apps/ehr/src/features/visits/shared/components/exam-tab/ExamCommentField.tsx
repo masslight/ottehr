@@ -47,6 +47,7 @@ export const ExamCommentField = (props: ExamCommentFieldProps): ReactElement => 
       size="small"
       data-testid={dataTestId}
       fullWidth
+      multiline
       InputProps={{
         endAdornment: isLoading && (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

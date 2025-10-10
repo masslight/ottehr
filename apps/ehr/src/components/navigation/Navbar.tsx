@@ -43,6 +43,7 @@ const managerNavbarItems: NavbarItems = {
 const staffNavbarItems: NavbarItems = {
   'In Person': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
+  Telemedicine: { urls: ['/telemed/appointments'] },
   Tasks: { urls: ['/tasks-list'] },
 };
 
@@ -53,7 +54,16 @@ const providerNavbarItems: NavbarItems = {
   Tasks: { urls: ['/tasks-list'] },
 };
 
-const hideNavbarPathPatterns = [/^\/telemed\/appointments\//, /^\/patient\/[^/]+\/info$/];
+const customerSupportNavbarItems: NavbarItems = {
+  'In Person': { urls: ['/visits', '/visit'] },
+  Schedules: { urls: ['/schedules', '/schedule'] },
+  Patients: { urls: ['/patients', '/patient'] },
+  Employees: { urls: ['/employees', '/employee'] },
+  'Telemedicine:Admin': { urls: ['/telemed-admin'] },
+  Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+};
+
+const hideNavbarPathPatterns = [/^\/telemed\/appointments\/(?!.*\/visit-details$)/, /^\/patient\/[^/]+\/info$/];
 
 export default function Navbar(): ReactElement | null {
   const location = useLocation();
@@ -76,6 +86,9 @@ export default function Navbar(): ReactElement | null {
       }
       if (user.hasRole([RoleType.Provider])) {
         navItems = { ...navItems, ...providerNavbarItems };
+      }
+      if (user.hasRole([RoleType.CustomerSupport])) {
+        navItems = { ...navItems, ...customerSupportNavbarItems };
       }
     }
     return navItems;

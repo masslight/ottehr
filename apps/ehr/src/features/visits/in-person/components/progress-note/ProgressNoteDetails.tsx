@@ -40,7 +40,7 @@ import { isEligibleSupervisor } from 'src/helpers';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   examConfig,
-  getVisitStatus,
+  getInPersonVisitStatus,
   LabType,
   NOTE_TYPE,
   progressNoteChartDataRequestedFields,
@@ -130,7 +130,7 @@ export const ProgressNoteDetails: FC = () => {
   let isAwaitingSupervisorApproval = false;
   if (appointment) {
     isAwaitingSupervisorApproval =
-      getVisitStatus(appointment, encounter, FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED) ===
+      getInPersonVisitStatus(appointment, encounter, FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED) ===
       'awaiting supervisor approval';
   }
 

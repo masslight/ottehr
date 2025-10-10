@@ -7,7 +7,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getVisitStatus } from 'utils';
+import { getInPersonVisitStatus } from 'utils';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 
 export const DischargeButton: FC = () => {
@@ -16,7 +16,11 @@ export const DischargeButton: FC = () => {
   const user = useEvolveUser();
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
 
-  const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
+  const inPersonStatus = useMemo(
+    () => appointment && getInPersonVisitStatus(appointment, encounter),
+    [appointment, encounter]
+  );
+
   const isAlreadyDischarged = inPersonStatus === 'discharged' || inPersonStatus === 'completed';
 
   if (!user || !encounter?.id) {

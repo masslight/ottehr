@@ -100,7 +100,8 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
       ws.destroy();
       recordPlugin.destroy();
     };
-  }, [oystehr, refetch, visitID]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [oystehr, visitID]);
 
   const startOrResumeRecording = async (): Promise<void> => {
     const plugin = recordPluginRef.current;

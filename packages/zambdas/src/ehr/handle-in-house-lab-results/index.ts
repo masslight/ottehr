@@ -25,6 +25,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   ABNORMAL_OBSERVATION_INTERPRETATION,
+  ABNORMAL_RESULT_DR_TAG,
   extractAbnormalValueSetValues,
   extractQuantityRange,
   getAttendingPractitionerId,
@@ -387,7 +388,7 @@ const makeResultEntryRequests = (
     ],
   };
 
-  const { obsRefs, obsPostRequests } = makeObservationPostRequests(
+  const { obsRefs, obsPostRequests, abnormalResultRecorded } = makeObservationPostRequests(
     serviceRequest,
     specimen,
     activityDefinition,
@@ -395,7 +396,12 @@ const makeResultEntryRequests = (
     resultsEntryData
   );
 
-  const diagnosticReportPostRequest = makeDiagnosticReportPostRequest(serviceRequest, activityDefinition, obsRefs);
+  const diagnosticReportPostRequest = makeDiagnosticReportPostRequest(
+    serviceRequest,
+    activityDefinition,
+    obsRefs,
+    abnormalResultRecorded
+  );
 
   return [
     provenancePostRequest,
@@ -413,7 +419,7 @@ const makeObservationPostRequests = (
   activityDefinition: ActivityDefinition,
   curUser: PractitionerConfig,
   resultsEntryData: ResultEntryInput
-): { obsRefs: Reference[]; obsPostRequests: BatchInputPostRequest<Observation>[] } => {
+): { obsRefs: Reference[]; obsPostRequests: BatchInputPostRequest<Observation>[]; abnormalResultRecorded: boolean } => {
   if (!activityDefinition.code) throw new Error('activityDefinition.code is missing and is required');
 
   const activityDefContained = activityDefinition.contained;
@@ -444,6 +450,7 @@ const makeObservationPostRequests = (
   const obsRefs: Reference[] = [];
   const obsPostRequests: BatchInputPostRequest<Observation>[] = [];
 
+  let abnormalResultRecorded = false;
   Object.keys(resultsEntryData).forEach((observationDefinitionId) => {
     const entry = resultsEntryData[observationDefinitionId];
     const obsFullUrl = `urn:uuid:${randomUUID()}`;
@@ -451,7 +458,15 @@ const makeObservationPostRequests = (
     obsRefs.push({
       reference: obsFullUrl,
     });
-    const { obsValue, obsInterpretation } = formatObsValueAndInterpretation(entry, obsDef, activityDefContained);
+    const { obsValue, obsInterpretation, isAbnormal } = formatObsValueAndInterpretation(
+      entry,
+      obsDef,
+      activityDefContained
+    );
+    if (isAbnormal) {
+      console.log('flagging abnormal result for', activityDefinition.code?.coding?.map((coding) => coding.code));
+      abnormalResultRecorded = true;
+    }
     const obsFinalConfig: Observation = {
       ...obsConfig,
       ...obsValue,
@@ -472,7 +487,7 @@ const makeObservationPostRequests = (
     obsPostRequests.push(request);
   });
 
-  return { obsRefs, obsPostRequests };
+  return { obsRefs, obsPostRequests, abnormalResultRecorded };
 };
 
 const getObsDefFromActivityDef = (obsDefId: string, activityDefContained: FhirResource[]): ObservationDefinition => {
@@ -491,6 +506,7 @@ const formatObsValueAndInterpretation = (
 ): {
   obsValue: { valueQuantity: Quantity } | { valueString: string };
   obsInterpretation: { interpretation?: CodeableConcept[] };
+  isAbnormal: boolean;
 } => {
   if (obsDef.permittedDataType?.includes('Quantity')) {
     const floatVal = parseFloat(dataEntry);
@@ -500,11 +516,11 @@ const formatObsValueAndInterpretation = (
       },
     };
     const range = extractQuantityRange(obsDef).normalRange;
-    const interpretationCodeableConcept = determineQuantInterpretation(floatVal, range);
+    const { interpretation: interpretationCodeableConcept, isAbnormal } = determineQuantInterpretation(floatVal, range);
     const obsInterpretation = {
       interpretation: [interpretationCodeableConcept],
     };
-    return { obsValue, obsInterpretation };
+    return { obsValue, obsInterpretation, isAbnormal };
   }
 
   if (obsDef.permittedDataType?.includes('CodeableConcept')) {
@@ -515,12 +531,15 @@ const formatObsValueAndInterpretation = (
       (resource) => resource.resourceType === 'ObservationDefinition' || resource.resourceType === 'ValueSet'
     ) as (ObservationDefinition | ValueSet)[];
     const abnormalValues = extractAbnormalValueSetValues(obsDef, filteredContained);
-    const interpretationCodeableConcept = determineCodeableConceptInterpretation(dataEntry, abnormalValues);
+    const { interpretation: interpretationCodeableConcept, isAbnormal } = determineCodeableConceptInterpretation(
+      dataEntry,
+      abnormalValues
+    );
     const obsInterpretation = {
       interpretation: [interpretationCodeableConcept],
     };
 
-    return { obsValue, obsInterpretation };
+    return { obsValue, obsInterpretation, isAbnormal };
   }
 
   throw new Error('obsDef.permittedDataType should be Quantity or CodeableConcept');
@@ -534,11 +553,11 @@ const determineQuantInterpretation = (
     unit: string;
     precision?: number;
   }
-): CodeableConcept => {
+): { interpretation: CodeableConcept; isAbnormal: boolean } => {
   if (entry > range.high || entry < range.low) {
-    return ABNORMAL_OBSERVATION_INTERPRETATION;
+    return { interpretation: ABNORMAL_OBSERVATION_INTERPRETATION, isAbnormal: true };
   } else {
-    return NORMAL_OBSERVATION_INTERPRETATION;
+    return { interpretation: NORMAL_OBSERVATION_INTERPRETATION, isAbnormal: false };
   }
 };
 
@@ -546,20 +565,21 @@ const determineQuantInterpretation = (
 const determineCodeableConceptInterpretation = (
   value: string,
   abnormalValues: LabComponentValueSetConfig[]
-): CodeableConcept => {
+): { interpretation: CodeableConcept; isAbnormal: boolean } => {
   if (value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode) {
-    return INDETERMINATE_OBSERVATION_INTERPRETATION;
+    return { interpretation: INDETERMINATE_OBSERVATION_INTERPRETATION, isAbnormal: true };
   } else {
     return abnormalValues.map((val) => val.code).includes(value)
-      ? ABNORMAL_OBSERVATION_INTERPRETATION
-      : NORMAL_OBSERVATION_INTERPRETATION;
+      ? { interpretation: ABNORMAL_OBSERVATION_INTERPRETATION, isAbnormal: true }
+      : { interpretation: NORMAL_OBSERVATION_INTERPRETATION, isAbnormal: false };
   }
 };
 
 const makeDiagnosticReportPostRequest = (
   serviceRequest: ServiceRequest,
   activityDefinition: ActivityDefinition,
-  obsRefs: Reference[]
+  obsRefs: Reference[],
+  abnormalResultRecorded: boolean
 ): BatchInputPostRequest<DiagnosticReport> => {
   if (!activityDefinition.code) throw new Error('activityDefinition.code is missing and is required');
 
@@ -574,6 +594,12 @@ const makeDiagnosticReportPostRequest = (
     specimen: serviceRequest.specimen,
     result: obsRefs,
   };
+
+  if (abnormalResultRecorded) {
+    diagnosticReportConfig.meta = {
+      tag: [ABNORMAL_RESULT_DR_TAG],
+    };
+  }
 
   const diagnosticReportPostRequest: BatchInputPostRequest<DiagnosticReport> = {
     method: 'POST',

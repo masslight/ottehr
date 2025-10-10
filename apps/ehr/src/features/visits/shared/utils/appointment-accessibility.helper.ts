@@ -9,14 +9,14 @@ import {
   StateType,
   TelemedAppointmentStatusEnum,
 } from 'utils';
-import { FeatureFlags } from '../stores/contexts/useAppFlags';
+import { AppFlags } from '../stores/contexts/useAppFlags';
 
 export type GetAppointmentAccessibilityDataProps = {
   locationVirtual?: Location;
   encounter: Encounter;
   appointment?: Appointment;
   user?: EvolveUser;
-  featureFlags: Partial<FeatureFlags>;
+  featureFlags: Partial<AppFlags>;
 };
 
 export type GetAppointmentAccessibilityDataResult = {

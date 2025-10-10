@@ -130,3 +130,9 @@ export const REPEATABLE_TEXT_EXTENSION_CONFIG = {
   url: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-repeatable-test',
   valueString: 'repeatable-test',
 };
+
+export const ABNORMAL_RESULT_DR_TAG = {
+  system: 'result-recording-detail',
+  code: 'abnormal',
+  display: 'At least one abnormal result was recorded',
+};

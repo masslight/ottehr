@@ -171,7 +171,7 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
   if (item.type === 'boolean') {
     let booleanSchema = Yup.boolean();
     if (required) {
-      booleanSchema = booleanSchema.required();
+      booleanSchema = booleanSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
     }
     if (item.requiredBooleanValue !== undefined) {
       booleanSchema = booleanSchema.oneOf([item.requiredBooleanValue], REQUIRED_FIELD_ERROR_MESSAGE);
