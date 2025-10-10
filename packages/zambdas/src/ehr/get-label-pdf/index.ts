@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { APIError, getPresignedURL, getSecret, isApiError, LabelPdf, SecretsKeys } from 'utils';
+import { APIError, getPresignedURL, getSecret, isApiError, LabelPdf, MIME_TYPES, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -44,8 +44,8 @@ export const index = wrapHandler('get-label-pdf', async (input: ZambdaInput): Pr
 
     await Promise.allSettled(
       labelDocRefs.map(async (labelDocRef) => {
-        const url = labelDocRef.content.find((content) => content.attachment.contentType === 'application/pdf')
-          ?.attachment.url;
+        const url = labelDocRef.content.find((content) => content.attachment.contentType === MIME_TYPES.PDF)?.attachment
+          .url;
 
         if (!url) {
           throw new Error('No url found matching an application/pdf');

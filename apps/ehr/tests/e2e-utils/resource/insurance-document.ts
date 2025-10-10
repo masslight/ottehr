@@ -1,4 +1,5 @@
 import { DocumentReference } from 'fhir/r4b';
+import { MIME_TYPES } from 'utils';
 // import { INSURANCE_CARD_CODE, OTTEHR_MODULE } from 'utils';
 
 interface DocumentReferenceParams {
@@ -26,8 +27,8 @@ export function createDocumentReference({
   appointmentId,
   frontUrl = 'https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/2bc5ab8d-c1c2-4ca3-804b-c61066a62cb4/1721330510132-insurance-card-front.jpeg',
   backUrl = 'https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/2bc5ab8d-c1c2-4ca3-804b-c61066a62cb4/1721330518576-insurance-card-back.jpeg',
-  frontContentType = 'image/jpeg',
-  backContentType = 'image/jpeg',
+  frontContentType = MIME_TYPES.JPEG,
+  backContentType = MIME_TYPES.JPEG,
   tagCode = 'IN-PERSON',
   type = {
     system: 'http://loinc.org',
