@@ -1,20 +1,7 @@
 import fs from 'fs';
 import fetch from 'node-fetch';
-import { AccessPolicy, RoleType } from 'utils';
-import {
-  ADMINISTRATOR_RULES,
-  getAuth0Token,
-  INACTIVE_RULES,
-  MANAGER_RULES,
-  PROVIDER_RULES,
-  STAFF_RULES,
-} from '../shared/';
-import { CUSTOMER_SUPPORT_RULES, FRONT_DESK_RULES } from '../shared/accessPolicies';
-
-interface Role {
-  name: string;
-  accessPolicy: AccessPolicy;
-}
+import { RoleType } from 'utils';
+import { allNonPatientRoles, getAuth0Token } from '../shared/';
 
 const updateUserRoles = async (config: any): Promise<void> => {
   const auth0Token = await getAuth0Token(config);
@@ -23,16 +10,6 @@ const updateUserRoles = async (config: any): Promise<void> => {
   }
 
   console.log('building access policies');
-
-  const roles: Role[] = [
-    { name: RoleType.Administrator, accessPolicy: ADMINISTRATOR_RULES },
-    { name: RoleType.Manager, accessPolicy: MANAGER_RULES },
-    { name: RoleType.Staff, accessPolicy: STAFF_RULES },
-    { name: RoleType.Provider, accessPolicy: PROVIDER_RULES },
-    { name: RoleType.FrontDesk, accessPolicy: FRONT_DESK_RULES },
-    { name: RoleType.Inactive, accessPolicy: INACTIVE_RULES },
-    { name: RoleType.CustomerSupport, accessPolicy: CUSTOMER_SUPPORT_RULES },
-  ];
 
   console.log('searching for existing roles for the project');
   const existingRolesResponse = await fetch(`${config.PROJECT_API}/iam/role`, {
@@ -51,7 +28,7 @@ const updateUserRoles = async (config: any): Promise<void> => {
 
   let staffUserRoleID = undefined;
 
-  for (const role of roles) {
+  for (const role of allNonPatientRoles) {
     const roleName = role.name;
     let foundRole;
     let roleResJson = undefined;

@@ -4,18 +4,12 @@ import {
   AllStatesValues,
   makeQualificationForPractitioner,
   PractitionerLicense,
+  RoleType,
   SCHEDULE_EXTENSION_URL,
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import {
-  ADMINISTRATOR_RULES,
-  INACTIVE_RULES,
-  MANAGER_RULES,
-  PRESCRIBER_RULES,
-  PROVIDER_RULES,
-  STAFF_RULES,
-} from '../shared/';
+import { allNonPatientRoles } from '../shared';
 
 const DEFAULTS = {
   firstName: 'Example',
@@ -23,42 +17,9 @@ const DEFAULTS = {
   phone: '+12125551212',
   npi: '1234567890',
 };
-export const enum RoleType {
-  NewUser = 'NewUser',
-  Inactive = 'Inactive',
-  Manager = 'Manager',
-  FrontDesk = 'FrontDesk',
-  Staff = 'Staff',
-  Provider = 'Provider',
-  Prescriber = 'Prescriber',
-  Administrator = 'Administrator',
-}
 
 const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
   console.log('Updating user roles.');
-
-  const zambdaRules: AccessPolicy['rule'] = [
-    {
-      resource: ['Zambda:Function:*'],
-      action: ['Zambda:InvokeFunction'],
-      effect: 'Allow',
-    },
-  ];
-  const inactiveAccessPolicy = { rule: [...INACTIVE_RULES.rule, ...zambdaRules] };
-  const administratorAccessPolicy = { rule: [...ADMINISTRATOR_RULES.rule, ...zambdaRules] };
-  const managerAccessPolicy = { rule: [...MANAGER_RULES.rule, ...zambdaRules] };
-  const staffAccessPolicy = { rule: [...STAFF_RULES.rule, ...zambdaRules] };
-  const providerAccessPolicy = { rule: [...PROVIDER_RULES.rule, ...zambdaRules] };
-  const prescriberAccessPolicy = { rule: [...PRESCRIBER_RULES, ...zambdaRules] };
-
-  const roles = [
-    { name: RoleType.Inactive, accessPolicy: inactiveAccessPolicy },
-    { name: RoleType.Administrator, accessPolicy: administratorAccessPolicy },
-    { name: RoleType.Manager, accessPolicy: managerAccessPolicy },
-    { name: RoleType.Staff, accessPolicy: staffAccessPolicy },
-    { name: RoleType.Provider, accessPolicy: providerAccessPolicy },
-    { name: RoleType.Prescriber, accessPolicy: prescriberAccessPolicy },
-  ];
 
   console.log('searching for existing roles for the project');
   let existingRoles: RoleListItem[];
@@ -74,7 +35,7 @@ const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
   let providerUserRole = undefined;
   let managerUserRole = undefined;
 
-  for (const role of roles) {
+  for (const role of allNonPatientRoles) {
     const roleName = role.name;
     let foundRole;
     if (existingRoles.length > 0) {
@@ -118,30 +79,17 @@ const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
     }
   }
 
-  // console.group(`Setting defaultSSOUserRole for project to Administrator user role ${adminUserRole.id}`);
-  // const endpoint = `${projectApiUrl}/project`;
-  // const response = await fetch(endpoint, {
-  //   method: 'PATCH',
-  //   headers: httpHeaders,
-  //   body: JSON.stringify({ defaultSSOUserRoleId: adminUserRole.id }),
-  // });
-  // const responseJSON = await response.json();
-  // console.log('response', responseJSON);
-  // if (!response.ok) {
-  // throw new Error(`Failed to set defaultSSOUserRole`);
-  // }
-
   if (!adminUserRole) {
     throw new Error('Could not create adminUserRole');
   }
   if (!prescriberUserRole) {
-    throw new Error('Could not create adminUserRole');
+    throw new Error('Could not create prescriberUserRole');
   }
   if (!providerUserRole) {
-    throw new Error('Could not create adminUserRole');
+    throw new Error('Could not create providerUserRole');
   }
   if (!managerUserRole) {
-    throw new Error('Could not create adminUserRole');
+    throw new Error('Could not create managerUserRole');
   }
   return [adminUserRole, prescriberUserRole, providerUserRole, managerUserRole];
 };
