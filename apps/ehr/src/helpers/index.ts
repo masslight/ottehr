@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Message } from '@twilio/conversations';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, Location, Practitioner, Resource } from 'fhir/r4b';
+import { Appointment, Encounter, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ApptTab } from 'src/components/AppointmentTabs';
 import {
