@@ -38,6 +38,7 @@ import { DateTime } from 'luxon';
 import {
   addOperation,
   findExistingListByDocumentTypeCode,
+  getMimeType,
   getPatchOperationsForNewMetaTags,
   getPatchOperationToRemoveMetaTags,
   LAB_RESULT_DOC_REF_CODING_CODE,
@@ -288,8 +289,7 @@ export async function createFilesDocumentReferences(
       }
 
       // Create all DocumentReferences
-      const urlExt = file.url.split('.').slice(-1).toString();
-      const contentType = urlExt === 'pdf' ? 'application/pdf' : urlExt === 'jpg' ? 'image/jpeg' : `image/${urlExt}`;
+      const contentType = getMimeType(file.url);
 
       const writeDRFullUrl = generateUUID ? generateUUID() : undefined;
 

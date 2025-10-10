@@ -13,6 +13,7 @@ import {
   InPersonConfirmationTemplateData,
   InPersonReceiptTemplateData,
   InPersonReminderTemplateData,
+  MIME_TYPES,
   ServiceMode,
   TelemedCancelationTemplateData,
   TelemedCompletionTemplateData,
@@ -72,7 +73,7 @@ const getInPersonReceiptTestPdfFileAttachment = (): EmailAttachment => {
   return {
     content: file.toString('base64'),
     filename: 'receipt.pdf',
-    type: 'application/pdf',
+    type: MIME_TYPES.PDF,
     disposition: 'attachment',
   };
 };

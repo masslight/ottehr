@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getPresignedURL, getSecret, InPersonReceiptTemplateData, SecretsKeys } from 'utils';
+import { getPresignedURL, getSecret, InPersonReceiptTemplateData, MIME_TYPES, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -52,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const attachment: EmailAttachment = {
         content: fileBuffer.toString('base64'),
         filename: 'receipt.pdf',
-        type: file.headers.get('content-type') || 'application/pdf',
+        type: file.headers.get('content-type') || MIME_TYPES.PDF,
         disposition: 'attachment',
       };
 

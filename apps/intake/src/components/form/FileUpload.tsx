@@ -1,6 +1,7 @@
 import { Box, CircularProgress, Typography, useTheme } from '@mui/material';
 import { ChangeEvent, FC, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { MIME_TYPES, MimeType } from 'utils';
 import { safelyCaptureException } from '../../helpers/sentry';
 import { FileUploadOptions } from '../../types';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
@@ -12,7 +13,7 @@ interface FileUploadProps {
   name: string;
   label: string;
   defaultValue?: string;
-  fileUploadType?: string;
+  fileUploadType?: MimeType;
   options: FileUploadOptions;
   required?: boolean;
 }
@@ -51,7 +52,7 @@ const FileUpload: FC<FileUploadProps> = ({ name, label, defaultValue, fileUpload
       setValue(name, defaultValue);
       let fileTypeExtension = '';
       switch (fileUploadType) {
-        case 'application/pdf':
+        case MIME_TYPES.PDF:
           fileTypeExtension = 'pdf';
           break;
       }

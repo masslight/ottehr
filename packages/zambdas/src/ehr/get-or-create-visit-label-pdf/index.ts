@@ -10,6 +10,7 @@ import {
   getPresignedURL,
   getSecret,
   isApiError,
+  MIME_TYPES,
   SecretsKeys,
 } from 'utils';
 import {
@@ -115,8 +116,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     } else if (labelDocRefs.length === 1) {
       const labelDocRef = labelDocRefs[0];
       console.log(`Found existing DocumentReference/${labelDocRef.id} for Encounter/${encounterId}`);
-      const url = labelDocRef.content.find((content) => content.attachment.contentType === 'application/pdf')
-        ?.attachment.url;
+      const url = labelDocRef.content.find((content) => content.attachment.contentType === MIME_TYPES.PDF)?.attachment
+        .url;
 
       if (!url) {
         throw new Error(`No url found matching an application/pdf for DocumentReference/${labelDocRef.id}`);
