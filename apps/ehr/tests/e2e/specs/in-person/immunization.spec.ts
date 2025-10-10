@@ -14,6 +14,7 @@ import {
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import { getFirstName, getLastName } from 'utils';
+import vaccines from '../../../../../../config/oystehr/vaccines.json' assert { type: 'json' };
 
 interface VaccineInfo {
   vaccine: string;
@@ -40,7 +41,7 @@ interface AdministrationDetails {
 }
 
 const VACCINE_A: VaccineInfo = {
-  vaccine: 'No drugId vaccine', //'Dtap (Diptheria, Tetanus, Pertussis)'
+  vaccine: vaccines.fhirResources['VACCINE_TDAP'].resource.identifier[1].value,
   dose: '0.5',
   units: 'mg',
   route: 'Body cavity route (qualifier value)',
@@ -49,7 +50,7 @@ const VACCINE_A: VaccineInfo = {
 };
 
 const VACCINE_B: VaccineInfo = {
-  vaccine: 'Tdap (Tetanus, Diphtheria, Pertussis)',
+  vaccine: vaccines.fhirResources['VACCINE_TD'].resource.identifier[1].value,
   dose: '1',
   units: 'mL',
   route: 'Caudal route (qualifier value)',
