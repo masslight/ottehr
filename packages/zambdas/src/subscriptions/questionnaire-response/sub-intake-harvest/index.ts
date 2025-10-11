@@ -15,6 +15,7 @@ import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   flattenIntakeQuestionnaireItems,
+  flattenQuestionnaireAnswers,
   getRelatedPersonForPatient,
   getSecret,
   IntakeQuestionnaireItem,
@@ -27,6 +28,7 @@ import {
   createDocumentResources,
   createErxContactOperation,
   createMasterRecordPatchOperations,
+  createUpdatePharmacyPatchOps,
   flagPaperworkEdit,
   getAccountAndCoverageResourcesForPatient,
   updatePatientAccountFromQuestionnaire,
@@ -118,7 +120,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   console.timeEnd('querying for resources to support qr harvest');
 
   const encounterResource = resources.find((res) => res.resourceType === 'Encounter') as Encounter | undefined;
-  const patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
+  let patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
   const listResources = resources.filter((res) => res.resourceType === 'List') as List[];
   const documentReferenceResources = resources.filter(
     (res) => res.resourceType === 'DocumentReference'
@@ -138,10 +140,15 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   console.time('patching patient resource');
   if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
     try {
-      await oystehr.fhir.patch({
+      patientResource = await oystehr.fhir.patch<Patient>({
         resourceType: 'Patient',
         id: patientResource.id!,
         operations: patientPatchOps.patient.patchOpsForDirectUpdate,
+      });
+      patientResource = await oystehr.fhir.patch<Patient>({
+        resourceType: 'Patient',
+        id: patientResource.id!,
+        operations: createUpdatePharmacyPatchOps(patientResource, flattenQuestionnaireAnswers(qr.item ?? [])),
       });
     } catch (error: unknown) {
       tasksFailed.push('patch patient');
@@ -149,6 +156,9 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     }
   }
   console.timeEnd('patching patient resource');
+  if (patientResource === undefined || patientResource.id === undefined) {
+    throw new Error('Patient resource not found');
+  }
 
   try {
     await updatePatientAccountFromQuestionnaire(
