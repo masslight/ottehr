@@ -145,11 +145,19 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
         id: patientResource.id!,
         operations: patientPatchOps.patient.patchOpsForDirectUpdate,
       });
-      patientResource = await oystehr.fhir.patch<Patient>({
-        resourceType: 'Patient',
-        id: patientResource.id!,
-        operations: createUpdatePharmacyPatchOps(patientResource, flattenQuestionnaireAnswers(qr.item ?? [])),
-      });
+      const pharmacyPatchOps = createUpdatePharmacyPatchOps(
+        patientResource,
+        flattenQuestionnaireAnswers(qr.item ?? [])
+      );
+      if (pharmacyPatchOps.length > 0) {
+        patientResource = await oystehr.fhir.patch<Patient>({
+          resourceType: 'Patient',
+          id: patientResource.id!,
+          operations: pharmacyPatchOps,
+        });
+      }
+
+      console.log('Patient update successful');
     } catch (error: unknown) {
       tasksFailed.push('patch patient');
       console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
