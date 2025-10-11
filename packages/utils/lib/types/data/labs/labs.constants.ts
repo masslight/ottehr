@@ -131,6 +131,8 @@ export const OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM =
   'https://extensions.fhir.oystehr.com/observation-value-attachment-pre-release';
 export const OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM =
   'https://extensions.fhir.oystehr.com/unsolicited-result-ordering-provider-reference';
+export const OYSTEHR_UNSOLICITED_RESULT_DR_RELATED_TO_ATTACHMENT_URL =
+  'https://extensions.fhir.oystehr.com/same-transmission-diagnostic-report'; // todo sarah maybe this could be better named?
 
 export const OYSTEHR_OBS_CONTENT_TYPES = {
   pdf: 'AP',
