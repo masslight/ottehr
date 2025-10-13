@@ -27,6 +27,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   APIError,
+  APIErrorCode,
   CancelMatchUnsolicitedResultTask,
   createSmsModel,
   filterResources,
@@ -526,7 +527,7 @@ export const useGetIcd10Search = ({
   });
 
   useEffect(() => {
-    if (queryResult.error) {
+    if (queryResult.error && (queryResult.error as APIError)?.code !== APIErrorCode.MISSING_NLM_API_KEY_ERROR) {
       enqueueSnackbar('An error occurred during the search. Please try again in a moment.', {
         variant: 'error',
       });

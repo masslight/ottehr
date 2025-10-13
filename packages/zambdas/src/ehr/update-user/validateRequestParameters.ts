@@ -1,4 +1,12 @@
-import { isNPIValid, isPhoneNumberValid, RoleType, Secrets, UpdateUserParams } from 'utils';
+import {
+  isNPIValid,
+  isPhoneNumberValid,
+  isProviderTypeCode,
+  PROVIDER_TYPE_VALUES,
+  RoleType,
+  Secrets,
+  UpdateUserParams,
+} from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): UpdateUserParams & { secrets: Secrets } {
@@ -52,10 +60,9 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserParams 
   }
 
   if (providerType) {
-    const allowedProviderTypes = ['MD', 'DO', 'PA', 'NP', 'other'];
-    if (!allowedProviderTypes.includes(providerType)) {
+    if (!isProviderTypeCode(providerType)) {
       throw new Error(
-        `Invalid providerType. Must be one of "${allowedProviderTypes.join('", "')}". Received "${providerType}"`
+        `Invalid providerType. Must be one of "${PROVIDER_TYPE_VALUES.join('", "')}". Received "${providerType}"`
       );
     }
 

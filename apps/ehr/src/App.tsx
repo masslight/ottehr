@@ -248,7 +248,6 @@ function App(): ReactElement {
                   <Route path="/visits" element={<AppointmentsPage />} />
                   <Route path="/visits/add" element={<AddPatient />} />
                   <Route path="/visit/:id" element={<VisitDetailsPage />} />
-
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/details" element={<PatientVisitDetails />} />

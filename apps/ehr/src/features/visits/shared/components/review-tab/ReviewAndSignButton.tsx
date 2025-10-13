@@ -11,8 +11,9 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPatientName } from 'src/shared/utils';
 import {
   getInPersonVisitStatus,
-  getPractitionerQualificationByLocation,
-  isPhysicianQualification,
+  getProviderType,
+  getSupervisorApprovalStatus,
+  isPhysicianProviderType,
   PRACTITIONER_CODINGS,
   TelemedAppointmentStatusEnum,
 } from 'utils';
@@ -33,7 +34,7 @@ type ReviewAndSignButtonProps = {
 };
 
 export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) => {
-  const { patient, appointment, encounter, appointmentRefetch, appointmentSetState, location } = useAppointmentData();
+  const { patient, appointment, encounter, appointmentRefetch, appointmentSetState } = useAppointmentData();
   const { chartData } = useChartData();
 
   const { data: chartFields } = useChartFields({
@@ -80,13 +81,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     () => appointment && getInPersonVisitStatus(appointment, encounter),
     [appointment, encounter]
   );
-
+  const approvalStatus = getSupervisorApprovalStatus(appointment, encounter);
   const completed = useMemo(() => {
     if (isInPerson) {
-      return appointmentAccessibility.isAppointmentLocked;
+      return appointmentAccessibility.isAppointmentLocked || approvalStatus === 'waiting-for-approval';
     }
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
-  }, [isInPerson, appointmentAccessibility.status, appointmentAccessibility.isAppointmentLocked]);
+  }, [isInPerson, appointmentAccessibility.status, appointmentAccessibility.isAppointmentLocked, approvalStatus]);
 
   const errorMessage = useMemo(() => {
     const messages: string[] = [];
@@ -176,13 +177,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   };
 
   const showSupervisorCheckbox = useMemo(() => {
-    if (!location || !practitioner) return false;
+    if (!practitioner) return false;
 
-    const qualification = getPractitionerQualificationByLocation(practitioner, location);
-    const isPhysician = isPhysicianQualification(qualification);
+    const providerType = getProviderType(practitioner);
+    const isPhysician = isPhysicianProviderType(providerType);
 
     return !isPhysician;
-  }, [practitioner, location]);
+  }, [practitioner]);
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>

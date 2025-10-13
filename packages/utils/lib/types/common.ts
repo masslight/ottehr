@@ -6,6 +6,7 @@ import {
   ContactPoint,
   DocumentReference,
   Encounter,
+  FhirResource,
   HealthcareService,
   Location,
   Practitioner,
@@ -728,3 +729,7 @@ export type Timezone = (typeof TIMEZONES)[number];
 export interface GetVisitLabelInput {
   encounterId: string;
 }
+
+export type PersistedFhirResource<T extends FhirResource> = T & {
+  id: string;
+};

@@ -15,10 +15,9 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { APIErrorCode, IcdSearchResponse, MedicalConditionDTO } from 'utils';
+import { IcdSearchResponse, MedicalConditionDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { useICD10SearchNew } from '../../../stores/appointment/appointment.queries';
@@ -241,9 +240,6 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 const AddMedicalConditionField: FC = () => {
   const { isChartDataLoading } = useChartData();
   const { onSubmit, isLoading } = useChartDataArrayValue('conditions');
-  const { error: icdSearchError } = useICD10SearchNew({ search: 'E11' });
-
-  const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
 
   const methods = useForm<{ value: IcdSearchResponse['codes'][number] | null }>({
     defaultValues: { value: null },
@@ -279,10 +275,6 @@ const AddMedicalConditionField: FC = () => {
         // Error is already handled by useChartDataArrayValue
       }
     }
-  };
-
-  const handleSetup = (): void => {
-    window.open('https://docs.oystehr.com/ottehr/setup/terminology/', '_blank');
   };
 
   if (isChartDataLoading) {
@@ -342,7 +334,6 @@ const AddMedicalConditionField: FC = () => {
                     },
                   }}
                 />
-                {nlmApiKeyMissing && <CompleteConfiguration handleSetup={handleSetup} />}
               </Box>
             )}
           />

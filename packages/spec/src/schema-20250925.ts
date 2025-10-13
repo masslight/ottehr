@@ -24,11 +24,40 @@ export class Schema20250925 implements Schema<Spec20250925> {
   private vars: { [key: string]: any };
   private outputPath: string;
   private zambdasDirPath: string;
+  public resources: Spec20250925;
+
   constructor(specFiles: SpecFile[], vars: { [key: string]: any }, outputPath: string, zambdasDirPath: string) {
     this.specFiles = specFiles;
     this.vars = vars;
     this.outputPath = outputPath;
     this.zambdasDirPath = zambdasDirPath;
+    this.resources = {
+      project: {},
+      apps: {},
+      buckets: {},
+      faxNumbers: {},
+      fhirResources: {},
+      labRoutes: {},
+      m2ms: {},
+      outputs: {},
+      roles: {},
+      secrets: {},
+      zambdas: {},
+    };
+    for (const [_, specFile] of this.specFiles.entries()) {
+      const spec = this.validate(specFile);
+      this.resources.project = { ...this.resources.project, ...(spec.project as object) };
+      this.resources.apps = { ...this.resources.apps, ...(spec.apps as object) };
+      this.resources.buckets = { ...this.resources.buckets, ...(spec.buckets as object) };
+      this.resources.faxNumbers = { ...this.resources.faxNumbers, ...(spec.faxNumbers as object) };
+      this.resources.fhirResources = { ...this.resources.fhirResources, ...(spec.fhirResources as object) };
+      this.resources.labRoutes = { ...this.resources.labRoutes, ...(spec.labRoutes as object) };
+      this.resources.m2ms = { ...this.resources.m2ms, ...(spec.m2ms as object) };
+      this.resources.outputs = { ...this.resources.outputs, ...(spec.outputs as object) };
+      this.resources.roles = { ...this.resources.roles, ...(spec.roles as object) };
+      this.resources.secrets = { ...this.resources.secrets, ...(spec.secrets as object) };
+      this.resources.zambdas = { ...this.resources.zambdas, ...(spec.zambdas as object) };
+    }
   }
 
   getSchemaVersion(): string {
@@ -80,77 +109,18 @@ export class Schema20250925 implements Schema<Spec20250925> {
   }
 
   async generate(): Promise<void> {
-    const resources: Spec20250925 = {
-      project: {},
-      apps: {},
-      buckets: {},
-      faxNumbers: {},
-      fhirResources: {},
-      labRoutes: {},
-      m2ms: {},
-      outputs: {},
-      roles: {},
-      secrets: {},
-      zambdas: {},
-    };
-    for (const [_, specFile] of this.specFiles.entries()) {
-      const spec = this.validate(specFile);
-      resources.project = { ...resources.project, ...(spec.project as object) };
-      resources.apps = { ...resources.apps, ...(spec.apps as object) };
-      resources.buckets = { ...resources.buckets, ...(spec.buckets as object) };
-      resources.faxNumbers = { ...resources.faxNumbers, ...(spec.faxNumbers as object) };
-      resources.fhirResources = { ...resources.fhirResources, ...(spec.fhirResources as object) };
-      resources.labRoutes = { ...resources.labRoutes, ...(spec.labRoutes as object) };
-      resources.m2ms = { ...resources.m2ms, ...(spec.m2ms as object) };
-      resources.outputs = { ...resources.outputs, ...(spec.outputs as object) };
-      resources.roles = { ...resources.roles, ...(spec.roles as object) };
-      resources.secrets = { ...resources.secrets, ...(spec.secrets as object) };
-      resources.zambdas = { ...resources.zambdas, ...(spec.zambdas as object) };
-    }
-
-    // There are 2 kinds of outputs: explicit outputs from spec files and implicit outputs from resource references
-    const outputsOutFile = path.join(this.outputPath, 'outputs.tf.json');
-    const outputDirectives: { output: { [key: string]: { value: any } } } = { output: {} };
-    // Explicit outputs from spec files:
-    for (const [outputName, output] of Object.entries(resources.outputs)) {
-      outputDirectives.output[outputName] = { value: this.getValue(output.value, resources) };
-    }
-    // Implicit outputs from resource references:
-    const refMatches = [...JSON.stringify(resources).matchAll(REF_REGEX)];
-    console.log(`Found ${refMatches.length} references in specs.`);
-    for (const [fullMatch, resourceType, resourceName, fieldName] of refMatches) {
-      const tfRef = this.getTerraformResourceReference(
-        resources,
-        resourceType as keyof Spec20250925,
-        resourceName,
-        fieldName
-      );
-      if (tfRef) {
-        console.log(`Reference ${fullMatch} resolved to ${tfRef}`);
-        const tfOutputName = this.getTerraformResourceOutputName(fullMatch);
-        outputDirectives.output[tfOutputName] = { value: `\${${tfRef}}` };
-      } else {
-        console.log('Warning: could not resolve reference', fullMatch);
-      }
-    }
-    if (Object.keys(outputDirectives.output).length) {
-      await fs.writeFile(outputsOutFile, JSON.stringify(outputDirectives, null, 2));
-    } else {
-      await fs.rm(outputsOutFile, { force: true });
-    }
-
     // Write out resources
     const projectOutFile = path.join(this.outputPath, 'project.tf.json');
     const projectResources: { resource: { oystehr_project_configuration: { [key: string]: any } } } = {
       resource: { oystehr_project_configuration: {} },
     };
-    const projects = Object.entries(resources.project);
+    const projects = Object.entries(this.resources.project);
     if (projects.length) {
       projectResources.resource.oystehr_project_configuration[projects[0][0]] = {
-        name: this.getValue(projects[0][1].name, resources),
-        description: this.getValue(projects[0][1].description, resources),
-        signup_enabled: this.getValue(projects[0][1].signupEnabled, resources),
-        default_patient_role_id: this.getValue(projects[0][1].defaultPatientRoleId, resources),
+        name: this.getValue(projects[0][1].name, this.resources),
+        description: this.getValue(projects[0][1].description, this.resources),
+        signup_enabled: this.getValue(projects[0][1].signupEnabled, this.resources),
+        default_patient_role_id: this.getValue(projects[0][1].defaultPatientRoleId, this.resources),
       };
     }
     if (Object.keys(projectResources.resource.oystehr_project_configuration).length) {
@@ -163,23 +133,25 @@ export class Schema20250925 implements Schema<Spec20250925> {
     const appResources: { resource: { oystehr_application: { [key: string]: any } } } = {
       resource: { oystehr_application: {} },
     };
-    for (const [appName, app] of Object.entries(resources.apps)) {
+    for (const [appName, app] of Object.entries(this.resources.apps)) {
       appResources.resource.oystehr_application[appName] = {
-        name: this.getValue(app.name, resources),
-        description: this.getValue(app.description, resources),
-        login_redirect_uri: this.getValue(app.loginRedirectUri, resources),
-        login_with_email_enabled: this.getValue(app.loginWithEmailEnabled, resources),
-        allowed_callback_urls: JSON.parse(this.getValue(JSON.stringify(app.allowedCallbackUrls ?? []), resources)),
-        allowed_logout_urls: JSON.parse(this.getValue(JSON.stringify(app.allowedLogoutUrls ?? []), resources)),
-        allowed_web_origins_urls: JSON.parse(this.getValue(JSON.stringify(app.allowedWebOriginsUrls ?? []), resources)),
-        allowed_cors_origins_urls: JSON.parse(
-          this.getValue(JSON.stringify(app.allowedCorsOriginsUrls ?? []), resources)
+        name: this.getValue(app.name, this.resources),
+        description: this.getValue(app.description, this.resources),
+        login_redirect_uri: this.getValue(app.loginRedirectUri, this.resources),
+        login_with_email_enabled: this.getValue(app.loginWithEmailEnabled, this.resources),
+        allowed_callback_urls: JSON.parse(this.getValue(JSON.stringify(app.allowedCallbackUrls ?? []), this.resources)),
+        allowed_logout_urls: JSON.parse(this.getValue(JSON.stringify(app.allowedLogoutUrls ?? []), this.resources)),
+        allowed_web_origins_urls: JSON.parse(
+          this.getValue(JSON.stringify(app.allowedWebOriginsUrls ?? []), this.resources)
         ),
-        passwordless_sms: this.getValue(app.passwordlessSMS, resources),
-        mfa_enabled: this.getValue(app.mfaEnabled, resources),
-        should_send_invite_email: this.getValue(app.shouldSendInviteEmail, resources),
-        logo_uri: this.getValue(app.logoUri, resources),
-        refresh_token_enabled: this.getValue(app.refreshTokenEnabled, resources),
+        allowed_cors_origins_urls: JSON.parse(
+          this.getValue(JSON.stringify(app.allowedCorsOriginsUrls ?? []), this.resources)
+        ),
+        passwordless_sms: this.getValue(app.passwordlessSMS, this.resources),
+        mfa_enabled: this.getValue(app.mfaEnabled, this.resources),
+        should_send_invite_email: this.getValue(app.shouldSendInviteEmail, this.resources),
+        logo_uri: this.getValue(app.logoUri, this.resources),
+        refresh_token_enabled: this.getValue(app.refreshTokenEnabled, this.resources),
       };
       // If there is project configuration, we need to wait on it being set up in case they are changing relevant values
       if (Object.keys(projects).length) {
@@ -198,9 +170,9 @@ export class Schema20250925 implements Schema<Spec20250925> {
     const bucketResources: { resource: { oystehr_z3_bucket: { [key: string]: any } } } = {
       resource: { oystehr_z3_bucket: {} },
     };
-    for (const [bucketName, bucket] of Object.entries(resources.buckets)) {
+    for (const [bucketName, bucket] of Object.entries(this.resources.buckets)) {
       bucketResources.resource.oystehr_z3_bucket[bucketName] = {
-        name: this.getValue(bucket.name, resources),
+        name: this.getValue(bucket.name, this.resources),
       };
     }
     if (Object.keys(bucketResources.resource.oystehr_z3_bucket).length) {
@@ -213,7 +185,7 @@ export class Schema20250925 implements Schema<Spec20250925> {
     const faxResources: { resource: { oystehr_fax_number: { [key: string]: any } } } = {
       resource: { oystehr_fax_number: {} },
     };
-    for (const [faxName] of Object.entries(resources.faxNumbers)) {
+    for (const [faxName] of Object.entries(this.resources.faxNumbers)) {
       faxResources.resource.oystehr_fax_number[faxName] = {};
     }
     if (Object.keys(faxResources.resource.oystehr_fax_number).length) {
@@ -226,12 +198,12 @@ export class Schema20250925 implements Schema<Spec20250925> {
     const fhirResources: { resource: { oystehr_fhir_resource: { [key: string]: any } } } = {
       resource: { oystehr_fhir_resource: {} },
     };
-    for (const [resourceKey, resource] of Object.entries(resources.fhirResources)) {
+    for (const [resourceKey, resource] of Object.entries(this.resources.fhirResources)) {
       const resourceData = structuredClone(resource.resource);
       const managedFields = resource.managedFields ?? undefined;
       fhirResources.resource.oystehr_fhir_resource[resourceKey] = {
-        type: this.getValue(resourceData.resourceType, resources),
-        data: JSON.parse(this.getValue(JSON.stringify(resourceData), resources)),
+        type: this.getValue(resourceData.resourceType, this.resources),
+        data: JSON.parse(this.getValue(JSON.stringify(resourceData), this.resources)),
         managed_fields: managedFields,
       };
     }
@@ -245,10 +217,10 @@ export class Schema20250925 implements Schema<Spec20250925> {
     const labRoutesResources: { resource: { oystehr_lab_route: { [key: string]: any } } } = {
       resource: { oystehr_lab_route: {} },
     };
-    for (const [routeName, route] of Object.entries(resources.labRoutes)) {
+    for (const [routeName, route] of Object.entries(this.resources.labRoutes)) {
       labRoutesResources.resource.oystehr_lab_route[routeName] = {
-        account_number: this.getValue(route.accountNumber, resources),
-        lab_id: this.getValue(route.labId, resources),
+        account_number: this.getValue(route.accountNumber, this.resources),
+        lab_id: this.getValue(route.labId, this.resources),
       };
     }
     if (Object.keys(labRoutesResources.resource.oystehr_lab_route).length) {
@@ -261,15 +233,15 @@ export class Schema20250925 implements Schema<Spec20250925> {
     const m2mResources: { resource: { oystehr_m2m: { [key: string]: any } } } = {
       resource: { oystehr_m2m: {} },
     };
-    for (const [m2mName, m2m] of Object.entries(resources.m2ms)) {
+    for (const [m2mName, m2m] of Object.entries(this.resources.m2ms)) {
       m2mResources.resource.oystehr_m2m[m2mName] = {
-        name: this.getValue(m2m.name, resources),
-        description: this.getValue(m2m.description, resources),
+        name: this.getValue(m2m.name, this.resources),
+        description: this.getValue(m2m.description, this.resources),
         access_policy: {
-          rule: JSON.parse(this.getValue(JSON.stringify(m2m.accessPolicy), resources)),
+          rule: JSON.parse(this.getValue(JSON.stringify(m2m.accessPolicy), this.resources)),
         },
-        roles: this.getValue(m2m.roles, resources),
-        jwks_url: this.getValue(m2m.jwksUrl, resources),
+        roles: this.getValue(m2m.roles, this.resources),
+        jwks_url: this.getValue(m2m.jwksUrl, this.resources),
       };
     }
     if (Object.keys(m2mResources.resource.oystehr_m2m).length) {
@@ -282,12 +254,12 @@ export class Schema20250925 implements Schema<Spec20250925> {
     const roleResources: { resource: { oystehr_role: { [key: string]: any } } } = {
       resource: { oystehr_role: {} },
     };
-    for (const [roleName, role] of Object.entries(resources.roles)) {
+    for (const [roleName, role] of Object.entries(this.resources.roles)) {
       roleResources.resource.oystehr_role[roleName] = {
-        name: this.getValue(role.name, resources),
-        description: this.getValue(role.description, resources),
+        name: this.getValue(role.name, this.resources),
+        description: this.getValue(role.description, this.resources),
         access_policy: {
-          rule: JSON.parse(this.getValue(JSON.stringify(role.accessPolicy), resources)),
+          rule: JSON.parse(this.getValue(JSON.stringify(role.accessPolicy), this.resources)),
         },
       };
     }
@@ -301,10 +273,10 @@ export class Schema20250925 implements Schema<Spec20250925> {
     const secretResources: { resource: { oystehr_secret: { [key: string]: any } } } = {
       resource: { oystehr_secret: {} },
     };
-    for (const [secretName, secret] of Object.entries(resources.secrets)) {
+    for (const [secretName, secret] of Object.entries(this.resources.secrets)) {
       secretResources.resource.oystehr_secret[secretName] = {
-        name: this.getValue(secret.name, resources),
-        value: this.getValue(secret.value, resources),
+        name: this.getValue(secret.name, this.resources),
+        value: this.getValue(secret.value, this.resources),
       };
     }
     if (Object.keys(secretResources.resource.oystehr_secret).length) {
@@ -317,21 +289,71 @@ export class Schema20250925 implements Schema<Spec20250925> {
     const zambdaResources: { resource: { oystehr_zambda: { [key: string]: any } } } = {
       resource: { oystehr_zambda: {} },
     };
-    for (const [zambdaName, zambda] of Object.entries(resources.zambdas)) {
+    for (const [zambdaName, zambda] of Object.entries(this.resources.zambdas)) {
       zambdaResources.resource.oystehr_zambda[zambdaName] = {
-        name: this.getValue(zambda.name, resources),
-        runtime: this.getValue(zambda.runtime, resources),
-        memory_size: this.getValue(zambda.memorySize, resources),
-        timeout: this.getValue(zambda.timeout, resources),
-        trigger_method: this.getValue(zambda.type, resources),
-        schedule: this.getValue(zambda.schedule, resources),
-        source: path.join(this.zambdasDirPath, this.getValue(zambda.zip, resources)),
+        name: this.getValue(zambda.name, this.resources),
+        runtime: this.getValue(zambda.runtime, this.resources),
+        memory_size: this.getValue(zambda.memorySize, this.resources),
+        timeout: this.getValue(zambda.timeout, this.resources),
+        trigger_method: this.getValue(zambda.type, this.resources),
+        schedule: this.getValue(zambda.schedule, this.resources),
+        source: path.join(this.zambdasDirPath, this.getValue(zambda.zip, this.resources)),
       };
     }
     if (Object.keys(zambdaResources.resource.oystehr_zambda).length) {
       await fs.writeFile(zambdasOutFile, JSON.stringify(zambdaResources, null, 2));
     } else {
       await fs.rm(zambdasOutFile, { force: true });
+    }
+
+    // There are 3 kinds of outputs: explicit outputs from spec files, implicit outputs from resource references,
+    // and implicit outputs of all resource IDs.
+    const outputsOutFile = path.join(this.outputPath, 'outputs.tf.json');
+    const outputDirectives: { output: { [key: string]: { value: any } } } = { output: {} };
+    // Explicit outputs from spec files:
+    for (const [outputName, output] of Object.entries(this.resources.outputs)) {
+      outputDirectives.output[outputName] = { value: this.getValue(output.value, this.resources) };
+    }
+    // Implicit outputs from resource references:
+    const refMatches = [...JSON.stringify(this.resources).matchAll(REF_REGEX)];
+    console.log(`Found ${refMatches.length} references in specs.`);
+    for (const [fullMatch, resourceType, resourceName, fieldName] of refMatches) {
+      const tfRef = this.getTerraformResourceReference(
+        this.resources,
+        resourceType as keyof Spec20250925,
+        resourceName,
+        fieldName
+      );
+      if (tfRef) {
+        console.log(`Reference ${fullMatch} resolved to ${tfRef}`);
+        const tfOutputName = this.getTerraformResourceOutputName(fullMatch);
+        outputDirectives.output[tfOutputName] = { value: `\${${tfRef}}` };
+      } else {
+        console.log('Warning: could not resolve reference', fullMatch);
+      }
+    }
+    // Implicit outputs of all resource IDs:
+    for (const resourceType of Object.keys(this.resources)) {
+      if (this.isResourceType(resourceType)) {
+        for (const resourceName of Object.keys(this.resources[resourceType as keyof Spec20250925])) {
+          const tfRef = this.getTerraformResourceReference(
+            this.resources,
+            resourceType as keyof Spec20250925,
+            resourceName,
+            this.getIdentifierForResourceType(resourceType as keyof Spec20250925)
+          );
+          if (tfRef) {
+            const tfOutputName = this.getTerraformResourceOutputName(tfRef);
+            outputDirectives.output[tfOutputName] = { value: `\${${tfRef}}` };
+          }
+        }
+      }
+    }
+    // Write out outputs if we have any
+    if (Object.keys(outputDirectives.output).length) {
+      await fs.writeFile(outputsOutFile, JSON.stringify(outputDirectives, null, 2));
+    } else {
+      await fs.rm(outputsOutFile, { force: true });
     }
   }
 
@@ -385,6 +407,15 @@ export class Schema20250925 implements Schema<Spec20250925> {
     return null;
   }
 
+  getTerraformResourceOutputName(fullMatch: string, module?: string): string {
+    let transformedMatch = fullMatch.replace(/\//g, '_').replace(/\./g, '_');
+    if (transformedMatch.startsWith('#{ref_')) {
+      // Strip off the #{ref/ and the closing }
+      transformedMatch = transformedMatch.slice(2, -1);
+    }
+    return `${module ? `module.${module}.` : ''}${transformedMatch}`;
+  }
+
   oystehrResourceFromResourceType(resourceType: keyof Spec20250925): string {
     switch (resourceType) {
       case 'apps':
@@ -427,8 +458,24 @@ export class Schema20250925 implements Schema<Spec20250925> {
     ].includes(resourceType);
   }
 
-  getTerraformResourceOutputName(fullMatch: string, module?: string): string {
-    return `${module ? `module.${module}.` : ''}${fullMatch.replace(/\//g, '_').replace(/\./g, '_').slice(2, -1)}`;
+  getIdentifierForResourceType(resourceType: keyof Spec20250925): string {
+    switch (resourceType) {
+      case 'apps':
+      case 'buckets':
+      case 'fhirResources':
+      case 'labRoutes':
+      case 'm2ms':
+      case 'project':
+      case 'roles':
+      case 'zambdas':
+        return 'id';
+      case 'faxNumbers':
+        return 'number';
+      case 'secrets':
+        return 'name';
+      default:
+        throw new Error(`Unknown resource type: ${resourceType}`);
+    }
   }
 
   isObject(spec: any): spec is { [key: string]: unknown } {
