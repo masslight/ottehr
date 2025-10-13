@@ -27,7 +27,13 @@ export async function inviteUser(
   includeDefaultSchedule?: boolean,
   slug?: string
 ): Promise<{ invitationUrl: string | undefined; userProfileId: string | undefined }> {
-  const defaultRoleNames = [RoleType.Administrator, RoleType.Prescriber, RoleType.Provider, RoleType.Manager];
+  const defaultRoleNames = [
+    RoleType.Administrator,
+    RoleType.CustomerSupport,
+    RoleType.Manager,
+    RoleType.Prescriber,
+    RoleType.Provider,
+  ];
   const allRoleIds = await updateUserRoles(oystehr);
   const defaultRoleIds = filterIdsOnlyToTheseRoles(allRoleIds, defaultRoleNames);
 
