@@ -1,6 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Autocomplete, Box, Chip, CircularProgress, FormControl, Modal, TextField, Typography } from '@mui/material';
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import { assignDevices, getDevices } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -8,7 +8,7 @@ import { Device, Output } from 'utils';
 import { RoundedButton } from './RoundedButton';
 
 const modalStyle = {
-  position: 'absolute',
+  position: 'absolute' as const,
   top: '50%',
   left: '50%',
   transform: 'translate(-50%, -50%)',
@@ -41,11 +41,14 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
   refetchAssignedDevices,
   onAssignmentResult,
 }) => {
-  const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
-  const [deviceOptions, setDeviceOptions] = useState<DeviceOption[]>([]);
   const { oystehrZambda } = useApiClients();
+  const [selectedDevices, setSelectedDevices] = useState<DeviceOption[]>([]);
+  const [deviceOptions, setDeviceOptions] = useState<DeviceOption[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [inputValue, setInputValue] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const debounceRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     if (!open) {
@@ -53,17 +56,20 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
       setDeviceOptions([]);
       setOffset(0);
       setHasMore(true);
+      setInputValue('');
+      setSearchTerm('');
     }
   }, [open]);
 
   const payload = {
     count: 10,
-    offset: offset,
+    offset,
     missing: true,
+    search: searchTerm || undefined,
   };
 
   const { isFetching: isFetchingDevices } = useQuery(
-    ['get-unassigned-devices', offset, { oystehrZambda }],
+    ['get-unassigned-devices', offset, searchTerm, { oystehrZambda }],
     () => (oystehrZambda ? getDevices(payload, oystehrZambda) : null),
     {
       onSuccess: (response: Output) => {
@@ -72,11 +78,21 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
             label: device.identifier?.[0]?.value || 'Unknown Device',
             value: device.id,
           }));
-          setDeviceOptions([...deviceOptions, ...options]);
+
+          setDeviceOptions((prev) => {
+            if (offset === 0) {
+              return options;
+            }
+            const existingIds = new Set(prev.map((opt) => opt.value));
+            const newOptions = options.filter((opt) => !existingIds.has(opt.value));
+            return [...prev, ...newOptions];
+          });
+
           setHasMore(response.devices.length === 10);
         }
       },
       enabled: !!oystehrZambda && open,
+      keepPreviousData: true,
     }
   );
 
@@ -84,8 +100,8 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
     () =>
       assignDevices(
         {
-          deviceIds: selectedDevices,
-          patientId: patientId,
+          deviceIds: selectedDevices.map((d) => d.value),
+          patientId,
         },
         oystehrZambda!
       ),
@@ -109,9 +125,28 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
   };
 
   const handleDeviceChange = (event: React.SyntheticEvent, values: DeviceOption[]): void => {
-    setSelectedDevices(values.map((option) => option.value));
-    event.stopPropagation();
+    setSelectedDevices(values);
   };
+
+  const handleInputChange = (event: React.SyntheticEvent, value: string, reason: string): void => {
+    setInputValue(value);
+
+    if (reason === 'input') {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+
+      debounceRef.current = setTimeout(() => {
+        setSearchTerm(value);
+        setOffset(0);
+        setHasMore(true);
+      }, 400);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   return (
     <Modal
@@ -131,10 +166,13 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
             disableCloseOnSelect
             disabled={isAssigning}
             options={deviceOptions}
-            value={deviceOptions.filter((option) => selectedDevices.includes(option.value))}
+            value={selectedDevices}
             onChange={handleDeviceChange}
+            inputValue={inputValue}
+            onInputChange={handleInputChange}
             isOptionEqualToValue={(option, value) => option.value === value.value}
             loading={isFetchingDevices}
+            filterOptions={(x) => x}
             renderOption={(props, option) => (
               <li {...props} key={option.value}>
                 {option.label}
@@ -147,34 +185,37 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
                   key={option.value}
                   label={option.label}
                   onDelete={() => {
-                    setSelectedDevices(selectedDevices.filter((id) => id !== option.value));
+                    setSelectedDevices((prev) => prev.filter((d) => d.value !== option.value));
                   }}
                   deleteIcon={<CloseIcon />}
                 />
               ))
             }
-            fullWidth
             renderInput={(params) => (
               <TextField
                 {...params}
                 label="Select Devices"
-                placeholder="Select Devices"
+                placeholder="Type to search devices..."
                 InputProps={{
                   ...params.InputProps,
-                  endAdornment: <>{params.InputProps.endAdornment}</>,
+                  endAdornment: (
+                    <>
+                      {isFetchingDevices ? <CircularProgress size={20} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
                 }}
               />
             )}
             ListboxProps={{
               onScroll: (event: React.UIEvent<HTMLUListElement>) => {
                 const listboxNode = event.currentTarget;
-
                 if (
                   hasMore &&
                   !isFetchingDevices &&
                   listboxNode.scrollTop + listboxNode.clientHeight >= listboxNode.scrollHeight - 100
                 ) {
-                  setOffset((prev) => prev + 10); // Load next page
+                  setOffset((prev) => prev + 10);
                 }
               },
             }}

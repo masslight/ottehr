@@ -1,5 +1,8 @@
+import MailOutlineIcon from '@mui/icons-material/MailOutline';
+import PhoneIcon from '@mui/icons-material/Phone';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
+import { IconButton } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { DeviceVitalsPage } from 'src/components/DeviceVitalsPage';
@@ -19,6 +22,13 @@ import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { useGetPatient } from '../hooks/useGetPatient';
 import PageContainer from '../layout/PageContainer';
 import { PatientSummaryModal } from './PatientSummaryModal';
+// import { RingCentral } from '@ringcentral/sdk';
+
+// const rcSdk = new RingCentral({
+//   server: 'https://platform.ringcentral.com',
+//   clientId: 'YOUR_CLIENT_ID',
+//   clientSecret: 'YOUR_CLIENT_SECRET',
+// });
 
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
@@ -69,6 +79,30 @@ export default function PatientPage(): JSX.Element {
     setIsSummaryModalOpen(false);
   };
 
+  const handleRingCentralCall = async (telecom: any): Promise<void> => {
+    const phone = telecom?.find((t: any) => t.system === 'phone')?.value;
+    if (phone) {
+      // Use RingCentral SDK to initiate a call (requires authentication)
+      // Example: rcSdk.platform().post('/account/~/extension/~/ring-out', { ... })
+      // For demo, fallback to tel: link
+      window.open(`tel:${phone}`, '_blank');
+    } else {
+      console.warn('No phone number found for this patient.');
+    }
+  };
+
+  const handleRingCentralMessage = async (telecom: any): Promise<void> => {
+    const phone = telecom?.find((t: any) => t.system === 'phone')?.value;
+    if (phone) {
+      // Use RingCentral SDK to send SMS (requires authentication)
+      // Example: rcSdk.platform().post('/account/~/extension/~/sms', { ... })
+      // For demo, fallback to sms: link
+      window.open(`sms:${phone}`, '_blank');
+    } else {
+      console.warn('No phone number found for this patient.');
+    }
+  };
+
   return (
     <>
       <PageContainer tabTitle="Patient Information">
@@ -111,46 +145,91 @@ export default function PatientPage(): JSX.Element {
           <Paper
             sx={{
               display: 'flex',
-              flexDirection: { xs: 'column', md: 'row' },
+              justifyContent: 'space-between',
+              flexDirection: { xs: 'column', sm: 'row', md: 'row' },
               alignItems: { xs: 'stretch', md: 'center' },
-              flexWrap: 'wrap',
-              gap: 3,
+              flexWrap: { xs: 'wrap', sm: 'wrap', md: 'nowrap' },
+              gap: 7,
               p: 3,
             }}
           >
-            <PatientAvatar id={id} />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
+              <PatientAvatar id={id} />
 
-            <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <IdentifiersRow id={id} />
-              <FullNameDisplay patient={patient} loading={loading} />
-              <Summary patient={patient} loading={loading} />
-              <Contacts patient={patient} loading={loading} />
-
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <RoundedButton
-                  to={`/patient/${id}/info`}
-                  data-testid={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
+              <Box sx={{ flexGrow: 1, maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <IdentifiersRow id={id} />
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                  }}
                 >
-                  See All Patient Info
-                </RoundedButton>
-                <RoundedButton to={`/patient/${id}/docs`}>Review Docs</RoundedButton>
-                <RoundedButton onClick={handleOpenSummaryModal}>Summary</RoundedButton>
-                {latestAppointment && (
+                  <FullNameDisplay patient={patient} loading={loading} />
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {/* RingCentral Voice Call */}
+                    <IconButton
+                      size="small"
+                      sx={{
+                        padding: '10px',
+                        minWidth: '36px',
+                        border: '1px solid #43A047  ',
+                        '&:hover': { bgcolor: '#C8E6C9' },
+                      }}
+                      aria-label="ringcentral call"
+                      onClick={() => handleRingCentralCall(patient?.telecom)}
+                    >
+                      <PhoneIcon sx={{ color: '#43A047' }} />
+                    </IconButton>
+
+                    {/* RingCentral Message */}
+                    <IconButton
+                      size="small"
+                      sx={{
+                        padding: '10px',
+                        minWidth: '36px',
+                        border: '1px solid #FB8C00',
+                        '&:hover': { bgcolor: '#FFECB3' },
+                      }}
+                      aria-label="ringcentral message"
+                      onClick={() => handleRingCentralMessage(patient?.telecom)}
+                    >
+                      <MailOutlineIcon sx={{ color: '#FB8C00' }} />
+                    </IconButton>
+                  </Box>
+                </Box>
+
+                <Summary patient={patient} loading={loading} />
+                <Contacts patient={patient} loading={loading} />
+
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   <RoundedButton
-                    target="_blank"
-                    to={
-                      latestAppointment.serviceMode === ServiceMode.virtual
-                        ? `/telemed/appointments/${latestAppointment.id}?tab=sign`
-                        : `/in-person/${latestAppointment.id}/progress-note`
-                    }
+                    to={`/patient/${id}/info`}
+                    data-testid={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
                   >
-                    Recent Progress Note
+                    See All Patient Info
                   </RoundedButton>
-                )}
+                  <RoundedButton to={`/patient/${id}/docs`}>Review Docs</RoundedButton>
+                  <RoundedButton onClick={handleOpenSummaryModal}>Summary</RoundedButton>
+                  {latestAppointment && (
+                    <RoundedButton
+                      target="_blank"
+                      to={
+                        latestAppointment.serviceMode === ServiceMode.virtual
+                          ? `/telemed/appointments/${latestAppointment.id}?tab=sign`
+                          : `/in-person/${latestAppointment.id}/progress-note`
+                      }
+                    >
+                      Recent Progress Note
+                    </RoundedButton>
+                  )}
+                </Box>
               </Box>
             </Box>
 
-            <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 auto' } }}>
+            <Box>
               <ThresholdsTable />
             </Box>
           </Paper>
