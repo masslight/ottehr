@@ -567,7 +567,7 @@ const determineCodeableConceptInterpretation = (
   abnormalValues: LabComponentValueSetConfig[]
 ): { interpretation: CodeableConcept; isAbnormal: boolean } => {
   if (value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode) {
-    return { interpretation: INDETERMINATE_OBSERVATION_INTERPRETATION, isAbnormal: true };
+    return { interpretation: INDETERMINATE_OBSERVATION_INTERPRETATION, isAbnormal: false };
   } else {
     return abnormalValues.map((val) => val.code).includes(value)
       ? { interpretation: ABNORMAL_OBSERVATION_INTERPRETATION, isAbnormal: true }
