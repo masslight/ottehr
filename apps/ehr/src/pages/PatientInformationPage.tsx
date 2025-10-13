@@ -374,7 +374,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     }
   };
 
-  const handleSaveForm = async (values: Record<string, any>): Promise<void> => {
+  const handleSaveForm = async (values: any): Promise<void> => {
     if (!questionnaire || !patient?.id) {
       enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
       return;
