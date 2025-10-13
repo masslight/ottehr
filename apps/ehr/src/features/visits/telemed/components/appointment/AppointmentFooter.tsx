@@ -6,7 +6,7 @@ import { useAppointmentData } from 'src/features/visits/shared/stores/appointmen
 import {
   getAppointmentWaitingTime,
   getSelectors,
-  mapEncounterStatusHistory,
+  getTelemedEncounterStatusHistory,
   TelemedAppointmentStatusEnum,
 } from 'utils';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
@@ -23,7 +23,7 @@ export const AppointmentFooter: FC = () => {
 
   const statuses =
     encounter.statusHistory && appointment?.status
-      ? mapEncounterStatusHistory(encounter.statusHistory, appointment.status)
+      ? getTelemedEncounterStatusHistory(encounter.statusHistory, appointment.status)
       : undefined;
   const waitingTime = getAppointmentWaitingTime(statuses);
 

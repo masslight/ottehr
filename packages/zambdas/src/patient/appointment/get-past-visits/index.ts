@@ -10,8 +10,8 @@ import {
   GetPastVisitsResponse,
   getPatientsForUser,
   getSecret,
+  getTelemedVisitStatus,
   getTimezone,
-  mapStatusToTelemed,
   SecretsKeys,
   TIMEZONE_EXTENSION_URL,
   TIMEZONES,
@@ -100,7 +100,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
         let status: AppointmentStatus | undefined;
         if (appointmentType === 'Telemedicine') {
-          status = mapStatusToTelemed(encounter.status, fhirAppointment.status);
+          status = getTelemedVisitStatus(encounter.status, fhirAppointment.status);
         } else if (appointmentType === 'In-Person') {
           status = getInPersonVisitStatus(fhirAppointment, encounter);
         }
