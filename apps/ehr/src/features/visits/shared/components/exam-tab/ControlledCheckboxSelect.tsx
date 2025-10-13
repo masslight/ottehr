@@ -16,7 +16,6 @@ export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (prop
 
   const params = [name].concat(options.map((option) => option.name));
   const { value: fields, update, isLoading } = useExamObservations(params);
-  console.log('fields', fields);
   const [booleanValue, setBooleanValue] = useState(fields.some((field) => field.value === true));
 
   const onCheckboxChange = (value: boolean): void => {
