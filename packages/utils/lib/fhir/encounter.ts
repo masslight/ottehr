@@ -16,24 +16,17 @@ import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL } from './consta
 export const FOLLOWUP_TYPES = ['Telephone Encounter', 'Non-Billable'] as const;
 export type FollowupType = (typeof FOLLOWUP_TYPES)[number];
 
-export const TELEPHONE_REASONS = [
-  'Culture Positive; Group A Strep',
-  'Culture Positive; Other',
-  'Culture Positive; Urine',
-  'Culture Positive; Wound',
-  'Lab Call Back; Change of Antibiotics',
-  'Lab Call Back; Needs Prescription',
-  'Medication Change or Resend',
-  'Medication Refill Request Spilled, ran out too early, etc.',
+export const FOLLOWUP_REASONS = [
+  'Result - Lab',
+  'Result - Radiology',
+  'Order - Lab',
+  'Order - Radiology',
+  'Clinical Follow-up',
+  'Splint or DME',
+  'Other',
 ] as const;
-export const NON_BILLABLE_REASONS = [
-  'Presents for Splints/Crutches',
-  'Presents with Specimen',
-  'Adolescent/Adult Discussion',
-] as const;
-type TelephoneReasons = (typeof TELEPHONE_REASONS)[number];
-type NonBillableReasons = (typeof NON_BILLABLE_REASONS)[number];
-export type FollowupReason = TelephoneReasons | NonBillableReasons;
+type FollowupReasons = (typeof FOLLOWUP_REASONS)[number];
+export type FollowupReason = FollowupReasons;
 
 export const FOLLOWUP_SYSTEMS = {
   callerUrl: `${FHIR_BASE_URL}/followup-caller`,

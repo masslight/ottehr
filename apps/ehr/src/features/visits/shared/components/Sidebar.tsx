@@ -15,6 +15,7 @@ import { RouteInPerson, useInPersonNavigationContext } from '../../in-person/con
 import { ROUTER_PATH, routesInPerson } from '../../in-person/routing/routesInPerson';
 import { usePractitionerActions } from '../hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
+import { EncounterSwitcher } from './EncounterSwitcher';
 
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
   <svg width="9" height="18" viewBox="0 0 9 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -362,6 +363,7 @@ export const Sidebar = (): JSX.Element => {
           <ArrowIcon direction={open ? 'left' : 'right'} />
         </IconButton>
       </DrawerHeader>
+      <EncounterSwitcher />
       <List sx={{ padding: '0px' }}>
         {menuItems.map((item) => {
           const comparedPath = item?.activeCheckPath || item.to;

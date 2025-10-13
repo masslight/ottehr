@@ -42,6 +42,20 @@ export async function createEncounterResource(
     encounterResource.reasonCode = createEncounterReasonCode(encounterDetails.reason);
   }
 
+  if (encounterDetails.initialVisit) {
+    encounterResource.partOf = {
+      reference: `Encounter/${encounterDetails.initialVisit}`,
+    };
+  }
+
+  if (encounterDetails.appointmentId) {
+    encounterResource.appointment = [
+      {
+        reference: `Appointment/${encounterDetails.appointmentId}`,
+      },
+    ];
+  }
+
   const encounterParticipant: EncounterParticipant[] = [];
   if (encounterDetails.answered) {
     encounterParticipant.push(createEncounterParticipant(FOLLOWUP_SYSTEMS.answeredUrl, encounterDetails.answered));
@@ -323,7 +337,7 @@ const createEncounterType = (type: string): Encounter['type'] => {
   ];
 };
 
-const createEncounterReasonCode = (reason: FollowupReason): Encounter['reasonCode'] => {
+const createEncounterReasonCode = (reason: FollowupReason, otherReason?: string): Encounter['reasonCode'] => {
   return [
     {
       coding: [
@@ -332,7 +346,7 @@ const createEncounterReasonCode = (reason: FollowupReason): Encounter['reasonCod
           display: reason,
         },
       ],
-      text: reason,
+      text: reason + (otherReason ? ` - ${otherReason}` : ''),
     },
   ];
 };

@@ -16,6 +16,9 @@ export interface PatientFollowupDetails {
   patientId: string | null;
   followupType: FollowupType;
   reason?: FollowupReason;
+  otherReason?: string;
+  initialVisit?: string;
+  appointmentId?: string;
   answered?: string;
   caller?: string;
   message?: string;

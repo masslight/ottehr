@@ -137,6 +137,7 @@ export default function LocationSelect({
     <Autocomplete
       data-testid={dataTestIds.dashboard.locationSelect}
       disabled={renderInputProps?.disabled}
+      size={renderInputProps?.size}
       value={
         location
           ? {
