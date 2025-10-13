@@ -23,8 +23,9 @@ import {
   getAttendingPractitionerId,
   getFullestAvailableName,
   IN_HOUSE_LAB_ERROR,
-  IN_HOUSE_LAB_TASK,
   isApiError,
+  ottehrCodeSystemUrl,
+  ottehrIdentifierSystem,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   Secrets,
 } from 'utils';
@@ -350,12 +351,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const taskConfig: Task = {
       resourceType: 'Task',
-      status: 'ready',
+      status: 'requested',
+      groupIdentifier: {
+        system: ottehrIdentifierSystem('task-category'),
+        value: 'in-house-labs',
+      },
       code: {
         coding: [
           {
-            system: IN_HOUSE_LAB_TASK.system,
-            code: IN_HOUSE_LAB_TASK.code.collectSampleTask,
+            system: ottehrCodeSystemUrl('task-type'),
+            code: 'collect-sample',
           },
         ],
       },
@@ -363,7 +368,63 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounter: { reference: `Encounter/${encounterId}` },
       authoredOn: DateTime.now().toISO(),
       intent: 'order',
-      ...(location && { location: { reference: `Location/${location.id}` } }),
+      input: [
+        {
+          type: {
+            coding: [
+              {
+                system: ottehrCodeSystemUrl('task-input'),
+                code: 'test-name',
+              },
+            ],
+          },
+          valueString: activityDefinition.name,
+        },
+        {
+          type: {
+            coding: [
+              {
+                system: ottehrCodeSystemUrl('task-input'),
+                code: 'patient-name',
+              },
+            ],
+          },
+          valueString: getFullestAvailableName(patient),
+        },
+        {
+          type: {
+            coding: [
+              {
+                system: ottehrCodeSystemUrl('task-input'),
+                code: 'provider-name',
+              },
+            ],
+          },
+          valueString: currentUserPractitionerName ?? 'Unknown',
+        },
+        {
+          type: {
+            coding: [
+              {
+                system: ottehrCodeSystemUrl('task-input'),
+                code: 'order-date',
+              },
+            ],
+          },
+          valueDateTime: serviceRequestConfig.authoredOn,
+        },
+      ],
+      meta: {
+        tag: [
+          {
+            system: ottehrCodeSystemUrl('task-location'),
+            code: location.id,
+          },
+          {
+            code: 'task',
+          },
+        ],
+      },
     };
 
     const provenanceConfig: Provenance = {
