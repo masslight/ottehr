@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { Operation } from 'fast-json-patch';
 import { Appointment, Bundle, Coding, Flag, Patient, Resource } from 'fhir/r4b';
 import { diff, IChange } from 'json-diff-ts';
 import { DateTime } from 'luxon';
@@ -40,20 +39,6 @@ export interface NoteHistory {
   note: string;
   noteAddedByAndWhen: string;
 }
-
-export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Operation | undefined => {
-  // going forward we will be using the history of the patient resource so this isn't needed
-  // check if there is a tag to clean up
-  const staffHistoryTagIdx = resource.meta?.tag?.findIndex((tag) => tag.system === `staff-update-history-${field}`);
-  if (staffHistoryTagIdx !== undefined && staffHistoryTagIdx >= 0) {
-    return {
-      op: 'remove',
-      path: `/meta/tag/${staffHistoryTagIdx}`,
-    };
-  } else {
-    return;
-  }
-};
 
 export const getAppointmentAndPatientHistory = async (
   appointment: Appointment | undefined,

@@ -46,6 +46,8 @@ import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { InfoIconsToolTip } from '../features/visits/shared/components/InfoIconsToolTip';
+import { useOystehrAPIClient } from '../features/visits/shared/hooks/useOystehrAPIClient';
+import { useSignAppointmentMutation } from '../features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder, isEligibleSupervisor } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
@@ -107,6 +109,7 @@ export default function AppointmentTableRow({
   orders,
 }: AppointmentTableRowProps): ReactElement | null {
   const { oystehr, oystehrZambda } = useApiClients();
+  const apiClient = useOystehrAPIClient();
   const theme = useTheme();
   const navigate = useNavigate();
   const { encounter } = appointment;
@@ -121,6 +124,9 @@ export default function AppointmentTableRow({
   const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
   const [progressNoteButtonLoading, setProgressNoteButtonLoading] = useState(false);
   const [dischargeButtonLoading, setDischargeButtonLoading] = useState(false);
+  const [approveButtonLoading, setApproveButtonLoading] = useState(false);
+
+  const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
 
   const rooms = useMemo(() => {
     return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
@@ -530,18 +536,43 @@ export default function AppointmentTableRow({
     return undefined;
   };
 
+  const handleApprove = async (): Promise<void> => {
+    setApproveButtonLoading(true);
+    if (!apiClient || !appointment?.id) {
+      enqueueSnackbar('API client not defined or appointmentId not provided', { variant: 'error' });
+      setApproveButtonLoading(false);
+      return;
+    }
+
+    try {
+      const tz = DateTime.now().zoneName;
+      await signAppointment({
+        apiClient,
+        appointmentId: appointment.id,
+        timezone: tz,
+        supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
+      });
+      await updateAppointments();
+      navigate('/visits', { state: { tab: ApptTab.completed } });
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred while approving. Please try again.', { variant: 'error' });
+    }
+    setApproveButtonLoading(false);
+  };
+
   const renderSupervisorApproval = (): ReactElement | undefined => {
     if (
       appointment.status === 'awaiting supervisor approval' &&
       user?.profileResource &&
       location &&
-      isEligibleSupervisor(user.profileResource!, location!, appointment.attenderQualification)
+      isEligibleSupervisor(user.profileResource!, appointment.attenderProviderType)
     ) {
       return (
         <GoToButton
           text="Approve"
-          loading={progressNoteButtonLoading}
-          onClick={handleProgressNoteButton}
+          loading={approveButtonLoading || isSignLoading}
+          onClick={handleApprove}
           dataTestId={dataTestIds.dashboard.approveButton}
         >
           <CheckCircleOutlineIcon />

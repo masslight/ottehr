@@ -2,7 +2,7 @@ import { DiagnosticReport, DocumentReference, ServiceRequest } from 'fhir/r4b';
 import fs from 'fs';
 import { LAB_DR_TYPE_TAG, LAB_RESULT_HL7_DOC_REF_CODING_CODE, LabType } from 'utils';
 import { OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM } from 'utils';
-import { createOystehrClient, getAuth0Token } from '../shared';
+import { createOystehrClient, getAuth0Token } from '../../shared';
 
 // Grabs all of the DiagnosticReports for a given order number, their ServiceRequest, and the transmission DocRef
 // npm run get-lab-sr-dr-docref ['local' | 'dev' | 'development' | 'testing' | 'staging'] [orderNumber]
