@@ -26,6 +26,7 @@ export const UserMenu: FC = () => {
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const user = useEvolveUser();
   const userIsProvider = user?.hasRole([RoleType.Provider]);
+  const userIsAdministrator = user?.hasRole([RoleType.Administrator]);
   const location = useLocation();
   const isOnPatientPage = useMemo(() => {
     const patientPageRegex = /\/patient\/[^/]+/;
@@ -124,13 +125,15 @@ export const UserMenu: FC = () => {
             <Divider />
           </>
         )}
-        <Link to="/settings" style={{ textDecoration: 'none' }}>
-          <MenuItem>
-            <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>
-              Settings
-            </Typography>
-          </MenuItem>
-        </Link>
+        {userIsAdministrator && (
+          <Link to="/settings" style={{ textDecoration: 'none' }}>
+            <MenuItem>
+              <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>
+                Settings
+              </Typography>
+            </MenuItem>
+          </Link>
+        )}
         <Link to="/logout" style={{ textDecoration: 'none' }}>
           <MenuItem>
             <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>

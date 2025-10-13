@@ -2,6 +2,7 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Tab, Typography } from '@mui/material';
 import { useState } from 'react';
 import { AutomateReport } from 'src/components/AutomateReport';
+import { NotificationHierarchy } from 'src/components/NotificationHierarchy';
 import PageContainer from '../layout/PageContainer';
 
 export default function Settings(): JSX.Element {
@@ -28,16 +29,14 @@ export default function Settings(): JSX.Element {
                   </Typography>
                 }
               />
-              {/* <Tab
-                                value="notifications"
-                                label={
-                                    <Typography
-                                        sx={{ textTransform: "none", fontWeight: 500, fontSize: "14px" }}
-                                    >
-                                        Notifications
-                                    </Typography>
-                                }
-                            /> */}
+              <Tab
+                value="notifications"
+                label={
+                  <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                    Notifications
+                  </Typography>
+                }
+              />
             </TabList>
           </Box>
 
@@ -46,7 +45,7 @@ export default function Settings(): JSX.Element {
           </TabPanel>
 
           <TabPanel value="notifications" sx={{ p: 2 }}>
-            <Typography>Notification settings will go here.</Typography>
+            <NotificationHierarchy />
           </TabPanel>
         </TabContext>
       </Paper>

@@ -30,18 +30,21 @@ interface ThresholdRow {
   metric: Metric;
   baseline: string;
   variance: string;
+  critical: string;
 }
 
 export function ThresholdsTable(): ReactElement {
   const [rows, setRows] = useState<ThresholdRow[]>([
-    { metric: 'Systolic', baseline: '', variance: '' },
-    { metric: 'Diastolic', baseline: '', variance: '' },
-    { metric: 'Glucose', baseline: '', variance: '' },
-    { metric: 'Weight (in pounds)', baseline: '', variance: '' },
+    { metric: 'Systolic', baseline: '', variance: '', critical: '' },
+    { metric: 'Diastolic', baseline: '', variance: '', critical: '' },
+    { metric: 'Glucose', baseline: '', variance: '', critical: '' },
+    { metric: 'Weight (in pounds)', baseline: '', variance: '', critical: '' },
   ]);
 
   const [originalRows, setOriginalRows] = useState<ThresholdRow[]>([]);
-  const [touched, setTouched] = useState<Record<number, { baseline: boolean; variance: boolean }>>({});
+  const [touched, setTouched] = useState<Record<number, { baseline: boolean; variance: boolean; critical: boolean }>>(
+    {}
+  );
   const { oystehrZambda } = useApiClients();
   const { id: patientId } = useParams<{ id: string }>();
   const [toastOpen, setToastOpen] = useState(false);
@@ -140,21 +143,25 @@ export function ThresholdsTable(): ReactElement {
               metric: 'Systolic',
               baseline: component.find((c: any) => c.code.text === 'systolic-threshold')?.valueString || '',
               variance: component.find((c: any) => c.code.text === 'systolic-variance')?.valueString || '',
+              critical: component.find((c: any) => c.code.text === 'systolic-critical-variance')?.valueString || '',
             },
             {
               metric: 'Diastolic',
               baseline: component.find((c: any) => c.code.text === 'diastolic-threshold')?.valueString || '',
               variance: component.find((c: any) => c.code.text === 'diastolic-variance')?.valueString || '',
+              critical: component.find((c: any) => c.code.text === 'diastolic-critical-variance')?.valueString || '',
             },
             {
               metric: 'Glucose',
               baseline: component.find((c: any) => c.code.text === 'glucose-threshold')?.valueString || '',
               variance: component.find((c: any) => c.code.text === 'glucose-variance')?.valueString || '',
+              critical: component.find((c: any) => c.code.text === 'glucose-critical-variance')?.valueString || '',
             },
             {
               metric: 'Weight (in pounds)',
               baseline: component.find((c: any) => c.code.text === 'weight-threshold')?.valueString || '',
               variance: component.find((c: any) => c.code.text === 'weight-variance')?.valueString || '',
+              critical: component.find((c: any) => c.code.text === 'weight-critical-variance')?.valueString || '',
             },
           ];
 
@@ -188,20 +195,24 @@ export function ThresholdsTable(): ReactElement {
     return [
       { code: { text: 'systolic-threshold' }, valueString: rows[0].baseline },
       { code: { text: 'systolic-variance' }, valueString: rows[0].variance },
+      { code: { text: 'systolic-critical-variance' }, valueString: rows[0].critical },
       { code: { text: 'diastolic-threshold' }, valueString: rows[1].baseline },
       { code: { text: 'diastolic-variance' }, valueString: rows[1].variance },
+      { code: { text: 'diastolic-critical-variance' }, valueString: rows[1].critical },
       { code: { text: 'glucose-threshold' }, valueString: rows[2].baseline },
       { code: { text: 'glucose-variance' }, valueString: rows[2].variance },
+      { code: { text: 'glucose-critical-variance' }, valueString: rows[2].critical },
       { code: { text: 'weight-threshold' }, valueString: rows[3].baseline },
       { code: { text: 'weight-variance' }, valueString: rows[3].variance },
+      { code: { text: 'weight-critical-variance' }, valueString: rows[3].critical },
     ];
   };
 
-  const handleChange = (index: number, field: 'baseline' | 'variance', value: string): void => {
+  const handleChange = (index: number, field: 'baseline' | 'variance' | 'critical', value: string): void => {
     setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
   };
 
-  const handleBlur = (index: number, field: 'baseline' | 'variance'): void => {
+  const handleBlur = (index: number, field: 'baseline' | 'variance' | 'critical'): void => {
     setTouched((prev) => ({
       ...prev,
       [index]: {
@@ -211,7 +222,10 @@ export function ThresholdsTable(): ReactElement {
     }));
 
     const hasChanges = rows.some(
-      (row, i) => row.baseline !== originalRows[i]?.baseline || row.variance !== originalRows[i]?.variance
+      (row, i) =>
+        row.baseline !== originalRows[i]?.baseline ||
+        row.variance !== originalRows[i]?.variance ||
+        row.critical !== originalRows[i]?.critical
     );
 
     if (!hasChanges) {
@@ -221,6 +235,7 @@ export function ThresholdsTable(): ReactElement {
     const allFieldsValid = rows.every((row) => {
       const baselineNum = parseFloat(row.baseline);
       const varianceNum = parseFloat(row.variance);
+      const criticalNum = parseFloat(row.critical);
       const rules = VALIDATION_RULES[row.metric];
 
       const isBaselineValid =
@@ -228,7 +243,9 @@ export function ThresholdsTable(): ReactElement {
 
       const isVarianceValid = row.variance !== '' && !isNaN(varianceNum) && varianceNum >= 0 && varianceNum <= 100;
 
-      return isBaselineValid && isVarianceValid;
+      const isCriticalValid = row.critical !== '' && !isNaN(criticalNum) && criticalNum >= 0 && criticalNum <= 100;
+
+      return isBaselineValid && isVarianceValid && isCriticalValid;
     });
 
     if (allFieldsValid) {
@@ -255,9 +272,20 @@ export function ThresholdsTable(): ReactElement {
     return `${min.toFixed(1)} - ${max.toFixed(1)}`;
   };
 
+  const getCriticalRange = (baselineStr: string, criticalStr: string): string => {
+    const baseline = parseFloat(baselineStr);
+    const critical = parseFloat(criticalStr);
+    if (isNaN(baseline) || isNaN(critical)) return '-';
+
+    const delta = (baseline * critical) / 100;
+    const min = baseline - delta;
+    const max = baseline + delta;
+    return `${min.toFixed(1)} - ${max.toFixed(1)}`;
+  };
+
   return (
     <>
-      <Box sx={{ display: 'flex', maxWidth: '700px', justifyContent: 'center', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', maxWidth: '900px', justifyContent: 'center', alignItems: 'center' }}>
         {isFetching ? (
           <TableContainer component={Paper} sx={{ border: 'none', boxShadow: 'none' }}>
             <Table>
@@ -266,8 +294,10 @@ export function ThresholdsTable(): ReactElement {
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Vitals</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Variance (%)</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 7 }}>Range</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Warning Variance (%)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Warning Range</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Critical Variance (%)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Critical Range</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -288,6 +318,12 @@ export function ThresholdsTable(): ReactElement {
                     <TableCell sx={{ py: 0.7, px: 2 }}>
                       <Skeleton width={140} />
                     </TableCell>
+                    <TableCell sx={{ py: 0.7, px: 2 }}>
+                      <Skeleton width={100} height={40} />
+                    </TableCell>
+                    <TableCell sx={{ py: 0.7, px: 2 }}>
+                      <Skeleton width={140} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -301,14 +337,17 @@ export function ThresholdsTable(): ReactElement {
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Vitals</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Variance (%)</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Range</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Warning Variance (%)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Warning Range</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Critical Variance (%)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Critical Range</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {rows.map((row, index): JSX.Element => {
                   const baselineNum = parseFloat(row.baseline);
                   const varianceNum = parseFloat(row.variance);
+                  const criticalNum = parseFloat(row.critical);
                   const rules = VALIDATION_RULES[row.metric];
 
                   const hasBaselineError =
@@ -318,6 +357,10 @@ export function ThresholdsTable(): ReactElement {
                   const hasVarianceError =
                     touched[index]?.variance &&
                     (row.variance === '' || isNaN(varianceNum) || varianceNum < 0 || varianceNum > 100);
+
+                  const hasCriticalError =
+                    touched[index]?.critical &&
+                    (row.critical === '' || isNaN(criticalNum) || criticalNum < 0 || criticalNum > 100);
 
                   return (
                     <TableRow key={row.metric}>
@@ -382,6 +425,42 @@ export function ThresholdsTable(): ReactElement {
 
                       <TableCell sx={{ py: 0.7, px: 2, minWidth: 120 }}>
                         {getRange(row.baseline, row.variance)}
+                      </TableCell>
+
+                      <TableCell sx={{ py: 0.7, px: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <TextField
+                            type="number"
+                            size="small"
+                            inputProps={{ min: 0, max: 100 }}
+                            placeholder="Critical Variance"
+                            value={row.critical}
+                            sx={{ minWidth: 120 }}
+                            error={hasCriticalError}
+                            onChange={(e) => {
+                              const newValue = e.target.value;
+                              if (newValue === '' || (/^\d+$/.test(newValue) && +newValue >= 0 && +newValue <= 100)) {
+                                handleChange(index, 'critical', newValue);
+                              }
+                            }}
+                            onBlur={() => handleBlur(index, 'critical')}
+                          />
+                          {hasCriticalError && (
+                            <Tooltip
+                              title={
+                                row.critical === ''
+                                  ? 'Critical variance value is required'
+                                  : 'Critical variance must be between 0–100%'
+                              }
+                            >
+                              <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
+                            </Tooltip>
+                          )}
+                        </Box>
+                      </TableCell>
+
+                      <TableCell sx={{ py: 0.7, px: 2, minWidth: 120 }}>
+                        {getCriticalRange(row.baseline, row.critical)}
                       </TableCell>
                     </TableRow>
                   );
