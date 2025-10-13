@@ -44,9 +44,10 @@ export const isUnsolicitedResult = (specificTag: LabType | undefined, dr: Diagno
   if (specificTag === LAB_DR_TYPE_TAG.code.attachment) {
     // check if tag also contains unsolicited (we are treating pdf as the primary tag and unsolicited as something secondary)
     const allTags = getAllDrTags(dr);
-    if (allTags?.includes(LabType.pdfAttachment)) {
-      return true;
-    }
+    const unsolicitedTagIsContained = allTags?.includes(LabType.unsolicited);
+    // this is a backup method for checking if the attachment DR is undefined
+    const patientSubjectIsFound = !!dr.subject?.reference?.startsWith('Patient/');
+    return unsolicitedTagIsContained || !patientSubjectIsFound;
   }
   return false;
 };

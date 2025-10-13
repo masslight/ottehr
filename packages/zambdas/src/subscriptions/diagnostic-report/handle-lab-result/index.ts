@@ -45,6 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('specificDrTypeFromTag', specificDrTypeFromTag);
     console.log('isUnsolicitedAndMatched:', isUnsolicitedAndMatched);
+    console.log('isUnsolicited', isUnsolicited);
     console.log('diagnosticReport: ', diagnosticReport.id);
     console.log('serviceRequestID:', serviceRequestID);
 
