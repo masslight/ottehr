@@ -4,8 +4,9 @@ import { DiagnosticReport, Identifier, Observation, Organization } from 'fhir/r4
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import {
+  DR_CONTAINED_PRACTITIONER_REF,
+  OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL,
   OYSTEHR_UNSOLICITED_RESULT_DR_RELATED_TO_ATTACHMENT_URL,
-  OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM,
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
 import {
@@ -197,9 +198,9 @@ const createUnsolicitedResultDr = ({
     resourceType: 'DiagnosticReport',
     extension: [
       {
-        url: OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM,
+        url: OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL,
         valueReference: {
-          reference: '#unsolicitedResultPractitionerId',
+          reference: '#resultOrderingProviderPractitionerId',
         },
       },
     ],
@@ -242,7 +243,7 @@ const createUnsolicitedResultDr = ({
       },
       {
         resourceType: 'Practitioner',
-        id: 'unsolicitedResultPractitionerId',
+        id: DR_CONTAINED_PRACTITIONER_REF,
         name: [
           {
             given: [practitioner.first],
@@ -286,7 +287,7 @@ const createUnsolicitedPdfAttachmentDr = (
       {
         url: OYSTEHR_UNSOLICITED_RESULT_DR_RELATED_TO_ATTACHMENT_URL,
         valueReference: {
-          reference: `DiagnosticReport/${parentDrFullUrl}`,
+          reference: parentDrFullUrl,
         },
       },
     ],
