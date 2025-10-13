@@ -21,6 +21,7 @@ import {
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
+  PROVIDER_TYPE_EXTENSION_URL,
   SLUG_SYSTEM,
 } from '../fhir';
 import {
@@ -29,7 +30,10 @@ import {
   CashPaymentDTO,
   FhirAppointmentType,
   PatchPaperworkParameters,
+  PHYSICIAN_TYPES,
   PractitionerQualificationCode,
+  PROVIDER_TYPE_VALUES,
+  ProviderTypeCode,
   ScheduleOwnerFhirResource,
 } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
@@ -1364,8 +1368,26 @@ export const getPractitionerQualificationByLocation = (
   return qualification;
 };
 
-export function isPhysicianQualification(qualification?: PractitionerQualificationCode): boolean {
-  return qualification != null && ['MD', 'DO'].includes(qualification);
+function getProviderTypeExtension(practitionerResource?: Practitioner): Extension | undefined {
+  return practitionerResource?.extension?.find((e) => e.url === PROVIDER_TYPE_EXTENSION_URL);
+}
+
+export function isProviderTypeCode(value: string): value is ProviderTypeCode {
+  return (PROVIDER_TYPE_VALUES as readonly string[]).includes(value);
+}
+
+export function getProviderType(practitionerResource?: Practitioner): ProviderTypeCode | undefined {
+  return getProviderTypeExtension(practitionerResource)?.valueCodeableConcept?.coding?.[0]?.code as
+    | ProviderTypeCode
+    | undefined;
+}
+
+export function isPhysicianProviderType(providerType?: ProviderTypeCode): boolean {
+  return providerType != null && PHYSICIAN_TYPES.includes(providerType);
+}
+
+export function isPhysician(practitionerResource?: Practitioner): boolean {
+  return isPhysicianProviderType(getProviderType(practitionerResource));
 }
 
 export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkType | undefined => {

@@ -23,7 +23,7 @@ export const createVitalsSearchConfig = (
       _include: 'Observation:performer',
       _sort: '-_lastUpdated',
       _count: count ?? 100,
-      _tag: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}|${vitalFieldName}`,
+      _tag: vitalFieldName,
     },
   };
 };

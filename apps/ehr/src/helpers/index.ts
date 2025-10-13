@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Message } from '@twilio/conversations';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, Location, Practitioner, Resource } from 'fhir/r4b';
+import { Appointment, Encounter, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ApptTab } from 'src/components/AppointmentTabs';
 import {
@@ -9,16 +9,16 @@ import {
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
   getPractitionerNPIIdentifier,
-  getPractitionerQualificationByLocation,
   InPersonAppointmentInformation,
-  isPhysicianQualification,
+  isPhysician,
+  isPhysicianProviderType,
   OrdersForTrackingBoardRow,
-  PractitionerQualificationCode,
   PROJECT_NAME,
+  ProviderTypeCode,
 } from 'utils';
 import { EvolveUser } from '../hooks/useEvolveUser';
 import { getCriticalUpdateTagOp } from './activityLogsUtils';
-import { formatDateUsingSlashes, getTimezone } from './formatDateTime';
+import { formatDateUsingSlashes } from './formatDateTime';
 
 export const classifyAppointments = (appointments: InPersonAppointmentInformation[]): Map<any, any> => {
   const statusCounts = new Map();
@@ -105,12 +105,11 @@ export const sortLocationsByLabel = (locations: LocationOptionConfig[]): { label
 export const formatLastModifiedTag = (
   field: string,
   resource: Resource | undefined,
-  location: Location
+  locationTimeZone: string | undefined
 ): string | undefined => {
   if (!resource) return;
   const codeString = resource?.meta?.tag?.find((tag) => tag.system === `staff-update-history-${field}`)?.code;
   if (codeString) {
-    const locationTimeZone = getTimezone(location);
     const codeJson = JSON.parse(codeString) as any;
     const date = DateTime.fromISO(codeJson.lastModifiedDate).setZone(locationTimeZone);
     const timeFormatted = date.toLocaleString(DateTime.TIME_SIMPLE);
@@ -173,16 +172,11 @@ export const hasAtLeastOneOrder = (orders: OrdersForTrackingBoardRow): boolean =
   return Object.values(orders).some((orderList) => Array.isArray(orderList) && orderList.length > 0);
 };
 
-export function isEligibleSupervisor(
-  practitioner: Practitioner,
-  location: Location,
-  attenderQualification?: PractitionerQualificationCode
-): boolean {
-  if (!practitioner || !location) return false;
+export function isEligibleSupervisor(practitioner: Practitioner, attenderProviderType?: ProviderTypeCode): boolean {
+  if (!practitioner) return false;
 
-  const isAttenderPhysician = isPhysicianQualification(attenderQualification);
-  const qualification = getPractitionerQualificationByLocation(practitioner, location);
-  const isPractitionerPhysician = isPhysicianQualification(qualification);
+  const isAttenderPhysician = isPhysicianProviderType(attenderProviderType);
+  const isPractitionerPhysician = isPhysician(practitioner);
   const npiIdentifier = getPractitionerNPIIdentifier(practitioner);
 
   return !isAttenderPhysician && isPractitionerPhysician && Boolean(npiIdentifier?.value);

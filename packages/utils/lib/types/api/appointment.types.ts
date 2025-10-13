@@ -35,7 +35,7 @@ export const mapStatusToTelemed = (
 export type FhirEncounterStatus = Encounter['status'];
 export type FhirAppointmentStatus = Appointment['status'];
 
-export const Visit_Status_Array = [
+export const visitStatusArray = [
   'pending',
   'arrived',
   'awaiting supervisor approval',
@@ -49,10 +49,13 @@ export const Visit_Status_Array = [
   'completed',
   'unknown',
 ] as const;
-export type VISIT_STATUS_TYPE = typeof Visit_Status_Array;
+
+export type VISIT_STATUS_TYPE = typeof visitStatusArray;
 export type VisitStatusLabel = VISIT_STATUS_TYPE[number];
 export type VisitStatusWithoutUnknown = Exclude<VisitStatusLabel, 'unknown'>;
 export type VisitStatusHistoryLabel = Exclude<VisitStatusWithoutUnknown, 'ready'>;
+
+export type SupervisorApprovalStatus = 'loading' | 'waiting-for-approval' | 'approved' | 'unknown';
 
 export const visitStatusToFhirAppointmentStatusMap: Record<VisitStatusWithoutUnknown, FhirAppointmentStatus> = {
   pending: 'booked',

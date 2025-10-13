@@ -2,7 +2,7 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material';
 import { AlertColor } from '@mui/material/Alert';
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Communication, Encounter, Location, Patient } from 'fhir/r4b';
+import { Appointment, Communication, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
 import { COMMUNICATION_ISSUE_REPORT_CODE } from 'utils';
@@ -15,7 +15,7 @@ interface ReportIssueDialogProps {
   patient: Patient | undefined;
   appointment: Appointment | undefined;
   encounter: Encounter;
-  location: Location;
+  locationId: string | undefined;
   setToastMessage: React.Dispatch<React.SetStateAction<string | undefined>>;
   setToastType: React.Dispatch<React.SetStateAction<AlertColor | undefined>>;
   setSnackbarOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -28,7 +28,7 @@ export default function ReportIssueDialog({
   patient,
   appointment,
   encounter,
-  location,
+  locationId,
   setToastMessage,
   setToastType,
   setSnackbarOpen,
@@ -89,10 +89,10 @@ export default function ReportIssueDialog({
         reference: `Appointment/${appointment.id}`,
       });
     }
-    if (location?.id) {
+    if (locationId) {
       about.push({
         type: 'Location',
-        reference: `Location/${location.id}`,
+        reference: `Location/${locationId}`,
       });
     }
     if (about.length > 0) {

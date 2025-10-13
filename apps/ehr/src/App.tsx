@@ -19,7 +19,7 @@ import { UnsolicitedResultsMatch } from './features/external-labs/pages/Unsolici
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
-import { AppTypeProvider } from './features/visits/shared/stores/contexts/useAppFlags';
+import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAppFlags';
 import EditInsurance from './features/visits/telemed/components/telemed-admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/telemed-admin/EditVirtualLocationPage';
 import { PatientVisitDetails } from './features/visits/telemed/pages/PatientVisitDetailsPage';
@@ -28,7 +28,6 @@ import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
 import AddPatient from './pages/AddPatient';
 import AddSchedulePage from './pages/AddSchedulePage';
-import AppointmentPage from './pages/AppointmentPage';
 import AppointmentsPage from './pages/Appointments';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeesPage from './pages/Employees';
@@ -50,6 +49,7 @@ import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
 import TaskAdmin from './pages/TaskAdmin';
 import { TelemedAdminPage } from './pages/TelemedAdminPage';
+import VisitDetailsPage from './pages/VisitDetailsPage';
 import { Claim, Claims } from './rcm';
 import { useNavStore } from './state/nav.store';
 
@@ -128,7 +128,7 @@ function App(): ReactElement {
 
   return (
     <CustomThemeProvider>
-      <AppTypeProvider flagsToSet={{ isInPerson: false }}>
+      <AppFlagsProvider>
         <CssBaseline />
         <LogoutWarning
           modalOpen={isModalOpen}
@@ -198,7 +198,7 @@ function App(): ReactElement {
                   <Route path="/logout" element={<Logout />} />
                   <Route path="/visits" element={<AppointmentsPage />} />
                   <Route path="/visits/add" element={<AddPatient />} />
-                  <Route path="/visit/:id" element={<AppointmentPage />} />
+                  <Route path="/visit/:id" element={<VisitDetailsPage />} />
                   <Route path="/schedules" element={<SchedulesPage />} />
                   <Route path="/schedule/:schedule-type/add" element={<AddSchedulePage />} />
                   <Route path="/group/id/:group-id" element={<GroupPage />} />
@@ -245,16 +245,15 @@ function App(): ReactElement {
                   <Route path="/logout" element={<Logout />} />
                   <Route path="/visits" element={<AppointmentsPage />} />
                   <Route path="/visits/add" element={<AddPatient />} />
-                  <Route path="/visit/:id" element={<AppointmentPage />} />
+                  <Route path="/visit/:id" element={<VisitDetailsPage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
-
                   <Route path="/patient/:id/details" element={<PatientVisitDetails />} />
-
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                   <Route path="/patients" element={<PatientsPage />} />
+
                   <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
                   <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />
                   <Route
@@ -273,6 +272,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   ></Route>
+                  <Route path="/telemed/appointments/:id/visit-details" element={<VisitDetailsPage />} />
                   <Route
                     path="/telemed/appointments/:id"
                     element={
@@ -289,7 +289,7 @@ function App(): ReactElement {
           </Routes>
           <SnackbarProvider maxSnack={5} autoHideDuration={6000} />
         </BrowserRouter>
-      </AppTypeProvider>
+      </AppFlagsProvider>
     </CustomThemeProvider>
   );
 }

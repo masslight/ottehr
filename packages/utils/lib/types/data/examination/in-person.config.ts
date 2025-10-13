@@ -475,6 +475,7 @@ export const InPersonExamConfig = {
             ruq: { label: 'RUQ', defaultValue: false },
             rlq: { label: 'RLQ', defaultValue: false },
             luq: { label: 'LUQ', defaultValue: false },
+            lll: { label: 'LLL', defaultValue: false },
           },
         },
         hepatomegaly: { label: 'Hepatomegaly', defaultValue: false, type: 'checkbox' },

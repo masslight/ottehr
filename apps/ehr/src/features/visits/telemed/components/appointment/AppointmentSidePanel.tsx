@@ -24,8 +24,10 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import CancelVisitDialog from 'src/components/CancelVisitDialog';
 import { EditPatientDialog } from 'src/components/dialogs';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { TelemedAppointmentStatusChip } from 'src/components/TelemedAppointmentStatusChip';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import ChatModal from 'src/features/chat/ChatModal';
+import { getInPersonVisitDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useGetTelemedAppointmentWithSMSModel } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import {
@@ -41,12 +43,13 @@ import {
   calculatePatientAge,
   getQuestionnaireResponseByLinkId,
   INTERPRETER_PHONE_NUMBER,
+  isInPersonAppointment,
   mapStatusToTelemed,
   TelemedAppointmentStatusEnum,
   TelemedAppointmentVisitTabs,
 } from 'utils';
 import { quickTexts } from '../../utils/appointments';
-import { getAppointmentStatusChip } from '../../utils/getAppointmentStatusChip';
+import { getTelemedVisitDetailsUrl } from '../../utils/routing';
 import InviteParticipant from '../appointment/InviteParticipant';
 import { PastVisits } from './PastVisits';
 
@@ -60,9 +63,8 @@ enum Gender {
 export const AppointmentSidePanel: FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
-
   const { appointment, encounter, patient, location, locationVirtual, questionnaireResponse } = useAppointmentData();
-
+  const isInPerson = isInPersonAppointment(appointment);
   const { isChartDataLoading, chartData } = useChartData();
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -139,6 +141,8 @@ export const AppointmentSidePanel: FC = () => {
       .join(', ');
   };
 
+  const telemedStatus = mapStatusToTelemed(encounter.status, appointment?.status);
+
   return (
     <Drawer
       variant="permanent"
@@ -160,7 +164,7 @@ export const AppointmentSidePanel: FC = () => {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'auto', height: '100%' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            {getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
+            {!!telemedStatus && <TelemedAppointmentStatusChip status={telemedStatus} />}
 
             {appointment?.id && (
               <Tooltip title={appointment.id}>
@@ -239,7 +243,7 @@ export const AppointmentSidePanel: FC = () => {
           <Typography variant="body2">{formattedReasonForVisit}</Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1, position: 'relative' }}>
+        <Box sx={{ display: 'flex', gap: 1, position: 'relative', flexWrap: 'wrap' }}>
           <LoadingButton
             size="small"
             variant="outlined"
@@ -275,6 +279,27 @@ export const AppointmentSidePanel: FC = () => {
             onClick={() => setChatModalOpen(true)}
             loading={isFetching && !appointmentMessaging}
           />
+
+          {!!appointment?.id && (
+            <Button
+              size="small"
+              variant="outlined"
+              sx={{
+                textTransform: 'none',
+                fontSize: '14px',
+                fontWeight: 500,
+                borderRadius: 10,
+              }}
+              startIcon={<DateRangeOutlinedIcon />}
+              onClick={() =>
+                isInPerson
+                  ? navigate(getInPersonVisitDetailsUrl(appointment.id!))
+                  : navigate(getTelemedVisitDetailsUrl(appointment.id!))
+              }
+            >
+              Visit Details
+            </Button>
+          )}
 
           <Button
             size="small"

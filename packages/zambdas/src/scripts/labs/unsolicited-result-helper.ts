@@ -4,7 +4,7 @@ import { DiagnosticReport, Observation, Organization } from 'fhir/r4b';
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import { OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM } from 'utils';
-import { createOystehrClient, getAuth0Token } from '../shared';
+import { createOystehrClient, getAuth0Token } from '../../shared';
 
 type PatientDetails = {
   first: string;

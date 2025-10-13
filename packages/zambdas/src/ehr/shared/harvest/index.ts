@@ -62,6 +62,7 @@ import {
   flattenItems,
   formatPhoneNumber,
   getArrayInfo,
+  getConsentAndRelatedDocRefsForAppointment,
   getCurrentValue,
   getEmailForIndividual,
   getFullName,
@@ -213,44 +214,16 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   // Search for existing consent DocumentReferences for the appointment
   let oldConsentDocRefs: DocumentReference[] | undefined = undefined;
   let oldConsentResources: Consent[] | undefined = undefined;
-  if (questionnaireResponse) {
-    console.log('searching for old consent doc refs');
-    oldConsentDocRefs = (
-      await oystehr.fhir.search<DocumentReference>({
-        resourceType: 'DocumentReference',
-        params: [
-          {
-            name: 'status',
-            value: 'current',
-          },
-          {
-            name: 'type',
-            value: CONSENT_CODE,
-          },
-          {
-            name: 'subject',
-            value: `Patient/${patientResource.id}`,
-          },
-          {
-            name: 'related',
-            value: `Appointment/${appointmentId}`,
-          },
-        ],
-      })
-    ).unbundle();
-    if (oldConsentDocRefs?.[0]?.id) {
-      console.log('searching for old consent resources');
-      oldConsentResources = (
-        await oystehr.fhir.search<Consent>({
-          resourceType: 'Consent',
-          params: [
-            { name: 'patient', value: `Patient/${patientResource.id}` },
-            { name: 'status', value: 'active' },
-            { name: 'source-reference', value: `DocumentReference/${oldConsentDocRefs?.[0]?.id}` }, // todo check this is right
-          ],
-        })
-      ).unbundle();
-    }
+  if (questionnaireResponse && patientResource.id) {
+    const { consents, docRefs } = await getConsentAndRelatedDocRefsForAppointment(
+      {
+        appointmentId,
+        patientId: patientResource.id,
+      },
+      oystehr
+    );
+    oldConsentResources = consents;
+    oldConsentDocRefs = docRefs;
   }
 
   // Create consent PDF, DocumentReference, and Consent resource if there are none or signer information changes

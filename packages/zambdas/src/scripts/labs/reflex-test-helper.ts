@@ -1,15 +1,12 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { CodeableConcept, DiagnosticReport, Observation, Organization, ServiceRequest } from 'fhir/r4b';
+import { CodeableConcept, DiagnosticReport, Observation, ServiceRequest } from 'fhir/r4b';
 import fs from 'fs';
 import { LAB_DR_TYPE_TAG } from 'utils';
-import { getOrderNumber, OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM } from 'utils';
-import { createOystehrClient, getAuth0Token } from '../shared';
+import { createOystehrClient, getAuth0Token } from '../../shared';
 
 // Creates a DiagnosticReport and Observation(s) to mock a reflex test
 // npm run mock-reflex-test ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
-
-const AUTO_LAB_GUID = '790b282d-77e9-4697-9f59-0cef8238033a';
 
 const EXAMPLE_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production', 'etc'];
 const REFLEX_TEST_CODE: CodeableConcept = {
@@ -80,21 +77,6 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
 
-  const autoLabOrgSearch = (
-    await oystehr.fhir.search<Organization>({
-      resourceType: 'Organization',
-      params: [
-        {
-          name: 'identifier',
-          value: AUTO_LAB_GUID,
-        },
-      ],
-    })
-  ).unbundle();
-
-  const autoLabOrg = autoLabOrgSearch[0];
-  const autoLabOrgId = autoLabOrg?.id;
-
   const requests: BatchInputPostRequest<DiagnosticReport | Observation>[] = [];
 
   // grab first related diagnostic report thats not a reflex test
@@ -142,21 +124,6 @@ const main = async (): Promise<void> => {
   const fillerIdIdx = reflexDR.identifier?.findIndex((item) => item.type?.coding?.[0].code === 'FILL');
   if (fillerIdIdx !== undefined && fillerIdIdx >= 0 && reflexDR.identifier?.[fillerIdIdx]) {
     reflexDR.identifier[fillerIdIdx].value = randomString;
-  }
-  const orderNumber = getOrderNumber(serviceRequest);
-  const orderNumberIdentifier = { system: OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM, value: orderNumber };
-  if (reflexDR.identifier) {
-    reflexDR.identifier.push(orderNumberIdentifier);
-  } else {
-    reflexDR.identifier = [orderNumberIdentifier];
-  }
-
-  if (autoLabOrgId) {
-    reflexDR.performer = [
-      {
-        reference: `Organization/${autoLabOrgId}`,
-      },
-    ];
   }
 
   // remove existing id and hl7 extension and basedOn

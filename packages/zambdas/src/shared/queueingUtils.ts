@@ -1,6 +1,6 @@
 import { Appointment, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { appointmentTypeForAppointment, getVisitStatus } from 'utils';
+import { appointmentTypeForAppointment, getInPersonVisitStatus } from 'utils';
 import { getTimeSpentInCurrentStatus, getWaitingTimeForAppointment } from './waitTimeUtils';
 
 const ARRIVED_PREBOOKED_EARLY_ARRIVAL_LIMIT = 15;
@@ -331,7 +331,7 @@ class QueueBuilder {
     appointments.forEach((appointment) => {
       const encounter = apptRefToEncounterMap[`Appointment/${appointment.id}`];
       if (encounter && appointment) {
-        const status = getVisitStatus(appointment, encounter);
+        const status = getInPersonVisitStatus(appointment, encounter);
 
         if (status === 'pending') {
           this.insertNew(appointment, encounter, this.queues.prebooked);

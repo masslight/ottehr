@@ -27,6 +27,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   APIError,
+  APIErrorCode,
   CancelMatchUnsolicitedResultTask,
   createSmsModel,
   filterResources,
@@ -526,7 +527,7 @@ export const useGetIcd10Search = ({
   });
 
   useEffect(() => {
-    if (queryResult.error) {
+    if (queryResult.error && (queryResult.error as APIError)?.code !== APIErrorCode.MISSING_NLM_API_KEY_ERROR) {
       enqueueSnackbar('An error occurred during the search. Please try again in a moment.', {
         variant: 'error',
       });
@@ -650,10 +651,12 @@ export const useDeletePatientInstruction = (): UseMutationResult<void, Error, { 
 
 export const useSyncERXPatient = ({
   patient,
+  encounterId,
   enabled,
   onError,
 }: {
   patient: Patient;
+  encounterId: string;
   enabled: boolean;
   onError: (err: any) => void;
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -667,7 +670,7 @@ export const useSyncERXPatient = ({
       if (oystehr) {
         console.log(`Start syncing patient with erx patient ${patient.id}`);
         try {
-          await oystehr.erx.syncPatient({ patientId: patient.id! });
+          await oystehr.erx.syncPatient({ patientId: patient.id!, encounterId });
           console.log('Successfully synced erx patient');
           return true;
         } catch (err) {

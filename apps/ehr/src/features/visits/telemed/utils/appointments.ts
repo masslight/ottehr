@@ -286,68 +286,6 @@ export type GetAppointmentsRequestParams = Pick<
   | 'visitTypesFilter'
 >;
 
-export const APPT_STATUS_MAP: {
-  [status in TelemedAppointmentStatus]: {
-    background: {
-      primary: string;
-      secondary?: string;
-    };
-    color: {
-      primary: string;
-      secondary?: string;
-    };
-  };
-} = {
-  ready: {
-    background: {
-      primary: '#FFE0B2',
-    },
-    color: {
-      primary: '#E65100',
-    },
-  },
-  'pre-video': {
-    background: {
-      primary: '#B3E5FC',
-    },
-    color: {
-      primary: '#01579B',
-    },
-  },
-  'on-video': {
-    background: {
-      primary: '#D1C4E9',
-    },
-    color: {
-      primary: '#311B92',
-    },
-  },
-  unsigned: {
-    background: {
-      primary: '#FFCCBC',
-    },
-    color: {
-      primary: '#BF360C',
-    },
-  },
-  complete: {
-    background: {
-      primary: '#C8E6C9',
-    },
-    color: {
-      primary: '#1B5E20',
-    },
-  },
-  cancelled: {
-    background: {
-      primary: '#FFCCBC',
-    },
-    color: {
-      primary: '#BF360C',
-    },
-  },
-};
-
 export const quickTexts: string[] = [
   `Hello from ${PROJECT_NAME} Telemedicine. A provider will see you soon. Please have your child with you, seated & in a quiet room. Please be in an area where you have strong wifi connection sufficient for video use. Have your video turned on. Questions? Call <phone>202-555-1212</phone>`,
   `Hello from ${PROJECT_NAME} Telemedicine. Due to high volumes our providers are busier than usual. A provider will message you when they have an update or are ready to see you. We apologize for the delay. Questions? Call <phone>202-555-1212</phone>`,

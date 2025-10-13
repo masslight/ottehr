@@ -38,6 +38,7 @@ import { DateTime } from 'luxon';
 import {
   addOperation,
   findExistingListByDocumentTypeCode,
+  getMimeType,
   getPatchOperationsForNewMetaTags,
   getPatchOperationToRemoveMetaTags,
   LAB_RESULT_DOC_REF_CODING_CODE,
@@ -288,8 +289,7 @@ export async function createFilesDocumentReferences(
       }
 
       // Create all DocumentReferences
-      const urlExt = file.url.split('.').slice(-1).toString();
-      const contentType = urlExt === 'pdf' ? 'application/pdf' : urlExt === 'jpg' ? 'image/jpeg' : `image/${urlExt}`;
+      const contentType = getMimeType(file.url);
 
       const writeDRFullUrl = generateUUID ? generateUUID() : undefined;
 
@@ -1488,3 +1488,17 @@ export const getAddressStringForScheduleResource = (
 export function getExtension(resource: DomainResource, url: string): Extension | undefined {
   return resource.extension?.find((extension) => extension.url === url);
 }
+
+export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Operation | undefined => {
+  // going forward we will be using the history of the patient resource so this isn't needed
+  // check if there is a tag to clean up
+  const staffHistoryTagIdx = resource.meta?.tag?.findIndex((tag) => tag.system === `staff-update-history-${field}`);
+  if (staffHistoryTagIdx !== undefined && staffHistoryTagIdx >= 0) {
+    return {
+      op: 'remove',
+      path: `/meta/tag/${staffHistoryTagIdx}`,
+    };
+  } else {
+    return;
+  }
+};

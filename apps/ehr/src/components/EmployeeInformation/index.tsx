@@ -5,7 +5,14 @@ import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
-import { FHIR_IDENTIFIER_NPI, PractitionerLicense, PractitionerQualificationCode, RoleType, User } from 'utils';
+import {
+  FHIR_IDENTIFIER_NPI,
+  PractitionerLicense,
+  PractitionerQualificationCode,
+  PROVIDER_TYPE_EXTENSION_URL,
+  RoleType,
+  User,
+} from 'utils';
 import { updateUser } from '../../api/api';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -151,7 +158,7 @@ export default function EmployeeInformationForm({
 
       if (existingUser.profileResource?.extension) {
         const providerTypeExt = existingUser.profileResource.extension.find(
-          (ext) => ext.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/provider-type'
+          (ext) => ext.url === PROVIDER_TYPE_EXTENSION_URL
         );
 
         if (providerTypeExt?.valueCodeableConcept) {

@@ -592,12 +592,12 @@ export const useChartData = ({
     [setQueryCache]
   );
 
-  const chartDataRefetch = async (): Promise<void> => {
+  const chartDataRefetch = useCallback(async (): Promise<void> => {
     await queryClient.invalidateQueries({
       queryKey: [CHART_DATA_QUERY_KEY, encounter.id],
       exact: false,
     });
-  };
+  }, [queryClient, encounter.id]);
 
   return {
     refetch: chartDataRefetch,

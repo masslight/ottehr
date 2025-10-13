@@ -47,3 +47,4 @@ export * from './unlock-appointment';
 export * from './update-user';
 export * from './user.types';
 export * from './send-receipt-by-email.types';
+export * from './update-visit-details.types';

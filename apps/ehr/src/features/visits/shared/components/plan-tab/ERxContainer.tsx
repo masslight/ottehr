@@ -17,9 +17,9 @@ import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
+import { MappedStatusChip } from 'src/components/MappedStatusChip';
 import { PageTitle } from 'src/features/visits/shared/components/PageTitle';
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
-import { getAppointmentStatusChip } from 'src/features/visits/telemed/utils/getAppointmentStatusChip';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { ERX_MEDICATION_META_TAG_CODE, formatDateToMDYWithTime, RoleType } from 'utils';
@@ -290,7 +290,9 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                         )}
                       </TableCell>
                       {/*<TableCell>Pharmacy</TableCell>*/}
-                      <TableCell>{getAppointmentStatusChip(row.status, medicationStatusMapper)}</TableCell>
+                      <TableCell>
+                        {!!row.status && <MappedStatusChip status={row.status} mapper={medicationStatusMapper} />}
+                      </TableCell>
                       {!isReadOnly && patient?.id && (
                         <TableCell>
                           <LoadingButton

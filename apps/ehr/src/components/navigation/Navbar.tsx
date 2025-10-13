@@ -41,6 +41,7 @@ const managerNavbarItems: NavbarItems = {
 const staffNavbarItems: NavbarItems = {
   'In Person': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
+  Telemedicine: { urls: ['/telemed/appointments'] },
 };
 
 const providerNavbarItems: NavbarItems = {
@@ -58,7 +59,7 @@ const customerSupportNavbarItems: NavbarItems = {
   Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
 };
 
-const hideNavbarPathPatterns = [/^\/telemed\/appointments\//, /^\/patient\/[^/]+\/info$/];
+const hideNavbarPathPatterns = [/^\/telemed\/appointments\/(?!.*\/visit-details$)/, /^\/patient\/[^/]+\/info$/];
 
 export default function Navbar(): ReactElement | null {
   const location = useLocation();

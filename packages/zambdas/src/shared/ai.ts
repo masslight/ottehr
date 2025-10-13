@@ -9,6 +9,7 @@ import {
   AiObservationField,
   getFormatDuration,
   getSecret,
+  MIME_TYPES,
   PUBLIC_EXTENSION_BASE_URL,
   Secrets,
   SecretsKeys,
@@ -180,7 +181,7 @@ function createDocumentReference(
         : []),
       {
         attachment: {
-          contentType: 'text/plain',
+          contentType: MIME_TYPES.TXT,
           title: 'Transcript',
           data: btoa(unescape(encodeURIComponent(transcript))),
         },

@@ -37,20 +37,20 @@ import { Appointment, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { Bar, Line } from 'react-chartjs-2';
+import { IN_PERSON_CHIP_STATUS_MAP } from 'src/components/InPersonAppointmentStatusChip';
+import LocationSelect from 'src/components/LocationSelect';
+import { useApiClients } from 'src/hooks/useAppClients';
+import PageContainer from 'src/layout/PageContainer';
 import {
   FhirAppointmentType,
-  getVisitStatus,
+  getInPersonVisitStatus,
+  getTimezone,
   getVisitStatusHistory,
   OTTEHR_MODULE,
   VisitStatusHistoryEntry,
   VisitStatusHistoryLabel,
   VisitStatusLabel,
 } from 'utils';
-import { CHIP_STATUS_MAP } from '../../components/AppointmentTableRow';
-import LocationSelect from '../../components/LocationSelect';
-import { getTimezone } from '../../helpers/formatDateTime';
-import { useApiClients } from '../../hooks/useAppClients';
-import PageContainer from '../../layout/PageContainer';
 import { LocationWithWalkinSchedule } from '../AddPatient';
 
 interface AppointmentCount {
@@ -191,7 +191,7 @@ export default function WorkflowEfficiency(): React.ReactElement {
               if (encounter) {
                 const fhirEncounter = encounter as Encounter;
                 appointmentEncounterMap[fhirAppointment.id] = fhirEncounter;
-                const visitStatus = getVisitStatus(fhirAppointment, fhirEncounter);
+                const visitStatus = getInPersonVisitStatus(fhirAppointment, fhirEncounter);
                 const visitStatusHistory = getVisitStatusHistory(fhirEncounter);
                 formattedAppointments.push({ id: fhirAppointment.id, visitStatus, visitStatusHistory });
               }
@@ -636,7 +636,7 @@ export default function WorkflowEfficiency(): React.ReactElement {
                             Math.round(appointmentStatuses[keyTemp as VisitStatusHistoryLabel].averageTime)
                           ),
                         backgroundColor: Object.keys(appointmentStatuses).map(
-                          (statusTemp) => CHIP_STATUS_MAP[statusTemp as VisitStatusLabel].color.primary
+                          (statusTemp) => IN_PERSON_CHIP_STATUS_MAP[statusTemp as VisitStatusLabel].color.primary
                         ),
                       },
                     ],

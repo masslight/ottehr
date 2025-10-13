@@ -1,12 +1,12 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, CodeableConcept, Encounter } from 'fhir/r4b';
+import { Appointment, CodeableConcept, Consent, DocumentReference, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AppointmentType,
+  CONSENT_CODE,
   diffInMinutes,
   EncounterVirtualServiceExtension,
   FHIR_APPOINTMENT_TYPE_MAP,
-  OTTEHR_MODULE,
   PUBLIC_EXTENSION_BASE_URL,
   TELEMED_VIDEO_ROOM_CODE,
   TelemedAppointmentStatusEnum,
@@ -46,10 +46,6 @@ export async function cancelAppointmentResource(
     throw new Error(`Failed to cancel Appointment: ${JSON.stringify(error)}`);
   }
 }
-
-export const isAppointmentVirtual = (appointment: Appointment): boolean => {
-  return appointment.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM) || false;
-};
 
 export const getAppointmentWaitingTime = (statuses?: TelemedStatusHistoryElement[]): number | undefined => {
   if (!statuses) {
@@ -127,4 +123,60 @@ export const appointmentTypeForAppointment = (appointment: Appointment): Appoint
   return appointment.appointmentType?.text
     ? FHIR_APPOINTMENT_TYPE_MAP[appointment.appointmentType?.text] || 'walk-in'
     : 'walk-in';
+};
+
+interface GetConsentAndRelatedDocRefsForAppointmentParams {
+  appointmentId: string;
+  patientId: string;
+}
+export interface GetConsentAndRelatedDocRefsForAppointmentResult {
+  consents: Consent[] | undefined;
+  docRefs: DocumentReference[] | undefined;
+}
+
+export const getConsentAndRelatedDocRefsForAppointment = async (
+  input: GetConsentAndRelatedDocRefsForAppointmentParams,
+  oystehr: Oystehr
+): Promise<GetConsentAndRelatedDocRefsForAppointmentResult> => {
+  const { appointmentId, patientId } = input;
+  let docRefs: DocumentReference[] | undefined = undefined;
+  let consents: Consent[] | undefined = undefined;
+  console.log('searching for old consent doc refs');
+  docRefs = (
+    await oystehr.fhir.search<DocumentReference>({
+      resourceType: 'DocumentReference',
+      params: [
+        {
+          name: 'status',
+          value: 'current',
+        },
+        {
+          name: 'type',
+          value: CONSENT_CODE,
+        },
+        {
+          name: 'subject',
+          value: `Patient/${patientId}`,
+        },
+        {
+          name: 'related',
+          value: `Appointment/${appointmentId}`,
+        },
+      ],
+    })
+  ).unbundle();
+  if (docRefs?.[0]?.id) {
+    console.log('searching for old consent resources');
+    consents = (
+      await oystehr.fhir.search<Consent>({
+        resourceType: 'Consent',
+        params: [
+          { name: 'patient', value: `Patient/${patientId}` },
+          { name: 'status', value: 'active' },
+          { name: 'source-reference', value: `DocumentReference/${docRefs?.[0]?.id}` },
+        ],
+      })
+    ).unbundle();
+  }
+  return { consents, docRefs };
 };
