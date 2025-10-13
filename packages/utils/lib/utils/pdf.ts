@@ -10,6 +10,7 @@ import {
   StandardFonts,
   translate,
 } from 'pdf-lib';
+import { MIME_TYPES } from './file';
 
 // Get the image's EXIF orientation
 // https://github.com/Hopding/pdf-lib/issues/1284
@@ -279,7 +280,7 @@ export async function uploadPDF(
   const uploadRequest = await fetch(presignedURLResponse.signedUrl, {
     method: 'PUT',
     headers: {
-      'Content-Type': 'application/pdf',
+      'Content-Type': MIME_TYPES.PDF,
     },
     body: pdfBytes,
   });

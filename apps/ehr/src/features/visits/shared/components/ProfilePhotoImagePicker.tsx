@@ -19,6 +19,7 @@ import { Attachment, Patient } from 'fhir/r4b';
 import React, { ChangeEvent, FC, ReactElement, useCallback, useState } from 'react';
 import Cropper from 'react-easy-crop';
 import { Area, Point } from 'react-easy-crop';
+import { MIME_TYPES } from 'utils';
 import { uploadPatientProfilePhoto } from '../../../../api/api';
 import { getCroppedImg, ImageCropResult } from '../../../../helpers/canvasUtils';
 import { useApiClients } from '../../../../hooks/useAppClients';
@@ -109,7 +110,7 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
         const photoAttachments: Attachment[] | undefined = profilePhotoUrl
           ? [
               {
-                contentType: 'image/jpeg',
+                contentType: MIME_TYPES.JPEG,
                 url: profilePhotoUrl,
               },
             ]
