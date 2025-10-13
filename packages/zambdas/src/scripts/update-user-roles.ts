@@ -1,16 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import fs from 'fs';
 import { RoleType } from 'utils';
-import { checkOrCreateM2MClientToken, getAuth0Token, updateUserRoles } from '../shared/';
+import { getAuth0Token, updateUserRoles } from '../shared/';
 
 const updateUserRolesScript = async (config: any): Promise<void> => {
   const auth0Token = await getAuth0Token(config);
   if (auth0Token === null) {
     throw new Error('could not get Auth0 token');
   }
-  const token = await checkOrCreateM2MClientToken(auth0Token, config);
+
   const oystehr = new Oystehr({
-    accessToken: token,
+    accessToken: auth0Token,
     projectId: config.PROJECT_ID,
     services: {
       fhirApiUrl: config.FHIR_API,
