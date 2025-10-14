@@ -472,6 +472,7 @@ test.describe('Patient Record Page mutating tests', () => {
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await populateAllRequiredFields(patientInformationPage);
     await patientInformationPage.selectRelationshipFromResponsibleContainer(
       NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
     );
@@ -551,6 +552,8 @@ test.describe('Patient Record Page mutating tests', () => {
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await populateAllRequiredFields(patientInformationPage);
+    await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyCheckboxOff();
     await patientInformationPage.verifyFirstNameFromPcpIsVisible();
     await patientInformationPage.verifyLastNameFromPcpIsVisible();

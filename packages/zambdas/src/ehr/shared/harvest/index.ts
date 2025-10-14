@@ -6,7 +6,7 @@ import Oystehr, {
 } from '@oystehr/sdk';
 import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import { randomUUID } from 'crypto';
-import { applyPatch, Operation, RemoveOperation } from 'fast-json-patch';
+import { Operation, RemoveOperation } from 'fast-json-patch';
 import {
   Account,
   AccountGuarantor,
@@ -74,7 +74,6 @@ import {
   getPayerId,
   getPhoneNumberForIndividual,
   getSecret,
-  getStripeCustomerIdFromAccount,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
@@ -116,12 +115,12 @@ import {
   uploadPDF,
 } from 'utils';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
-import { createPdfBytes } from '../../../shared';
+import { createPdfBytes, ensureStripeCustomerId } from '../../../shared';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
-const PATIENT_UPDATE_MAX_RETRIES = 3;
+// const PATIENT_UPDATE_MAX_RETRIES = 3;
 
 interface ResponsiblePartyContact {
   birthSex: 'Male' | 'Female' | 'Intersex';
@@ -776,17 +775,6 @@ export interface PatientMasterRecordResources {
   patient: Patient;
 }
 
-function updatePatientData(patient: Patient, questionnaireResponseItems: QuestionnaireResponseItem[]): void {
-  const patientPatchOps = createMasterRecordPatchOperations(questionnaireResponseItems, patient);
-  patient = applyPatch(patient, patientPatchOps.patient.patchOpsForDirectUpdate, true).newDocument;
-
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    questionnaireResponseItems as IntakeQuestionnaireItem[]
-  ) as QuestionnaireResponseItem[];
-
-  updatePharmacy(patient, flattenedPaperwork);
-}
-
 export function createMasterRecordPatchOperations(
   questionnaireResponseItems: QuestionnaireResponseItem[],
   patient: Patient
@@ -1153,7 +1141,10 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
   return operations;
 };
 
-const updatePharmacy = (patient: Patient, flattenedItems: QuestionnaireResponseItem[]): void => {
+export const createUpdatePharmacyPatchOps = (
+  patient: Patient,
+  flattenedItems: QuestionnaireResponseItem[]
+): Operation[] => {
   const inputPharmacyName = getAnswer('pharmacy-name', flattenedItems)?.valueString;
   const inputPharmacyAddress = getAnswer('pharmacy-address', flattenedItems)?.valueString;
   const newContained = (patient.contained ?? []).filter((resource) => resource.id !== PATIENT_CONTAINED_PHARMACY_ID);
@@ -1181,9 +1172,23 @@ const updatePharmacy = (patient: Patient, flattenedItems: QuestionnaireResponseI
         reference: '#' + PATIENT_CONTAINED_PHARMACY_ID,
       },
     });
+    const containedOp = patient.contained ? 'replace' : 'add';
+    const extensionOp = patient.extension ? 'replace' : 'add';
+    const patchOps: Operation[] = [
+      {
+        op: containedOp,
+        path: '/contained',
+        value: newContained,
+      },
+      {
+        op: extensionOp,
+        path: '/extension',
+        value: newExtensions,
+      },
+    ];
+    return patchOps;
   }
-  patient.contained = newContained;
-  patient.extension = newExtensions;
+  return [];
 };
 
 function separateResourceUpdates(
@@ -3037,36 +3042,6 @@ export const updatePatientAccountFromQuestionnaire = async (
     guarantorResource: existingGuarantorResource,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
 
-  console.time('updating patient resource');
-  let patientToUpdate = patient;
-  let retryCount = 0;
-  while (retryCount < PATIENT_UPDATE_MAX_RETRIES) {
-    try {
-      updatePatientData(patientToUpdate, questionnaireResponseItem ?? []);
-      await oystehr.fhir.update(patientToUpdate, {
-        optimisticLockingVersionId: patientToUpdate.meta?.versionId,
-      });
-      break;
-    } catch (error: unknown) {
-      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
-    }
-    try {
-      patientToUpdate = await oystehr.fhir.get({
-        resourceType: 'Patient',
-        id: patient.id!,
-      });
-    } catch (error: unknown) {
-      console.log(`Failed to read Patient: ${JSON.stringify(error)}`);
-    }
-    retryCount++;
-  }
-
-  if (retryCount === PATIENT_UPDATE_MAX_RETRIES) {
-    console.log(`Failed to update Patient using optimistic lock`);
-  }
-
-  console.timeEnd('updating patient resource');
-
   /*
   console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
   console.log('existing account', JSON.stringify(existingAccount, null, 2));
@@ -3116,16 +3091,24 @@ interface UpdateStripeCustomerInput {
   guarantorResource: RelatedPerson | Patient;
   stripeClient: Stripe;
 }
-export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Promise<void> => {
-  const { guarantorResource, account } = input;
+export const updateStripeCustomer = async (input: UpdateStripeCustomerInput, oystehr: Oystehr): Promise<void> => {
+  const { guarantorResource, account, stripeClient } = input;
   console.log('updating Stripe customer for account', account.id);
   console.log('guarantor resource:', `${guarantorResource?.resourceType}/${guarantorResource?.id}`);
-  const stripeCustomerId = getStripeCustomerIdFromAccount(account);
+  const { customerId: stripeCustomerId } = await ensureStripeCustomerId(
+    {
+      patientId: account.subject?.[0]?.reference?.split('/')[1] || '',
+      account,
+      guarantorResource,
+      stripeClient,
+    },
+    oystehr
+  );
   const email = getEmailForIndividual(guarantorResource);
   const name = getFullName(guarantorResource);
   const phone = getPhoneNumberForIndividual(guarantorResource);
   if (stripeCustomerId) {
-    await input.stripeClient.customers.update(stripeCustomerId, {
+    await stripeClient.customers.update(stripeCustomerId, {
       email,
       name,
       phone,
