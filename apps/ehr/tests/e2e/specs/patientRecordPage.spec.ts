@@ -2,6 +2,7 @@ import { BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForResponseWithData } from 'test-utils';
 import {
+  BOOKING_CONFIG,
   CreateAppointmentResponse,
   DEMO_VISIT_CITY,
   DEMO_VISIT_MARKETING_MESSAGING,
@@ -91,6 +92,7 @@ const NEW_PRACTICE_NAME = 'Dental';
 const NEW_PHYSICIAN_ADDRESS = '5th avenue';
 const NEW_PHYSICIAN_MOBILE = '(202) 222-2222';
 const NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD = 'testing gender';
+const NEW_REASON_FOR_VISIT = BOOKING_CONFIG.reasonForVisitOptions[0];
 
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
@@ -820,7 +822,7 @@ test.describe('Patient Record Page tests with zero patient data filled in', asyn
     await addPatientPage.enterLastName(NEW_PATIENT_FIRST_NAME);
     await addPatientPage.enterDateOfBirth(NEW_PATIENT_DATE_OF_BIRTH);
     await addPatientPage.selectSexAtBirth(NEW_PATIENT_BIRTH_SEX);
-    await addPatientPage.selectReasonForVisit('Injury to head');
+    await addPatientPage.selectReasonForVisit(NEW_REASON_FOR_VISIT);
     await addPatientPage.selectVisitType('Walk-in In Person Visit');
     const appointmentCreationResponse = waitForResponseWithData(page, /\/create-appointment\//);
     await addPatientPage.clickAddButton();

@@ -17,7 +17,7 @@ import { useVisitContext } from './ThankYou';
 // these are the options for a patient in the IP intake app and are a product requirement for that app
 // please don't attempt to extract this to a shared util. if another app has similar or even identical options
 // that is fine; enumerate them within that scope and don't sweat any duplication
-enum CancelReasonOptions {
+export enum CancelReasonOptions {
   'reason1' = 'Patient improved',
   'reason2' = 'Wait time too long',
   'reason3' = 'Prefer another provider',
