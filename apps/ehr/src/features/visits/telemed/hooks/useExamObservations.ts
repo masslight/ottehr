@@ -256,7 +256,7 @@ export function useExamObservations(param?: string | string[]): {
     value: param
       ? typeof param === 'string'
         ? state[param]
-        : param.map((option) => state[option]).filter((field) => field !== undefined)
+        : param.map((option) => state[option])
       : objectToArray(state),
     update,
     delete: deleteExamObservations,

@@ -15,7 +15,10 @@ export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (prop
   const { label, name, options } = props;
 
   const params = [name].concat(options.map((option) => option.name));
-  const { value: fields, update, isLoading } = useExamObservations(params);
+  let { value: fields } = useExamObservations(params);
+  // appointments made before https://github.com/masslight/ottehr/issues/4055 is ready might have some undefined fields
+  fields = fields.filter((field) => field !== undefined);
+  const { update, isLoading } = useExamObservations(params);
   const [booleanValue, setBooleanValue] = useState(fields.some((field) => field.value === true));
 
   const onCheckboxChange = (value: boolean): void => {
