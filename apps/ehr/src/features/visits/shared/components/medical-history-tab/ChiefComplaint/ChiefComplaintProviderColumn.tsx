@@ -60,7 +60,7 @@ export const ChiefComplaintProviderColumn: FC = () => {
             onBlur={() => {
               onChiefComplaintChange(value, {
                 refetchChartDataOnSave: true,
-                additionalOptions: { createICDRecommendations: true },
+                additionalRequestOptions: { createICDRecommendations: true },
               });
             }}
             disabled={isChiefComplaintChartDataLoading}

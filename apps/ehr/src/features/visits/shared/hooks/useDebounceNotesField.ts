@@ -40,8 +40,8 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
     text: string,
     {
       refetchChartDataOnSave,
-      additionalOptions,
-    }?: { refetchChartDataOnSave: boolean; additionalOptions?: { createICDRecommendations?: boolean } }
+      additionalRequestOptions,
+    }?: { refetchChartDataOnSave: boolean; additionalRequestOptions?: { createICDRecommendations?: boolean } }
   ) => void;
   isLoading: boolean;
   isChartDataLoading: boolean;
@@ -82,8 +82,8 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
     text: string,
     {
       refetchChartDataOnSave,
-      additionalOptions: { createICDRecommendations } = {},
-    }: { refetchChartDataOnSave?: boolean; additionalOptions?: { createICDRecommendations?: boolean } } = {}
+      additionalRequestOptions,
+    }: { refetchChartDataOnSave?: boolean; additionalRequestOptions?: { createICDRecommendations?: boolean } } = {}
   ): void => {
     latestValueFromUserRef.current = text.trim();
 
@@ -111,7 +111,7 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
             (chartFields?.[name] as GetChartDataResponse[T])?.resourceId ||
             latestValueFromServerRef.current?.resourceId,
           [nameToTypeEnum[name]]: latestValueFromUserRef.current,
-          createICDRecommendations,
+          ...additionalRequestOptions,
         },
       };
 
