@@ -80,13 +80,17 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
 
   console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
 
-  console.time('patching patient resource');
-  await oystehr.fhir.patch({
-    resourceType: 'Patient',
-    id: patientResource.id!,
-    operations: patientPatchOps.patient.patchOpsForDirectUpdate,
-  });
-  console.timeEnd('patching patient resource');
+  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
+    console.time('patching patient resource');
+    await oystehr.fhir.patch({
+      resourceType: 'Patient',
+      id: patientResource.id!,
+      operations: patientPatchOps.patient.patchOpsForDirectUpdate,
+    });
+    console.timeEnd('patching patient resource');
+  } else {
+    console.log('no patient patch operations to perform--skipping');
+  }
 
   let resultBundle: Bundle;
   try {
