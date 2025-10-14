@@ -58,7 +58,7 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
             onValueChange(e.target.value);
           }}
           onBlur={() => {
-            onValueChange(value, true);
+            onValueChange(value, { createICDRecommendations: true });
           }}
           size="small"
           label="Medical Decision Making *"

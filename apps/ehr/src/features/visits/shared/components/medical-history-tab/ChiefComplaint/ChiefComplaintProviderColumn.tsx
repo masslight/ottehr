@@ -58,7 +58,7 @@ export const ChiefComplaintProviderColumn: FC = () => {
               onChiefComplaintChange(e.target.value);
             }}
             onBlur={() => {
-              onChiefComplaintChange(value, true);
+              onChiefComplaintChange(value, { createICDRecommendations: true });
             }}
             disabled={isChiefComplaintChartDataLoading}
             label="HPI provider notes"

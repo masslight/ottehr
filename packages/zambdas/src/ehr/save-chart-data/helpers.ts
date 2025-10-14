@@ -87,6 +87,14 @@ export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounte
           name: '_revinclude:iterate',
           value: 'Condition:encounter',
         },
+        {
+          name: '_revinclude:iterate',
+          value: 'Observation:encounter',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'ClinicalImpression:encounter',
+        },
       ],
     })
   ).unbundle();

@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
+  ClinicalImpression,
   CodeableConcept,
   Condition,
   DocumentReference,
@@ -289,23 +290,46 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       (hpiText || mdmText) &&
       (chiefComplaint?.createICDRecommendations || medicalDecision?.createICDRecommendations)
     ) {
+      let hpiTextUpdated = hpiText;
+      let mdmTextUpdated = mdmText;
+      if (!hpiText) {
+        // If HPI text is not provided in this request, try to get it from existing chart data
+        const existingChiefComplaint = allResources.find(
+          (resource) =>
+            resource.resourceType === 'Condition' && resource.meta?.tag?.find((tag) => tag.code === 'chief-complaint')
+        ) as Condition | undefined;
+        if (existingChiefComplaint?.note?.[0].text) {
+          console.log('Using existing chief complaint text');
+          hpiTextUpdated = existingChiefComplaint.note?.[0].text;
+        }
+      }
+      if (!mdmText) {
+        // If MDM text is not provided in this request, try to get it from existing chart data
+        const existingMedicalDecision = allResources.find(
+          (resource) =>
+            resource.resourceType === 'ClinicalImpression' &&
+            resource.meta?.tag?.find((tag) => tag.code === 'medical-decision')
+        ) as ClinicalImpression | undefined;
+        if (existingMedicalDecision?.summary) {
+          console.log('Using existing medical decision text');
+          mdmTextUpdated = existingMedicalDecision.summary;
+        }
+      }
       try {
         console.log('Generating ICD-10 codes from clinical notes');
-        const potentialDiagnoses = await generateIcdTenCodesFromNotes(hpiText, mdmText, secrets);
+        const potentialDiagnoses = await generateIcdTenCodesFromNotes(hpiTextUpdated, mdmTextUpdated, secrets);
         const existingAiDiagnoses: Condition[] = allResources.filter(
           (resource) =>
             resource.resourceType === 'Condition' &&
             resource.meta?.tag?.find((tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/ai-potential-diagnosis`)
               ?.code === 'ai-potential-diagnosis'
         ) as Condition[];
-
         // suggestions that are not suggested any more
         existingAiDiagnoses.forEach((existingDiagnosis) => {
           if (
             existingDiagnosis.id &&
             !potentialDiagnoses.some((diagnosis) => diagnosis.icd10 === existingDiagnosis.code?.coding?.[0]?.code)
           ) {
-            console.log(1);
             saveOrUpdateRequests.push(deleteResourceRequest('Condition', existingDiagnosis.id));
           }
         });

@@ -36,7 +36,7 @@ const requestedFieldsOptions: Partial<Record<keyof ChartDataTextValueType, { _ta
 export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   name: T
 ): {
-  onValueChange: (text: string, createICDRecommendations?: boolean) => void;
+  onValueChange: (text: string, { createICDRecommendations }?: { createICDRecommendations: boolean }) => void;
   isLoading: boolean;
   isChartDataLoading: boolean;
   hasPendingApiRequests: boolean; // we can use it later to prevent navigation if there are pending api requests
@@ -72,7 +72,10 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   // actual value from user, the latest text typed into the input
   const latestValueFromUserRef = useRef<string>('');
 
-  const onValueChange = (text: string, createICDRecommendations?: boolean): void => {
+  const onValueChange = (
+    text: string,
+    { createICDRecommendations }: { createICDRecommendations?: boolean } = {}
+  ): void => {
     latestValueFromUserRef.current = text.trim();
 
     if (inputDebounceRef.current) {
