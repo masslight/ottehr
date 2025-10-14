@@ -36,7 +36,13 @@ const requestedFieldsOptions: Partial<Record<keyof ChartDataTextValueType, { _ta
 export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   name: T
 ): {
-  onValueChange: (text: string, { createICDRecommendations }?: { createICDRecommendations: boolean }) => void;
+  onValueChange: (
+    text: string,
+    {
+      refetchChartDataOnSave,
+      additionalOptions,
+    }?: { refetchChartDataOnSave: boolean; additionalOptions?: { createICDRecommendations?: boolean } }
+  ) => void;
   isLoading: boolean;
   isChartDataLoading: boolean;
   hasPendingApiRequests: boolean; // we can use it later to prevent navigation if there are pending api requests
@@ -74,7 +80,10 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
 
   const onValueChange = (
     text: string,
-    { createICDRecommendations }: { createICDRecommendations?: boolean } = {}
+    {
+      refetchChartDataOnSave,
+      additionalOptions: { createICDRecommendations } = {},
+    }: { refetchChartDataOnSave?: boolean; additionalOptions?: { createICDRecommendations?: boolean } } = {}
   ): void => {
     latestValueFromUserRef.current = text.trim();
 
@@ -117,8 +126,8 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
             }
 
             if (name === 'chiefComplaint' || name === 'medicalDecision') {
-              if (createICDRecommendations) {
-                // refetch chart data to update chief complaint and medical decision in the exam tab
+              if (refetchChartDataOnSave) {
+                // refetch chart data
                 refetch()
                   .then(() => console.log('Successfully refetched'))
                   .catch(() => console.log('Error refetching'));
