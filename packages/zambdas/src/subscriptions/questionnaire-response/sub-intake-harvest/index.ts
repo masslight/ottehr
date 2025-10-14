@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
+  Coding,
   DocumentReference,
   Encounter,
   List,
@@ -15,6 +16,7 @@ import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   flattenIntakeQuestionnaireItems,
+  getPatchOperationsForNewMetaTags,
   getRelatedPersonForPatient,
   getSecret,
   IntakeQuestionnaireItem,
@@ -80,6 +82,12 @@ export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput
 // this is exported to facilitate integration testing
 export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr): Promise<string> => {
   const { qr, secrets } = input;
+
+  if (qr.status !== 'completed' && qr.status !== 'amended') {
+    console.log(`Skipping harvest for QR ${qr.id} with status=${qr.status}`);
+    return `skipped: status=${qr.status}`;
+  }
+
   const tasksFailed: string[] = [];
 
   console.time('querying for resources to support qr harvest');
@@ -129,6 +137,8 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     throw new Error('Patient resource not found');
   }
 
+  console.log(`Running harvest for QR ${qr.id}`);
+
   try {
     await updatePatientAccountFromQuestionnaire(
       { patientId: patientResource.id, questionnaireResponseItem: qr.item ?? [] },
@@ -175,7 +185,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   // only create the consent resources once when qr goes to completed.
   // it seems QR is saved twice in rapid succession on submission
-  if (hipaa === true && consentToTreat === true && qr.status === 'completed') {
+  if (hipaa === true && consentToTreat === true) {
     console.time('creating consent resources');
     try {
       await createConsentResources({
@@ -317,13 +327,17 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   }
 
   try {
-    console.time('Patching appointment resource tag');
+    console.time('Patching appointment resource tags');
+    const newTags: Coding[] = [FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG];
+
+    const patchOps = getPatchOperationsForNewMetaTags(appointmentResource, newTags);
+
     await oystehr.fhir.patch({
       resourceType: 'Appointment',
       id: appointmentResource.id,
-      operations: [{ op: 'add', path: '/meta/tag/-', value: FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG }],
+      operations: patchOps,
     });
-    console.timeEnd('Patching appointment resource tag');
+    console.timeEnd('Patching appointment resource tags');
   } catch (error: unknown) {
     tasksFailed.push('patch appointment resource tag failed', JSON.stringify(error));
     console.log(`Failed to patch appointment resource tag: ${JSON.stringify(error)}`);
