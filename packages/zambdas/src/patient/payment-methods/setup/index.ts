@@ -54,7 +54,7 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
         guarantorResource: guarantor,
         account,
         patientId: beneficiaryPatientId,
-        secrets,
+        stripeClient,
       },
       oystehrClient
     );
