@@ -1,12 +1,13 @@
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router-dom';
+import { isFollowupEncounter } from 'utils';
 import { sidebarMenuIcons } from '../../shared/components/Sidebar';
 import { useChartFields } from '../../shared/hooks/useChartFields';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { InPersonModal } from '../components/InPersonModal';
 import { ROUTER_PATH, routesInPerson } from '../routing/routesInPerson';
 
-export type InteractionMode = 'intake' | 'provider' | 'readonly';
+export type InteractionMode = 'intake' | 'provider' | 'readonly' | 'follow-up';
 export type CSSValidator = () => React.ReactElement | string;
 export type CSSValidators = Record<string, CSSValidator>;
 
@@ -113,7 +114,12 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
       return;
     }
 
-    if (
+    const isFollowup = encounter ? isFollowupEncounter(encounter) : false;
+
+    let targetMode: InteractionMode;
+    if (isFollowup) {
+      targetMode = 'follow-up';
+    } else if (
       encounter?.participant?.find(
         (participant) =>
           participant.type?.find(
@@ -124,22 +130,21 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
                   coding.code === 'ATND'
               ) != null
           ) != null
-      ) &&
-      !isModeInitialized
+      )
     ) {
-      setInteractionMode('provider', false);
-    } else if (encounter?.id) {
+      targetMode = 'provider';
+    } else {
+      targetMode = 'intake';
+    }
+
+    if (targetMode !== interactionMode || !isModeInitialized) {
+      setInteractionMode(targetMode, false);
+    }
+
+    if (encounter?.id) {
       setIsModeInitialized(true);
     }
-  }, [
-    encounter?.id,
-    encounter?.participant,
-    setInteractionMode,
-    interactionMode,
-    isModeInitialized,
-    appointmentIdFromUrl,
-    encounter?.appointment,
-  ]);
+  }, [setInteractionMode, interactionMode, isModeInitialized, appointmentIdFromUrl, encounter]);
 
   setNavigationDisable = (newState: Record<string, boolean>): void => {
     let shouldUpdate = false;

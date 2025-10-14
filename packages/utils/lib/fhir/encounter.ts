@@ -40,6 +40,17 @@ export const FOLLOWUP_SYSTEMS = {
   },
 };
 
+export const isFollowupEncounter = (encounter: Encounter): boolean => {
+  return (
+    encounter.type?.some(
+      (type) =>
+        type.coding?.some(
+          (coding) => coding.system === FOLLOWUP_SYSTEMS.type.url && coding.code === FOLLOWUP_SYSTEMS.type.code
+        )
+    ) ?? false
+  );
+};
+
 export const formatFhirEncounterToPatientFollowupDetails = (
   encounter: Encounter,
   patientId: string,
@@ -49,7 +60,8 @@ export const formatFhirEncounterToPatientFollowupDetails = (
     encounter.type?.find(
       (t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
     )?.text || '';
-  const reason = encounter?.reasonCode?.[0].text || '';
+  const reason = encounter?.reasonCode?.[0].coding?.[0].display || '';
+  const otherReason = encounter?.reasonCode?.[0].text;
   const answered =
     encounter?.participant?.find(
       (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.answeredUrl))
@@ -79,6 +91,7 @@ export const formatFhirEncounterToPatientFollowupDetails = (
     patientId,
     followupType: followupType as FollowupType,
     reason: (reason as FollowupReason) || undefined,
+    otherReason,
     answered,
     caller,
     start,

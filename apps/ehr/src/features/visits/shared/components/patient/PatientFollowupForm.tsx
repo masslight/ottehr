@@ -106,18 +106,6 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
     }
   };
 
-  // useEffect(() => {
-  //   const location = formData.location;
-
-  //   const locationSlug = location?.identifier?.find((identifierTemp: any) => identifierTemp.system === SLUG_SYSTEM)
-  //     ?.value;
-  //   const locationState = location?.address?.state;
-  //   if (!locationSlug || !locationState) {
-  //     console.log('show some toast: location is missing slug or address.state', location, locationSlug, locationState);
-  //     return;
-  //   }
-  // }, [formData.location]);
-
   useEffect(() => {
     const getAndSetProviders = async (client: Oystehr): Promise<void> => {
       const getEmployeesRes = await getEmployees(client);

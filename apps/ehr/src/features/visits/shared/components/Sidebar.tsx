@@ -363,7 +363,9 @@ export const Sidebar = (): JSX.Element => {
           <ArrowIcon direction={open ? 'left' : 'right'} />
         </IconButton>
       </DrawerHeader>
-      <EncounterSwitcher />
+
+      <EncounterSwitcher open={open} />
+
       <List sx={{ padding: '0px' }}>
         {menuItems.map((item) => {
           const comparedPath = item?.activeCheckPath || item.to;

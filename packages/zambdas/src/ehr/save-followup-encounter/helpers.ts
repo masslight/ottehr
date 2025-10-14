@@ -39,7 +39,7 @@ export async function createEncounterResource(
   }
 
   if (encounterDetails.reason) {
-    encounterResource.reasonCode = createEncounterReasonCode(encounterDetails.reason);
+    encounterResource.reasonCode = createEncounterReasonCode(encounterDetails.reason, encounterDetails.otherReason);
   }
 
   if (encounterDetails.initialVisit) {
@@ -143,12 +143,15 @@ export async function updateEncounterResource(
     });
   }
 
-  if (encounterDetails.reason !== curEncounterDetails.reason) {
+  if (
+    encounterDetails.reason !== curEncounterDetails.reason ||
+    encounterDetails.otherReason !== curEncounterDetails.otherReason
+  ) {
     if (encounterDetails.reason) {
       operations.push({
         op: `${curEncounterDetails.reason ? 'replace' : 'add'}`,
         path: '/reasonCode',
-        value: createEncounterReasonCode(encounterDetails.reason),
+        value: createEncounterReasonCode(encounterDetails.reason, encounterDetails.otherReason),
       });
     } else if (curEncounterDetails.reason) {
       operations.push({
@@ -346,7 +349,7 @@ const createEncounterReasonCode = (reason: FollowupReason, otherReason?: string)
           display: reason,
         },
       ],
-      text: reason + (otherReason ? ` - ${otherReason}` : ''),
+      text: otherReason || reason,
     },
   ];
 };

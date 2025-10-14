@@ -1,10 +1,15 @@
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import { Box, Button, Collapse, List, ListItem, ListItemButton, ListItemText, Typography } from '@mui/material';
 import { Encounter } from 'fhir/r4b';
 import { FC, useState } from 'react';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 
-export const EncounterSwitcher: FC = () => {
+type EncounterSwitcherProps = {
+  open: boolean;
+};
+
+export const EncounterSwitcher: FC<EncounterSwitcherProps> = ({ open }) => {
   const { mainEncounter, followupEncounters, selectedEncounterId, setSelectedEncounter } = useAppointmentData();
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -33,26 +38,37 @@ export const EncounterSwitcher: FC = () => {
     <Box sx={{ borderBottom: '1px solid #e0e0e0' }}>
       <Button
         fullWidth
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => open && setIsExpanded(!isExpanded)}
+        disabled={!open}
         sx={{
           justifyContent: 'space-between',
           textTransform: 'none',
           color: 'text.primary',
           padding: '12px 16px',
           '&:hover': {
-            backgroundColor: 'action.hover',
+            backgroundColor: open ? 'action.hover' : 'transparent',
+          },
+          '&:disabled': {
+            color: 'text.disabled',
           },
         }}
       >
-        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-          Encounters ({allEncounters.length})
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'primary.main' }}>
-          {isExpanded ? '▼' : '▶'}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <AssignmentIcon sx={{ fontSize: 20, color: open ? 'primary.main' : 'text.disabled' }} />
+          {open && (
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              Encounters ({allEncounters.length})
+            </Typography>
+          )}
+        </Box>
+        {open && (
+          <Typography variant="body2" sx={{ color: 'primary.main' }}>
+            {isExpanded ? '▼' : '▶'}
+          </Typography>
+        )}
       </Button>
 
-      <Collapse in={isExpanded}>
+      <Collapse in={isExpanded && open}>
         <List sx={{ padding: 0 }}>
           {allEncounters.map((enc) => (
             <ListItem key={enc.id} disablePadding>
