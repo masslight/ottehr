@@ -125,13 +125,11 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
               setQueryCache({ [name]: valueToSave });
             }
 
-            if (name === 'chiefComplaint' || name === 'medicalDecision') {
-              if (refetchChartDataOnSave) {
-                // refetch chart data
-                refetch()
-                  .then(() => console.log('Successfully refetched'))
-                  .catch(() => console.log('Error refetching'));
-              }
+            if (refetchChartDataOnSave) {
+              // refetch chart data
+              refetch()
+                .then(() => console.log('Successfully refetched'))
+                .catch(() => console.log('Error refetching'));
             }
 
             hasPendingApiRequestsRef.current = false;
