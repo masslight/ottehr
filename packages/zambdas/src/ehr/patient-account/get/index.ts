@@ -51,13 +51,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAccountResponse> => {
   const { patientId } = input;
+  console.log('performing effect for patient account update');
+  console.time('getAccountAndCoverageResourcesForPatient');
   const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+  console.timeEnd('getAccountAndCoverageResourcesForPatient');
   const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
   // due to really huge CEResponses causing response-too-large errors, we need to chop our querying for the CEResponses into
   // manageable chunks. We'll do this by first querying for just the IDs of the CEResponses, then querying for the full resources in parallel.
   // Even just two resources returned in a query can still result in response-too-large errors based on prod data we've encountered.
+  console.time('fetching CER IDs');
   const eligibilityCheckIds = (
     await oystehr.fhir.search<CoverageEligibilityResponse>({
       resourceType: 'CoverageEligibilityResponse',
@@ -129,6 +133,7 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
       } as CoverageCheckWithDetails;
     })
     .filter((result) => result !== null) as CoverageCheckWithDetails[];
+  console.timeEnd('fetching CER IDs');
   return {
     ...accountAndCoverages,
     primaryCarePhysician,

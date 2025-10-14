@@ -75,7 +75,6 @@ import {
   getPayerId,
   getPhoneNumberForIndividual,
   getSecret,
-  getStripeCustomerIdFromAccount,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
@@ -117,7 +116,7 @@ import {
   uploadPDF,
 } from 'utils';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
-import { createPdfBytes } from '../../../shared';
+import { createPdfBytes, ensureStripeCustomerId } from '../../../shared';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
 
@@ -3185,16 +3184,24 @@ interface UpdateStripeCustomerInput {
   guarantorResource: RelatedPerson | Patient;
   stripeClient: Stripe;
 }
-export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Promise<void> => {
-  const { guarantorResource, account } = input;
+export const updateStripeCustomer = async (input: UpdateStripeCustomerInput, oystehr: Oystehr): Promise<void> => {
+  const { guarantorResource, account, stripeClient } = input;
   console.log('updating Stripe customer for account', account.id);
   console.log('guarantor resource:', `${guarantorResource?.resourceType}/${guarantorResource?.id}`);
-  const stripeCustomerId = getStripeCustomerIdFromAccount(account);
+  const { customerId: stripeCustomerId } = await ensureStripeCustomerId(
+    {
+      patientId: account.subject?.[0]?.reference?.split('/')[1] || '',
+      account,
+      guarantorResource,
+      stripeClient,
+    },
+    oystehr
+  );
   const email = getEmailForIndividual(guarantorResource);
   const name = getFullName(guarantorResource);
   const phone = getPhoneNumberForIndividual(guarantorResource);
   if (stripeCustomerId) {
-    await input.stripeClient.customers.update(stripeCustomerId, {
+    await stripeClient.customers.update(stripeCustomerId, {
       email,
       name,
       phone,
