@@ -130,8 +130,8 @@ export const OYSTEHR_LAB_GUID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab
 export const OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-order-placer-id';
 export const OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM =
   'https://extensions.fhir.oystehr.com/observation-value-attachment-pre-release';
-export const OYSTEHR_UNSOLICITED_RESULT_DR_RELATED_TO_ATTACHMENT_URL =
-  'https://extensions.fhir.oystehr.com/same-transmission-diagnostic-report'; // todo sarah maybe this could be better named?
+export const OYSTEHR_SAME_TRANSMISSION_DR_REF_URL =
+  'https://extensions.fhir.oystehr.com/same-transmission-diagnostic-report';
 
 export const OYSTEHR_OBS_CONTENT_TYPES = {
   pdf: 'AP',

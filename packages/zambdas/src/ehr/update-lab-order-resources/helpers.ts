@@ -9,7 +9,7 @@ import {
   getPatchBinary,
   LAB_DR_TYPE_TAG,
   OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL,
-  OYSTEHR_UNSOLICITED_RESULT_DR_RELATED_TO_ATTACHMENT_URL,
+  OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SpecimenCollectionDateConfig,
 } from 'utils';
@@ -222,7 +222,7 @@ export const handleMatchUnsolicitedRequest = async ({
       const relatedDrIds = dr.extension
         ?.filter(
           (ext) =>
-            ext.url === OYSTEHR_UNSOLICITED_RESULT_DR_RELATED_TO_ATTACHMENT_URL &&
+            ext.url === OYSTEHR_SAME_TRANSMISSION_DR_REF_URL &&
             ext?.valueReference?.reference?.startsWith('DiagnosticReport/')
         )
         .map((ext) => ext.valueReference?.reference?.replace('DiagnosticReport/', ''));

@@ -5,16 +5,12 @@ import fs from 'fs';
 import { DateTime } from 'luxon';
 import {
   DR_CONTAINED_PRACTITIONER_REF,
+  OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL,
-  OYSTEHR_UNSOLICITED_RESULT_DR_RELATED_TO_ATTACHMENT_URL,
+  OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
-import {
-  DR_UNSOLICITED_RESULT_TAG,
-  LAB_PDF_ATTACHMENT_DR_TAG,
-  OUTSIDE_LAB_CATEGORY,
-  PDF_ATTACHMENT_CODE,
-} from './lab-script-consts';
+import { DR_UNSOLICITED_RESULT_TAG, LAB_PDF_ATTACHMENT_DR_TAG, PDF_ATTACHMENT_CODE } from './lab-script-consts';
 import { createPdfAttachmentObs } from './lab-script-helpers';
 
 type PatientDetails = {
@@ -258,7 +254,7 @@ const createUnsolicitedResultDr = ({
         ],
       },
     ],
-    category: [OUTSIDE_LAB_CATEGORY],
+    category: [{ coding: [OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY] }],
   };
 
   return dr;
@@ -277,7 +273,7 @@ const createUnsolicitedPdfAttachmentDr = (
     status: 'final',
     code: PDF_ATTACHMENT_CODE,
     effectiveDateTime: DateTime.now().toISO(),
-    category: [OUTSIDE_LAB_CATEGORY],
+    category: [{ coding: [OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY] }],
     performer: [
       {
         reference: `Organization/${labOrgId}`,
@@ -285,7 +281,7 @@ const createUnsolicitedPdfAttachmentDr = (
     ],
     extension: [
       {
-        url: OYSTEHR_UNSOLICITED_RESULT_DR_RELATED_TO_ATTACHMENT_URL,
+        url: OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
         valueReference: {
           reference: parentDrFullUrl,
         },
