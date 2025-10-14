@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import type { Patient } from 'fhir/r4b';
 import { AuditEvent, Bundle, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -31,6 +32,7 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import {
+  createMasterRecordPatchOperations,
   getAccountAndCoverageResourcesForPatient,
   updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
@@ -67,6 +69,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<void> => {
   const { questionnaireResponse, items, patientId, providerProfileReference, preserveOmittedCoverages } = input;
+
+  const patientResource = await oystehr.fhir.get<Patient>({
+    resourceType: 'Patient',
+    id: patientId,
+  });
+
+  console.log('creating patch operations');
+  const patientPatchOps = createMasterRecordPatchOperations(items || [], patientResource);
+
+  console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
+
+  console.time('patching patient resource');
+  await oystehr.fhir.patch({
+    resourceType: 'Patient',
+    id: patientResource.id!,
+    operations: patientPatchOps.patient.patchOpsForDirectUpdate,
+  });
+  console.timeEnd('patching patient resource');
 
   let resultBundle: Bundle;
   try {

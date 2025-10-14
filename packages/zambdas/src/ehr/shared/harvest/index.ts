@@ -795,8 +795,6 @@ export function createMasterRecordPatchOperations(
     relatedPerson: {} as { [key: string]: Operation[] },
   };
 
-  tempOperations.patient.push(...createUpdatePharmacyPatchOps(patient, flattenedPaperwork));
-
   // Define telecom configurations
   const contactTelecomConfigs: Record<string, ContactTelecomConfig> = {
     'patient-number': { system: 'phone' },
