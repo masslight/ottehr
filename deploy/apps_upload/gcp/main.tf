@@ -9,34 +9,22 @@ terraform {
 
 ##### EHR #####
 
-module "ehr_directory" {
-  source   = "hashicorp/dir/template"
-  base_dir = "${path.module}/../../apps/ehr/build"
-}
-
-resource "google_storage_bucket_object" "ehr_upload" {
-  for_each       = module.ehr_directory.files
-  bucket         = var.ehr_bucket_id
-  name           = each.key
-  content_type   = each.value.content_type
-  source         = each.value.source_path
-  content        = each.value.content
-  detect_md5hash = each.value.digests.md5
+resource "terraform_data" "ehr_upload" {
+  triggers_replace = [
+    var.ehr_hash,
+  ]
+  provisioner "local-exec" {
+    command = "gcloud storage rsync --recursive ${path.module}/../../../apps/ehr/build gs://${var.ehr_bucket_id}/ --delete-unmatched-destination-objects"
+  }
 }
 
 ##### Patient Portal #####
 
-module "patient_portal_directory" {
-  source   = "hashicorp/dir/template"
-  base_dir = "${path.module}/../../apps/patient_portal/build"
-}
-
-resource "google_storage_bucket_object" "patient_portal_upload" {
-  for_each       = module.patient_portal_directory.files
-  bucket         = var.patient_portal_bucket_id
-  name           = each.key
-  content_type   = each.value.content_type
-  source         = each.value.source_path
-  content        = each.value.content
-  detect_md5hash = each.value.digests.md5
+resource "terraform_data" "patient_portal_upload" {
+  triggers_replace = [
+    var.patient_portal_hash,
+  ]
+  provisioner "local-exec" {
+    command = "gcloud storage rsync --recursive ${path.module}/../../../apps/intake/build gs://${var.patient_portal_bucket_id}/ --delete-unmatched-destination-objects"
+  }
 }
