@@ -6,7 +6,7 @@ import Oystehr, {
 } from '@oystehr/sdk';
 import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import { randomUUID } from 'crypto';
-import { applyPatch, Operation, RemoveOperation } from 'fast-json-patch';
+import { Operation, RemoveOperation } from 'fast-json-patch';
 import {
   Account,
   AccountGuarantor,
@@ -122,7 +122,7 @@ import { createPdfBytes } from '../../../shared';
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
-const PATIENT_UPDATE_MAX_RETRIES = 3;
+// const PATIENT_UPDATE_MAX_RETRIES = 3;
 
 interface ResponsiblePartyContact {
   birthSex: 'Male' | 'Female' | 'Intersex';
@@ -757,17 +757,6 @@ export interface PatientMasterRecordResources {
   patient: Patient;
 }
 
-function updatePatientData(patient: Patient, questionnaireResponseItems: QuestionnaireResponseItem[]): void {
-  const patientPatchOps = createMasterRecordPatchOperations(questionnaireResponseItems, patient);
-  patient = applyPatch(patient, patientPatchOps.patient.patchOpsForDirectUpdate, true).newDocument;
-
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    questionnaireResponseItems as IntakeQuestionnaireItem[]
-  ) as QuestionnaireResponseItem[];
-
-  updatePharmacy(patient, flattenedPaperwork);
-}
-
 export function createMasterRecordPatchOperations(
   questionnaireResponseItems: QuestionnaireResponseItem[],
   patient: Patient
@@ -1135,7 +1124,10 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
   return operations;
 };
 
-const updatePharmacy = (patient: Patient, flattenedItems: QuestionnaireResponseItem[]): void => {
+export const createUpdatePharmacyPatchOps = (
+  patient: Patient,
+  flattenedItems: QuestionnaireResponseItem[]
+): Operation[] => {
   const inputPharmacyName = getAnswer('pharmacy-name', flattenedItems)?.valueString;
   const inputPharmacyAddress = getAnswer('pharmacy-address', flattenedItems)?.valueString;
   const newContained = (patient.contained ?? []).filter((resource) => resource.id !== PATIENT_CONTAINED_PHARMACY_ID);
@@ -1163,9 +1155,23 @@ const updatePharmacy = (patient: Patient, flattenedItems: QuestionnaireResponseI
         reference: '#' + PATIENT_CONTAINED_PHARMACY_ID,
       },
     });
+    const containedOp = patient.contained ? 'replace' : 'add';
+    const extensionOp = patient.extension ? 'replace' : 'add';
+    const patchOps: Operation[] = [
+      {
+        op: containedOp,
+        path: '/contained',
+        value: newContained,
+      },
+      {
+        op: extensionOp,
+        path: '/extension',
+        value: newExtensions,
+      },
+    ];
+    return patchOps;
   }
-  patient.contained = newContained;
-  patient.extension = newExtensions;
+  return [];
 };
 
 function separateResourceUpdates(
@@ -3125,36 +3131,6 @@ export const updatePatientAccountFromQuestionnaire = async (
     guarantorResource: existingGuarantorResource,
     emergencyContactResource: existingEmergencyContact,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
-
-  console.time('updating patient resource');
-  let patientToUpdate = patient;
-  let retryCount = 0;
-  while (retryCount < PATIENT_UPDATE_MAX_RETRIES) {
-    try {
-      updatePatientData(patientToUpdate, questionnaireResponseItem ?? []);
-      await oystehr.fhir.update(patientToUpdate, {
-        optimisticLockingVersionId: patientToUpdate.meta?.versionId,
-      });
-      break;
-    } catch (error: unknown) {
-      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
-    }
-    try {
-      patientToUpdate = await oystehr.fhir.get({
-        resourceType: 'Patient',
-        id: patient.id!,
-      });
-    } catch (error: unknown) {
-      console.log(`Failed to read Patient: ${JSON.stringify(error)}`);
-    }
-    retryCount++;
-  }
-
-  if (retryCount === PATIENT_UPDATE_MAX_RETRIES) {
-    console.log(`Failed to update Patient using optimistic lock`);
-  }
-
-  console.timeEnd('updating patient resource');
 
   /*
   console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
