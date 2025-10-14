@@ -1,6 +1,15 @@
-import { Identifier } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { Account, Identifier, Patient, RelatedPerson } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  getEmailForIndividual,
+  getFullName,
+  getSecret,
+  getStripeCustomerIdFromAccount,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
+import { makeStripeCustomerId } from '../patient/payment-methods/helpers';
 
 export interface StripeEnvironmentConfig {
   publicKey: string;
@@ -45,4 +54,61 @@ export const makeBusinessIdentifierForStripePayment = (stripePaymentId: string):
     system: STRIPE_PAYMENT_ID_SYSTEM,
     value: stripePaymentId,
   };
+};
+
+interface EnsureStripeCustomerIdParams {
+  guarantorResource: Patient | RelatedPerson | undefined;
+  account: Account;
+  patientId: string;
+  stripeClient: Stripe;
+}
+
+export const ensureStripeCustomerId = async (
+  params: EnsureStripeCustomerIdParams,
+  oystehrClient: Oystehr
+): Promise<{
+  updatedAccount: Account;
+  customerId: string;
+}> => {
+  const { guarantorResource: guarantor, account, patientId, stripeClient } = params;
+  if (!account.id) {
+    throw new Error('Account ID is not defined');
+  }
+
+  // Placeholder function to be implemented later
+  let customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
+
+  let updatedAccount = account;
+  if (customerId === undefined) {
+    const customer = await stripeClient.customers.create(
+      {
+        email: guarantor ? getEmailForIndividual(guarantor) : undefined,
+        name: guarantor ? getFullName(guarantor) : undefined,
+        metadata: {
+          oystehr_patient_id: patientId,
+        },
+      },
+      undefined
+    );
+    const op = 'add';
+    let value: Identifier | Identifier[] = makeStripeCustomerId(customer.id);
+    let path = '/identifier/-';
+    if (account.identifier === undefined) {
+      value = [value];
+      path = '/identifier';
+    }
+    updatedAccount = await oystehrClient.fhir.patch<Account>({
+      id: account.id,
+      resourceType: 'Account',
+      operations: [
+        {
+          op,
+          path,
+          value,
+        },
+      ],
+    });
+    customerId = customer.id;
+  }
+  return { updatedAccount, customerId };
 };

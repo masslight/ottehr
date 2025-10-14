@@ -1005,6 +1005,22 @@ export function getConsentStepAnswers({
   };
 }
 
+export function getCardPaymentStepAnswers(): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'card-payment-page',
+    item: [
+      {
+        linkId: 'valid-card-on-file',
+        answer: [
+          {
+            valueBoolean: true,
+          },
+        ],
+      },
+    ],
+  };
+}
+
 export function getAdditionalQuestionsAnswers({
   useRandomAnswers = false,
 }: {
