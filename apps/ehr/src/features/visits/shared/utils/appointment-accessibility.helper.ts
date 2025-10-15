@@ -4,6 +4,7 @@ import {
   allLicensesForPractitioner,
   checkEncounterHasPractitioner,
   isAppointmentLocked,
+  isFollowupEncounter,
   mapStatusToTelemed,
   PractitionerLicense,
   StateType,
@@ -57,10 +58,11 @@ export const getAppointmentAccessibilityData = ({
 
   // Check if appointment is locked via meta tag
   const isAppointmentLockedByMetaTag = appointment ? isAppointmentLocked(appointment) : false;
+  const isFollowup = isFollowupEncounter(encounter);
 
   const isAppointmentReadOnly = (() => {
     if (featureFlags.isInPerson) {
-      return isAppointmentLockedByMetaTag;
+      return isAppointmentLockedByMetaTag && !isFollowup;
     }
 
     return (
