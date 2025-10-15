@@ -1,7 +1,7 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-ehr-insurance-update": {
+    "questionnaire-ehr-insurance-update-1_0_4": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/ehr-insurance-update-questionnaire",
