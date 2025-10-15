@@ -5648,7 +5648,8 @@
             "Z3:#{ref/project/PROJECT/id}-privacy-policy/*",
             "Z3:#{ref/project/PROJECT/id}-audio-recordings/*",
             "Z3:#{ref/project/PROJECT/id}-exported-questionnaires/*",
-            "Z3:#{ref/project/PROJECT/id}-discharge-summaries/*"
+            "Z3:#{ref/project/PROJECT/id}-discharge-summaries/*",
+            "Z3:#{ref/project/PROJECT/id}-labs/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject"],
           "effect": "Allow"
