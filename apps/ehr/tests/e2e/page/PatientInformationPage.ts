@@ -680,6 +680,10 @@ export class PatientInformationPage {
     });
   }
 
+  async verifyLoadingScreenIsNotVisible(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.loadingScreen).isHidden();
+  }
+
   async setCheckboxOn(): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.primaryCarePhysicianContainer.pcpCheckbox)

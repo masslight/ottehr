@@ -560,6 +560,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPracticeNameFromPcpIsVisible();
     await patientInformationPage.verifyAddressFromPcpIsVisible();
     await patientInformationPage.verifyMobileFromPcpIsVisible();
+    await patientInformationPage.verifyLoadingScreenIsNotVisible();
 
     await patientInformationPage.clearFirstNameFromPcp();
     await patientInformationPage.clickSaveChangesButton();
