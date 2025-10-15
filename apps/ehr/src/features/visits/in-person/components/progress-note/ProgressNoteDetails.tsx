@@ -189,6 +189,7 @@ export const ProgressNoteDetails: FC = () => {
         appointmentId: appointment.id,
         timezone: tz,
         supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
+        encounterId: encounter.id!,
       });
       navigate('/visits', { state: { tab: ApptTab.completed } });
     } else {

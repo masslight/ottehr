@@ -13,6 +13,7 @@ import {
   getInPersonVisitStatus,
   getProviderType,
   getSupervisorApprovalStatus,
+  isFollowupEncounter,
   isPhysicianProviderType,
   PRACTITIONER_CODINGS,
   TelemedAppointmentStatusEnum,
@@ -36,6 +37,7 @@ type ReviewAndSignButtonProps = {
 export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) => {
   const { patient, appointment, encounter, appointmentRefetch, appointmentSetState } = useAppointmentData();
   const { chartData } = useChartData();
+  const isFollowup = isFollowupEncounter(encounter);
 
   const { data: chartFields } = useChartFields({
     requestedFields: {
@@ -84,15 +86,24 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const approvalStatus = getSupervisorApprovalStatus(appointment, encounter);
   const completed = useMemo(() => {
     if (isInPerson) {
-      return appointmentAccessibility.isAppointmentLocked || approvalStatus === 'waiting-for-approval';
+      return isFollowup
+        ? encounter.status !== 'in-progress'
+        : appointmentAccessibility.isAppointmentLocked || approvalStatus === 'waiting-for-approval';
     }
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
-  }, [isInPerson, appointmentAccessibility.status, appointmentAccessibility.isAppointmentLocked, approvalStatus]);
+  }, [
+    isInPerson,
+    appointmentAccessibility.status,
+    appointmentAccessibility.isAppointmentLocked,
+    isFollowup,
+    encounter.status,
+    approvalStatus,
+  ]);
 
   const errorMessage = useMemo(() => {
     const messages: string[] = [];
 
-    if (completed) {
+    if (completed || isFollowup) {
       return messages;
     }
 
@@ -131,6 +142,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     patientInfoConfirmed,
     appointmentAccessibility.status,
     inHouseLabResultsPending,
+    isFollowup,
   ]);
 
   const handleCloseTooltip = (): void => {
@@ -154,6 +166,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
         await signAppointment({
           apiClient,
           appointmentId: appointment.id,
+          encounterId: encounter.id!,
           timezone: tz,
           supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
         });
@@ -207,7 +220,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
                   {!isInPerson && ' Once signed, notes will be locked and no changes can be made.'}
                 </DialogContentText>
 
-                {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && showSupervisorCheckbox && (
+                {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && showSupervisorCheckbox && !isFollowup && (
                   <FormControlLabel
                     control={
                       <Checkbox

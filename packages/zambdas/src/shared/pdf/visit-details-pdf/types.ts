@@ -16,6 +16,7 @@ import {
 export interface FullAppointmentResourcePackage {
   appointment: Appointment;
   encounter: Encounter;
+  mainEncounter?: Encounter;
   timezone: string;
   chargeItem?: ChargeItem;
   patient?: Patient;

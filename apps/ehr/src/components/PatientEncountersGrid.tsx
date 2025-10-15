@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
 import { visitTypeToInPersonLabel, visitTypeToTelemedLabel } from 'src/types/types';
 import {
@@ -180,6 +181,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [hideNoShow, setHideNoShow] = useState(false);
 
   const { oystehrZambda } = useApiClients();
+  const navigate = useNavigate();
 
   const { data: employeesData } = useQuery({
     queryKey: ['employees'],
@@ -253,6 +255,13 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         )}
         <RoundedButton to="/visits/add" target="_blank" variant="contained" startIcon={<AddIcon fontSize="small" />}>
           New Visit
+        </RoundedButton>
+        <RoundedButton
+          variant="contained"
+          startIcon={<AddIcon fontSize="small" />}
+          onClick={() => navigate('followup/add')}
+        >
+          Follow-up
         </RoundedButton>
       </Box>
 
