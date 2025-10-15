@@ -224,6 +224,11 @@ const createUnsolicitedResultDr = ({
         reference: `Organization/${labOrgId}`,
       },
     ],
+    specimen: [
+      {
+        reference: '#resultSpecimenId',
+      },
+    ],
     contained: [
       {
         resourceType: 'Patient',
@@ -252,6 +257,20 @@ const createUnsolicitedResultDr = ({
             value: '1932929191',
           },
         ],
+      },
+      {
+        resourceType: 'Specimen',
+        id: 'resultSpecimenId',
+        collection: {
+          bodySite: {
+            coding: [
+              {
+                system: 'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-specimen-source',
+                display: 'URINARY TRACT',
+              },
+            ],
+          },
+        },
       },
     ],
     category: [{ coding: [OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY] }],
