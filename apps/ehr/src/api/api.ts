@@ -1273,9 +1273,6 @@ export const updatePatientVisitDetails = async (
 
 export const invoiceablePatientsReport = async (oystehr: Oystehr): Promise<void> => {
   try {
-    if (INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID == null) {
-      throw new Error('invoiceable-patients-report zambda environment variable could not be loaded');
-    }
     const response = await oystehr.zambda.execute({
       id: INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID,
     });

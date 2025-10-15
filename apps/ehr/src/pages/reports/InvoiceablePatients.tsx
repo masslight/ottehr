@@ -36,13 +36,11 @@ export default function InvoiceablePatients(): React.ReactElement {
     navigate('/reports');
   };
 
-  console.log('rerender');
   const fetchReport = useCallback(async (): Promise<void> => {
     setLoading(true);
     setError(null);
 
     try {
-      console.log('refetching report');
       if (!oystehrZambda || !oystehr) {
         throw new Error('Oystehr client not available');
       }
