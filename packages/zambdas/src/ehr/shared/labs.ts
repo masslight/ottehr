@@ -787,14 +787,14 @@ export const getAllDrTags = (dr: DiagnosticReport): LabDrTypeTagCode[] | undefin
  */
 export const diagnosticReportSpecificResultType = (dr: DiagnosticReport): LabDrTypeTagCode | undefined => {
   const labDrCodes = getAllDrTags(dr);
+  console.log('labDrCodes:', labDrCodes);
   if (!labDrCodes || labDrCodes.length === 0) return;
 
   // it is possible for two codes to be assigned, unsolicited and pdfAttachment (this may be expanded in the future)
   if (labDrCodes.length === 2) {
     const containsPdfAttachment = labDrCodes.includes(LabType.pdfAttachment);
-    const containsUnsolicited = labDrCodes.includes(LabType.unsolicited);
-    if (containsPdfAttachment && containsUnsolicited) {
-      // unsolicited will be considered a "secondary" tag and pdf attachment the primary
+    if (containsPdfAttachment) {
+      // pdfAttachment should drive the logic for pdf generation
       return LabType.pdfAttachment;
     } else {
       throw new Error(`an unexpected result-type tag has been assigned: ${labDrCodes} on DR: ${dr.id}`);
