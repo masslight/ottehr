@@ -1087,26 +1087,26 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
   textStyles: LabsPDFTextStyleConfig,
   data: UnsolicitedExternalLabResultsData | ReflexExternalLabResultsData
 ): Promise<Uint8Array> {
-  // Order details
-  console.log(
-    `Drawing account number & accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  if (data.accountNumber) {
-    console.log('Writing valid account number as client id');
-    pdfClient = drawFieldLine(pdfClient, textStyles, 'Client ID:', data.accountNumber);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession #:', data.accessionNumber);
-  pdfClient.newLine(STANDARD_NEW_LINE);
+  // ATHENA TODO: we'll move this to the header most likely
+  // console.log(
+  //   `Drawing account number & accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  // );
+  // if (data.accountNumber) {
+  //   console.log('Writing valid account number as client id');
+  //   pdfClient = drawFieldLine(pdfClient, textStyles, 'Client ID:', data.accountNumber);
+  //   pdfClient.newLine(STANDARD_NEW_LINE);
+  // }
+  // pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession #:', data.accessionNumber);
+  // pdfClient.newLine(STANDARD_NEW_LINE);
 
-  // will only have for reflex
-  if ('orderNumber' in data) {
-    console.log(
-      `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-    );
-    pdfClient = drawFieldLine(pdfClient, textStyles, 'Req #:', data.orderNumber);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
+  // // will only have for reflex
+  // if ('orderNumber' in data) {
+  //   console.log(
+  //     `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  //   );
+  //   pdfClient = drawFieldLine(pdfClient, textStyles, 'Req #:', data.orderNumber);
+  //   pdfClient.newLine(STANDARD_NEW_LINE);
+  // }
 
   // we may map physician info in the future
   // console.log(
@@ -1181,42 +1181,15 @@ async function createExternalLabsResultsFormPdfBytes(
   textStyles: LabsPDFTextStyleConfig,
   data: ExternalLabResultsData
 ): Promise<Uint8Array> {
-  // Order details
-  console.log(
-    `Drawing account number & accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  if (data.accountNumber) {
-    console.log('Writing valid account number as client id');
-    pdfClient = drawFieldLine(pdfClient, textStyles, 'Client ID:', data.accountNumber);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
-
-  console.log(
-    `Drawing order pri. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Priority:', data.orderPriority.toUpperCase());
-  pdfClient.newLine(STANDARD_NEW_LINE);
-
-  console.log(
-    `Drawing order date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Date:', data.orderSubmitDate);
-  pdfClient.newLine(STANDARD_NEW_LINE);
-
-  console.log(
-    `Drawing collection date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Collection Date:', data.collectionDate);
-  pdfClient.newLine(STANDARD_NEW_LINE);
-
-  console.log(
-    `Drawing results date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Reported Date & Time:', data.resultsReceivedDate);
-  pdfClient.newLine(STANDARD_FONT_SIZE);
-  pdfClient.newLine(STANDARD_FONT_SIZE);
-
-  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
+  // ATHENA TODO: we'll move this to the header most likely
+  //   console.log(
+  //   `Drawing account number & accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  // );
+  // if (data.accountNumber) {
+  //   console.log('Writing valid account number as client id');
+  //   pdfClient = drawFieldLine(pdfClient, textStyles, 'Client ID:', data.accountNumber);
+  //   pdfClient.newLine(STANDARD_NEW_LINE);
+  // }
 
   console.log(
     `Drawing diagnoses. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
