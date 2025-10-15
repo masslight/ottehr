@@ -49,6 +49,10 @@ export const getAppointmentAndRelatedResources = async (
           value: 'Encounter:appointment',
         },
         {
+          name: '_include',
+          value: 'Encounter:part-of',
+        },
+        {
           name: '_revinclude',
           value: 'ChargeItem:context',
         },
@@ -192,6 +196,10 @@ export const getAppointmentAndRelatedResources = async (
   }) as Encounter;
   if (!encounter) return undefined;
 
+  const mainEncounter: Encounter | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Encounter' && !(item as Encounter).partOf;
+  }) as Encounter;
+
   const chargeItem: ChargeItem | undefined = items.find((item: Resource) => {
     return item.resourceType === 'ChargeItem';
   }) as ChargeItem;
@@ -235,6 +243,7 @@ export const getAppointmentAndRelatedResources = async (
   return {
     appointment,
     encounter,
+    mainEncounter,
     chargeItem,
     patient,
     account,
