@@ -1,8 +1,16 @@
 import { SearchParam } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Task as FhirTask } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { getCoding, TASK_CATEGORY_IDENTIFIER, TASK_INPUT_SYSTEM, TASK_LOCATION_SYSTEM, TASK_TYPE_SYSTEM } from 'utils';
+import {
+  getCoding,
+  IN_HOUSE_LAB_TASK,
+  TASK_CATEGORY_IDENTIFIER,
+  TASK_INPUT_SYSTEM,
+  TASK_LOCATION_SYSTEM,
+  TASK_TYPE_SYSTEM,
+} from 'utils';
 
 const GET_TASKS_KEY = 'get-tasks';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
@@ -180,6 +188,8 @@ function fhirTaskToTask(task: FhirTask): Task {
   const appointmentId = getInput('appointmentId', task);
   const orderId = getInput('orderId', task);
   let action: any = undefined;
+  let title = getInput('title', task) ?? '';
+  let subtitle = getInput('subtitle', task) ?? '';
   if (category === 'external-labs') {
     if (type === 'collect-sample' || type === 'review-results') {
       action = {
@@ -200,7 +210,20 @@ function fhirTaskToTask(task: FhirTask): Task {
       };
     }
   }
-  if (category === 'in-house-labs') {
+  if (category === IN_HOUSE_LAB_TASK.category) {
+    const testName = getInput(IN_HOUSE_LAB_TASK.input.testName, task);
+    const patientName = getInput(IN_HOUSE_LAB_TASK.input.patientName, task);
+    const providerName = getInput(IN_HOUSE_LAB_TASK.input.providerName, task);
+    const orderDate = getInput(IN_HOUSE_LAB_TASK.input.orderDate, task);
+    subtitle = `Ordered by ${providerName} on ${
+      orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
+    }`;
+    if (type === IN_HOUSE_LAB_TASK.type.collectSample) {
+      title = `Collect sample for “${testName}” for ${patientName}`;
+    }
+    if (type === IN_HOUSE_LAB_TASK.type.enterResults) {
+      title = `Perform test & enter results for “${testName}” for ${patientName}`;
+    }
     action = {
       name: GO_TO_LAB_TEST,
       link: `/in-person/${appointmentId}/in-house-lab-orders/${orderId}/order-details`,
@@ -210,8 +233,8 @@ function fhirTaskToTask(task: FhirTask): Task {
     id: task.id ?? '',
     category: category,
     createdDate: task.authoredOn ?? '',
-    title: getInput('title', task) ?? '',
-    subtitle: getInput('subtitle', task) ?? '',
+    title: title,
+    subtitle: subtitle,
     status: task.status,
     action: action,
     assignee: task.owner
