@@ -661,6 +661,10 @@ export class PatientInformationPage {
     //await this.#page.waitForSelector('text=State was updated successfully');
   }
 
+  async waitForSaveChangeButtonToBeEnabled(): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.patientInformationPage.saveChangesButton)).toBeEnabled();
+  }
+
   async verifyUpdatedSuccessfullyMessageShown(): Promise<void> {
     await expect(this.#page.getByText('Patient information updated successfully')).toBeVisible();
   }
@@ -681,7 +685,7 @@ export class PatientInformationPage {
   }
 
   async verifyLoadingScreenIsNotVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.loadingScreen).isHidden();
+    await this.#page.getByTestId(dataTestIds.loadingScreen).waitFor({ state: 'detached' });
   }
 
   async setCheckboxOn(): Promise<void> {
