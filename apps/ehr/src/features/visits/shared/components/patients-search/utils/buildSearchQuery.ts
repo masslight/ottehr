@@ -1,5 +1,35 @@
 import { SearchOptionsFilters } from '../types';
 
+/**
+ * Generates all possible formatting variants for US phone numbers (+1)
+ * @param {string} normalizedPhone - Phone number in format +1XXXXXXXXXX
+ * @returns {string[]} Array of formatted phone number variants
+ */
+const generatePhoneVariants = (normalizedPhone: string): string[] => {
+  // Check if it's a US number (+1 with 11 digits total)
+  const digitsOnly = normalizedPhone.replace(/\D/g, '');
+
+  // Only generate variants for +1 numbers (11 digits starting with 1)
+  if (digitsOnly.length !== 11 || !digitsOnly.startsWith('1')) {
+    return [normalizedPhone];
+  }
+
+  // Extract parts (US format: +1 XXX XXXXXXX)
+  const areaCode = digitsOnly.substring(1, 4);
+  const firstPart = digitsOnly.substring(4, 7);
+  const lastPart = digitsOnly.substring(7);
+
+  const localNumber = `${areaCode}${firstPart}${lastPart}`;
+
+  const variants = [
+    `+1${localNumber}`, // +11234567890 (E.164 - FHIR standard)
+    localNumber, // 1234567890 (most common user input)
+    `(${areaCode}) ${firstPart}-${lastPart}`, // (123) 456-7890 (most common display)
+  ];
+
+  return variants;
+};
+
 export const buildSearchQuery = (filter: Partial<SearchOptionsFilters>): string => {
   const baseUrl = 'r4/Patient';
   const params: string[] = [];
@@ -11,7 +41,7 @@ export const buildSearchQuery = (filter: Partial<SearchOptionsFilters>): string 
   params.push('_include:iterate=Appointment:actor:Location');
 
   if (filter.phone) {
-    let completedPhone = filter.phone.trim();
+    let completedPhone = filter.phone.replace(/\D/g, '');
 
     if (!completedPhone.startsWith('+')) {
       if (completedPhone.length === 10) {
@@ -21,10 +51,16 @@ export const buildSearchQuery = (filter: Partial<SearchOptionsFilters>): string 
       }
     }
 
-    completedPhone = encodeURIComponent(completedPhone);
-    params.push(
-      `phone=${completedPhone},_has:RelatedPerson:patient:phone=${completedPhone},_has:RelatedPerson:patient:_has:Person:link:phone=${completedPhone}`
-    );
+    const phoneVariants = generatePhoneVariants(completedPhone);
+
+    const phoneConditions = phoneVariants
+      .map((variant) => {
+        const encoded = encodeURIComponent(variant);
+        return `phone=${encoded},_has:RelatedPerson:patient:phone=${encoded},_has:RelatedPerson:patient:_has:Person:link:phone=${encoded}`;
+      })
+      .join(',');
+
+    params.push(phoneConditions);
     params.push('_revinclude=RelatedPerson:patient');
     params.push('_revinclude:iterate=Person:link');
   }
