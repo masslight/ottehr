@@ -34,7 +34,7 @@ export const fetchReports = async (
 ): Promise<{ reports: Report[]; total: number }> => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/list`,
+      `${API_BASE_URL}/reports/list`,
       { patientId, page, limit },
       {
         headers: {
@@ -58,7 +58,7 @@ export const fetchReports = async (
 export const getReportDownloadUrl = async (path: string): Promise<string | null> => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/download/`,
+      `${API_BASE_URL}/reports/download/`,
       { path },
       {
         headers: {
@@ -85,7 +85,7 @@ export const genreateManualReport = async (
 ): Promise<string | null> => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/create`,
+      `${API_BASE_URL}/reports/create`,
       { patientId, fileFormat, reportType, startDate, endDate },
       {
         headers: {
@@ -116,7 +116,7 @@ export const saveReportSettings = async (payload: ReportSettingsPayload): Promis
       if (payload.logo) formData.append('file', payload.logo);
     }
 
-    const response = await axios.post(`${API_BASE_URL}/reportSettings`, formData, {
+    const response = await axios.post(`${API_BASE_URL}/reports/reportSettings`, formData, {
       headers: {
         token: `${API_TOKEN}`,
         'project-id': `${PROJECT_ID}`,
@@ -134,7 +134,7 @@ export const saveReportSettings = async (payload: ReportSettingsPayload): Promis
 export const fetchReportSettings = async (): Promise<any> => {
   try {
     const response = await axios.post(
-      `${API_BASE_URL}/getSettings`,
+      `${API_BASE_URL}/reports/getSettings`,
       {},
       {
         headers: {
