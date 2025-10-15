@@ -31,6 +31,7 @@ export const IN_HOUSE_LAB_TASK = {
     patientName: 'patient-name',
     providerName: 'provider-name',
     orderDate: 'order-date',
+    appointmentId: 'appointment-id',
   },
 } as const;
 

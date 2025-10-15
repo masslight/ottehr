@@ -40,6 +40,7 @@ export function createTask(data: {
     },
     encounter: { reference: `Encounter/${data.encounterId}` },
     authoredOn: DateTime.now().toISO(),
+    lastModified: DateTime.now().toISO(),
     intent: 'order',
     input: undefinedIfEmptyArray(
       (data.input ?? [])

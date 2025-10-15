@@ -370,6 +370,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           type: IN_HOUSE_LAB_TASK.input.orderDate,
           value: serviceRequestConfig.authoredOn,
         },
+        {
+          type: IN_HOUSE_LAB_TASK.input.appointmentId,
+          value: encounter.appointment?.[0]?.reference?.split('/')?.[1],
+        },
       ],
     });
     taskConfig.basedOn = [{ reference: serviceRequestFullUrl }];

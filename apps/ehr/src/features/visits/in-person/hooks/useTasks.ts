@@ -149,6 +149,11 @@ export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskReques
             path: '/status',
             value: 'in-progress',
           },
+          {
+            op: 'replace',
+            path: '/lastModified',
+            value: DateTime.now().toISO(),
+          },
         ],
       });
     },
@@ -195,12 +200,12 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
 function fhirTaskToTask(task: FhirTask): Task {
   const category = task.groupIdentifier?.value ?? '';
   const type = getCoding(task.code, TASK_TYPE_SYSTEM)?.code ?? '';
-  const appointmentId = getInput('appointmentId', task);
-  const orderId = getInput('orderId', task);
   let action: any = undefined;
   let title = getInput('title', task) ?? '';
   let subtitle = getInput('subtitle', task) ?? '';
   if (category === 'external-labs') {
+    const appointmentId = getInput('appointmentId', task);
+    const orderId = getInput('orderId', task);
     if (type === 'collect-sample' || type === 'review-results') {
       action = {
         name: GO_TO_LAB_TEST,
@@ -225,6 +230,7 @@ function fhirTaskToTask(task: FhirTask): Task {
     const patientName = getInput(IN_HOUSE_LAB_TASK.input.patientName, task);
     const providerName = getInput(IN_HOUSE_LAB_TASK.input.providerName, task);
     const orderDate = getInput(IN_HOUSE_LAB_TASK.input.orderDate, task);
+    const appointmentId = getInput(IN_HOUSE_LAB_TASK.input.appointmentId, task);
     subtitle = `Ordered by ${providerName} on ${
       orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
     }`;
