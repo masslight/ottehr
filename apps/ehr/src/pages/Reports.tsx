@@ -2,6 +2,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
+import SummarizeIcon from '@mui/icons-material/Summarize';
 import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -117,7 +118,7 @@ export default function Reports(): React.ReactElement {
     {
       title: 'Invoiceable patients',
       description: 'View invoiceable patients report',
-      icon: <AssessmentIcon />,
+      icon: <SummarizeIcon />,
       path: '/reports/invoiceable-patients',
     },
   ];
