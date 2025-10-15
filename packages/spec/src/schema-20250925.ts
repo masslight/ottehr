@@ -201,10 +201,12 @@ export class Schema20250925 implements Schema<Spec20250925> {
     for (const [resourceKey, resource] of Object.entries(this.resources.fhirResources)) {
       const resourceData = structuredClone(resource.resource);
       const managedFields = resource.managedFields ?? undefined;
+      const removalPolicy = resource.removalPolicy ?? undefined;
       fhirResources.resource.oystehr_fhir_resource[resourceKey] = {
         type: this.getValue(resourceData.resourceType, this.resources),
         data: JSON.parse(this.getValue(JSON.stringify(resourceData), this.resources)),
         managed_fields: managedFields,
+        removal_policy: removalPolicy,
       };
     }
     if (Object.keys(fhirResources.resource.oystehr_fhir_resource).length) {

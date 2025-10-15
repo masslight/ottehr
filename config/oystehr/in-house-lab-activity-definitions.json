@@ -1,7 +1,7 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "activity-definition-flu-b": {
+    "activity-definition-flu-b-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -151,7 +151,7 @@
         }
       }
     },
-    "activity-definition-glucose-finger-heel-stick": {
+    "activity-definition-glucose-finger-heel-stick-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -255,7 +255,7 @@
         ]
       }
     },
-    "activity-definition-flu-vid": {
+    "activity-definition-flu-vid-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -409,7 +409,7 @@
         }
       }
     },
-    "activity-definition-rapid-strep-a": {
+    "activity-definition-rapid-strep-a-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -548,6 +548,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidStrepA",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -558,7 +559,7 @@
         }
       }
     },
-    "activity-definition-rapid-influenza-b": {
+    "activity-definition-rapid-influenza-b-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -713,7 +714,7 @@
         }
       }
     },
-    "activity-definition-urinalysis": {
+    "activity-definition-urinalysis-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -1756,7 +1757,7 @@
         ]
       }
     },
-    "activity-definition-urine-pregnancy-test": {
+    "activity-definition-urine-pregnancy-test-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -1904,7 +1905,7 @@
         }
       }
     },
-    "activity-definition-rapid-rsv": {
+    "activity-definition-rapid-rsv-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2059,7 +2060,7 @@
         }
       }
     },
-    "activity-definition-id-now-strep": {
+    "activity-definition-id-now-strep-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2209,7 +2210,7 @@
         }
       }
     },
-    "activity-definition-covid-19-antigen": {
+    "activity-definition-covid-19-antigen-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2359,7 +2360,7 @@
         }
       }
     },
-    "activity-definition-flu-a": {
+    "activity-definition-flu-a-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2509,7 +2510,7 @@
         }
       }
     },
-    "activity-definition-monospot-test": {
+    "activity-definition-monospot-test-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2659,7 +2660,7 @@
         }
       }
     },
-    "activity-definition-rapid-covid-19-antigen": {
+    "activity-definition-rapid-covid-19-antigen-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2814,7 +2815,7 @@
         }
       }
     },
-    "activity-definition-stool-guaiac": {
+    "activity-definition-stool-guaiac-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2970,7 +2971,7 @@
         ]
       }
     },
-    "activity-definition-rsv": {
+    "activity-definition-rsv-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -3124,7 +3125,7 @@
         }
       }
     },
-    "activity-definition-rapid-influenza-a": {
+    "activity-definition-rapid-influenza-a-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
