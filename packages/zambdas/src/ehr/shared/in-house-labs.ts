@@ -41,7 +41,7 @@ export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task
 
   // Status Derivation:
   // Ordered: SR.status = draft & Task(CST).status = ready
-  if (serviceRequest.status === 'draft' && collectSampleTask?.status === 'ready') {
+  if (serviceRequest.status === 'draft' && collectSampleTask?.status === 'requested') {
     return 'ORDERED';
   }
 
@@ -49,7 +49,7 @@ export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task
   if (
     serviceRequest.status === 'active' &&
     collectSampleTask?.status === 'completed' &&
-    interpretResultsTask?.status === 'ready'
+    interpretResultsTask?.status === 'requested'
   ) {
     return 'COLLECTED';
   }

@@ -6,7 +6,6 @@ export const TASK_TYPE_SYSTEM = ottehrCodeSystemUrl('task-type');
 const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
 
 export function createTask(data: {
-  status: 'requested' | 'in-progress' | 'completed';
   category: string;
   type: string;
   encounterId: string;
@@ -26,7 +25,7 @@ export function createTask(data: {
   }
   return {
     resourceType: 'Task',
-    status: data.status,
+    status: 'requested',
     groupIdentifier: {
       system: ottehrIdentifierSystem('task-category'),
       value: data.category,

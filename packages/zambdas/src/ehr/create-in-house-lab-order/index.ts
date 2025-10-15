@@ -349,7 +349,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const taskConfig = createTask({
-      status: 'requested',
       category: IN_HOUSE_LAB_TASK.category,
       type: IN_HOUSE_LAB_TASK.type.collectSample,
       encounterId: encounterId,

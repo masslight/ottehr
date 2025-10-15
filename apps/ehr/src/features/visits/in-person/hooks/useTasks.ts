@@ -138,11 +138,16 @@ export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskReques
         operations: [
           {
             op: 'add',
-            path: 'owner',
+            path: '/owner',
             value: {
               reference: 'Practitioner/' + input.assignee.id,
               display: input.assignee.name,
             },
+          },
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'in-progress',
           },
         ],
       });
@@ -168,7 +173,12 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
         operations: [
           {
             op: 'remove',
-            path: 'owner',
+            path: '/owner',
+          },
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'requested',
           },
         ],
       });
@@ -226,7 +236,9 @@ function fhirTaskToTask(task: FhirTask): Task {
     }
     action = {
       name: GO_TO_LAB_TEST,
-      link: `/in-person/${appointmentId}/in-house-lab-orders/${orderId}/order-details`,
+      link: `/in-person/${appointmentId}/in-house-lab-orders/${task.basedOn?.[0]?.reference?.split(
+        '/'
+      )?.[1]}/order-details`,
     };
   }
   return {
@@ -239,7 +251,7 @@ function fhirTaskToTask(task: FhirTask): Task {
     action: action,
     assignee: task.owner
       ? {
-          id: task.owner?.id ?? '',
+          id: task.owner?.reference?.split('/')?.[1] ?? '',
           name: task.owner?.display ?? '',
           date: task.lastModified ?? '',
         }
