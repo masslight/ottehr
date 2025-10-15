@@ -1,6 +1,17 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-import { Alert, Box, Button, Card, CardContent, CircularProgress, IconButton, Typography } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CircularProgress,
+  IconButton,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -25,11 +36,13 @@ export default function InvoiceablePatients(): React.ReactElement {
     navigate('/reports');
   };
 
+  console.log('rerender');
   const fetchReport = useCallback(async (): Promise<void> => {
     setLoading(true);
     setError(null);
 
     try {
+      console.log('refetching report');
       if (!oystehrZambda || !oystehr) {
         throw new Error('Oystehr client not available');
       }
@@ -68,7 +81,7 @@ export default function InvoiceablePatients(): React.ReactElement {
     }
   };
 
-  const practitionerColumns: GridColDef[] = useMemo(
+  const patientsReportsColumns: GridColDef[] = useMemo(
     () => [
       {
         field: 'patientName',
@@ -77,15 +90,21 @@ export default function InvoiceablePatients(): React.ReactElement {
         sortable: true,
       },
       {
-        field: 'PatientDob',
+        field: 'patientDob',
         headerName: 'DOB',
-        flex: 1,
+        width: 180,
         sortable: true,
       },
       {
-        field: 'serviceDate',
-        headerName: 'Service Date',
-        flex: 1,
+        field: 'appointmentDate',
+        headerName: 'Appointment Date',
+        width: 180,
+        sortable: true,
+      },
+      {
+        field: 'finalizationDate',
+        headerName: 'Finalization Date',
+        width: 180,
         sortable: true,
       },
       {
@@ -97,6 +116,47 @@ export default function InvoiceablePatients(): React.ReactElement {
       {
         field: 'amountInvoiceable',
         headerName: 'Amount',
+        width: 100,
+        sortable: true,
+      },
+      {
+        field: 'candidClaimId',
+        headerName: 'Candid ID',
+        flex: 1,
+        sortable: true,
+      },
+    ],
+    []
+  );
+  const failedReportsColumns: GridColDef[] = useMemo(
+    () => [
+      {
+        field: 'claimId',
+        headerName: 'Claim Id',
+        width: 400,
+        sortable: true,
+        renderCell: (params: any) => (
+          <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{params.value}</span>
+            <Tooltip title="Copy claim id">
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation(); // prevent row selection
+                  void navigator.clipboard
+                    .writeText(params.value)
+                    .then(() => enqueueSnackbar('Copied to clipboard', { variant: 'success' }));
+                }}
+              >
+                <ContentCopyIcon />
+              </IconButton>
+            </Tooltip>
+          </div>
+        ),
+      },
+      {
+        field: 'error',
+        headerName: 'Error message',
         flex: 1,
         sortable: true,
       },
@@ -105,15 +165,27 @@ export default function InvoiceablePatients(): React.ReactElement {
   );
 
   const patientsRows = useMemo(() => {
-    if (!reportData?.patients) return [];
+    if (!reportData?.patientsReports) return [];
 
-    return reportData.patients.map((patient) => ({
-      id: patient.id,
+    return reportData.patientsReports.map((patient) => ({
+      id: patient.claimId,
       patientName: patient.name,
-      PatientDob: patient.dob,
-      serviceDate: patient.serviceDate,
+      patientDob: patient.dob,
+      finalizationDate: patient.finalizationDate,
+      appointmentDate: patient.appointmentDate,
       responsiblePartyName: patient.responsiblePartyName,
       amountInvoiceable: patient.amountInvoiceable,
+      candidClaimId: patient.claimId,
+    }));
+  }, [reportData]);
+
+  const failedReportsRows = useMemo(() => {
+    if (!reportData?.failedReports) return [];
+
+    return reportData.failedReports.map((patient) => ({
+      id: patient.claimId,
+      claimId: patient.claimId,
+      error: patient.error,
     }));
   }, [reportData]);
 
@@ -133,7 +205,7 @@ export default function InvoiceablePatients(): React.ReactElement {
         </Box>
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Report generation can take up to ?? minutes.
+          Pressing REFRESH button will create a new report, it can take some time, please be patient.
         </Typography>
 
         {error && (
@@ -154,34 +226,67 @@ export default function InvoiceablePatients(): React.ReactElement {
 
         {!loading && reportData && (
           <Typography variant="body1" sx={{ mb: 4 }}>
-            This report was generated on {reportData.date}. {reportData.claimsFound} claims were used to generate this
-            report.
+            Report was generated on: {reportData.date}
+            <br /> Claims fetched from candid: {reportData.claimsFound}
+            <br /> Claims in report: {reportData.patientsReports?.length}
           </Typography>
         )}
 
         {!loading && reportData && (
           <Box>
-            {/* Practitioner Table Section */}
             {reportData && patientsRows.length > 0 && (
               <Card sx={{ mb: 4 }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ mb: 3 }}>
                     Invoiceable Patients
                   </Typography>
-                  <Box sx={{ height: 400, width: '100%' }}>
+                  <Box sx={{ height: 800, width: '100%' }}>
                     <DataGrid
                       rows={patientsRows}
-                      columns={practitionerColumns}
+                      columns={patientsReportsColumns}
                       initialState={{
                         pagination: {
                           paginationModel: { pageSize: 25 },
                         },
-                        sorting: {
-                          sortModel: [{ field: 'total', sort: 'desc' }],
+                      }}
+                      pageSizeOptions={[25, 50, 100]}
+                      rowBuffer={6}
+                      sx={{
+                        '& .MuiDataGrid-cell': {
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        },
+                        '& .MuiDataGrid-columnHeaderTitle': {
+                          fontWeight: 600,
+                        },
+                      }}
+                    />
+                  </Box>
+                </CardContent>
+              </Card>
+            )}
+          </Box>
+        )}
+
+        {!loading && reportData && (
+          <Box>
+            {reportData && patientsRows.length > 0 && (
+              <Card sx={{ mb: 4 }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 3 }}>
+                    Failed Reports
+                  </Typography>
+                  <Box sx={{ height: 800, width: '100%' }}>
+                    <DataGrid
+                      rows={failedReportsRows}
+                      columns={failedReportsColumns}
+                      initialState={{
+                        pagination: {
+                          paginationModel: { pageSize: 25 },
                         },
                       }}
                       pageSizeOptions={[25, 50, 100]}
-                      disableRowSelectionOnClick
+                      rowBuffer={6}
                       sx={{
                         '& .MuiDataGrid-cell': {
                           overflow: 'hidden',

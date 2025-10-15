@@ -1,13 +1,12 @@
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
-import { Account, Patient, RelatedPerson } from 'fhir/r4b';
+import { Account, Appointment, Encounter, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  createReference,
   FHIR_EXTENSION,
-  getFirstName,
   getFullName,
-  InvoiceablePatient,
+  InvoiceablePatientReport,
+  InvoiceablePatientReportFail,
   takeContainedOrFind,
 } from 'utils';
 
@@ -19,73 +18,74 @@ export interface InvoiceableClaim {
   timestamp: string;
 }
 
-export type ClaimsToPatientIdMap = Record<string, InvoiceItemizationResponse[]>;
+export type ItemizationToClaimIdMap = Record<string, InvoiceItemizationResponse>;
 
 type PatientRelationshipToInsured = 'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
 
-export async function getAllCandidClaims(
+export async function getCandidItemizationMap(
   candid: CandidApiClient,
   claims: InvoiceableClaim[]
-): Promise<ClaimsToPatientIdMap> {
-  const claimsPromises = claims.map(async (claim) => {
-    const claimPromise = await candid.patientAr.v1.itemize(CandidApi.ClaimId(claim.claimId));
-    return {
-      claimPromise,
-      patientId: claim.patientExternalId,
-    };
-  });
+): Promise<ItemizationToClaimIdMap> {
+  const itemizationPromises = claims.map((claim) => candid.patientAr.v1.itemize(CandidApi.ClaimId(claim.claimId)));
+  const itemizationResponse = await Promise.all(itemizationPromises);
 
-  const claimsResponse = await Promise.all(claimsPromises);
-
-  const claimsToPatientMap: Record<string, InvoiceItemizationResponse[]> = {};
-  claimsResponse.forEach((res) => {
-    const { claimPromise, patientId } = res;
-    if (claimPromise && claimPromise.ok && claimPromise.body) {
-      const claim = claimPromise.body as InvoiceItemizationResponse;
-      if (claimsToPatientMap[patientId] === undefined) claimsToPatientMap[patientId] = [claim];
-      else claimsToPatientMap[patientId].push(claim);
+  const itemizationToClaimIdMap: ItemizationToClaimIdMap = {};
+  itemizationResponse.forEach((res) => {
+    if (res && res.ok && res.body) {
+      const itemization = res.body as InvoiceItemizationResponse;
+      if (itemization.claimId) itemizationToClaimIdMap[itemization.claimId] = itemization;
     }
   });
-
-  return claimsToPatientMap;
+  return itemizationToClaimIdMap;
 }
 
-export function mapResourcesToInvoiceablePatient(
-  patients: Patient[],
-  accounts: Account[],
-  claimsMap: ClaimsToPatientIdMap,
-  claim: InvoiceableClaim
-): InvoiceablePatient | undefined {
-  const patient = patients.find((patient) => patient.id === claim.patientExternalId);
-  if (patient?.id === undefined) {
-    console.error('🔴 Patient not found for claim:', claim.claimId);
-    return;
-  }
-  const account = accounts.find(
-    (acc) => acc.subject?.find((subj) => (subj.reference = createReference(patient).reference))
-  );
+export function mapResourcesToInvoiceablePatient(input: {
+  itemizationMap: ItemizationToClaimIdMap;
+  claim: InvoiceableClaim;
+  patientToIdMap: Record<string, Patient>;
+  accountsToPatientIdMap: Record<string, Account>;
+  appointmentToIdMap: Record<string, Appointment>;
+  encounterToCandidIdMap: Record<string, Encounter>;
+}): InvoiceablePatientReport | InvoiceablePatientReportFail | undefined {
+  const { itemizationMap, claim, patientToIdMap, accountsToPatientIdMap, encounterToCandidIdMap, appointmentToIdMap } =
+    input;
+  const patient = patientToIdMap[claim.patientExternalId];
+  if (patient?.id === undefined) return logErrorForClaimAndReturn('Patient', claim.claimId);
+  const account = accountsToPatientIdMap[claim.patientExternalId];
   const responsiblePartyRef = account?.guarantor?.find((gRef) => {
     return gRef.period?.end === undefined;
   })?.party?.reference;
-  if (!responsiblePartyRef) {
-    console.error('🔴 Responsible party reference not found for claim:', claim.claimId);
-    return;
-  }
-  const responsibleParty = takeContainedOrFind(responsiblePartyRef, patients, account) as RelatedPerson | undefined;
-  if (!responsibleParty) {
-    console.error('🔴 Responsible party RelatedPerson resource not found for claim:', claim.claimId);
-    return;
-  }
+  if (!responsiblePartyRef) return logErrorForClaimAndReturn('RelatedPerson reference', claim.claimId);
+  const responsibleParty = takeContainedOrFind(responsiblePartyRef, [], account) as RelatedPerson | undefined;
+  if (!responsibleParty) return logErrorForClaimAndReturn('RelatedPerson', claim.claimId);
 
-  const patientBalance = claimsMap[patient.id].reduce((acc, claim) => acc + claim.patientBalanceCents, 0);
+  const encounter = encounterToCandidIdMap[claim.encounterId];
+  if (!encounter) return logErrorForClaimAndReturn('Encounter', claim.claimId);
+  const appointmentId = encounter.appointment?.[0]?.reference?.split('/')[1];
+  const appointment = appointmentId ? appointmentToIdMap[appointmentId] : undefined;
+  if (!appointment) return logErrorForClaimAndReturn('Appointment', claim.claimId);
+  const appointmentStart = appointment.start;
+
+  const patientBalance = itemizationMap[claim.claimId].patientBalanceCents;
   return {
     id: claim.patientExternalId,
+    claimId: claim.claimId,
     name: getFullName(patient),
     dob: patient.birthDate || '--',
-    serviceDate: DateTime.fromISO(claim.timestamp).toFormat('yyyy-MM-dd HH:mm:ss'), // is it right??
-    responsiblePartyName: responsibleParty ? getFirstName(responsibleParty) ?? '--' : '--',
+    appointmentDate: appointmentStart ? isoToFormat(appointmentStart) : '--',
+    finalizationDate: isoToFormat(claim.timestamp),
+    responsiblePartyName: responsibleParty ? getFullName(responsibleParty) ?? '--' : '--',
     responsiblePartyRelationshipToPatient: getResponsiblePartyRelationship(responsibleParty) ?? '--',
-    amountInvoiceable: `${patientBalance}`,
+    amountInvoiceable: `${patientBalance / 100}`, // converting from cents to USD
+  };
+}
+
+function logErrorForClaimAndReturn(resourceType: string, claimId: string): InvoiceablePatientReportFail {
+  const errorMessage = `${resourceType} resource not found for claim:${claimId}`;
+  console.error(`🔴 ${errorMessage}`);
+  return {
+    claimId,
+    error: errorMessage,
   };
 }
 
@@ -153,4 +153,8 @@ export async function getCandidPagesRecursive(
     claims,
     pageCount,
   };
+}
+
+function isoToFormat(isoDate: string, format: string = 'MM-dd-yyyy HH:mm:ss'): string {
+  return DateTime.fromISO(isoDate).toFormat(format);
 }

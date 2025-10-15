@@ -1,13 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApiClient } from 'candidhealth';
-import { Account, Patient } from 'fhir/r4b';
+import { Account, Appointment, Encounter, Patient, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createCandidApiClient,
   getResourcesFromBatchInlineRequests,
   getSecret,
-  InvoiceablePatient,
+  InvoiceablePatientReport,
+  InvoiceablePatientReportFail,
   InvoiceablePatientsReport,
   SecretsKeys,
 } from 'utils';
@@ -16,6 +17,7 @@ import {
   INVOICEABLE_PATIENTS_REPORTS_FILE_NAME,
 } from 'utils/lib/types/api/invoiceable-patients-reports.types';
 import {
+  CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   topLevelCatch,
@@ -23,7 +25,7 @@ import {
   ZambdaInput,
 } from '../../shared';
 import {
-  getAllCandidClaims,
+  getCandidItemizationMap,
   getCandidPagesRecursive,
   InvoiceableClaim,
   mapResourcesToInvoiceablePatient,
@@ -44,7 +46,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const candid = createCandidApiClient(validatedParameters.secrets);
 
-    const invoiceableClaims = await getInvoiceableClaims({ candid, limitPerPage: 100, onlyInvoiceable: false });
+    const invoiceableClaims = await getInvoiceableClaims({ candid, limitPerPage: 100, onlyInvoiceable: true });
     if (invoiceableClaims) {
       const invoiceablePatientsReport = await getInvoiceablePatientsReport({
         oystehr,
@@ -92,7 +94,10 @@ async function getInvoiceableClaims(input: InvoiceableClaimsInput): Promise<Invo
       limitPerPage,
       pageCount: 0,
       onlyInvoiceable,
-      maxPages: 3,
+    });
+
+    inventoryPages?.claims.forEach((claim) => {
+      if (claim.patientArStatus !== 'invoiceable') console.log('nnot invoiceable');
     });
 
     console.log('\n📊 Patient Inventory Response:');
@@ -128,40 +133,85 @@ async function getInvoiceablePatientsReport(input: {
   try {
     const { invoiceableClaims, oystehr, candid } = input;
     console.log('🔍 Fetching FHIR resources for invoiceable patients...');
-    const uniquePatientsIds = [...new Set(invoiceableClaims.map((claim) => claim.patientExternalId))];
-    const allPatientResources = await getResourcesFromBatchInlineRequests(
-      oystehr,
-      uniquePatientsIds.flatMap((patientId) => [
-        `Patient?_id=${patientId}`,
-        // `RelatedPerson?patient=Patient/${patientId}&relationship=user-relatedperson`,
-      ])
-    );
+    const allFhirResources = async (): Promise<Resource[]> => {
+      const promises: Promise<Resource[]>[] = [];
+      promises.push(
+        getResourcesFromBatchInlineRequests(
+          oystehr,
+          invoiceableClaims.map(
+            (claim) =>
+              `https://fhir-api.zapehr.com/r4/Patient?_id=${claim.patientExternalId}&_revinclude=Account:patient`
+          )
+        )
+      );
+      promises.push(
+        getResourcesFromBatchInlineRequests(
+          oystehr,
+          invoiceableClaims.map(
+            (claim) =>
+              `https://fhir-api.zapehr.com/r4/Encounter?identifier=${claim.encounterId}&_include=Encounter:appointment`
+          )
+        )
+      );
+      const response = await Promise.all(promises);
+      return response.flat();
+    };
     console.log('Creating promises for candid claims resources');
 
     console.log('Waiting for all promises');
-    const [allPatientsResources, claimsToPatientsMap] = await Promise.all([
-      allPatientResources,
-      getAllCandidClaims(candid, invoiceableClaims),
+    const [allFhirResourcesResponse, itemizationMap] = await Promise.all([
+      allFhirResources(),
+      getCandidItemizationMap(candid, invoiceableClaims),
     ]);
     console.log('Data received');
 
-    const fhirPatients = allPatientsResources.filter((patient) => patient.resourceType === 'Patient') as Patient[];
-    const fhirAccounts = allPatientsResources.filter((patient) => patient.resourceType === 'Account') as Account[];
+    const patientToIdMap: Record<string, Patient> = {};
+    const appointmentToIdMap: Record<string, Appointment> = {};
+    const accountsToPatientIdMap: Record<string, Account> = {};
+    const encounterToCandidIdMap: Record<string, Encounter> = {};
+    allFhirResourcesResponse.forEach((resource) => {
+      if (!resource.id) return;
+      if (resource.resourceType === 'Patient') {
+        patientToIdMap[resource.id] = resource as Patient;
+      }
+      if (resource.resourceType === 'Account') {
+        const patientId = (resource as Account).subject
+          ?.find((subject) => subject.reference?.includes('Patient/'))
+          ?.reference?.split('/')[1];
+        if (patientId) {
+          accountsToPatientIdMap[patientId] = resource as Account;
+        }
+      }
+      if (resource.resourceType === 'Appointment') {
+        appointmentToIdMap[resource.id] = resource as Appointment;
+      }
+      if (resource.resourceType === 'Encounter') {
+        const candidEncounterId = (resource as Encounter).identifier?.find(
+          (idn) => idn.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM
+        )?.value;
+        if (candidEncounterId) encounterToCandidIdMap[candidEncounterId] = resource as Encounter;
+      }
+    });
 
-    const result: InvoiceablePatient[] = [];
+    const resultReports: InvoiceablePatientReport[] = [];
+    const resultReportsErrors: InvoiceablePatientReportFail[] = [];
     invoiceableClaims.forEach((claim) => {
-      const invoiceablePatient = mapResourcesToInvoiceablePatient(
-        fhirPatients,
-        fhirAccounts,
-        claimsToPatientsMap,
-        claim
-      );
-      if (invoiceablePatient) result.push(invoiceablePatient);
+      const report = mapResourcesToInvoiceablePatient({
+        patientToIdMap,
+        encounterToCandidIdMap,
+        accountsToPatientIdMap,
+        appointmentToIdMap,
+        itemizationMap,
+        claim,
+      });
+      if (report && 'error' in report) resultReportsErrors.push(report);
+      else if (report) resultReports.push(report);
     });
     return {
-      date: DateTime.now().toFormat('yyyy-MM-dd HH:mm:ss') ?? '--',
-      claimsFound: invoiceableClaims.length.toString() ?? '--',
-      patients: result,
+      date: DateTime.now().toFormat('MM-dd-yyyy HH:mm:ss') ?? '--',
+      claimsFound: invoiceableClaims.length,
+      patientsReports: resultReports,
+      failedReports: resultReportsErrors,
     };
   } catch (error) {
     console.error('Error fetching invoiceable patients: ', error);
