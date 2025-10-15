@@ -1,6 +1,5 @@
 import { Box, Card, Typography } from '@mui/material';
-import React, { FC, ReactNode } from 'react';
-import { PropsWithChildren } from '../../../shared/types';
+import { FC, PropsWithChildren, ReactNode } from 'react';
 
 type ClaimCardProps = PropsWithChildren<{
   title: string;

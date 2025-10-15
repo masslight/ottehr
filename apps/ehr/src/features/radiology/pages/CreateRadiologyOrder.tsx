@@ -15,9 +15,16 @@ import {
 import { Coding } from 'fhir/r4b';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getRadiologyUrl } from 'src/features/in-person/routing/helpers';
-import { useGetIcd10Search, useICD10SearchNew } from 'src/shared/hooks/appointment/appointment.queries';
-import { useAppointmentData, useChartData, useSaveChartData } from 'src/shared/hooks/appointment/appointment.store';
+import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
+import {
+  useGetIcd10Search,
+  useICD10SearchNew,
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import {
+  useAppointmentData,
+  useChartData,
+  useSaveChartData,
+} from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { CPTCodeDTO, DiagnosisDTO } from 'utils';
 import { createRadiologyOrder } from '../../../api/api';

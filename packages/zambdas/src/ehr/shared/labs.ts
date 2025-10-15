@@ -23,6 +23,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import {
+  ABNORMAL_RESULT_DR_TAG,
   DiagnosticReportLabDetailPageDTO,
   DynamicAOEInput,
   EncounterExternalLabResult,
@@ -41,6 +42,7 @@ import {
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
+  LabDrTypeTagCode,
   LabelPdf,
   LabOrderPDF,
   LabOrderResultDetails,
@@ -482,8 +484,14 @@ export const makeEncounterLabResults = async (
             formattedName = nameLabTest(reflexTestName, labName, true);
           }
 
+          // this tag would be set by oystehr when the DR is created
+          const drIsTaggedAbnormal = !!relatedDR.meta?.tag?.find(
+            (tag) => tag.system === ABNORMAL_RESULT_DR_TAG.system && tag.code === ABNORMAL_RESULT_DR_TAG.code
+          );
+
           const { externalResultConfigs } = await getLabOrderResultPDFConfig(docRef, formattedName, m2mToken, {
             type: LabType.external,
+            containsAbnormalResult: drIsTaggedAbnormal,
             orderNumber,
           });
           if (isReflex) {
@@ -492,13 +500,16 @@ export const makeEncounterLabResults = async (
             externalLabOrderResults.push(...externalResultConfigs);
           }
         } else if (relatedSRDetail.type === LabType.inHouse) {
+          const drIsTaggedAbnormal = !!relatedDR.meta?.tag?.find(
+            (tag) => tag.system === ABNORMAL_RESULT_DR_TAG.system && tag.code === ABNORMAL_RESULT_DR_TAG.code
+          );
           const sr = relatedSRDetail.resource;
           const testName = sr.code?.text;
           const { inHouseResultConfigs } = await getLabOrderResultPDFConfig(
             docRef,
             testName || 'missing test details',
             m2mToken,
-            { type: LabType.inHouse }
+            { type: LabType.inHouse, containsAbnormalResult: drIsTaggedAbnormal }
           );
           inHouseLabOrderResults.push(...inHouseResultConfigs);
         }
@@ -551,10 +562,12 @@ const getLabOrderResultPDFConfig = async (
   resultDetails:
     | {
         type: LabType.external;
+        containsAbnormalResult: boolean;
         orderNumber?: string;
       }
     | {
         type: LabType.inHouse;
+        containsAbnormalResult: boolean;
         simpleResultValue?: string; // todo not implemented, displaying this is a post mvp feature
       }
 ): Promise<{ externalResultConfigs: ExternalLabOrderResultConfig[]; inHouseResultConfigs: InHouseLabResult[] }> => {
@@ -574,6 +587,7 @@ const getLabOrderResultPDFConfig = async (
         const labResult: ExternalLabOrderResultConfig = {
           name: formattedName,
           url,
+          containsAbnormalResult: resultDetails.containsAbnormalResult,
           orderNumber: resultDetails?.orderNumber,
         };
         externalResults.push(labResult);
@@ -581,6 +595,7 @@ const getLabOrderResultPDFConfig = async (
         const labResult: InHouseLabResult = {
           name: formattedName,
           url,
+          containsAbnormalResult: resultDetails.containsAbnormalResult,
           simpleResultValue: resultDetails?.simpleResultValue,
         };
         inHouseResults.push(labResult);
@@ -747,16 +762,26 @@ export const documentReferenceIsLabs = (docRef: DocumentReference): boolean => {
   );
 };
 
+// todo labs we should be able to get rid of this
 export const diagnosticReportIsReflex = (dr: DiagnosticReport): boolean => {
   return !!dr?.meta?.tag?.find(
     (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
   );
 };
 
-export const diagnosticReportIsUnsolicited = (dr: DiagnosticReport): boolean => {
-  return !!dr?.meta?.tag?.find(
-    (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.unsolicited
-  );
+export const isLabDrTypeTagCode = (code: any): code is LabDrTypeTagCode => {
+  return Object.values(LAB_DR_TYPE_TAG.code).includes(code);
+};
+
+/**
+ * Returns diagnostic report result-type tag if any exists and validates the code is one of the known LabDrTypeTagCode values.
+ *
+ * @param dr - The diagnostic report to extract the tag code from.
+ * @returns The validated tag ('unsolicited', 'reflex', 'pdfAttachment') or undefined.
+ */
+export const diagnosticReportSpecificResultType = (dr: DiagnosticReport): LabDrTypeTagCode | undefined => {
+  const code = dr?.meta?.tag?.find((t) => t.system === LAB_DR_TYPE_TAG.system)?.code;
+  return isLabDrTypeTagCode(code) ? code : undefined;
 };
 
 export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
@@ -1065,8 +1090,8 @@ const getResultDetailsBasedOnDr = async (
 
   const resultPdfUrl = documentReference ? await getResultPDFUrlBasedOnDr(documentReference, token) : '';
 
-  const isReflex = diagnosticReportIsReflex(diagnosticReport);
-  const testType = isReflex ? 'reflex' : 'unsolicited';
+  const testType = diagnosticReportSpecificResultType(diagnosticReport);
+  if (!testType) throw new Error(`no result-type tag on the DiagnosticReport ${diagnosticReport.id}`);
 
   const resultDetail: LabOrderResultDetails = {
     testItem: getTestNameOrCodeFromDr(diagnosticReport),

@@ -28,6 +28,7 @@ interface LabOrderPDFDetail {
   url: string;
 }
 export interface ExternalLabOrderResultConfig extends LabOrderPDFDetail {
+  containsAbnormalResult: boolean;
   orderNumber?: string;
 }
 
@@ -41,6 +42,7 @@ export interface EncounterExternalLabResult {
 }
 
 export interface InHouseLabResult extends LabOrderPDFDetail {
+  containsAbnormalResult: boolean;
   // if the test has one result, we can display what was recorded
   // if more than one result (like Urinalysis) no result value will be displayed
   // todo not implemented, displaying this is a post mvp feature

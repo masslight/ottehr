@@ -5,15 +5,18 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
-import { ButtonRounded } from 'src/features/in-person/components/RoundedButton';
-import { WarningBlock } from 'src/features/in-person/components/WarningBlock';
-import { getImmunizationMARUrl, getImmunizationOrderEditUrl } from 'src/features/in-person/routing/helpers';
+import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import { WarningBlock } from 'src/features/visits/in-person/components/WarningBlock';
+import { getImmunizationMARUrl, getImmunizationOrderEditUrl } from 'src/features/visits/in-person/routing/helpers';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useAppointmentData } from 'src/shared/hooks/appointment/appointment.store';
 import { RoleType } from 'utils';
-import { PageHeader } from '../../in-person/components/medication-administration/PageHeader';
-import { useCreateUpdateImmunizationOrder, useGetImmunizationOrders } from '../../in-person/hooks/useImmunization';
+import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
+import {
+  useCreateUpdateImmunizationOrder,
+  useGetImmunizationOrders,
+} from '../../visits/in-person/hooks/useImmunization';
 import { OrderDetailsSection } from '../components/OrderDetailsSection';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 
@@ -57,6 +60,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     if (!orderId && defaultProviderId) {
       methods.reset({
         details: {
+          ...methods.getValues('details'),
           orderedProvider: {
             id: defaultProviderId,
             name: currentUser?.userName,

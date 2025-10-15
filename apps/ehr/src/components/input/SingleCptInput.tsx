@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useGetIcd10Search } from 'src/shared/hooks/appointment/appointment.queries';
+import { useGetIcd10Search } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { CPTCodeDTO } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';

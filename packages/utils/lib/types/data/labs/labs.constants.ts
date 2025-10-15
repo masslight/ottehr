@@ -1,6 +1,6 @@
 // cSpell:ignore RCRT, RFRT, RPRT
 import { Pagination } from '..';
-import { LabelConfig } from './labs.types';
+import { LabelConfig, LabType } from './labs.types';
 
 // for order form pdf (we might not want this idk)
 export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
@@ -46,6 +46,12 @@ export const LAB_RESULT_DOC_REF_CODING_CODE = {
   display: 'Laboratory report',
 };
 
+export const LAB_RESULT_HL7_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '56444-3',
+  display: 'Healthcare communication document',
+};
+
 // there is no loinc code specifically for specimen labels or container labels, closest is 74384-9 "Specimen container [Type]"
 // so opted for something custom her
 export const EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE = {
@@ -57,14 +63,16 @@ export const EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE = {
 export const LAB_DR_TYPE_TAG = {
   system: 'result-type',
   code: {
-    reflex: 'reflex',
-    unsolicited: 'unsolicited',
+    reflex: LabType.reflex,
+    unsolicited: LabType.unsolicited,
+    attachment: LabType.pdfAttachment,
   },
   display: {
     reflex: 'reflex',
     unsolicited: 'unsolicited',
+    attachment: 'PDF Attachment',
   },
-};
+} as const;
 
 export const SPECIMEN_CODING_CONFIG = {
   collection: {
@@ -143,6 +151,12 @@ export const OYSTEHR_LAB_DOC_CATEGORY_CODING = {
   system: OYSTEHR_LAB_DOC_CATEGORY_SYSTEM,
   code: 'abn-document',
   display: 'Lab ABN Document',
+};
+
+export const OYSTEHR_ABN_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '59284-0',
+  display: 'Consent Document',
 };
 
 // Oystehr Labs APIs
@@ -224,3 +238,18 @@ export const PERFORMING_PHYSICIAN_EXTENSION_URLS = {
   parentExtUrl: 'https://extensions.fhir.oystehr.com/obx-performing-physician-info',
   name: 'name',
 };
+
+export const OYSTEHR_LABS_TRANSMISSION_ACCOUNT_NUMBER_IDENTIFIER_SYSTEM =
+  'https://identifiers.fhir.oystehr.com/lab-transmission-account-number';
+
+export const OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL = 'https://extensions.fhir.oystehr.com/pv1-note';
+export const OYSTEHR_LABS_CLINICAL_INFO_EXT_URL = 'https://extensions.fhir.oystehr.com/lab-result-clinical-info';
+export const OYSTEHR_LABS_FASTING_STATUS_EXT_URL = 'https://extensions.fhir.oystehr.com/lab-result-fasting-status';
+
+export const OYSTEHR_LABS_RESULT_SPECIMEN_COLLECTION_VOLUME_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-collection-volume';
+export const OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-specimen-source';
+
+export const OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL =
+  'https://extensions.fhir.oystehr.com/lab-result-ordering-provider-reference';

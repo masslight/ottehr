@@ -1,8 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
 import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCircleOutlined';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
-import { FC, ReactNode } from 'react';
-import { PropsWithChildren } from '../shared/types';
+import { FC, PropsWithChildren, ReactNode } from 'react';
 
 type AccordionCardProps = PropsWithChildren<{
   collapsed?: boolean;

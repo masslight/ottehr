@@ -3,7 +3,7 @@ import { alpha, Badge, Box, Button, Menu, Typography, useTheme } from '@mui/mate
 import { DateTime } from 'luxon';
 import { EventHandler, FC, memo, MouseEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconButtonContained } from 'src/components/IconButtonContained';
+import { IconButtonContained } from 'src/features/visits/shared/components/IconButtonContained';
 import {
   getProviderNotificationSettingsForPractitioner,
   ProviderNotificationMethod,

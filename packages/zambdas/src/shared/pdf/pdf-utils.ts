@@ -14,12 +14,10 @@ import {
   StandardFonts,
 } from 'pdf-lib';
 import { getLogoFor, SupportedObsImgAttachmentTypes } from 'utils';
-import { PDF_CLIENT_STYLES, STANDARD_FONT_SIZE, STANDARD_FONT_SPACING, Y_POS_GAP } from './pdf-consts';
+import { Y_POS_GAP } from './pdf-consts';
 import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
 
 export type PdfInfo = { uploadURL: string; title: string };
-
-export type LabsPDFTextStyleConfig = Record<string, TextStyle>;
 
 export interface Column {
   startXPos: number;
@@ -100,6 +98,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   let pageRightBound = 0;
   let currXPos = 0;
   let currYPos = 0;
+  let bottomOfPageHeaderYPos = 0;
   const pageTextWidth = (): number => {
     return pageRightBound - pageLeftBound;
   };
@@ -127,9 +126,10 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     }
 
     const { height, width } = page.getSize();
-    // Start at the top of the page then move down as elements are added to the PDF.
+    // Start at the top of the page then move down as elements are added to the PDF. If there is a header, then we need to set currYPos differently
     currYPos = height - (styles.pageMargins.top ?? 0); // top of page. Content starts after this point
     currYPos -= Y_POS_GAP; //by default, we have some kind of gap without this subtraction
+
     pageLeftBound = newLeftBound ? newLeftBound : styles.pageMargins.left ?? 0;
     pageRightBound = newRightBound ? newRightBound : width - (styles.pageMargins.right ?? 0);
     currXPos = pageLeftBound;
@@ -139,9 +139,15 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       console.log(`Incrementing page index to ${currentPageIndex}`);
     } else currentPageIndex = 0;
 
+    if (!addedBrandNewPage && styles.setHeadline && currentPageIndex !== 0) {
+      console.log(`On the next page and there is a header, setting currY pos to bottomOfPageHeaderYPos`);
+      currYPos = bottomOfPageHeaderYPos;
+      console.log(`currYPos is ${currYPos}. bottomOfPageHeaderYPos is ${bottomOfPageHeaderYPos}`);
+    }
     if (addedBrandNewPage && styles.setHeadline) {
       console.log('addedBrandNewPage is true and styles.setHeadline is defined. settingHeadline');
       styles.setHeadline();
+      bottomOfPageHeaderYPos = currYPos;
     }
 
     console.log('Done with new page\n');
@@ -149,6 +155,60 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
 
   // adding initial page when initializing pdfClient
   addNewPage(initialStyles.initialPage);
+
+  /**
+   * Designed to be called after all content has been written. Goes through each page of the document and writes a page number in the
+   * bottom margin. If margin is 0 or smaller than the text height, we can't write page numbers; it is a no-op in this case.
+   */
+  const numberPages = (textStyle: TextStyle): void => {
+    console.log('Numbering pages');
+    const bottomMargin = pageStyles.pageMargins.bottom;
+    if (!bottomMargin) {
+      console.warn('Unable to number pages, no bottom margin is set or no space is available.');
+      return;
+    }
+
+    const midMargin = bottomMargin / 2;
+    const textHeight = getTextDimensions('Page 1 of 2', textStyle).height;
+    if (textHeight >= midMargin) {
+      console.warn('Unable to number pages, text height exceeds half of margin available space.');
+      return;
+    }
+
+    const { font, fontSize, color, side } = textStyle;
+
+    const totalPages = pages.length;
+    // set current page back to index 0
+    // for each page, go through each one, write the page number, and then continue
+    for (let i = 0; i < totalPages; i++) {
+      currXPos = pageLeftBound;
+      // set y to middle of the margin
+      currYPos = midMargin;
+
+      currentPageIndex = i;
+      setPageByIndex(currentPageIndex);
+      const text = `Page ${i + 1} of ${totalPages}`;
+      const { width: lineWidth } = getTextDimensions(text, textStyle);
+      console.log(
+        `currXPos is ${currXPos}. currYPos is ${currYPos}. currentPageIndex is ${currentPageIndex}. Writing text '${text}'`
+      );
+
+      if (side === 'right') currXPos = pageLeftBound + pageTextWidth() - lineWidth;
+      else if (side === 'center') currXPos = pageLeftBound + (pageTextWidth() - lineWidth) / 2;
+
+      page.drawText(text, {
+        font: font,
+        size: fontSize,
+        x: currXPos,
+        y: currYPos,
+        color,
+      });
+      console.log(
+        `After draw text. currXPos is ${currXPos}. currYPos is ${currYPos}. currentPageIndex is ${currentPageIndex}. Wrote text '${text}'`
+      );
+    }
+    return;
+  };
 
   const drawText = (text: string, textStyle: TextStyle): void => {
     const { font, fontSize, color, side, spacing } = textStyle;
@@ -236,6 +296,21 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       leftBound is ${leftBound}\n
       rightBound is ${rightBound}\n`);
 
+    // if the text contains \n, we need to recursively handle each of those ourselves, otherwise
+    // pdf-lib will try to do it for us, but with unpredictable line break spacing
+    if (text.includes('\n')) {
+      console.log('Found return character in text. recursively drawing each line');
+      const lines = text.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        console.log(`Drawing split line: '${lines[i]}'`);
+        drawTextSequential(lines[i], textStyle, bounds);
+        if (i < lines.length - 1) {
+          newLine(lineHeight + spacing + 2);
+        }
+      }
+      return;
+    }
+
     // Add a new page if there's no space on the current page
     if (currYPos - lineHeight < (pageStyles.pageMargins.bottom ?? 0)) {
       addNewPage(pageStyles, pageLeftBound, pageRightBound);
@@ -318,7 +393,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       });
 
       // Move to the next line and reset x position
-      newLine(lineHeight);
+      newLine(lineHeight + spacing);
 
       // Recursively call the function with the remaining text
       console.log('recursively calling drawTextSequential');
@@ -643,17 +718,9 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     setPageByIndex,
     getTotalPages,
     drawLink,
+    numberPages,
   };
 }
-
-export const LAB_PDF_STYLES = {
-  color: {
-    red: rgbNormalized(255, 0, 0),
-    purple: rgbNormalized(77, 21, 183),
-    black: rgbNormalized(0, 0, 0),
-    grey: rgbNormalized(102, 102, 102),
-  },
-};
 
 export const SEPARATED_LINE_STYLE: LineStyle = {
   thickness: 1,
@@ -664,102 +731,7 @@ export const SEPARATED_LINE_STYLE: LineStyle = {
   },
 };
 
-export async function getPdfClientForLabsPDFs(): Promise<{
-  pdfClient: PdfClient;
-  callIcon: PDFImage;
-  faxIcon: PDFImage;
-  locationIcon: PDFImage;
-  textStyles: LabsPDFTextStyleConfig;
-}> {
-  const pdfClient = await createPdfClient(PDF_CLIENT_STYLES);
-  const callIcon = await pdfClient.embedImage(fs.readFileSync('./assets/call.png'));
-  const faxIcon = await pdfClient.embedImage(fs.readFileSync('./assets/fax.png'));
-  const locationIcon = await pdfClient.embedImage(fs.readFileSync('./assets/location_on.png'));
-  const textStyles = await getTextStylesForLabsPDF(pdfClient);
-
-  return { pdfClient, callIcon, faxIcon, locationIcon, textStyles };
-}
-
-export async function getTextStylesForLabsPDF(pdfClient: PdfClient): Promise<LabsPDFTextStyleConfig> {
-  const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
-  const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Bold.otf'));
-
-  const textStyles: Record<string, TextStyle> = {
-    blockHeader: {
-      fontSize: STANDARD_FONT_SIZE,
-      spacing: STANDARD_FONT_SPACING,
-      font: RubikFontBold,
-      newLineAfter: true,
-    },
-    header: {
-      fontSize: 17,
-      spacing: STANDARD_FONT_SPACING,
-      font: RubikFontBold,
-      color: LAB_PDF_STYLES.color.purple,
-      newLineAfter: true,
-    },
-    headerRight: {
-      fontSize: 17,
-      spacing: STANDARD_FONT_SPACING,
-      font: RubikFontBold,
-      side: 'right',
-      color: LAB_PDF_STYLES.color.purple,
-    },
-    fieldHeader: {
-      fontSize: STANDARD_FONT_SIZE,
-      font: RubikFont,
-      spacing: 1,
-    },
-    fieldHeaderRight: {
-      fontSize: STANDARD_FONT_SIZE,
-      font: RubikFont,
-      spacing: 1,
-      side: 'right',
-    },
-    text: {
-      fontSize: STANDARD_FONT_SIZE,
-      spacing: 6,
-      font: RubikFont,
-    },
-    textBold: {
-      fontSize: STANDARD_FONT_SIZE,
-      spacing: 6,
-      font: RubikFontBold,
-    },
-    textBoldRight: {
-      fontSize: STANDARD_FONT_SIZE,
-      spacing: 6,
-      font: RubikFontBold,
-      side: 'right',
-    },
-    textRight: {
-      fontSize: STANDARD_FONT_SIZE,
-      spacing: 6,
-      font: RubikFont,
-      side: 'right',
-    },
-    fieldText: {
-      fontSize: STANDARD_FONT_SIZE,
-      spacing: 6,
-      font: RubikFont,
-      side: 'right',
-      newLineAfter: true,
-    },
-    textGrey: {
-      fontSize: STANDARD_FONT_SIZE,
-      spacing: 6,
-      font: RubikFont,
-      color: LAB_PDF_STYLES.color.grey,
-    },
-    textGreyBold: {
-      fontSize: STANDARD_FONT_SIZE,
-      spacing: 6,
-      font: RubikFontBold,
-      color: LAB_PDF_STYLES.color.grey,
-    },
-  };
-  return textStyles;
-}
+export const BLACK_LINE_STYLE = { ...SEPARATED_LINE_STYLE, color: rgbNormalized(0, 0, 0) };
 
 export const calculateAge = (dob: string): number => {
   const dobDate = new Date(dob);
@@ -770,76 +742,6 @@ export const calculateAge = (dob: string): number => {
     return age - 1;
   }
   return age;
-};
-
-export const drawFieldLine = (
-  pdfClient: PdfClient,
-  textStyles: LabsPDFTextStyleConfig,
-  fieldName: string,
-  fieldValue: string
-): PdfClient => {
-  pdfClient.drawTextSequential(fieldName, textStyles.text);
-  pdfClient.drawTextSequential(' ', textStyles.textBold);
-  pdfClient.drawTextSequential(fieldValue, textStyles.textBold);
-  return pdfClient;
-};
-
-export const drawFieldLineBoldHeader = (
-  pdfClient: PdfClient,
-  textStyles: LabsPDFTextStyleConfig,
-  fieldName: string,
-  fieldValue: string
-): PdfClient => {
-  pdfClient.drawTextSequential(fieldName, textStyles.textBold);
-  pdfClient.drawTextSequential(' ', textStyles.text);
-  pdfClient.drawTextSequential(fieldValue, textStyles.text);
-  return pdfClient;
-};
-
-export const drawFieldLineRight = (
-  pdfClient: PdfClient,
-  textStyles: LabsPDFTextStyleConfig,
-  fieldName: string,
-  fieldValue: string
-): PdfClient => {
-  pdfClient.drawStartXPosSpecifiedText(fieldName, textStyles.text, 285);
-  pdfClient.drawTextSequential(' ', textStyles.textBold);
-  pdfClient.drawTextSequential(fieldValue, textStyles.textBold);
-  return pdfClient;
-};
-
-export const drawFourColumnText = (
-  pdfClient: PdfClient,
-  textStyles: LabsPDFTextStyleConfig,
-  columnOne: { name: string; startXPos: number; isBold?: boolean },
-  columnTwo: { name: string; startXPos: number; isBold?: boolean },
-  columnThree: { name: string; startXPos: number; isBold?: boolean },
-  columnFour: { name: string; startXPos: number; isBold?: boolean },
-  color?: Color
-): PdfClient => {
-  const fontSize = STANDARD_FONT_SIZE;
-  const fontStyleTemp = { fontSize: fontSize, color: color };
-  pdfClient.drawStartXPosSpecifiedText(
-    columnOne.name,
-    { ...(columnOne.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
-    columnOne.startXPos
-  );
-  pdfClient.drawStartXPosSpecifiedText(
-    columnTwo.name,
-    { ...(columnTwo.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
-    columnTwo.startXPos
-  );
-  pdfClient.drawStartXPosSpecifiedText(
-    columnThree.name,
-    { ...(columnThree.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
-    columnThree.startXPos
-  );
-  pdfClient.drawStartXPosSpecifiedText(
-    columnFour.name,
-    { ...(columnFour.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
-    columnFour.startXPos
-  );
-  return pdfClient;
 };
 
 export async function getPdfLogo(): Promise<Buffer | undefined> {

@@ -119,8 +119,8 @@ jobs:
 
       - name: Copy secrets to appropriate locations
         run: |
-          ./scripts/secrets.ts populate ${{ env.ENVIRONMENT }}
-          ./scripts/secrets.ts validate ${{ env.ENVIRONMENT }}
+          npm exec -- tsx ./scripts/secrets.ts populate ${{ env.ENVIRONMENT }}
+          npm exec -- tsx ./scripts/secrets.ts validate ${{ env.ENVIRONMENT }}
 
       # TODO: Remove this step and references to it once transition to TF is complete
       - name: Maybe copy import file into aws_infra module
@@ -128,6 +128,10 @@ jobs:
         continue-on-error: true
         run: |
           cp secrets/terraform/${{ env.ENVIRONMENT }}_import.tf deploy/aws_infra
+
+      - name: Move aws-cdk-deploy-config into scripted deploy dir.
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
+        run: mkdir -p scripts/deploy; cp secrets/aws-cdk-deploy-config/deploy-config.${{ env.ENVIRONMENT }}.json scripts/deploy/deploy-config.json
 
       - name: Configure AWS Credentials
         id: configure-aws-credentials
@@ -198,7 +202,7 @@ jobs:
         working-directory: deploy
         run: |
           npm run terraform-init -- -input=false
-          npm run apply-${{ env.ENVIRONMENT}} -- --auto-approve
+          npm run apply-${{ env.ENVIRONMENT }}
 
       - name: Notify Slack
         if: always()

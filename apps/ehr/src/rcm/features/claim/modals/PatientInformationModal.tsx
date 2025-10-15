@@ -2,11 +2,9 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Grid, MenuItem } from '@mui/material';
 import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { useEditPatientInformationMutation } from 'src/shared/hooks/tracking-board/tracking-board.queries';
-import { AllStates } from 'utils';
-import { RoundedButton } from '../../../../components/RoundedButton';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { ClaimState, useClaimStore, useEditCoverageInformationMutation } from '../../../state';
+import { useEditPatientInformationMutation } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
+import { useEditCoverageInformationMutation } from 'src/rcm/state';
+import { ClaimState, useClaimStore } from 'src/rcm/state/claim/claim.store';
 import {
   genderOptions,
   mapFieldToRules,
@@ -14,7 +12,9 @@ import {
   mapPatientInformationToPatientResource,
   PatientInformationModalFormValues,
   RELATIONSHIP_TO_INSURED,
-} from '../../../utils';
+} from 'src/rcm/utils';
+import { AllStates, getSelectors } from 'utils';
+import { RoundedButton } from '../../../../components/RoundedButton';
 import { DatePickerController, EditModal, NumberMaskCustom, TextFieldController } from './components';
 
 const getDefaultValues = (

@@ -4,8 +4,8 @@ import { useTheme } from '@mui/system';
 import { FC, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GenericToolTip } from 'src/components/GenericToolTip';
-import { IconButtonContained } from 'src/components/IconButtonContained';
-import { useDisplayUnsolicitedResultsIcon } from 'src/shared/hooks/appointment/appointment.queries';
+import { IconButtonContained } from 'src/features/visits/shared/components/IconButtonContained';
+import { useDisplayUnsolicitedResultsIcon } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { UnsolicitedResultsRequestType } from 'utils';
 
 const POLL_INTERVAL = 1000 * 60 * 3; // 3 minutes

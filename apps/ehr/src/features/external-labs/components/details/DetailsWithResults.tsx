@@ -1,13 +1,19 @@
 import { Button, Typography } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PageTitleStyled } from 'src/components/PageTitle';
-import { LabOrderDetailedPageDTO, ReflexLabDTO, TaskReviewedParameters, UnsolicitedLabDTO } from 'utils';
+import { PageTitleStyled } from 'src/features/visits/shared/components/PageTitle';
+import {
+  LabOrderDetailedPageDTO,
+  PdfAttachmentDTO,
+  ReflexLabDTO,
+  TaskReviewedParameters,
+  UnsolicitedLabDTO,
+} from 'utils';
 import { OrderCollection } from '../OrderCollection';
 import { ResultItem } from './ResultItem';
 
 export const DetailsWithResults: React.FC<{
-  labOrder: LabOrderDetailedPageDTO | UnsolicitedLabDTO | ReflexLabDTO;
+  labOrder: LabOrderDetailedPageDTO | UnsolicitedLabDTO | ReflexLabDTO | PdfAttachmentDTO;
   markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId?: string }) => Promise<void>;
   loading: boolean;
 }> = ({ labOrder, markTaskAsReviewed, loading }) => {
@@ -17,11 +23,10 @@ export const DetailsWithResults: React.FC<{
     navigate(-1);
   };
 
-  const isUnsolicitedPage = 'isUnsolicited' in labOrder;
-  const isReflexPage = 'isReflex' in labOrder;
+  const drCentricResult = 'drCentricResultType' in labOrder || 'isUnsolicited' in labOrder;
 
   let serviceRequestId: string | undefined, appointmentId: string | undefined;
-  if (!isUnsolicitedPage && !isReflexPage) {
+  if (!drCentricResult) {
     serviceRequestId = labOrder.serviceRequestId;
     appointmentId = labOrder.appointmentId;
   }
@@ -30,7 +35,7 @@ export const DetailsWithResults: React.FC<{
     <>
       <PageTitleStyled>{labOrder.testItem}</PageTitleStyled>
 
-      {!isUnsolicitedPage && !isReflexPage && (
+      {!drCentricResult && (
         <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
           {labOrder.diagnoses}
         </Typography>
@@ -53,7 +58,7 @@ export const DetailsWithResults: React.FC<{
         />
       ))}
 
-      {!isUnsolicitedPage && !isReflexPage && (
+      {!drCentricResult && (
         <OrderCollection showActionButtons={false} showOrderInfo={false} isAOECollapsed={true} labOrder={labOrder} />
       )}
 

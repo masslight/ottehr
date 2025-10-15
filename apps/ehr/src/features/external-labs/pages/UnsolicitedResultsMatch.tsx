@@ -20,14 +20,14 @@ import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
-import { SearchResultParsedPatient } from 'src/components/PatientsSearch/types';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import PageContainer from 'src/layout/PageContainer';
+import { SearchResultParsedPatient } from 'src/features/visits/shared/components/patients-search/types';
 import {
   useCancelMatchUnsolicitedResultTask,
   useFinalizeUnsolicitedResultMatch,
   useGetUnsolicitedResultsMatchData,
-} from 'src/shared/hooks/appointment/appointment.queries';
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import PageContainer from 'src/layout/PageContainer';
 import { formatDateForLabs, LAB_ORDER_UPDATE_RESOURCES_EVENTS, UnsolicitedResultsRequestType } from 'utils';
 import { UnsolicitedPatientMatchSearchCard } from '../components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
 import { UnsolicitedVisitMatchCard } from '../components/unsolicited-results/UnsolicitedVisitMatchCard';

@@ -1,0 +1,38 @@
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+    }
+  }
+}
+
+provider "aws" {
+  profile = var.aws_profile
+}
+
+module "infra" {
+  count  = local.not_local_env_resource_count
+  source = "./infra/aws"
+  providers = {
+    aws = aws
+  }
+  project_id            = var.project_id
+  ehr_domain            = var.ehr_domain
+  patient_portal_domain = var.patient_portal_domain
+}
+
+module "apps_upload" {
+  count  = local.not_local_env_resource_count
+  source = "./apps_upload/aws"
+  providers = {
+    aws = aws
+  }
+  ehr_bucket_id                      = one(module.infra[*].ehr_bucket_id)
+  ehr_cdn_distribution_id            = one(module.infra[*].ehr_cdn_distribution_id)
+  patient_portal_bucket_id           = one(module.infra[*].patient_portal_bucket_id)
+  patient_portal_cdn_distribution_id = one(module.infra[*].patient_portal_cdn_distribution_id)
+  ehr_hash                           = one(module.ottehr_apps[*].ehr_hash)
+  patient_portal_hash                = one(module.ottehr_apps[*].patient_portal_hash)
+  # TODO: Remove when upgraded to TF 1.14
+  aws_profile = var.aws_profile
+}

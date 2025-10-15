@@ -15,15 +15,20 @@ import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   flattenIntakeQuestionnaireItems,
+  flattenQuestionnaireAnswers,
   getRelatedPersonForPatient,
   getSecret,
   IntakeQuestionnaireItem,
+  PaymentVariant,
   SecretsKeys,
+  updateEncounterPaymentVariantExtension,
 } from 'utils';
 import {
   createConsentResources,
   createDocumentResources,
   createErxContactOperation,
+  createMasterRecordPatchOperations,
+  createUpdatePharmacyPatchOps,
   flagPaperworkEdit,
   getAccountAndCoverageResourcesForPatient,
   updatePatientAccountFromQuestionnaire,
@@ -115,7 +120,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   console.timeEnd('querying for resources to support qr harvest');
 
   const encounterResource = resources.find((res) => res.resourceType === 'Encounter') as Encounter | undefined;
-  const patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
+  let patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
   const listResources = resources.filter((res) => res.resourceType === 'List') as List[];
   const documentReferenceResources = resources.filter(
     (res) => res.resourceType === 'DocumentReference'
@@ -123,6 +128,42 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const locationResource = resources.find((res) => res.resourceType === 'Location') as Location | undefined;
   const appointmentResource = resources.find((res) => res.resourceType === 'Appointment') as Appointment | undefined;
 
+  if (patientResource === undefined || patientResource.id === undefined) {
+    throw new Error('Patient resource not found');
+  }
+
+  console.log('creating patch operations');
+  const patientPatchOps = createMasterRecordPatchOperations(qr.item || [], patientResource);
+
+  console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
+
+  console.time('patching patient resource');
+  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
+    try {
+      patientResource = await oystehr.fhir.patch<Patient>({
+        resourceType: 'Patient',
+        id: patientResource.id!,
+        operations: patientPatchOps.patient.patchOpsForDirectUpdate,
+      });
+      const pharmacyPatchOps = createUpdatePharmacyPatchOps(
+        patientResource,
+        flattenQuestionnaireAnswers(qr.item ?? [])
+      );
+      if (pharmacyPatchOps.length > 0) {
+        patientResource = await oystehr.fhir.patch<Patient>({
+          resourceType: 'Patient',
+          id: patientResource.id!,
+          operations: pharmacyPatchOps,
+        });
+      }
+
+      console.log('Patient update successful');
+    } catch (error: unknown) {
+      tasksFailed.push('patch patient');
+      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
+    }
+  }
+  console.timeEnd('patching patient resource');
   if (patientResource === undefined || patientResource.id === undefined) {
     throw new Error('Patient resource not found');
   }
@@ -220,6 +261,35 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     } catch (error: unknown) {
       tasksFailed.push('flag paperwork edit');
       console.log(`Failed to update flag paperwork edit: ${error}`);
+    }
+  }
+
+  if (qr.status === 'completed' || qr.status === 'amended') {
+    try {
+      console.log('adding payment variant extension to encounter');
+      const paymentOption = flattenedPaperwork.find(
+        (response: QuestionnaireResponseItem) => response.linkId === 'payment-option'
+      )?.answer?.[0]?.valueString;
+      const patientSelectSelfPay = paymentOption === 'I will pay without insurance';
+      const updatedEncounter = updateEncounterPaymentVariantExtension(
+        encounterResource,
+        patientSelectSelfPay ? PaymentVariant.selfPay : PaymentVariant.insurance
+      );
+      await oystehr.fhir.patch<Encounter>({
+        id: encounterResource.id,
+        resourceType: 'Encounter',
+        operations: [
+          {
+            op: encounterResource.extension !== undefined ? 'replace' : 'add',
+            path: '/extension',
+            value: updatedEncounter.extension,
+          },
+        ],
+      });
+      console.log('payment variant extension added to encounter');
+    } catch (error: unknown) {
+      tasksFailed.push('add payment variant extension to encounter');
+      console.log(`Failed to add payment variant extension to encounter: ${error}`);
     }
   }
 

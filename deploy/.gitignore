@@ -4,3 +4,7 @@
 *.tfstate.backup
 oystehr/*.tf.json
 backend.config
+
+# Per-cloud overrides
+aws_override.tf
+gcp_override.tf

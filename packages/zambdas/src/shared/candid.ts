@@ -63,9 +63,11 @@ import {
   getCandidPlanTypeCodeFromCoverage,
   getOptionalSecret,
   getPayerId,
+  getPaymentVariantFromEncounter,
   getSecret,
   INVALID_INPUT_ERROR,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
+  PaymentVariant,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -1139,6 +1141,25 @@ export async function createEncounterFromAppointment(
   }
   const encounter = response.body;
   console.log('Created Candid encounter:' + JSON.stringify(encounter));
+
+  // here we're setting claim type (self-pay or insurance-pay), if nothing provided it'll be insurance-pay
+  const packageEncounter = visitResources.encounter;
+  const paymentVariantFromEncounter = getPaymentVariantFromEncounter(packageEncounter);
+  const candidResponsibleParty: ResponsiblePartyType =
+    paymentVariantFromEncounter && paymentVariantFromEncounter === PaymentVariant.selfPay
+      ? ResponsiblePartyType.SelfPay
+      : ResponsiblePartyType.InsurancePay;
+  if (candidResponsibleParty) {
+    const updateResponse = await apiClient.encounters.v4.update(encounter.encounterId, {
+      responsibleParty: candidResponsibleParty,
+    });
+    if (!updateResponse.ok) {
+      throw new Error(`Error updating a Candid encounter. Response body: ${JSON.stringify(updateResponse.error)}`);
+    } else {
+      console.log('Updated Candid encounter:' + JSON.stringify(updateResponse.body));
+    }
+  }
+
   return encounter.encounterId;
 }
 

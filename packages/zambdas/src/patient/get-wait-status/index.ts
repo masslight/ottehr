@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
 import {
+  appointmentTypeForAppointment,
   createOystehrClient,
   getAppointmentResourceById,
   getLocationIdFromAppointment,
@@ -11,6 +12,7 @@ import {
   PROJECT_WEBSITE,
   SecretsKeys,
   TelemedAppointmentStatusEnum,
+  WaitingRoomResponse,
 } from 'utils';
 import { getAuth0Token, getUser, getVideoEncounterForAppointment, wrapHandler, ZambdaInput } from '../../shared';
 import { estimatedTimeStatesGroups } from '../../shared/appointment/constants';
@@ -117,11 +119,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       const response = {
         statusCode: 200,
-        body: JSON.stringify({
+        body: JSON.stringify(<WaitingRoomResponse>{
           status: telemedStatus === 'on-video' ? telemedStatus : TelemedAppointmentStatusEnum.ready,
           estimatedTime: estimatedTime,
           numberInLine: numberInLine,
           encounterId: telemedStatus === 'on-video' ? videoEncounter?.id : undefined,
+          appointmentType: appointmentTypeForAppointment(appointment),
         }),
       };
       console.log(JSON.stringify(response, null, 4));

@@ -316,6 +316,10 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     }
   }
 
+  const requiredBooleanValue = extension.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requiredBooleanValue;
+  })?.valueBoolean;
+
   return {
     acceptsMultipleAnswers,
     alwaysFilter,
@@ -336,6 +340,7 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     inputWidth: inputWidth as InputWidthOption | undefined,
     minRows,
     complexValidation,
+    requiredBooleanValue,
   };
 };
 

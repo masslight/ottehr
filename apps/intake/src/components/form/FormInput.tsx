@@ -5,17 +5,17 @@ import {
   IconButton,
   Input,
   InputBaseComponentProps,
+  InputLabel,
   InputProps,
   Tooltip,
   Typography,
 } from '@mui/material';
-import { alpha, useTheme } from '@mui/material/styles';
+import { alpha, styled, useTheme } from '@mui/material/styles';
 import { FC, useCallback } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { getInputTypes } from 'utils';
 import { useIntakeThemeContext } from '../../contexts';
-import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { InputHelperText } from './InputHelperText';
 import InputMask from './InputMask';
 import { LightToolTip } from './LightToolTip';
@@ -71,6 +71,7 @@ const FormInput: FC<FormInputProps> = ({
           boxShadow: `${alpha(theme.palette.primary.main, 0.25)} 0 0 0 0.2rem`,
           borderColor: theme.palette.primary.main,
         },
+        marginTop: '0px',
       },
     },
     signatureStyles: {
@@ -122,37 +123,55 @@ const FormInput: FC<FormInputProps> = ({
             width: '100%',
           }}
         >
-          <BoldPurpleInputLabel id={`${name}-label`} htmlFor={name} shrink>
-            {infoText ? (
-              <Tooltip enterTouchDelay={0} title={infoText} placement="top" arrow>
-                <Box>
-                  {label}
-                  <IconButton>
-                    <InfoOutlinedIcon sx={{ fontSize: '18px', color: 'secondary.main' }} />
-                  </IconButton>
-                </Box>
-              </Tooltip>
-            ) : (
-              label
-            )}
-          </BoldPurpleInputLabel>
-
-          <Input
-            autoComplete={autoComplete}
-            id={name}
-            value={value}
-            type={getInputTypes(name) === 'tel' ? 'tel' : 'text'}
-            inputMode={getInputTypes(name) === 'number' || getInputTypes(name) === 'tel' ? 'numeric' : 'text'}
-            aria-labelledby={`${name}-label`}
-            aria-describedby={`${name}-helper-text`}
-            inputComponent={myInputComponent}
-            inputProps={inputProps}
-            onChange={(e) => onChange(e.target.value.trimStart())}
-            {...otherProps}
-            disableUnderline
-            // todo remove code duplication with DateInput
-            sx={format === 'Signature' ? { ...styles.inputStyles, ...styles.signatureStyles } : styles.inputStyles}
-          />
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              justifyContent: 'flex-start',
+              width: '100%',
+            }}
+          >
+            <BoldInputLabel
+              id={`${name}-label`}
+              htmlFor={name}
+              shrink
+              sx={{
+                width: '100%',
+                margin: 0,
+              }}
+            >
+              {infoText ? (
+                <Tooltip enterTouchDelay={0} title={infoText} placement="top" arrow>
+                  <Box>
+                    {label}
+                    <IconButton>
+                      <InfoOutlinedIcon sx={{ fontSize: '18px', color: 'secondary.main' }} />
+                    </IconButton>
+                  </Box>
+                </Tooltip>
+              ) : (
+                label
+              )}
+            </BoldInputLabel>
+            <Input
+              autoComplete={autoComplete}
+              id={name}
+              value={value}
+              type={getInputTypes(name) === 'tel' ? 'tel' : 'text'}
+              inputMode={getInputTypes(name) === 'number' || getInputTypes(name) === 'tel' ? 'numeric' : 'text'}
+              aria-labelledby={`${name}-label`}
+              aria-describedby={`${name}-helper-text`}
+              inputComponent={myInputComponent}
+              inputProps={inputProps}
+              onChange={(e) => onChange(e.target.value.trimStart())}
+              {...otherProps}
+              disableUnderline
+              fullWidth
+              // todo remove code duplication with DateInput
+              sx={format === 'Signature' ? { ...styles.inputStyles, ...styles.signatureStyles } : styles.inputStyles}
+            />
+          </Box>
           {maxCharacters && value.length > maxCharacters.displayCharCount && (
             <Typography variant="caption" color={exceedsMaxCharacters(value) ? 'error' : 'text.secondary'}>
               {`${value.length} / ${maxCharacters.totalCharacters}`}
@@ -193,5 +212,16 @@ const FormInput: FC<FormInputProps> = ({
     />
   );
 };
+
+const BoldInputLabel = styled(InputLabel)(({ theme }) => ({
+  fontWeight: 700,
+  fontSize: 16,
+  position: 'relative',
+  transform: 'translate(0, 9px) scale(1)',
+  color: theme.palette.secondary.main,
+  maxWidth: '100%',
+  whiteSpace: 'wrap',
+  height: 'auto',
+}));
 
 export default FormInput;

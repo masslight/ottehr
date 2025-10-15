@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import { ReactElement } from 'react';
-import { PatientSearch } from '../components/PatientsSearch/PatientSearch';
+import { PatientSearch } from '../features/visits/shared/components/patients-search/PatientSearch';
 import PageContainer from '../layout/PageContainer';
 
 export default function PatientsPage(): ReactElement {

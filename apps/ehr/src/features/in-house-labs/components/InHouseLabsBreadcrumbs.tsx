@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
-import { getInHouseLabsUrl } from 'src/features/in-person/routing/helpers';
-import { useAppointmentData } from 'src/shared/hooks/appointment/appointment.store';
+import { getInHouseLabsUrl } from 'src/features/visits/in-person/routing/helpers';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 
 export const InHouseLabsBreadcrumbs: React.FC<{ children: React.ReactNode; pageName: string }> = ({
   children,

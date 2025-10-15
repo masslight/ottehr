@@ -1,6 +1,6 @@
 import { Box, Divider, Paper, Typography } from '@mui/material';
-import { ButtonRounded } from 'src/features/in-person/components/RoundedButton';
-import { useGetAppointmentAccessibility } from 'src/shared/hooks/appointment/useGetAppointmentAccessibility';
+import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { NursingOrder, NursingOrdersStatus } from 'utils';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 

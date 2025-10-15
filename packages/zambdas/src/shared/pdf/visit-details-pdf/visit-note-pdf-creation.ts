@@ -6,7 +6,6 @@ import {
   asqLabels,
   CPTCodeDTO,
   createMedicationString,
-  CustomOptionObservationHistoryObtainedFromDTO,
   dispositionCheckboxOptions,
   ExamCardComponent,
   examConfig,
@@ -20,25 +19,18 @@ import {
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
   getSpentTime,
-  HISTORY_OBTAINED_FROM_FIELD,
-  HistorySourceKeys,
-  historySourceLabels,
   ImmunizationOrder,
   isDropdownComponent,
+  isInPersonAppointment,
   isMultiSelectComponent,
   mapDispositionTypeToLabel,
   mapEncounterStatusHistory,
   mapVitalsToDisplay,
   NOTE_TYPE,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
-  ObservationHistoryObtainedFromDTO,
-  ObservationSeenInLastThreeYearsDTO,
-  OTTEHR_MODULE,
   patientScreeningQuestionsConfig,
-  recentVisitLabels,
   searchRouteByCode,
   Secrets,
-  SEEN_IN_LAST_THREE_YEARS_FIELD,
   Timezone,
 } from 'utils';
 import { PdfInfo } from '../pdf-utils';
@@ -59,14 +51,11 @@ export async function composeAndCreateVisitNotePdf(
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
-  const isInPersonAppointment = !!appointmentPackage.appointment.meta?.tag?.find(
-    (tag) => tag.code === OTTEHR_MODULE.IP
-  );
-
+  const isInPerson = isInPersonAppointment(appointmentPackage.appointment as Appointment);
   console.log('Start composing data for pdf');
-  const data = composeDataForPdf(allChartData, appointmentPackage, isInPersonAppointment);
+  const data = composeDataForPdf(allChartData, appointmentPackage, isInPerson);
   console.log('Start creating pdf');
-  return await createVisitNotePDF(data, appointmentPackage.patient!, secrets, token, isInPersonAppointment);
+  return await createVisitNotePDF(data, appointmentPackage.patient!, secrets, token, isInPerson);
 }
 
 function composeDataForPdf(
@@ -171,23 +160,9 @@ function composeDataForPdf(
   patientScreeningQuestionsConfig.fields.forEach((field) => {
     const observation = chartData.observations?.find((obs) => obs.field === field.fhirField);
     if (observation?.value !== undefined) {
-      additionalQuestions[field.fhirField] = observation.value;
+      additionalQuestions[field.fhirField] = observation;
     }
   });
-
-  const seenInLastThreeYearsObs = chartData?.observations?.find(
-    (obs) => obs.field === SEEN_IN_LAST_THREE_YEARS_FIELD
-  ) as ObservationSeenInLastThreeYearsDTO | undefined;
-  const seenInLastThreeYears = seenInLastThreeYearsObs && recentVisitLabels[seenInLastThreeYearsObs.value];
-
-  const historyObtainedFromObs = chartData?.observations?.find((obs) => obs.field === HISTORY_OBTAINED_FROM_FIELD) as
-    | ObservationHistoryObtainedFromDTO
-    | undefined;
-  const historyObtainedFrom = historyObtainedFromObs && historySourceLabels[historyObtainedFromObs.value];
-  const historyObtainedFromOther =
-    historyObtainedFromObs && historyObtainedFromObs.value === HistorySourceKeys.NotObtainedOther
-      ? (historyObtainedFromObs as CustomOptionObservationHistoryObtainedFromDTO).note
-      : undefined;
 
   const currentASQObs = chartData?.observations?.find((obs) => obs.field === ASQ_FIELD);
   const currentASQ = currentASQObs && asqLabels[currentASQObs.value as ASQKeys];
@@ -335,11 +310,8 @@ function composeDataForPdf(
     inHouseMedications,
     inHouseMedicationsNotes,
     immunizationOrders: immunizationOrdersToRender,
-    additionalQuestions,
     screening: {
-      seenInLastThreeYears,
-      historyObtainedFrom,
-      historyObtainedFromOther,
+      additionalQuestions,
       currentASQ,
       notes: screeningNotes,
     },

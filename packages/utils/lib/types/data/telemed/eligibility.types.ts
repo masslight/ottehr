@@ -1,4 +1,12 @@
-import { Address, Location, Organization, Practitioner, QuestionnaireResponseItem, Reference } from 'fhir/r4b';
+import {
+  Address,
+  CodeableConcept,
+  Location,
+  Organization,
+  Practitioner,
+  QuestionnaireResponseItem,
+  Reference,
+} from 'fhir/r4b';
 import { InsuranceEligibilityCheckStatus } from '../paperwork';
 
 export interface GetEligibilityInsuranceData {
@@ -191,6 +199,7 @@ export interface InsuranceCheckStatusWithDate {
   status: InsuranceEligibilityCheckStatus;
   dateISO: string;
   copay?: PatientPaymentBenefit[];
+  errors?: { code: CodeableConcept }[];
 }
 
 export type GetEligibilityResponse = {

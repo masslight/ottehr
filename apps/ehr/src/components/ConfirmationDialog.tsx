@@ -3,7 +3,7 @@ import { DialogContentText, Stack } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactNode } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { InnerStateDialog } from './InnerStateDialog';
+import { InnerStateDialog } from '../features/visits/shared/components/InnerStateDialog';
 import { RoundedButton } from './RoundedButton';
 
 type ConfirmationDialogProps = {

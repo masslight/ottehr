@@ -12,10 +12,10 @@ import {
   Patient,
   RelatedPerson,
 } from 'fhir/r4b';
+import { findResourceByType, generateOpByResourceData, getCoverageRelatedResources } from 'src/rcm/utils';
 import { useSuccessQuery } from 'utils';
 import { INSURANCE_PLAN_PAYER_META_TAG_CODE } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { findResourceByType, generateOpByResourceData, getCoverageRelatedResources } from '../../utils';
 
 export const useGetClaim = (
   {

@@ -6,19 +6,19 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import {
+  PatientDocumentFoldersColumn,
+  PatientDocumentFoldersColumnSkeleton,
+} from 'src/features/visits/shared/components/patient/docs/PatientDocumentFoldersColumn';
+import {
+  DocumentTableActions,
+  PatientDocumentsExplorerTable,
+} from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable';
+import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { getFullName } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch, { CustomFormEventHandler } from '../components/DateSearch';
 import { LoadingScreen } from '../components/LoadingScreen';
-import { Header } from '../components/patient';
-import {
-  PatientDocumentFoldersColumn,
-  PatientDocumentFoldersColumnSkeleton,
-} from '../components/patient/docs/PatientDocumentFoldersColumn';
-import {
-  DocumentTableActions,
-  PatientDocumentsExplorerTable,
-} from '../components/patient/docs/PatientDocumentsExplorerTable';
 import { RoundedButton } from '../components/RoundedButton';
 import { useGetPatient } from '../hooks/useGetPatient';
 import { PatientDocumentsFilters, PatientDocumentsFolder, useGetPatientDocs } from '../hooks/useGetPatientDocs';

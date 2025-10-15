@@ -29,6 +29,7 @@ import {
   compareDates,
   DEFAULT_LABS_ITEMS_PER_PAGE,
   DiagnosisDTO,
+  DiagnosticReportDrivenResultDTO,
   EMPTY_PAGINATION,
   externalLabOrderIsManual,
   ExternalLabsStatus,
@@ -39,6 +40,7 @@ import {
   isPositiveNumberOrZero,
   LAB_DR_TYPE_TAG,
   LAB_ORDER_TASK,
+  LabDrTypeTagCode,
   LabelPdf,
   LabOrderDetailedPageDTO,
   LabOrderDTO,
@@ -50,10 +52,12 @@ import {
   LabOrderUnreceivedHistoryRow,
   LabPdf,
   LabResultPDF,
+  LabType,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   Pagination,
   PatientLabItem,
+  PdfAttachmentDTO,
   PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
@@ -66,6 +70,7 @@ import {
 } from 'utils';
 import { sendErrors } from '../../shared';
 import {
+  diagnosticReportSpecificResultType,
   docRefIsAbnAndCurrent,
   formatResourcesIntoDiagnosticReportLabDTO,
   groupResourcesByDr,
@@ -150,11 +155,12 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   return result;
 };
 
-export const mapReflexResourcesToDrLabDTO = async (
+export const mapResourcesToDrLabDTO = async (
   resourcesByDr: ResourcesByDr,
   token: string
-): Promise<ReflexLabDTO[]> => {
-  const DTOs: ReflexLabDTO[] = [];
+): Promise<(ReflexLabDTO | PdfAttachmentDTO)[]> => {
+  const reflexLabDTOs: ReflexLabDTO[] = [];
+  const pdfAttachmentDTOs: PdfAttachmentDTO[] = [];
   const resourcesForDiagnosticReport = Object.values(resourcesByDr);
   for (const resources of resourcesForDiagnosticReport) {
     const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(resources, token);
@@ -162,17 +168,23 @@ export const mapReflexResourcesToDrLabDTO = async (
     const encounterId = resources.diagnosticReport.encounter?.reference?.replace('Encounter/', '') || '';
     const appointmentId = resources.encounter?.appointment?.[0].reference?.replace('Appointment/', '') || '';
     if (diagnosticReportLabDetailDTO) {
-      const reflexLabDetailDTO: ReflexLabDTO = {
+      const baseDTO: DiagnosticReportDrivenResultDTO = {
         ...diagnosticReportLabDetailDTO,
-        isReflex: true,
         orderNumber,
         encounterId,
         appointmentId,
       };
-      DTOs.push(reflexLabDetailDTO);
+      const type = diagnosticReportSpecificResultType(resources.diagnosticReport);
+      if (type === LabType.reflex) {
+        const reflexLabDetailDTO: ReflexLabDTO = { ...baseDTO, drCentricResultType: 'reflex' };
+        reflexLabDTOs.push(reflexLabDetailDTO);
+      } else if (type === LabType.pdfAttachment) {
+        const pdfAttachmentDTO: PdfAttachmentDTO = { ...baseDTO, drCentricResultType: 'pdfAttachment' };
+        pdfAttachmentDTOs.push(pdfAttachmentDTO);
+      }
     }
   }
-  return DTOs;
+  return [...reflexLabDTOs, ...pdfAttachmentDTOs];
 };
 
 export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
@@ -493,7 +505,7 @@ export const getLabResources = async (
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
-  reflexDRsAndRelatedResources: ResourcesByDr | undefined;
+  diagnosticReportDrivenResultResources: ResourcesByDr | undefined;
   practitioners: Practitioner[];
   pagination: Pagination;
   encounters: Encounter[];
@@ -596,13 +608,13 @@ export const getLabResources = async (
   const [
     serviceRequestPractitioners,
     finalAndPrelimAndCorrectedTasks,
-    reflexDRsAndRelatedResources,
+    diagnosticReportDrivenResultResources,
     questionnaires,
     srLocationsBundle,
   ] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests),
     fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
-    checkForReflexDiagnosticReports(oystehr, serviceRequests),
+    checkForDiagnosticReportDrivenResults(oystehr, serviceRequests),
     executeByCondition(isDetailPageRequest, () =>
       fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
     ),
@@ -647,7 +659,7 @@ export const getLabResources = async (
     serviceRequests,
     tasks: [...preSubmissionTasks, ...finalAndPrelimAndCorrectedTasks],
     diagnosticReports,
-    reflexDRsAndRelatedResources,
+    diagnosticReportDrivenResultResources,
     practitioners: allPractitioners,
     encounters,
     locations,
@@ -936,7 +948,7 @@ export const extractLabResources = (
   };
 };
 
-export const checkForReflexDiagnosticReports = async (
+export const checkForDiagnosticReportDrivenResults = async (
   oystehr: Oystehr,
   serviceRequests: ServiceRequest[]
 ): Promise<ResourcesByDr | undefined> => {
@@ -964,7 +976,10 @@ export const checkForReflexDiagnosticReports = async (
             name: 'identifier',
             value: orderNumbersWithSystem.join(','),
           },
-          { name: '_tag', value: `${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.reflex}` }, // only grab those tagged with reflex
+          {
+            name: '_tag',
+            value: `${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.reflex},${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.attachment}`,
+          }, // only grab those tagged with reflex or pdfAttachment
           { name: '_revinclude', value: 'Task:based-on' }, // review task
           { name: '_revinclude:iterate', value: 'DocumentReference:related' }, // result pdf
           { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
@@ -1953,6 +1968,7 @@ export const parseLResultsDetails = (
     reflexCancelledResults,
   } = cache?.parsedResults || parseResults(serviceRequest, results);
 
+  // todo labs i dont think we need the reflex arrays anymore
   const {
     orderedFinalTasks,
     reflexFinalTasks,
@@ -1982,7 +1998,7 @@ export const parseLResultsDetails = (
     {
       results: reflexFinalAndCorrectedResults,
       tasks: [...reflexFinalTasks, ...reflexCorrectedTasks],
-      testType: 'reflex' as const,
+      testType: 'reflex' as LabDrTypeTagCode,
       resultType: 'final' as const,
     },
     {
@@ -1994,7 +2010,7 @@ export const parseLResultsDetails = (
     {
       results: reflexPrelimResults,
       tasks: reflexPrelimTasks,
-      testType: 'reflex' as const,
+      testType: 'reflex' as LabDrTypeTagCode,
       resultType: 'preliminary' as const,
     },
     {

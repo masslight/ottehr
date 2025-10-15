@@ -1,15 +1,12 @@
 import { Grid, MenuItem } from '@mui/material';
 import { FC, useMemo } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { AllStates } from 'utils';
-import { FHIR_EXTENSION } from 'utils';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import {
   ClaimState,
   useClaimStore,
   useEditCoverageInformationMutation,
   useEditRelatedPersonInformationMutation,
-} from '../../../state';
+} from 'src/rcm/state';
 import {
   genderOptions,
   InsuredInformationModalFormValues,
@@ -17,7 +14,9 @@ import {
   mapInsuredInformationToCoverageResource,
   mapInsuredInformationToRelatedPersonResource,
   PlanOwnedBy,
-} from '../../../utils';
+} from 'src/rcm/utils';
+import { AllStates, getSelectors } from 'utils';
+import { FHIR_EXTENSION } from 'utils';
 import {
   DatePickerController,
   EditModal,

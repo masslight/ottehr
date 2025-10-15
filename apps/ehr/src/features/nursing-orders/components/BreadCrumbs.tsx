@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
-import { useAppointmentData } from 'src/shared/hooks/appointment/appointment.store';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 
 export const BreadCrumbs: FC = () => {
   const { appointment } = useAppointmentData();

@@ -1,0 +1,53 @@
+import { Box, Typography, useTheme } from '@mui/material';
+import { FC } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { NoteDTO } from 'utils';
+import { AssessmentTitle } from '../../../../../../components/AssessmentTitle';
+import { useChartFields } from '../../../hooks/useChartFields';
+import { useChartData } from '../../../stores/appointment/appointment.store';
+
+export const SurgicalHistoryContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
+  const { data: chartFields } = useChartFields({
+    requestedFields: {
+      surgicalHistoryNote: {
+        _tag: 'surgical-history-note',
+      },
+    },
+  });
+
+  const { chartData } = useChartData();
+
+  const theme = useTheme();
+  const procedures = chartData?.surgicalHistory;
+  const surgicalHistoryNote = chartFields?.surgicalHistoryNote?.text;
+
+  return (
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
+      data-testid={dataTestIds.telemedEhrFlow.reviewTabSurgicalHistoryContainer}
+    >
+      <Typography variant="h5" color="primary.dark">
+        Surgical history
+      </Typography>
+      {procedures?.length ? (
+        procedures.map((procedure) => (
+          <Typography key={procedure.resourceId}>
+            {procedure.code} {procedure.display}
+          </Typography>
+        ))
+      ) : (
+        <Typography color={theme.palette.text.secondary}>No surgical history</Typography>
+      )}
+      {surgicalHistoryNote && <Typography>{surgicalHistoryNote}</Typography>}
+
+      {notes && notes.length > 0 && (
+        <>
+          <AssessmentTitle>Surgical history notes</AssessmentTitle>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {notes?.map((note) => <Typography key={note.resourceId}>{note.text}</Typography>)}
+          </Box>
+        </>
+      )}
+    </Box>
+  );
+};

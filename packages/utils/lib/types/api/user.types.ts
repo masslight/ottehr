@@ -25,6 +25,7 @@ export enum RoleType {
   FrontDesk = 'Front Desk',
   Inactive = 'Inactive',
   Prescriber = 'Prescriber',
+  CustomerSupport = 'CustomerSupport',
   // Medical Assistant
 }
 
@@ -68,6 +69,11 @@ export const AVAILABLE_EMPLOYEE_ROLES: {
     value: RoleType.Provider,
     label: 'Provider',
     hint: `A clinician, such as a doctor, a PA or an NP`,
+  },
+  {
+    value: RoleType.CustomerSupport,
+    label: 'Customer Support',
+    hint: `A customer support representative`,
   },
   // {
   //   value: RoleType.Prescriber,

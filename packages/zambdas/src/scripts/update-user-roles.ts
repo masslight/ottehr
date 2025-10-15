@@ -9,7 +9,7 @@ import {
   PROVIDER_RULES,
   STAFF_RULES,
 } from '../shared/';
-import { FRONT_DESK_RULES } from '../shared/accessPolicies';
+import { CUSTOMER_SUPPORT_RULES, FRONT_DESK_RULES } from '../shared/accessPolicies';
 
 interface Role {
   name: string;
@@ -31,6 +31,7 @@ const updateUserRoles = async (config: any): Promise<void> => {
     { name: RoleType.Provider, accessPolicy: PROVIDER_RULES },
     { name: RoleType.FrontDesk, accessPolicy: FRONT_DESK_RULES },
     { name: RoleType.Inactive, accessPolicy: INACTIVE_RULES },
+    { name: RoleType.CustomerSupport, accessPolicy: CUSTOMER_SUPPORT_RULES },
   ];
 
   console.log('searching for existing roles for the project');

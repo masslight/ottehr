@@ -97,10 +97,18 @@ export const parseCoverageEligibilityResponse = (
       if (errorCodes.includes('410')) {
         // "Payer ID [<ID>] does not support real-time eligibility."
         console.log('Payer does not support real-time eligibility. Bypassing.');
-        return { status: InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported, dateISO };
+        return {
+          status: InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported,
+          dateISO,
+          errors: coverageResponse.error,
+        };
       }
       console.log(`eligibility check service failure reason(s): `, errorMessages.join(', '));
-      return { status: InsuranceEligibilityCheckStatus.eligibilityNotConfirmed, dateISO };
+      return {
+        status: InsuranceEligibilityCheckStatus.eligibilityNotConfirmed,
+        dateISO,
+        errors: coverageResponse.error,
+      };
     }
     const eligible = coverageResponse.insurance?.[0].item?.some((item) => {
       const code = item.category?.coding?.[0].code;
@@ -122,13 +130,26 @@ export const parseCoverageEligibilityResponse = (
           console.error('Error parsing fullBenefitJSON', error);
         }
       }
-      return { status: InsuranceEligibilityCheckStatus.eligibilityConfirmed, dateISO, copay };
+      return {
+        status: InsuranceEligibilityCheckStatus.eligibilityConfirmed,
+        dateISO,
+        copay,
+        errors: coverageResponse.error,
+      };
     } else {
-      return { status: InsuranceEligibilityCheckStatus.eligibilityNotConfirmed, dateISO };
+      return {
+        status: InsuranceEligibilityCheckStatus.eligibilityNotConfirmed,
+        dateISO,
+        errors: coverageResponse.error,
+      };
     }
   } catch (error: any) {
     console.error('Error parsing eligibility check response', error);
-    return { status: InsuranceEligibilityCheckStatus.eligibilityNotChecked, dateISO };
+    return {
+      status: InsuranceEligibilityCheckStatus.eligibilityNotChecked,
+      dateISO,
+      errors: coverageResponse.error,
+    };
   }
 };
 

@@ -1,9 +1,9 @@
 import { Box, IconButton, TableCell, TableRow } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
-import { InPersonModal } from 'src/features/in-person/components/InPersonModal';
+import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
+import { deleteIcon } from 'src/themes/ottehr';
 import { NursingOrder } from 'utils';
-import { deleteIcon } from '../../../../themes/ottehr';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 import { NursingOrdersTableColumn } from './NursingOrdersTable';
 import { useUpdateNursingOrder } from './useNursingOrders';

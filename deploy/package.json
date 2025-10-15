@@ -1,6 +1,6 @@
 {
   "name": "deploy",
-  "version": "1.19.5",
+  "version": "1.19.8",
   "description": "Scripts for generating HCL and interacting with Terraform",
   "scripts": {
     "build": "tsc --noEmit",
@@ -8,9 +8,9 @@
     "lint-terraform": "terraform fmt",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
     "generate": "tsx generate-oystehr-resources.ts ../config ${ENV:-local} ./oystehr/",
-    "apply-local": "npm run bundle-zambdas && ENV=local npm run generate && terraform workspace select local && terraform apply -parallelism=40 -var-file='local.tfvars'",
-    "apply-staging": "npm run bundle-zambdas && ENV=staging npm run generate && terraform workspace select staging && terraform apply -parallelism=40 -var-file='staging.tfvars'",
-    "apply-production": "npm run bundle-zambdas && ENV=production npm run generate && terraform workspace select production && terraform apply -parallelism=40 -var-file='production.tfvars'",
+    "apply-local": "./apply.sh local",
+    "apply-staging": "./apply.sh staging",
+    "apply-production": "./apply.sh production",
     "terraform-init": "terraform init --backend-config=./backend.config",
     "terraform-setup": "npm run terraform-init && terraform workspace new local && terraform workspace new staging && terraform workspace new production && terraform workspace select local"
   },

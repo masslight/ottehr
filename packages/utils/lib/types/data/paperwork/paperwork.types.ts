@@ -109,6 +109,8 @@ export interface QuestionnaireItemExtension {
     type: string; // only 'insurance validation' is supported out of the box right now, but defining this as string to allow for easy customization for other use cases
     triggerWhen?: QuestionnaireItemConditionDefinition;
   };
+  requiredBooleanValue?: boolean; // if the item is of type boolean and required, this indicates whether it must be true or false
+  // permittedStringValues?: string[]; // todo when needed
 }
 export interface AppointmentSummary {
   id: string;

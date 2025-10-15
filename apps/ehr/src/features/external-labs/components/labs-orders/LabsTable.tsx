@@ -1,7 +1,7 @@
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getExternalLabOrderEditUrl, getReflexExternalLabEditUrl } from 'src/features/in-person/routing/helpers';
+import { getDrExternalLabEditUrl, getExternalLabOrderEditUrl } from 'src/features/visits/in-person/routing/helpers';
 import {
   getColumnHeader,
   getColumnWidth,
@@ -9,13 +9,14 @@ import {
   LabOrderListPageDTO,
   LabOrdersSearchBy,
   LabsTableColumn,
+  PdfAttachmentDTO,
   ReflexLabDTO,
 } from 'utils';
 import { LabsTableRow } from './LabsTableRow';
 
 interface LabsTableProps {
   columns: LabsTableColumn[];
-  labOrders: (LabOrderDTO<LabOrdersSearchBy> | ReflexLabDTO)[];
+  labOrders: (LabOrderDTO<LabOrdersSearchBy> | ReflexLabDTO | PdfAttachmentDTO)[];
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
@@ -40,10 +41,9 @@ export const LabsTable = ({
     navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
   };
 
-  const onRowClickForReflex = (result: ReflexLabDTO): void => {
-    console.log('result', result);
-    // todo future resultsDetails maybe does not need to be an array anymore
-    navigateTo(getReflexExternalLabEditUrl(result.appointmentId, result.resultsDetails?.[0].diagnosticReportId));
+  const onRowClickForDrDrivenResult = (result: ReflexLabDTO | PdfAttachmentDTO): void => {
+    // todo labs future resultsDetails maybe does not need to be an array anymore
+    navigateTo(getDrExternalLabEditUrl(result.appointmentId, result.resultsDetails?.[0].diagnosticReportId));
   };
 
   return (
@@ -69,12 +69,13 @@ export const LabsTable = ({
         </TableHead>
         <TableBody>
           {labOrders.map((order, idx) => {
-            if ('isReflex' in order) {
+            // reflex and pdf attachment results
+            if ('drCentricResultType' in order) {
               return (
                 <LabsTableRow
                   key={`${idx}-reflex-${order.resultsDetails?.[0].diagnosticReportId}`}
                   labOrderData={order}
-                  onRowClick={() => onRowClickForReflex(order)}
+                  onRowClick={() => onRowClickForDrDrivenResult(order)}
                   columns={columns}
                   allowDelete={false}
                 />

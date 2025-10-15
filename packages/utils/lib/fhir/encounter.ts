@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Encounter, EncounterStatusHistory, Location } from 'fhir/r4b';
+import { Encounter, EncounterStatusHistory, Extension, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 import {
@@ -10,7 +10,7 @@ import {
   ProviderDetails,
   TelemedStatusHistoryElement,
 } from '../types';
-import { FHIR_BASE_URL } from './constants';
+import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL } from './constants';
 
 // follow up encounter consts
 export const FOLLOWUP_TYPES = ['Telephone Encounter', 'Non-Billable'] as const;
@@ -193,4 +193,43 @@ export const checkEncounterIsVirtual = (encounter: Encounter): boolean => {
     return false;
   }
   return encounterClass.system === CODE_SYSTEM_ACT_CODE_V3 && encounterClass.code === 'VR';
+};
+
+export enum PaymentVariant {
+  insurance = 'insurance',
+  selfPay = 'selfPay',
+}
+
+export const getPaymentVariantFromEncounter = (encounter: Encounter): PaymentVariant | undefined => {
+  return encounter.extension?.find((ext) => ext.url === ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL)
+    ?.valueString as PaymentVariant;
+};
+
+export const getEncounterPaymentVariantExtension = (paymentVariant: PaymentVariant): Extension => {
+  return {
+    url: ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+    valueString: paymentVariant,
+  };
+};
+
+export const updateEncounterPaymentVariantExtension = (input: Encounter, paymentVariant: PaymentVariant): Encounter => {
+  const encounter = { ...input };
+  if (encounter.extension) {
+    const extIndex = encounter.extension.findIndex((ext) => ext.url === ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL);
+
+    if (extIndex >= 0) {
+      encounter.extension[extIndex].valueString = paymentVariant;
+    } else {
+      encounter.extension.push(getEncounterPaymentVariantExtension(paymentVariant));
+    }
+  } else {
+    encounter.extension = [getEncounterPaymentVariantExtension(paymentVariant)];
+  }
+  return encounter;
+};
+
+export const isEncounterSelfPay = (encounter?: Encounter): boolean => {
+  if (!encounter) return false;
+  const paymentVariant = getPaymentVariantFromEncounter(encounter);
+  return paymentVariant === PaymentVariant.selfPay;
 };
