@@ -1,3 +1,5 @@
+import { MIME_TYPES } from 'utils';
+
 export async function createPresignedUrl(
   token: string,
   baseUploadURL: string,
@@ -23,7 +25,7 @@ export async function uploadObjectToZ3(fileBytes: Uint8Array, presignedUploadUrl
   const uploadRequest = await fetch(presignedUploadUrl, {
     method: 'PUT',
     headers: {
-      'Content-Type': 'application/pdf',
+      'Content-Type': MIME_TYPES.PDF,
     },
     body: fileBytes,
   });
