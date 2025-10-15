@@ -3,7 +3,13 @@ import { useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
-import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CANT_CANCEL_CHECKED_IN_APT_ERROR, PROJECT_NAME } from 'utils';
+import {
+  APIError,
+  APPOINTMENT_NOT_FOUND_ERROR,
+  BOOKING_CONFIG,
+  CANT_CANCEL_CHECKED_IN_APT_ERROR,
+  PROJECT_NAME,
+} from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
@@ -13,19 +19,6 @@ import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { useVisitContext } from './ThankYou';
-
-// these are the options for a patient in the IP intake app and are a product requirement for that app
-// please don't attempt to extract this to a shared util. if another app has similar or even identical options
-// that is fine; enumerate them within that scope and don't sweat any duplication
-export enum CancelReasonOptions {
-  'reason1' = 'Patient improved',
-  'reason2' = 'Wait time too long',
-  'reason3' = 'Prefer another provider',
-  'reason4' = 'Changing location',
-  'reason5' = 'Changing to telemedicine',
-  'reason6' = 'Financial responsibility concern',
-  'reason7' = 'Insurance issue',
-}
 
 const CancellationReason = (): JSX.Element => {
   const navigate = useNavigate();
@@ -104,9 +97,9 @@ const CancellationReason = (): JSX.Element => {
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const cancelReasonOptions = useMemo(() => {
-    return Object.keys(CancelReasonOptions).map((key) => ({
-      label: t(`cancel.reasons.${key}`, { PROJECT_NAME }),
-      value: CancelReasonOptions[key as keyof typeof CancelReasonOptions],
+    return BOOKING_CONFIG.cancelReasonOptions.map((reason, index) => ({
+      label: t(`cancel.reasons.reason${index + 1}`, { PROJECT_NAME }),
+      value: reason,
     }));
   }, [t]);
 

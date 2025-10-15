@@ -1,5 +1,4 @@
 import { expect, Locator, Page } from '@playwright/test';
-import { CancelReasonOptions } from 'src/pages/CancellationReason';
 import { BOOKING_CONFIG } from 'utils';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
@@ -19,7 +18,7 @@ export class FillingInfo {
   }
 
   private reasonForVisit = [BOOKING_CONFIG.reasonForVisitOptions[0]];
-  private cancelReason = Object.values(CancelReasonOptions);
+  private cancelReason = BOOKING_CONFIG.cancelReasonOptions.slice();
   private months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   getRandomString() {
