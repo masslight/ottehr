@@ -11,9 +11,19 @@ export const buildSearchQuery = (filter: Partial<SearchOptionsFilters>): string 
   params.push('_include:iterate=Appointment:actor:Location');
 
   if (filter.phone) {
-    const digits = filter.phone.replace(/\D/g, '');
+    let completedPhone = filter.phone.trim();
+
+    if (!completedPhone.startsWith('+')) {
+      if (completedPhone.length === 10) {
+        completedPhone = `+1${completedPhone}`;
+      } else if (completedPhone.length === 11) {
+        completedPhone = `+${completedPhone}`;
+      }
+    }
+
+    completedPhone = encodeURIComponent(completedPhone);
     params.push(
-      `phone:contains=${digits},_has:RelatedPerson:patient:phone:contains=${digits},_has:RelatedPerson:patient:_has:Person:link:phone:contains=${digits}`
+      `phone=${completedPhone},_has:RelatedPerson:patient:phone=${completedPhone},_has:RelatedPerson:patient:_has:Person:link:phone=${completedPhone}`
     );
     params.push('_revinclude=RelatedPerson:patient');
     params.push('_revinclude:iterate=Person:link');
@@ -36,7 +46,7 @@ export const buildSearchQuery = (filter: Partial<SearchOptionsFilters>): string 
   }
 
   if (filter.dob) params.push(`birthdate=${encodeURIComponent(filter.dob)}`);
-  if (filter.email) params.push(`email:contains=${encodeURIComponent(filter.email)}`);
+  if (filter.email) params.push(`email=${encodeURIComponent(filter.email)}`);
 
   params.push('_total=accurate');
 
