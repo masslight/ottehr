@@ -8,7 +8,6 @@ import {
   EXTERNAL_LAB_ERROR,
   getPatchBinary,
   LAB_DR_TYPE_TAG,
-  OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL,
   OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SpecimenCollectionDateConfig,
@@ -241,13 +240,12 @@ export const handleMatchUnsolicitedRequest = async ({
   };
 
   const updatedDiagnosticReport: DiagnosticReport = { ...diagnosticReportResource };
+  const curSubjectRef = diagnosticReportResource.subject?.reference?.replace('#', '');
+  console.log('dr curSubjectRef', curSubjectRef);
   updatedDiagnosticReport.subject = { reference: `Patient/${patientToMatchId}` };
-  delete updatedDiagnosticReport.contained;
-  if (updatedDiagnosticReport.extension) {
-    updatedDiagnosticReport.extension = updatedDiagnosticReport.extension.filter((ext) => {
-      return ext.url !== OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL;
-    });
-  }
+  updatedDiagnosticReport.contained = diagnosticReportResource.contained?.filter(
+    (resource) => resource.id !== curSubjectRef
+  );
 
   const serviceRequestPatch: BatchInputPatchRequest<ServiceRequest>[] = [];
   if (srToMatchId) {
