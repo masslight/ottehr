@@ -671,14 +671,10 @@ async function getResultsDetailsForPDF(
     })
   )?.unbundle();
 
-  const { completedFinalOrCorrected, readyFinalOrCorrected } = taskSearchForFinalOrCorrected.reduce(
-    (acc: { completedFinalOrCorrected: Task[]; readyFinalOrCorrected: Task[] }, task) => {
-      if (task.status === 'completed') acc.completedFinalOrCorrected.push(task);
-      if (task.status === 'ready') acc.readyFinalOrCorrected.push(task);
-      return acc;
-    },
-    { completedFinalOrCorrected: [], readyFinalOrCorrected: [] }
-  );
+  const completedFinalOrCorrected = taskSearchForFinalOrCorrected.reduce((acc: Task[], task) => {
+    if (task.status === 'completed') acc.push(task);
+    return acc;
+  }, []);
 
   const sortedCompletedFinalOrCorrected = completedFinalOrCorrected?.sort((a, b) =>
     compareDates(a.authoredOn, b.authoredOn)
@@ -688,26 +684,15 @@ async function getResultsDetailsForPDF(
   console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, latestReviewTask?.id);
 
   let reviewDate: DateTime | undefined = undefined,
-    reviewingProvider = undefined,
-    resultsReceivedDate = '';
+    reviewingProvider = undefined;
 
   if (latestReviewTask) {
-    resultsReceivedDate = latestReviewTask?.authoredOn
-      ? DateTime.fromISO(latestReviewTask.authoredOn).toFormat(LABS_DATE_STRING_FORMAT)
-      : '';
     if (latestReviewTask.status === 'completed') {
       ({ reviewingProvider, reviewDate } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask));
     }
   }
-  if (!resultsReceivedDate && !latestReviewTask) {
-    console.log('no completed final or corrected tasks, checking ready tasks to parse a results received date');
-    const sortedReadyFinalOrCorrected = readyFinalOrCorrected?.sort((a, b) => compareDates(a.authoredOn, b.authoredOn));
-    const readyReviewTask = sortedReadyFinalOrCorrected[0];
-    if (readyReviewTask && readyReviewTask?.authoredOn) {
-      console.log('readyReviewTask: ', readyReviewTask.id);
-      resultsReceivedDate = DateTime.fromISO(readyReviewTask.authoredOn).toFormat(LABS_DATE_STRING_FORMAT);
-    }
-  }
+
+  const resultsReceivedDate = diagnosticReport.effectiveDateTime ?? '';
 
   const resultInterpretationDisplays: string[] = [];
   const externalLabResults: ExternalLabResult[] = [];
