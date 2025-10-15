@@ -1644,7 +1644,7 @@ const getAdditionalResultsForRepeats = async (
   for (const [srId, resources] of Object.entries(srResourceMap)) {
     const { observations, tasks, specimens } = resources;
     const inputRequestTask = tasks.find(
-      (task) => task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)
+      (task) => task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.type.enterResults)
     );
     const specimen = specimens[0];
     if (!inputRequestTask || !specimen) {

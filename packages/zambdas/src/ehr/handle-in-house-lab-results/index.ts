@@ -113,7 +113,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
       if (entry.resource?.resourceType === 'Task') {
         const task = entry.resource as Task;
-        if (task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)) {
+        if (task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.type.enterResults)) {
           updatedInputResultTask = task;
         }
       }
@@ -220,10 +220,6 @@ const getInHouseLabResultResources = async (
           name: '_include',
           value: 'ServiceRequest:patient',
         },
-        {
-          name: '_revinclude',
-          value: 'Task:based-on',
-        },
         { name: '_include:iterate', value: 'Encounter:location' },
         {
           name: '_include:iterate',
@@ -269,7 +265,7 @@ const getInHouseLabResultResources = async (
     if (resource.resourceType === 'Location') locations.push(resource);
     if (
       resource.resourceType === 'Task' &&
-      resource.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)
+      resource.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.type.enterResults)
     ) {
       inputResultTasks.push(resource);
     }
@@ -293,9 +289,6 @@ const getInHouseLabResultResources = async (
 
   if (inputResultTask.status === 'completed') {
     throw new Error('Result has already been entered. Refresh the page to continue.');
-  }
-  if (inputResultTask.status !== 'ready') {
-    throw new Error(`One ready IRT task should exist for ServiceRequest/${serviceRequestId}`);
   }
 
   const serviceRequestsRelatedViaRepeat =

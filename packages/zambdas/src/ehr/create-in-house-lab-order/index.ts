@@ -13,7 +13,6 @@ import {
   Procedure,
   Provenance,
   ServiceRequest,
-  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -23,9 +22,8 @@ import {
   getAttendingPractitionerId,
   getFullestAvailableName,
   IN_HOUSE_LAB_ERROR,
+  IN_HOUSE_LAB_TASK,
   isApiError,
-  ottehrCodeSystemUrl,
-  ottehrIdentifierSystem,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   Secrets,
 } from 'utils';
@@ -38,6 +36,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { createTask } from '../../shared/tasks';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
@@ -349,83 +348,32 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ];
     }
 
-    const taskConfig: Task = {
-      resourceType: 'Task',
+    const taskConfig = createTask({
       status: 'requested',
-      groupIdentifier: {
-        system: ottehrIdentifierSystem('task-category'),
-        value: 'in-house-labs',
-      },
-      code: {
-        coding: [
-          {
-            system: ottehrCodeSystemUrl('task-type'),
-            code: 'collect-sample',
-          },
-        ],
-      },
-      basedOn: [{ reference: serviceRequestFullUrl }],
-      encounter: { reference: `Encounter/${encounterId}` },
-      authoredOn: DateTime.now().toISO(),
-      intent: 'order',
+      category: IN_HOUSE_LAB_TASK.category,
+      type: IN_HOUSE_LAB_TASK.type.collectSample,
+      encounterId: encounterId,
+      locationId: location.id,
       input: [
         {
-          type: {
-            coding: [
-              {
-                system: ottehrCodeSystemUrl('task-input'),
-                code: 'test-name',
-              },
-            ],
-          },
-          valueString: activityDefinition.name,
+          type: IN_HOUSE_LAB_TASK.input.testName,
+          value: activityDefinition.name,
         },
         {
-          type: {
-            coding: [
-              {
-                system: ottehrCodeSystemUrl('task-input'),
-                code: 'patient-name',
-              },
-            ],
-          },
-          valueString: getFullestAvailableName(patient),
+          type: IN_HOUSE_LAB_TASK.input.patientName,
+          value: getFullestAvailableName(patient),
         },
         {
-          type: {
-            coding: [
-              {
-                system: ottehrCodeSystemUrl('task-input'),
-                code: 'provider-name',
-              },
-            ],
-          },
-          valueString: currentUserPractitionerName ?? 'Unknown',
+          type: IN_HOUSE_LAB_TASK.input.providerName,
+          value: currentUserPractitionerName ?? 'Unknown',
         },
         {
-          type: {
-            coding: [
-              {
-                system: ottehrCodeSystemUrl('task-input'),
-                code: 'order-date',
-              },
-            ],
-          },
-          valueDateTime: serviceRequestConfig.authoredOn,
+          type: IN_HOUSE_LAB_TASK.input.orderDate,
+          value: serviceRequestConfig.authoredOn,
         },
       ],
-      meta: {
-        tag: [
-          {
-            system: ottehrCodeSystemUrl('task-location'),
-            code: location.id,
-          },
-          {
-            code: 'task',
-          },
-        ],
-      },
-    };
+    });
+    taskConfig.basedOn = [{ reference: serviceRequestFullUrl }];
 
     const provenanceConfig: Provenance = {
       resourceType: 'Provenance',
