@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage, CoverageEligibilityResponse, Practitioner } from 'fhir/r4b';
 import {
   CoverageCheckWithDetails,
+  getPreferredPharmacyFromPatient,
   getSecret,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
@@ -51,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAccountResponse> => {
   const { patientId } = input;
-  console.log('performing effect for patient account update');
+  console.log('performing effect for patient account get');
   console.time('getAccountAndCoverageResourcesForPatient');
   const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
   console.timeEnd('getAccountAndCoverageResourcesForPatient');
@@ -134,10 +135,13 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
     })
     .filter((result) => result !== null) as CoverageCheckWithDetails[];
   console.timeEnd('fetching CER IDs');
+  const { patient } = accountAndCoverages;
+  const pharmacy = getPreferredPharmacyFromPatient(patient);
   return {
     ...accountAndCoverages,
     primaryCarePhysician,
     coverageChecks: mapped,
+    pharmacy,
   };
 };
 
