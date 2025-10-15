@@ -7,11 +7,13 @@ import {
   DynamicAOEInput,
   EXTERNAL_LAB_ERROR,
   getPatchBinary,
-  OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM,
+  LAB_DR_TYPE_TAG,
+  OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL,
+  OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SpecimenCollectionDateConfig,
 } from 'utils';
-import { populateQuestionnaireResponseItems } from '../shared/labs';
+import { parseAccessionNumberFromDr, populateQuestionnaireResponseItems } from '../shared/labs';
 
 export const getSpecimenPatchAndMostRecentCollectionDate = (
   specimenResources: Specimen[],
@@ -198,6 +200,39 @@ export const handleMatchUnsolicitedRequest = async ({
     resourceType: 'DiagnosticReport',
     id: diagnosticReportId,
   });
+
+  // searching for any PDF attachment DR with the correct filler id, tags
+  // and then checking that the DR being matched is referenced as expected in the extension
+  const fillerId = parseAccessionNumberFromDr(diagnosticReportResource);
+  let relatedPdfAttachmentDrs: DiagnosticReport[] | undefined;
+  if (fillerId && fillerId !== '') {
+    console.log('searching for any pdf attachment drs that will also need to be matched');
+    const pdfAttachmentDrSearch = (
+      await oystehr.fhir.search<DiagnosticReport>({
+        resourceType: 'DiagnosticReport',
+        params: [
+          { name: 'identifier', value: fillerId },
+          { name: '_tag', value: LAB_DR_TYPE_TAG.code.attachment },
+          { name: '_tag', value: LAB_DR_TYPE_TAG.code.unsolicited },
+        ],
+      })
+    ).unbundle();
+    console.log('number of pdfAttachment DRs found', pdfAttachmentDrSearch.length);
+    const pdfAttachmentDrsValidated = pdfAttachmentDrSearch.filter((dr) => {
+      const relatedDrIds = dr.extension
+        ?.filter(
+          (ext) =>
+            ext.url === OYSTEHR_SAME_TRANSMISSION_DR_REF_URL &&
+            ext?.valueReference?.reference?.startsWith('DiagnosticReport/')
+        )
+        .map((ext) => ext.valueReference?.reference?.replace('DiagnosticReport/', ''));
+      const drIsRelated = !!relatedDrIds?.includes(diagnosticReportId);
+      return drIsRelated;
+    });
+    console.log('number of pdfAttachment validated to be related', pdfAttachmentDrsValidated.length);
+    if (pdfAttachmentDrsValidated.length > 0) relatedPdfAttachmentDrs = pdfAttachmentDrsValidated;
+  }
+
   console.log('formatting fhir patch requests to handle matching unsolicited results');
   const markTaskAsCompleteRequest: BatchInputPatchRequest<Task> = {
     method: 'PATCH',
@@ -210,7 +245,7 @@ export const handleMatchUnsolicitedRequest = async ({
   delete updatedDiagnosticReport.contained;
   if (updatedDiagnosticReport.extension) {
     updatedDiagnosticReport.extension = updatedDiagnosticReport.extension.filter((ext) => {
-      return ext.url !== OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM;
+      return ext.url !== OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL;
     });
   }
 
@@ -242,6 +277,22 @@ export const handleMatchUnsolicitedRequest = async ({
   };
 
   const requests = [diagnosticReportPutRequest, markTaskAsCompleteRequest, ...serviceRequestPatch];
+
+  if (relatedPdfAttachmentDrs) {
+    relatedPdfAttachmentDrs.forEach((dr) => {
+      console.log('adding request to patch pdf attachment dr with patient as subject', dr.id);
+      const updatedDr: DiagnosticReport = { ...dr };
+      updatedDr.subject = { reference: `Patient/${patientToMatchId}` };
+      const pdfAttachmentDrPutRequest: BatchInputRequest<DiagnosticReport> = {
+        method: 'PUT',
+        url: `DiagnosticReport/${dr.id}`,
+        resource: updatedDr,
+        ifMatch: dr.meta?.versionId ? `W/"${dr.meta.versionId}"` : undefined,
+      };
+      requests.push(pdfAttachmentDrPutRequest);
+    });
+  }
+
   console.log('making fhir requests, total requests to make: ', requests.length);
   await oystehr.fhir.transaction<DiagnosticReport | Task | ServiceRequest>({ requests });
 };
