@@ -46,11 +46,11 @@ import {
   getLastName,
   getMiddleName,
   getPatchOperationForNewMetaTag,
+  getTelemedVisitStatus,
   getUnconfirmedDOBForAppointment,
   isApiError,
   isEncounterSelfPay,
   isInPersonAppointment,
-  mapStatusToTelemed,
   TelemedAppointmentStatus,
   UpdateVisitDetailsInput,
   VisitDocuments,
@@ -447,7 +447,7 @@ export default function VisitDetailsPage(): ReactElement {
     if (appointment && encounter) {
       const encounterStatus = isInPerson
         ? getInPersonVisitStatus(appointment, encounter)
-        : mapStatusToTelemed(encounter.status, appointment.status);
+        : getTelemedVisitStatus(encounter.status, appointment.status);
 
       setStatus(encounterStatus);
     } else {

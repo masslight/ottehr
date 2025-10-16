@@ -8,7 +8,7 @@ import {
   getPatientContactEmail,
   getQuestionnaireResponseByLinkId,
   getSecret,
-  mapStatusToTelemed,
+  getTelemedVisitStatus,
   SecretsKeys,
   TelemedAppointmentStatusEnum,
   TelemedCompletionTemplateData,
@@ -101,7 +101,7 @@ export const performEffect = async (
   }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
-  const currentStatus = mapStatusToTelemed(encounter.status, appointment.status);
+  const currentStatus = getTelemedVisitStatus(encounter.status, appointment.status);
   if (currentStatus) {
     const myPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
