@@ -14,6 +14,7 @@
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
     "report-daily-payments": "tsx src/scripts/report-daily-payments.ts",
     "get-coverage-eligibility-responses": "tsx src/scripts/get-coverage-eligibility-responses.ts",
+    "get-rcm-tasks": "tsx src/scripts/get-rcm-tasks.ts",
     "send-invoices-to-patients-by-sms": "tsx src/scripts/send-invoices-to-patients-by-sms.ts",
     "send-past-due-invoices-to-patients-by-sms": "tsx src/scripts/send-past-due-invoices-to-patients-by-sms.ts",
     "get-invoiceable-claims": "tsx src/scripts/get-invoiceable-claims.ts",
