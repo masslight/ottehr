@@ -258,5 +258,5 @@ export const OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL =
 export const OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM =
   'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-additional-lab-code';
 
-export const OYSTEHR_LABS_ADDITIONAL_FILLER_ID_SYSTEM =
+export const OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM =
   'https://identifiers.fhir.oystehr.com/lab-result-additional-placer-id';
