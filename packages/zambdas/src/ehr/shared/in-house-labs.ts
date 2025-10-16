@@ -33,9 +33,7 @@ export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task
   const interpretResultsTask = tasks.find(
     (task) =>
       taskIsBasedOnServiceRequest(task, serviceRequest) &&
-      task.code?.coding?.some(
-        (coding: Coding) => coding.code === IN_HOUSE_LAB_TASK.type.enterResults // todo: is it valid?
-      )
+      task.code?.coding?.some((coding: Coding) => coding.code === IN_HOUSE_LAB_TASK.type.enterResults)
   );
   console.log('interpretResultsTask', interpretResultsTask?.id, interpretResultsTask?.status);
 
