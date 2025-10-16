@@ -4,6 +4,8 @@ import { CodeableConcept, DiagnosticReport, Observation, ServiceRequest } from '
 import fs from 'fs';
 import { LAB_DR_TYPE_TAG } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
+import { LAB_PDF_ATTACHMENT_DR_TAG, PDF_ATTACHMENT_CODE } from './lab-script-consts';
+import { createPdfAttachmentObs } from './lab-script-helpers';
 
 // Creates a DiagnosticReport and Observation(s) to mock a reflex test
 // npm run mock-reflex-test ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
@@ -135,6 +137,25 @@ const main = async (): Promise<void> => {
     method: 'POST',
     url: '/DiagnosticReport',
     resource: reflexDR,
+  });
+
+  // mock pdf attachment for reflex
+  const pdfAttachmentDR: DiagnosticReport = { ...reflexDR, code: PDF_ATTACHMENT_CODE };
+  pdfAttachmentDR.meta?.tag?.push(LAB_PDF_ATTACHMENT_DR_TAG);
+  const pdfAttachmentObsFullUrl = `urn:uuid:${randomUUID()}`;
+  const pdfAttachmentResultRefs = [{ reference: pdfAttachmentObsFullUrl }];
+  const newObsResource: Observation = createPdfAttachmentObs();
+  requests.push({
+    method: 'POST',
+    url: '/Observation',
+    resource: newObsResource,
+    fullUrl: pdfAttachmentObsFullUrl,
+  });
+  pdfAttachmentDR.result = pdfAttachmentResultRefs;
+  requests.push({
+    method: 'POST',
+    url: '/DiagnosticReport',
+    resource: pdfAttachmentDR,
   });
 
   console.log('making transaction request');

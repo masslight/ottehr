@@ -46,6 +46,7 @@ import {
   getLastName,
   getMiddleName,
   getPatchOperationForNewMetaTag,
+  getUnconfirmedDOBForAppointment,
   isApiError,
   isEncounterSelfPay,
   isInPersonAppointment,
@@ -382,7 +383,7 @@ export default function VisitDetailsPage(): ReactElement {
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
-  const unconfirmedDOB = DateTime.fromFormat('11/11/2011', 'MM/dd/yyyy').toISO(); //appointment && getUnconfirmedDOBForAppointment(appointment);
+  const unconfirmedDOB = appointment && getUnconfirmedDOBForAppointment(appointment);
   const getAppointmentType = (appointmentType: FhirAppointmentType | undefined): string => {
     if (!appointmentType) {
       return '';
@@ -988,8 +989,8 @@ export default function VisitDetailsPage(): ReactElement {
                         encounterId={encounter?.id ?? ''}
                         patientSelectSelfPay={selfPay}
                         responsibleParty={{
-                          fullName: '',
-                          email: '',
+                          fullName: visitDetailsData?.responsiblePartyName || '',
+                          email: visitDetailsData?.responsiblePartyEmail || '',
                         }}
                       />
                     </Grid>

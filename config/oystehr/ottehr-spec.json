@@ -5666,6 +5666,24 @@
         },
         {
           "resource": [
+            "Z3:#{ref/project/PROJECT/id}-photo-id-cards/*",
+            "Z3:#{ref/project/PROJECT/id}-insurance-cards/*",
+            "Z3:#{ref/project/PROJECT/id}-school-work-note-templates/*",
+            "Z3:#{ref/project/PROJECT/id}-patient-photos/*",
+            "Z3:#{ref/project/PROJECT/id}-consent-forms/*",
+            "Z3:#{ref/project/PROJECT/id}-visit-notes/*",
+            "Z3:#{ref/project/PROJECT/id}-receipts/*",
+            "Z3:#{ref/project/PROJECT/id}-school-work-notes/*",
+            "Z3:#{ref/project/PROJECT/id}-privacy-policy/*",
+            "Z3:#{ref/project/PROJECT/id}-audio-recordings/*",
+            "Z3:#{ref/project/PROJECT/id}-exported-questionnaires/*",
+            "Z3:#{ref/project/PROJECT/id}-discharge-summaries/*",
+            "Z3:#{ref/project/PROJECT/id}-labs/*"
+          ],
+          "effect": "Allow"
+        },
+        {
+          "resource": [
             "Telemed:*"
           ],
           "action": [
