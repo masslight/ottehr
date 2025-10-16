@@ -84,7 +84,7 @@ export default function InvoiceablePatients(): React.ReactElement {
       {
         field: 'patientName',
         headerName: 'Patient Name',
-        flex: 1,
+        width: 250,
         sortable: true,
       },
       {
@@ -108,7 +108,7 @@ export default function InvoiceablePatients(): React.ReactElement {
       {
         field: 'responsiblePartyName',
         headerName: 'Responsible Party',
-        flex: 1,
+        width: 250,
         sortable: true,
       },
       {
@@ -120,7 +120,7 @@ export default function InvoiceablePatients(): React.ReactElement {
       {
         field: 'candidClaimId',
         headerName: 'Candid ID',
-        flex: 1,
+        width: 350,
         sortable: true,
       },
     ],
@@ -131,7 +131,7 @@ export default function InvoiceablePatients(): React.ReactElement {
       {
         field: 'claimId',
         headerName: 'Claim Id',
-        width: 400,
+        width: 350,
         sortable: true,
         renderCell: (params: any) => (
           <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
@@ -153,9 +153,21 @@ export default function InvoiceablePatients(): React.ReactElement {
         ),
       },
       {
+        field: 'patientId',
+        headerName: 'Patient Id',
+        width: 350,
+        sortable: true,
+      },
+      {
+        field: 'candidEncounterId',
+        headerName: 'Candid Encounter Id',
+        width: 350,
+        sortable: true,
+      },
+      {
         field: 'error',
         headerName: 'Error message',
-        flex: 1,
+        width: 800,
         sortable: true,
       },
     ],
@@ -183,6 +195,8 @@ export default function InvoiceablePatients(): React.ReactElement {
     return reportData.failedReports.map((patient) => ({
       id: patient.claimId,
       claimId: patient.claimId,
+      patientId: patient.patientId,
+      candidEncounterId: patient.candidEncounterId,
       error: patient.error,
     }));
   }, [reportData]);

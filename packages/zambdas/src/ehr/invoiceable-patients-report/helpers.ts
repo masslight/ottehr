@@ -50,20 +50,20 @@ export function mapResourcesToInvoiceablePatient(input: {
   const { itemizationMap, claim, patientToIdMap, accountsToPatientIdMap, encounterToCandidIdMap, appointmentToIdMap } =
     input;
   const patient = patientToIdMap[claim.patientExternalId];
-  if (patient?.id === undefined) return logErrorForClaimAndReturn('Patient', claim.claimId);
+  if (patient?.id === undefined) return logErrorForClaimAndReturn('Patient', claim);
   const account = accountsToPatientIdMap[claim.patientExternalId];
   const responsiblePartyRef = account?.guarantor?.find((gRef) => {
     return gRef.period?.end === undefined;
   })?.party?.reference;
-  if (!responsiblePartyRef) return logErrorForClaimAndReturn('RelatedPerson reference', claim.claimId);
+  if (!responsiblePartyRef) return logErrorForClaimAndReturn('RelatedPerson reference', claim);
   const responsibleParty = takeContainedOrFind(responsiblePartyRef, [], account) as RelatedPerson | undefined;
-  if (!responsibleParty) return logErrorForClaimAndReturn('RelatedPerson', claim.claimId);
+  if (!responsibleParty) return logErrorForClaimAndReturn('RelatedPerson', claim);
 
   const encounter = encounterToCandidIdMap[claim.encounterId];
-  if (!encounter) return logErrorForClaimAndReturn('Encounter', claim.claimId);
+  if (!encounter) return logErrorForClaimAndReturn('Encounter', claim);
   const appointmentId = encounter.appointment?.[0]?.reference?.split('/')[1];
   const appointment = appointmentId ? appointmentToIdMap[appointmentId] : undefined;
-  if (!appointment) return logErrorForClaimAndReturn('Appointment', claim.claimId);
+  if (!appointment) return logErrorForClaimAndReturn('Appointment', claim);
   const appointmentStart = appointment.start;
 
   const patientBalance = itemizationMap[claim.claimId].patientBalanceCents;
@@ -80,11 +80,13 @@ export function mapResourcesToInvoiceablePatient(input: {
   };
 }
 
-function logErrorForClaimAndReturn(resourceType: string, claimId: string): InvoiceablePatientReportFail {
-  const errorMessage = `${resourceType} resource not found for claim:${claimId}`;
+function logErrorForClaimAndReturn(resourceType: string, claim: InvoiceableClaim): InvoiceablePatientReportFail {
+  const errorMessage = `${resourceType} resource not found for this claim.`;
   console.error(`🔴 ${errorMessage}`);
   return {
-    claimId,
+    claimId: claim.claimId,
+    patientId: claim.patientExternalId,
+    candidEncounterId: claim.encounterId,
     error: errorMessage,
   };
 }

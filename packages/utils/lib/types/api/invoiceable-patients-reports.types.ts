@@ -15,6 +15,8 @@ export interface InvoiceablePatientReport {
 
 export interface InvoiceablePatientReportFail {
   claimId: string;
+  patientId: string;
+  candidEncounterId: string;
   error: string;
 }
 
