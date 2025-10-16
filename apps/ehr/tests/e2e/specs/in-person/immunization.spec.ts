@@ -142,7 +142,7 @@ test.describe('Immunization Page mutating tests', () => {
     });
   });
 
-  test('Adminestering immunization order happy path', async ({ page }) => {
+  test('Administering immunization order happy path', async ({ page }) => {
     await test.step('Create vaccine order', async () => {
       const createOrderPage = await openCreateVaccineOrderPage(resourceHandler.appointment.id!, page);
       await enterVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
