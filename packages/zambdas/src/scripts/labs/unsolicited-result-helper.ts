@@ -1,10 +1,17 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { getRandomValues, randomUUID } from 'crypto';
-import { DiagnosticReport, Observation, Organization } from 'fhir/r4b';
+import { DiagnosticReport, Identifier, Observation, Organization } from 'fhir/r4b';
 import fs from 'fs';
 import { DateTime } from 'luxon';
-import { OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM } from 'utils';
+import {
+  DR_CONTAINED_PRACTITIONER_REF,
+  OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
+  OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL,
+  OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
+} from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
+import { DR_UNSOLICITED_RESULT_TAG, LAB_PDF_ATTACHMENT_DR_TAG, PDF_ATTACHMENT_CODE } from './lab-script-consts';
+import { createPdfAttachmentObs } from './lab-script-helpers';
 
 type PatientDetails = {
   first: string;
@@ -70,20 +77,53 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
 
+  const fillerId: Identifier = {
+    value: createFillerNumber(),
+    use: 'usual',
+    type: {
+      coding: [
+        {
+          code: 'FILL',
+        },
+      ],
+      text: 'Filler entity id',
+    },
+  };
+  const labTransmissionAccountId: Identifier = {
+    system: 'https://identifiers.fhir.oystehr.com/lab-transmission-account-number',
+    value: 'teset',
+    assigner: {
+      reference: `Organization/${autoLabOrgId}`,
+    },
+  };
+  const drIdentifier: Identifier[] = [fillerId, labTransmissionAccountId];
+
   const obs = createObs();
   const obsFullUrl = `urn:uuid:${randomUUID()}`;
   const dr = createUnsolicitedResultDr({
-    fillerId: createFillerNumber(),
+    drIdentifier,
     obsFullUrl,
     patient: PATIENT,
     practitioner: PRACTITIONER,
     test: TEST,
     labOrgId: autoLabOrgId,
   });
+  const drFullUrl = `urn:uuid:${randomUUID()}`;
+
+  const pdfAttachmentObs = createPdfAttachmentObs();
+  const pdfAttachmentObsFullUrl = `urn:uuid:${randomUUID()}`;
+  const pdfAttachmentDr = createUnsolicitedPdfAttachmentDr(
+    drIdentifier,
+    pdfAttachmentObsFullUrl,
+    autoLabOrgId,
+    drFullUrl
+  );
 
   const requests: BatchInputPostRequest<Observation | DiagnosticReport>[] = [
     { method: 'POST', fullUrl: obsFullUrl, url: '/Observation', resource: obs },
-    { method: 'POST', url: '/DiagnosticReport', resource: dr },
+    { method: 'POST', fullUrl: drFullUrl, url: '/DiagnosticReport', resource: dr },
+    { method: 'POST', fullUrl: pdfAttachmentObsFullUrl, url: '/Observation', resource: pdfAttachmentObs },
+    { method: 'POST', url: '/DiagnosticReport', resource: pdfAttachmentDr },
   ];
 
   try {
@@ -136,14 +176,14 @@ const createObs = (): Observation => {
 };
 
 const createUnsolicitedResultDr = ({
-  fillerId,
+  drIdentifier,
   obsFullUrl,
   patient,
   practitioner,
   test,
   labOrgId,
 }: {
-  fillerId: string;
+  drIdentifier: Identifier[];
   obsFullUrl: string;
   patient: PatientDetails;
   practitioner: PractitionerDetails;
@@ -154,46 +194,13 @@ const createUnsolicitedResultDr = ({
     resourceType: 'DiagnosticReport',
     extension: [
       {
-        url: 'https://extensions.fhir.oystehr.com/diagnostic-report-original-transmission',
-        extension: [
-          {
-            url: 'content',
-            valueAttachment: {
-              data: 'TVNIfF5+XCZ8TEFCfEFMMXx8dGVzdC1zYXJhaC0wNy0wN3wyMDI1MDgxNTE0MjA1MC0wMDAwfHxPUlVeUjAxXk9SVV9SMDF8ZTZlN2QyMDYtMWMyNy00YWJlLTkzMzMtMjk4MGI0OTVkZDMyfFR8Mi41LjF8fHxBTHxBTHx8fHx8TFJJX05HX1JOX1Byb2ZpbGVeXjIuMTYuODQwLjEuMTEzODgzLjkuMjBeSVNPfHwKUElEfDF8fDAzNDA2ZWExLTcyY2YtNGRlMy1iOWFjLWMwYmQyMGM0YWNhMl5eXl5QVHx8dGVzdF50ZXN0fHwyMDAxMDEwMXxGfHx8fHx8fHx8fHx8fHx8fHx8fHx8fApQVjF8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fApPUkN8UkV8MnprMm4xbjZ0bnVjNHN1MHp1Nnh8MnprMm4xbjZ0bnVjNHN1MHp1Nnh8fHx8fHx8fHwxOTMyOTI5MTkxXnRlc3RedGVzdF5eXl5eXl5eXl5OUEl8fHx8fHx8fHx8fHwKT0JSfDF8MnprMm4xbjZ0bnVjNHN1MHp1Nnh8MnprMm4xbjZ0bnVjNHN1MHp1Nnh8NTcwMjEtOF5DQkMgVyBBdXRvIERpZmZlcmVudGlhbCBwYW5lbCBpbiBCbG9vZF5MTl5eXl5eXkNCQyBXIEF1dG8gRGlmZmVyZW50aWFsIHBhbmVsIGluIEJsb29kfHx8MjAyNTA4MTUxNDIwNTAtMDAwMHx8fHx8fHx8fDE5MzI5MjkxOTFedGVzdF50ZXN0Xl5eXl5eXl5eXk5QSXx8fHx8fDIwMjUwODE1MTQyMDUwLTAwMDB8fHxGfE5PVF9QUk9WSURFRHx8fE5PVF9QUk9WSURFRHx8fHx8fHx8fHx8fHx8fHx8fHx8fE5PVF9QUk9WSURFRApPQlh8MXxOTXw3MTgtN15IZW1vZ2xvYmluIFtNYXNzL3ZvbHVtZV0gaW4gQmxvb2ReTE5eXl5eXl5IZW1vZ2xvYmluIFtNYXNzL3ZvbHVtZV0gaW4gQmxvb2R8MXw1LjV8bUVxL0x8Mi41LTUuM3xIfHx8Rnx8fDIwMjUwODE1MTQyMDUwLTAwMDB8MUFeU3dpZnQgTGFib3JhdG9yaWVzXjczMSBNYXJrZXQgU3ReU2FuIEZyYW5jaXNjb15DQV45NDEwM3x8fHx8fHx8U3dpZnQgTGFib3JhdG9yaWVzXl5eXl5eXl5eMUF8NzMxIE1hcmtldCBTdF5eU2FuIEZyYW5jaXNjb15DQV45NDEwM15eXl5eXl5OT1RfUFJPVklERUReTk9UX1BST1ZJREVEfE5PVF9QUk9WSURFRHx8fHx8fHw=',
-              contentType: 'base64',
-              creation: '2025-08-15T10:36:00.393-04:00',
-            },
-          },
-          {
-            url: 'standard',
-            valueCoding: {
-              code: 'hl7',
-              version: '2.5.1',
-            },
-          },
-        ],
-      },
-      {
-        url: OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM,
+        url: OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL,
         valueReference: {
-          reference: '#unsolicitedResultPractitionerId',
+          reference: '#resultOrderingProviderPractitionerId',
         },
       },
     ],
-    identifier: [
-      {
-        value: fillerId,
-        use: 'usual',
-        type: {
-          coding: [
-            {
-              code: 'FILL',
-            },
-          ],
-          text: 'Filler entity id',
-        },
-      },
-    ],
+    identifier: drIdentifier,
     result: [{ reference: obsFullUrl }],
     status: 'final',
     code: {
@@ -207,13 +214,7 @@ const createUnsolicitedResultDr = ({
     },
     effectiveDateTime: DateTime.now().toISO(),
     meta: {
-      tag: [
-        {
-          system: 'result-type',
-          code: 'unsolicited',
-          display: 'unsolicited',
-        },
-      ],
+      tag: [DR_UNSOLICITED_RESULT_TAG],
     },
     subject: {
       reference: '#unsolicitedResultPatientId',
@@ -221,6 +222,11 @@ const createUnsolicitedResultDr = ({
     performer: [
       {
         reference: `Organization/${labOrgId}`,
+      },
+    ],
+    specimen: [
+      {
+        reference: '#resultSpecimenId',
       },
     ],
     contained: [
@@ -238,7 +244,7 @@ const createUnsolicitedResultDr = ({
       },
       {
         resourceType: 'Practitioner',
-        id: 'unsolicitedResultPractitionerId',
+        id: DR_CONTAINED_PRACTITIONER_REF,
         name: [
           {
             given: [practitioner.first],
@@ -252,20 +258,58 @@ const createUnsolicitedResultDr = ({
           },
         ],
       },
-    ],
-    category: [
       {
-        coding: [
-          {
-            system: 'http://terminology.hl7.org/CodeSystem/v2-0074',
-            code: 'OSL',
-            display: 'Outside Lab',
+        resourceType: 'Specimen',
+        id: 'resultSpecimenId',
+        collection: {
+          bodySite: {
+            coding: [
+              {
+                system: 'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-specimen-source',
+                display: 'URINARY TRACT',
+              },
+            ],
           },
-        ],
+        },
       },
     ],
+    category: [{ coding: [OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY] }],
   };
 
+  return dr;
+};
+
+const createUnsolicitedPdfAttachmentDr = (
+  drIdentifier: Identifier[],
+  obsFullUrl: string,
+  labOrgId: string,
+  parentDrFullUrl: string
+): DiagnosticReport => {
+  const dr: DiagnosticReport = {
+    resourceType: 'DiagnosticReport',
+    identifier: drIdentifier,
+    result: [{ reference: obsFullUrl }],
+    status: 'final',
+    code: PDF_ATTACHMENT_CODE,
+    effectiveDateTime: DateTime.now().toISO(),
+    category: [{ coding: [OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY] }],
+    performer: [
+      {
+        reference: `Organization/${labOrgId}`,
+      },
+    ],
+    extension: [
+      {
+        url: OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
+        valueReference: {
+          reference: parentDrFullUrl,
+        },
+      },
+    ],
+    meta: {
+      tag: [LAB_PDF_ATTACHMENT_DR_TAG, DR_UNSOLICITED_RESULT_TAG],
+    },
+  };
   return dr;
 };
 
