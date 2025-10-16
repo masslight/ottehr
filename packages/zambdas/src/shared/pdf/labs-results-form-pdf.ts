@@ -1125,12 +1125,11 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
 
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
-  pdfClient.newLine(30);
-  pdfClient.drawText(data.testName.toUpperCase(), textStyles.header);
+  drawTestNameHeader(data.testName, data.testItemCode, pdfClient, textStyles);
 
-  pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
+  // ATHENA TODO: remove these columns
   console.log(`Drawing column section.`);
   pdfClient = writeExternalLabResultColumns(pdfClient, textStyles, data);
 
@@ -1201,12 +1200,12 @@ async function createExternalLabsResultsFormPdfBytes(
     'Dx:',
     data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join('; ')
   );
-  pdfClient.newLine(30);
-  pdfClient.drawTextSequential(data.testName.toUpperCase(), textStyles.header);
 
-  pdfClient.newLine(STANDARD_NEW_LINE);
+  drawTestNameHeader(data.testName, data.testItemCode, pdfClient, textStyles);
+
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
+  // ATHENA TODO: remove these columns
   console.log(`Drawing column section.`);
   pdfClient = writeExternalLabResultColumns(pdfClient, textStyles, data);
 
@@ -2049,4 +2048,17 @@ function getProviderNameAndNpiFromDr(diagnosticReport: DiagnosticReport): {
 
 function getAdditionalLabCode(observation: Observation): string | undefined {
   return observation.code.coding?.find((coding) => coding.system === OYSTEHR_LABS_ADDITIONAL_LAB_CODE)?.code;
+}
+
+function drawTestNameHeader(
+  testName: string,
+  testCode: string,
+  pdfClient: PdfClient,
+  textStyles: LabsPDFTextStyleConfig
+): PdfClient {
+  pdfClient.newLine(30);
+  pdfClient.drawTextSequential('Test: ', textStyles.textGreyBold);
+  pdfClient.drawTextSequential(`${testName.toUpperCase()} (${testCode})`, textStyles.header);
+  pdfClient.newLine(STANDARD_NEW_LINE);
+  return pdfClient;
 }
