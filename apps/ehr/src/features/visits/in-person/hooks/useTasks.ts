@@ -119,7 +119,7 @@ export const useGetTasks = ({
       const tasks = bundle.unbundle().map(fhirTaskToTask);
       return {
         tasks,
-        total: bundle.total,
+        total: bundle.total ?? -1,
       };
     },
     enabled: oystehr != null,
