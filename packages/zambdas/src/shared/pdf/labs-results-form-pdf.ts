@@ -1127,12 +1127,6 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
 
   drawTestNameHeader(data.testName, data.testItemCode, pdfClient, textStyles);
 
-  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
-
-  // ATHENA TODO: remove these columns
-  console.log(`Drawing column section.`);
-  pdfClient = writeExternalLabResultColumns(pdfClient, textStyles, data);
-
   console.log(
     `Drawing results. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
@@ -1202,12 +1196,6 @@ async function createExternalLabsResultsFormPdfBytes(
   );
 
   drawTestNameHeader(data.testName, data.testItemCode, pdfClient, textStyles);
-
-  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
-
-  // ATHENA TODO: remove these columns
-  console.log(`Drawing column section.`);
-  pdfClient = writeExternalLabResultColumns(pdfClient, textStyles, data);
 
   console.log(
     `Drawing results. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
@@ -1899,7 +1887,8 @@ const writeResultDetailLinesInPdf = (
   pdfClient.newLine(STANDARD_NEW_LINE);
 };
 
-const writeExternalLabResultColumns = (
+// Not deleting this for the moment in case LabCorp forces us to use it for multiple tests on one pdf
+const _writeExternalLabResultColumns = (
   pdfClient: PdfClient,
   textStyles: LabsPDFTextStyleConfig,
   data: UnsolicitedExternalLabResultsData | ReflexExternalLabResultsData
