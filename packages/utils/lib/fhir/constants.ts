@@ -1,5 +1,14 @@
 // cSpell:ignore videoconference
-import { Account, CodeableConcept, HealthcareService, Identifier, Location, Practitioner, Schedule } from 'fhir/r4b';
+import {
+  Account,
+  CodeableConcept,
+  Coding,
+  HealthcareService,
+  Identifier,
+  Location,
+  Practitioner,
+  Schedule,
+} from 'fhir/r4b';
 import {
   AppointmentType,
   CONSENT_CODE,
@@ -61,6 +70,9 @@ export const FHIR_EXTENSION = {
           url: `${PUBLIC_EXTENSION_BASE_URL}/encounter-other-participant`,
         },
       },
+    },
+    attestedConsent: {
+      url: `${PUBLIC_EXTENSION_BASE_URL}/encounter-attested-consent`,
     },
   },
   Location: {
@@ -598,3 +610,8 @@ export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/paymen
 export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
 
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
+
+export const CONSENT_ATTESTATION_SIG_TYPE: Coding = Object.freeze({
+  system: 'http://uri.etsi.org/01903/v1.2.2',
+  code: 'ProofOfReceipt',
+});
