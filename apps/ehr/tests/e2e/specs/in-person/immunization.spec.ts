@@ -13,7 +13,7 @@ import {
 } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import { getFirstName, getLastName } from 'utils';
+import { getFirstName, getLastName, medicationApplianceLocations, medicationApplianceRoutes } from 'utils';
 import vaccines from '../../../../../../config/oystehr/vaccines.json' assert { type: 'json' };
 
 interface VaccineInfo {
@@ -32,8 +32,8 @@ interface AdministrationDetails {
   cvxCode: string;
   ndcCode: string;
   cptCode: string;
-  adminiosteredDate: string;
-  adminiosteredTime: string;
+  administeredDate: string;
+  administeredTime: string;
   visGivenDate: string;
   relationship: string;
   fullName: string;
@@ -44,8 +44,8 @@ const VACCINE_A: VaccineInfo = {
   vaccine: vaccines.fhirResources['VACCINE_TDAP'].resource.identifier[1].value,
   dose: '0.5',
   units: 'mg',
-  route: 'Body cavity route (qualifier value)',
-  location: 'Ear, Left',
+  route: medicationApplianceRoutes.BODY_CAVITY.display!,
+  location: medicationApplianceLocations[0].name!,
   instructions: 'test vaccine instructions',
 };
 
@@ -53,8 +53,8 @@ const VACCINE_B: VaccineInfo = {
   vaccine: vaccines.fhirResources['VACCINE_TD'].resource.identifier[1].value,
   dose: '1',
   units: 'mL',
-  route: 'Caudal route (qualifier value)',
-  location: 'Eye, Left',
+  route: medicationApplianceRoutes.CAUDAL.display!,
+  location: medicationApplianceLocations[1].name!,
   instructions: 'test vaccine instructions edited',
 };
 
@@ -288,8 +288,8 @@ test.describe('Immunization Page mutating tests', () => {
     await vaccineDetailsPage.enterCvxCode(administrationDetails.cvxCode);
     await vaccineDetailsPage.selectCptCode(administrationDetails.cptCode);
     await vaccineDetailsPage.enterNdcCode(administrationDetails.ndcCode);
-    await vaccineDetailsPage.enterAdministeredDate(administrationDetails.adminiosteredDate);
-    await vaccineDetailsPage.enterAdministeredTime(administrationDetails.adminiosteredTime);
+    await vaccineDetailsPage.enterAdministeredDate(administrationDetails.administeredDate);
+    await vaccineDetailsPage.enterAdministeredTime(administrationDetails.administeredTime);
     await vaccineDetailsPage.setVisCheckboxChecked(true);
     await vaccineDetailsPage.enterVisGivenDate(administrationDetails.visGivenDate);
     await vaccineDetailsPage.selectRelationship(administrationDetails.relationship);
