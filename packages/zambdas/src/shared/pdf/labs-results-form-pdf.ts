@@ -42,6 +42,7 @@ import {
   ObsContentType,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LABS_ADDITIONAL_FILLER_ID_SYSTEM,
   OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM,
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
   OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
@@ -194,6 +195,8 @@ const getResultDataConfigForDrResources = (
 
   const unsolicitedResultData: Omit<UnsolicitedExternalLabResultsData, keyof LabResultsData> = {
     accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
+    alternateFillerId: diagnosticReport.identifier?.find((id) => id.system === OYSTEHR_LABS_ADDITIONAL_FILLER_ID_SYSTEM)
+      ?.value,
     reviewed,
     reviewingProvider,
     reviewDate,
@@ -311,6 +314,9 @@ const getResultDataConfig = (
 
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
       orderNumber,
+      alternateFillerId: diagnosticReport.identifier?.find(
+        (id) => id.system === OYSTEHR_LABS_ADDITIONAL_FILLER_ID_SYSTEM
+      )?.value,
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
       orderSubmitDate,
@@ -1018,11 +1024,17 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
       `Drawing external labs header on page ${pdfClient.getCurrentPageIndex() + 1}. currYPos is ${pdfClient.getY()}`
     );
 
+    const getReqNumOrAltFillerId = (): string => {
+      if (data.alternateFillerId) return data.alternateFillerId;
+      else if (type !== LabType.unsolicited) return data.orderNumber;
+      else return 'N/A';
+    };
+
     drawRowHelper({
       col1: `Patient Name: ${data.patientLastName}, ${data.patientFirstName}${
         data.patientMiddleName ? `, ${data.patientMiddleName}` : ''
       }`,
-      col2: `Req #: ${type !== LabType.unsolicited ? data.orderNumber : 'N/A'}`, // ATHENA TODO: determine which req # to show here
+      col2: `Req #: ${getReqNumOrAltFillerId()}`,
     });
 
     drawRowHelper({

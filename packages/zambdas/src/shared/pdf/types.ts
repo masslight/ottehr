@@ -232,6 +232,7 @@ export interface ExternalLabResultAttachments {
 }
 export interface ExternalLabResultsData extends LabResultsData {
   orderNumber: string;
+  alternateFillerId: string | undefined;
   accessionNumber: string;
   orderSubmitDate: string;
   collectionDate: string;
