@@ -1,7 +1,6 @@
 import Oystehr, { OystehrConfig, User } from '@oystehr/sdk';
-import { mapEncounterStatusHistory } from 'utils';
+import { getTelemedEncounterStatusHistory, getTelemedVisitStatus } from 'utils';
 import { vi } from 'vitest';
-import { mapStatusToTelemed } from '../../../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { filterAppointmentsAndCreatePackages } from '../helpers/fhir-resources-filters';
 import { getPractitionerLicensesLocationsAbbreviations } from '../helpers/fhir-utils';
@@ -30,22 +29,22 @@ import {
 describe('Test "get-telemed-appointments" endpoint', () => {
   describe('Test "filterAppointmentsFromResources" function', () => {
     test('Map encounter statuses to telemed, success', async () => {
-      let status = mapStatusToTelemed('planned', undefined);
+      let status = getTelemedVisitStatus('planned', undefined);
       expect(status).toEqual('ready');
 
-      status = mapStatusToTelemed('arrived', undefined);
+      status = getTelemedVisitStatus('arrived', undefined);
       expect(status).toEqual('pre-video');
 
-      status = mapStatusToTelemed('in-progress', undefined);
+      status = getTelemedVisitStatus('in-progress', undefined);
       expect(status).toEqual('on-video');
 
-      status = mapStatusToTelemed('finished', undefined);
+      status = getTelemedVisitStatus('finished', undefined);
       expect(status).toEqual('unsigned');
 
-      status = mapStatusToTelemed('finished', 'fulfilled');
+      status = getTelemedVisitStatus('finished', 'fulfilled');
       expect(status).toEqual('complete');
 
-      status = mapStatusToTelemed('wrong', undefined);
+      status = getTelemedVisitStatus('wrong', undefined);
       expect(status).toBeUndefined();
     });
 
@@ -153,10 +152,10 @@ describe('Test "get-telemed-appointments" endpoint', () => {
 
   describe('Encounter tests', () => {
     test('Test encounter status history mapping, success', async () => {
-      let history = mapEncounterStatusHistory(fullEncounterStatusHistory, 'arrived');
+      let history = getTelemedEncounterStatusHistory(fullEncounterStatusHistory, 'arrived');
       expect(history).toEqual(unsignedEncounterMappedStatusHistory);
 
-      history = mapEncounterStatusHistory(fullEncounterStatusHistory, 'fulfilled');
+      history = getTelemedEncounterStatusHistory(fullEncounterStatusHistory, 'fulfilled');
       expect(history).toEqual(completeEncounterMappedStatusHistory);
     });
   });

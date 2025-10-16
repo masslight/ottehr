@@ -2,11 +2,12 @@ import { Appointment, Encounter, Patient, Practitioner, QuestionnaireResponse, R
 import {
   AppointmentLocation,
   appointmentTypeForAppointment,
+  getTelemedEncounterStatusHistory,
+  getTelemedVisitStatus,
   isTruthy,
-  mapEncounterStatusHistory,
   TelemedCallStatuses,
 } from 'utils';
-import { mapStatusToTelemed, removePrefix } from '../../../shared/appointment/helpers';
+import { removePrefix } from '../../../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { getLocationIdFromAppointment } from './helpers';
 import { mapQuestionnaireToEncountersIds, mapTelemedEncountersToAppointmentsIdsMap } from './mappers';
@@ -105,7 +106,7 @@ export const filterAppointmentsAndCreatePackages = ({
 
     const encounter = appointmentEncounterMap[appointment.id!];
     if (encounter) {
-      const telemedStatus = mapStatusToTelemed(encounter.status, appointment.status);
+      const telemedStatus = getTelemedVisitStatus(encounter.status, appointment.status);
       const paperwork = encounterQuestionnaireMap[encounter.id!];
 
       if (telemedStatus && statusesFilter.includes(telemedStatus)) {
@@ -125,7 +126,7 @@ export const filterAppointmentsAndCreatePackages = ({
           telemedStatus,
           practitioner,
           telemedStatusHistory: encounter.statusHistory
-            ? mapEncounterStatusHistory(encounter.statusHistory, appointment.status)
+            ? getTelemedEncounterStatusHistory(encounter.statusHistory, appointment.status)
             : [],
         });
       }
