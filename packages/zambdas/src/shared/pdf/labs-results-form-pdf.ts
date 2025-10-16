@@ -42,6 +42,7 @@ import {
   ObsContentType,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LABS_ADDITIONAL_LAB_CODE,
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
   OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
   OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL,
@@ -755,6 +756,14 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
   return pdfBytes;
 }
 
+/**
+ * Draws Patient Info, Location Info, Big Result Header
+ * @param pdfClient
+ * @param textStyles
+ * @param icons
+ * @param data
+ * @returns
+ */
 async function drawCommonLabsElements(
   pdfClient: PdfClient,
   textStyles: LabsPDFTextStyleConfig,
@@ -864,6 +873,13 @@ async function drawCommonLabsElements(
   return pdfClient;
 }
 
+/**
+ * Draws "General Comments and Information" and related info
+ * @param pdfClient
+ * @param textStyles
+ * @param data
+ * @returns
+ */
 async function drawCommonExternalLabElements(
   pdfClient: PdfClient,
   textStyles: LabsPDFTextStyleConfig,
@@ -1642,6 +1658,7 @@ const parseObservationForPDF = (
       resultValue: '',
       attachmentText: `${initialText} attachment is included at the end of this document`,
       observationStatus: observation.status,
+      additionalLabCode: getAdditionalLabCode(observation),
     };
     return {
       labResult: attachmentResult,
@@ -1677,12 +1694,12 @@ const parseObservationForPDF = (
 
   const codes = observation.code.coding
     ?.reduce((acc: string[], code) => {
-      if (code.system !== OYSTEHR_OBR_NOTE_CODING_SYSTEM) {
+      if (code.system && ![OYSTEHR_OBR_NOTE_CODING_SYSTEM, OYSTEHR_LABS_ADDITIONAL_LAB_CODE].includes(code.system)) {
         if (code.code) acc.push(code.code);
       }
       return acc;
     }, [])
-    .join(',');
+    .join(', ');
   const labResult: ExternalLabResult = {
     resultCode: codes || '',
     resultCodeDisplay: observation.code.coding?.[0].display || '',
@@ -1696,6 +1713,7 @@ const parseObservationForPDF = (
     performingLabPhone: getPerformingLabPhoneFromObs(observation),
     performingLabDirectorFullName: getPerformingLabDirectorNameFromObs(observation, oystehr),
     observationStatus: observation.status,
+    additionalLabCode: getAdditionalLabCode(observation),
   };
 
   return { labResult, interpretationDisplay };
@@ -1776,7 +1794,8 @@ const writeResultDetailLinesInPdf = (
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
   pdfClient.newLine(5);
 
-  pdfClient.drawText(`Result status: ${labResult.observationStatus}`, textStyles.text);
+  pdfClient.drawTextSequential(`Result status: `, textStyles.textBold);
+  pdfClient.drawTextSequential(labResult.observationStatus, textStyles.text);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   if (labResult.attachmentText) {
@@ -1796,25 +1815,31 @@ const writeResultDetailLinesInPdf = (
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
+  // Add the LabCorp additional lab code if present
+  if (labResult.additionalLabCode) {
+    pdfClient.drawText(`Lab: ${labResult.additionalLabCode}`, textStyles.text);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
   if (labResult.resultInterpretation && labResult.resultInterpretationDisplay) {
     const fontStyleTemp = {
       ...textStyles.text,
       color: getResultRowDisplayColor([labResult.resultInterpretationDisplay]),
     };
     pdfClient.drawText(
-      `Interpretation: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`,
+      `Flag: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`,
       fontStyleTemp
     );
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
   if (labResult.resultValue) {
-    pdfClient.drawText(`Value: ${labResult.resultValue}`, textStyles.text);
+    pdfClient.drawText(`Result: ${labResult.resultValue}`, textStyles.text);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
   if (labResult.referenceRangeText) {
-    pdfClient.drawText(`Reference range: ${labResult.referenceRangeText}`, textStyles.text);
+    pdfClient.drawText(`Reference interval: ${labResult.referenceRangeText}`, textStyles.text);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
@@ -2020,4 +2045,8 @@ function getProviderNameAndNpiFromDr(diagnosticReport: DiagnosticReport): {
   providerDetails.providerNPI = getPractitionerNPIIdentifier(containedProvider)?.value ?? '';
 
   return providerDetails;
+}
+
+function getAdditionalLabCode(observation: Observation): string | undefined {
+  return observation.code.coding?.find((coding) => coding.system === OYSTEHR_LABS_ADDITIONAL_LAB_CODE)?.code;
 }
