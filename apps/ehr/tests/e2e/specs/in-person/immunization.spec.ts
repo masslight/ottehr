@@ -180,7 +180,7 @@ test.describe('Immunization Page mutating tests', () => {
     });
   });
 
-  test('Partly Adminestering immunization order happy path', async ({ page }) => {
+  test('Partly Administering immunization order happy path', async ({ page }) => {
     await test.step('Verify vaccine order on vaccine details page, Partly Administer order and verify', async () => {
       const createOrderPage = await openCreateVaccineOrderPage(resourceHandler.appointment.id!, page);
       await enterVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
