@@ -5,6 +5,7 @@ import { Encounter, FhirResource, Provenance } from 'fhir/r4b';
 import {
   createExtensionValue,
   findExtensionIndex,
+  getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
   getSecret,
   PendingSupervisorApprovalInputValidated,
@@ -67,6 +68,15 @@ export const index = wrapHandler(
           value: encounterStatus,
         },
       ];
+
+      // Add statusHistory with Ottehr status extension
+      const statusHistoryUpdate = getEncounterStatusHistoryUpdateOp(
+        encounter,
+        encounterStatus,
+        'awaiting supervisor approval'
+      );
+
+      encounterPatchOps.push(statusHistoryUpdate);
 
       const awaitingSupervisorApprovalExtension = createExtensionValue(
         'awaiting-supervisor-approval',

@@ -27,7 +27,7 @@ import {
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   VISIT_NOTE_SUMMARY_CODE,
 } from '../types';
-import { ottehrExtensionUrl } from './helpers';
+import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './helpers';
 
 // nota bene: some legacy resources could be using 'http' instead of 'https' here, and there are still some string vals out there with http
 export const PRIVATE_EXTENSION_BASE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions';
@@ -73,6 +73,11 @@ export const FHIR_EXTENSION = {
     },
     attestedConsent: {
       url: `${PUBLIC_EXTENSION_BASE_URL}/encounter-attested-consent`,
+    },
+  },
+  EncounterStatusHistory: {
+    ottehrVisitStatus: {
+      url: `${PUBLIC_EXTENSION_BASE_URL}/visit-status`,
     },
   },
   Location: {
@@ -615,3 +620,8 @@ export const CONSENT_ATTESTATION_SIG_TYPE: Coding = Object.freeze({
   system: 'http://uri.etsi.org/01903/v1.2.2',
   code: 'ProofOfReceipt',
 });
+
+export const TASK_CATEGORY_IDENTIFIER = ottehrIdentifierSystem('task-category');
+export const TASK_TYPE_SYSTEM = ottehrCodeSystemUrl('task-type');
+export const TASK_INPUT_SYSTEM = ottehrCodeSystemUrl('task-input');
+export const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');

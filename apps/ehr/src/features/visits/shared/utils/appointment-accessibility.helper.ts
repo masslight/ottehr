@@ -3,8 +3,8 @@ import { EvolveUser } from 'src/hooks/useEvolveUser';
 import {
   allLicensesForPractitioner,
   checkEncounterHasPractitioner,
+  getTelemedVisitStatus,
   isAppointmentLocked,
-  mapStatusToTelemed,
   PractitionerLicense,
   StateType,
   TelemedAppointmentStatusEnum,
@@ -42,12 +42,15 @@ export const getAppointmentAccessibilityData = ({
   const allLicenses = user?.profileResource && allLicensesForPractitioner(user.profileResource);
   const licensedPractitionerStates = allLicenses?.map((item) => item.state);
   const state = locationVirtual?.address?.state as StateType;
+
   const isPractitionerLicensedInState =
     !!state && !!licensedPractitionerStates && licensedPractitionerStates.includes(state as StateType);
 
-  const status = mapStatusToTelemed(encounter.status, appointment?.status);
+  const status = getTelemedVisitStatus(encounter.status, appointment?.status);
+
   const isEncounterAssignedToCurrentPractitioner =
     !!user?.profileResource && checkEncounterHasPractitioner(encounter, user.profileResource);
+
   const isStatusEditable =
     !!status && ![TelemedAppointmentStatusEnum.complete, TelemedAppointmentStatusEnum.ready].includes(status);
 
