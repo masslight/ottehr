@@ -62,7 +62,7 @@ export const useGetTasks = ({
   location,
   status,
   page,
-}: TasksSearchParams): UseQueryResult<Task[], Error> => {
+}: TasksSearchParams): UseQueryResult<{ tasks: Task[]; total: number }, Error> => {
   const { oystehr } = useApiClients();
   return useQuery({
     queryKey: [GET_TASKS_KEY, assignedTo, category, location, status, page],
@@ -112,13 +112,15 @@ export const useGetTasks = ({
           value: status,
         });
       }
-      const tasks = (
-        await oystehr.fhir.search<FhirTask>({
-          resourceType: 'Task',
-          params,
-        })
-      ).unbundle();
-      return tasks.map(fhirTaskToTask);
+      const bundle = await oystehr.fhir.search<FhirTask>({
+        resourceType: 'Task',
+        params,
+      });
+      const tasks = bundle.unbundle().map(fhirTaskToTask);
+      return {
+        tasks,
+        total: bundle.total,
+      };
     },
     enabled: oystehr != null,
     retry: 2,
