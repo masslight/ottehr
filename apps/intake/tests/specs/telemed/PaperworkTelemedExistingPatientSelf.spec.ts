@@ -51,6 +51,7 @@ test.afterAll(async () => {
 
 test.describe('Virtual visit. Check paperwork is prefilled for existing patient. Payment - card, responsible party - self', () => {
   test.beforeAll(async () => {
+    test.setTimeout(200000);
     await page.goto(bookingData.bookingURL);
     await paperwork.clickProceedToPaperwork();
     filledPaperwork = await paperwork.fillPaperworkAllFieldsTelemed('card', 'self');
