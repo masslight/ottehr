@@ -101,15 +101,12 @@ test.describe('Immunization Page mutating tests', () => {
     await test.step('Create a vaccine order and verify', async () => {
       const createOrderPage = await openCreateVaccineOrderPage(resourceHandler.appointment.id!, page);
       await enterVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
-      const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
-      await createOrderPage.orderDetailsSection.verifyOrderedBy(
-        getFirstName(testUserPractitioner) + ' ' + getLastName(testUserPractitioner)
-      );
+      await createOrderPage.orderDetailsSection.verifyOrderedBy(await getCurrentPractitionerName());
       await createOrderPage.clickConfirmationButton();
       const immunizationPage = await openImmunizationPage(resourceHandler.appointment.id!, page);
       await immunizationPage.verifyVaccinePresent({
         ...VACCINE_A,
-        orderedPerson: getFirstName(testUserPractitioner) + ' ' + getLastName(testUserPractitioner),
+        orderedPerson: await getCurrentPractitionerName(),
         status: PENDING,
       });
       const editOrderPage = await immunizationPage.clickEditOrderButton(VACCINE_A.vaccine);
@@ -152,7 +149,6 @@ test.describe('Immunization Page mutating tests', () => {
     await test.step('Verify vaccine order on vaccine details page, Administer order and verify', async () => {
       const immunizationPage = await openImmunizationPage(resourceHandler.appointment.id!, page);
       const vaccineDetailsPage = await immunizationPage.clickVaccineDetailsTab();
-      const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
       await verifyVaccineInfo(VACCINE_A, vaccineDetailsPage.orderDetailsSection);
       await enterAdministrationDetails(ADMINISTRATION_DETAILS, vaccineDetailsPage);
       const administrationConfirmationDialog = await vaccineDetailsPage.clickAdministeredButton();
@@ -170,7 +166,7 @@ test.describe('Immunization Page mutating tests', () => {
       await immunizationPage.clickMarTab();
       await immunizationPage.verifyVaccinePresent({
         ...VACCINE_A,
-        givenPerson: getFirstName(testUserPractitioner) + ' ' + getLastName(testUserPractitioner),
+        givenPerson: await getCurrentPractitionerName(),
         status: ADMINISTERED,
       });
     });
@@ -184,7 +180,6 @@ test.describe('Immunization Page mutating tests', () => {
     await test.step('Verify vaccine order on vaccine details page, Partly Administer order and verify', async () => {
       const createOrderPage = await openCreateVaccineOrderPage(resourceHandler.appointment.id!, page);
       await enterVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
-      const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
       await createOrderPage.clickConfirmationButton();
 
       const immunizationPage = await openImmunizationPage(resourceHandler.appointment.id!, page);
@@ -207,7 +202,7 @@ test.describe('Immunization Page mutating tests', () => {
       await immunizationPage.clickMarTab();
       await immunizationPage.verifyVaccinePresent({
         ...VACCINE_A,
-        givenPerson: getFirstName(testUserPractitioner) + ' ' + getLastName(testUserPractitioner),
+        givenPerson: await getCurrentPractitionerName(),
         status: PARTLY_ADMINISTERED,
         reason: PATIENT_REFUSED,
       });
@@ -222,7 +217,7 @@ test.describe('Immunization Page mutating tests', () => {
     const createOrderPage = await openCreateVaccineOrderPage(resourceHandler.appointment.id!, page);
     await enterVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
     await createOrderPage.clickConfirmationButton();
-    const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
+
     const immunizationPage = await openImmunizationPage(resourceHandler.appointment.id!, page);
     const vaccineDetailsPage = await immunizationPage.clickVaccineDetailsTab();
     await verifyVaccineInfo(VACCINE_A, createOrderPage.orderDetailsSection);
@@ -243,7 +238,7 @@ test.describe('Immunization Page mutating tests', () => {
     await immunizationPage.clickMarTab();
     await immunizationPage.verifyVaccinePresent({
       ...VACCINE_A,
-      givenPerson: getFirstName(testUserPractitioner) + ' ' + getLastName(testUserPractitioner),
+      givenPerson: await getCurrentPractitionerName(),
       status: NOT_ADMINISTRED,
       reason: PATIENT_REFUSED,
     });
@@ -295,5 +290,10 @@ test.describe('Immunization Page mutating tests', () => {
     await vaccineDetailsPage.selectRelationship(administrationDetails.relationship);
     await vaccineDetailsPage.enterFullName(administrationDetails.fullName);
     await vaccineDetailsPage.enterMobile(administrationDetails.mobile);
+  }
+
+  async function getCurrentPractitionerName(): Promise<string> {
+    const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
+    return getFirstName(testUserPractitioner) + ' ' + getLastName(testUserPractitioner);
   }
 });
