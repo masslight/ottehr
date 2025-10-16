@@ -93,7 +93,7 @@ export const Tasks: React.FC = () => {
                 taskId: task.id,
                 assignee: {
                   id: currentUserProviderId,
-                  name: currentUser.name,
+                  name: currentUser.userName,
                 },
               });
             }

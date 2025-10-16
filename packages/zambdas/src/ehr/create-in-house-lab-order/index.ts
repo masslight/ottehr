@@ -352,7 +352,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       category: IN_HOUSE_LAB_TASK.category,
       type: IN_HOUSE_LAB_TASK.type.collectSample,
       encounterId: encounterId,
-      locationId: location.id,
+      locationId: location?.id,
       input: [
         {
           type: IN_HOUSE_LAB_TASK.input.testName,
