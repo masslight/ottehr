@@ -42,7 +42,7 @@ import {
   ObsContentType,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
-  OYSTEHR_LABS_ADDITIONAL_LAB_CODE,
+  OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM,
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
   OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
   OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL,
@@ -493,7 +493,7 @@ export async function createExternalLabResultPDF(
     resultsReceivedDate,
     resultInterpretationDisplays,
     obsAttachments,
-  } = await getResultsDetailsForPDF(oystehr, diagnosticReport, observations);
+  } = await getResultsDetailsForPDF(oystehr, diagnosticReport, observations, timezone);
 
   const sortedSpecimens = specimens?.sort((a, b) =>
     compareDates(a.collection?.collectedDateTime, b.collection?.collectedDateTime)
@@ -640,7 +640,8 @@ export async function createInHouseLabResultPDF(
 async function getResultsDetailsForPDF(
   oystehr: Oystehr,
   diagnosticReport: DiagnosticReport,
-  observations: Observation[]
+  observations: Observation[],
+  timezone?: string | undefined
 ): Promise<{
   reviewingProvider: Practitioner | undefined;
   reviewDate: DateTime | undefined;
@@ -693,7 +694,9 @@ async function getResultsDetailsForPDF(
     }
   }
 
-  const resultsReceivedDate = diagnosticReport.effectiveDateTime ?? '';
+  const resultsReceivedDate = diagnosticReport.effectiveDateTime
+    ? DateTime.fromISO(diagnosticReport.effectiveDateTime).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
+    : '';
 
   const resultInterpretationDisplays: string[] = [];
   const externalLabResults: ExternalLabResult[] = [];
@@ -922,7 +925,7 @@ async function drawCommonExternalLabElements(
       pdfClient = drawFieldLine(
         pdfClient,
         textStyles,
-        'Sample quantity:',
+        'Specimen Volume:',
         `${data.resultSpecimenInfo.quantityString}${
           data.resultSpecimenInfo.unit ? ` ${data.resultSpecimenInfo.unit}` : ''
         }`
@@ -931,7 +934,7 @@ async function drawCommonExternalLabElements(
     }
 
     if (data.resultSpecimenInfo.bodySite) {
-      pdfClient = drawFieldLine(pdfClient, textStyles, 'Sample Source:', data.resultSpecimenInfo.bodySite);
+      pdfClient = drawFieldLine(pdfClient, textStyles, 'Specimen Source:', data.resultSpecimenInfo.bodySite);
       pdfClient.newLine(STANDARD_NEW_LINE);
     }
   }
@@ -980,12 +983,11 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
   const { callIcon, faxIcon, textStyles, initialPageStyles } = await getPdfClientForLabsPDFs();
   let pdfClient = clientInfo.pdfClient;
 
-  const drawRowHelper = (data: { col1: string; col2: string; col3: string }): void => {
-    const wideColumn = 190;
+  const drawRowHelper = (data: { col1: string; col2: string }): void => {
+    const wideColumn = (pdfClient.getRightBound() - pdfClient.getLeftBound() - 20) / 2;
     const columnConstants: { [key: string]: { startXPos: number; width: number } } = {
       column1: { startXPos: pdfClient.getLeftBound(), width: wideColumn },
-      column2: { startXPos: pdfClient.getLeftBound() + wideColumn, width: wideColumn },
-      column3: { startXPos: pdfClient.getLeftBound() + 2 * wideColumn, width: 135 },
+      column2: { startXPos: pdfClient.getLeftBound() + wideColumn + 20, width: wideColumn },
     };
 
     pdfClient.drawVariableWidthColumns(
@@ -1000,12 +1002,6 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
           startXPos: columnConstants.column2.startXPos,
           width: columnConstants.column2.width,
           content: data.col2,
-          textStyle: textStyles.pageHeaderGrey,
-        },
-        {
-          startXPos: columnConstants.column3.startXPos,
-          width: columnConstants.column3.width,
-          content: data.col3,
           textStyle: textStyles.pageHeaderGrey,
         },
       ],
@@ -1026,32 +1022,37 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
       col1: `Patient Name: ${data.patientLastName}, ${data.patientFirstName}${
         data.patientMiddleName ? `, ${data.patientMiddleName}` : ''
       }`,
-      col2: `Req #: ${type !== LabType.unsolicited ? data.orderNumber : 'N/A'}`,
-      col3: '',
+      col2: `Req #: ${type !== LabType.unsolicited ? data.orderNumber : 'N/A'}`, // ATHENA TODO: determine which req # to show here
     });
 
     drawRowHelper({
       col1: `DOB: ${data.patientDOB}`,
       col2: `Accession #: ${data.accessionNumber}`,
-      col3: '',
     });
 
     drawRowHelper({
       col1: `Age: ${calculateAge(data.patientDOB)} Y`, // TODO LABS: what if this is an infant, is Y appropriate. I think the labs label has a better helper for this
-      col2: `Coll. on: ${type === LabType.external ? data.collectionDate : ''}`,
-      col3: '',
+      col2: `Client ID: ${data.accountNumber}`,
     });
 
     drawRowHelper({
       col1: `Sex: ${data.patientSex}`,
-      col2: `Ordering Phys.: ${data.providerName}`,
-      col3: `Result Status: ${data.resultStatus}`,
+      col2: `Collected Date & Time: ${type === LabType.external ? data.collectionDate : ''}`,
     });
 
     drawRowHelper({
       col1: `Patient ID: ${data.patientId}`,
-      col2: `NPI: ${data.providerNPI}`,
-      col3: `Reported on: ${data.resultsReceivedDate}`,
+      col2: `Result Status: ${data.resultStatus}`,
+    });
+
+    drawRowHelper({
+      col1: `Ordering Phys.: ${data.providerName}`,
+      col2: `Reported Date & Time: ${data.resultsReceivedDate}`,
+    });
+
+    drawRowHelper({
+      col1: `NPI: ${data.providerNPI}`,
+      col2: '',
     });
 
     pdfClient.drawSeparatedLine({ ...SEPARATED_LINE_STYLE, thickness: 2, color: LAB_PDF_STYLES.color.purple });
@@ -1088,27 +1089,6 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
   textStyles: LabsPDFTextStyleConfig,
   data: UnsolicitedExternalLabResultsData | ReflexExternalLabResultsData
 ): Promise<Uint8Array> {
-  // ATHENA TODO: we'll move this to the header most likely
-  // console.log(
-  //   `Drawing account number & accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  // );
-  // if (data.accountNumber) {
-  //   console.log('Writing valid account number as client id');
-  //   pdfClient = drawFieldLine(pdfClient, textStyles, 'Client ID:', data.accountNumber);
-  //   pdfClient.newLine(STANDARD_NEW_LINE);
-  // }
-  // pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession #:', data.accessionNumber);
-  // pdfClient.newLine(STANDARD_NEW_LINE);
-
-  // // will only have for reflex
-  // if ('orderNumber' in data) {
-  //   console.log(
-  //     `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  //   );
-  //   pdfClient = drawFieldLine(pdfClient, textStyles, 'Req #:', data.orderNumber);
-  //   pdfClient.newLine(STANDARD_NEW_LINE);
-  // }
-
   // we may map physician info in the future
   // console.log(
   //   `Drawing requesting physician. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
@@ -1175,16 +1155,6 @@ async function createExternalLabsResultsFormPdfBytes(
   textStyles: LabsPDFTextStyleConfig,
   data: ExternalLabResultsData
 ): Promise<Uint8Array> {
-  // ATHENA TODO: we'll move this to the header most likely
-  //   console.log(
-  //   `Drawing account number & accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  // );
-  // if (data.accountNumber) {
-  //   console.log('Writing valid account number as client id');
-  //   pdfClient = drawFieldLine(pdfClient, textStyles, 'Client ID:', data.accountNumber);
-  //   pdfClient.newLine(STANDARD_NEW_LINE);
-  // }
-
   console.log(
     `Drawing diagnoses. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
@@ -1681,7 +1651,10 @@ const parseObservationForPDF = (
 
   const codes = observation.code.coding
     ?.reduce((acc: string[], code) => {
-      if (code.system && ![OYSTEHR_OBR_NOTE_CODING_SYSTEM, OYSTEHR_LABS_ADDITIONAL_LAB_CODE].includes(code.system)) {
+      if (
+        code.system &&
+        ![OYSTEHR_OBR_NOTE_CODING_SYSTEM, OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM].includes(code.system)
+      ) {
         if (code.code) acc.push(code.code);
       }
       return acc;
@@ -2036,7 +2009,7 @@ function getProviderNameAndNpiFromDr(diagnosticReport: DiagnosticReport): {
 }
 
 function getAdditionalLabCode(observation: Observation): string | undefined {
-  return observation.code.coding?.find((coding) => coding.system === OYSTEHR_LABS_ADDITIONAL_LAB_CODE)?.code;
+  return observation.code.coding?.find((coding) => coding.system === OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM)?.code;
 }
 
 function drawTestNameHeader(
