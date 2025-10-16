@@ -2371,6 +2371,96 @@ describe('Harvest Module', () => {
         },
       });
     });
+    it('should update emergency contact relationship when updating existing emergency contact', () => {
+      const existingEmergencyContact: RelatedPerson = {
+        resourceType: 'RelatedPerson',
+        id: uuidV4(),
+        patient: { reference: `Patient/${patient.id}` },
+        name: [{ given: ['John'], family: 'Doe' }],
+        telecom: [{ system: 'phone', value: '+15555551234' }],
+        relationship: [
+          {
+            coding: [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+                code: 'EP',
+                display: 'Parent',
+              },
+            ],
+          },
+        ],
+      };
+
+      const questionnaireResponseItemWithEmergencyContact: QuestionnaireResponse['item'] = [
+        {
+          linkId: 'contact-information-page',
+          item: [
+            {
+              linkId: 'emergency-contact-first-name',
+              answer: [{ valueString: 'Jane' }],
+            },
+            {
+              linkId: 'emergency-contact-middle-name',
+              answer: [{ valueString: 'Marie' }],
+            },
+            {
+              linkId: 'emergency-contact-last-name',
+              answer: [{ valueString: 'Smith' }],
+            },
+            {
+              linkId: 'emergency-contact-number',
+              answer: [{ valueString: '5555559999' }],
+            },
+            {
+              linkId: 'emergency-contact-relationship',
+              answer: [{ valueString: 'Spouse' }],
+            },
+          ],
+        },
+      ];
+
+      const result = getAccountOperations({
+        patient,
+        questionnaireResponseItem: questionnaireResponseItemWithEmergencyContact,
+        organizationResources: organizations1,
+        existingCoverages: {
+          primary: undefined,
+          secondary: undefined,
+        },
+        existingEmergencyContact,
+      });
+
+      expect(result).toBeDefined();
+      assert(result);
+      const { put } = result;
+      expect(put).toBeDefined();
+      assert(put);
+
+      const emergencyContactPut = put.find((p) => p.url === `RelatedPerson/${existingEmergencyContact.id}`);
+      expect(emergencyContactPut).toBeDefined();
+      assert(emergencyContactPut);
+
+      const updatedEmergencyContact = emergencyContactPut.resource as RelatedPerson;
+      expect(updatedEmergencyContact).toBeDefined();
+      assert(updatedEmergencyContact);
+
+      // Verify name was updated
+      expect(updatedEmergencyContact.name?.[0]?.given).toEqual(['Jane', 'Marie']);
+      expect(updatedEmergencyContact.name?.[0]?.family).toBe('Smith');
+
+      // Verify telecom was updated
+      expect(updatedEmergencyContact.telecom?.[0]?.value).toBe('+15555559999');
+      expect(updatedEmergencyContact.telecom?.[0]?.system).toBe('phone');
+
+      // Verify relationship was updated
+      expect(updatedEmergencyContact.relationship).toBeDefined();
+      assert(updatedEmergencyContact.relationship);
+      expect(updatedEmergencyContact.relationship[0]?.coding?.[0]?.system).toBe(
+        'http://terminology.hl7.org/CodeSystem/v2-0131'
+      );
+      expect(updatedEmergencyContact.relationship[0]?.coding?.[0]?.code).toBe('EP');
+      expect(updatedEmergencyContact.relationship[0]?.coding?.[0]?.display).toBe('Spouse');
+    });
   });
   describe('translating query results into input for the account operations', () => {
     const stubSecondaryCoverage: Coverage = {
