@@ -17,6 +17,7 @@ import { CustomThemeProvider } from './CustomThemeProvider';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
+import { Tasks } from './features/tasks/pages/Tasks';
 import AddPatientFollowup from './features/visits/shared/components/patient/AddPatientFollowup';
 import PatientFollowup from './features/visits/shared/components/patient/PatientFollowup';
 import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAppFlags';
@@ -236,6 +237,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
+                  <Route path="/tasks-list" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
               )}
@@ -281,6 +283,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
+                  <Route path="/tasks-list" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
               )}

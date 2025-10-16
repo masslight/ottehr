@@ -3,10 +3,10 @@ import { FC } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { CancellationReasonOptionsTelemed } from 'utils';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { intakeFlowPageRoute } from '../../App';
 import { CustomDialog } from '../../components/CustomDialog';
 import PageForm from '../../components/PageForm';
-import { safelyCaptureException } from '../../helpers/sentry';
 import { useCancelAppointmentMutation } from '../features/appointments';
 import { useOystehrAPIClient } from '../utils';
 
