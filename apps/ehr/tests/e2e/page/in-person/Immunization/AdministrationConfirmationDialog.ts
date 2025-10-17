@@ -1,4 +1,5 @@
 import { expect, Page } from '@playwright/test';
+import { Patient } from 'fhir/r4b';
 import { dataTestIds } from 'src/constants/data-test-ids';
 
 export class AdministeredDialogue {
@@ -11,12 +12,16 @@ export class AdministeredDialogue {
     await expect(this.#page.getByTestId(dataTestIds.inPersonModal.confirmationDialogue)).toHaveText(title);
   }
 
-  async verifyPatientName(patientName: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.administrationConfirmationDialog.patient)).toHaveText(patientName);
+  async verifyPatientName(patient: Patient): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.administrationConfirmationDialog.patient)).toHaveText(
+      'Patient: ' + patient.name?.[0]?.family + ', ' + patient.name?.[0]?.given?.[0]
+    );
   }
 
-  async verifyVaccine(vaccine: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.administrationConfirmationDialog.vaccine)).toHaveText(vaccine);
+  async verifyVaccine(vaccineInfo: { vaccine: string; dose: string; units: string; route: string }): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.administrationConfirmationDialog.vaccine)).toHaveText(
+      'Vaccine: ' + vaccineInfo.vaccine + ' / ' + vaccineInfo.dose + vaccineInfo.units + ' / ' + vaccineInfo.route
+    );
   }
 
   async verifyMessage(message: string): Promise<void> {

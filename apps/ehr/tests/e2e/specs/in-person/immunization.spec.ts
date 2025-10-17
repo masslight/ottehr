@@ -148,12 +148,8 @@ test.describe('Immunization Page mutating tests', () => {
       const vaccineDetailsTab = await createOrderForAdministration(page);
       const administrationConfirmationDialog = await vaccineDetailsTab.clickAdministeredButton();
       await administrationConfirmationDialog.verifyTitle('Order Administered');
-      await administrationConfirmationDialog.verifyPatientName(
-        'Patient: ' + resourceHandler.patient?.name?.[0]?.family + ', ' + resourceHandler.patient?.name?.[0]?.given?.[0]
-      );
-      await administrationConfirmationDialog.verifyVaccine(
-        'Vaccine: ' + VACCINE_A.vaccine + ' / ' + VACCINE_A.dose + VACCINE_A.units + ' / ' + VACCINE_A.route
-      );
+      await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
+      await administrationConfirmationDialog.verifyVaccine(VACCINE_A);
       await administrationConfirmationDialog.verifyMessage(
         'Please confirm that you want to mark this immunization order as Administered.'
       );
@@ -177,12 +173,8 @@ test.describe('Immunization Page mutating tests', () => {
       const vaccineDetailsTab = await createOrderForAdministration(page);
       const administrationConfirmationDialog = await vaccineDetailsTab.clickPartlyAdministeredButton();
       await administrationConfirmationDialog.verifyTitle('Order Partly Administered');
-      await administrationConfirmationDialog.verifyPatientName(
-        'Patient: ' + resourceHandler.patient?.name?.[0]?.family + ', ' + resourceHandler.patient?.name?.[0]?.given?.[0]
-      );
-      await administrationConfirmationDialog.verifyVaccine(
-        'Vaccine: ' + VACCINE_A.vaccine + ' / ' + VACCINE_A.dose + VACCINE_A.units + ' / ' + VACCINE_A.route
-      );
+      await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
+      await administrationConfirmationDialog.verifyVaccine(VACCINE_A);
       await administrationConfirmationDialog.verifyMessage(
         'Please confirm that you want to mark this immunization order as Partly Administered and select the reason.'
       );
@@ -207,12 +199,8 @@ test.describe('Immunization Page mutating tests', () => {
     const vaccineDetailsTab = await createOrderForAdministration(page);
     const administrationConfirmationDialog = await vaccineDetailsTab.clickNotAdministeredButton();
     await administrationConfirmationDialog.verifyTitle('Order Not Administered');
-    await administrationConfirmationDialog.verifyPatientName(
-      'Patient: ' + resourceHandler.patient?.name?.[0]?.family + ', ' + resourceHandler.patient?.name?.[0]?.given?.[0]
-    );
-    await administrationConfirmationDialog.verifyVaccine(
-      'Vaccine: ' + VACCINE_A.vaccine + ' / ' + VACCINE_A.dose + VACCINE_A.units + ' / ' + VACCINE_A.route
-    );
+    await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
+    await administrationConfirmationDialog.verifyVaccine(VACCINE_A);
     await administrationConfirmationDialog.verifyMessage(
       'Please confirm that you want to mark this immunization order as Not Administered and select the reason.'
     );
