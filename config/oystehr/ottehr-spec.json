@@ -6455,7 +6455,8 @@
             "FHIR:Appointment",
             "FHIR:Encounter",
             "FHIR:Patient",
-            "FHIR:Flag"
+            "FHIR:Flag",
+            "FHIR:Task"
           ],
           "action": [
             "FHIR:Search",
@@ -6578,7 +6579,8 @@
             "FHIR:Encounter",
             "FHIR:Patient",
             "FHIR:Flag",
-            "FHIR:QuestionnaireResponse"
+            "FHIR:QuestionnaireResponse",
+            "FHIR:Task"
           ],
           "action": [
             "FHIR:Search",

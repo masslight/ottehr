@@ -26,26 +26,23 @@ export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task
   const collectSampleTask = tasks.find(
     (task) =>
       taskIsBasedOnServiceRequest(task, serviceRequest) &&
-      task.code?.coding?.some(
-        (coding: Coding) =>
-          coding.system === IN_HOUSE_LAB_TASK.system && coding.code === IN_HOUSE_LAB_TASK.code.collectSampleTask
-      )
+      task.code?.coding?.some((coding: Coding) => coding.code === IN_HOUSE_LAB_TASK.type.collectSample)
   );
   console.log('collectSampleTask', collectSampleTask?.id, collectSampleTask?.status);
 
   const interpretResultsTask = tasks.find(
     (task) =>
       taskIsBasedOnServiceRequest(task, serviceRequest) &&
-      task.code?.coding?.some(
-        (coding: Coding) =>
-          coding.system === IN_HOUSE_LAB_TASK.system && coding.code === IN_HOUSE_LAB_TASK.code.inputResultsTask // todo: is it valid?
-      )
+      task.code?.coding?.some((coding: Coding) => coding.code === IN_HOUSE_LAB_TASK.type.enterResults)
   );
   console.log('interpretResultsTask', interpretResultsTask?.id, interpretResultsTask?.status);
 
   // Status Derivation:
   // Ordered: SR.status = draft & Task(CST).status = ready
-  if (serviceRequest.status === 'draft' && collectSampleTask?.status === 'ready') {
+  if (
+    serviceRequest.status === 'draft' &&
+    (collectSampleTask?.status === 'requested' || collectSampleTask?.status === 'in-progress')
+  ) {
     return 'ORDERED';
   }
 
@@ -53,7 +50,7 @@ export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task
   if (
     serviceRequest.status === 'active' &&
     collectSampleTask?.status === 'completed' &&
-    interpretResultsTask?.status === 'ready'
+    (interpretResultsTask?.status === 'requested' || interpretResultsTask?.status === 'in-progress')
   ) {
     return 'COLLECTED';
   }

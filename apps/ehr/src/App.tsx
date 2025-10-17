@@ -184,7 +184,7 @@ function App(): ReactElement {
               )}
               {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
                 <>
-                  <Route path="/tasks" element={<TaskAdmin />} />
+                  <Route path="/tasks-observability" element={<TaskAdmin />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
                   <Route path="/reports/daily-payments" element={<DailyPayments />} />
@@ -237,7 +237,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
-                  <Route path="/tasks-list" element={<Tasks />} />
+                  <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
               )}
@@ -283,7 +283,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
-                  <Route path="/tasks-list" element={<Tasks />} />
+                  <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
               )}
