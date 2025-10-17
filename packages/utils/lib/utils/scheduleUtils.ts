@@ -268,13 +268,13 @@ export function getSlotCapacityMapForDayAndSchedule(
   if (closures) {
     for (const closure of closures) {
       if (closure.type === ClosureType.OneDay && closure.start === dayString) {
-        //console.log('closing day', dayString);
         return {};
       } else if (closure.type === ClosureType.Period) {
-        const startClosure = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT).startOf('day');
-        const endClosure = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT).endOf('day');
+        const startClosure = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT, { zone: now.zone }).startOf(
+          'day'
+        );
+        const endClosure = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT, { zone: now.zone }).endOf('day');
         if (now >= startClosure && now <= endClosure) {
-          //console.log('closing day', dayString);
           return {};
         }
       }
@@ -403,15 +403,6 @@ export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCa
     zone: timezone,
   });
 
-  /*
-  const nowForTimezone = DateTime.fromFormat(now.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone }).startOf(
-    'day'
-  );
-  const finishDateForTimezone = DateTime.fromFormat(finishDate.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
-    zone: timezone,
-  });
-  */
-  console.log('now for capacity map', nowForTimezone.toISO(), now.toISO());
   let currentDayTemp = nowForTimezone;
   let slots = {};
   while (currentDayTemp < finishDateForTimezone) {
@@ -459,6 +450,7 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
   }
   // literally all slots based on open, close, buffers and capacity
   // no appointments or busy slots have been factored in
+  console.log('finish date for available slots:', now.setZone(timezone).startOf('day').plus({ days: numDays }).toISO());
   const slotCapacityMap = getAllSlotsAsCapacityMap({
     now,
     finishDate: now.setZone(timezone).startOf('day').plus({ days: numDays }),

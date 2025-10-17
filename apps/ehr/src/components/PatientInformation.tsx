@@ -24,6 +24,8 @@ interface PatientInformationProps {
   element?: ReactElement;
   lastModifiedBy?: LastModProps;
   titleButton?: ReactNode;
+  headerCellContent?: ReactNode;
+  footerCellContent?: ReactNode;
 }
 
 const CopyFields = [
@@ -55,6 +57,8 @@ export default function PatientInformation({
   element,
   lastModifiedBy,
   titleButton,
+  headerCellContent,
+  footerCellContent,
 }: PatientInformationProps): ReactElement {
   const theme = useTheme();
 
@@ -75,6 +79,13 @@ export default function PatientInformation({
       {patientDetails && (
         <Table size="small" style={{ tableLayout: 'fixed', width: width }}>
           <TableBody>
+            {headerCellContent && (
+              <TableRow>
+                <TableCell colSpan={2} sx={{ padding: 0, borderBottom: 'none' }}>
+                  {headerCellContent}
+                </TableCell>
+              </TableRow>
+            )}
             {Object.keys(patientDetails).map((patientDetailsKey) => {
               const lastMod = lastModifiedBy && lastModifiedBy[patientDetailsKey];
               return (
@@ -139,6 +150,13 @@ export default function PatientInformation({
                 </Fragment>
               );
             })}
+            {footerCellContent && (
+              <TableRow>
+                <TableCell colSpan={2} sx={{ padding: 0, paddingTop: 2, borderBottom: 'none' }}>
+                  {footerCellContent}
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       )}

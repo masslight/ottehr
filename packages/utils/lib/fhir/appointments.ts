@@ -180,3 +180,11 @@ export const getConsentAndRelatedDocRefsForAppointment = async (
   }
   return { consents, docRefs };
 };
+
+export const getReasonForVisitFromAppointment = (appointment?: Appointment): string | undefined => {
+  if (!appointment?.description) {
+    return undefined;
+  }
+  const complaints = (appointment?.description ?? '').split(',');
+  return complaints.map((complaint) => complaint.trim()).join(', ');
+};
