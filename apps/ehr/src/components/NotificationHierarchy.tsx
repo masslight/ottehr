@@ -90,11 +90,11 @@ export const NotificationHierarchy = (): JSX.Element => {
     } catch (error) {
       console.error('Failed to fetch provider data:', error);
     }
-  }, [fetchData]); // Add fetchData to dependencies
+  }, [fetchData]);
 
   useEffect(() => {
     void fetchProviderData();
-  }, [fetchProviderData]); // Add fetchProviderData to dependencies
+  }, [fetchProviderData]);
 
   const handleProviderSelect = async (providerId: string): Promise<void> => {
     const selectedProvider = providerOptions.find((p) => p.id === providerId);
@@ -172,6 +172,20 @@ export const NotificationHierarchy = (): JSX.Element => {
           : prov
       )
     );
+  };
+
+  const handleSave = (): void => {
+    console.log('Saving selected data:', providers);
+
+    console.log('Providers data to be saved:', JSON.stringify(providers, null, 2));
+  };
+
+  const handleCancel = (): void => {
+    console.log('Canceling changes');
+    setProviders([]);
+    setShowProviderDropdown(false);
+    setShowStaffDropdown({});
+    setShowPatientDropdown({});
   };
 
   return (
@@ -348,6 +362,18 @@ export const NotificationHierarchy = (): JSX.Element => {
             </CardContent>
           </Card>
         ))}
+
+        {/* Save and Cancel Buttons */}
+        {providers.length > 0 && (
+          <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
+            <Button variant="contained" onClick={handleSave}>
+              Save
+            </Button>
+            <Button variant="outlined" onClick={handleCancel}>
+              Cancel
+            </Button>
+          </Stack>
+        )}
       </Stack>
     </>
   );

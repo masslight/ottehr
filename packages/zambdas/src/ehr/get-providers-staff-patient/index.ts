@@ -1,4 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { getSecret, SecretsKeys } from 'utils';
 import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
 
 let oystehrToken: string;
@@ -29,45 +30,46 @@ export const index = wrapHandler(
         oystehrToken = await getAuth0Token(secrets);
       }
       const oystehr = createOystehrClient(oystehrToken, secrets);
+      const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
 
-      if (resourceType === 'Practitioner') {
-        const searchResult = await oystehr.fhir.search({
-          resourceType: 'Practitioner',
-          params: [{ name: '_total', value: 'accurate' }],
-        });
-
-        const observations = searchResult.unbundle() as any[];
+      if (resourceType === 'Provider') {
+        const roles = (await oystehr.role.list()).filter((x: any) => ['Provider'].includes(x.name));
+        let providerList: any[] = [];
+        for (const role of roles) {
+          const users = await fetchUsers(oystehrToken, PROJECT_ID, role.id);
+          providerList = [...providerList, ...users.data];
+        }
+        providerList = getUniqueById(providerList);
 
         return lambdaResponse(200, {
-          message: `Successfully retrieved vitals`,
-          observations: observations,
-          total: Number(searchResult.total),
+          message: `Successfully retrieved providers`,
+          providerList: providerList,
         });
       } else if (resourceType === 'Staff') {
-        const searchResult = await oystehr.fhir.search({
-          resourceType: 'Staff',
-          params: [{ name: '_total', value: 'accurate' }],
-        });
-
-        const observations = searchResult.unbundle() as any[];
+        const roles = (await oystehr.role.list()).filter((x: any) => ['Staff'].includes(x.name));
+        let staffList: any[] = [];
+        for (const role of roles) {
+          const users = await fetchUsers(oystehrToken, PROJECT_ID, role.id);
+          staffList = [...staffList, ...users.data];
+        }
+        staffList = getUniqueById(staffList);
 
         return lambdaResponse(200, {
-          message: `Successfully retrieved vitals`,
-          observations: observations,
-          total: Number(searchResult.total),
+          message: `Successfully retrieved staff`,
+          staffList: staffList,
         });
       } else if (resourceType === 'Patient') {
-        const searchResult = await oystehr.fhir.search({
-          resourceType: 'Patient',
-          params: [{ name: '_total', value: 'accurate' }],
-        });
-
-        const observations = searchResult.unbundle() as any[];
+        const roles = (await oystehr.role.list()).filter((x: any) => ['Patient'].includes(x.name));
+        let patientList: any[] = [];
+        for (const role of roles) {
+          const users = await fetchUsers(oystehrToken, PROJECT_ID, role.id);
+          patientList = [...patientList, ...users.data];
+        }
+        patientList = getUniqueById(patientList);
 
         return lambdaResponse(200, {
-          message: `Successfully retrieved vitals`,
-          observations: observations,
-          total: Number(searchResult.total),
+          message: `Successfully retrieved patients`,
+          patientList: patientList,
         });
       } else {
         throw new Error('Invalid resourceType. Must be one of Practitioner, RelatedPerson, or Patient.');
@@ -78,3 +80,31 @@ export const index = wrapHandler(
     }
   }
 );
+
+async function fetchUsers(token: string, projectId: string, roleId: string): Promise<any> {
+  const mioRes = await fetch(`https://project-api.zapehr.com/v1/user/v2/list?roleId=${roleId}&limit=1000`, {
+    method: 'GET',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'x-oystehr-project-id': projectId,
+    },
+  });
+
+  if (!mioRes.ok) {
+    throw new Error(`Failed to fetch users by role: ${mioRes.statusText}`);
+  }
+
+  const data: any = await mioRes.json();
+  return data;
+}
+
+function getUniqueById(array: any): any {
+  const seen = new Set();
+  return array.filter((item: any) => {
+    if (seen.has(item.profile)) {
+      return false;
+    }
+    seen.add(item.profile);
+    return true;
+  });
+}
