@@ -5,6 +5,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { WarningBlock } from 'src/features/visits/in-person/components/WarningBlock';
 import { getImmunizationMARUrl, getImmunizationOrderEditUrl } from 'src/features/visits/in-person/routing/helpers';
@@ -78,7 +79,12 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
             sectionName={orderId ? 'Edit Vaccine Order' : 'Order Vaccine'}
             baseCrumb={{ label: 'Immunization', path: getImmunizationMARUrl(appointmentId ?? '') }}
           />
-          <PageHeader title={orderId ? 'Edit Vaccine Order' : 'Order Vaccine'} variant="h3" component="h1" />
+          <PageHeader
+            title={orderId ? 'Edit Vaccine Order' : 'Order Vaccine'}
+            variant="h3"
+            component="h1"
+            dataTestId={dataTestIds.orderVaccinePage.title}
+          />
           <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
             <Grid container spacing={2}>
               <Grid xs={12} item>
@@ -111,6 +117,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
                       borderRadius: '20px',
                       textTransform: 'none',
                     }}
+                    data-testid={dataTestIds.orderVaccinePage.orderVaccineButton}
                   >
                     {orderId ? 'Save changes' : 'Order Vaccine'}
                   </LoadingButton>

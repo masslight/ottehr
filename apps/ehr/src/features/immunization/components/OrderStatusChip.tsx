@@ -4,6 +4,7 @@ import React from 'react';
 
 interface Props {
   status: string;
+  dataTestId?: string;
 }
 
 interface Colors {
@@ -42,7 +43,7 @@ const STATUS_TO_LABEL: Record<string, string> = {
   cancelled: 'CANCELLED',
 };
 
-export const OrderStatusChip: React.FC<Props> = ({ status }) => {
+export const OrderStatusChip: React.FC<Props> = ({ status, dataTestId }) => {
   const colors = STATUS_TO_BG_COLOR[status];
   return (
     <Box
@@ -56,7 +57,7 @@ export const OrderStatusChip: React.FC<Props> = ({ status }) => {
       display="flex"
       alignItems="center"
     >
-      <Typography variant="body2" display="inline" style={{ color: colors.text }}>
+      <Typography variant="body2" display="inline" style={{ color: colors.text }} data-testid={dataTestId}>
         <span style={{ fontWeight: '500' }}>{STATUS_TO_LABEL[status]}</span>
       </Typography>
     </Box>
