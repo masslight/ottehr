@@ -1,4 +1,3 @@
-import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PhoneIcon from '@mui/icons-material/Phone';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
@@ -10,6 +9,7 @@ import { PatientDevicesTab } from 'src/components/PatientDevicesTab';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
 import { ThresholdsTable } from 'src/components/ThresholdGrid';
+import { loadRingCentralWidget, postToEmbeddable, waitForRingCentralReady } from 'src/hooks/useRingCentral';
 import { getFirstName, getLastName, ServiceMode } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { Contacts, FullNameDisplay, IdentifiersRow, PatientAvatar, Summary } from '../components/patient';
@@ -22,13 +22,6 @@ import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { useGetPatient } from '../hooks/useGetPatient';
 import PageContainer from '../layout/PageContainer';
 import { PatientSummaryModal } from './PatientSummaryModal';
-// import { RingCentral } from '@ringcentral/sdk';
-
-// const rcSdk = new RingCentral({
-//   server: 'https://platform.ringcentral.com',
-//   clientId: 'YOUR_CLIENT_ID',
-//   clientSecret: 'YOUR_CLIENT_SECRET',
-// });
 
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
@@ -79,27 +72,42 @@ export default function PatientPage(): JSX.Element {
     setIsSummaryModalOpen(false);
   };
 
-  const handleRingCentralCall = async (telecom: any): Promise<void> => {
-    const phone = telecom?.find((t: any) => t.system === 'phone')?.value;
-    if (phone) {
-      // Use RingCentral SDK to initiate a call (requires authentication)
-      // Example: rcSdk.platform().post('/account/~/extension/~/ring-out', { ... })
-      // For demo, fallback to tel: link
-      window.open(`tel:${phone}`, '_blank');
-    } else {
-      console.warn('No phone number found for this patient.');
-    }
-  };
+  const patientPhoneNumber = useMemo(() => {
+    if (!patient?.telecom) return null;
 
-  const handleRingCentralMessage = async (telecom: any): Promise<void> => {
-    const phone = telecom?.find((t: any) => t.system === 'phone')?.value;
-    if (phone) {
-      // Use RingCentral SDK to send SMS (requires authentication)
-      // Example: rcSdk.platform().post('/account/~/extension/~/sms', { ... })
-      // For demo, fallback to sms: link
-      window.open(`sms:${phone}`, '_blank');
-    } else {
-      console.warn('No phone number found for this patient.');
+    const mobilePhone = patient.telecom.find((t) => t.system === 'phone');
+    console.log('mobilePhone', mobilePhone);
+
+    return mobilePhone?.value;
+  }, [patient]);
+
+  const handleRingCentralCall = async (): Promise<void> => {
+    if (!patientPhoneNumber) return;
+
+    try {
+      await loadRingCentralWidget();
+
+      await waitForRingCentralReady();
+
+      postToEmbeddable({ type: 'rc-adapter-show' });
+      postToEmbeddable({ type: 'rc-adapter-navigate-to', path: '/dialer' });
+      postToEmbeddable({
+        type: 'rc-adapter-new-call',
+        phoneNumber: patientPhoneNumber,
+      });
+
+      const minimizedHeader = document.querySelector('#rc-widget.Adapter_minimized .Adapter_header') as HTMLElement;
+      const toggleButton = document.querySelector('#rc-widget [data-sign="adapterToggle"]') as HTMLElement;
+
+      if (minimizedHeader) {
+        minimizedHeader.click();
+      } else if (toggleButton) {
+        toggleButton.click();
+      } else {
+        console.warn('RingCentral widget not found');
+      }
+    } catch (err) {
+      console.error('Error initializing RingCentral message widget:', err);
     }
   };
 
@@ -175,28 +183,21 @@ export default function PatientPage(): JSX.Element {
                       sx={{
                         padding: '10px',
                         minWidth: '36px',
-                        border: '1px solid #43A047  ',
+                        border: '1px solid #43A047',
                         '&:hover': { bgcolor: '#C8E6C9' },
+                        '&:disabled': {
+                          border: '1px solid #BDBDBD',
+                          backgroundColor: '#F5F5F5',
+                        },
                       }}
                       aria-label="ringcentral call"
-                      onClick={() => handleRingCentralCall(patient?.telecom)}
+                      onClick={() => handleRingCentralCall()}
                     >
-                      <PhoneIcon sx={{ color: '#43A047' }} />
-                    </IconButton>
-
-                    {/* RingCentral Message */}
-                    <IconButton
-                      size="small"
-                      sx={{
-                        padding: '10px',
-                        minWidth: '36px',
-                        border: '1px solid #FB8C00',
-                        '&:hover': { bgcolor: '#FFECB3' },
-                      }}
-                      aria-label="ringcentral message"
-                      onClick={() => handleRingCentralMessage(patient?.telecom)}
-                    >
-                      <MailOutlineIcon sx={{ color: '#FB8C00' }} />
+                      <PhoneIcon
+                        sx={{
+                          color: '#43A047',
+                        }}
+                      />
                     </IconButton>
                   </Box>
                 </Box>
