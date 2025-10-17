@@ -281,7 +281,7 @@ function EmployeesTable({
               />
             </Box>
             {/* todo reduce code duplicate */}
-            {currentUser?.hasRole([RoleType.Administrator]) ? (
+            {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ? (
               <Link to={`/employees/add`}>
                 <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
                   Add user

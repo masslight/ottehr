@@ -47,7 +47,7 @@ export function RoleSelection({ errors, isActive, getValues, setValue }: RoleSel
                   setValue('roles', newRoles);
                 }}
                 control={<Checkbox />}
-                disabled={!isActive || !currentUser?.hasRole([RoleType.Administrator])}
+                disabled={!isActive || !currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport])}
                 label={roleEntry.label}
                 sx={{ '.MuiFormControlLabel-asterisk': { display: 'none' } }}
               />
