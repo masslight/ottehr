@@ -34,30 +34,32 @@ export const PreferredPharmacy: React.FC<PreferredPharmacyProps> = ({ data: phar
       >
         Preferred pharmacy
       </Typography>
-      {pharmacies.map((pharmacy, index) => (
-        <Box
-          key={index}
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            gap: 1,
-          }}
-        >
-          <Typography variant="body2">
-            {pharmacy.name} / {pharmacy.address} / {pharmacy.phone}
-          </Typography>
+      {pharmacies.map((pharmacy, index) => {
+        const details = [pharmacy.name, pharmacy.address, pharmacy.phone].filter(Boolean).join(' / ');
+        return (
+          <Box
+            key={index}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              gap: 1,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Typography variant="body2">{details}</Typography>
 
-          {pharmacy.primary && (
-            <Box sx={{ display: 'flex', alignItems: 'center', color: otherColors.orange800, gap: 1 }}>
-              <StarIcon />
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                Primary for this visit
-              </Typography>
-            </Box>
-          )}
-        </Box>
-      ))}
+            {pharmacy.primary && (
+              <Box sx={{ display: 'flex', alignItems: 'center', color: otherColors.orange800, gap: 1 }}>
+                <StarIcon />
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  Primary for this visit
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        );
+      })}
     </Box>
   );
 };
