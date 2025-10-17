@@ -16,7 +16,10 @@ export class EditVaccineOrderPage {
   }
 
   async clickConfirmationButton(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.orderVaccinePage.orderVaccineButton).click();
+    const buttonLocator = this.#page.getByTestId(dataTestIds.orderVaccinePage.orderVaccineButton);
+    await buttonLocator.click();
+    await expect(buttonLocator).toBeDisabled();
+    await expect(buttonLocator).toBeEnabled();
   }
 }
 
