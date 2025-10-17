@@ -182,8 +182,8 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     const providerType = getProviderType(practitioner);
     const isPhysician = isPhysicianProviderType(providerType);
 
-    return !isPhysician;
-  }, [practitioner]);
+    return !isPhysician && isInPerson;
+  }, [practitioner, isInPerson]);
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>
