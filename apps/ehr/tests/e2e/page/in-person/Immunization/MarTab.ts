@@ -23,55 +23,54 @@ export class MarTab {
     status: string;
     reason?: string;
   }): Promise<void> {
-    await expect(
-      this.#page
-        .getByTestId(dataTestIds.immunizationPage.marTableRow)
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.immunizationPage.marTableVaccineCell)
-            .filter({ hasText: input.vaccine }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.immunizationPage.marTableDoseRouteCell)
-            .filter({ hasText: input.dose + ' ' + input.units + ' / ' + input.route }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.immunizationPage.marTableInstructionsCell)
-            .filter({ hasText: input.instructions }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.immunizationPage.marTableOrderedDateCell)
-            .filter({ hasText: input.orderedDate }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.immunizationPage.marTableOrderedPersonCell)
-            .filter({ hasText: input.orderedPerson }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.immunizationPage.marTableGivenDateCell)
-            .filter({ hasText: input.givenDate }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.immunizationPage.marTableGivenPersonCell)
-            .filter({ hasText: input.givenPerson }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.immunizationPage.marTableStatusCell)
-            .filter({ hasText: input.status }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.immunizationPage.marTableReasonCell)
-            .filter({ hasText: input.reason }),
-        })
-    ).toBeVisible();
+    const testIdToTextArray: { testId: string; text: string | undefined }[] = [
+      {
+        testId: dataTestIds.immunizationPage.marTableVaccineCell,
+        text: input.vaccine,
+      },
+      {
+        testId: dataTestIds.immunizationPage.marTableDoseRouteCell,
+        text: input.dose + ' ' + input.units + ' / ' + input.route,
+      },
+      {
+        testId: dataTestIds.immunizationPage.marTableInstructionsCell,
+        text: input.instructions,
+      },
+      {
+        testId: dataTestIds.immunizationPage.marTableOrderedDateCell,
+        text: input.orderedDate,
+      },
+      {
+        testId: dataTestIds.immunizationPage.marTableOrderedPersonCell,
+        text: input.orderedPerson,
+      },
+      {
+        testId: dataTestIds.immunizationPage.marTableGivenDateCell,
+        text: input.givenDate,
+      },
+      {
+        testId: dataTestIds.immunizationPage.marTableGivenPersonCell,
+        text: input.givenPerson,
+      },
+      {
+        testId: dataTestIds.immunizationPage.marTableStatusCell,
+        text: input.status,
+      },
+      {
+        testId: dataTestIds.immunizationPage.marTableReasonCell,
+        text: input.reason,
+      },
+    ];
+    let matchedLocator = this.#page.getByTestId(dataTestIds.immunizationPage.marTableRow);
+    for (const testIdToText of testIdToTextArray) {
+      if (testIdToText.text == null) {
+        continue;
+      }
+      matchedLocator = matchedLocator.filter({
+        has: this.#page.getByTestId(testIdToText.testId).filter({ hasText: testIdToText.text }),
+      });
+      await expect(matchedLocator.first()).toBeVisible();
+    }
   }
 
   async clickEditOrderButton(vaccineName: string): Promise<EditVaccineOrderPage> {
