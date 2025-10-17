@@ -115,6 +115,11 @@ export async function getTextStylesForLabsPDF(pdfClient: PdfClient): Promise<Lab
       font: fontRegular,
       side: 'right',
     },
+    textNote: {
+      fontSize: STANDARD_FONT_SIZE - 1,
+      spacing: 6,
+      font: fontRegular,
+    },
     fieldText: {
       fontSize: STANDARD_FONT_SIZE,
       spacing: 6,

@@ -254,3 +254,10 @@ export const OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM =
 
 export const OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL =
   'https://extensions.fhir.oystehr.com/lab-result-ordering-provider-reference';
+
+// This is primarily for LabCorp
+export const OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-additional-lab-code';
+
+export const OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM =
+  'https://identifiers.fhir.oystehr.com/lab-result-additional-placer-id';

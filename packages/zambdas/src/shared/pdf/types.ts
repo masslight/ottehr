@@ -179,6 +179,7 @@ export interface ExternalLabResult {
   performingLabPhone?: string;
   performingLabDirectorFullName?: string;
   observationStatus: string;
+  additionalLabCode: string | undefined;
 }
 
 export interface InHouseLabResult {
@@ -231,6 +232,7 @@ export interface ExternalLabResultAttachments {
 }
 export interface ExternalLabResultsData extends LabResultsData {
   orderNumber: string;
+  alternatePlacerId: string | undefined;
   accessionNumber: string;
   orderSubmitDate: string;
   collectionDate: string;

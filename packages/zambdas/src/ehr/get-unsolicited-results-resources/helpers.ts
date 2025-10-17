@@ -194,7 +194,7 @@ const formatResourcesForTaskTableResponse = (resources: ResourcesByDr): Unsolici
           actionText,
           actionUrl,
           taskRowDescription,
-          resultsReceivedDateTime: task.authoredOn || 'unknown',
+          resultsReceivedDateTime: diagnosticReport.effectiveDateTime || 'unknown',
         };
         taskDetails.push(row);
       }
