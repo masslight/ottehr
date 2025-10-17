@@ -28,6 +28,6 @@ export async function expectImmunizationPage(page: Page): Promise<ImmunizationPa
 }
 
 export async function openImmunizationPage(appointmentId: string, page: Page): Promise<ImmunizationPage> {
-  await page.goto(`/in-person/${appointmentId}/immunization`);
+  await page.goto(`/in-person/${appointmentId}/immunization/mar`);
   return expectImmunizationPage(page);
 }
