@@ -4,7 +4,7 @@ import {
   ApptTelemedTab,
   BRANDING_CONFIG,
   GetTelemedAppointmentsInput,
-  mapStatusToTelemed,
+  getTelemedVisitStatus,
   PATIENT_PHOTO_CODE,
   PROJECT_NAME,
   RefreshableAppointmentData,
@@ -206,7 +206,7 @@ export const extractReviewAndSignAppointmentData = (data: AppointmentResources[]
     return;
   }
 
-  const telemedAppointmentStatus = mapStatusToTelemed(encounterStatus, appointmentStatus);
+  const telemedAppointmentStatus = getTelemedVisitStatus(encounterStatus, appointmentStatus);
 
   return telemedAppointmentStatus === TelemedAppointmentStatusEnum.complete
     ? { signedOnDate: finishedAtTime }

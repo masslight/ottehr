@@ -4,6 +4,7 @@ import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPractitionerMissingFields } from 'src/shared/utils';
 import { VitalFieldNames } from 'utils';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
 import { useChartFields } from '../hooks/useChartFields';
 import {
@@ -92,6 +93,7 @@ export const ERX: FC<{
     enabled: Boolean(practitionerEnrollmentStatus?.confirmed && hasVitals && encounter?.id),
     onError: (error) => {
       console.log(error);
+      safelyCaptureException(error);
       let errorMsg = 'Something went wrong while trying to sync patient to eRx';
 
       if (error.code === '4006') {
@@ -116,7 +118,8 @@ export const ERX: FC<{
     isError: isEnrollPractitionerError,
     isSuccess: isEnrollPractitionerSuccess,
   } = useEnrollPractitionerToERX({
-    onError: () => {
+    onError: (error) => {
+      safelyCaptureException(error);
       enqueueSnackbar('Enrolling practitioner to eRx failed', { variant: 'error' });
       onStatusChanged(ERXStatus.ERROR);
     },
@@ -129,6 +132,7 @@ export const ERX: FC<{
         await refetchPractitionerEnrollment();
       } catch (error) {
         console.error('Error enrolling practitioner:', error);
+        safelyCaptureException(error);
       }
     },
     [enrollPractitioner, refetchPractitionerEnrollment]
@@ -157,6 +161,7 @@ export const ERX: FC<{
           setAlertMessage('When you complete the RxLink Agreement, please reload the page.');
         }
       } catch (error) {
+        safelyCaptureException(error);
         enqueueSnackbar('Something went wrong while trying to connect practitioner to eRx', { variant: 'error' });
         console.error('Error trying to connect practitioner to eRx: ', error);
         onStatusChanged(ERXStatus.ERROR);

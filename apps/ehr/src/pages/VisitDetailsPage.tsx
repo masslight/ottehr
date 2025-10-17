@@ -46,10 +46,11 @@ import {
   getLastName,
   getMiddleName,
   getPatchOperationForNewMetaTag,
+  getTelemedVisitStatus,
+  getUnconfirmedDOBForAppointment,
   isApiError,
   isEncounterSelfPay,
   isInPersonAppointment,
-  mapStatusToTelemed,
   TelemedAppointmentStatus,
   UpdateVisitDetailsInput,
   VisitDocuments,
@@ -382,7 +383,7 @@ export default function VisitDetailsPage(): ReactElement {
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
-  const unconfirmedDOB = DateTime.fromFormat('11/11/2011', 'MM/dd/yyyy').toISO(); //appointment && getUnconfirmedDOBForAppointment(appointment);
+  const unconfirmedDOB = appointment && getUnconfirmedDOBForAppointment(appointment);
   const getAppointmentType = (appointmentType: FhirAppointmentType | undefined): string => {
     if (!appointmentType) {
       return '';
@@ -446,7 +447,7 @@ export default function VisitDetailsPage(): ReactElement {
     if (appointment && encounter) {
       const encounterStatus = isInPerson
         ? getInPersonVisitStatus(appointment, encounter)
-        : mapStatusToTelemed(encounter.status, appointment.status);
+        : getTelemedVisitStatus(encounter.status, appointment.status);
 
       setStatus(encounterStatus);
     } else {
@@ -988,8 +989,8 @@ export default function VisitDetailsPage(): ReactElement {
                         encounterId={encounter?.id ?? ''}
                         patientSelectSelfPay={selfPay}
                         responsibleParty={{
-                          fullName: '',
-                          email: '',
+                          fullName: visitDetailsData?.responsiblePartyName || '',
+                          email: visitDetailsData?.responsiblePartyEmail || '',
                         }}
                       />
                     </Grid>
