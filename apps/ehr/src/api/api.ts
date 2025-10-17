@@ -161,6 +161,7 @@ const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
+const INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID = 'invoiceable-patients-report';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1264,6 +1265,18 @@ export const updatePatientVisitDetails = async (
       id: 'ehr-update-visit-details',
       ...parameters,
     });
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const invoiceablePatientsReport = async (oystehr: Oystehr): Promise<void> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID,
+    });
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;
