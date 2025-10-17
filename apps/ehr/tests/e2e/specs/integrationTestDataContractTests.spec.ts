@@ -44,20 +44,75 @@ test('Ensure Resources created by generate test data -> harvest -> prefill is th
   const e2eResources = await getAllResourcesFromFHIR(e2eHandler.appointment.id!);
   const integrationResources = await getAllResourcesFromFHIR(integrationHandler.appointment.id!);
 
+  console.group('appointment tests');
   appointmentTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('appointment tests success');
+
+  console.group('patient tests');
   patientTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('patient tests success');
+
+  console.group('relatedPerson tests');
   relatedPersonTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('relatedPerson tests success');
+
+  console.group('person tests');
   personTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('person tests success');
+
+  console.group('observation tests');
   observationTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('observation tests success');
+
+  console.group('encounter tests');
   encounterTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('encounter tests success');
+
+  console.group('slot tests');
   slotTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('slot tests success');
+
+  console.group('list tests');
   listTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('list tests success');
+
+  console.group('serviceRequest tests');
   serviceRequestTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('serviceRequest tests success');
+
+  console.group('clinicalImpression tests');
   clinicalImpressionTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('clinicalImpression tests success');
+
+  console.group('documentReference tests');
   documentReferenceTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('documentReference tests success');
+
+  console.group('questionnaireResponse tests');
   questionnaireResponseTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('questionnaireResponse tests success');
+
+  console.group('consent tests');
   consentTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('consent tests success');
+
+  console.group('account tests');
   accountTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('account tests success');
 });
 
 const appointmentTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {

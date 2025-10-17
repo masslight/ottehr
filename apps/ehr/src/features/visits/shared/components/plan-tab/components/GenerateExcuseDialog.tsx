@@ -4,7 +4,7 @@ import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPatientName } from 'src/shared/utils';
-import { getAllPractitionerCredentials, getQuestionnaireResponseByLinkId, PATIENT_SUPPORT_PHONE_NUMBER } from 'utils';
+import { BRANDING_CONFIG, getAllPractitionerCredentials, getQuestionnaireResponseByLinkId } from 'utils';
 import {
   ExcuseFormValues,
   getDefaultExcuseFormValues,
@@ -56,7 +56,7 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
       parentName: fullParentName,
       providerName: user?.userName,
       suffix: user?.profileResource?.name?.[0]?.suffix?.join(' '),
-      phoneNumber: PATIENT_SUPPORT_PHONE_NUMBER,
+      phoneNumber: BRANDING_CONFIG.email.supportPhoneNumber,
     }),
   });
   const { handleSubmit, getValues, setValue } = methods;
