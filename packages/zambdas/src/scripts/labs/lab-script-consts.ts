@@ -19,6 +19,12 @@ export const DR_UNSOLICITED_RESULT_TAG = {
   display: LAB_DR_TYPE_TAG.display.unsolicited,
 };
 
+export const DR_REFLEX_TAG = {
+  system: LAB_DR_TYPE_TAG.system,
+  code: LAB_DR_TYPE_TAG.code.reflex,
+  display: LAB_DR_TYPE_TAG.display.reflex,
+};
+
 export const LAB_PDF_ATTACHMENT_DR_TAG = {
   system: LAB_DR_TYPE_TAG.system,
   code: LAB_DR_TYPE_TAG.code.attachment,
