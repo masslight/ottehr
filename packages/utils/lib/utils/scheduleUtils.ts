@@ -268,13 +268,13 @@ export function getSlotCapacityMapForDayAndSchedule(
   if (closures) {
     for (const closure of closures) {
       if (closure.type === ClosureType.OneDay && closure.start === dayString) {
-        //console.log('closing day', dayString);
         return {};
       } else if (closure.type === ClosureType.Period) {
-        const startClosure = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT).setZone(now.zone).startOf('day');
-        const endClosure = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT).setZone(now.zone).endOf('day');
+        const startClosure = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT, { zone: now.zone }).startOf(
+          'day'
+        );
+        const endClosure = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT, { zone: now.zone }).endOf('day');
         if (now >= startClosure && now <= endClosure) {
-          //console.log('closing day', dayString);
           return {};
         }
       }

@@ -83,8 +83,6 @@ describe('closure and override tests', () => {
     }
   });
   it("closure starting tomorrow has no affect on today's slots, but does eliminate tomorrow's", () => {
-    const nowForTest = DateTime.now();
-    expect(nowForTest.zoneName).toEqual('America/New_York');
     const startDate = startOfDayWithTimezone();
     const closureDate = startDate.plus({ days: 1 });
     let scheduleExtension = addClosurePeriod(DEFAULT_SCHEDULE_JSON, closureDate, 1);
