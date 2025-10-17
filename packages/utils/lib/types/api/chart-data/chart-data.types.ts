@@ -85,7 +85,8 @@ export type RequestedFields =
   | 'addendumNote'
   | 'medications'
   | 'inhouseMedications'
-  | 'observations';
+  | 'observations'
+  | 'preferredPharmacies';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 
@@ -358,6 +359,13 @@ export interface SchoolWorkNoteExcuseDocFileDTO {
   name?: string;
   url?: string;
   type: SchoolWorkNoteType;
+}
+
+export interface PharmacyDTO {
+  name: string;
+  address: string;
+  phone?: string;
+  primary?: true;
 }
 
 export interface PdfBulletPointItem {
