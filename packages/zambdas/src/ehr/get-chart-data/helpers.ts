@@ -5,6 +5,7 @@ import {
   ChartDataRequestedFields,
   ChartDataWithResources,
   GetChartDataResponse,
+  PharmacyDTO,
   SCHOOL_WORK_NOTE,
   SearchParams,
 } from 'utils';
@@ -178,7 +179,8 @@ export async function convertSearchResultsToResponse(
   m2mToken: string,
   patientId: string,
   encounterId: string,
-  fields?: (keyof ChartDataRequestedFields)[]
+  fields?: (keyof ChartDataRequestedFields)[],
+  patientResource?: Patient
 ): Promise<ChartDataWithResources> {
   let getChartDataResponse: GetChartDataResponse = {
     patientId,
@@ -228,6 +230,39 @@ export async function convertSearchResultsToResponse(
     const { externalLabResultConfig, inHouseLabResultConfig } = await makeEncounterLabResults(resources, m2mToken);
     if (getChartDataResponse.externalLabResults) getChartDataResponse.externalLabResults = externalLabResultConfig;
     if (getChartDataResponse.inHouseLabResults) getChartDataResponse.inHouseLabResults = inHouseLabResultConfig;
+  }
+
+  if (fields?.includes('preferredPharmacies')) {
+    const qr = resources.find((r) => r.resourceType === 'QuestionnaireResponse');
+
+    const pharmacies: PharmacyDTO[] = (patientResource?.contained ?? [])
+      .filter((r) => r.resourceType === 'Organization')
+      .map((org) => ({
+        name: org.name || '',
+        address: org.address?.[0]?.text || '',
+        phone: org.telecom?.find((t) => t.system === 'phone')?.value,
+      }));
+
+    if (qr) {
+      const getAnswer = (linkId: string): string | undefined =>
+        qr.item?.find((i) => i.linkId === linkId)?.answer?.[0]?.valueString;
+
+      const qrName = getAnswer('pharmacy-name');
+      const qrAddress = getAnswer('pharmacy-address');
+      const qrPhone = getAnswer('pharmacy-phone');
+
+      pharmacies.forEach((ph) => {
+        if (
+          (qrName && ph.name?.toLowerCase() === qrName.toLowerCase()) ||
+          (qrAddress && ph.address?.toLowerCase().includes(qrAddress.toLowerCase())) ||
+          (qrPhone && ph.phone === qrPhone)
+        ) {
+          ph.primary = true;
+        }
+      });
+    }
+
+    getChartDataResponse.preferredPharmacies = pharmacies;
   }
 
   return {
