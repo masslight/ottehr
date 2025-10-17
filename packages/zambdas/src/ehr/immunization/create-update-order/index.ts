@@ -6,14 +6,17 @@ import {
   createReference,
   CreateUpdateImmunizationOrderRequest,
   CreateUpdateImmunizationOrderResponse,
+  getSecret,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
+  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   fillMeta,
   getMyPractitionerId,
+  topLevelCatch,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -44,6 +47,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
+    await topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
     return {
       statusCode: 500,
       body: JSON.stringify({ message: `Error creating order: ${JSON.stringify(error.message)}` }),

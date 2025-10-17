@@ -45,6 +45,7 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getRelatedPersonsFromResourceList,
+  sendErrors,
   sortAppointments,
   topLevelCatch,
   wrapHandler,
@@ -427,6 +428,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         group: undefined,
         supervisorApprovalEnabled,
         encounterSignatures,
+        ENVIRONMENT: getSecret(SecretsKeys.ENVIRONMENT, secrets),
       };
 
       preBooked = appointmentQueues.prebooked
@@ -536,12 +538,13 @@ interface AppointmentInformationInputs {
   group: HealthcareService | undefined;
   supervisorApprovalEnabled: boolean;
   encounterSignatures: Provenance[];
+  ENVIRONMENT: string;
 }
 
-const makeAppointmentInformation = (
+const makeAppointmentInformation = async (
   oystehr: Oystehr,
   input: AppointmentInformationInputs
-): InPersonAppointmentInformation | undefined => {
+): Promise<InPersonAppointmentInformation | undefined> => {
   const {
     appointment,
     patientIdMap,
@@ -599,6 +602,7 @@ const makeAppointmentInformation = (
         };
       }
     } catch (e) {
+      await sendErrors(e, input.ENVIRONMENT);
       console.log('error building sms model: ', e);
       console.log('related persons value prior to error: ', rps);
     }

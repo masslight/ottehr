@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Coverage, CoverageEligibilityRequest, CoverageEligibilityResponse, Organization, Patient } from 'fhir/r4b';
 import * as fs from 'fs';
 import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils';
@@ -264,6 +265,7 @@ async function findCoverageDetails(oystehr: Oystehr, organization: Organization)
     // console.log(`\nFound ${coverages.length} coverage(s) for organization ${organization.id} (${organization.name})`);
   } catch (error) {
     console.log(`Error searching for coverage for organization ${organization.id}: ${error}`);
+    captureException(error);
     return [];
   }
 }
@@ -303,6 +305,7 @@ async function findCoverageEligibilityRequests(
     return requests;
   } catch (error) {
     console.log(`Error searching for CoverageEligibilityRequest for organization ${organization.id}: ${error}`);
+    captureException(error);
     return [];
   }
 }
@@ -342,6 +345,7 @@ async function findCoverageEligibilityResponses(
     return responses;
   } catch (error) {
     console.log(`Error searching for CoverageEligibilityResponse for organization ${organization.id}: ${error}`);
+    captureException(error);
     return [];
   }
 }
@@ -357,6 +361,7 @@ async function deleteOrganization(oystehr: Oystehr, organizationId: string): Pro
     return true;
   } catch (error) {
     console.error(`Failed to delete organization ID: ${organizationId}. Error: ${error}`);
+    captureException(error);
     return false;
   }
 }
@@ -421,6 +426,7 @@ async function findAllCoverageResources(
     };
   } catch (error) {
     console.log(`Error searching for coverage resources for organization ${organization.id}: ${error}`);
+    captureException(error);
     return {
       coverages: [],
       eligibilityRequests: [],
@@ -454,6 +460,7 @@ async function findBeneficiaryPatient(oystehr: Oystehr, coverage: Coverage): Pro
     return patient;
   } catch (error) {
     console.log(`Error finding beneficiary patient for coverage ${coverage.id}: ${error}`);
+    captureException(error);
     return null;
   }
 }
@@ -543,6 +550,7 @@ async function updateCoverageOrganization(
     return true;
   } catch (error) {
     console.error(`❌ Error updating coverage ${coverage.id} payor: ${error}`);
+    captureException(error);
     return false;
   }
 }
@@ -583,6 +591,7 @@ async function updateCoverageEligibilityResponse(
     return true;
   } catch (error) {
     console.error(`❌ Error updating CoverageEligibilityResponse ${eligibilityResponse.id} insurer: ${error}`);
+    captureException(error);
     return false;
   }
 }
@@ -630,6 +639,7 @@ async function updateCoverageEligibilityRequest(
     return true;
   } catch (error) {
     console.error(`❌ Error updating CoverageEligibilityRequest ${eligibilityRequest.id} insurer: ${error}`);
+    captureException(error);
     return false;
   }
 }

@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Task } from 'fhir/r4b';
 import fs from 'fs';
 import { Secrets } from 'utils';
@@ -40,6 +41,7 @@ const clearTasks = async (config: any): Promise<void> => {
     ).unbundle();
   } catch (e) {
     console.log('error getting search results', e);
+    captureException(e);
   }
   console.log(`found ${searchResults.length} task to delete`);
   const idsToDelete = searchResults

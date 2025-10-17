@@ -8,6 +8,7 @@ import {
   GetImmunizationOrdersRequest,
   GetImmunizationOrdersResponse,
   getMedicationName,
+  getSecret,
   ImmunizationOrder,
   mapFhirToOrderStatus,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
@@ -15,11 +16,13 @@ import {
   MEDICATION_APPLIANCE_LOCATION_SYSTEM,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+  SecretsKeys,
   VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  topLevelCatch,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -50,6 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(response),
     };
   } catch (error: any) {
+    await topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
     console.log('Error: ', JSON.stringify(error.message));
     return {
       statusCode: 500,

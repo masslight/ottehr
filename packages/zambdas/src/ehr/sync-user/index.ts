@@ -6,12 +6,14 @@ import {
   allLicensesForPractitioner,
   FHIR_IDENTIFIER_NPI,
   getPractitionerNPIIdentifier,
+  getSecret,
   makeQualificationForPractitioner,
   PractitionerLicense,
   Secrets,
+  SecretsKeys,
   SyncUserResponse,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -39,6 +41,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     console.log(JSON.stringify(error));
+    await topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Error synchronizing practitioner with remote credentialing authority.' }),

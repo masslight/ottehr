@@ -1,4 +1,5 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { FhirResource, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import fs from 'fs';
 import {
@@ -130,6 +131,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
     });
   } catch (error) {
     console.error('Error setting up telemed locations:', error);
+    captureException(error);
     if (error instanceof Error) {
       results.telemedError = error as any;
     } else {
@@ -233,6 +235,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
     });
   } catch (error) {
     console.error('Error setting up in person healthcare service practitioner schedules:', error);
+    captureException(error);
     if (error instanceof Error) {
       results.telemedError = error as any;
     } else {

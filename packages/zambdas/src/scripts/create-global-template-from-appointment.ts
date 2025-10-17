@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { BundleEntry, Encounter, List, Patient } from 'fhir/r4b';
 import { examConfig } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
@@ -189,6 +190,7 @@ const main = async (): Promise<void> => {
   } catch (e) {
     console.log('Catch some error while running all effects: ', e);
     console.log('Stringifies: ', JSON.stringify(e));
+    captureException(e);
   }
 };
 

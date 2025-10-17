@@ -28,6 +28,7 @@ import {
   getEmailClient,
   getVideoEncounterForAppointment,
   sendSms,
+  topLevelCatch,
   validateBundleAndExtractAppointment,
   wrapHandler,
   ZambdaInput,
@@ -55,10 +56,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return response;
   } catch (error: any) {
     console.log(`Error: ${error} Error stringified: `, JSON.stringify(error, null, 4));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

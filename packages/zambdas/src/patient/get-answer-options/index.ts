@@ -12,7 +12,7 @@ import {
   MISSING_REQUEST_BODY,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
@@ -52,10 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     console.log(error, error.issue);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    await topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputGetRequest, SearchParam } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import {
   Account,
   ActivityDefinition,
@@ -686,6 +687,7 @@ export const fetchLabOrderPDFsPresignedUrls = async (
               return null;
             })
             .catch((error) => {
+              captureException(error);
               console.error(`Failed to get presigned URL for document ${docRef.id}:`, error);
               return null;
             })
