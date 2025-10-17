@@ -1,9 +1,10 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AdministeredDialogue, expectAdministrationConfirmationDialogue } from './AdministrationConfirmationDialog';
+import { expectMarTab, MarTab } from './MarTab';
 import { OrderDetailsSection } from './OrderDetailsSection';
 
-export class VaccineDetailsPage {
+export class VaccineDetailsTab {
   #page: Page;
   #orderDetailsSection: OrderDetailsSection;
 
@@ -123,9 +124,15 @@ export class VaccineDetailsPage {
     await this.#page.getByTestId(dataTestIds.vaccineDetailsPage.partlyAdministeredButton).click();
     return expectAdministrationConfirmationDialogue(this.#page);
   }
+
+  async clickMarTab(): Promise<MarTab> {
+    await this.#page.getByTestId(dataTestIds.immunizationPage.marTab).click();
+    return expectMarTab(this.#page);
+  }
 }
-export async function expectVaccineDetailsPage(page: Page): Promise<VaccineDetailsPage> {
+
+export async function expectVaccineDetailsTab(page: Page): Promise<VaccineDetailsTab> {
   await page.waitForURL(new RegExp(`/in-person/.*/immunization/vaccine-details`));
   await expect(page.getByTestId(dataTestIds.immunizationPage.vaccineDetailsTab)).toBeVisible();
-  return new VaccineDetailsPage(page);
+  return new VaccineDetailsTab(page);
 }
