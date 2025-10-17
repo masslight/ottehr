@@ -76,6 +76,7 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
     chatbot = new ChatAnthropic({
       model: 'claude-haiku-4-5-20251001',
       temperature: 0,
+      topP: 0.99,
     });
   }
   return chatbot.invoke(input);
