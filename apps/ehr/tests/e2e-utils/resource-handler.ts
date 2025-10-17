@@ -269,12 +269,22 @@ export class ResourceHandler {
       })
     ).unbundle()[0] as Schedule;
 
+    const questionnaire = Object.values(inPersonIntakeQuestionnaire.fhirResources).find(
+      (q) =>
+        q.resource.resourceType === 'Questionnaire' &&
+        q.resource.status === 'active' &&
+        q.resource.url.includes('intake-paperwork-inperson')
+    );
+    if (!questionnaire) {
+      throw new Error('Questionnaire not found in local config');
+    }
+
     let seedDataString = JSON.stringify(fastSeedData);
     seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
     seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
     seedDataString = seedDataString.replace(
       /\{\{questionnaireUrl\}\}/g,
-      `${inPersonIntakeQuestionnaire.fhirResources['questionnaire-in-person-previsit'].resource.url}|${inPersonIntakeQuestionnaire.fhirResources['questionnaire-in-person-previsit'].resource.version}`
+      `${questionnaire.resource.url}|${questionnaire.resource.version}`
     );
     seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
 

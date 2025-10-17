@@ -1,10 +1,10 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "activity-definition-flu-b-1_0_0": {
+    "activity-definition-flu-b-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -140,7 +140,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/FluB",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -151,10 +151,10 @@
         }
       }
     },
-    "activity-definition-glucose-finger-heel-stick-1_0_0": {
+    "activity-definition-glucose-finger-heel-stick-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -238,7 +238,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/GlucoseFinger/HeelStick",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -255,10 +255,10 @@
         ]
       }
     },
-    "activity-definition-flu-vid-1_0_0": {
+    "activity-definition-flu-vid-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -398,7 +398,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/Flu-Vid",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -409,10 +409,10 @@
         }
       }
     },
-    "activity-definition-rapid-strep-a-1_0_0": {
+    "activity-definition-rapid-strep-a-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -548,7 +548,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidStrepA",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -559,10 +559,10 @@
         }
       }
     },
-    "activity-definition-rapid-influenza-b-1_0_0": {
+    "activity-definition-rapid-influenza-b-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -703,7 +703,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidInfluenzaB",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -714,10 +714,10 @@
         }
       }
     },
-    "activity-definition-urinalysis-1_0_0": {
+    "activity-definition-urinalysis-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -1740,7 +1740,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/Urinalysis(UA)",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -1757,10 +1757,10 @@
         ]
       }
     },
-    "activity-definition-urine-pregnancy-test-1_0_0": {
+    "activity-definition-urine-pregnancy-test-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -1894,7 +1894,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/UrinePregnancyTest(HCG)",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -1905,10 +1905,10 @@
         }
       }
     },
-    "activity-definition-rapid-rsv-1_0_0": {
+    "activity-definition-rapid-rsv-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -2049,7 +2049,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidRSV",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -2060,10 +2060,10 @@
         }
       }
     },
-    "activity-definition-id-now-strep-1_0_0": {
+    "activity-definition-id-now-strep-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -2199,7 +2199,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/IDNowStrep",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -2210,10 +2210,10 @@
         }
       }
     },
-    "activity-definition-covid-19-antigen-1_0_0": {
+    "activity-definition-covid-19-antigen-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -2349,7 +2349,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/COVID-19Antigen",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -2360,10 +2360,10 @@
         }
       }
     },
-    "activity-definition-flu-a-1_0_0": {
+    "activity-definition-flu-a-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -2499,7 +2499,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/FluA",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -2510,10 +2510,10 @@
         }
       }
     },
-    "activity-definition-monospot-test-1_0_0": {
+    "activity-definition-monospot-test-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -2649,7 +2649,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/Monospottest",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -2660,10 +2660,10 @@
         }
       }
     },
-    "activity-definition-rapid-covid-19-antigen-1_0_0": {
+    "activity-definition-rapid-covid-19-antigen-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -2804,7 +2804,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidCOVID-19Antigen",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -2815,10 +2815,10 @@
         }
       }
     },
-    "activity-definition-stool-guaiac-1_0_0": {
+    "activity-definition-stool-guaiac-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -2954,7 +2954,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/StoolGuaiac",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -2971,10 +2971,10 @@
         ]
       }
     },
-    "activity-definition-rsv-1_0_0": {
+    "activity-definition-rsv-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -3114,7 +3114,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RSV",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
@@ -3125,10 +3125,10 @@
         }
       }
     },
-    "activity-definition-rapid-influenza-a-1_0_0": {
+    "activity-definition-rapid-influenza-a-1": {
       "resource": {
         "resourceType": "ActivityDefinition",
-        "status": "active",
+        "status": "retired",
         "kind": "ServiceRequest",
         "code": {
           "coding": [
@@ -3269,7 +3269,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidInfluenzaA",
-        "version": "1.0.0",
+        "version": "1",
         "meta": {
           "tag": [
             {
