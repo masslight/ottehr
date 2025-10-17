@@ -3,7 +3,7 @@ import { DateTime, Duration } from 'luxon';
 import {
   ApptTelemedTab,
   GetTelemedAppointmentsInput,
-  mapStatusToTelemed,
+  getTelemedVisitStatus,
   PATIENT_PHOTO_CODE,
   PROJECT_NAME,
   RefreshableAppointmentData,
@@ -205,7 +205,7 @@ export const extractReviewAndSignAppointmentData = (data: AppointmentResources[]
     return;
   }
 
-  const telemedAppointmentStatus = mapStatusToTelemed(encounterStatus, appointmentStatus);
+  const telemedAppointmentStatus = getTelemedVisitStatus(encounterStatus, appointmentStatus);
 
   return telemedAppointmentStatus === TelemedAppointmentStatusEnum.complete
     ? { signedOnDate: finishedAtTime }
@@ -285,68 +285,6 @@ export type GetAppointmentsRequestParams = Pick<
   | 'locationsIdsFilter'
   | 'visitTypesFilter'
 >;
-
-export const APPT_STATUS_MAP: {
-  [status in TelemedAppointmentStatus]: {
-    background: {
-      primary: string;
-      secondary?: string;
-    };
-    color: {
-      primary: string;
-      secondary?: string;
-    };
-  };
-} = {
-  ready: {
-    background: {
-      primary: '#FFE0B2',
-    },
-    color: {
-      primary: '#E65100',
-    },
-  },
-  'pre-video': {
-    background: {
-      primary: '#B3E5FC',
-    },
-    color: {
-      primary: '#01579B',
-    },
-  },
-  'on-video': {
-    background: {
-      primary: '#D1C4E9',
-    },
-    color: {
-      primary: '#311B92',
-    },
-  },
-  unsigned: {
-    background: {
-      primary: '#FFCCBC',
-    },
-    color: {
-      primary: '#BF360C',
-    },
-  },
-  complete: {
-    background: {
-      primary: '#C8E6C9',
-    },
-    color: {
-      primary: '#1B5E20',
-    },
-  },
-  cancelled: {
-    background: {
-      primary: '#FFCCBC',
-    },
-    color: {
-      primary: '#BF360C',
-    },
-  },
-};
 
 export const quickTexts: string[] = [
   `Hello from ${PROJECT_NAME} Telemedicine. A provider will see you soon. Please have your child with you, seated & in a quiet room. Please be in an area where you have strong wifi connection sufficient for video use. Have your video turned on. Questions? Call <phone>202-555-1212</phone>`,

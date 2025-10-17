@@ -402,7 +402,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.dateOlder18YearsError).not.toBeVisible();
     await expect(locator.dateFutureError).not.toBeVisible();
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Photo ID');
+    await paperwork.checkCorrectPageOpens('Emergency Contact');
   });
   test('PRPI-10 Click on [Back] - all values are saved', async () => {
     await locator.clickBackButton();

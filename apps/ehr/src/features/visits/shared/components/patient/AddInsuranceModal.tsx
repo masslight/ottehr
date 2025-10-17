@@ -85,7 +85,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
     isSuccess,
   } = useUpdatePatientAccount(() => {
     void queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
-  });
+  }, 'Coverage added to patient account successfully.');
 
   const onSubmit = (data: any): void => {
     // send the data to a zambda

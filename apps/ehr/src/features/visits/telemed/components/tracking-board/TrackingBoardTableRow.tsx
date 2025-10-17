@@ -1,6 +1,7 @@
 // cSpell:ignore Español
 import { otherColors } from '@ehrTheme/colors';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
+import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import { LoadingButton } from '@mui/lab';
 import {
   alpha,
@@ -9,6 +10,7 @@ import {
   capitalize,
   IconButton,
   Skeleton,
+  Stack,
   TableCell,
   TableRow,
   Tooltip,
@@ -18,12 +20,14 @@ import {
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import GoToButton from 'src/components/GoToButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import ChatModal from 'src/features/chat/ChatModal';
 import { AppointmentStatusChip } from 'src/features/visits/shared/components/AppointmentStatusChip';
 import { formatDateUsingSlashes } from 'src/helpers/formatDateTime';
 import { calculatePatientAge, getTimezone, TelemedAppointmentInformation, TelemedAppointmentStatusEnum } from 'utils';
 import { quickTexts } from '../../utils/appointments';
+import { getTelemedAppointmentUrl, getTelemedVisitDetailsUrl } from '../../utils/routing';
 import { StatusHistory } from '../tracking-board/StatusHistory';
 import { TrackingBoardTableButton } from './TrackingBoardTableButton';
 
@@ -103,7 +107,11 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
   const reasonForVisit = appointment?.reasonForVisit;
 
   const goToAppointment = (): void => {
-    navigate(`/telemed/appointments/${appointment.id}`);
+    navigate(getTelemedAppointmentUrl(appointment.id));
+  };
+
+  const goToVisitDetails = (): void => {
+    navigate(getTelemedVisitDetailsUrl(appointment.id));
   };
 
   let start;
@@ -288,8 +296,19 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
           </IconButton>
         )}
       </TableCell>
+
       <TableCell sx={{ verticalAlign: 'middle' }}>
-        <TrackingBoardTableButton appointment={appointment} />
+        <Stack direction="row" spacing={1} alignItems="center">
+          <GoToButton
+            text="Visit Details"
+            dataTestId={dataTestIds.dashboard.visitDetailsButton}
+            onClick={goToVisitDetails}
+            backgroundColor="transparent"
+          >
+            <MedicalInformationIcon />
+          </GoToButton>
+          <TrackingBoardTableButton appointment={appointment} />
+        </Stack>
       </TableCell>
       {chatModalOpen && (
         <ChatModal

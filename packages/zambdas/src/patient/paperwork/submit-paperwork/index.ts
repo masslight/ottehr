@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_EXTENSION, getSecret, OTTEHR_MODULE, SecretsKeys } from 'utils';
+import { FHIR_EXTENSION, getSecret, isTelemedAppointment, SecretsKeys } from 'utils';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { SubmitPaperworkEffectInput, validateSubmitInputs } from '../validateRequestParameters';
@@ -88,7 +88,7 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
         });
 
         const appointmentStatus = appointment.status;
-        const isOttehrTm = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
+        const isOttehrTm = isTelemedAppointment(appointment);
 
         if (isOttehrTm && appointmentStatus === 'proposed') {
           return oystehr.fhir.patch<Appointment>({

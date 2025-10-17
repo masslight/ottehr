@@ -56,7 +56,7 @@ export enum ROUTER_PATH {
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
   EXTERNAL_LAB_ORDER_CREATE = `external-lab-orders/create`,
   EXTERNAL_LAB_ORDER_DETAILS = `external-lab-orders/:serviceRequestID/order-details`,
-  EXTERNAL_LAB_ORDER_REFLEX_DETAILS = `external-lab-orders/dr/:diagnosticReportId/order-details`,
+  EXTERNAL_LAB_ORDER_REPORT_DETAILS = `external-lab-orders/report/:diagnosticReportId/order-details`,
 
   RADIOLOGY_ORDER = 'radiology',
   RADIOLOGY_ORDER_CREATE = `radiology/create`,
@@ -225,8 +225,8 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     text: 'Order Details',
     iconKey: 'External Labs',
   },
-  [ROUTER_PATH.EXTERNAL_LAB_ORDER_REFLEX_DETAILS]: {
-    path: ROUTER_PATH.EXTERNAL_LAB_ORDER_REFLEX_DETAILS,
+  [ROUTER_PATH.EXTERNAL_LAB_ORDER_REPORT_DETAILS]: {
+    path: ROUTER_PATH.EXTERNAL_LAB_ORDER_REPORT_DETAILS,
     modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <OrderDetailsPage /> : null,

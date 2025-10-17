@@ -10,7 +10,7 @@ import {
   getPatchOperationForNewMetaTag,
   getProviderNotificationSettingsForPractitioner,
   getSecret,
-  mapStatusToTelemed,
+  getTelemedVisitStatus,
   OTTEHR_MODULE,
   PROVIDER_NOTIFICATION_TAG_SYSTEM,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
@@ -137,7 +137,10 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         const { appointment, encounter, practitioner, location, communications } =
           readyOrUnsignedVisitPackages[appointmentId];
         if (encounter && appointment) {
-          const status: TelemedAppointmentStatus | undefined = mapStatusToTelemed(encounter.status, appointment.status);
+          const status: TelemedAppointmentStatus | undefined = getTelemedVisitStatus(
+            encounter.status,
+            appointment.status
+          );
           if (!status) return;
 
           // getting communications that were postponed after practitioner will become not busy

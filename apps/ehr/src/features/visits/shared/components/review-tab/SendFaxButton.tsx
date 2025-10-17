@@ -6,7 +6,7 @@ import { phone } from 'phone';
 import { FC, useMemo, useState } from 'react';
 import InputMask from 'src/components/InputMask';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getVisitStatus, isPhoneNumberValid, TelemedAppointmentStatusEnum } from 'utils';
+import { getInPersonVisitStatus, isPhoneNumberValid, TelemedAppointmentStatusEnum } from 'utils';
 import { ConfirmationDialog } from '../../../../../components/ConfirmationDialog';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
@@ -23,7 +23,7 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, 
   const [openTooltip, setOpenTooltip] = useState(false);
 
   const inPersonStatus = useMemo(
-    () => appointment && encounter && getVisitStatus(appointment, encounter),
+    () => appointment && encounter && getInPersonVisitStatus(appointment, encounter),
     [appointment, encounter]
   );
   const appointmentAccessibility = useGetAppointmentAccessibility();

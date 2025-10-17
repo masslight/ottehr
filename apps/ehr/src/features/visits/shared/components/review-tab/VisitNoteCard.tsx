@@ -1,6 +1,7 @@
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { examConfig, getSpentTime, patientScreeningQuestionsConfig } from 'utils';
+import { PatientVitalsContainer } from 'src/features/visits/in-person/components/progress-note/PatientVitalsContainer';
+import { examConfig, getSpentTime, patientScreeningQuestionsConfig, vitalsObservationsRequest } from 'utils';
 import { AccordionCard } from '../../../../../components/AccordionCard';
 import { useChartFields } from '../../hooks/useChartFields';
 import { usePatientInstructionsVisibility } from '../../hooks/usePatientInstructionsVisibility';
@@ -35,6 +36,7 @@ export const VisitNoteCard: FC = () => {
       },
       chiefComplaint: { _tag: 'chief-complaint' },
       ros: { _tag: 'ros' },
+      vitalsObservations: vitalsObservationsRequest,
     },
   });
 
@@ -49,6 +51,7 @@ export const VisitNoteCard: FC = () => {
   const prescriptions = chartFields?.prescribedMedications;
   const showChiefComplaint = !!((chiefComplaint && chiefComplaint.length > 0) || (spentTime && spentTime.length > 0));
   const showReviewOfSystems = !!(ros && ros.length > 0);
+  const vitalsObservations = chartFields?.vitalsObservations;
 
   const showAdditionalQuestions = patientScreeningQuestionsConfig.fields.some((field) => {
     const observation = chartData?.observations?.find((obs) => obs.field === field.fhirField);
@@ -61,12 +64,14 @@ export const VisitNoteCard: FC = () => {
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
+  const showVitalsObservations = !!(vitalsObservations && vitalsObservations.length > 0);
 
   const sections = [
     <PatientInformationContainer />,
     <VisitDetailsContainer />,
     showChiefComplaint && <ChiefComplaintContainer />,
     showReviewOfSystems && <ReviewOfSystemsContainer />,
+    showVitalsObservations && <PatientVitalsContainer encounterId={encounter?.id} />,
     <MedicationsContainer />,
     <AllergiesContainer />,
     <MedicalConditionsContainer />,

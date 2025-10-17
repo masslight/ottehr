@@ -6,16 +6,10 @@ import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI, getFullestAvailableName, ORDER_ITEM_
 import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/submit-lab-order/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
+import { drawFieldLineBoldHeader, getPdfClientForLabsPDFs, LabsPDFTextStyleConfig } from './lab-pdf-utils';
 import { getLabFileName } from './labs-results-form-pdf';
 import { ICON_STYLE, STANDARD_NEW_LINE, SUB_HEADER_FONT_SIZE } from './pdf-consts';
-import {
-  drawFieldLineBoldHeader,
-  getPdfClientForLabsPDFs,
-  LabsPDFTextStyleConfig,
-  PdfInfo,
-  rgbNormalized,
-  SEPARATED_LINE_STYLE as GREY_LINE_STYLE,
-} from './pdf-utils';
+import { BLACK_LINE_STYLE, PdfInfo, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
 import { CoverageAndOrgForOrderForm, ExternalLabOrderFormData, OrderFormInsuranceInfo, PdfClient } from './types';
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
@@ -29,7 +23,7 @@ export async function createExternalLabsOrderFormPDF(
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
-  console.log('Creating labs order form pdf bytes');
+  console.log('Creating external labs order form pdf bytes');
   const pdfBytes = await createExternalLabsOrderFormPdfBytes(input).catch((error) => {
     throw new Error('failed creating labs order form pdfBytes: ' + error.message);
   });
@@ -63,7 +57,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
 
   const iconStyleWithMargin = { ...ICON_STYLE, margin: { left: 10, right: 10 } };
   const rightColumnXStart = 315;
-  const BLACK_LINE_STYLE = { ...GREY_LINE_STYLE, color: rgbNormalized(0, 0, 0) };
+
   const GREY_LINE_STYLE_NO_TOP_MARGIN = { ...GREY_LINE_STYLE, margin: { top: 0, bottom: 8 } };
 
   // Draw header

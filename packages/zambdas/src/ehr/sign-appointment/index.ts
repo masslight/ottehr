@@ -1,45 +1,28 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { FhirResource, Provenance } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import {
-  DATETIME_FULL_NO_YEAR,
   extractExtensionValue,
   findExtensionIndex,
-  getAddressStringForScheduleResource,
   getAppointmentLockMetaTagOperations,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
+  getInPersonVisitStatus,
   getPatchBinary,
-  getPatientContactEmail,
   getTaskResource,
-  getVisitStatus,
-  InPersonCompletionTemplateData,
-  OTTEHR_MODULE,
-  progressNoteChartDataRequestedFields,
   SignAppointmentInput,
   SignAppointmentResponse,
   TaskIndicator,
-  TelemedCompletionTemplateData,
-  telemedProgressNoteChartDataRequestedFields,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import { getPresignedURLs } from '../../patient/appointment/get-visit-details/helpers';
-import { checkOrCreateM2MClientToken, getEmailClient, makeAddressUrl, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
-import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
-import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
-import { getChartData } from '../get-chart-data';
-import { getMedicationOrders } from '../get-medication-orders';
-import { getImmunizationOrders } from '../immunization/get-orders';
-import { getNameForOwner } from '../schedules/shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -76,7 +59,7 @@ export const performEffect = async (
   oystehrCurrentUser: Oystehr,
   params: SignAppointmentInput
 ): Promise<SignAppointmentResponse> => {
-  const { appointmentId, timezone, secrets, supervisorApprovalEnabled } = params;
+  const { appointmentId, timezone, supervisorApprovalEnabled } = params;
 
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
   if (!visitResources) {
@@ -89,7 +72,7 @@ export const performEffect = async (
     // this allows the provider to specify their working location in the case of virtual encounters
     visitResources.timezone = timezone;
   }
-  const { encounter, patient, appointment, location, listResources } = visitResources;
+  const { encounter, patient, appointment } = visitResources;
 
   if (encounter?.subject?.reference === undefined) {
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
@@ -99,7 +82,7 @@ export const performEffect = async (
   }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
-  const currentStatus = getVisitStatus(appointment, encounter);
+  const currentStatus = getInPersonVisitStatus(appointment, encounter);
   if (currentStatus) {
     await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, supervisorApprovalEnabled);
   }
@@ -110,122 +93,15 @@ export const performEffect = async (
   }
 
   // Create Task that will kick off subscription to send the claim
-  console.time('create-send-claim-task');
   const sendClaimTaskResource = getTaskResource(TaskIndicator.sendClaim, appointment.id);
-  await oystehr.fhir.create(sendClaimTaskResource);
-  console.timeEnd('create-send-claim-task');
+  const sendClaimTaskPromise = oystehr.fhir.create(sendClaimTaskResource);
 
-  const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
+  // Create Task that will kick off subscription to create visit-note PDF and send an email to the patient
+  const visitNoteAndEmailTaskResource = getTaskResource(TaskIndicator.visitNotePDFAndEmail, appointment.id);
+  const visitNoteTaskPromise = oystehr.fhir.create(visitNoteAndEmailTaskResource);
 
-  const chartDataPromise = getChartData(oystehr, m2mToken, visitResources.encounter.id!);
-  const additionalChartDataPromise = getChartData(
-    oystehr,
-    m2mToken,
-    visitResources.encounter.id!,
-    isInPersonAppointment ? progressNoteChartDataRequestedFields : telemedProgressNoteChartDataRequestedFields
-  );
-  const medicationOrdersPromise = getMedicationOrders(oystehr, {
-    searchBy: {
-      field: 'encounterId',
-      value: visitResources.encounter.id!,
-    },
-  });
-
-  const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(
-    (promise) => promise.response
-  );
-  const medicationOrders = (await medicationOrdersPromise).orders;
-  const immunizationOrders = (
-    await getImmunizationOrders(oystehr, {
-      encounterId: visitResources.encounter.id!,
-    })
-  ).orders;
-
-  console.log('Chart data received');
-  try {
-    const pdfInfo = await composeAndCreateVisitNotePdf(
-      { chartData, additionalChartData, medicationOrders, immunizationOrders },
-      visitResources,
-      secrets,
-      m2mToken
-    );
-    if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
-    console.log(`Creating visit note pdf docRef`);
-    await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
-  } catch (error) {
-    console.error(`Error creating visit note pdf: ${error}`);
-    captureException(error, {
-      tags: {
-        appointmentId,
-        encounterId: encounter.id,
-      },
-    });
-  }
-
-  try {
-    // todo: decouple email sending from this endpoint
-    const emailClient = getEmailClient(secrets);
-    const emailEnabled = emailClient.getFeatureFlag();
-    if (emailEnabled) {
-      const patientEmail = getPatientContactEmail(patient);
-      let prettyStartTime = '';
-      let locationName = '';
-      let address = '';
-      if (appointment.start && visitResources.timezone) {
-        prettyStartTime = DateTime.fromISO(appointment.start)
-          .setZone(visitResources.timezone)
-          .toFormat(DATETIME_FULL_NO_YEAR);
-      }
-      if (location) {
-        locationName = getNameForOwner(location);
-        address = getAddressStringForScheduleResource(location) ?? '';
-      }
-      const presignedUrls = await getPresignedURLs(oystehr, m2mToken, visitResources.encounter.id!);
-      const visitNoteUrl = presignedUrls['visit-note'].presignedUrl;
-
-      if (isInPersonAppointment) {
-        const missingData: string[] = [];
-        if (!patientEmail) missingData.push('patient email');
-        if (!appointment.id) missingData.push('appointment ID');
-        if (!locationName) missingData.push('location name');
-        if (!address) missingData.push('address');
-        if (!prettyStartTime) missingData.push('appointment time');
-        if (!visitNoteUrl) missingData.push('visit note URL');
-        if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
-          // note: it's assumed that location is the schedule owner here, which is incorrect for Provider schedules
-          const templateData: InPersonCompletionTemplateData = {
-            location: getNameForOwner(location),
-            time: prettyStartTime,
-            address,
-            'address-url': makeAddressUrl(address),
-            'visit-note-url': visitNoteUrl,
-          };
-          await emailClient.sendInPersonCompletionEmail(patientEmail, templateData);
-        } else {
-          console.error(
-            `Not sending in-person completion email, missing the following data: ${missingData.join(', ')}`
-          );
-        }
-      } else {
-        const missingData: string[] = [];
-        if (!patientEmail) missingData.push('patient email');
-        if (!appointment.id) missingData.push('appointment ID');
-        if (!locationName) missingData.push('location name');
-        if (!visitNoteUrl) missingData.push('visit note URL');
-        if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
-          const templateData: TelemedCompletionTemplateData = {
-            location: getNameForOwner(location),
-            'visit-note-url': visitNoteUrl,
-          };
-          await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
-        } else {
-          console.error(`Not sending virtual completion email, missing the following data: ${missingData.join(', ')}`);
-        }
-      }
-    }
-  } catch (error: any) {
-    console.error('Error sending completion email:', error);
-  }
+  const taskCreationResults = await Promise.all([sendClaimTaskPromise, visitNoteTaskPromise]);
+  console.log('Task creation results ', taskCreationResults);
 
   return {
     message: 'Appointment status successfully changed.',
@@ -273,8 +149,10 @@ const changeStatusToCompleted = async (
 
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
     resourcesToUpdate.encounter,
-    encounterStatus
+    encounterStatus,
+    'completed'
   );
+
   encounterPatchOps.push(encounterStatusHistoryUpdate);
 
   let provenanceCreate: BatchInputRequest<Provenance> | undefined;

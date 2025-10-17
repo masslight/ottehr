@@ -35,7 +35,7 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { adjustTopForBannerHeight } from '../helpers/misc.helper';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { VisitType, VisitTypeToLabel } from '../types/types';
+import { VisitType, visitTypeToInPersonLabel } from '../types/types';
 import { LocationWithWalkinSchedule } from './AddPatient';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
@@ -195,7 +195,7 @@ export default function Appointments(): ReactElement {
       queryParams?.set('visitType', JSON.parse(selectedVisitTypes) ?? '');
       navigate(`?${queryParams?.toString()}`);
     } else {
-      queryParams?.set('visitType', Object.keys(VisitTypeToLabel).join(','));
+      queryParams?.set('visitType', Object.keys(visitTypeToInPersonLabel).join(','));
     }
   }, [navigate, queryParams]);
 
@@ -467,9 +467,9 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                           },
                         }}
                         value={visitType}
-                        options={Object.keys(VisitTypeToLabel)}
+                        options={Object.keys(visitTypeToInPersonLabel)}
                         getOptionLabel={(option) => {
-                          return VisitTypeToLabel[option as VisitType];
+                          return visitTypeToInPersonLabel[option as VisitType];
                         }}
                         onChange={(event, value) => {
                           if (value) {

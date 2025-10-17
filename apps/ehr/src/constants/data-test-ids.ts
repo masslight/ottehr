@@ -9,6 +9,7 @@ import {
 export const dataTestIds = {
   closeIcon: 'CloseIcon',
   loadingSpinner: 'loading-spinner',
+  loadingScreen: 'loading-screen',
   deleteOutlinedIcon: 'DeleteOutlinedIcon',
   header: {
     userName: 'header-user-name',

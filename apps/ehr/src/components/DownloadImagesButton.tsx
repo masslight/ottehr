@@ -1,6 +1,6 @@
 import { Button, Link as MUILink } from '@mui/material';
 import { ReactElement } from 'react';
-import { DocumentInfo } from '../types/types';
+import { DocumentInfo } from 'utils';
 
 interface DownloadImagesButtonProps {
   appointmentId: string;

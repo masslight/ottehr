@@ -1,10 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import type { Patient } from 'fhir/r4b';
 import { AuditEvent, Bundle, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AUDIT_EVENT_OUTCOME_CODE,
   checkBundleOutcomeOk,
+  flattenQuestionnaireAnswers,
   getSecret,
   getVersionedReferencesFromBundleResources,
   isValidUUID,
@@ -31,6 +33,8 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import {
+  createMasterRecordPatchOperations,
+  createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
   updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
@@ -68,6 +72,39 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<void> => {
   const { questionnaireResponse, items, patientId, providerProfileReference, preserveOmittedCoverages } = input;
 
+  const patientResource = await oystehr.fhir.get<Patient>({
+    resourceType: 'Patient',
+    id: patientId,
+  });
+
+  console.log('creating patch operations');
+  const patientPatchOps = createMasterRecordPatchOperations(items || [], patientResource);
+
+  console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
+
+  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
+    console.time('patching patient resource');
+    await oystehr.fhir.patch({
+      resourceType: 'Patient',
+      id: patientResource.id!,
+      operations: patientPatchOps.patient.patchOpsForDirectUpdate,
+    });
+    console.timeEnd('patching patient resource');
+  } else {
+    console.log('no patient patch operations to perform--skipping');
+  }
+  const pharmacyPatchOps = createUpdatePharmacyPatchOps(patientResource, flattenQuestionnaireAnswers(items));
+  console.log('Pharmacy patch operations being attempted: ', JSON.stringify(pharmacyPatchOps, null, 2));
+  if (pharmacyPatchOps.length > 0) {
+    await oystehr.fhir.patch<Patient>({
+      resourceType: 'Patient',
+      id: patientResource.id!,
+      operations: pharmacyPatchOps,
+    });
+  } else {
+    console.log('no pharmacy patch operations to perform--skipping');
+  }
+
   let resultBundle: Bundle;
   try {
     resultBundle = await updatePatientAccountFromQuestionnaire(
@@ -91,11 +128,14 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     if (!account || !guarantorResource) {
       console.log('could not find account or guarantor, skipping stripe update');
     } else {
-      await updateStripeCustomer({
-        account,
-        guarantorResource,
-        stripeClient,
-      });
+      await updateStripeCustomer(
+        {
+          account,
+          guarantorResource,
+          stripeClient,
+        },
+        oystehr
+      );
     }
   } catch (e) {
     console.error('error updating stripe details', e);
