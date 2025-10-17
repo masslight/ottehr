@@ -7,6 +7,7 @@ import {
   Encounter,
   FhirResource,
   List,
+  MedicationStatement,
   Patient,
   Person,
   QuestionnaireResponse,
@@ -297,7 +298,7 @@ describe('get-chart-data integration tests', () => {
     });
   });
 
-  it('should validate shape of conditions -- success', async () => {
+  it('should validate save + get cycle for conditions -- success', async () => {
     const conditionDTO = {
       code: 'H54.8',
       display: 'Legal blindness, as defined in USA',
@@ -347,5 +348,59 @@ describe('get-chart-data integration tests', () => {
     expect(typedGetChartDataOutput).toHaveProperty('conditions');
     expect(typedGetChartDataOutput.conditions).toBeInstanceOf(Array);
     expect(typedGetChartDataOutput.conditions?.[0]).toEqual(newCondition);
+  });
+
+  it('should validate save + get cycle for medications -- success', async () => {
+    const medicationDTO = {
+      name: 'Azithromycin Oral Suspension Reconstituted (200 MG/5ML)',
+      id: '5675',
+      type: 'scheduled' as 'scheduled' | 'as-needed' | 'prescribed-medication',
+      intakeInfo: { date: '2025-10-16T11:00:00.000Z', dose: '2 l' },
+      status: 'active' as Extract<MedicationStatement['status'], 'active' | 'completed'>,
+    };
+    const saveChartInput: SaveChartDataRequest = {
+      encounterId: baseResources.encounter.id!,
+      medications: [medicationDTO],
+    };
+    let saveChartOutput: any;
+    try {
+      saveChartOutput = (
+        await oystehrLocalZambdas.zambda.execute({
+          id: 'SAVE-CHART-DATA',
+          ...saveChartInput,
+        })
+      ).output as SaveChartDataResponse;
+    } catch (error) {
+      console.error('Error executing zambda:', error);
+      saveChartOutput = error as Error;
+    }
+    expect(saveChartOutput instanceof Error).toBe(false);
+    const typedSaveChartOutput = saveChartOutput as SaveChartDataResponse;
+    const newMedication = typedSaveChartOutput.chartData.medications?.[0];
+    expect(newMedication).toMatchObject({
+      resourceId: expect.any(String),
+      ...medicationDTO,
+    });
+
+    const getChartDataInput: GetChartDataRequest = {
+      encounterId: baseResources.encounter.id!,
+    };
+    let getChartDataOutput: any;
+    try {
+      getChartDataOutput = (
+        await oystehrLocalZambdas.zambda.execute({
+          id: 'GET-CHART-DATA',
+          ...getChartDataInput,
+        })
+      ).output as GetChartDataResponse;
+    } catch (error) {
+      console.error('Error executing zambda:', error);
+      getChartDataOutput = error as Error;
+    }
+    expect(getChartDataOutput instanceof Error).toBe(false);
+    const typedGetChartDataOutput = getChartDataOutput as GetChartDataResponse;
+    expect(typedGetChartDataOutput).toHaveProperty('medications');
+    expect(typedGetChartDataOutput.medications).toBeInstanceOf(Array);
+    expect(typedGetChartDataOutput.medications?.[0]).toEqual(newMedication);
   });
 });
