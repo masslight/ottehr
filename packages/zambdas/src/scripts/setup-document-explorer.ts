@@ -112,6 +112,7 @@ export async function getDocumentExplorerResourcesBatch(
   const patients =
     resources
       ?.filter((resource) => resource.resourceType === 'Patient')
+      ?.filter((patient) => patient.active !== undefined)
       ?.map((patientResource) => patientResource as Patient) ?? [];
 
   const lists =
