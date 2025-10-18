@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Encounter, EncounterStatusHistory, Location, Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
@@ -30,7 +31,6 @@ import {
   getEmployees,
   getRoleMembers,
   getRoles,
-  sendErrors,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -133,7 +133,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     console.log(`Busy practitioners: ${JSON.stringify(busyPractitionerIds)}`);
 
     // Going through ready or unsigned visits to create notifications and other update logic
-    Object.keys(readyOrUnsignedVisitPackages).forEach(async (appointmentId) => {
+    Object.keys(readyOrUnsignedVisitPackages).forEach((appointmentId) => {
       try {
         const { appointment, encounter, practitioner, location, communications } =
           readyOrUnsignedVisitPackages[appointmentId];
@@ -299,8 +299,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         }
       } catch (error) {
         console.error(`Error trying to process notifications for appointment ${appointmentId}`, error);
-        const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-        await sendErrors(error, ENVIRONMENT);
+        captureException(error);
       }
     });
 
@@ -394,7 +393,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
 
     // here we need to send SMS to practitioners that are not busy and has some unprocessed communications
     const sendSMSRequests: Promise<unknown>[] = [];
-    Object.keys(sendSMSPractitionerCommunications).forEach(async (id) => {
+    Object.keys(sendSMSPractitionerCommunications).forEach((id) => {
       try {
         const { practitioner, communications } = sendSMSPractitionerCommunications[id];
         const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
@@ -419,8 +418,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           `Error trying to send SMS notifications for practitioner ${sendSMSPractitionerCommunications[id].practitioner.id}`,
           error
         );
-        const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-        await sendErrors(error, ENVIRONMENT);
+        captureException(error);
       }
     });
 
