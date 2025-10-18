@@ -139,7 +139,7 @@ const performEffect = async (
   try {
     await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, secrets, oystehr);
   } catch (error) {
-    await captureException(error);
+    captureException(error);
     console.error('Error sending order to AdvaPACS: ', error);
     await rollbackOurServiceRequest(ourServiceRequest, oystehr);
   }
