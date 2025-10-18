@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -45,7 +46,6 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getRelatedPersonsFromResourceList,
-  sendErrors,
   sortAppointments,
   topLevelCatch,
   wrapHandler,
@@ -428,7 +428,6 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         group: undefined,
         supervisorApprovalEnabled,
         encounterSignatures,
-        ENVIRONMENT: getSecret(SecretsKeys.ENVIRONMENT, secrets),
       };
 
       preBooked = appointmentQueues.prebooked
@@ -538,13 +537,12 @@ interface AppointmentInformationInputs {
   group: HealthcareService | undefined;
   supervisorApprovalEnabled: boolean;
   encounterSignatures: Provenance[];
-  ENVIRONMENT: string;
 }
 
-const makeAppointmentInformation = async (
+const makeAppointmentInformation = (
   oystehr: Oystehr,
   input: AppointmentInformationInputs
-): Promise<InPersonAppointmentInformation | undefined> => {
+): InPersonAppointmentInformation | undefined => {
   const {
     appointment,
     patientIdMap,
@@ -602,9 +600,9 @@ const makeAppointmentInformation = async (
         };
       }
     } catch (e) {
-      await sendErrors(e, input.ENVIRONMENT);
       console.log('error building sms model: ', e);
       console.log('related persons value prior to error: ', rps);
+      captureException(e);
     }
   } else {
     console.log(`no patient ref found for appointment ${appointment.id}`);
