@@ -77,6 +77,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       documents = await getPresignedURLs(oystehr, oystehrToken, encounter?.id);
     } catch (error) {
       console.log('getPresignedURLs', error);
+      captureException(error);
     }
 
     let medications = null;

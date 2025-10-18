@@ -1,4 +1,5 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Location } from 'fhir/r4b';
@@ -195,6 +196,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
     }
   } catch (error: any) {
     console.error('error sending cancellation email', error);
+    captureException(error);
   }
   console.groupEnd();
 

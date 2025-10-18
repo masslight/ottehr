@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -140,6 +141,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         statusReasonToUpdate = error.message ? `error received: ${error.message}` : 'unknown error';
         console.error('error sending email', error);
         console.groupEnd();
+        captureException(error);
       }
     } else {
       taskStatusToUpdate = 'failed';

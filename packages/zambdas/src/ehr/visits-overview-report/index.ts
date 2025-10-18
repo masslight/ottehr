@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
@@ -182,6 +183,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           appointmentDate = localDate;
         } catch (error) {
           console.warn('Failed to parse appointment date:', appointment.start, error);
+          captureException(error);
           appointmentDate = 'unknown';
         }
       }
