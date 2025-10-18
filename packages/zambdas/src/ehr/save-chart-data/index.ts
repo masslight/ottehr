@@ -358,7 +358,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         });
       } catch (error) {
         console.log('Error generating ICD-10 codes', error);
-        await captureException(error);
+        captureException(error);
       }
     }
 
