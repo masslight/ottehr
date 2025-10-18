@@ -22,11 +22,19 @@ import {
   CPTCodeDTO,
   ExamObservationDTO,
   getPatchBinary,
+  getSecret,
   MedicalConditionDTO,
   MedicationDTO,
   ObservationDTO,
+  SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  parseCreatedResourcesBundle,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
@@ -291,6 +299,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     };
   } catch (error) {
     console.log(error);
+    await topLevelCatch('delete-chart-data', error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
     return {
       body: JSON.stringify({ message: 'Error deleting encounter data' }),
       statusCode: 500,

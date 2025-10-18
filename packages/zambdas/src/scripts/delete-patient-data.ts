@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Appointment, DocumentReference, Encounter, FhirResource, Patient, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { chunkThings, getAllFhirSearchPages, NEVER_DELETE } from 'utils';
@@ -29,6 +30,7 @@ export const deletePatientData = async (
       await new Promise((resolve) => setTimeout(resolve, 200));
     } catch (e: unknown) {
       console.log(`Error deleting resources: ${e}`, JSON.stringify(e));
+      captureException(e);
       console.log('patient id', patientId);
     } finally {
       console.log('Deleting resources chunk', i + 1, 'of', deleteRequests.length, 'complete');
@@ -203,6 +205,7 @@ const getPatientAndResourcesById = async (
         allResources = await getAllFhirSearchPages(fhirSearchParams, oystehr, 5);
       } catch (error: unknown) {
         console.log(`Error fetching resources: ${error}`, JSON.stringify(error));
+        captureException(error);
         return [];
       }
     }

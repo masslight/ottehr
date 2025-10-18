@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -26,6 +27,7 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
     await oystehr.fhir.batch({ requests: [...deleteRequests] });
   } catch (e) {
     console.log(`Error deleting resources: ${e}`, JSON.stringify(e));
+    captureException(e);
   } finally {
     console.log(`Deleting resources complete`);
   }
@@ -88,6 +90,7 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
     }
   } catch (e) {
     console.error(`Error patching resources: ${e}`, JSON.stringify(e));
+    captureException(e);
   }
 
   console.log('Appointment data batch removed and person patched');

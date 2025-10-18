@@ -539,6 +539,7 @@ export const getLabResources = async (
         return parsePatientLabItems(allServiceRequestsForPatient);
       } catch (error) {
         console.error('Error fetching all service requests for patient:', error);
+        await sendErrors(error, params.secrets.ENVIRONMENT);
         return [] as PatientLabItem[];
       }
     }
@@ -612,9 +613,9 @@ export const getLabResources = async (
     questionnaires,
     srLocationsBundle,
   ] = await Promise.all([
-    fetchPractitionersForServiceRequests(oystehr, serviceRequests),
+    fetchPractitionersForServiceRequests(oystehr, serviceRequests, params.secrets.ENVIRONMENT),
     fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
-    checkForDiagnosticReportDrivenResults(oystehr, serviceRequests),
+    checkForDiagnosticReportDrivenResults(oystehr, serviceRequests, params.secrets.ENVIRONMENT),
     executeByCondition(isDetailPageRequest, () =>
       fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
     ),
@@ -950,7 +951,8 @@ export const extractLabResources = (
 
 export const checkForDiagnosticReportDrivenResults = async (
   oystehr: Oystehr,
-  serviceRequests: ServiceRequest[]
+  serviceRequests: ServiceRequest[],
+  environment: string
 ): Promise<ResourcesByDr | undefined> => {
   if (!serviceRequests.length) return;
 
@@ -997,13 +999,15 @@ export const checkForDiagnosticReportDrivenResults = async (
       `Failed to fetch DiagnosticReports with identifier search param: ${orderNumbersWithSystem.join(',')}`,
       JSON.stringify(error, null, 2)
     );
+    await sendErrors(error, environment);
     return;
   }
 };
 
 export const fetchPractitionersForServiceRequests = async (
   oystehr: Oystehr,
-  serviceRequests: ServiceRequest[]
+  serviceRequests: ServiceRequest[],
+  environment: string
 ): Promise<Practitioner[]> => {
   if (!serviceRequests.length) {
     return [] as Practitioner[];
@@ -1038,6 +1042,7 @@ export const fetchPractitionersForServiceRequests = async (
     );
   } catch (error) {
     console.error(`Failed to fetch Practitioners`, JSON.stringify(error, null, 2));
+    await sendErrors(error, environment);
     return [];
   }
 };

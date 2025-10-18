@@ -46,7 +46,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('get-patient-account', error, ENVIRONMENT);
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
 

@@ -9,7 +9,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -19,8 +19,8 @@ export interface GetPatientsInput {
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
-
-export const index = wrapHandler('telemed-get-patients', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'telemed-get-patients';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -95,9 +95,6 @@ export const index = wrapHandler('telemed-get-patients', async (input: ZambdaInp
     };
   } catch (error: any) {
     console.log(error, error.issue);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });

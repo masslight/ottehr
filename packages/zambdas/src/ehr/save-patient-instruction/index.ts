@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { getSecret, SecretsKeys } from 'utils';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { makeCommunicationDTO } from '../../shared/chart-data';
 import { createOystehrClient } from '../../shared/helpers';
 import { checkIfProvidersInstruction, createCommunicationResource, updateCommunicationResource } from './helpers';
@@ -30,6 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error) {
     console.log(error);
+    await topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
     return {
       body: JSON.stringify({ message: 'Error saving patient instruction...' }),
       statusCode: 500,

@@ -4,13 +4,15 @@ import { Appointment } from 'fhir/r4b';
 import {
   appointmentTypeForAppointment,
   createSmsModel,
+  getSecret,
   GetTelemedAppointmentsInput,
   GetTelemedAppointmentsResponseEhr,
   getVisitStatusHistory,
   relatedPersonAndCommunicationMaps,
+  SecretsKeys,
   TelemedAppointmentInformation,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { filterAppointmentsAndCreatePackages, filterPatientForAppointment } from './helpers/fhir-resources-filters';
 import { getAllPartiallyPreFilteredFhirResources, getAllVirtualLocationsMap } from './helpers/fhir-utils';
@@ -43,6 +45,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     console.log(error);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Error getting appointments' }),

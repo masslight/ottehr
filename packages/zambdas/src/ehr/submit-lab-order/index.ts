@@ -1,4 +1,5 @@
 import { BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { DocumentReference, FhirResource, Provenance, ServiceRequest } from 'fhir/r4b';
@@ -99,6 +100,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             isPsc: resources.isPscOrder,
           };
         } catch (e) {
+          captureException(e);
           return { status: 'rejected', orderNumber, reason: (e as Error).message };
         }
       });

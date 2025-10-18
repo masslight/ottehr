@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Appointment, FhirResource } from 'fhir/r4b';
 import fs from 'fs';
 import { OTTEHR_MODULE } from 'utils';
@@ -44,6 +45,7 @@ async function main(): Promise<void> {
         ],
       })
       .catch((error) => {
+        captureException(error);
         console.log(error, JSON.stringify(error));
       })
   )?.unbundle();

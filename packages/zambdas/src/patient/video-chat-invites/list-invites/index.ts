@@ -16,6 +16,7 @@ import {
   getVideoEncounterForAppointment,
   lambdaResponse,
   searchInvitedParticipantResourcesByEncounterId,
+  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -23,7 +24,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
-export const index = wrapHandler('telemed-list-invites', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'telemed-list-invites';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const authorization = input.headers.Authorization;
     if (!authorization) {
@@ -95,6 +97,6 @@ export const index = wrapHandler('telemed-list-invites', async (input: ZambdaInp
     return lambdaResponse(200, result);
   } catch (error: any) {
     console.log(error);
-    return lambdaResponse(500, { error: 'Internal error' });
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });

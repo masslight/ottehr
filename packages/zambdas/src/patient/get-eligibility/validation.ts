@@ -1,5 +1,6 @@
 // cSpell:ignore olicy
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Appointment, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
   APIErrorCode,
@@ -163,6 +164,7 @@ export const complexInsuranceValidation = async (
         secondaryPolicyHolder = mapResponseItemsToInsurancePolicyHolder(secondaryInsuranceItem?.item ?? [], '-2');
         secondaryInsuranceData = mapResponseItemsToInsuranceData(secondaryInsuranceItem.item ?? [], '-2');
       } catch (e) {
+        captureException(e);
         console.error('Error parsing secondary insurance data', e);
         secondaryPolicyHolder = undefined;
         secondaryInsuranceData = undefined;

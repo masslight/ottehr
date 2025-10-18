@@ -15,6 +15,7 @@ import {
   getVideoEncounterForAppointment,
   lambdaResponse,
   searchInvitedParticipantResourcesByEncounterId,
+  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -113,7 +114,7 @@ export const index = wrapHandler('cancel-invite', async (input: ZambdaInput): Pr
     return lambdaResponse(200, {});
   } catch (error: any) {
     console.log(error);
-    return lambdaResponse(500, { error: 'Internal error' });
+    return topLevelCatch('cancel-invite', error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

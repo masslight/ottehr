@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import fontkit from '@pdf-lib/fontkit';
+import { captureException } from '@sentry/aws-serverless';
 import { DocumentReference } from 'fhir/r4b';
 import {
   Color,
@@ -762,6 +763,7 @@ export async function getPdfLogo(): Promise<Buffer | undefined> {
     return fs.readFileSync(url);
   } catch (error) {
     console.warn(`Could not load PDF logo from "${url || './assets/logo.png'}": ${(error as Error).message}`);
+    captureException(error);
     return undefined;
   }
 }

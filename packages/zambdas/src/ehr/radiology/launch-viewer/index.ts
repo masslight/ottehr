@@ -1,7 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
 import { getSecret, RadiologyLaunchViewerZambdaOutput, RoleType, Secrets, SecretsKeys, User } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_VIEWER_LAUNCH_URL } from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
@@ -35,10 +41,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
   }
 });
 

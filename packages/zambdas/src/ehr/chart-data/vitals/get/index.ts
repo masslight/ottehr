@@ -11,6 +11,7 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getFullName,
+  getSecret,
   getVitalDTOCriticalityFromObservation,
   GetVitalsResponseData,
   INVALID_INPUT_ERROR,
@@ -19,6 +20,7 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   PATIENT_VITALS_META_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
+  SecretsKeys,
   VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VitalFieldNames,
@@ -30,11 +32,17 @@ import {
   VitalsVisionObservationDTO,
 } from 'utils';
 import * as z from 'zod';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../../shared';
 
 let m2mToken: string;
-
-export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'get-vitals';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Validating input: ${JSON.stringify(input.body)}`);
     const { encounterId, mode, secrets } = validateRequestParameters(input);
@@ -52,10 +60,7 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
     };
   } catch (error) {
     console.log(error);
-    return {
-      body: JSON.stringify({ message: JSON.stringify(error) }),
-      statusCode: 500,
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

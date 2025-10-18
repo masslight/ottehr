@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -106,6 +107,7 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
         return null;
       } catch (e) {
         console.log('error updating appointment status', JSON.stringify(e, null, 2));
+        captureException(e);
         return null;
       }
     })();
@@ -120,6 +122,7 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
     await createAuditEvent(AuditableZambdaEndpoints.submitPaperwork, oystehr, input, patientId, secrets);
   } catch (e) {
     console.log('error writing audit event', JSON.stringify(e, null, 2));
+    captureException(e);
   }
   return patchedPaperwork;
 };

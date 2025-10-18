@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import {
   Address,
   Bundle,
@@ -101,6 +102,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
       });
     } catch (error: any) {
       console.error(error);
+      captureException(error);
       secondaryInsurancePlanRequirements = undefined;
     }
   }

@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -601,6 +602,7 @@ const makeAppointmentInformation = (
     } catch (e) {
       console.log('error building sms model: ', e);
       console.log('related persons value prior to error: ', rps);
+      captureException(e);
     }
   } else {
     console.log(`no patient ref found for appointment ${appointment.id}`);
