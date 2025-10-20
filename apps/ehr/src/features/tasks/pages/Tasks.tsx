@@ -49,7 +49,7 @@ import { CategoryChip, TASK_CATEGORY_LABEL } from '../components/CategoryChip';
 const UNKNOWN = 'Unknown';
 const COMPLETED = 'completed';
 const TASK_STATUS_LABEL: Record<string, string> = {
-  requested: 'pending',
+  ready: 'pending',
   'in-progress': 'in progress',
   completed: 'completed',
 };

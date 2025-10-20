@@ -25,7 +25,7 @@ export function createTask(data: {
   }
   return {
     resourceType: 'Task',
-    status: 'requested',
+    status: 'ready',
     groupIdentifier: {
       system: ottehrIdentifierSystem('task-category'),
       value: data.category,
@@ -40,7 +40,6 @@ export function createTask(data: {
     },
     encounter: { reference: `Encounter/${data.encounterId}` },
     authoredOn: DateTime.now().toISO(),
-    lastModified: DateTime.now().toISO(),
     intent: 'order',
     input: undefinedIfEmptyArray(
       (data.input ?? [])

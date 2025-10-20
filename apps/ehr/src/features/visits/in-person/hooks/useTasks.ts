@@ -5,7 +5,9 @@ import { DateTime } from 'luxon';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   getCoding,
+  getExtension,
   IN_HOUSE_LAB_TASK,
+  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TASK_CATEGORY_IDENTIFIER,
   TASK_INPUT_SYSTEM,
   TASK_LOCATION_SYSTEM,
@@ -144,17 +146,18 @@ export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskReques
             value: {
               reference: 'Practitioner/' + input.assignee.id,
               display: input.assignee.name,
+              extension: [
+                {
+                  url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+                  valueDateTime: DateTime.now().toISO(),
+                },
+              ],
             },
           },
           {
             op: 'replace',
             path: '/status',
             value: 'in-progress',
-          },
-          {
-            op: 'replace',
-            path: '/lastModified',
-            value: DateTime.now().toISO(),
           },
         ],
       });
@@ -185,7 +188,7 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
           {
             op: 'replace',
             path: '/status',
-            value: 'requested',
+            value: 'ready',
           },
         ],
       });
@@ -261,7 +264,7 @@ function fhirTaskToTask(task: FhirTask): Task {
       ? {
           id: task.owner?.reference?.split('/')?.[1] ?? '',
           name: task.owner?.display ?? '',
-          date: task.lastModified ?? '',
+          date: getExtension(task.owner, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime ?? '',
         }
       : undefined,
     alert: getInput('alert', task) ?? '',

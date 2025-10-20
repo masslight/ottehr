@@ -12,6 +12,7 @@ import {
   Coverage,
   DocumentReference,
   DomainResource,
+  Element,
   Encounter,
   Extension,
   FhirResource,
@@ -1485,7 +1486,8 @@ export const getAddressStringForScheduleResource = (
   console.log('getAddressStringForScheduleResource', scheduleResource.resourceType, address);
   return address;
 };
-export function getExtension(resource: DomainResource, url: string): Extension | undefined {
+
+export function getExtension(resource: DomainResource | Element, url: string): Extension | undefined {
   return resource.extension?.find((extension) => extension.url === url);
 }
 
