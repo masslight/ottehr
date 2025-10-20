@@ -290,6 +290,9 @@ const getInHouseLabResultResources = async (
   if (inputResultTask.status === 'completed') {
     throw new Error('Result has already been entered. Refresh the page to continue.');
   }
+  if (inputResultTask.status !== 'ready' && inputResultTask.status !== 'in-progress') {
+    throw new Error(`One ready IRT task should exist for ServiceRequest/${serviceRequestId}`);
+  }
 
   const serviceRequestsRelatedViaRepeat =
     serviceRequests.length > 1 ? getServiceRequestsRelatedViaRepeat(serviceRequests, serviceRequestId) : undefined;
