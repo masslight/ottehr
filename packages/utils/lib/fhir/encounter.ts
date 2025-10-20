@@ -51,6 +51,15 @@ export const isFollowupEncounter = (encounter: Encounter): boolean => {
   );
 };
 
+export type EncounterVisitType = 'main' | 'follow-up';
+
+export const getEncounterVisitType = (encounter?: Encounter): EncounterVisitType => {
+  if (encounter && isFollowupEncounter(encounter)) {
+    return 'follow-up';
+  }
+  return 'main';
+};
+
 export const formatFhirEncounterToPatientFollowupDetails = (
   encounter: Encounter,
   patientId: string,

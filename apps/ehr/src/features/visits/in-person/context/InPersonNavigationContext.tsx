@@ -1,8 +1,8 @@
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router-dom';
-import { isFollowupEncounter } from 'utils';
 import { sidebarMenuIcons } from '../../shared/components/Sidebar';
 import { useChartFields } from '../../shared/hooks/useChartFields';
+import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { InPersonModal } from '../components/InPersonModal';
 import { ROUTER_PATH, routesInPerson } from '../routing/routesInPerson';
@@ -65,6 +65,7 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [_disabledNavigationState, _setDisabledNavigationState] = useState<Record<string, boolean>>({});
   const { isAppointmentLoading, visitState } = useAppointmentData();
+  const { visitType } = useGetAppointmentAccessibility();
   const { encounter } = visitState;
 
   const { chartData, isLoading } = useChartData();
@@ -114,10 +115,8 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
       return;
     }
 
-    const isFollowup = encounter ? isFollowupEncounter(encounter) : false;
-
     let targetMode: InteractionMode;
-    if (isFollowup) {
+    if (visitType === 'follow-up') {
       targetMode = 'follow-up';
     } else if (
       encounter?.participant?.find(
@@ -144,7 +143,7 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
     if (encounter?.id) {
       setIsModeInitialized(true);
     }
-  }, [setInteractionMode, interactionMode, isModeInitialized, appointmentIdFromUrl, encounter]);
+  }, [setInteractionMode, interactionMode, isModeInitialized, appointmentIdFromUrl, encounter, visitType]);
 
   setNavigationDisable = (newState: Record<string, boolean>): void => {
     let shouldUpdate = false;

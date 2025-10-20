@@ -58,9 +58,9 @@ export type AppointmentTelemedState = {
   location: Location | undefined;
   locationVirtual: Location | undefined;
   practitioner?: Practitioner;
-  mainEncounter: Encounter; // The original main encounter
-  encounter: Encounter; // Always the currently selected encounter (main or followup)
-  followupEncounters: Encounter[];
+  followUpOriginEncounter: Encounter;
+  encounter: Encounter;
+  followupEncounters?: Encounter[];
   selectedEncounterId: string | undefined;
   questionnaireResponse: QuestionnaireResponse | undefined;
   patientPhotoUrls: string[];
@@ -135,7 +135,7 @@ const APPOINTMENT_INITIAL: AppointmentTelemedState & AppointmentRawResourcesStat
   location: undefined,
   locationVirtual: undefined,
   practitioner: undefined,
-  mainEncounter: {} as Encounter,
+  followUpOriginEncounter: {} as Encounter,
   encounter: {} as Encounter,
   followupEncounters: [],
   selectedEncounterId: undefined,
@@ -222,25 +222,19 @@ export const useAppointmentData = (
         encounterId?: string;
       }
     )?.encounterId;
-    if (encounterIdFromLocation && !isLoading) {
+    if (encounterIdFromLocation && !isLoading && !isPending) {
       setSelectedEncounter(encounterIdFromLocation);
       navigate('.', { replace: true });
     }
-  }, [isLoading, location.state, navigate, setSelectedEncounter]);
+  }, [isLoading, isPending, location.state, navigate, setSelectedEncounter]);
 
   const getSelectedEncounter = useCallback(() => {
     const state = currentState || APPOINTMENT_INITIAL;
-    if (!state.selectedEncounterId) {
-      return state.mainEncounter;
+    if (!state.selectedEncounterId || state.selectedEncounterId === state.followUpOriginEncounter?.id) {
+      return state.followUpOriginEncounter;
     }
 
-    // If selected encounter is the main encounter
-    if (state.selectedEncounterId === state.mainEncounter?.id) {
-      return state.mainEncounter;
-    }
-
-    // Find the selected followup encounter
-    return state.followupEncounters.find((encounter) => encounter.id === state.selectedEncounterId);
+    return state.followupEncounters?.find((encounter) => encounter.id === state.selectedEncounterId);
   }, [currentState]);
 
   const fullState = useMemo(() => {
@@ -249,11 +243,10 @@ export const useAppointmentData = (
 
     return {
       ...state,
-      // Update encounter to always be the selected encounter
-      encounter: selectedEncounter || state.mainEncounter,
+      encounter: selectedEncounter || state.followUpOriginEncounter,
       visitState: {
         ...state.visitState,
-        encounter: selectedEncounter || state.mainEncounter,
+        encounter: selectedEncounter || state.followUpOriginEncounter,
       },
       isAppointmentLoading: isLoading,
       appointmentRefetch: refetch,
@@ -306,20 +299,20 @@ const selectAppointmentData = (
   const location = (data?.filter((resource: FhirResource) => resource.resourceType === 'Location') as Location[]).find(
     (location) => !isLocationVirtual(location)
   );
-  // const encounter = data?.find((resource: FhirResource) => resource.resourceType === 'Encounter') as Encounter;
-  const mainEncounter = data?.find(
+
+  const followUpOriginEncounter = data?.find(
     (resource: FhirResource) => resource.resourceType === 'Encounter' && !resource.partOf
   ) as Encounter;
   const followupEncounters = data?.filter(
     (resource: FhirResource) => resource.resourceType === 'Encounter' && resource.partOf
-  ) as Encounter[];
+  ) as Encounter[] | undefined;
 
   // Preserve the selected encounter ID if it exists and is valid, otherwise default to main encounter
-  const allEncounters = [mainEncounter, ...followupEncounters].filter(Boolean);
+  const allEncounters = [followUpOriginEncounter, ...(followupEncounters || [])].filter(Boolean);
   const validSelectedEncounterId =
     preserveSelectedEncounterId && allEncounters.some((enc) => enc.id === preserveSelectedEncounterId)
       ? preserveSelectedEncounterId
-      : mainEncounter?.id;
+      : followUpOriginEncounter?.id;
 
   return {
     rawResources: data,
@@ -332,8 +325,8 @@ const selectAppointmentData = (
     practitioner: data?.find(
       (resource: FhirResource) => resource.resourceType === 'Practitioner'
     ) as unknown as Practitioner,
-    mainEncounter,
-    encounter: mainEncounter, // Default to main encounter, will be updated by hook
+    followUpOriginEncounter,
+    encounter: followUpOriginEncounter, // Default to main encounter, will be updated by hook
     followupEncounters,
     selectedEncounterId: validSelectedEncounterId,
     questionnaireResponse,
@@ -358,7 +351,7 @@ const selectAppointmentData = (
       appointment,
       patient,
       location,
-      encounter: mainEncounter, // This will be updated by the hook to use selected encounter
+      encounter: followUpOriginEncounter,
       questionnaireResponse,
     },
 

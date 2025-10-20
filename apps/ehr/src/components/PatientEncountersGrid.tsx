@@ -143,8 +143,6 @@ const columns: TableColumn[] = [
   { id: 'note', label: 'Progress Note', width: 150 },
 ];
 
-const emptyEmployeeList: EmployeeDetails[] = [];
-
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
   const { appointments, loading, patient } = props;
 
@@ -178,7 +176,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   });
 
   useSuccessQuery(employeesData, (data) => {
-    const employees = data?.employees || emptyEmployeeList;
+    const employees = data?.employees || [];
     useEmployeesStore.setState({ employees });
   });
 
@@ -288,7 +286,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     }
   };
 
-  const handleChangePage = (event: unknown, newPage: number): void => {
+  const handleChangePage = (_event: unknown, newPage: number): void => {
     setPage(newPage);
   };
 
@@ -297,13 +295,9 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     setPage(0);
   };
 
-  const getFollowupEncountersForRow = (row: AppointmentHistoryRow, rowIndex: number): Encounter[] => {
-    // Show follow-up encounters only for the first row to avoid duplication
-    // This provides a unified view of both main encounters and follow-ups
-    if (rowIndex === 0) {
-      return followupEncounters;
-    }
-    return [];
+  const getFollowupEncountersForRow = (row: AppointmentHistoryRow): Encounter[] => {
+    if (!row.encounter?.id) return [];
+    return followupEncounters.filter((encounter) => encounter.partOf?.reference?.endsWith(row.encounter?.id || ''));
   };
 
   const renderFollowupCellContent = (encounter: Encounter, columnId: string): React.ReactNode => {
@@ -549,7 +543,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
             ) : (
               paginatedData.map((row, index) => {
                 const rowId = row.id || `row-${index}`;
-                const followupEncountersForRow = getFollowupEncountersForRow(row, index);
+                const followupEncountersForRow = getFollowupEncountersForRow(row);
                 const hasFollowups = followupEncountersForRow.length > 0;
 
                 return (

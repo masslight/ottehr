@@ -13,7 +13,6 @@ import {
   getInPersonVisitStatus,
   getProviderType,
   getSupervisorApprovalStatus,
-  isFollowupEncounter,
   isPhysicianProviderType,
   PRACTITIONER_CODINGS,
   TelemedAppointmentStatusEnum,
@@ -37,7 +36,8 @@ type ReviewAndSignButtonProps = {
 export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) => {
   const { patient, appointment, encounter, appointmentRefetch, appointmentSetState } = useAppointmentData();
   const { chartData } = useChartData();
-  const isFollowup = isFollowupEncounter(encounter);
+  const appointmentAccessibility = useGetAppointmentAccessibility();
+  const isFollowup = appointmentAccessibility.visitType === 'follow-up';
 
   const { data: chartFields } = useChartFields({
     requestedFields: {
@@ -66,7 +66,6 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       practitionerId: practitioner?.id ?? '',
     });
   const { isInPerson } = useAppFlags();
-  const appointmentAccessibility = useGetAppointmentAccessibility();
 
   const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
   const medicalDecision = chartFields?.medicalDecision?.text;

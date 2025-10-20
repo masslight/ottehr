@@ -3,17 +3,18 @@ import { Box, Button, Collapse, List, ListItem, ListItemButton, ListItemText, Ty
 import { Encounter } from 'fhir/r4b';
 import { FC, useState } from 'react';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
-import { useAppointmentData } from '../stores/appointment/appointment.store';
+import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 
 type EncounterSwitcherProps = {
   open: boolean;
 };
 
 export const EncounterSwitcher: FC<EncounterSwitcherProps> = ({ open }) => {
-  const { mainEncounter, followupEncounters, selectedEncounterId, setSelectedEncounter } = useAppointmentData();
+  const { followUpOriginEncounter, followupEncounters, selectedEncounterId, setSelectedEncounter } =
+    useAppointmentData();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const allEncounters = [mainEncounter, ...followupEncounters].filter(Boolean) as Encounter[];
+  const allEncounters = [followUpOriginEncounter, ...(followupEncounters || [])].filter(Boolean) as Encounter[];
 
   const handleEncounterSelect = (encounterId: string): void => {
     setSelectedEncounter(encounterId);

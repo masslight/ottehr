@@ -12,27 +12,27 @@ import { useNavigate } from 'react-router-dom';
 import { getEmployees, saveFollowup } from 'src/api/api';
 import LocationSelect from 'src/components/LocationSelect';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { AppointmentHistoryRow } from 'src/hooks/useGetPatient';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import {
-  FOLLOWUP_REASONS,
-  FOLLOWUP_SYSTEMS,
-  FollowupReason,
-  PatientFollowupDetails,
-  ProviderDetails,
-  ServiceMode,
-} from 'utils';
+import { FOLLOWUP_REASONS, FOLLOWUP_SYSTEMS, FollowupReason, PatientFollowupDetails, ProviderDetails } from 'utils';
 
 interface PatientFollowupFormProps {
   patient: Patient | undefined;
   followupDetails?: PatientFollowupDetails;
 }
 
+interface EncounterRow {
+  id: string | undefined;
+  typeLabel: string;
+  dateTime: string | undefined;
+  appointment: Appointment;
+  encounter: Encounter;
+}
+
 interface FormData {
   provider: ProviderDetails | undefined;
   reason: FollowupReason | undefined;
   otherReason: string;
-  initialVisit: AppointmentHistoryRow | undefined;
+  initialVisit: EncounterRow | undefined;
   followupDate: DateTime;
   followupTime: DateTime;
   location: LocationWithWalkinSchedule | undefined;
@@ -56,7 +56,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
 
   const [loading, setLoading] = useState<boolean>(false);
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
-  const [previousAppointments, setPreviousAppointments] = useState<AppointmentHistoryRow[]>([]);
+  const [previousEncounters, setPreviousEncounters] = useState<EncounterRow[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
 
   const [formData, setFormData] = useState<FormData>({
@@ -161,20 +161,16 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
           return !isFollowup;
         });
 
-        const appointmentRows: AppointmentHistoryRow[] = nonFollowupEncounters
+        const encounterRows: EncounterRow[] = nonFollowupEncounters
           .map((encounter) => {
             const appointment = encounter.appointment?.[0]?.reference
               ? appointments.find((app) => `Appointment/${app.id}` === encounter.appointment?.[0]?.reference)
               : undefined;
 
             return {
-              id: appointment?.id,
+              id: encounter.id,
               typeLabel: appointment?.appointmentType?.text || 'Visit',
-              office: undefined,
-              officeTimeZone: undefined,
               dateTime: appointment?.start || encounter.period?.start,
-              serviceMode: ServiceMode['in-person'],
-              length: 0,
               appointment: appointment!,
               encounter: encounter,
             };
@@ -186,10 +182,10 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
             return dateB.diff(dateA).milliseconds;
           });
 
-        setPreviousAppointments(appointmentRows);
+        setPreviousEncounters(encounterRows);
 
-        if (followupDetails?.initialVisit && appointmentRows.length > 0) {
-          const matchingVisit = appointmentRows.find((row) => row.encounter?.id === followupDetails.initialVisit);
+        if (followupDetails?.initialVisit && encounterRows.length > 0) {
+          const matchingVisit = encounterRows.find((row) => row.encounter?.id === followupDetails.initialVisit);
           if (matchingVisit) {
             setFormData((prev) => ({ ...prev, initialVisit: matchingVisit }));
           }
@@ -245,8 +241,6 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
         location: formData.location,
         provider: formData.provider || undefined,
       };
-
-      console.log('encounter details', encounterDetails, formData);
 
       await saveFollowup(oystehrZambda, { encounterDetails });
 
@@ -350,7 +344,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
 
           <Grid item xs={10}>
             <Autocomplete
-              options={previousAppointments}
+              options={previousEncounters}
               fullWidth
               size="small"
               getOptionLabel={(option) => {

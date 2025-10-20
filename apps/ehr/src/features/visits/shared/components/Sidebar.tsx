@@ -11,11 +11,11 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getAdmitterPractitionerId, getInPersonVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeButton';
+import { EncounterSwitcher } from '../../in-person/components/EncounterSwitcher';
 import { RouteInPerson, useInPersonNavigationContext } from '../../in-person/context/InPersonNavigationContext';
 import { ROUTER_PATH, routesInPerson } from '../../in-person/routing/routesInPerson';
 import { usePractitionerActions } from '../hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
-import { EncounterSwitcher } from './EncounterSwitcher';
 
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
   <svg width="9" height="18" viewBox="0 0 9 18" fill="none" xmlns="http://www.w3.org/2000/svg">

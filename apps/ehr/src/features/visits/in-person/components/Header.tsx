@@ -10,7 +10,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
-  isFollowupEncounter,
   PRACTITIONER_CODINGS,
   ProviderDetails,
   VisitStatusLabel,
@@ -20,6 +19,7 @@ import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
 import { useChartFields } from '../../shared/hooks/useChartFields';
+import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
@@ -128,7 +128,8 @@ export const Header = (): JSX.Element => {
   const { chartData } = useChartData();
   const { encounter } = visitState;
   const encounterId = encounter?.id;
-  const isFollowup = encounter ? isFollowupEncounter(encounter) : false;
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
   const patientName = format(mappedData?.patientName, 'Name');

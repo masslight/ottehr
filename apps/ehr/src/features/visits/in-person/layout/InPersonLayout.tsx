@@ -2,8 +2,9 @@ import { Mic } from '@mui/icons-material';
 import { Container, Fab, Paper } from '@mui/material';
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { getAdmitterPractitionerId, getAttendingPractitionerId, isFollowupEncounter } from 'utils';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils';
 import { Sidebar } from '../../shared/components/Sidebar';
+import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { CommonLayoutBreadcrumbs } from '../components/breadcrumbs/CommonLayoutBreadcrumbs';
@@ -38,7 +39,8 @@ export const InPersonLayout: React.FC = () => {
   const [recordingAnchorElemement, setRecordingAnchorElement] = React.useState<HTMLButtonElement | null>(null);
   const recordingElementID = 'recording-element';
   const recordingOpen = Boolean(recordingAnchorElemement);
-  const isFollowup = encounter ? isFollowupEncounter(encounter) : false;
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
 
   useResetAppointmentStore();
   const { chartData } = useChartData({ shouldUpdateExams: true });
