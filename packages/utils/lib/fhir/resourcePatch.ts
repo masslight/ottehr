@@ -332,10 +332,14 @@ interface GroupedOperation {
 export function consolidateOperations(operations: Operation[], resource: FhirResource): Operation[] {
   // Merge 'replace' and 'add' operations with the same path
   const mergedOperations: Operation[] = mergeOperations(operations, resource);
-
+  console.log('mergedOperations', JSON.stringify(mergedOperations, null, 2));
   if (resource.resourceType === 'Patient' && resource.contact) {
     // Special handling for contact name operations
     consolidateContactNameOperations(mergedOperations);
+  }
+
+  if (resource.resourceType === 'Patient' && resource.extension) {
+    consolidateExtensionOperations(mergedOperations, resource.extension);
   }
 
   // Group operations by their root paths
@@ -343,15 +347,20 @@ export function consolidateOperations(operations: Operation[], resource: FhirRes
     (groups, op) => groupAddOperationsForNewPaths(groups, op, resource),
     []
   );
-
+  console.log('groupedOperationsWithNewPath', JSON.stringify(groupedOperationsWithNewPath, null, 2));
   const groupedOperationsAppendingExistingArray = mergedOperations.reduce<GroupedOperation[]>(
     (groups, op) => groupAddOperationsForExistingPath(groups, op, resource),
     []
   );
-
+  console.log(
+    'groupedOperationsAppendingExistingArray',
+    JSON.stringify(groupedOperationsAppendingExistingArray, null, 2)
+  );
   // Convert groups to consolidated operations
   const consolidatedOps = groupedOperationsWithNewPath.map(consolidateGroupedOperationsForNewPaths);
+  console.log('consolidatedOps', JSON.stringify(consolidatedOps, null, 2));
   const consolidatedAppendOps = groupedOperationsAppendingExistingArray.map(createArrayAppendOperation);
+  console.log('consolidatedAppendOps', JSON.stringify(consolidatedAppendOps, null, 2));
   // Filter standalone operations
   const standaloneOperations = filterStandaloneOperations(
     mergedOperations,
@@ -359,11 +368,12 @@ export function consolidateOperations(operations: Operation[], resource: FhirRes
     groupedOperationsAppendingExistingArray,
     resource
   );
+  console.log('standaloneOperations', JSON.stringify(standaloneOperations, null, 2));
   // Combine consolidated and standalone operations
   const combinedOperations = [...consolidatedOps, ...consolidatedAppendOps, ...standaloneOperations];
   // Normalize all array operations
   const normalizedOperations = combinedOperations.map((op) => convertInvalidArrayOperation(op, resource));
-
+  console.log('normalizedOperations', JSON.stringify(normalizedOperations, null, 2));
   // Return consolidated operations plus any operations that didn't need consolidation
   return normalizedOperations;
 }
@@ -710,4 +720,38 @@ function consolidateContactNameOperations(operations: Operation[]): Operation[] 
   const nonNameOps = operations.filter((op) => !(op.op === 'add' && op.path.includes(consolidatedNameOps[0].path)));
 
   return [...consolidatedNameOps, ...nonNameOps];
+}
+
+function consolidateExtensionOperations(operations: Operation[], extension: Extension[]): Operation[] {
+  const extensionOps = operations.filter((op) => op.path.startsWith('/extension'));
+  if (!extensionOps.length) return operations;
+
+  const byUrl = new Map<string, any>();
+  for (const ext of extension ?? []) {
+    byUrl.set(ext.url, ext);
+  }
+
+  for (const op of extensionOps) {
+    let value;
+    if (op.op === 'add' || op.op === 'replace') {
+      value = op.value;
+    }
+    if (!value?.url) continue;
+
+    if (op.op === 'replace' || op.op === 'add') {
+      byUrl.set(value.url, value);
+    } else if (op.op === 'remove') {
+      byUrl.delete(value.url);
+    }
+  }
+
+  const mergedExtensions = Array.from(byUrl.values());
+  const consolidatedOp: Operation = {
+    op: 'replace',
+    path: '/extension',
+    value: mergedExtensions,
+  };
+
+  const otherOps = operations.filter((op) => !op.path.startsWith('/extension'));
+  return [...otherOps, consolidatedOp];
 }
