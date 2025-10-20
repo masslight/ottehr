@@ -42,6 +42,8 @@ import {
   ObsContentType,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM,
+  OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM,
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
   OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
   OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL,
@@ -92,7 +94,6 @@ import {
   ReflexExternalLabResultsData,
   ResultDataConfig,
   ResultSpecimenInfo,
-  TextStyle,
   UnsolicitedExternalLabResultsData,
 } from './types';
 
@@ -193,6 +194,8 @@ const getResultDataConfigForDrResources = (
 
   const unsolicitedResultData: Omit<UnsolicitedExternalLabResultsData, keyof LabResultsData> = {
     accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
+    alternatePlacerId: diagnosticReport.identifier?.find((id) => id.system === OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM)
+      ?.value,
     reviewed,
     reviewingProvider,
     reviewDate,
@@ -310,6 +313,9 @@ const getResultDataConfig = (
 
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
       orderNumber,
+      alternatePlacerId: diagnosticReport.identifier?.find(
+        (id) => id.system === OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM
+      )?.value,
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
       orderSubmitDate,
@@ -492,7 +498,7 @@ export async function createExternalLabResultPDF(
     resultsReceivedDate,
     resultInterpretationDisplays,
     obsAttachments,
-  } = await getResultsDetailsForPDF(oystehr, diagnosticReport, observations);
+  } = await getResultsDetailsForPDF(oystehr, diagnosticReport, observations, timezone);
 
   const sortedSpecimens = specimens?.sort((a, b) =>
     compareDates(a.collection?.collectedDateTime, b.collection?.collectedDateTime)
@@ -639,7 +645,8 @@ export async function createInHouseLabResultPDF(
 async function getResultsDetailsForPDF(
   oystehr: Oystehr,
   diagnosticReport: DiagnosticReport,
-  observations: Observation[]
+  observations: Observation[],
+  timezone?: string | undefined
 ): Promise<{
   reviewingProvider: Practitioner | undefined;
   reviewDate: DateTime | undefined;
@@ -671,14 +678,10 @@ async function getResultsDetailsForPDF(
     })
   )?.unbundle();
 
-  const { completedFinalOrCorrected, readyFinalOrCorrected } = taskSearchForFinalOrCorrected.reduce(
-    (acc: { completedFinalOrCorrected: Task[]; readyFinalOrCorrected: Task[] }, task) => {
-      if (task.status === 'completed') acc.completedFinalOrCorrected.push(task);
-      if (task.status === 'ready') acc.readyFinalOrCorrected.push(task);
-      return acc;
-    },
-    { completedFinalOrCorrected: [], readyFinalOrCorrected: [] }
-  );
+  const completedFinalOrCorrected = taskSearchForFinalOrCorrected.reduce((acc: Task[], task) => {
+    if (task.status === 'completed') acc.push(task);
+    return acc;
+  }, []);
 
   const sortedCompletedFinalOrCorrected = completedFinalOrCorrected?.sort((a, b) =>
     compareDates(a.authoredOn, b.authoredOn)
@@ -688,26 +691,17 @@ async function getResultsDetailsForPDF(
   console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, latestReviewTask?.id);
 
   let reviewDate: DateTime | undefined = undefined,
-    reviewingProvider = undefined,
-    resultsReceivedDate = '';
+    reviewingProvider = undefined;
 
   if (latestReviewTask) {
-    resultsReceivedDate = latestReviewTask?.authoredOn
-      ? DateTime.fromISO(latestReviewTask.authoredOn).toFormat(LABS_DATE_STRING_FORMAT)
-      : '';
     if (latestReviewTask.status === 'completed') {
       ({ reviewingProvider, reviewDate } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask));
     }
   }
-  if (!resultsReceivedDate && !latestReviewTask) {
-    console.log('no completed final or corrected tasks, checking ready tasks to parse a results received date');
-    const sortedReadyFinalOrCorrected = readyFinalOrCorrected?.sort((a, b) => compareDates(a.authoredOn, b.authoredOn));
-    const readyReviewTask = sortedReadyFinalOrCorrected[0];
-    if (readyReviewTask && readyReviewTask?.authoredOn) {
-      console.log('readyReviewTask: ', readyReviewTask.id);
-      resultsReceivedDate = DateTime.fromISO(readyReviewTask.authoredOn).toFormat(LABS_DATE_STRING_FORMAT);
-    }
-  }
+
+  const resultsReceivedDate = diagnosticReport.effectiveDateTime
+    ? DateTime.fromISO(diagnosticReport.effectiveDateTime).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
+    : '';
 
   const resultInterpretationDisplays: string[] = [];
   const externalLabResults: ExternalLabResult[] = [];
@@ -770,6 +764,14 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
   return pdfBytes;
 }
 
+/**
+ * Draws Patient Info, Location Info, Big Result Header
+ * @param pdfClient
+ * @param textStyles
+ * @param icons
+ * @param data
+ * @returns
+ */
 async function drawCommonLabsElements(
   pdfClient: PdfClient,
   textStyles: LabsPDFTextStyleConfig,
@@ -879,6 +881,13 @@ async function drawCommonLabsElements(
   return pdfClient;
 }
 
+/**
+ * Draws "General Comments and Information" and related info
+ * @param pdfClient
+ * @param textStyles
+ * @param data
+ * @returns
+ */
 async function drawCommonExternalLabElements(
   pdfClient: PdfClient,
   textStyles: LabsPDFTextStyleConfig,
@@ -921,7 +930,7 @@ async function drawCommonExternalLabElements(
       pdfClient = drawFieldLine(
         pdfClient,
         textStyles,
-        'Sample quantity:',
+        'Specimen Volume:',
         `${data.resultSpecimenInfo.quantityString}${
           data.resultSpecimenInfo.unit ? ` ${data.resultSpecimenInfo.unit}` : ''
         }`
@@ -930,7 +939,7 @@ async function drawCommonExternalLabElements(
     }
 
     if (data.resultSpecimenInfo.bodySite) {
-      pdfClient = drawFieldLine(pdfClient, textStyles, 'Sample Source:', data.resultSpecimenInfo.bodySite);
+      pdfClient = drawFieldLine(pdfClient, textStyles, 'Specimen Source:', data.resultSpecimenInfo.bodySite);
       pdfClient.newLine(STANDARD_NEW_LINE);
     }
   }
@@ -979,12 +988,11 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
   const { callIcon, faxIcon, textStyles, initialPageStyles } = await getPdfClientForLabsPDFs();
   let pdfClient = clientInfo.pdfClient;
 
-  const drawRowHelper = (data: { col1: string; col2: string; col3: string }): void => {
-    const wideColumn = 190;
+  const drawRowHelper = (data: { col1: string; col2: string }): void => {
+    const wideColumn = (pdfClient.getRightBound() - pdfClient.getLeftBound() - 20) / 2;
     const columnConstants: { [key: string]: { startXPos: number; width: number } } = {
       column1: { startXPos: pdfClient.getLeftBound(), width: wideColumn },
-      column2: { startXPos: pdfClient.getLeftBound() + wideColumn, width: wideColumn },
-      column3: { startXPos: pdfClient.getLeftBound() + 2 * wideColumn, width: 135 },
+      column2: { startXPos: pdfClient.getLeftBound() + wideColumn + 20, width: wideColumn },
     };
 
     pdfClient.drawVariableWidthColumns(
@@ -1001,12 +1009,6 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
           content: data.col2,
           textStyle: textStyles.pageHeaderGrey,
         },
-        {
-          startXPos: columnConstants.column3.startXPos,
-          width: columnConstants.column3.width,
-          content: data.col3,
-          textStyle: textStyles.pageHeaderGrey,
-        },
       ],
       pdfClient.getY(),
       pdfClient.getCurrentPageIndex()
@@ -1021,36 +1023,47 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
       `Drawing external labs header on page ${pdfClient.getCurrentPageIndex() + 1}. currYPos is ${pdfClient.getY()}`
     );
 
+    const getReqNumOrAltFillerId = (): string => {
+      if (data.alternatePlacerId) return data.alternatePlacerId;
+      else if (type !== LabType.unsolicited) return data.orderNumber;
+      else return 'N/A';
+    };
+
     drawRowHelper({
       col1: `Patient Name: ${data.patientLastName}, ${data.patientFirstName}${
         data.patientMiddleName ? `, ${data.patientMiddleName}` : ''
       }`,
-      col2: `Req #: ${type !== LabType.unsolicited ? data.orderNumber : 'N/A'}`,
-      col3: '',
+      col2: `Req #: ${getReqNumOrAltFillerId()}`,
     });
 
     drawRowHelper({
       col1: `DOB: ${data.patientDOB}`,
       col2: `Accession #: ${data.accessionNumber}`,
-      col3: '',
     });
 
     drawRowHelper({
       col1: `Age: ${calculateAge(data.patientDOB)} Y`, // TODO LABS: what if this is an infant, is Y appropriate. I think the labs label has a better helper for this
-      col2: `Coll. on: ${type === LabType.external ? data.collectionDate : ''}`,
-      col3: '',
+      col2: `Client ID: ${data.accountNumber}`,
     });
 
     drawRowHelper({
       col1: `Sex: ${data.patientSex}`,
-      col2: `Ordering Phys.: ${data.providerName}`,
-      col3: `Result Status: ${data.resultStatus}`,
+      col2: `Collected Date & Time: ${type === LabType.external ? data.collectionDate : ''}`,
     });
 
     drawRowHelper({
       col1: `Patient ID: ${data.patientId}`,
-      col2: `NPI: ${data.providerNPI}`,
-      col3: `Reported on: ${data.resultsReceivedDate}`,
+      col2: `Result Status: ${data.resultStatus}`,
+    });
+
+    drawRowHelper({
+      col1: `Ordering Phys.: ${data.providerName}`,
+      col2: `Reported Date & Time: ${data.resultsReceivedDate}`,
+    });
+
+    drawRowHelper({
+      col1: `NPI: ${data.providerNPI}`,
+      col2: '',
     });
 
     pdfClient.drawSeparatedLine({ ...SEPARATED_LINE_STYLE, thickness: 2, color: LAB_PDF_STYLES.color.purple });
@@ -1087,27 +1100,6 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
   textStyles: LabsPDFTextStyleConfig,
   data: UnsolicitedExternalLabResultsData | ReflexExternalLabResultsData
 ): Promise<Uint8Array> {
-  // Order details
-  console.log(
-    `Drawing account number & accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  if (data.accountNumber) {
-    console.log('Writing valid account number as client id');
-    pdfClient = drawFieldLine(pdfClient, textStyles, 'Client ID:', data.accountNumber);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession #:', data.accessionNumber);
-  pdfClient.newLine(STANDARD_NEW_LINE);
-
-  // will only have for reflex
-  if ('orderNumber' in data) {
-    console.log(
-      `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-    );
-    pdfClient = drawFieldLine(pdfClient, textStyles, 'Req #:', data.orderNumber);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
-
   // we may map physician info in the future
   // console.log(
   //   `Drawing requesting physician. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
@@ -1124,14 +1116,7 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
 
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
-  pdfClient.newLine(30);
-  pdfClient.drawText(data.testName.toUpperCase(), textStyles.header);
-
-  pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
-
-  console.log(`Drawing column section.`);
-  pdfClient = writeExternalLabResultColumns(pdfClient, textStyles, data);
+  drawTestNameHeader(data.testName, data.testItemCode, pdfClient, textStyles);
 
   console.log(
     `Drawing results. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
@@ -1181,43 +1166,6 @@ async function createExternalLabsResultsFormPdfBytes(
   textStyles: LabsPDFTextStyleConfig,
   data: ExternalLabResultsData
 ): Promise<Uint8Array> {
-  // Order details
-  console.log(
-    `Drawing account number & accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  if (data.accountNumber) {
-    console.log('Writing valid account number as client id');
-    pdfClient = drawFieldLine(pdfClient, textStyles, 'Client ID:', data.accountNumber);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
-
-  console.log(
-    `Drawing order pri. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Priority:', data.orderPriority.toUpperCase());
-  pdfClient.newLine(STANDARD_NEW_LINE);
-
-  console.log(
-    `Drawing order date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Date:', data.orderSubmitDate);
-  pdfClient.newLine(STANDARD_NEW_LINE);
-
-  console.log(
-    `Drawing collection date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Collection Date:', data.collectionDate);
-  pdfClient.newLine(STANDARD_NEW_LINE);
-
-  console.log(
-    `Drawing results date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Reported Date & Time:', data.resultsReceivedDate);
-  pdfClient.newLine(STANDARD_FONT_SIZE);
-  pdfClient.newLine(STANDARD_FONT_SIZE);
-
-  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
-
   console.log(
     `Drawing diagnoses. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
@@ -1227,14 +1175,8 @@ async function createExternalLabsResultsFormPdfBytes(
     'Dx:',
     data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join('; ')
   );
-  pdfClient.newLine(30);
-  pdfClient.drawTextSequential(data.testName.toUpperCase(), textStyles.header);
 
-  pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
-
-  console.log(`Drawing column section.`);
-  pdfClient = writeExternalLabResultColumns(pdfClient, textStyles, data);
+  drawTestNameHeader(data.testName, data.testItemCode, pdfClient, textStyles);
 
   console.log(
     `Drawing results. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
@@ -1369,17 +1311,17 @@ async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData)
   return await pdfClient.save();
 }
 
-function getResultValueToDisplay(resultInterpretations: string[]): string {
-  const resultInterpretationsLen = resultInterpretations?.length;
-  if (resultInterpretationsLen === 0) {
-    return '';
-  }
-  if (resultInterpretationsLen === 1) {
-    return resultInterpretations[0].toUpperCase();
-  } else {
-    return 'See below for details';
-  }
-}
+// function getResultValueToDisplay(resultInterpretations: string[]): string {
+//   const resultInterpretationsLen = resultInterpretations?.length;
+//   if (resultInterpretationsLen === 0) {
+//     return '';
+//   }
+//   if (resultInterpretationsLen === 1) {
+//     return resultInterpretations[0].toUpperCase();
+//   } else {
+//     return 'See below for details';
+//   }
+// }
 
 function getResultRowDisplayColor(resultInterpretations: string[]): Color {
   if (resultInterpretations.every((interpretation) => interpretation.toUpperCase() === 'NORMAL')) {
@@ -1684,6 +1626,7 @@ const parseObservationForPDF = (
       resultValue: '',
       attachmentText: `${initialText} attachment is included at the end of this document`,
       observationStatus: observation.status,
+      additionalLabCode: getAdditionalLabCode(observation),
     };
     return {
       labResult: attachmentResult,
@@ -1719,12 +1662,15 @@ const parseObservationForPDF = (
 
   const codes = observation.code.coding
     ?.reduce((acc: string[], code) => {
-      if (code.system !== OYSTEHR_OBR_NOTE_CODING_SYSTEM) {
+      if (
+        code.system &&
+        ![OYSTEHR_OBR_NOTE_CODING_SYSTEM, OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM].includes(code.system)
+      ) {
         if (code.code) acc.push(code.code);
       }
       return acc;
     }, [])
-    .join(',');
+    .join(', ');
   const labResult: ExternalLabResult = {
     resultCode: codes || '',
     resultCodeDisplay: observation.code.coding?.[0].display || '',
@@ -1738,6 +1684,7 @@ const parseObservationForPDF = (
     performingLabPhone: getPerformingLabPhoneFromObs(observation),
     performingLabDirectorFullName: getPerformingLabDirectorNameFromObs(observation, oystehr),
     observationStatus: observation.status,
+    additionalLabCode: getAdditionalLabCode(observation),
   };
 
   return { labResult, interpretationDisplay };
@@ -1818,7 +1765,8 @@ const writeResultDetailLinesInPdf = (
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
   pdfClient.newLine(5);
 
-  pdfClient.drawText(`Result status: ${labResult.observationStatus}`, textStyles.text);
+  pdfClient.drawTextSequential(`Result status: `, textStyles.textBold);
+  pdfClient.drawTextSequential(labResult.observationStatus, textStyles.text);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   if (labResult.attachmentText) {
@@ -1838,25 +1786,31 @@ const writeResultDetailLinesInPdf = (
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
+  // Add the LabCorp additional lab code if present
+  if (labResult.additionalLabCode) {
+    pdfClient.drawText(`Lab: ${labResult.additionalLabCode}`, textStyles.text);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
   if (labResult.resultInterpretation && labResult.resultInterpretationDisplay) {
     const fontStyleTemp = {
       ...textStyles.text,
       color: getResultRowDisplayColor([labResult.resultInterpretationDisplay]),
     };
     pdfClient.drawText(
-      `Interpretation: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`,
+      `Flag: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`,
       fontStyleTemp
     );
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
   if (labResult.resultValue) {
-    pdfClient.drawText(`Value: ${labResult.resultValue}`, textStyles.text);
+    pdfClient.drawText(`Result: ${labResult.resultValue}`, textStyles.text);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
   if (labResult.referenceRangeText) {
-    pdfClient.drawText(`Reference range: ${labResult.referenceRangeText}`, textStyles.text);
+    pdfClient.drawText(`Reference interval: ${labResult.referenceRangeText}`, textStyles.text);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
@@ -1875,7 +1829,7 @@ const writeResultDetailLinesInPdf = (
         if (noteLine === '') pdfClient.newLine(STANDARD_NEW_LINE);
         else {
           // adding a little bit of a left indent for notes
-          pdfClient.drawTextSequential(noteLine, textStyles.text, {
+          pdfClient.drawTextSequential(noteLine, textStyles.textNote, {
             leftBound: LABS_PDF_LEFT_INDENTATION_XPOS,
             rightBound: pdfClient.getRightBound(),
           });
@@ -1917,64 +1871,65 @@ const writeResultDetailLinesInPdf = (
   pdfClient.newLine(STANDARD_NEW_LINE);
 };
 
-const writeExternalLabResultColumns = (
-  pdfClient: PdfClient,
-  textStyles: LabsPDFTextStyleConfig,
-  data: UnsolicitedExternalLabResultsData | ReflexExternalLabResultsData
-): PdfClient => {
-  console.log(
-    `Drawing column section. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  const columnConstants = {
-    nameCol: { startXPos: pdfClient.getLeftBound(), width: 260, textStyle: textStyles.text },
-    valueCol: { startXPos: pdfClient.getLeftBound() + 270, width: 150, textStyle: textStyles.text },
-    testCode: {
-      startXPos: pdfClient.getLeftBound() + 420,
-      width: pdfClient.getRightBound() - (pdfClient.getLeftBound() + 420),
-      textStyle: textStyles.text,
-    },
-  };
-  pdfClient.drawVariableWidthColumns(
-    [
-      { content: 'NAME', ...columnConstants.nameCol },
-      { content: 'VALUE', ...columnConstants.valueCol },
-      { content: 'LAB', ...columnConstants.testCode },
-    ],
-    pdfClient.getY(),
-    pdfClient.getCurrentPageIndex()
-  );
+// Not deleting this for the moment in case LabCorp forces us to use it for multiple tests on one pdf
+// const writeExternalLabResultColumns = (
+//   pdfClient: PdfClient,
+//   textStyles: LabsPDFTextStyleConfig,
+//   data: UnsolicitedExternalLabResultsData | ReflexExternalLabResultsData
+// ): PdfClient => {
+//   console.log(
+//     `Drawing column section. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+//   );
+//   const columnConstants = {
+//     nameCol: { startXPos: pdfClient.getLeftBound(), width: 260, textStyle: textStyles.text },
+//     valueCol: { startXPos: pdfClient.getLeftBound() + 270, width: 150, textStyle: textStyles.text },
+//     testCode: {
+//       startXPos: pdfClient.getLeftBound() + 420,
+//       width: pdfClient.getRightBound() - (pdfClient.getLeftBound() + 420),
+//       textStyle: textStyles.text,
+//     },
+//   };
+//   pdfClient.drawVariableWidthColumns(
+//     [
+//       { content: 'NAME', ...columnConstants.nameCol },
+//       { content: 'VALUE', ...columnConstants.valueCol },
+//       { content: 'LAB', ...columnConstants.testCode },
+//     ],
+//     pdfClient.getY(),
+//     pdfClient.getCurrentPageIndex()
+//   );
 
-  pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
-  pdfClient.newLine(STANDARD_NEW_LINE);
+//   pdfClient.newLine(STANDARD_NEW_LINE);
+//   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
+//   pdfClient.newLine(STANDARD_NEW_LINE);
 
-  console.log(
-    `Drawing four column text content. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  const styleBasedOnInterpretation: TextStyle = {
-    ...textStyles.text,
-    color: getResultRowDisplayColor(data.resultInterpretations),
-  };
+//   console.log(
+//     `Drawing four column text content. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+//   );
+//   const styleBasedOnInterpretation: TextStyle = {
+//     ...textStyles.text,
+//     color: getResultRowDisplayColor(data.resultInterpretations),
+//   };
 
-  pdfClient.drawVariableWidthColumns(
-    [
-      {
-        content: data.testName.toUpperCase(),
-        ...{ ...columnConstants.nameCol, textStyle: styleBasedOnInterpretation },
-      },
-      {
-        content: getResultValueToDisplay(data.resultInterpretations),
-        ...{ ...columnConstants.valueCol, textStyle: styleBasedOnInterpretation },
-      },
-      { content: data.testItemCode, ...{ ...columnConstants.testCode, textStyle: styleBasedOnInterpretation } },
-    ],
-    pdfClient.getY(),
-    pdfClient.getCurrentPageIndex()
-  );
-  pdfClient.newLine(STANDARD_NEW_LINE);
+//   pdfClient.drawVariableWidthColumns(
+//     [
+//       {
+//         content: data.testName.toUpperCase(),
+//         ...{ ...columnConstants.nameCol, textStyle: styleBasedOnInterpretation },
+//       },
+//       {
+//         content: getResultValueToDisplay(data.resultInterpretations),
+//         ...{ ...columnConstants.valueCol, textStyle: styleBasedOnInterpretation },
+//       },
+//       { content: data.testItemCode, ...{ ...columnConstants.testCode, textStyle: styleBasedOnInterpretation } },
+//     ],
+//     pdfClient.getY(),
+//     pdfClient.getCurrentPageIndex()
+//   );
+//   pdfClient.newLine(STANDARD_NEW_LINE);
 
-  return pdfClient;
-};
+//   return pdfClient;
+// };
 
 const getAccountNumberFromDr = (diagnosticReport: DiagnosticReport): string | undefined => {
   const accountNumber = diagnosticReport.identifier?.find(
@@ -2062,4 +2017,21 @@ function getProviderNameAndNpiFromDr(diagnosticReport: DiagnosticReport): {
   providerDetails.providerNPI = getPractitionerNPIIdentifier(containedProvider)?.value ?? '';
 
   return providerDetails;
+}
+
+function getAdditionalLabCode(observation: Observation): string | undefined {
+  return observation.code.coding?.find((coding) => coding.system === OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM)?.code;
+}
+
+function drawTestNameHeader(
+  testName: string,
+  testCode: string,
+  pdfClient: PdfClient,
+  textStyles: LabsPDFTextStyleConfig
+): PdfClient {
+  pdfClient.newLine(30);
+  pdfClient.drawTextSequential('Test: ', textStyles.textGreyBold);
+  pdfClient.drawTextSequential(`${testName.toUpperCase()} (${testCode})`, textStyles.header);
+  pdfClient.newLine(STANDARD_NEW_LINE);
+  return pdfClient;
 }
