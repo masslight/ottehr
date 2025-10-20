@@ -61,7 +61,8 @@
     "test-emails": "tsx src/scripts/test-emails.ts",
     "remove-payor-orgs": "tsx src/scripts/remove-payor-orgs.ts",
     "update-locations-for-lab-accounts": "tsx src/scripts/labs/update-locations-for-lab-accounts.ts",
-    "sync-lab-specimen-dates": "tsx src/scripts/labs/sync-specimen-dates.ts"
+    "sync-lab-specimen-dates": "tsx src/scripts/labs/sync-specimen-dates.ts",
+    "reset-lab-order": "tsx src/scripts/labs/reset-lab-order.ts"
   },
   "engines": {
     "node": ">=20.0.0",
