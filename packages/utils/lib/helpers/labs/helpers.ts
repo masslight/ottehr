@@ -1,4 +1,3 @@
-import { getRandomValues } from 'crypto';
 import { DiagnosticReport, Location, Organization, ServiceRequest } from 'fhir/r4b';
 import {
   LAB_ACCOUNT_NUMBER_SYSTEM,
@@ -143,7 +142,7 @@ export function createOrderNumber(length = ORDER_NUMBER_LEN): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = '';
   const randomArray = new Uint8Array(length);
-  getRandomValues(randomArray);
+  crypto.getRandomValues(randomArray);
   randomArray.forEach((number) => {
     result += chars[number % chars.length];
   });
