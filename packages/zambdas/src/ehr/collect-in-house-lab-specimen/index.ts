@@ -66,7 +66,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             },
             {
               name: 'code',
-              value: IN_HOUSE_LAB_TASK.type.collectSample,
+              value: `${IN_HOUSE_LAB_TASK.system}|${IN_HOUSE_LAB_TASK.code.collectSampleTask}`,
             },
           ],
         })
@@ -156,7 +156,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const inputResultTaskConfig = createTask({
       category: IN_HOUSE_LAB_TASK.category,
-      type: IN_HOUSE_LAB_TASK.type.enterResults,
+      code: {
+        system: IN_HOUSE_LAB_TASK.system,
+        code: IN_HOUSE_LAB_TASK.code.inputResultsTask,
+      },
       encounterId: encounterId,
       locationId: getTaskLocationId(collectionTask),
     });

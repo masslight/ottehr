@@ -204,11 +204,11 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
 
 function fhirTaskToTask(task: FhirTask): Task {
   const category = task.groupIdentifier?.value ?? '';
-  const type = getCoding(task.code, TASK_TYPE_SYSTEM)?.code ?? '';
   let action: any = undefined;
   let title = getInput('title', task) ?? '';
   let subtitle = getInput('subtitle', task) ?? '';
   if (category === 'external-labs') {
+    const type = getCoding(task.code, TASK_TYPE_SYSTEM)?.code ?? '';
     const appointmentId = getInput('appointmentId', task);
     const orderId = getInput('orderId', task);
     if (type === 'collect-sample' || type === 'review-results') {
@@ -231,6 +231,7 @@ function fhirTaskToTask(task: FhirTask): Task {
     }
   }
   if (category === IN_HOUSE_LAB_TASK.category) {
+    const code = getCoding(task.code, IN_HOUSE_LAB_TASK.system)?.code ?? '';
     const testName = getInput(IN_HOUSE_LAB_TASK.input.testName, task);
     const patientName = getInput(IN_HOUSE_LAB_TASK.input.patientName, task);
     const providerName = getInput(IN_HOUSE_LAB_TASK.input.providerName, task);
@@ -239,10 +240,10 @@ function fhirTaskToTask(task: FhirTask): Task {
     subtitle = `Ordered by ${providerName} on ${
       orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
     }`;
-    if (type === IN_HOUSE_LAB_TASK.type.collectSample) {
+    if (code === IN_HOUSE_LAB_TASK.code.collectSampleTask) {
       title = `Collect sample for “${testName}” for ${patientName}`;
     }
-    if (type === IN_HOUSE_LAB_TASK.type.enterResults) {
+    if (code === IN_HOUSE_LAB_TASK.code.inputResultsTask) {
       title = `Perform test & enter results for “${testName}” for ${patientName}`;
     }
     action = {

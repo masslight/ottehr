@@ -22,9 +22,10 @@ export const inHouseLabsTestStatuses: Record<TestStatus, TestStatus> = {
 
 export const IN_HOUSE_LAB_TASK = {
   category: 'in-house-labs',
-  type: {
-    collectSample: 'CST',
-    enterResults: 'IRT',
+  system: 'in-house-lab-task',
+  code: {
+    collectSampleTask: 'CST',
+    inputResultsTask: 'IRT',
   },
   input: {
     testName: 'test-name',

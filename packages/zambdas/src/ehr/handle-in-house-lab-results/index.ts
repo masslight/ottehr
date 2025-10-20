@@ -113,7 +113,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
       if (entry.resource?.resourceType === 'Task') {
         const task = entry.resource as Task;
-        if (task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.type.enterResults)) {
+        if (task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)) {
           updatedInputResultTask = task;
         }
       }
@@ -265,7 +265,7 @@ const getInHouseLabResultResources = async (
     if (resource.resourceType === 'Location') locations.push(resource);
     if (
       resource.resourceType === 'Task' &&
-      resource.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.type.enterResults)
+      resource.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)
     ) {
       inputResultTasks.push(resource);
     }
