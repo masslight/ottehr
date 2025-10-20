@@ -159,7 +159,8 @@ const changeFollowupEncounterStatusToCompleted = async (
 
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
     resourcesToUpdate.encounter,
-    encounterStatus
+    encounterStatus,
+    'completed'
   );
   encounterPatchOps.push(encounterStatusHistoryUpdate);
 
