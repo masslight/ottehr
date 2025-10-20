@@ -643,6 +643,10 @@ export const FormFields = {
     lastName: { key: 'emergency-contact-last-name', type: 'String', label: 'Last name' },
     phone: { key: 'emergency-contact-number', type: 'String', label: 'Phone' },
   },
+  preferredPharmacy: {
+    name: { key: 'pharmacy-name', type: 'String', label: 'Pharmacy name' },
+    address: { key: 'pharmacy-address', type: 'String', label: 'Pharmacy address' },
+  },
 };
 
 export const PatientIdentifyingFields = [

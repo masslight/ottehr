@@ -11,7 +11,6 @@ import {
   formatPhoneNumber,
   getPatchBinary,
   getPatientResourceWithVerifiedPhoneNumber,
-  mapStatusToTelemed,
   normalizePhoneNumber,
   PATIENT_NOT_FOUND_ERROR,
   PatientInfo,
@@ -62,8 +61,6 @@ export async function patchEncounterResource(
     throw new Error(`Failed to patch Encounter: ${JSON.stringify(error)}`);
   }
 }
-
-export { mapStatusToTelemed };
 
 export const telemedStatusToEncounter = (telemedStatus: TelemedCallStatuses): Encounter['status'] => {
   switch (telemedStatus) {

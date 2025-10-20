@@ -41,7 +41,7 @@ import {
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
 import { openAddPatientPage } from '../page/AddPatientPage';
-import { expectDiscardChangesDialog } from '../page/patient-information/DiscardChangesDialog';
+import { expectDialog } from '../page/patient-information/Dialog';
 import {
   expectPatientInformationPage,
   Field,
@@ -273,8 +273,8 @@ test.describe('Patient Record Page non-mutating tests', () => {
     let patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
-    const discardChangesDialog = await expectDiscardChangesDialog(page);
-    await discardChangesDialog.clickDiscardChangesButton();
+    const discardChangesDialog = await expectDialog(page);
+    await discardChangesDialog.clickProceedButton();
     await expectPatientRecordPage(resourceHandler.patient.id!, page);
     patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
@@ -284,7 +284,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
-    const discardChangesDialog = await expectDiscardChangesDialog(page);
+    const discardChangesDialog = await expectDialog(page);
     await discardChangesDialog.clickCancelButton();
     await expectPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
@@ -294,7 +294,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
-    const discardChangesDialog = await expectDiscardChangesDialog(page);
+    const discardChangesDialog = await expectDialog(page);
     await discardChangesDialog.clickCloseButton();
     await expectPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
@@ -472,6 +472,7 @@ test.describe('Patient Record Page mutating tests', () => {
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await populateAllRequiredFields(patientInformationPage);
     await patientInformationPage.selectRelationshipFromResponsibleContainer(
       NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
     );
@@ -551,12 +552,16 @@ test.describe('Patient Record Page mutating tests', () => {
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await populateAllRequiredFields(patientInformationPage);
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.waitForSaveChangeButtonToBeEnabled();
     await patientInformationPage.verifyCheckboxOff();
     await patientInformationPage.verifyFirstNameFromPcpIsVisible();
     await patientInformationPage.verifyLastNameFromPcpIsVisible();
     await patientInformationPage.verifyPracticeNameFromPcpIsVisible();
     await patientInformationPage.verifyAddressFromPcpIsVisible();
     await patientInformationPage.verifyMobileFromPcpIsVisible();
+    await patientInformationPage.verifyLoadingScreenIsNotVisible();
 
     await patientInformationPage.clearFirstNameFromPcp();
     await patientInformationPage.clickSaveChangesButton();

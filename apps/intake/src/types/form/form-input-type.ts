@@ -1,6 +1,6 @@
 import { TextFieldProps } from '@mui/material';
 import { ReactElement, ReactNode } from 'react';
-import { FormItemType } from 'utils';
+import { FormItemType, MimeType } from 'utils';
 import { StringFormat } from '../string-format';
 import { RadioOption, RadioStyling } from './radio.types';
 import { SelectInputOption } from './select-input-option';
@@ -31,7 +31,7 @@ export type FormInputTypeField = {
   // fileOptions?: FileUploadOptions;
   // todo use type FileUploadOptions
   fileOptions?: any;
-  fileUploadType?: string;
+  fileUploadType?: MimeType;
   borderColor?: string;
   borderSelected?: string;
   backgroundSelected?: string;

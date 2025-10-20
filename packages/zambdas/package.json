@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.19.8",
+  "version": "1.19.11",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
@@ -14,6 +14,7 @@
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
     "report-daily-payments": "tsx src/scripts/report-daily-payments.ts",
     "get-coverage-eligibility-responses": "tsx src/scripts/get-coverage-eligibility-responses.ts",
+    "get-rcm-tasks": "tsx src/scripts/get-rcm-tasks.ts",
     "send-invoices-to-patients-by-sms": "tsx src/scripts/send-invoices-to-patients-by-sms.ts",
     "send-past-due-invoices-to-patients-by-sms": "tsx src/scripts/send-past-due-invoices-to-patients-by-sms.ts",
     "get-invoiceable-claims": "tsx src/scripts/get-invoiceable-claims.ts",
@@ -51,12 +52,12 @@
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:integration:ci": "start-server-and-test 'ENV=local tsx src/local-server/index.ts -- env=.env/local.json' 3000 test:integration",
-    "mock-reflex-test": "tsx src/scripts/reflex-test-helper.ts",
-    "mock-unsolicited-result": "tsx src/scripts/unsolicited-result-helper.ts",
-    "make-in-house-test-items": "tsx src/scripts/load-in-house-labs-tests.ts",
+    "mock-reflex-test": "tsx src/scripts/labs/reflex-test-helper.ts",
+    "mock-unsolicited-result": "tsx src/scripts/labs/unsolicited-result-helper.ts",
+    "make-in-house-test-items": "tsx src/scripts/labs/load-in-house-labs-tests.ts",
     "migrate-practitioner-credentials": "tsx src/scripts/migrate-practitioner-credentials.ts",
     "mock-pdf-result": "tsx src/scripts/labs/pdf-attachment-result-helper.ts",
-    "get-lab-sr-dr-docref": "tsx src/scripts/get-external-lab-sr-dr-docref.ts",
+    "get-lab-sr-dr-docref": "tsx src/scripts/labs/get-external-lab-sr-dr-docref.ts",
     "test-emails": "tsx src/scripts/test-emails.ts",
     "remove-payor-orgs": "tsx src/scripts/remove-payor-orgs.ts",
     "update-locations-for-lab-accounts": "tsx src/scripts/labs/update-locations-for-lab-accounts.ts"

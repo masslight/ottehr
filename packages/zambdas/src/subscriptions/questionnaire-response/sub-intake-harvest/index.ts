@@ -15,6 +15,7 @@ import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   flattenIntakeQuestionnaireItems,
+  flattenQuestionnaireAnswers,
   getRelatedPersonForPatient,
   getSecret,
   IntakeQuestionnaireItem,
@@ -26,6 +27,8 @@ import {
   createConsentResources,
   createDocumentResources,
   createErxContactOperation,
+  createMasterRecordPatchOperations,
+  createUpdatePharmacyPatchOps,
   flagPaperworkEdit,
   getAccountAndCoverageResourcesForPatient,
   updatePatientAccountFromQuestionnaire,
@@ -117,7 +120,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   console.timeEnd('querying for resources to support qr harvest');
 
   const encounterResource = resources.find((res) => res.resourceType === 'Encounter') as Encounter | undefined;
-  const patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
+  let patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
   const listResources = resources.filter((res) => res.resourceType === 'List') as List[];
   const documentReferenceResources = resources.filter(
     (res) => res.resourceType === 'DocumentReference'
@@ -125,6 +128,40 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const locationResource = resources.find((res) => res.resourceType === 'Location') as Location | undefined;
   const appointmentResource = resources.find((res) => res.resourceType === 'Appointment') as Appointment | undefined;
 
+  if (patientResource === undefined || patientResource.id === undefined) {
+    throw new Error('Patient resource not found');
+  }
+
+  console.log('creating patch operations');
+  const patientPatchOps = createMasterRecordPatchOperations(qr.item || [], patientResource);
+
+  console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
+
+  console.time('patching patient resource');
+  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
+    try {
+      patientResource = await oystehr.fhir.patch<Patient>({
+        resourceType: 'Patient',
+        id: patientResource.id!,
+        operations: patientPatchOps.patient.patchOpsForDirectUpdate,
+      });
+      console.log('Patient update successful');
+    } catch (error: unknown) {
+      tasksFailed.push('patch patient');
+      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
+    }
+  }
+  // combining these patch ops with patientPatchOps caused a bug so keeping separate for now
+  const pharmacyPatchOps = createUpdatePharmacyPatchOps(patientResource, flattenQuestionnaireAnswers(qr.item ?? []));
+  if (pharmacyPatchOps.length > 0) {
+    patientResource = await oystehr.fhir.patch<Patient>({
+      resourceType: 'Patient',
+      id: patientResource.id!,
+      operations: pharmacyPatchOps,
+    });
+  }
+
+  console.timeEnd('patching patient resource');
   if (patientResource === undefined || patientResource.id === undefined) {
     throw new Error('Patient resource not found');
   }
@@ -146,11 +183,14 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     if (updatedAccount && updatedGuarantorResource) {
       console.time('updating stripe customer');
       const stripeClient = getStripeClient(secrets);
-      await updateStripeCustomer({
-        account: updatedAccount,
-        guarantorResource: updatedGuarantorResource,
-        stripeClient,
-      });
+      await updateStripeCustomer(
+        {
+          account: updatedAccount,
+          guarantorResource: updatedGuarantorResource,
+          stripeClient,
+        },
+        oystehr
+      );
       console.timeEnd('updating stripe customer');
     } else {
       console.log('Stripe customer id, account or guarantor resource missing, skipping stripe customer update');

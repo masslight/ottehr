@@ -4,7 +4,7 @@ import {
   formatDateTimeToLocalTimezone,
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
-  mapEncounterStatusHistory,
+  getTelemedEncounterStatusHistory,
 } from 'utils';
 import { useGetInsurancePlan } from '../../../stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../../stores/appointment/appointment.store';
@@ -24,7 +24,7 @@ export const VisitDetailsContainer: FC = () => {
   const statuses = useMemo(
     () =>
       encounter.statusHistory && appointment?.status
-        ? mapEncounterStatusHistory(encounter.statusHistory, appointment.status)
+        ? getTelemedEncounterStatusHistory(encounter.statusHistory, appointment.status)
         : undefined,
     [encounter.statusHistory, appointment?.status]
   );
