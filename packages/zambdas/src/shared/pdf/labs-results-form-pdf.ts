@@ -25,6 +25,7 @@ import {
   convertActivityDefinitionToTestItem,
   createFilesDocumentReferences,
   EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
+  formatPhoneNumberDisplay,
   getFullestAvailableName,
   getOrderNumber,
   getOrderNumberFromDr,
@@ -174,7 +175,9 @@ const getResultDataConfigForDrResources = (
     patientSex: patient.gender || '',
     patientDOB: patient.birthDate ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy') : '',
     patientId: patient.id || '',
-    patientPhone: patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || '',
+    patientPhone: formatPhoneNumberDisplay(
+      patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ''
+    ),
     todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
     dateIncludedInFileName: diagnosticReport.effectiveDateTime || '',
     orderPriority: '',
@@ -247,7 +250,8 @@ const getResultDataConfig = (
     locationCity: location?.address?.city,
     locationState: location?.address?.state,
     locationZip: location?.address?.postalCode,
-    locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
+    locationPhone:
+      formatPhoneNumberDisplay(location?.telecom?.find((t) => t.system === 'phone')?.value || '') || undefined,
     locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
     providerName: providerName || '',
     providerNPI: (providerNPI || '') as string,
@@ -257,7 +261,9 @@ const getResultDataConfig = (
     patientSex: patient.gender || '',
     patientDOB: patient.birthDate ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy') : '',
     patientId: patient.id || '',
-    patientPhone: patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || '',
+    patientPhone: formatPhoneNumberDisplay(
+      patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ''
+    ),
     todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
     dateIncludedInFileName: serviceRequest.authoredOn || '',
     orderPriority: serviceRequest.priority || '',
