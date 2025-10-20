@@ -35,8 +35,8 @@ import {
   FOLLOWUP_SYSTEMS,
   formatMinutes,
   getInPersonVisitStatus,
+  getTelemedVisitStatus,
   isInPersonAppointment,
-  mapStatusToTelemed,
   ServiceMode,
   TelemedCallStatusesArr,
   useSuccessQuery,
@@ -272,7 +272,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     if (!appointmentHistory.encounter) return false;
     const appointmentStatus =
       appointmentHistory.serviceMode === ServiceMode.virtual
-        ? mapStatusToTelemed(appointmentHistory.encounter.status, appointmentHistory.appointment.status)
+        ? getTelemedVisitStatus(appointmentHistory.encounter.status, appointmentHistory.appointment.status)
         : getInPersonVisitStatus(appointmentHistory.appointment, appointmentHistory.encounter);
     return filterStatus === appointmentStatus;
   }
@@ -359,7 +359,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       case 'status':
         if (row.serviceMode === ServiceMode.virtual) {
           if (!row.encounter) return null;
-          const status = mapStatusToTelemed(row.encounter.status, row.appointment.status);
+          const status = getTelemedVisitStatus(row.encounter.status, row.appointment.status);
           return !!status && <TelemedAppointmentStatusChip status={status} />;
         } else {
           if (!row.encounter) return null;

@@ -464,7 +464,7 @@ async function main(): Promise<void> {
       console.error(error);
       throw error;
     }
-    process.exit(1);
+    process.exit(0);
   } else if (writeMode === 'json') {
     console.log('write mode is json, preparing json output');
     fs.writeFileSync(

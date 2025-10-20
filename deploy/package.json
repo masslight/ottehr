@@ -1,6 +1,6 @@
 {
   "name": "deploy",
-  "version": "1.19.10",
+  "version": "1.19.14",
   "description": "Scripts for generating HCL and interacting with Terraform",
   "scripts": {
     "build": "tsc --noEmit",

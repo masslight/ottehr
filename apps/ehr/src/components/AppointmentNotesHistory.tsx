@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { Appointment } from 'fhir/r4b';
-import { ReactElement, useMemo, useState } from 'react';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { formatLastModifiedTag } from '../helpers';
 import { patchAppointmentComment } from '../helpers';
 import { NoteHistory } from '../helpers/activityLogsUtils';
@@ -47,6 +47,10 @@ export default function AppointmentNotesHistory({
   const [editNoteDialogOpen, setEditNoteDialogOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
+
+  useEffect(() => {
+    setNoteEdit(appointment?.comment || '');
+  }, [appointment]);
 
   const handleNoteUpdate = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -218,7 +222,7 @@ export default function AppointmentNotesHistory({
               multiline
               label="Note"
               required
-              // sx={{ width: '500px' }}
+              fullWidth
               value={noteEdit}
               onChange={(e) => setNoteEdit(e.target.value.trimStart())}
               inputProps={{ maxLength: 160 }}

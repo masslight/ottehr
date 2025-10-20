@@ -5,12 +5,13 @@ import { DateTime } from 'luxon';
 import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 import {
   FhirEncounterStatus,
-  mapStatusToTelemed,
+  getTelemedVisitStatus,
   PatientFollowupDetails,
   ProviderDetails,
   TelemedStatusHistoryElement,
+  VisitStatusWithoutUnknown,
 } from '../types';
-import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL } from './constants';
+import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL, FHIR_EXTENSION } from './constants';
 
 // follow up encounter consts
 export const FOLLOWUP_TYPES = ['Telephone Encounter', 'Non-Billable'] as const;
@@ -132,7 +133,7 @@ export const getEncounterForAppointment = async (appointmentID: string, oystehr:
   return encounter;
 };
 
-export const mapEncounterStatusHistory = (
+export const getTelemedEncounterStatusHistory = (
   statusHistory: EncounterStatusHistory[],
   appointmentStatus: string
 ): TelemedStatusHistoryElement[] => {
@@ -142,9 +143,10 @@ export const mapEncounterStatusHistory = (
     result.push({
       start: statusElement.period.start,
       end: statusElement.period.end,
-      status: mapStatusToTelemed(statusElement.status, undefined),
+      status: getTelemedVisitStatus(statusElement.status, undefined),
     });
   });
+
   if (appointmentStatus === 'fulfilled' && result.at(-1)?.status === 'unsigned') {
     result.push({
       start: result.at(-1)?.end,
@@ -171,19 +173,42 @@ export const getSpentTime = (history?: EncounterStatusHistory[]): string | undef
   return `${minutesSpent}`;
 };
 
-export const getEncounterStatusHistoryUpdateOp = (encounter: Encounter, newStatus: FhirEncounterStatus): Operation => {
+export const getEncounterStatusHistoryUpdateOp = (
+  encounter: Encounter,
+  newStatus: FhirEncounterStatus,
+  ottehrVisitStatus: VisitStatusWithoutUnknown
+): Operation => {
   const now = DateTime.now().setZone('UTC').toISO() || '';
+
   const newStatusHistory: EncounterStatusHistory = {
     status: newStatus,
     period: {
       start: now,
     },
   };
+
+  newStatusHistory.extension = [
+    {
+      url: FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url,
+      valueCode: ottehrVisitStatus,
+    },
+  ];
+
   let statusHistory = encounter.statusHistory;
   const op = statusHistory ? 'replace' : 'add';
+
   if (statusHistory) {
     const curStatus = encounter.statusHistory?.find((h) => !h.period.end);
-    if (curStatus && curStatus?.status !== newStatus) {
+
+    const didFhirStatusHistoryChange = curStatus?.status !== newStatus;
+
+    const ottehrHistoryStatusExtension = curStatus?.extension?.find(
+      (ext) => ext.url === FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url
+    );
+
+    const didOttEhrStatusHistoryChange = ottehrHistoryStatusExtension?.valueCode !== ottehrVisitStatus;
+
+    if (curStatus && (didFhirStatusHistoryChange || didOttEhrStatusHistoryChange)) {
       curStatus.period.end = now;
       statusHistory.push(newStatusHistory);
     } else if (!curStatus) {

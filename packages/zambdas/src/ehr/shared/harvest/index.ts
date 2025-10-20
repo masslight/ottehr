@@ -2178,6 +2178,17 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         system: 'phone',
       },
     ];
+    emergencyContactResourceToPut.relationship = [
+      {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+            code: 'EP',
+            display: emergencyContactData.relationship,
+          },
+        ],
+      },
+    ];
     puts.push({
       method: 'PUT',
       url: `RelatedPerson/${existingEmergencyContact.id}`,

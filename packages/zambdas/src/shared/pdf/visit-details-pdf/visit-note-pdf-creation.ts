@@ -19,12 +19,12 @@ import {
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
   getSpentTime,
+  getTelemedEncounterStatusHistory,
   ImmunizationOrder,
   isDropdownComponent,
   isInPersonAppointment,
   isMultiSelectComponent,
   mapDispositionTypeToLabel,
-  mapEncounterStatusHistory,
   mapVitalsToDisplay,
   NOTE_TYPE,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
@@ -389,7 +389,7 @@ function getStatusRelatedDates(
 ): { dateOfService?: string; signedOnDate?: string } {
   const statuses =
     encounter.statusHistory && appointment?.status
-      ? mapEncounterStatusHistory(encounter.statusHistory, appointment.status)
+      ? getTelemedEncounterStatusHistory(encounter.statusHistory, appointment.status)
       : undefined;
   const dateOfService = formatDateTimeToZone(statuses?.find((item) => item.status === 'on-video')?.start, timezone);
   const currentTimeISO = DateTime.now().toISO();

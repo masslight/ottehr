@@ -6,7 +6,7 @@ import {
   getPatientsForUser,
   getSecret,
   GetTelemedAppointmentsResponse,
-  mapStatusToTelemed,
+  getTelemedVisitStatus,
   SecretsKeys,
   TelemedAppointmentInformationIntake,
 } from 'utils';
@@ -71,7 +71,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           return;
         }
 
-        const telemedStatus = mapStatusToTelemed(encounter.status, fhirAppointment.status);
+        const telemedStatus = getTelemedVisitStatus(encounter.status, fhirAppointment.status);
+
         if (!telemedStatus) {
           console.log('No telemed status for appointment');
           return;

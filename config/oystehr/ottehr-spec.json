@@ -1179,7 +1179,7 @@
       "src": "src/ehr/visit-details/get-visit-details/index",
       "zip": ".dist/zips/ehr-get-visit-details.zip"
     },
-     "EHR-UPDATE-VISIT-DETAILS": {
+    "EHR-UPDATE-VISIT-DETAILS": {
       "name": "ehr-update-visit-details",
       "type": "http_auth",
       "runtime": "nodejs20.x",
@@ -5648,7 +5648,8 @@
             "Z3:#{ref/project/PROJECT/id}-privacy-policy/*",
             "Z3:#{ref/project/PROJECT/id}-audio-recordings/*",
             "Z3:#{ref/project/PROJECT/id}-exported-questionnaires/*",
-            "Z3:#{ref/project/PROJECT/id}-discharge-summaries/*"
+            "Z3:#{ref/project/PROJECT/id}-discharge-summaries/*",
+            "Z3:#{ref/project/PROJECT/id}-labs/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject"],
           "effect": "Allow"
@@ -5841,7 +5842,7 @@
       ]
     },
     "CUSTOMER_SUPPORT": {
-      "name": "CustomerSupport",
+      "name": "Customer Support",
       "accessPolicy": [
         {
           "action": ["FHIR:Search", "FHIR:Read"],
