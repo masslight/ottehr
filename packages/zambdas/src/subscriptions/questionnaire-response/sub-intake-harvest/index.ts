@@ -145,24 +145,22 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
         id: patientResource.id!,
         operations: patientPatchOps.patient.patchOpsForDirectUpdate,
       });
-      const pharmacyPatchOps = createUpdatePharmacyPatchOps(
-        patientResource,
-        flattenQuestionnaireAnswers(qr.item ?? [])
-      );
-      if (pharmacyPatchOps.length > 0) {
-        patientResource = await oystehr.fhir.patch<Patient>({
-          resourceType: 'Patient',
-          id: patientResource.id!,
-          operations: pharmacyPatchOps,
-        });
-      }
-
       console.log('Patient update successful');
     } catch (error: unknown) {
       tasksFailed.push('patch patient');
       console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
     }
   }
+  // combining these patch ops with patientPatchOps caused a bug so keeping separate for now
+  const pharmacyPatchOps = createUpdatePharmacyPatchOps(patientResource, flattenQuestionnaireAnswers(qr.item ?? []));
+  if (pharmacyPatchOps.length > 0) {
+    patientResource = await oystehr.fhir.patch<Patient>({
+      resourceType: 'Patient',
+      id: patientResource.id!,
+      operations: pharmacyPatchOps,
+    });
+  }
+
   console.timeEnd('patching patient resource');
   if (patientResource === undefined || patientResource.id === undefined) {
     throw new Error('Patient resource not found');
@@ -185,11 +183,14 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     if (updatedAccount && updatedGuarantorResource) {
       console.time('updating stripe customer');
       const stripeClient = getStripeClient(secrets);
-      await updateStripeCustomer({
-        account: updatedAccount,
-        guarantorResource: updatedGuarantorResource,
-        stripeClient,
-      });
+      await updateStripeCustomer(
+        {
+          account: updatedAccount,
+          guarantorResource: updatedGuarantorResource,
+          stripeClient,
+        },
+        oystehr
+      );
       console.timeEnd('updating stripe customer');
     } else {
       console.log('Stripe customer id, account or guarantor resource missing, skipping stripe customer update');

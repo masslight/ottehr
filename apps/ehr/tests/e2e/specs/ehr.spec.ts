@@ -203,7 +203,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
-    await patientsPage.searchByEmail(PATIENT_EMAIL.split('@')[0]);
+    await patientsPage.searchByEmail(PATIENT_EMAIL);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
       ...patientData,
@@ -286,7 +286,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
     await patientsPage.searchByAddress(PATIENT_CITY);
-    await patientsPage.searchByEmail(PATIENT_EMAIL.split('@')[0]);
+    await patientsPage.searchByEmail(PATIENT_EMAIL);
     await patientsPage.clickResetFiltersButton();
     await patientsPage.verifyFilterReset();
   });

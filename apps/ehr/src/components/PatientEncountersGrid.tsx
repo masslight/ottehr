@@ -21,8 +21,8 @@ import {
   EmployeeDetails,
   formatMinutes,
   getInPersonVisitStatus,
+  getTelemedVisitStatus,
   isInPersonAppointment,
-  mapStatusToTelemed,
   ServiceMode,
   TelemedCallStatusesArr,
   useSuccessQuery,
@@ -78,7 +78,7 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
         if (!encounter) {
           return;
         }
-        const status = mapStatusToTelemed(encounter.status, appointment.status);
+        const status = getTelemedVisitStatus(encounter.status, appointment.status);
         return !!status && <TelemedAppointmentStatusChip status={status} />;
       } else {
         if (!encounter) return;
@@ -235,7 +235,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     if (!appointmentHistory.encounter) return false;
     const appointmentStatus =
       appointmentHistory.serviceMode === ServiceMode.virtual
-        ? mapStatusToTelemed(appointmentHistory.encounter.status, appointmentHistory.appointment.status)
+        ? getTelemedVisitStatus(appointmentHistory.encounter.status, appointmentHistory.appointment.status)
         : getInPersonVisitStatus(appointmentHistory.appointment, appointmentHistory.encounter);
     return filterStatus === appointmentStatus;
   }

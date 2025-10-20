@@ -8,6 +8,8 @@ export interface EHRVisitDetails {
   flags: Flag[];
   visitTimezone: Timezone;
   qrId: string;
+  responsiblePartyName: string | null;
+  responsiblePartyEmail: string | null;
   consentDetails: ConsentDetails | null;
   visitLocationName?: string;
   visitLocationId?: string;

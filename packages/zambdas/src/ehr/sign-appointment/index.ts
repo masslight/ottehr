@@ -149,8 +149,10 @@ const changeStatusToCompleted = async (
 
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
     resourcesToUpdate.encounter,
-    encounterStatus
+    encounterStatus,
+    'completed'
   );
+
   encounterPatchOps.push(encounterStatusHistoryUpdate);
 
   let provenanceCreate: BatchInputRequest<Provenance> | undefined;
