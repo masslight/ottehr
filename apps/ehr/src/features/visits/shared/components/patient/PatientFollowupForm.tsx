@@ -250,7 +250,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
 
       await saveFollowup(oystehrZambda, { encounterDetails });
 
-      navigate(`/patient/${patientId}`, { state: { defaultTab: 'followups' } });
+      navigate(`/patient/${patientId}`, { state: { defaultTab: 'encounters' } });
     } catch (error) {
       console.error(`Failed to add patient followup: ${error}`);
       if (!errorMessage) errorMessage = `Failed to add patient followup: ${error}`;
@@ -266,7 +266,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
 
   const handleCancel = (): void => {
     if (patientId) {
-      navigate(`/patient/${patientId}`, { state: { defaultTab: 'followups' } });
+      navigate(`/patient/${patientId}`, { state: { defaultTab: 'encounters' } });
     } else {
       navigate('/visits');
     }

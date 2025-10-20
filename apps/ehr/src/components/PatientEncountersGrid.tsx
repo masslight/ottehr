@@ -1,25 +1,38 @@
 import AddIcon from '@mui/icons-material/Add';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
 import {
   Box,
   capitalize,
   Checkbox,
+  Chip,
   FormControlLabel,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
-import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { useQuery } from '@tanstack/react-query';
-import { Encounter } from 'fhir/r4b';
+import { Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FC, useMemo, useState } from 'react';
+import React, { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
 import { visitTypeToInPersonLabel, visitTypeToTelemedLabel } from 'src/types/types';
+import styled from 'styled-components';
 import {
   EmployeeDetails,
+  FOLLOWUP_SYSTEMS,
   formatMinutes,
   getInPersonVisitStatus,
   isInPersonAppointment,
@@ -40,6 +53,57 @@ import { TelemedAppointmentStatusChip } from './TelemedAppointmentStatusChip';
 type PatientEncountersGridProps = {
   appointments?: AppointmentHistoryRow[];
   loading: boolean;
+  patient?: Patient;
+};
+
+interface ColorScheme {
+  bg: string;
+  text: string;
+}
+
+type StatusType = 'OPEN' | 'RESOLVED';
+
+const statusColors: Record<StatusType, ColorScheme> = {
+  OPEN: { bg: '#b3e5fc', text: '#01579B' },
+  RESOLVED: { bg: '#c8e6c9', text: '#1b5e20' },
+};
+
+const StatusChip = styled(Chip)(() => ({
+  borderRadius: '8px',
+  padding: '0 9px',
+  margin: 0,
+  height: '24px',
+  '& .MuiChip-label': {
+    padding: 0,
+    fontWeight: 'bold',
+    fontSize: '0.7rem',
+  },
+  '& .MuiChip-icon': {
+    marginLeft: 'auto',
+    marginRight: '-4px',
+    order: 1,
+  },
+}));
+
+export const getFollowupStatusChip = (status: 'OPEN' | 'RESOLVED'): ReactElement => {
+  const statusVal =
+    status === 'OPEN'
+      ? { statusText: 'OPEN', statusColors: statusColors.OPEN }
+      : { statusText: 'RESOLVED', statusColors: statusColors.RESOLVED };
+  return (
+    <StatusChip
+      label={statusVal.statusText}
+      sx={{
+        backgroundColor: statusVal.statusColors.bg,
+        color: statusVal.statusColors.text,
+        '& .MuiSvgIcon-root': {
+          color: 'inherit',
+          fontSize: '1.2rem',
+          margin: '0 -4px 0 2px',
+        },
+      }}
+    />
+  );
 };
 
 const useEmployeesStore = create<{ employees: EmployeeDetails[] }>()(() => ({ employees: [] }));
@@ -56,131 +120,46 @@ const ProviderCell: FC<{ encounter?: Encounter }> = ({ encounter }) => {
   return <Typography variant="body2">{employee ? `${employee.firstName} ${employee.lastName}` : '-'}</Typography>;
 };
 
-const columns: GridColDef<AppointmentHistoryRow>[] = [
-  {
-    sortComparator: (a, b) => {
-      const createdA = DateTime.fromISO(a ?? '');
-      const createdB = DateTime.fromISO(b ?? '');
-      return createdA.diff(createdB).milliseconds;
-    },
-    field: 'dateTime',
-    headerName: 'Date & Time',
-    width: 150,
-    renderCell: ({ row: { dateTime, officeTimeZone } }) =>
-      dateTime ? formatISOStringToDateAndTime(dateTime, officeTimeZone) : '-',
-  },
-  {
-    sortable: false,
-    field: 'status',
-    headerName: 'Status',
-    width: 140,
-    renderCell: ({ row: { appointment, serviceMode: serviceType, encounter } }) => {
-      if (serviceType === ServiceMode.virtual) {
-        if (!encounter) {
-          return;
-        }
-        const status = mapStatusToTelemed(encounter.status, appointment.status);
-        return !!status && <TelemedAppointmentStatusChip status={status} />;
-      } else {
-        if (!encounter) return;
-        const encounterStatus = getInPersonVisitStatus(appointment, encounter);
-        if (!encounterStatus) {
-          return;
-        }
+type SortField = 'dateTime';
+type SortDirection = 'asc' | 'desc';
 
-        return encounterStatus;
-      }
-    },
-  },
-  {
-    sortable: false,
-    field: 'type',
-    headerName: 'Type',
-    width: 150,
-    renderCell: ({ row: { typeLabel: type } }) => type || '-',
-  },
-  {
-    sortable: false,
-    field: 'reason',
-    headerName: 'Reason for visit',
-    width: 150,
-    renderCell: ({ row: { appointment } }) => (
-      <Typography variant="body2">
-        {(appointment?.description ?? '')
-          .split(',')
-          .map((complaint) => complaint.trim())
-          .join(', ') || '-'}
-      </Typography>
-    ),
-  },
-  {
-    sortable: false,
-    field: 'provider',
-    headerName: 'Provider',
-    width: 150,
-    renderCell: ({ row: { encounter } }) => <ProviderCell encounter={encounter} />,
-  },
-  {
-    sortable: false,
-    field: 'office',
-    headerName: 'Office',
-    width: 150,
-    renderCell: ({ row: { office } }) => office || '-',
-  },
-  {
-    sortable: false,
-    field: 'los',
-    headerName: 'LOS',
-    width: 100,
-    renderCell: ({ row: { length } }) =>
-      length !== undefined ? `${formatMinutes(length)} ${length === 1 ? 'min' : 'mins'}` : '-',
-  },
-  {
-    sortable: false,
-    field: 'info',
-    headerName: 'Visit Info',
-    headerAlign: 'center',
-    width: 120,
-    renderCell: ({ row: { id, appointment } }) => {
-      if (!id) {
-        return null;
-      }
+interface TableColumn {
+  id: string;
+  label: string;
+  sortable?: boolean;
+  width?: number;
+  align?: 'left' | 'center' | 'right';
+}
 
-      const isInPerson = isInPersonAppointment(appointment);
-      return <RoundedButton to={isInPerson ? `/visit/${id}` : getTelemedVisitDetailsUrl(id)}>Visit Info</RoundedButton>;
-    },
-  },
-  {
-    sortable: false,
-    field: 'note',
-    headerName: 'Progress Note',
-    width: 150,
-    renderCell: ({ row: { id, serviceMode: serviceType } }) => (
-      <RoundedButton
-        to={
-          serviceType === ServiceMode.virtual
-            ? `/telemed/appointments/${id}?tab=sign`
-            : `/in-person/${id}/progress-note`
-        }
-      >
-        Progress Note
-      </RoundedButton>
-    ),
-  },
+const columns: TableColumn[] = [
+  { id: 'dateTime', label: 'Date & Time', sortable: true, width: 150 },
+  { id: 'status', label: 'Status', width: 140 },
+  { id: 'type', label: 'Type', width: 150 },
+  { id: 'reason', label: 'Reason for visit', width: 150 },
+  { id: 'provider', label: 'Provider', width: 150 },
+  { id: 'office', label: 'Office', width: 150 },
+  { id: 'los', label: 'LOS', width: 100 },
+  { id: 'info', label: 'Visit Info', width: 120, align: 'center' },
+  { id: 'note', label: 'Progress Note', width: 150 },
 ];
 
 const emptyEmployeeList: EmployeeDetails[] = [];
 
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
-  const { appointments, loading } = props;
+  const { appointments, loading, patient } = props;
 
   const [type, setType] = useState('all');
   const [period, setPeriod] = useState(0);
   const [status, setStatus] = useState('all');
   const [hideCancelled, setHideCancelled] = useState(false);
   const [hideNoShow, setHideNoShow] = useState(false);
+  const [sortField, setSortField] = useState<SortField>('dateTime');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [followupEncounters, setFollowupEncounters] = useState<Encounter[]>([]);
 
-  const { oystehrZambda } = useApiClients();
+  const { oystehrZambda, oystehr } = useApiClients();
   const navigate = useNavigate();
 
   const { data: employeesData } = useQuery({
@@ -202,6 +181,49 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     const employees = data?.employees || emptyEmployeeList;
     useEmployeesStore.setState({ employees });
   });
+
+  // Fetch follow-up encounters
+  const { data: followupData } = useQuery({
+    queryKey: ['followupEncounters', patient?.id],
+    queryFn: async () => {
+      if (!oystehr || !patient?.id) {
+        return [];
+      }
+      try {
+        const fhirEncounters = (
+          await oystehr.fhir.search<Encounter>({
+            resourceType: 'Encounter',
+            params: [
+              {
+                name: '_sort',
+                value: '-date',
+              },
+              {
+                name: 'subject',
+                value: `Patient/${patient.id}`,
+              },
+              {
+                name: 'type',
+                value: FOLLOWUP_SYSTEMS.type.code,
+              },
+            ],
+          })
+        ).unbundle();
+        return fhirEncounters;
+      } catch (e) {
+        console.error('error loading follow-up encounters', e);
+        return [];
+      }
+    },
+    enabled: !!oystehr && !!patient?.id,
+  });
+
+  // Update follow-up encounters when data changes
+  React.useEffect(() => {
+    if (followupData) {
+      setFollowupEncounters(followupData);
+    }
+  }, [followupData]);
 
   const filtered = useMemo(() => {
     let filtered = appointments || [];
@@ -230,8 +252,23 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       );
     }
 
+    // Apply sorting
+    if (sortField === 'dateTime') {
+      filtered = [...filtered].sort((a, b) => {
+        const dateA = DateTime.fromISO(a.dateTime ?? '');
+        const dateB = DateTime.fromISO(b.dateTime ?? '');
+        const diff = dateA.diff(dateB).milliseconds;
+        return sortDirection === 'asc' ? diff : -diff;
+      });
+    }
+
     return filtered;
-  }, [appointments, period, type, status, hideCancelled, hideNoShow]);
+  }, [appointments, period, type, status, hideCancelled, hideNoShow, sortField, sortDirection]);
+
+  const paginatedData = useMemo(() => {
+    const startIndex = page * rowsPerPage;
+    return filtered.slice(startIndex, startIndex + rowsPerPage);
+  }, [filtered, page, rowsPerPage]);
 
   function filterAppointmentForStatus(appointmentHistory: AppointmentHistoryRow, filterStatus: string): boolean {
     if (!appointmentHistory.encounter) return false;
@@ -241,6 +278,142 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         : getInPersonVisitStatus(appointmentHistory.appointment, appointmentHistory.encounter);
     return filterStatus === appointmentStatus;
   }
+
+  const handleSort = (field: SortField): void => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const handleChangePage = (event: unknown, newPage: number): void => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const getFollowupEncountersForRow = (row: AppointmentHistoryRow, rowIndex: number): Encounter[] => {
+    // Show follow-up encounters only for the first row to avoid duplication
+    // This provides a unified view of both main encounters and follow-ups
+    if (rowIndex === 0) {
+      return followupEncounters;
+    }
+    return [];
+  };
+
+  const renderFollowupCellContent = (encounter: Encounter, columnId: string): React.ReactNode => {
+    switch (columnId) {
+      case 'dateTime':
+        return encounter.period?.start ? formatISOStringToDateAndTime(encounter.period.start) : '-';
+      case 'type': {
+        const typeCoding = encounter.type?.find(
+          (t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
+        );
+        let typeText = '-';
+        if (typeCoding?.text) {
+          typeText = typeCoding.text;
+        }
+        return <Typography variant="body2">{typeText}</Typography>;
+      }
+      case 'reason':
+        if (!encounter.reasonCode) return '-';
+        return <Typography variant="body2">{encounter.reasonCode[0].text}</Typography>;
+      case 'answered': {
+        const answered = encounter.participant?.find(
+          (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.answeredUrl))
+        )?.type?.[0].coding?.[0].display;
+        return <Typography variant="body2">{answered || '-'}</Typography>;
+      }
+      case 'caller': {
+        const caller = encounter.participant?.find(
+          (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.callerUrl))
+        )?.type?.[0].coding?.[0].display;
+        return <Typography variant="body2">{caller || '-'}</Typography>;
+      }
+      case 'status': {
+        if (!encounter.status) return null;
+        const statusVal = encounter.status === 'in-progress' ? 'OPEN' : 'RESOLVED';
+        return getFollowupStatusChip(statusVal);
+      }
+      case 'note': {
+        const appointmentId = encounter.appointment?.[0]?.reference?.replace('Appointment/', '');
+        if (!appointmentId) return '-';
+
+        const encounterId = encounter.id;
+        const to = `/in-person/${appointmentId}/follow-up-note`;
+
+        return (
+          <RoundedButton to={to} state={{ encounterId }}>
+            Progress Note
+          </RoundedButton>
+        );
+      }
+      default:
+        return '-';
+    }
+  };
+
+  const renderCellContent = (row: AppointmentHistoryRow, columnId: string): React.ReactNode => {
+    switch (columnId) {
+      case 'dateTime':
+        return row.dateTime ? formatISOStringToDateAndTime(row.dateTime, row.officeTimeZone) : '-';
+      case 'status':
+        if (row.serviceMode === ServiceMode.virtual) {
+          if (!row.encounter) return null;
+          const status = mapStatusToTelemed(row.encounter.status, row.appointment.status);
+          return !!status && <TelemedAppointmentStatusChip status={status} />;
+        } else {
+          if (!row.encounter) return null;
+          const encounterStatus = getInPersonVisitStatus(row.appointment, row.encounter);
+          return encounterStatus || null;
+        }
+      case 'type':
+        return row.typeLabel || '-';
+      case 'reason':
+        return (
+          <Typography variant="body2">
+            {(row.appointment?.description ?? '')
+              .split(',')
+              .map((complaint) => complaint.trim())
+              .join(', ') || '-'}
+          </Typography>
+        );
+      case 'provider':
+        return <ProviderCell encounter={row.encounter} />;
+      case 'office':
+        return row.office || '-';
+      case 'los':
+        return row.length !== undefined ? `${formatMinutes(row.length)} ${row.length === 1 ? 'min' : 'mins'}` : '-';
+      case 'info': {
+        if (!row.id) return null;
+        const isInPerson = isInPersonAppointment(row.appointment);
+        return (
+          <RoundedButton to={isInPerson ? `/visit/${row.id}` : getTelemedVisitDetailsUrl(row.id)}>
+            Visit Info
+          </RoundedButton>
+        );
+      }
+      case 'note':
+        return (
+          <RoundedButton
+            to={
+              row.serviceMode === ServiceMode.virtual
+                ? `/telemed/appointments/${row.id}?tab=sign`
+                : `/in-person/${row.id}/progress-note`
+            }
+          >
+            Progress Note
+          </RoundedButton>
+        );
+      default:
+        return '-';
+    }
+  };
 
   return (
     <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
@@ -327,31 +500,127 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         />
       </Box>
 
-      <DataGridPro
-        rows={filtered}
-        columns={columns}
-        initialState={{
-          pagination: {
-            paginationModel: {
-              pageSize: 5,
-            },
-          },
-          sorting: {
-            sortModel: [{ field: 'dateTime', sort: 'desc' }],
-          },
-        }}
-        autoHeight
-        loading={loading}
-        pagination
-        disableColumnMenu
-        pageSizeOptions={[5]}
-        disableRowSelectionOnClick
-        sx={{
-          border: 0,
-          '.MuiDataGrid-columnHeaderTitle': {
-            fontWeight: 500,
-          },
-        }}
+      <TableContainer>
+        <Table>
+          <TableHead>
+            <TableRow>
+              {columns.map((column) => (
+                <TableCell
+                  key={column.id}
+                  sx={{
+                    width: column.width,
+                    fontWeight: 500,
+                    textAlign: column.align || 'left',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {column.label}
+                    {column.sortable && (
+                      <IconButton size="small" onClick={() => handleSort(column.id as SortField)} sx={{ padding: 0 }}>
+                        {sortField === column.id ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUpwardIcon fontSize="small" />
+                          ) : (
+                            <ArrowDownwardIcon fontSize="small" />
+                          )
+                        ) : (
+                          <ArrowDownwardIcon fontSize="small" sx={{ opacity: 0.3 }} />
+                        )}
+                      </IconButton>
+                    )}
+                  </Box>
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={columns.length} sx={{ textAlign: 'center', py: 4 }}>
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : paginatedData.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={columns.length} sx={{ textAlign: 'center', py: 4 }}>
+                  No encounters found
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedData.map((row, index) => {
+                const rowId = row.id || `row-${index}`;
+                const followupEncountersForRow = getFollowupEncountersForRow(row, index);
+                const hasFollowups = followupEncountersForRow.length > 0;
+
+                return (
+                  <React.Fragment key={rowId}>
+                    <TableRow hover>
+                      {columns.map((column, colIndex) => (
+                        <TableCell
+                          key={column.id}
+                          sx={{
+                            width: column.width,
+                            textAlign: column.align || 'left',
+                            paddingLeft: colIndex === 0 ? 2 : 1,
+                          }}
+                        >
+                          {renderCellContent(row, column.id)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+
+                    {hasFollowups && (
+                      <>
+                        {followupEncountersForRow.map((followupEncounter, followupIndex) => (
+                          <TableRow
+                            key={`followup-${followupEncounter.id || followupIndex}`}
+                            sx={{
+                              backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                              '&:hover': {
+                                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                              },
+                            }}
+                          >
+                            {columns.map((column, colIndex) => (
+                              <TableCell
+                                key={`followup-${column.id}`}
+                                sx={{
+                                  width: column.width,
+                                  textAlign: column.align || 'left',
+                                  ...(colIndex === 0
+                                    ? {
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 1,
+                                      }
+                                    : {}),
+                                }}
+                              >
+                                {colIndex === 0 && <SubdirectoryArrowRightIcon />}
+                                {renderFollowupCellContent(followupEncounter, column.id)}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </>
+                    )}
+                  </React.Fragment>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <TablePagination
+        rowsPerPageOptions={[5]}
+        component="div"
+        count={filtered.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={handleChangePage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
       />
     </Paper>
   );

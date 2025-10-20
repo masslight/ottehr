@@ -17,8 +17,8 @@ import {
   Practitioner,
   QuestionnaireResponse,
 } from 'fhir/r4b';
-import { useCallback, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { APPOINTMENT_REFRESH_INTERVAL, CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import {
@@ -169,6 +169,8 @@ export const useAppointmentData = (
   AppointmentStateUpdater &
   ReactQueryState => {
   const { id: appointmentIdFromUrl } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const appointmentId = appointmentIdFromProps || appointmentIdFromUrl;
   const queryClient = useQueryClient();
   const { data: currentState, isLoading, isFetching, refetch, error, isPending } = useGetAppointment({ appointmentId });
@@ -213,6 +215,18 @@ export const useAppointmentData = (
     },
     [setState]
   );
+
+  useEffect(() => {
+    const encounterIdFromLocation = (
+      location.state as {
+        encounterId?: string;
+      }
+    )?.encounterId;
+    if (encounterIdFromLocation && !isLoading) {
+      setSelectedEncounter(encounterIdFromLocation);
+      navigate('.', { replace: true });
+    }
+  }, [isLoading, location.state, navigate, setSelectedEncounter]);
 
   const getSelectedEncounter = useCallback(() => {
     const state = currentState || APPOINTMENT_INITIAL;
