@@ -6,6 +6,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
 import {
   ReasonListCodes,
@@ -77,26 +78,43 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
           : { cursor: 'default' }),
       }}
       onClick={handleRowClick}
+      data-testid={dataTestIds.immunizationPage.marTableRow}
     >
-      <TableCell>{order.details.medication.name}</TableCell>
-      <TableCell>
-        {order.details.dose} {order.details.units}{' '}
-        {order.details.route ? `/ ${searchRouteByCode(order.details.route)?.display}` : null}
-        {grayText(order.details.instructions)}
+      <TableCell data-testid={dataTestIds.immunizationPage.marTableVaccineCell}>
+        {order.details.medication.name}
       </TableCell>
       <TableCell>
-        {formatDateTime(order.details.orderedDateTime)}
-        {grayText(order.details.orderedProvider.name)}
+        <span data-testid={dataTestIds.immunizationPage.marTableDoseRouteCell}>
+          {order.details.dose} {order.details.units}{' '}
+          {order.details.route ? `/ ${searchRouteByCode(order.details.route)?.display}` : null}
+        </span>
+        <span data-testid={dataTestIds.immunizationPage.marTableInstructionsCell}>
+          {grayText(order.details.instructions)}
+        </span>
       </TableCell>
       <TableCell>
-        {formatDateTime(order.administrationDetails?.administeredDateTime)}
-        {grayText(order.administrationDetails?.administeredProvider?.name)}
+        <span data-testid={dataTestIds.immunizationPage.marTableOrderedDateCell}>
+          {formatDateTime(order.details.orderedDateTime)}{' '}
+        </span>
+        <span data-testid={dataTestIds.immunizationPage.marTableOrderedPersonCell}>
+          {grayText(order.details.orderedProvider.name)}
+        </span>
+      </TableCell>
+      <TableCell>
+        <span data-testid={dataTestIds.immunizationPage.marTableGivenDateCell}>
+          {formatDateTime(order.administrationDetails?.administeredDateTime)}
+        </span>
+        <span data-testid={dataTestIds.immunizationPage.marTableGivenPersonCell}>
+          {grayText(order.administrationDetails?.administeredProvider?.name)}
+        </span>
       </TableCell>
       <TableCell>
         <Stack direction="row" justifyContent="space-between">
           <Stack>
-            <OrderStatusChip status={order.status} />
-            {reasonListValues[order.reason as ReasonListCodes] ?? order.reason}
+            <OrderStatusChip status={order.status} dataTestId={dataTestIds.immunizationPage.marTableStatusCell} />
+            <span data-testid={dataTestIds.immunizationPage.marTableReasonCell}>
+              {reasonListValues[order.reason as ReasonListCodes] ?? order.reason}
+            </span>
           </Stack>
           {showActions && order.status === 'pending' ? (
             <Stack direction="row" onClick={(e) => e.stopPropagation()}>
