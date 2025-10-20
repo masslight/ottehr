@@ -42,9 +42,9 @@ export async function createEncounterResource(
     encounterResource.reasonCode = createEncounterReasonCode(encounterDetails.reason, encounterDetails.otherReason);
   }
 
-  if (encounterDetails.initialVisit) {
+  if (encounterDetails.initialEncounterID) {
     encounterResource.partOf = {
-      reference: `Encounter/${encounterDetails.initialVisit}`,
+      reference: `Encounter/${encounterDetails.initialEncounterID}`,
     };
   }
 

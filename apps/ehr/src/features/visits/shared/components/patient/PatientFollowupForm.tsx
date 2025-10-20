@@ -184,8 +184,8 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
 
         setPreviousEncounters(encounterRows);
 
-        if (followupDetails?.initialVisit && encounterRows.length > 0) {
-          const matchingVisit = encounterRows.find((row) => row.encounter?.id === followupDetails.initialVisit);
+        if (followupDetails?.initialEncounterID && encounterRows.length > 0) {
+          const matchingVisit = encounterRows.find((row) => row.encounter?.id === followupDetails.initialEncounterID);
           if (matchingVisit) {
             setFormData((prev) => ({ ...prev, initialVisit: matchingVisit }));
           }
@@ -198,7 +198,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
     if (oystehrZambda && patientId) {
       void getPreviousEncounters(oystehrZambda);
     }
-  }, [oystehrZambda, patientId, followupDetails?.initialVisit]);
+  }, [oystehrZambda, patientId, followupDetails?.initialEncounterID]);
 
   const handleFormSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -231,7 +231,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
         patientId,
         reason: formData.reason || undefined,
         otherReason: formData.reason === 'Other' ? formData.otherReason : undefined,
-        initialVisit: formData.initialVisit?.encounter?.id,
+        initialEncounterID: formData.initialVisit?.encounter?.id,
         appointmentId: formData.initialVisit?.appointment?.id,
         answered: '',
         caller: '',
