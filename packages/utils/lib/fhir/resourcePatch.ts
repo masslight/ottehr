@@ -331,15 +331,15 @@ interface GroupedOperation {
 
 export function consolidateOperations(operations: Operation[], resource: FhirResource): Operation[] {
   // Merge 'replace' and 'add' operations with the same path
-  const mergedOperations: Operation[] = mergeOperations(operations, resource);
+  let mergedOperations: Operation[] = mergeOperations(operations, resource);
   console.log('mergedOperations', JSON.stringify(mergedOperations, null, 2));
   if (resource.resourceType === 'Patient' && resource.contact) {
     // Special handling for contact name operations
-    consolidateContactNameOperations(mergedOperations);
+    mergedOperations = consolidateContactNameOperations(mergedOperations);
   }
 
   if (resource.resourceType === 'Patient' && resource.extension) {
-    consolidateExtensionOperations(mergedOperations, resource.extension);
+    mergedOperations = consolidateExtensionOperations(mergedOperations, resource.extension);
   }
 
   // Group operations by their root paths
