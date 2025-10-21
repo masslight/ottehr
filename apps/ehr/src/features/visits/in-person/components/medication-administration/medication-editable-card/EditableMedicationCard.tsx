@@ -1,4 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { Medication } from 'fhir/r4b';
 import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -59,7 +58,6 @@ export const EditableMedicationCard: React.FC<{
   const [isOrderUpdating, setIsOrderUpdating] = useState<boolean>(false);
   const { id: appointmentId } = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const autoFilledFieldsRef = useRef<Partial<MedicationData>>({});
   const [isConfirmSaveModalOpen, setIsConfirmSaveModalOpen] = useState(false);
   const confirmedMedicationUpdateRequestRef = useRef<Partial<UpdateMedicationOrderInput>>({});
@@ -215,11 +213,6 @@ export const EditableMedicationCard: React.FC<{
 
       const response = await updateMedication(medicationUpdateRequestInputRefRef.current);
       isSavedRef.current = true;
-
-      await queryClient.invalidateQueries({
-        queryKey: ['telemed-get-medication-orders'],
-        exact: false,
-      });
 
       // update saved status in the local state
       if (newStatus) {
