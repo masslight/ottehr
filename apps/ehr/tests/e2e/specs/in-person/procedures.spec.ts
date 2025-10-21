@@ -66,21 +66,19 @@ const PROCEDURE_POST_INSTRUCTIONS_CODINGS =
 const PROCEDURE_TIME_SPENT_CODINGS =
   procedureTimeSpent.fhirResources['value-set-procedure-time-spent'].resource.expansion.contains;
 
-const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS.map(
-  (procedure) => {
-    const dropDownChoice = procedure.display;
-    const codeableConcept = procedure.extension?.[0].valueCodeableConcept.coding[0];
-    if (!codeableConcept) {
-      return {
-        dropDownChoice,
-      };
-    }
+const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS.map((procedure) => {
+  const dropDownChoice = procedure.display;
+  const codeableConcept = procedure.extension?.[0].valueCodeableConcept.coding[0];
+  if (!codeableConcept) {
     return {
       dropDownChoice,
-      display: codeableConcept.code + ' ' + codeableConcept.display,
     };
   }
-);
+  return {
+    dropDownChoice,
+    display: codeableConcept.code + ' ' + codeableConcept.display,
+  };
+});
 
 const PROCEDURE_A: ProcedureInfo = {
   consentChecked: true,
@@ -99,7 +97,7 @@ const PROCEDURE_A: ProcedureInfo = {
   details: 'test details a',
   specimenSent: 'Yes',
   complication: PROCEDURE_COMPLICATIONS_CODINGS[1].display,
-  patinentResponse: PROCEDURE_PATIENT_RESPONSES_CODINGS[0].display,
+  patientResponse: PROCEDURE_PATIENT_RESPONSES_CODINGS[0].display,
   instructions: PROCEDURE_POST_INSTRUCTIONS_CODINGS[0].display,
   timeSpent: PROCEDURE_TIME_SPENT_CODINGS[0].display,
   documentedBy: 'Provider',
@@ -122,7 +120,7 @@ const PROCEDURE_B: ProcedureInfo = {
   details: 'test details b',
   specimenSent: 'No',
   complication: PROCEDURE_COMPLICATIONS_CODINGS[2].display,
-  patinentResponse: PROCEDURE_PATIENT_RESPONSES_CODINGS[1].display,
+  patientResponse: PROCEDURE_PATIENT_RESPONSES_CODINGS[1].display,
   instructions: PROCEDURE_POST_INSTRUCTIONS_CODINGS[1].display,
   timeSpent: PROCEDURE_TIME_SPENT_CODINGS[1].display,
   documentedBy: 'Healthcare staff',
