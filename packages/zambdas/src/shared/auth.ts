@@ -15,6 +15,7 @@ export async function getUser(token: string, secrets: Secrets | null, testProfil
   try {
     user = await oystehr.user.me();
   } catch (error: any) {
+    console.log('error getting user from token', error?.message || error);
     const isTestClient = token && isTestM2MClient(token, secrets) && ENV === 'local';
     console.log('isTestClient', isTestClient);
     if (!isTestClient) {

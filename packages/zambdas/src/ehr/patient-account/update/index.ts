@@ -72,7 +72,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<void> => {
   const { questionnaireResponse, items, patientId, providerProfileReference, preserveOmittedCoverages } = input;
 
-  const patientResource = await oystehr.fhir.get<Patient>({
+  let patientResource = await oystehr.fhir.get<Patient>({
     resourceType: 'Patient',
     id: patientId,
   });
@@ -84,7 +84,7 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
 
   if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
     console.time('patching patient resource');
-    await oystehr.fhir.patch({
+    patientResource = await oystehr.fhir.patch({
       resourceType: 'Patient',
       id: patientResource.id!,
       operations: patientPatchOps.patient.patchOpsForDirectUpdate,

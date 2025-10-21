@@ -21,10 +21,18 @@ export const inHouseLabsTestStatuses: Record<TestStatus, TestStatus> = {
 };
 
 export const IN_HOUSE_LAB_TASK = {
+  category: 'in-house-lab',
   system: 'in-house-lab-task',
   code: {
     collectSampleTask: 'CST',
     inputResultsTask: 'IRT',
+  },
+  input: {
+    testName: 'test-name',
+    patientName: 'patient-name',
+    providerName: 'provider-name',
+    orderDate: 'order-date',
+    appointmentId: 'appointment-id',
   },
 } as const;
 
