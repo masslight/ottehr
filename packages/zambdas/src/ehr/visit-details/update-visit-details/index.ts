@@ -1,14 +1,14 @@
-import Oystehr, { BatchInputPatchRequest, User } from '@oystehr/sdk';
+import Oystehr, { BatchInputJSONPatchRequest, BatchInputPatchRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, Patient } from 'fhir/r4b';
+import { Appointment, Encounter, Extension, Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   BOOKING_CONFIG,
   cleanUpStaffHistoryTag,
   FHIR_EXTENSION,
   FHIR_RESOURCE_NOT_FOUND,
   getCriticalUpdateTagOp,
-  getPatchBinary,
   getSecret,
   getUnconfirmedDOBIdx,
   INVALID_INPUT_ERROR,
@@ -19,11 +19,11 @@ import {
   Secrets,
   SecretsKeys,
   UpdateVisitDetailsInput,
+  userMe,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  getUser,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -62,12 +62,13 @@ interface EffectInput extends UpdateVisitDetailsInput {
   patient: Patient;
   user: User;
   appointment: Appointment;
+  encounter: Encounter;
 }
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void> => {
-  const { patient, appointment, bookingDetails, user } = input;
+  const { patient, appointment, bookingDetails, user, encounter } = input;
 
-  const patchRequests: BatchInputPatchRequest<Appointment | Patient | Encounter>[] = [];
+  const patchRequests: BatchInputJSONPatchRequest[] = [];
   if (bookingDetails.confirmedDob) {
     // Update the FHIR Patient resource
     const patientPatchOps: Operation[] = [
@@ -84,11 +85,11 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     const removeStaffUpdateTagOp = cleanUpStaffHistoryTag(patient, 'dob');
     if (removeStaffUpdateTagOp) patientPatchOps.push(removeStaffUpdateTagOp);
 
-    const patientPatch = getPatchBinary({
-      resourceType: 'Patient',
-      resourceId: patient.id!,
-      patchOperations: patientPatchOps,
-    });
+    const patientPatch: BatchInputJSONPatchRequest = {
+      url: '/Patient/' + patient.id,
+      method: 'PATCH',
+      operations: patientPatchOps,
+    };
 
     patchRequests.push(patientPatch);
 
@@ -99,17 +100,17 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     if (dobNotConfirmedIdx && dobNotConfirmedIdx >= 0) {
       appointmentExt?.splice(dobNotConfirmedIdx, 1);
 
-      const appointmentPatch = getPatchBinary({
-        resourceType: 'Appointment',
-        resourceId: appointment.id!,
-        patchOperations: [
+      const appointmentPatch: BatchInputJSONPatchRequest = {
+        url: '/Appointment/' + appointment.id,
+        method: 'PATCH',
+        operations: [
           {
             op: 'replace',
             path: '/extension',
             value: appointmentExt,
           },
         ],
-      });
+      };
 
       patchRequests.push(appointmentPatch);
     }
@@ -231,15 +232,74 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
       operations: patientPatchOps,
     });
   }
+
+  if (bookingDetails.consentForms) {
+    const { consentAttested } = bookingDetails.consentForms;
+    const encounterExt = encounter?.extension || [];
+    const newExtension = encounterExt.filter((ext) => {
+      return ext.url !== FHIR_EXTENSION.Encounter.attestedConsent.url;
+    });
+    if (!consentAttested) {
+      if (newExtension.length !== encounterExt.length) {
+        const encounterPatch: BatchInputPatchRequest<Encounter> = {
+          method: 'PATCH',
+          url: `/Encounter/${encounter.id}`,
+          operations: [
+            {
+              op: 'replace',
+              path: '/extension',
+              value: newExtension,
+            },
+          ],
+        };
+        patchRequests.push(encounterPatch);
+      }
+    } else {
+      const newExtEntry: Extension = {
+        url: FHIR_EXTENSION.Encounter.attestedConsent.url,
+        valueSignature: {
+          when: DateTime.now().setZone('utc').toISO()!,
+          who: {
+            reference: user.profile,
+            display: `${user.name} - userId:${user.id}`,
+          },
+          type: [
+            {
+              system: 'http://uri.etsi.org/01903/v1.2.2',
+              code: 'ProofOfReceipt',
+            },
+          ],
+        },
+      };
+      newExtension.push(newExtEntry);
+      const encounterPatch: BatchInputPatchRequest<Encounter> = {
+        method: 'PATCH',
+        url: `/Encounter/${encounter.id}`,
+        operations: [
+          {
+            op: encounter?.extension ? 'replace' : 'add',
+            path: '/extension',
+            value: newExtension,
+          },
+        ],
+      };
+      patchRequests.push(encounterPatch);
+    }
+  }
+
+  // this will combine any requests to patch the same object. for now there's no possibility of conflicting operations
+  // in this endpoint, so simply consolidating the requests is safe.
+  const consolidatedPatches = consolidatePatchRequests(patchRequests);
+
   // Batch Appointment and Patient updates
   await oystehr.fhir.transaction({
-    requests: patchRequests,
+    requests: consolidatedPatches,
   });
 };
 
 const complexValidation = async (input: Input, oystehr: Oystehr): Promise<EffectInput> => {
   const { appointmentId, userToken } = input;
-  const user = await getUser(userToken, input.secrets);
+  const user = await userMe(userToken, input.secrets);
   if (!user) {
     throw new Error('user unexpectedly not found');
   }
@@ -273,6 +333,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     ...input,
     patient: patientResource,
     appointment,
+    encounter: encounterResource,
     user,
   };
 };
@@ -328,30 +389,51 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
 
   if (bookingDetails.confirmedDob && typeof bookingDetails.confirmedDob !== 'string') {
     throw INVALID_INPUT_ERROR('confirmedDob must be a string');
+  } else if (bookingDetails.confirmedDob) {
+    const dob = DateTime.fromISO(bookingDetails.confirmedDob);
+    if (!dob.isValid) {
+      throw INVALID_INPUT_ERROR(`confirmedDob, "${bookingDetails.confirmedDob}", is not a valid iso date string`);
+    }
   }
 
   if (bookingDetails.patientName && typeof bookingDetails.patientName !== 'object') {
-    throw INVALID_INPUT_ERROR('patientName must be an object');
+    throw INVALID_INPUT_ERROR('"patientName" must be an object');
+  } else if (bookingDetails.patientName && Object.keys(bookingDetails.patientName).length === 0) {
+    throw INVALID_INPUT_ERROR('"patientName" must have at least one field defined');
   } else if (bookingDetails.patientName) {
     if (bookingDetails.patientName.first && typeof bookingDetails.patientName.first !== 'string') {
-      throw INVALID_INPUT_ERROR('patientName.first must be a string');
+      throw INVALID_INPUT_ERROR('"patientName.first" must be a string');
     }
     if (bookingDetails.patientName.last && typeof bookingDetails.patientName.last !== 'string') {
-      throw INVALID_INPUT_ERROR('patientName.last must be a string');
+      throw INVALID_INPUT_ERROR('"patientName.last" must be a string');
     }
     if (bookingDetails.patientName.middle && typeof bookingDetails.patientName.middle !== 'string') {
-      throw INVALID_INPUT_ERROR('patientName.middle must be a string');
+      throw INVALID_INPUT_ERROR('"patientName.middle" must be a string');
     }
     if (bookingDetails.patientName.suffix && typeof bookingDetails.patientName.suffix !== 'string') {
-      throw INVALID_INPUT_ERROR('patientName.suffix must be a string');
+      throw INVALID_INPUT_ERROR('"patientName.suffix" must be a string');
     }
   }
+
+  if (bookingDetails.consentForms && typeof bookingDetails.consentForms !== 'object') {
+    throw INVALID_INPUT_ERROR('"consentForms" must be an object');
+  } else if (bookingDetails.consentForms) {
+    if (
+      bookingDetails.consentForms.consentAttested &&
+      typeof bookingDetails.consentForms.consentAttested !== 'boolean'
+    ) {
+      throw INVALID_INPUT_ERROR('consentForms.consentAttested must be a boolean');
+    }
+  }
+
+  // Require at least one field to be present
 
   if (
     !bookingDetails.reasonForVisit &&
     !bookingDetails.authorizedNonLegalGuardians &&
     !bookingDetails.confirmedDob &&
-    !bookingDetails.patientName
+    !bookingDetails.patientName &&
+    !bookingDetails.consentForms
   ) {
     throw INVALID_INPUT_ERROR('at least one field in bookingDetails must be provided');
   }
@@ -362,4 +444,17 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     appointmentId,
     bookingDetails,
   };
+};
+
+const consolidatePatchRequests = (ops: BatchInputJSONPatchRequest[]): BatchInputPatchRequest<any>[] => {
+  const consolidated: { [key: string]: BatchInputJSONPatchRequest } = {};
+  ops.forEach((op) => {
+    const key = op.url;
+    if (!consolidated[key]) {
+      consolidated[key] = { ...op };
+    } else {
+      consolidated[key].operations.push(...op.operations);
+    }
+  });
+  return Object.values(consolidated);
 };

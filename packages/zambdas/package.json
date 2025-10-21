@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.19.11",
+  "version": "1.19.15",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
@@ -60,7 +60,9 @@
     "get-lab-sr-dr-docref": "tsx src/scripts/labs/get-external-lab-sr-dr-docref.ts",
     "test-emails": "tsx src/scripts/test-emails.ts",
     "remove-payor-orgs": "tsx src/scripts/remove-payor-orgs.ts",
-    "update-locations-for-lab-accounts": "tsx src/scripts/labs/update-locations-for-lab-accounts.ts"
+    "update-locations-for-lab-accounts": "tsx src/scripts/labs/update-locations-for-lab-accounts.ts",
+    "sync-lab-specimen-dates": "tsx src/scripts/labs/sync-specimen-dates.ts",
+    "reset-lab-order": "tsx src/scripts/labs/reset-lab-order.ts"
   },
   "engines": {
     "node": ">=20.0.0",

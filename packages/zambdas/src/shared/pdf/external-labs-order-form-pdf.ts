@@ -2,7 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { Address, Coverage, FhirResource, HumanName, Patient, RelatedPerson } from 'fhir/r4b';
 import { min } from 'lodash';
 import { DateTime } from 'luxon';
-import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI, getFullestAvailableName, ORDER_ITEM_UNKNOWN, Secrets } from 'utils';
+import {
+  BUCKET_NAMES,
+  FHIR_IDENTIFIER_NPI,
+  formatPhoneNumberDisplay,
+  getFullestAvailableName,
+  ORDER_ITEM_UNKNOWN,
+  Secrets,
+} from 'utils';
 import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/submit-lab-order/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
@@ -81,6 +88,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
   console.log(
     `Drawing location details left column. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
   );
+  const leftColumnBounds = { leftBound: pdfClient.getLeftBound(), rightBound: rightColumnXStart - 10 };
   const yPosAtStartOfLocation = pdfClient.getY();
   let yPosAtEndOfLocation = yPosAtStartOfLocation;
   if (
@@ -93,7 +101,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
     data.locationFax
   ) {
     if (data.locationName) {
-      pdfClient.drawTextSequential(data.locationName, textStyles.textBold);
+      pdfClient.drawTextSequential(data.locationName, textStyles.textBold, leftColumnBounds);
       pdfClient.newLine(STANDARD_NEW_LINE);
     }
 
@@ -106,18 +114,21 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
     if (data.locationStreetAddress) {
       pdfClient.drawTextSequential(data.locationStreetAddress.toUpperCase(), textStyles.text, {
         leftBound: xPosAfterImage,
-        rightBound: pdfClient.getRightBound(),
+        rightBound: leftColumnBounds.rightBound,
       });
       pdfClient.newLine(STANDARD_NEW_LINE);
     }
 
     if (data.locationCity || data.locationState || data.locationZip) {
-      pdfClient.drawStartXPosSpecifiedText(
+      pdfClient.drawTextSequential(
         `${data.locationCity ? data.locationCity + ', ' : ''}${data.locationState ? data.locationState + ' ' : ''}${
           data.locationZip || ''
         }`.toUpperCase(),
         textStyles.text,
-        xPosAfterImage
+        {
+          leftBound: xPosAfterImage,
+          rightBound: leftColumnBounds.rightBound,
+        }
       );
       pdfClient.newLine(STANDARD_NEW_LINE);
     }
@@ -129,12 +140,18 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
         { ...iconStyleWithMargin, margin: { ...iconStyleWithMargin.margin, left: 0 } },
         textStyles.text
       );
-      pdfClient.drawTextSequential(data.locationPhone, textStyles.text);
+      pdfClient.drawTextSequential(formatPhoneNumberDisplay(data.locationPhone), textStyles.text, {
+        leftBound: pdfClient.getX(),
+        rightBound: leftColumnBounds.rightBound,
+      });
     }
 
     if (data.locationFax) {
       pdfClient.drawImage(faxIcon, iconStyleWithMargin, textStyles.text);
-      pdfClient.drawTextSequential(data.locationFax, textStyles.text);
+      pdfClient.drawTextSequential(data.locationFax, textStyles.text, {
+        leftBound: pdfClient.getX(),
+        rightBound: leftColumnBounds.rightBound,
+      });
     }
 
     if (data.locationPhone || data.locationFax) {
@@ -182,7 +199,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
     `Drawing patient info left column. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
   );
   pdfClient.drawTextSequential(
-    `${data.patientLastName}, ${data.patientFirstName}${data.patientMiddleName ? ' ' + data.patientMiddleName : ''}, `,
+    `${data.patientLastName}, ${data.patientFirstName}${data.patientMiddleName ? ' ' + data.patientMiddleName : ''} `,
     { ...textStyles.header, newLineAfter: false }
   );
   pdfClient.drawTextSequential(`${data.patientSex}, ${data.patientDOB}`, textStyles.text);
@@ -198,7 +215,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
   );
   pdfClient.drawTextSequential(`${data.patientAddress} `, textStyles.text);
   pdfClient.drawImage(callIcon, iconStyleWithMargin, textStyles.text);
-  pdfClient.drawTextSequential(data.patientPhone, textStyles.text);
+  pdfClient.drawTextSequential(formatPhoneNumberDisplay(data.patientPhone), textStyles.text);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   // Order date and collection date
