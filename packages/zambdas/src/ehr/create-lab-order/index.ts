@@ -7,6 +7,7 @@ import {
   Coding,
   Coverage,
   Encounter,
+  Extension,
   FhirResource,
   Location,
   Organization,
@@ -47,6 +48,7 @@ import {
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
   SecretsKeys,
   SPECIMEN_CODING_CONFIG,
+  TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
@@ -105,6 +107,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
 
     const activityDefinitionToContain = formatActivityDefinitionToContain(orderableItem);
     const serviceRequestContained: FhirResource[] = [];
+    const serviceRequestExtension: Extension[] = [];
 
     const createSpecimenResources = !psc;
     console.log('createSpecimenResources', createSpecimenResources, psc, orderableItem.item.specimens.length);
@@ -132,6 +135,11 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     } else {
       serviceRequestContained.push(activityDefinitionToContain);
     }
+
+    const locationTimezoneExt = orderingLocation.extension?.find(
+      (extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL
+    );
+    if (locationTimezoneExt) serviceRequestExtension.push(locationTimezoneExt);
 
     const serviceRequestCode = formatSrCode(orderableItem);
     const serviceRequestReasonCode: ServiceRequest['reasonCode'] = dx.map((diagnosis) => {
@@ -180,13 +188,14 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
           value: existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN),
         },
       ],
+      locationReference: [
+        {
+          type: 'Location',
+          reference: `Location/${orderingLocation.id}`,
+        },
+      ],
+      extension: serviceRequestExtension,
     };
-    serviceRequestConfig.locationReference = [
-      {
-        type: 'Location',
-        reference: `Location/${orderingLocation.id}`,
-      },
-    ];
 
     if (coverages) {
       const coverageRefs: Reference[] = coverages.map((coverage) => {
