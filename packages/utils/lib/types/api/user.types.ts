@@ -17,7 +17,7 @@ export enum RoleType {
   AssistantAdmin = 'AssistantAdmin',
   Billing = 'Billing',
   CallCentre = 'CallCentre',
-  CustomerSupport = 'CustomerSupport',
+  CustomerSupport = 'Customer Support',
   FrontDesk = 'Front Desk',
   Inactive = 'Inactive',
   Manager = 'Manager',

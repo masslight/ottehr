@@ -12,23 +12,16 @@ import {
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { openProceduresPage, ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import ProcedureTypesJson from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
-
-const CONFIG_PROCEDURES = ProcedureTypesJson.fhirResources['value-set-procedure-type'].resource.expansion.contains.map(
-  (procedure) => {
-    const dropDownChoice = procedure.display;
-    const codeableConcept = procedure.extension?.[0].valueCodeableConcept.coding[0];
-    if (!codeableConcept) {
-      return {
-        dropDownChoice,
-      };
-    }
-    return {
-      dropDownChoice,
-      display: codeableConcept.code + ' ' + codeableConcept.display,
-    };
-  }
-);
+import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
+import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json' assert { type: 'json' };
+import procedureComplications from '../../../../../../config/oystehr/procedure-complications.json' assert { type: 'json' };
+import procedureMedicationsUsed from '../../../../../../config/oystehr/procedure-medications-used.json' assert { type: 'json' };
+import procedurePatientResponses from '../../../../../../config/oystehr/procedure-patient-responses.json' assert { type: 'json' };
+import procedurePostInstructions from '../../../../../../config/oystehr/procedure-post-instructions.json' assert { type: 'json' };
+import procedureSupplies from '../../../../../../config/oystehr/procedure-supplies.json' assert { type: 'json' };
+import procedureTechniques from '../../../../../../config/oystehr/procedure-techniques.json' assert { type: 'json' };
+import procedureTimeSpent from '../../../../../../config/oystehr/procedure-time-spent.json' assert { type: 'json' };
+import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
 
 interface ProcedureInfo {
   consentChecked: boolean;
@@ -53,6 +46,42 @@ interface ProcedureInfo {
   documentedBy: string;
 }
 
+const PROCEDURE_TYPE_CODINGS = procedureType.fhirResources['value-set-procedure-type'].resource.expansion.contains;
+const PROCEDURE_MEDICATIONS_USED_CODINGS =
+  procedureMedicationsUsed.fhirResources['value-set-procedure-medications-used'].resource.expansion.contains;
+const PROCEDURE_BODY_SITES_CODINGS =
+  procedureBodySites.fhirResources['value-set-procedure-body-sites'].resource.expansion.contains;
+const PROCEDURE_BODY_SIDES_CODINGS =
+  procedureBodySides.fhirResources['value-set-procedure-body-sides'].resource.expansion.contains;
+const PROCEDURE_TECHNIQUES_CODINGS =
+  procedureTechniques.fhirResources['value-set-procedure-techniques'].resource.expansion.contains;
+const PROCEDURE_SUPPLIES_CODINGS =
+  procedureSupplies.fhirResources['value-set-procedure-supplies'].resource.expansion.contains;
+const PROCEDURE_COMPLICATIONS_CODINGS =
+  procedureComplications.fhirResources['value-set-procedure-complications'].resource.expansion.contains;
+const PROCEDURE_PATIENT_RESPONSES_CODINGS =
+  procedurePatientResponses.fhirResources['value-set-procedure-patient-responses'].resource.expansion.contains;
+const PROCEDURE_POST_INSTRUCTIONS_CODINGS =
+  procedurePostInstructions.fhirResources['value-set-procedure-post-instructions'].resource.expansion.contains;
+const PROCEDURE_TIME_SPENT_CODINGS =
+  procedureTimeSpent.fhirResources['value-set-procedure-time-spent'].resource.expansion.contains;
+
+const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS.map(
+  (procedure) => {
+    const dropDownChoice = procedure.display;
+    const codeableConcept = procedure.extension?.[0].valueCodeableConcept.coding[0];
+    if (!codeableConcept) {
+      return {
+        dropDownChoice,
+      };
+    }
+    return {
+      dropDownChoice,
+      display: codeableConcept.code + ' ' + codeableConcept.display,
+    };
+  }
+);
+
 const PROCEDURE_A: ProcedureInfo = {
   consentChecked: true,
   procedureType: CONFIG_PROCEDURES[0].dropDownChoice,
@@ -62,40 +91,40 @@ const PROCEDURE_A: ProcedureInfo = {
   diagnosisCode: 'D51.0',
   diagnosisName: 'Vitamin B12 deficiency anemia due to intrinsic factor deficiency',
   performedBy: 'Healthcare staff',
-  anaesthesia: 'Topical',
-  bodySite: 'Arm',
-  bodySide: 'Left',
-  technique: 'Sterile',
-  instruments: 'Splint',
+  anaesthesia: PROCEDURE_MEDICATIONS_USED_CODINGS[0].display,
+  bodySite: PROCEDURE_BODY_SITES_CODINGS[0].display,
+  bodySide: PROCEDURE_BODY_SIDES_CODINGS[0].display,
+  technique: PROCEDURE_TECHNIQUES_CODINGS[0].display,
+  instruments: PROCEDURE_SUPPLIES_CODINGS[0].display,
   details: 'test details a',
   specimenSent: 'Yes',
-  complication: 'Bleeding',
-  patientResponse: 'Stable',
-  instructions: 'Return if worsening',
-  timeSpent: '< 5 min',
+  complication: PROCEDURE_COMPLICATIONS_CODINGS[1].display,
+  patinentResponse: PROCEDURE_PATIENT_RESPONSES_CODINGS[0].display,
+  instructions: PROCEDURE_POST_INSTRUCTIONS_CODINGS[0].display,
+  timeSpent: PROCEDURE_TIME_SPENT_CODINGS[0].display,
   documentedBy: 'Provider',
 };
 
 const PROCEDURE_B: ProcedureInfo = {
   consentChecked: false,
-  procedureType: CONFIG_PROCEDURES[CONFIG_PROCEDURES.length - 1].dropDownChoice,
-  procedureTypeCptCode: CONFIG_PROCEDURES[CONFIG_PROCEDURES.length - 1].display,
+  procedureType: CONFIG_PROCEDURES[1].dropDownChoice,
+  procedureTypeCptCode: CONFIG_PROCEDURES[1].display,
   cptCode: '11900',
   cptName: 'Injection into skin growth, 1-7 growths',
   diagnosisCode: 'R50.9',
   diagnosisName: 'Fever, unspecified',
   performedBy: 'Both',
-  anaesthesia: 'Local',
-  bodySite: 'Face',
-  bodySide: 'Not Applicable',
-  technique: 'Clean',
-  instruments: 'Speculum',
+  anaesthesia: PROCEDURE_MEDICATIONS_USED_CODINGS[1].display,
+  bodySite: PROCEDURE_BODY_SITES_CODINGS[1].display,
+  bodySide: PROCEDURE_BODY_SIDES_CODINGS[1].display,
+  technique: PROCEDURE_TECHNIQUES_CODINGS[1].display,
+  instruments: PROCEDURE_SUPPLIES_CODINGS[1].display,
   details: 'test details b',
   specimenSent: 'No',
-  complication: 'Allergic Reaction',
-  patientResponse: 'Improved',
-  instructions: 'Wound Care',
-  timeSpent: '> 30 min',
+  complication: PROCEDURE_COMPLICATIONS_CODINGS[2].display,
+  patinentResponse: PROCEDURE_PATIENT_RESPONSES_CODINGS[1].display,
+  instructions: PROCEDURE_POST_INSTRUCTIONS_CODINGS[1].display,
+  timeSpent: PROCEDURE_TIME_SPENT_CODINGS[1].display,
   documentedBy: 'Healthcare staff',
 };
 

@@ -393,7 +393,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       });
 
       // Move to the next line and reset x position
-      newLine(lineHeight + spacing);
+      newLine(lineHeight);
 
       // Recursively call the function with the remaining text
       console.log('recursively calling drawTextSequential');
