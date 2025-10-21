@@ -292,7 +292,7 @@ describe('Patient Master Record Tests', () => {
       relatedPerson: {},
     });
   });
-  test.only('should generate correct consolidated JSON patch operation to update extension for a patient', () => {
+  test('should generate correct consolidated JSON patch operation to update extension for a patient', () => {
     const patientPatchOperations = [
       {
         op: 'replace',
