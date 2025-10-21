@@ -512,6 +512,12 @@ function parseExamFieldsFromExamObservations(
 
         case 'multi-select': {
           if (isMultiSelectComponent(component)) {
+            const componentLabel = component.label;
+            items.push({
+              field: fieldName,
+              label: `${componentLabel}`,
+              abnormal: section === 'abnormal',
+            });
             Object.entries(component.options).forEach(([optionName, option]) => {
               const observation = examObservations[optionName];
               if (observation && typeof observation.value === 'boolean' && observation.value === true) {
