@@ -299,10 +299,6 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     };
   } catch (error) {
     console.log(error);
-    await topLevelCatch('delete-chart-data', error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-    return {
-      body: JSON.stringify({ message: 'Error deleting encounter data' }),
-      statusCode: 500,
-    };
+    return topLevelCatch('delete-chart-data', error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });

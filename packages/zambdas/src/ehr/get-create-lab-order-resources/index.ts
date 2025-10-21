@@ -2,13 +2,11 @@ import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Coverage, Location, Organization } from 'fhir/r4b';
 import {
-  APIError,
   CODE_SYSTEM_COVERAGE_CLASS,
   EXTERNAL_LAB_ERROR,
   ExternalLabOrderingLocations,
   flattenBundleResources,
   getSecret,
-  isApiError,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORG_TYPE_CODING,
   LabOrderResourcesRes,
@@ -68,16 +66,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-get-create-lab-order-resources', error, ENVIRONMENT);
-    let body = JSON.stringify({ message: `Error getting resources for create lab order: ${error}` });
-    if (isApiError(error)) {
-      const { code, message } = error as APIError;
-      body = JSON.stringify({ message, code });
-    }
-    return {
-      statusCode: 500,
-      body,
-    };
+    return topLevelCatch('admin-get-create-lab-order-resources', error, ENVIRONMENT);
   }
 });
 

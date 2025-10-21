@@ -22,7 +22,6 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  APIError,
   CreateLabOrderZambdaOutput,
   EXTERNAL_LAB_ERROR,
   FHIR_IDC10_VALUESET_SYSTEM,
@@ -30,7 +29,6 @@ import {
   getAttendingPractitionerId,
   getOrderNumber,
   getSecret,
-  isApiError,
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORDER_TASK,
@@ -306,16 +304,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-create-lab-order', error, ENVIRONMENT);
-    let body = JSON.stringify({ message: `Error creating external lab order: ${error}` });
-    if (isApiError(error)) {
-      const { code, message } = error as APIError;
-      body = JSON.stringify({ message, code });
-    }
-    return {
-      statusCode: 500,
-      body,
-    };
+    return topLevelCatch('admin-create-lab-order', error, ENVIRONMENT);
   }
 });
 

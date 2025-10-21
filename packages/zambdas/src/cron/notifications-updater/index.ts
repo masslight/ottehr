@@ -456,12 +456,8 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('Notification-updater', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify(error.message),
-    };
+    return topLevelCatch('Notification-updater', error, ENVIRONMENT);
   }
 });
 

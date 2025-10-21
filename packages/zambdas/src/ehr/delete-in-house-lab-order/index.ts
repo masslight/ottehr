@@ -186,12 +186,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('Error deleting in-house lab order:', error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('delete-in-house-lab-order', error, ENVIRONMENT);
-    return {
-      statusCode: error.statusCode || 500,
-      body: JSON.stringify({
-        message: `Error processing request: ${error.message || error}`,
-      }),
-    };
+    return topLevelCatch('delete-in-house-lab-order', error, ENVIRONMENT);
   }
 });

@@ -34,11 +34,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    await topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: `Error cancelling order: ${JSON.stringify(error.message)}` }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

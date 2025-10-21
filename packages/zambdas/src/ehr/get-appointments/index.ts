@@ -514,11 +514,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-get-appointments', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error getting patient appointments' }),
-    };
+    return topLevelCatch('admin-get-appointments', error, ENVIRONMENT);
   }
 });
 

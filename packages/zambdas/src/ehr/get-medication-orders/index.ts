@@ -53,11 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Error: ', error);
     console.log('Stringified error: ', JSON.stringify(error));
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: `Error getting orders: ${error}` }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
 

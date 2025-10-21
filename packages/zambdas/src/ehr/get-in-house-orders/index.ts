@@ -114,14 +114,6 @@ export const index = wrapHandler('get-in-house-orders', async (input: ZambdaInpu
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('get-in-house-orders', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: `Error fetching in-house orders: ${error.message || error}`,
-        data: [],
-        pagination: EMPTY_PAGINATION,
-      }),
-    };
+    return topLevelCatch('get-in-house-orders', error, ENVIRONMENT);
   }
 });
