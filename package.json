@@ -78,7 +78,7 @@
     "@hookform/resolvers": "^2.9.10",
     "@inquirer/prompts": "^7.2.4",
     "@langchain/anthropic": "^0.3.32",
-    "@langchain/core": "^0.3.42",
+    "@langchain/core": "^0.3.78",
     "@langchain/langgraph": "^0.2.56",
     "@mui/lab": "^5.0.0-alpha.115",
     "@mui/material": "^5.14.18",
