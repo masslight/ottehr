@@ -716,29 +716,17 @@ async function getResultsDetailsForPDF(
     pngAttachments: [],
     jpgAttachments: [],
   };
-  observations
-    .filter(
-      (observation) =>
-        diagnosticReport.result?.some((resultTemp) => resultTemp.reference?.split('/')[1] === observation.id)
-    )
-    .sort((a, b) => {
-      // obr notes should be sorted at the top of the observations list
-      const aIsObrNote = a.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
-      const bIsObrNote = b.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
 
-      if (!aIsObrNote && bIsObrNote) return 1; // a comes before b
-      if (aIsObrNote && !bIsObrNote) return -1; // a comes after b
-      return 0; // no change
-    })
-    .forEach((observation) => {
-      const { labResult, interpretationDisplay, base64PdfAttachment, base64PngAttachment, base64JpgAttachment } =
-        parseObservationForPDF(observation, oystehr);
-      externalLabResults.push(labResult);
-      if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
-      if (base64PdfAttachment) obsAttachments.pdfAttachments.push(base64PdfAttachment);
-      if (base64PngAttachment) obsAttachments.pngAttachments.push(base64PngAttachment);
-      if (base64JpgAttachment) obsAttachments.jpgAttachments.push(base64JpgAttachment);
-    });
+  const filteredAndSortedObservations = filterAndSortObservations(observations, diagnosticReport);
+  filteredAndSortedObservations.forEach((observation) => {
+    const { labResult, interpretationDisplay, base64PdfAttachment, base64PngAttachment, base64JpgAttachment } =
+      parseObservationForPDF(observation, oystehr);
+    externalLabResults.push(labResult);
+    if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
+    if (base64PdfAttachment) obsAttachments.pdfAttachments.push(base64PdfAttachment);
+    if (base64PngAttachment) obsAttachments.pngAttachments.push(base64PngAttachment);
+    if (base64JpgAttachment) obsAttachments.jpgAttachments.push(base64JpgAttachment);
+  });
 
   return {
     reviewingProvider,
@@ -748,6 +736,35 @@ async function getResultsDetailsForPDF(
     resultInterpretationDisplays,
     obsAttachments,
   };
+}
+
+const isObrNoteObs = (obs: Observation): boolean => {
+  return !!obs.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
+};
+
+// function to ensure the order of the observations from dr.result is preserved
+function filterAndSortObservations(observations: Observation[], diagnosticReport: DiagnosticReport): Observation[] {
+  const obrNotes: Observation[] = [];
+  const otherObs: Observation[] = [];
+
+  diagnosticReport.result?.forEach((obsRef) => {
+    const isObs = obsRef.reference?.startsWith('Observation/');
+    if (isObs) {
+      const obsId = obsRef.reference?.replace('Observation/', '');
+      const fhirObs = observations.find((obs) => obs.id === obsId);
+      if (fhirObs) {
+        const isObrNote = isObrNoteObs(fhirObs);
+        if (isObrNote) {
+          obrNotes.push(fhirObs);
+        } else {
+          otherObs.push(fhirObs);
+        }
+      }
+    }
+  });
+
+  const sortedObservations = [...obrNotes, ...otherObs];
+  return sortedObservations;
 }
 
 async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Promise<Uint8Array> {
