@@ -160,7 +160,7 @@ export const useGetPatient = (
         (resource) => resource.resourceType === 'RelatedPerson'
       ) as RelatedPerson;
       const encounters: Encounter[] = patientResources.filter(
-        (resource) => resource.resourceType === 'Encounter'
+        (resource) => resource.resourceType === 'Encounter' && !resource.partOf
       ) as Encounter[];
 
       appointmentsTemp.sort((a, b) => {

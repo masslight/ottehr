@@ -4,6 +4,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils';
 import { Sidebar } from '../../shared/components/Sidebar';
+import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { CommonLayoutBreadcrumbs } from '../components/breadcrumbs/CommonLayoutBreadcrumbs';
@@ -38,6 +39,8 @@ export const InPersonLayout: React.FC = () => {
   const [recordingAnchorElemement, setRecordingAnchorElement] = React.useState<HTMLButtonElement | null>(null);
   const recordingElementID = 'recording-element';
   const recordingOpen = Boolean(recordingAnchorElemement);
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
 
   useResetAppointmentStore();
   const { chartData } = useChartData({ shouldUpdateExams: true });
@@ -89,7 +92,7 @@ export const InPersonLayout: React.FC = () => {
               padding: '20px 20px 24px 20px',
             }}
           >
-            {assignedIntakePerformerId && assignedProviderId ? (
+            {(isFollowup || assignedIntakePerformerId) && assignedProviderId ? (
               <>
                 <CommonLayoutBreadcrumbs />
                 <Outlet />
