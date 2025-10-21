@@ -102,25 +102,24 @@ export const getVisitStatusHistory = (encounter: Encounter): VisitStatusHistoryE
   const visitHistory: VisitStatusHistoryEntry[] = [];
 
   encounter?.statusHistory?.forEach((statusHist: EncounterStatusHistory) => {
-    if (statusHist.status === 'in-progress') {
-      const ottehrStatusFromExtension = statusHist.extension?.find(
-        (ext) => ext.url === FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url
-      )?.valueCode;
+    const ottehrStatusFromExtension = statusHist.extension?.find(
+      (ext) => ext.url === FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url
+    )?.valueCode;
 
-      if (ottehrStatusFromExtension) {
-        visitHistory.push({
-          status: ottehrStatusFromExtension as VisitStatusHistoryLabel,
-          period: {
-            ...(statusHist.period.start && { start: statusHist.period.start }),
-            ...(statusHist.period.end && { end: statusHist.period.end }),
-          },
-        });
-      } else if (encounter?.participant) {
-        // fallback: that's old logic, but that's wrong, because we need to compare with history participants, not with current ones
-        const inProgressHistories = getInProgressVisitHistories(statusHist, encounter.participant);
-        visitHistory.push(...inProgressHistories);
-      }
+    if (ottehrStatusFromExtension) {
+      visitHistory.push({
+        status: ottehrStatusFromExtension as VisitStatusHistoryLabel,
+        period: {
+          ...(statusHist.period.start && { start: statusHist.period.start }),
+          ...(statusHist.period.end && { end: statusHist.period.end }),
+        },
+      });
+    } else if (statusHist.status === 'in-progress' && encounter?.participant) {
+      // fallback: that's old logic, but that's wrong, because we need to compare with history participants, not with current ones
+      const inProgressHistories = getInProgressVisitHistories(statusHist, encounter.participant);
+      visitHistory.push(...inProgressHistories);
     } else {
+      // fallback to old logic
       const curVisitHistory: any = {};
       if (statusHist.status === 'planned') {
         curVisitHistory.status = 'pending';
@@ -131,8 +130,11 @@ export const getVisitStatusHistory = (encounter: Encounter): VisitStatusHistoryE
       } else if (statusHist.status === 'finished') {
         curVisitHistory.status = 'completed';
       }
-      curVisitHistory.period = statusHist.period;
-      visitHistory.push(curVisitHistory);
+
+      if (curVisitHistory.status) {
+        curVisitHistory.period = statusHist.period;
+        visitHistory.push(curVisitHistory);
+      }
     }
   });
   return visitHistory;

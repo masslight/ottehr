@@ -313,9 +313,11 @@ export default function AppointmentTableRow({
     ? appointment.unconfirmedDOB
     : appointment.patient?.dateOfBirth;
 
-  const isLongWaitingTime = useMemo(() => {
-    return longWaitTimeFlag(appointment, parseInt(statusTime) || 0);
-  }, [appointment, statusTime]);
+  const isLongWaitingTime = (() => {
+    if (!recentStatus) return false;
+    const currentStatusDuration = getDurationOfStatus(recentStatus, now);
+    return longWaitTimeFlag(appointment, currentStatusDuration);
+  })();
 
   const formattedPriorityHighIcon = (
     <PriorityHighRoundedIcon
@@ -350,9 +352,21 @@ export default function AppointmentTableRow({
     </Box>
   );
 
+  const tooltipScrollRef = React.useRef<HTMLDivElement>(null);
+
+  const scrollTooltipToBottom = useCallback(() => {
+    // Use setTimeout to ensure the tooltip is fully rendered before scrolling
+    setTimeout(() => {
+      if (tooltipScrollRef.current) {
+        tooltipScrollRef.current.scrollTop = tooltipScrollRef.current.scrollHeight;
+      }
+    }, 0);
+  }, []);
+
   const timeToolTip = (
     <Grid container sx={{ width: '100%' }}>
       <Box
+        ref={tooltipScrollRef}
         sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -364,6 +378,8 @@ export default function AppointmentTableRow({
       >
         {isLongWaitingTime && longWaitFlag}
         {appointment?.visitStatusHistory?.map((statusTemp, index) => {
+          const statusDuration = getDurationOfStatus(statusTemp, now);
+
           return (
             <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
               <Typography
@@ -372,7 +388,7 @@ export default function AppointmentTableRow({
                 style={{ display: 'inline', marginTop: 1 }}
               >
                 {!STATUSES_WITHOUT_TIME_TRACKER.includes(statusTemp.status)
-                  ? `${formatMinutes(getDurationOfStatus(statusTemp, now))} mins`
+                  ? `${formatMinutes(statusDuration)} mins`
                   : ''}
               </Typography>
               <InPersonAppointmentStatusChip status={statusTemp.status} />
@@ -782,6 +798,7 @@ export default function AppointmentTableRow({
             title={timeToolTip}
             placement="top"
             arrow
+            onOpen={scrollTooltipToBottom}
           >
             <Grid sx={{ display: 'flex', alignItems: 'center', marginTop: '8px' }} gap={1}>
               {statusTimeEl}
