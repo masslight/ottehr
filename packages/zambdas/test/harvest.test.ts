@@ -184,15 +184,38 @@ describe('Patient Master Record Tests', () => {
       { op: 'replace', path: '/name/0/given', value: ['George'] },
       { op: 'remove', path: '/name/0/suffix' },
       { op: 'remove', path: '/name/1' },
-      { op: 'remove', path: '/extension/5' },
       { op: 'replace', path: '/address/0/line', value: ['Lincoln str., 21'] },
-      { op: 'remove', path: '/extension/2' },
-      { op: 'remove', path: '/extension/3' },
-      { op: 'remove', path: '/extension/4' },
       { op: 'remove', path: '/communication' },
-      { op: 'remove', path: '/extension/6' },
-      { op: 'remove', path: '/extension/7' },
-      { op: 'remove', path: '/extension/8' },
+      {
+        op: 'replace',
+        path: '/extension',
+        value: [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/ethnicity',
+            valueCodeableConcept: {
+              coding: [
+                {
+                  code: '2186-5',
+                  system: 'http://terminology.hl7.org/CodeSystem/v3-Ethnicity',
+                  display: 'Not Hispanic or Latino',
+                },
+              ],
+            },
+          },
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/race',
+            valueCodeableConcept: {
+              coding: [
+                {
+                  code: '2028-9',
+                  system: 'http://terminology.hl7.org/CodeSystem/v3-Race',
+                  display: 'Asian',
+                },
+              ],
+            },
+          },
+        ],
+      },
       { op: 'remove', path: '/generalPractitioner' },
       { op: 'remove', path: '/contained' },
     ];
