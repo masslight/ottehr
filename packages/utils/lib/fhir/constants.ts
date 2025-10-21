@@ -49,6 +49,7 @@ export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
+export const FHIR_HL7_ORG_BASE_URL = 'http://hl7.org/fhir/ValueSet';
 
 export const FHIR_EXTENSION = {
   Appointment: {
@@ -217,6 +218,11 @@ export const FHIR_EXTENSION = {
     },
     consentObtained: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/consent-obtained`,
+    },
+  },
+  RelatedPerson: {
+    responsiblePartyRelationship: {
+      url: `${FHIR_HL7_ORG_BASE_URL}/relatedperson-relationshiptype`,
     },
   },
 } as const;

@@ -43,6 +43,7 @@ import {
   DailyPayments,
   DataExports,
   IncompleteEncounters,
+  InvoiceablePatients,
   VisitsOverview,
   WorkflowEfficiency,
 } from './pages/reports/index';
@@ -191,6 +192,7 @@ function App(): ReactElement {
                   <Route path="/reports/data-exports" element={<DataExports />} />
                   <Route path="/reports/workflow-efficiency" element={<WorkflowEfficiency />} />
                   <Route path="/reports/visits-overview" element={<VisitsOverview />} />
+                  <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
                 </>
               )}
               {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) && (
