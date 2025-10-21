@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
 import fs from 'fs';
 import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json';
 import { Schema20250925 } from '../../../spec/src/schema-20250925';
@@ -33,7 +32,6 @@ const setupSecrets = async (config: any): Promise<void> => {
     }
   } catch (e) {
     console.log('error setting up secrets: ', JSON.stringify(e));
-    captureException(e);
   }
 };
 

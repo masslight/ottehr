@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
 import { getMedicationName } from 'utils';
 import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience, getInHouseInventoryMedications, performEffectWithEnvFile } from './helpers';
@@ -25,7 +24,6 @@ const main = async (): Promise<void> => {
   } catch (e) {
     console.log('Catch some error while running all effects: ', e);
     console.log('Stringifies: ', JSON.stringify(e));
-    captureException(e);
   }
 };
 

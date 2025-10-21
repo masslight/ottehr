@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
 import { Organization } from 'fhir/r4b';
 import * as fs from 'fs';
 import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils';
@@ -130,7 +129,6 @@ async function fixOrganizations(oystehr: Oystehr, organizations: Organization[])
       }
     } catch (error) {
       console.error(`❌ Error processing organization ${organization.id}:`, error);
-      captureException(error);
     }
   }
 

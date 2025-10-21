@@ -1,5 +1,4 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
 import { randomUUID } from 'crypto';
 import { Location, Practitioner, PractitionerRole } from 'fhir/r4b';
 import fs from 'fs';
@@ -327,7 +326,6 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
     }
   } catch (e) {
     console.log('copy loc failed: ', JSON.stringify(e));
-    captureException(e);
   }
 };
 

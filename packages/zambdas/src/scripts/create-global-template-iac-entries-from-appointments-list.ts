@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
 import { BundleEntry, Encounter, List, Patient } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -261,7 +260,6 @@ async function processGlobalTemplatesFromCSV(config: any): Promise<void> {
       results[key] = list;
     } catch (error) {
       console.log(`Error processing ${title}: ${error}`);
-      captureException(error);
     }
   }
 
@@ -274,7 +272,6 @@ const main = async (): Promise<void> => {
   } catch (e) {
     console.log('Catch some error while running all effects: ', e);
     console.log('Stringifies: ', JSON.stringify(e));
-    captureException(e);
   }
 };
 
