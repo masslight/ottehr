@@ -24,6 +24,18 @@ const emptySearchResult: SearchResult = {
   pagination: { next: null, prev: null, totalItems: 0 },
 };
 
+// Required fields that must be filled for search to work
+const REQUIRED_SEARCH_FIELDS: (keyof SearchOptionsFilters)[] = ['givenNames', 'lastName', 'email'];
+
+// Fields that work only with prefilled required fields
+const SEARCH_ONLY_WITH_REQUIRED_FIELDS: (keyof SearchOptionsFilters)[] = [
+  'address',
+  'status',
+  'location',
+  'dob',
+  'pid',
+];
+
 const projectId = import.meta.env.VITE_APP_PROJECT_ID;
 
 if (!projectId) {
@@ -113,6 +125,45 @@ const defaultSearchOptions: SearchOptionsState = {
   pagination: { pageSize: SEARCH_CONFIG.DEFAULT_PAGE_SIZE, offset: 0 },
 };
 
+const shouldSkipSearch = (filter: Partial<SearchOptionsFilters>): { skip: boolean; message?: string } => {
+  // Check if any required field (name or email) is filled
+  const hasRequiredField = REQUIRED_SEARCH_FIELDS.some((field) => {
+    const value = filter[field];
+    return value && value.toString().trim() !== '';
+  });
+
+  // Check if any restricted field has a value
+  const hasRestrictedFieldWithValue = SEARCH_ONLY_WITH_REQUIRED_FIELDS.some((field) => {
+    const value = filter[field];
+    return value && value !== 'All' && value.toString().trim() !== '';
+  });
+
+  // Check if there are any other search fields filled (not restricted and not required)
+  const hasOtherSearchFields = Object.entries(filter).some(([key, value]) => {
+    if (!value || value === 'All' || value.toString().trim() === '') return false;
+    const fieldKey = key as keyof SearchOptionsFilters;
+    return !SEARCH_ONLY_WITH_REQUIRED_FIELDS.includes(fieldKey) && !REQUIRED_SEARCH_FIELDS.includes(fieldKey);
+  });
+
+  // If only restricted fields are filled but no required field and no other search fields, skip search
+  if (hasRestrictedFieldWithValue && !hasRequiredField && !hasOtherSearchFields) {
+    const requiredFieldsNames = REQUIRED_SEARCH_FIELDS.map((field) => {
+      if (field === 'givenNames') return 'name';
+      if (field === 'lastName') return 'name';
+      return field;
+    })
+      .filter((value, index, self) => self.indexOf(value) === index)
+      .join(' or ');
+
+    return {
+      skip: true,
+      message: `Please enter ${requiredFieldsNames} when searching by ${SEARCH_ONLY_WITH_REQUIRED_FIELDS.join(', ')}`,
+    };
+  }
+
+  return { skip: false };
+};
+
 export const usePatientsSearch = (): {
   searchResult: SearchResult;
   arePatientsLoading: boolean;
@@ -191,22 +242,25 @@ export const usePatientsSearch = (): {
   // run search on url params change
   useEffect(() => {
     const hasSearchParams = [...searchParams.entries()].length > 0;
-    const hasFilters = Object.values(searchOptions.filters).some(
-      (value) => value && value !== 'All' && value.toString().trim() !== ''
-    );
 
-    if (hasSearchParams || hasFilters) {
+    if (hasSearchParams) {
       const loadPatients = async (): Promise<void> => {
         setArePatientsLoading(true);
         try {
-          // Use current searchOptions state if URL params are empty but filters exist
-          const filter: Partial<SearchOptionsFilters> = hasSearchParams
-            ? getFiltersFromUrl(searchParams)
-            : searchOptions.filters;
-          const sort: SearchOptionsSort = hasSearchParams ? getSortFromUrl(searchParams) : searchOptions.sort;
-          const pagination: SearchOptionsPagination = hasSearchParams
-            ? getPaginationFromUrl(searchParams)
-            : searchOptions.pagination;
+          const filter: Partial<SearchOptionsFilters> = getFiltersFromUrl(searchParams);
+
+          const { skip, message } = shouldSkipSearch(filter);
+          if (skip) {
+            setSearchResult(emptySearchResult);
+            setArePatientsLoading(false);
+            if (message) {
+              enqueueSnackbar(message, { variant: 'warning' });
+            }
+            return;
+          }
+
+          const sort: SearchOptionsSort = getSortFromUrl(searchParams);
+          const pagination: SearchOptionsPagination = getPaginationFromUrl(searchParams);
 
           let url = buildSearchQuery(filter);
           url = addSearchSort(url, sort);
@@ -224,7 +278,7 @@ export const usePatientsSearch = (): {
       };
       void loadPatients();
     }
-  }, [getAccessTokenSilently, searchParams, searchOptions]);
+  }, [getAccessTokenSilently, searchParams]);
 
   return {
     searchResult,
