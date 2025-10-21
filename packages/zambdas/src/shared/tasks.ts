@@ -1,4 +1,4 @@
-import { Coding, Task } from 'fhir/r4b';
+import { Coding, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ottehrCodeSystemUrl, ottehrIdentifierSystem, undefinedIfEmptyArray } from 'utils';
 
@@ -13,7 +13,8 @@ export function createTask(data: {
   };
   encounterId: string;
   locationId?: string;
-  input?: { type: string; value?: string }[];
+  input?: { type: string; value?: string }[] | TaskInput[];
+  basedOn?: string;
 }): Task {
   const tag: Coding[] = [
     {
@@ -44,9 +45,19 @@ export function createTask(data: {
     encounter: { reference: `Encounter/${data.encounterId}` },
     authoredOn: DateTime.now().toISO(),
     intent: 'order',
+    basedOn: data.basedOn
+      ? [
+          {
+            reference: data.basedOn,
+          },
+        ]
+      : undefined,
     input: undefinedIfEmptyArray(
       (data.input ?? [])
         .map((input) => {
+          if (isTaskInput(input)) {
+            return input;
+          }
           return {
             type: {
               coding: [
@@ -69,4 +80,8 @@ export function createTask(data: {
 
 export function getTaskLocationId(task: Task): string | undefined {
   return task.meta?.tag?.find((coding) => coding.system === TASK_LOCATION_SYSTEM)?.code;
+}
+
+function isTaskInput(input: { type: string; value?: string } | TaskInput): input is TaskInput {
+  return typeof input.type === 'object';
 }

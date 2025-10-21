@@ -21,7 +21,7 @@ export const inHouseLabsTestStatuses: Record<TestStatus, TestStatus> = {
 };
 
 export const IN_HOUSE_LAB_TASK = {
-  category: 'in-house-labs',
+  category: 'in-house-lab',
   system: 'in-house-lab-task',
   code: {
     collectSampleTask: 'CST',

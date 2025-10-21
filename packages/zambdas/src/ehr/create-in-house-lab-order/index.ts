@@ -378,8 +378,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           value: encounter.appointment?.[0]?.reference?.split('/')?.[1],
         },
       ],
+      basedOn: serviceRequestFullUrl,
     });
-    taskConfig.basedOn = [{ reference: serviceRequestFullUrl }];
 
     const provenanceConfig: Provenance = {
       resourceType: 'Provenance',
