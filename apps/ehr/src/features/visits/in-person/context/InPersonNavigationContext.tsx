@@ -136,14 +136,23 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
       targetMode = 'intake';
     }
 
-    if (targetMode !== interactionMode || !isModeInitialized) {
+    if (targetMode === 'follow-up' || !isModeInitialized) {
       setInteractionMode(targetMode, false);
     }
 
     if (encounter?.id) {
       setIsModeInitialized(true);
     }
-  }, [setInteractionMode, interactionMode, isModeInitialized, appointmentIdFromUrl, encounter, visitType]);
+  }, [
+    encounter?.id,
+    encounter?.participant,
+    setInteractionMode,
+    interactionMode,
+    isModeInitialized,
+    appointmentIdFromUrl,
+    encounter?.appointment,
+    visitType,
+  ]);
 
   setNavigationDisable = (newState: Record<string, boolean>): void => {
     let shouldUpdate = false;
