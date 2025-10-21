@@ -139,6 +139,10 @@
     "ADVAPACS_VIEWER_USERNAME": {
       "name": "ADVAPACS_VIEWER_USERNAME",
       "value": "#{var/ADVAPACS_VIEWER_USERNAME}"
+    },
+    "INVOICING_DEFAULT_SMS_MESSAGE": {
+      "name": "INVOICING_DEFAULT_SMS_MESSAGE",
+      "value": "#{var/INVOICING_DEFAULT_SMS_MESSAGE}"
     }
   },
   "outputs": {
@@ -1185,6 +1189,20 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/visit-details/update-visit-details/index",
       "zip": ".dist/zips/ehr-update-visit-details.zip"
+    },
+    "GET-PREFILLED-INVOICE-INFO": {
+      "name": "get-prefilled-invoice-info",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/visit-details/get-prefilled-invoice-info/index",
+      "zip": ".dist/zips/get-prefilled-invoice-info.zip"
+    },
+    "SEND-INVOICE-TO-PATIENT": {
+      "name": "send-invoice-to-patient",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/visit-details/send-invoice-to-patient/index",
+      "zip": ".dist/zips/send-invoice-to-patient.zip"
     }
   },
   "faxNumbers": {

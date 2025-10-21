@@ -56,6 +56,7 @@ import {
   GetLabOrdersParameters,
   GetNursingOrdersInput,
   GetOrUploadPatientProfilePhotoZambdaResponse,
+  GetPrefilledInvoiceInfoZambdaInput,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
   GetScheduleParams,
@@ -85,6 +86,7 @@ import {
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
   ScheduleDTO,
+  SendInvoiceToPatientZambdaInput,
   SendReceiptByEmailZambdaInput,
   SendReceiptByEmailZambdaOutput,
   SubmitLabOrderInput,
@@ -161,6 +163,8 @@ const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
+const GET_PREFILLED_INVOICE_INFO_ZAMBDA_ID = 'get-prefilled-invoice-info';
+const SEND_INVOICE_TO_PATIENT_ZAMBDA_ID = 'send-invoice-to-patient';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1262,6 +1266,36 @@ export const updatePatientVisitDetails = async (
   try {
     await oystehr.zambda.execute({
       id: 'ehr-update-visit-details',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getPrefilledInvoiceInfo = async (
+  oystehr: Oystehr,
+  parameters: GetPrefilledInvoiceInfoZambdaInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: GET_PREFILLED_INVOICE_INFO_ZAMBDA_ID,
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const sendInvoiceToPatient = async (
+  oystehr: Oystehr,
+  parameters: SendInvoiceToPatientZambdaInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: SEND_INVOICE_TO_PATIENT_ZAMBDA_ID,
       ...parameters,
     });
   } catch (error: unknown) {

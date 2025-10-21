@@ -48,3 +48,5 @@ export * from './update-user';
 export * from './user.types';
 export * from './send-receipt-by-email.types';
 export * from './update-visit-details.types';
+export * from './get-prefilled-invoice-info.types';
+export * from './send-invoice-to-patient.types';
