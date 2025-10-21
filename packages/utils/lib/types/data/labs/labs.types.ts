@@ -262,12 +262,21 @@ export type SubmitLabOrderOutput = {
   failedOrdersByOrderNumber?: string[];
 };
 
+export type CreateLabCoverageInfo = { coverageName: string; coverageId: string; isPrimary: boolean };
+
+export enum LabPaymentMethod {
+  Insurance = 'insurance',
+  SelfPay = 'selfPay',
+}
+export type CreateLabPaymentMethod = LabPaymentMethod.Insurance | LabPaymentMethod.SelfPay;
+
 export type CreateLabOrderParameters = {
   dx: DiagnosisDTO[];
   encounter: Encounter;
   orderableItem: OrderableItemSearchResult;
   psc: boolean;
   orderingLocation: ModifiedOrderingLocation;
+  selectedPaymentMethod: CreateLabPaymentMethod;
 };
 
 export type CreateLabOrderZambdaOutput = Record<string, never>;
@@ -294,7 +303,7 @@ export type ExternalLabOrderingLocations = {
 };
 
 export type LabOrderResourcesRes = {
-  coverageNames?: string[];
+  coverages?: CreateLabCoverageInfo[];
   labs: OrderableItemSearchResult[];
 } & ExternalLabOrderingLocations;
 
