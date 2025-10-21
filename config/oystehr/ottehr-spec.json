@@ -1179,7 +1179,7 @@
       "src": "src/ehr/visit-details/get-visit-details/index",
       "zip": ".dist/zips/ehr-get-visit-details.zip"
     },
-     "EHR-UPDATE-VISIT-DETAILS": {
+    "EHR-UPDATE-VISIT-DETAILS": {
       "name": "ehr-update-visit-details",
       "type": "http_auth",
       "runtime": "nodejs20.x",
@@ -1360,7 +1360,7 @@
       "resourceType": "Subscription",
       "status": "active",
       "reason": "send visit note PDF and email",
-      "criteria": "Task?code=visit-note-pdf-and-email|&status=requested",
+      "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email|visit-note-pdf-and-email&status=requested",
       "channel": {
         "type": "rest-hook",
         "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-VISIT-NOTE-PDF-AND-EMAIL/id}"
