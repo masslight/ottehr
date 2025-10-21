@@ -364,62 +364,60 @@ export default function AppointmentTableRow({
   }, []);
 
   const timeToolTip = (
-    <Grid container sx={{ width: '100%' }}>
-      <Box
-        ref={tooltipScrollRef}
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2,
-          maxHeight: 'calc(100vh - 200px)',
-          overflowY: 'scroll',
-          paddingRight: 1,
-        }}
+    <Box
+      ref={tooltipScrollRef}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        maxHeight: 'calc(100vh - 200px)',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        width: '100%',
+      }}
+    >
+      {isLongWaitingTime && longWaitFlag}
+      {appointment?.visitStatusHistory?.map((statusTemp, index) => {
+        const statusDuration = getDurationOfStatus(statusTemp, now);
+
+        return (
+          <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography
+              variant="body2"
+              color={theme.palette.getContrastText(theme.palette.background.default)}
+              style={{ display: 'inline', marginTop: 1 }}
+            >
+              {!STATUSES_WITHOUT_TIME_TRACKER.includes(statusTemp.status)
+                ? `${formatMinutes(statusDuration)} mins`
+                : ''}
+            </Typography>
+            <InPersonAppointmentStatusChip status={statusTemp.status} />
+          </Box>
+        );
+      })}
+
+      <Typography
+        variant="body2"
+        color={theme.palette.getContrastText(theme.palette.background.default)}
+        style={{ display: 'inline', fontWeight: 500 }}
       >
-        {isLongWaitingTime && longWaitFlag}
-        {appointment?.visitStatusHistory?.map((statusTemp, index) => {
-          const statusDuration = getDurationOfStatus(statusTemp, now);
-
-          return (
-            <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography
-                variant="body2"
-                color={theme.palette.getContrastText(theme.palette.background.default)}
-                style={{ display: 'inline', marginTop: 1 }}
-              >
-                {!STATUSES_WITHOUT_TIME_TRACKER.includes(statusTemp.status)
-                  ? `${formatMinutes(statusDuration)} mins`
-                  : ''}
-              </Typography>
-              <InPersonAppointmentStatusChip status={statusTemp.status} />
-            </Box>
-          );
-        })}
-
-        <Typography
-          variant="body2"
-          color={theme.palette.getContrastText(theme.palette.background.default)}
-          style={{ display: 'inline', fontWeight: 500 }}
-        >
-          Total LOS: {formatMinutes(totalMinutes)} mins
-        </Typography>
-        <Typography
-          variant="body2"
-          color={theme.palette.getContrastText(theme.palette.background.default)}
-          style={{ display: 'inline', fontWeight: 500 }}
-          sx={{ whiteSpace: { md: 'nowrap', sm: 'normal' } }}
-        >
-          Estimated wait time at check-in:
-          {waitingMinutesEstimate !== undefined
-            ? ` ${formatMinutes(Math.floor(waitingMinutesEstimate / 5) * 5)} mins`
-            : ''}
-          {/* previous waiting minutes logic
+        Total LOS: {formatMinutes(totalMinutes)} mins
+      </Typography>
+      <Typography
+        variant="body2"
+        color={theme.palette.getContrastText(theme.palette.background.default)}
+        style={{ display: 'inline', fontWeight: 500 }}
+      >
+        Estimated wait time at check-in:
+        {waitingMinutesEstimate !== undefined
+          ? ` ${formatMinutes(Math.floor(waitingMinutesEstimate / 5) * 5)} mins`
+          : ''}
+        {/* previous waiting minutes logic
           {waitingMinutesEstimate
             ? ` ${formatMinutes(waitingMinutesEstimate)} - ${formatMinutes(waitingMinutesEstimate + 15)} mins`
             : ''} */}
-        </Typography>
-      </Box>
-    </Grid>
+      </Typography>
+    </Box>
   );
 
   const statusTimeEl = (
