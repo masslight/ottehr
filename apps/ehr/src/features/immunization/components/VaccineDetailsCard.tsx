@@ -10,11 +10,12 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { SingleCptCodeInput } from 'src/components/input/SingleCptInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
-import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
-import { useAdministerImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
+import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import { useAdministerImmunizationOrder } from 'src/features/visits/in-person/hooks/useImmunization';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import { ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
-import { useAppointmentData, useGetAppointmentAccessibility } from 'src/telemed';
 import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
@@ -107,16 +108,16 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administrationDetails.mvx" label="MVX code" required />
+                <TextInput name="administrationDetails.mvx" label="MVX code" validate={requiredForAdministration} />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administrationDetails.cvx" label="CVX code" required />
+                <TextInput name="administrationDetails.cvx" label="CVX code" validate={requiredForAdministration} />
               </Grid>
               <Grid xs={3} item>
                 <SingleCptCodeInput name="administrationDetails.cpt" label="CPT code" />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administrationDetails.ndc" label="NDC code" required />
+                <TextInput name="administrationDetails.ndc" label="NDC code" validate={requiredForAdministration} />
               </Grid>
               <Grid xs={3} item>
                 <DateInput

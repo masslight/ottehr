@@ -7,7 +7,7 @@ import {
 } from 'fhir/r4b';
 import { AvailableLocationInformation, FileURLs, PatientBaseInfo } from '../../common';
 import { PaperworkResponse } from '../paperwork.types';
-import { VisitType } from '../telemed';
+import type { VisitType } from '../telemed/appointments/create-appointment.types';
 
 export interface UpdatePaperworkInput {
   appointmentID: string;

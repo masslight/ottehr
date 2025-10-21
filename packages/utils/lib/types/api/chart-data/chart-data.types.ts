@@ -167,7 +167,7 @@ export const NOTHING_TO_EAT_OR_DRINK_ID = 'nothing-to-eat-or-drink'; // fhir url
 export const NOTHING_TO_EAT_OR_DRINK_FIELD = 'nothingToEatOrDrink'; // backend/frontend - disposition field & form field
 export const NOTHING_TO_EAT_OR_DRINK_LABEL = 'Nothing to eat or drink until evaluated in the Emergency Department.'; // frontend form label
 export const PATIENT_INSTRUCTIONS_TEMPLATE_CODE = 'patient-instruction-template';
-export const CSS_NOTE_ID = 'css-note';
+export const IN_PERSON_NOTE_ID = 'css-note';
 
 export interface ExamObservationDTO extends SaveableDTO {
   field: string;

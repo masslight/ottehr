@@ -14,6 +14,7 @@ import { z } from 'zod';
 import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
 import {
   FhirAppointmentType,
+  ProviderTypeCode,
   Secrets,
   TelemedAppointmentStatusEnum,
   TelemedCallStatuses,
@@ -23,7 +24,6 @@ import {
   AppointmentMessaging,
   AppointmentType,
   FhirAppointmentStatus,
-  PractitionerQualificationCode,
   VisitStatusHistoryEntry,
   VisitStatusLabel,
 } from '../../api';
@@ -120,7 +120,7 @@ export interface InPersonAppointmentInformation
   };
   participants: AppointmentParticipants;
   provider?: string;
-  attenderQualification?: PractitionerQualificationCode;
+  attenderProviderType?: ProviderTypeCode;
   approvalDate?: string;
   group?: string;
   room?: string;

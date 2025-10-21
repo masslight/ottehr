@@ -26,9 +26,9 @@ import { openVisitsPage } from '../page/VisitsPage';
 const PROCESS_ID = `ehr.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID);
 
-const awaitCSSHeaderInit = async (page: Page): Promise<void> => {
+const awaitInPersonHeaderInit = async (page: Page): Promise<void> => {
   await expect(async () => {
-    const content = await page.getByTestId(dataTestIds.cssHeader.container).textContent();
+    const content = await page.getByTestId(dataTestIds.inPersonHeader.container).textContent();
     return content?.includes(resourceHandler.patient.name![0].family!) ?? false;
   }).toPass({ timeout: 30_000 });
 };
@@ -78,54 +78,54 @@ test('Happy path: set up filters and navigate to visit page', async ({ page }) =
   // );
 });
 
-test('CSS intake patient page is available', async ({ page }) => {
+test('In-Person patient page is available', async ({ page }) => {
   await page.goto(`in-person/${resourceHandler.appointment.id}/patient-info`);
-  await awaitCSSHeaderInit(page);
+  await awaitInPersonHeaderInit(page);
 });
 
-test('CSS intake screening-questions page is available', async ({ page }) => {
+test('In-Person screening-questions page is available', async ({ page }) => {
   await page.goto(`/in-person/${resourceHandler.appointment.id}/screening-questions`);
-  await awaitCSSHeaderInit(page);
+  await awaitInPersonHeaderInit(page);
 });
 
-test('CSS intake vitals page is available', async ({ page }) => {
+test('In-Person vitals page is available', async ({ page }) => {
   await page.goto(`in-person/${resourceHandler.appointment.id}/vitals`);
-  await awaitCSSHeaderInit(page);
+  await awaitInPersonHeaderInit(page);
 });
 
-test('CSS intake allergies page is available', async ({ page }) => {
+test('In-Person allergies page is available', async ({ page }) => {
   await page.goto(`in-person/${resourceHandler.appointment.id}/allergies`);
-  await awaitCSSHeaderInit(page);
+  await awaitInPersonHeaderInit(page);
 });
 
-test('CSS intake medications page is available', async ({ page }) => {
+test('In-Person medications page is available', async ({ page }) => {
   await page.goto(`in-person/${resourceHandler.appointment.id}/medications`);
-  await awaitCSSHeaderInit(page);
+  await awaitInPersonHeaderInit(page);
 });
 
-test('CSS intake medical conditions page is available', async ({ page }) => {
+test('In-Person medical conditions page is available', async ({ page }) => {
   await page.goto(`in-person/${resourceHandler.appointment.id}/medical-conditions`);
-  await awaitCSSHeaderInit(page);
+  await awaitInPersonHeaderInit(page);
 });
 
-test('CSS intake surgical history page is available', async ({ page }) => {
+test('In-Person surgical history page is available', async ({ page }) => {
   await page.goto(`in-person/${resourceHandler.appointment.id}/surgical-history`);
-  await awaitCSSHeaderInit(page);
+  await awaitInPersonHeaderInit(page);
 });
 
-test('CSS intake hospitalization page is available', async ({ page }) => {
+test('In-Person hospitalization page is available', async ({ page }) => {
   await page.goto(`in-person/${resourceHandler.appointment.id}/hospitalization`);
-  await awaitCSSHeaderInit(page);
+  await awaitInPersonHeaderInit(page);
 });
 
-test('CSS intake external lab orders page is available', async ({ page }) => {
+test('In-Person external lab orders page is available', async ({ page }) => {
   await page.goto(`in-person/${resourceHandler.appointment.id}/external-lab-orders`);
-  await awaitCSSHeaderInit(page);
+  await awaitInPersonHeaderInit(page);
 });
 
-test('CSS intake assessment page is available', async ({ page }) => {
+test('In-Person assessment page is available', async ({ page }) => {
   await page.goto(`in-person/${resourceHandler.appointment.id}/assessment`);
-  await awaitCSSHeaderInit(page);
+  await awaitInPersonHeaderInit(page);
 });
 
 test.describe('Patient search', { tag: '@flaky' }, () => {
@@ -203,7 +203,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
-    await patientsPage.searchByEmail(PATIENT_EMAIL.split('@')[0]);
+    await patientsPage.searchByEmail(PATIENT_EMAIL);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
       ...patientData,
@@ -286,7 +286,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
     await patientsPage.searchByAddress(PATIENT_CITY);
-    await patientsPage.searchByEmail(PATIENT_EMAIL.split('@')[0]);
+    await patientsPage.searchByEmail(PATIENT_EMAIL);
     await patientsPage.clickResetFiltersButton();
     await patientsPage.verifyFilterReset();
   });

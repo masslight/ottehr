@@ -14,6 +14,7 @@ export interface EmployeeDetails {
   seenPatientRecently: boolean;
   gettingAlerts: boolean;
   isProvider: boolean;
+  isCustomerSupport: boolean;
 }
 
 export interface GetEmployeesResponse {

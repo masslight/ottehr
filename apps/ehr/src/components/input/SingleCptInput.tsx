@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useDebounce, useGetIcd10Search } from 'src/telemed';
+import { useGetIcd10Search } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { CPTCodeDTO } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';
 

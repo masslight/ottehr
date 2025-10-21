@@ -2,12 +2,12 @@ import { Box, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ListViewContainer from 'src/features/common/ListViewContainer';
-import { getInHouseLabOrderCreateUrl } from 'src/features/css-module/routing/helpers';
-import { useGetAppointmentAccessibility } from 'src/telemed';
+import { getInHouseLabOrderCreateUrl } from 'src/features/visits/in-person/routing/helpers';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { PageTitle } from '../../../telemed/components/PageTitle';
-import { useAppointmentData } from '../../../telemed/state/appointment/appointment.store';
-import { ButtonRounded } from '../../css-module/components/RoundedButton';
+import { ButtonRounded } from '../../visits/in-person/components/RoundedButton';
+import { PageTitle } from '../../visits/shared/components/PageTitle';
 import { InHouseLabsTable, InHouseLabsTableColumn } from '../components/orders/InHouseLabsTable';
 
 const inHouseLabsColumns: InHouseLabsTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'actions'];

@@ -1,8 +1,8 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { CssHeader } from 'tests/e2e/page/CssHeader';
 import { FinalResultPage } from 'tests/e2e/page/FinalResultPage';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
+import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { PerformTestPage } from 'tests/e2e/page/PerformTestPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
@@ -101,10 +101,10 @@ test('IHL-1 In-house labs. Happy Path', async ({ page }) => {
 
 async function prepareAndOpenInHouseLabsPage(page: Page): Promise<OrderInHouseLabPage> {
   await page.goto(`in-person/${resourceHandler.appointment.id}`);
-  const cssHeader = new CssHeader(page);
-  await cssHeader.selectIntakePractitioner();
-  await cssHeader.selectProviderPractitioner();
-  await cssHeader.clickSwitchModeButton('provider');
+  const inPersonHeader = new InPersonHeader(page);
+  await inPersonHeader.selectIntakePractitioner();
+  await inPersonHeader.selectProviderPractitioner();
+  await inPersonHeader.clickSwitchModeButton('provider');
   const sideMenu = new SideMenu(page);
   await sideMenu.clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);

@@ -1,11 +1,13 @@
 import { test } from '@playwright/test';
-import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { Organization, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  chooseJson,
+  createReference,
   getConsentStepAnswers,
   getContactInformationAnswers,
+  getEmergencyContactStepAnswers,
   getPatientDetailsStepAnswers,
+  getPayerId,
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
@@ -75,9 +77,9 @@ const NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE = 'AK';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP = '78956';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2 = 'testing2';
-const NEW_PATIENT_INSURANCE_CARRIER = '6 Degrees Health Incorporated';
+const NEW_PATIENT_INSURANCE_CARRIER = '20446 - 6 Degrees Health Incorporated';
 const NEW_PATIENT_INSURANCE_PLAN_TYPE = '11 - Other Non-Federal Programs';
-const NEW_PATIENT_INSURANCE_CARRIER_2 = 'AAA - Minnesota/Iowa';
+const NEW_PATIENT_INSURANCE_CARRIER_2 = '11983 - AAA - Minnesota/Iowa';
 const NEW_PATIENT_INSURANCE_PLAN_TYPE_2 = '14 - EPO';
 
 test.describe('Insurance Information Section non-mutating tests', () => {
@@ -462,31 +464,49 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
         insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
       }),
       getResponsiblePartyStepAnswers({}),
+      getEmergencyContactStepAnswers({}),
       getConsentStepAnswers({}),
       getPrimaryCarePhysicianStepAnswers({}),
     ];
   });
   const oystehr = await ResourceHandler.getOystehr();
-  const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
-    id: 'get-answer-options',
-    answerSource: {
+  const insuranceCarriersOptions = (
+    await oystehr.fhir.search<Organization>({
       resourceType: 'Organization',
-      query: `active=true&type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+      params: [
+        {
+          name: 'active',
+          value: 'true',
+        },
+        {
+          name: 'type',
+          value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+        },
+      ],
+    })
+  ).unbundle();
+  const ic1 = insuranceCarriersOptions.at(0);
+  const ic2 = insuranceCarriersOptions.at(1);
+  insuranceCarrier1 = {
+    valueReference: {
+      reference: ic1 && createReference(ic1).reference,
+      display: ic1?.name,
     },
-  });
-
-  const insuranceCarriersOptions = chooseJson(insuranceCarriersOptionsResponse) as QuestionnaireItemAnswerOption[];
-  insuranceCarrier1 = insuranceCarriersOptions.at(0);
-  insuranceCarrier2 = insuranceCarriersOptions.at(1);
+  };
+  insuranceCarrier2 = {
+    valueReference: {
+      reference: ic2 && createReference(ic2).reference,
+      display: ic2?.name,
+    },
+  };
+  const insuranceCarrier1ForResult = `${getPayerId(ic1)} - ${ic1?.name}`;
+  const insuranceCarrier2ForResult = `${getPayerId(ic2)} - ${ic2?.name}`;
+  console.log('carrier: ', JSON.stringify(insuranceCarrier1ForResult));
 
   await resourceHandler.setResources();
   await Promise.all([
     resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
     resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
   ]);
-  return [
-    resourceHandler,
-    insuranceCarrier1?.valueReference?.display ?? '',
-    insuranceCarrier2?.valueReference?.display ?? '',
-  ];
+  return [resourceHandler, insuranceCarrier1ForResult ?? '', insuranceCarrier2ForResult ?? ''];
 }

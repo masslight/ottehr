@@ -1,7 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { BaseProgressNotePage } from '../abstract/BaseProgressNotePage';
-import { CssHeader } from '../CssHeader';
+import { InPersonHeader } from '../InPersonHeader';
 import { SideMenu } from '../SideMenu';
 
 export class InPersonProgressNotePage extends BaseProgressNotePage {
@@ -12,8 +12,8 @@ export class InPersonProgressNotePage extends BaseProgressNotePage {
     this.#page = page;
   }
 
-  cssHeader(): CssHeader {
-    return new CssHeader(this.#page);
+  inPersonHeader(): InPersonHeader {
+    return new InPersonHeader(this.#page);
   }
 
   sideMenu(): SideMenu {

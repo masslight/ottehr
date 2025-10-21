@@ -4,8 +4,7 @@ import { Operation } from 'fast-json-patch';
 import { Account, Appointment, ChargeItem, DocumentReference, Encounter, EncounterStatusHistory, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { createFilesDocumentReferences, getPatchBinary, OTTEHR_MODULE, RECEIPT_CODE, TelemedCallStatuses } from 'utils';
-import { telemedStatusToEncounter } from '../../../shared/appointment/helpers';
-import { sendSmsForPatient } from '../../../shared/communication';
+import { sendSmsForPatient, telemedStatusToEncounter } from '../../../shared';
 import { createPublishExcuseNotesOps } from '../../../shared/createPublishExcuseNotesOps';
 import { PdfInfo } from '../../../shared/pdf/pdf-utils';
 import { FullAppointmentResourcePackage } from '../../../shared/pdf/visit-details-pdf/types';
@@ -324,5 +323,25 @@ export async function makeReceiptPdfDocumentReference(
     ],
     listResources,
   });
-  return docRefs[0];
+  const documentReference = docRefs.find((docRef) => docRef.status === 'current');
+  if (documentReference?.id) {
+    try {
+      await oystehr.fhir.patch({
+        resourceType: 'DocumentReference',
+        id: documentReference.id,
+        operations: [
+          {
+            op: 'replace',
+            path: '/date',
+            value: DateTime.now().setZone('UTC').toISO() ?? '',
+          },
+        ],
+      });
+    } catch (error) {
+      const errorMsg = `Failed to update DocumentReference date for id ${documentReference.id}: ${error}`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+  }
+  return documentReference!;
 }

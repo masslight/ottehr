@@ -1,6 +1,5 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { CssHeader } from 'tests/e2e/page/CssHeader';
 import {
   DocumentProcedurePage,
   expectDocumentProcedurePage,
@@ -10,6 +9,7 @@ import {
   InPersonProgressNotePage,
   openInPersonProgressNotePage,
 } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
+import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { openProceduresPage, ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 
@@ -140,12 +140,12 @@ test.describe('Document Procedures Page mutating tests', () => {
 
   async function setupPractitioners(page: Page): Promise<void> {
     const progressNotePage = new InPersonProgressNotePage(page);
-    const cssHeader = new CssHeader(page);
+    const inPersonHeader = new InPersonHeader(page);
     await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
-    await cssHeader.verifyStatus('pending');
-    await cssHeader.selectIntakePractitioner();
-    await cssHeader.selectProviderPractitioner();
-    await cssHeader.clickSwitchModeButton('provider');
+    await inPersonHeader.verifyStatus('pending');
+    await inPersonHeader.selectIntakePractitioner();
+    await inPersonHeader.selectProviderPractitioner();
+    await inPersonHeader.clickSwitchModeButton('provider');
     await progressNotePage.expectLoaded();
   }
 

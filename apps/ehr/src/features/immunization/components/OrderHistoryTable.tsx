@@ -13,9 +13,9 @@ import {
 } from '@mui/material';
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { COLLAPSED_MEDS_COUNT } from 'src/features/css-module/hooks/useMedicationHistory';
-import { useAppointmentData } from 'src/telemed';
-import { useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
+import { COLLAPSED_MEDS_COUNT } from 'src/features/visits/in-person/hooks/useMedicationHistory';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useGetImmunizationOrders } from '../../visits/in-person/hooks/useImmunization';
 import { ordersRecentFirstComparator } from '../common';
 import { OrderHistoryTableRow } from './OrderHistoryTableRow';
 import { OrderHistoryTableSkeletonBody } from './OrderHistoryTableSkeletonBody';

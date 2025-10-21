@@ -1,7 +1,16 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { CodeableConcept, DocumentReference, Encounter, FhirResource, List, Patient, Practitioner } from 'fhir/r4b';
+import {
+  Appointment,
+  CodeableConcept,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  List,
+  Patient,
+  Practitioner,
+} from 'fhir/r4b';
 import {
   addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -10,7 +19,7 @@ import {
   DispositionFollowUpType,
   ExamObservationDTO,
   getPatchBinary,
-  OTTEHR_MODULE,
+  isInPersonAppointment,
   PATIENT_VITALS_META_SYSTEM,
   SCHOOL_WORK_NOTE,
   Secrets,
@@ -233,12 +242,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       );
     });
 
-    const isInPersonAppointment = !!appointment?.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
+    const isInPerson = isInPersonAppointment(appointment as Appointment);
 
     // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
     examObservations?.forEach((element) => {
-      const examObservations = createExamObservations(isInPersonAppointment);
-      const examObservationComments = createExamObservationComments(isInPersonAppointment);
+      const examObservations = createExamObservations(isInPerson);
+      const examObservationComments = createExamObservationComments(isInPerson);
 
       const observation = examObservations.find((observation) => observation.field === element.field);
       const comment = examObservationComments.find((comment) => comment.field === element.field);

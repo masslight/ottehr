@@ -633,6 +633,7 @@ async function createPreEncounterPatient(
   }
 
   const patientResponse = await apiClient.preEncounter.patients.v1.createWithMrn({
+    skipDuplicateCheck: true, // continue adding to candid, even if it's a duplicate
     body: {
       mrn: medicalRecordNumber,
       name: {

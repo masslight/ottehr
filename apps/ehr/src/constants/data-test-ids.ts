@@ -9,12 +9,13 @@ import {
 export const dataTestIds = {
   closeIcon: 'CloseIcon',
   loadingSpinner: 'loading-spinner',
+  loadingScreen: 'loading-screen',
   deleteOutlinedIcon: 'DeleteOutlinedIcon',
   header: {
     userName: 'header-user-name',
   },
-  cssHeader: {
-    container: 'css-header-container',
+  inPersonHeader: {
+    container: 'in-person-header-container',
     patientName: 'patient-name',
     appointmentStatus: 'appointment-status',
     switchModeButton: (status: string) => `switch-status-to-${status}`,
@@ -231,7 +232,8 @@ export const dataTestIds = {
     addressZip: 'employee-address-zip',
     rolesSection: 'employee-roles-section',
     roleRow: (employeeRole: RoleType): string => `employee-${employeeRole}-role`,
-    providerDetailsCredentials: 'employees-provider-details-credentials',
+    providerDetailsProviderTypeDropdown: 'employees-provider-details-provider-type-dropdown',
+    providerDetailsProviderTypeOtherText: 'employees-provider-details-provider-type',
     providerDetailsNPI: 'employees-provider-details-npi',
     submitButton: 'employees-form-submit-button',
     qualificationsTable: 'employee-qualifications-table',
@@ -266,11 +268,6 @@ export const dataTestIds = {
     footerButtonUnassign: 'telemed-appointment-footer-button-unassign',
     appointmentChartFooter: 'telemed-chart-appointment-footer',
     hpiFieldListLoadingSkeleton: 'telemed-hpi-field-list-loading-skeleton',
-    hpiMedicalConditionColumn: 'telemed-hpi-medical-condition-column',
-    hpiMedicalConditionsList: 'telemed-hpi-medical-condition-list',
-    hpiMedicalConditionPatientProvidedList: 'telemed-hpi-medical-condition-patient-provided-list',
-    hpiMedicalConditionsInput: 'telemed-hpi-medical-condition-input',
-    hpiMedicalConditionListItem: 'telemed-hpi-medical-condition-list-item',
     hpiCurrentMedicationsPatientProvidedList: 'telemed-hpi-current-medications-patient-provided-list',
     hpiCurrentMedicationsInput: 'telemed-hpi-current-medications-input',
     hpiCurrentMedicationsDoseInput: 'telemed-hpi-current-medications-dose-input',
@@ -299,6 +296,7 @@ export const dataTestIds = {
     hpiReasonForVisit: 'telemed-reason-for-visit',
     videoRoomContainer: 'telemed-video-room-container',
     endVideoCallButton: 'telemed-end-video-call-button',
+    finishVisitButton: 'telemed-finish-visit-button',
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
@@ -308,7 +306,6 @@ export const dataTestIds = {
     planTabDispositionFollowUpDropdown: 'telemed-plan-tab-disposition-follow-up-dropdown',
     planTabDispositionNote: 'telemed-plan-tab-disposition-note',
     planTabDispositionReasonForTransferDropdown: 'telemed-plan-tab-disposition-reason-for-transfer-dropdown',
-    reviewTabMedicalConditionsContainer: 'telemed-review-tab-medical-conditions-container',
     reviewTabMedicationsContainer: 'telemed-review-tab-medications-container',
     reviewTabSurgicalHistoryContainer: 'telemed-review-tab-surgical-history-container',
     reviewTabAdditionalQuestion: (questionSymptom: string) =>
@@ -330,7 +327,7 @@ export const dataTestIds = {
     completeIntakeButton: 'complete-intake-button',
     sideMenuItem: (item: string): string => `menu-item-${item}`,
   },
-  cssModal: {
+  inPersonModal: {
     confirmationDialogue: 'confirmation-dialogue',
   },
   hospitalizationPage: {
@@ -352,6 +349,7 @@ export const dataTestIds = {
     procedureItem: 'procedure-item',
     labsTitle: (labType: string) => `title-${labType.toLowerCase().replace(/\s+/g, '-')}`,
     knownAllergiesContainer: 'known-allergies-container',
+    medicalConditionsContainer: 'medical-conditions-container',
   },
   assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
@@ -504,5 +502,13 @@ export const dataTestIds = {
     knownAllergiesPatientProvidedList: 'known-allergies-patient-provided-list',
     knownAllergiesInput: 'known-allergies-input',
     knownAllergiesListItem: 'known-allergies-list-item',
+  },
+  medicalConditions: {
+    medicalConditionsPageTitle: 'medical-conditions-title',
+    medicalConditionColumn: 'medical-condition-column',
+    medicalConditionsList: 'medical-condition-list',
+    medicalConditionPatientProvidedList: 'medical-condition-patient-provided-list',
+    medicalConditionsInput: 'medical-condition-input',
+    medicalConditionListItem: 'medical-condition-list-item',
   },
 };

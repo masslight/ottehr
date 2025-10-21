@@ -2,7 +2,7 @@ import { Grid, Paper, Stack, TextField, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { useEffect, useState } from 'react';
 import { sampleDTO } from 'utils';
-import { AccordionCard } from '../../../telemed/components/AccordionCard';
+import { AccordionCard } from '../../../components/AccordionCard';
 import { BoldedTitleText } from './BoldedTitleText';
 
 interface SampleCollectionInstructionsCardProps {

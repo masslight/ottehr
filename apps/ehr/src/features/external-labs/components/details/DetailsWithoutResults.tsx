@@ -1,8 +1,8 @@
 import { Grid, Stack, Typography } from '@mui/material';
 import React from 'react';
-import { useGetAppointmentAccessibility } from 'src/telemed';
+import { PageTitleStyled } from 'src/features/visits/shared/components/PageTitle';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { LabOrderDetailedPageDTO, PSC_LOCALE } from 'utils';
-import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 import { OrderCollection } from '../OrderCollection';
 
@@ -13,7 +13,7 @@ export const DetailsWithoutResults: React.FC<{
 
   return (
     <Stack spacing={2} sx={{ width: '100%' }}>
-      <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
+      <PageTitleStyled>{labOrder.testItem}</PageTitleStyled>
       <Stack
         direction="row"
         spacing={2}

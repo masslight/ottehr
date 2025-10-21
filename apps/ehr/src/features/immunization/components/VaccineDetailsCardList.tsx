@@ -1,8 +1,8 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React, { useLayoutEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useAppointmentData } from 'src/telemed';
-import { useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useGetImmunizationOrders } from '../../visits/in-person/hooks/useImmunization';
 import { ordersRecentFirstComparator } from '../common';
 import { VaccineDetailsCard } from './VaccineDetailsCard';
 

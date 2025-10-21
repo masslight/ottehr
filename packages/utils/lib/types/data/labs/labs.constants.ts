@@ -29,7 +29,8 @@ export type LabOrderTaskCode = (typeof LAB_ORDER_TASK.code)[keyof typeof LAB_ORD
 
 // should match oystehr
 export const DR_UNSOLICITED_PATIENT_REF = 'unsolicitedResultPatientId';
-export const DR_UNSOLICITED_PRACTITIONER_REF = 'unsolicitedResultPractitionerId';
+// export const DR_UNSOLICITED_PRACTITIONER_REF = 'unsolicitedResultPractitionerId'; this has been replaced by the below
+export const DR_CONTAINED_PRACTITIONER_REF = 'resultOrderingProviderPractitionerId';
 
 export const PSC_HOLD_LOCALE = 'PSC Hold';
 export const PSC_LOCALE = 'PSC';
@@ -44,6 +45,12 @@ export const LAB_RESULT_DOC_REF_CODING_CODE = {
   system: 'http://loinc.org',
   code: '11502-2',
   display: 'Laboratory report',
+};
+
+export const LAB_RESULT_HL7_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '56444-3',
+  display: 'Healthcare communication document',
 };
 
 // there is no loinc code specifically for specimen labels or container labels, closest is 74384-9 "Specimen container [Type]"
@@ -123,8 +130,8 @@ export const OYSTEHR_LAB_GUID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab
 export const OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-order-placer-id';
 export const OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM =
   'https://extensions.fhir.oystehr.com/observation-value-attachment-pre-release';
-export const OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM =
-  'https://extensions.fhir.oystehr.com/unsolicited-result-ordering-provider-reference';
+export const OYSTEHR_SAME_TRANSMISSION_DR_REF_URL =
+  'https://extensions.fhir.oystehr.com/same-transmission-diagnostic-report';
 
 export const OYSTEHR_OBS_CONTENT_TYPES = {
   pdf: 'AP',
@@ -145,6 +152,12 @@ export const OYSTEHR_LAB_DOC_CATEGORY_CODING = {
   system: OYSTEHR_LAB_DOC_CATEGORY_SYSTEM,
   code: 'abn-document',
   display: 'Lab ABN Document',
+};
+
+export const OYSTEHR_ABN_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '59284-0',
+  display: 'Consent Document',
 };
 
 // Oystehr Labs APIs
@@ -226,3 +239,18 @@ export const PERFORMING_PHYSICIAN_EXTENSION_URLS = {
   parentExtUrl: 'https://extensions.fhir.oystehr.com/obx-performing-physician-info',
   name: 'name',
 };
+
+export const OYSTEHR_LABS_TRANSMISSION_ACCOUNT_NUMBER_IDENTIFIER_SYSTEM =
+  'https://identifiers.fhir.oystehr.com/lab-transmission-account-number';
+
+export const OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL = 'https://extensions.fhir.oystehr.com/pv1-note';
+export const OYSTEHR_LABS_CLINICAL_INFO_EXT_URL = 'https://extensions.fhir.oystehr.com/lab-result-clinical-info';
+export const OYSTEHR_LABS_FASTING_STATUS_EXT_URL = 'https://extensions.fhir.oystehr.com/lab-result-fasting-status';
+
+export const OYSTEHR_LABS_RESULT_SPECIMEN_COLLECTION_VOLUME_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-collection-volume';
+export const OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-specimen-source';
+
+export const OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL =
+  'https://extensions.fhir.oystehr.com/lab-result-ordering-provider-reference';

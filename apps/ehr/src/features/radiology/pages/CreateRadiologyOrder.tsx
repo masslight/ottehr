@@ -15,18 +15,20 @@ import {
 import { Coding } from 'fhir/r4b';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getRadiologyUrl } from 'src/features/css-module/routing/helpers';
-import { CPTCodeDTO, DiagnosisDTO } from 'utils';
-import { createRadiologyOrder } from '../../../api/api';
-import { useApiClients } from '../../../hooks/useAppClients';
+import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
+import {
+  useGetIcd10Search,
+  useICD10SearchNew,
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import {
   useAppointmentData,
   useChartData,
-  useDebounce,
-  useGetIcd10Search,
-  useICD10SearchNew,
   useSaveChartData,
-} from '../../../telemed';
+} from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useDebounce } from 'src/shared/hooks/useDebounce';
+import { CPTCodeDTO, DiagnosisDTO } from 'utils';
+import { createRadiologyOrder } from '../../../api/api';
+import { useApiClients } from '../../../hooks/useAppClients';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 
 interface CreateRadiologyOrdersProps {

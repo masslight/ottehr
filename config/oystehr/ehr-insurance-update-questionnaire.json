@@ -5,7 +5,7 @@
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/ehr-insurance-update-questionnaire",
-        "version": "1.0.3",
+        "version": "1.0.4",
         "name": "ehr-insurance-update-questionnaire",
         "title": "EHR Insurance Update Form",
         "status": "active",
@@ -1848,6 +1848,67 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
                     "valueString": "protected"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "emergency-contact-section",
+            "text": "Emergency contact information",
+            "type": "group",
+            "item": [
+              {
+                "linkId": "emergency-contact-relationship",
+                "text": "Relationship to the patient",
+                "type": "choice",
+                "required": true,
+                "answerOption": [
+                  {
+                    "valueString": "Spouse"
+                  },
+                  {
+                    "valueString": "Parent"
+                  },
+                  {
+                    "valueString": "Legal Guardian"
+                  },
+                  {
+                    "valueString": "Other"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-first-name",
+                "text": "Emergency contact first name",
+                "type": "string",
+                "required": true
+              },
+              {
+                "linkId": "emergency-contact-middle-name",
+                "text": "Emergency contact middle name",
+                "type": "string",
+                "required": false
+              },
+              {
+                "linkId": "emergency-contact-last-name",
+                "text": "Emergency contact last name",
+                "type": "string",
+                "required": true
+              },
+              {
+                "linkId": "emergency-contact-number",
+                "text": "Emergency contact phone",
+                "type": "string",
+                "required": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Phone Number"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
+                    "valueString": "section-patient shipping tel"
                   }
                 ]
               }

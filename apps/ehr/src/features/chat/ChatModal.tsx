@@ -21,14 +21,15 @@ import Typography from '@mui/material/Typography';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ChangeEvent, memo, ReactElement, UIEvent, useEffect, useMemo, useState } from 'react';
+import { removeHtmlTags } from 'src/features/visits/telemed/utils/removeHtmlTags';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
+import { getPatientName } from 'src/shared/utils/getPatientName';
 import { AppointmentMessaging, ConversationMessage, initialsFromName, markAllMessagesRead, Timezone } from 'utils';
 import { CompleteConfiguration } from '../../components/CompleteConfiguration';
 import { LANGUAGES } from '../../constants';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../../hooks/useEvolveUser';
-import { getPatientName, removeHtmlTags } from '../../telemed/utils';
 import { useFetchChatMessagesQuery, useGetMessagingConfigQuery, useSendMessagesMutation } from './chat.queries';
 
 function scrollToBottomOfChat(): void {

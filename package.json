@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.18.20",
+  "version": "1.19.15",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -56,6 +56,7 @@
     "zambdas:start": "turbo start --filter=zambdas",
     "apps:start": "turbo start --filter=intake-ui --filter=ehr-ui --filter=zambdas",
     "apps:start:iac": "npm run apply-local --workspace deploy && turbo start:iac --filter=intake-ui --filter=ehr-ui --filter=zambdas",
+    "apps:start:labcorp": "ENV=labcorp-local turbo start --filter=intake-ui --filter=ehr-ui --filter=zambdas",
     "integration:zambdas": "npm run build && ENV=local && cd packages/zambdas && DEBUG=start-server-and-test && npm run test:integration:ci",
     "test": "turbo test",
     "prepare": "husky",
@@ -83,7 +84,7 @@
     "@mui/material": "^5.14.18",
     "@mui/system": "^5.10.16",
     "@mui/x-date-pickers": "^6.18.6",
-    "@oystehr/sdk": "4.1.3",
+    "@oystehr/sdk": "4.1.8",
     "@pdf-lib/fontkit": "^1.1.1",
     "@sendgrid/mail": "^8.1.4",
     "@sentry/aws-serverless": "^8.26.0",
@@ -93,7 +94,7 @@
     "@types/inquirer": "^9.0.7",
     "browser-image-compression": "^2.0.2",
     "browserslist-to-esbuild": "^1.2.0",
-    "candidhealth": "1.3.0",
+    "candidhealth": "1.7.0",
     "fast-json-patch": "^3.1.1",
     "i18next": "^23.10.1",
     "i18next-browser-languagedetector": "^7.0.1",
@@ -182,6 +183,7 @@
     "web-vitals": "^2.1.4"
   },
   "optionalDependencies": {
+    "@esbuild/linux-x64": "^0.25.10",
     "@rollup/rollup-linux-x64-gnu": "4.24.0"
   }
 }

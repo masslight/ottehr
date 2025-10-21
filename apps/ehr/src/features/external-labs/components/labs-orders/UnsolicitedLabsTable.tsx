@@ -11,7 +11,7 @@ import {
 } from '@mui/material';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGetUnsolicitedResultsForPatientList } from 'src/telemed';
+import { useGetUnsolicitedResultsForPatientList } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { LabsTableColumn, UnsolicitedLabListPageDTO, UnsolicitedResultsRequestType } from 'utils';
 import { LabOrderLoading } from './LabOrderLoading';
 import { LabsTableRow } from './LabsTableRow';

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useApiClients } from '../../hooks/useAppClients';
 import { getOystehr_RCM_API } from '../data';
 
-export const useOystehrAPIClient = (): ReturnType<typeof getOystehr_RCM_API> | null => {
+export const useOystehrRcmApiClient = (): ReturnType<typeof getOystehr_RCM_API> | null => {
   const { oystehrZambda } = useApiClients();
 
   const apiClient = useMemo(() => {

@@ -4,8 +4,8 @@ import { Box, FormControl, TextField } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
 import DateSearch from 'src/components/DateSearch';
-import { SearchResultParsedPatient } from 'src/components/PatientsSearch/types';
-import { usePatientsSearch } from 'src/components/PatientsSearch/usePatientsSearch';
+import { SearchResultParsedPatient } from 'src/features/visits/shared/components/patients-search/types';
+import { usePatientsSearch } from 'src/features/visits/shared/components/patients-search/usePatientsSearch';
 import { UnsolicitedPatientSearchResults } from './UnsolicitedPatientSearchResults';
 
 interface UnsolicitedPatientMatchSearchCardProps {

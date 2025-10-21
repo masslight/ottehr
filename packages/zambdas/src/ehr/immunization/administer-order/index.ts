@@ -214,10 +214,10 @@ export function validateRequestParameters(
 
   missingFields.push(...validateOrderDetails(details));
 
-  if (!administrationDetails?.mvx) missingFields.push('administrationDetails.mvx');
-  if (!administrationDetails?.cvx) missingFields.push('administrationDetails.cvx');
-  if (!administrationDetails?.ndc) missingFields.push('administrationDetails.ndc');
   if (['administered', 'administered-partly'].includes(type)) {
+    if (!administrationDetails?.mvx) missingFields.push('administrationDetails.mvx');
+    if (!administrationDetails?.cvx) missingFields.push('administrationDetails.cvx');
+    if (!administrationDetails?.ndc) missingFields.push('administrationDetails.ndc');
     if (!administrationDetails?.lot) missingFields.push('administrationDetails.lot');
     if (!administrationDetails?.expDate) missingFields.push('administrationDetails.expDate');
     if (!administrationDetails?.administeredDateTime) missingFields.push('administrationDetails.administeredDateTime');

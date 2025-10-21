@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { Control, UseFormGetValues, UseFormSetValue } from 'react-hook-form';
-import { PractitionerLicense, RoleType, User } from 'utils';
+import { PractitionerLicense, ProviderTypeCode, RoleType, User } from 'utils';
 
 export interface FormErrors {
   submit: boolean;
@@ -24,7 +24,8 @@ export interface EmployeeForm {
   firstName: string;
   middleName: string;
   lastName: string;
-  nameSuffix: string;
+  providerType?: ProviderTypeCode;
+  providerTypeText?: string;
   roles: RoleType[];
   phoneNumber: string;
   birthDate: DateTime;
@@ -43,6 +44,7 @@ export interface EmployeeForm {
 
 export interface ProviderDetailsProps {
   control: Control<any>;
+  setValue: UseFormSetValue<any>;
   photoSrc: string;
   roles: string[];
 }

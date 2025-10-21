@@ -17,8 +17,8 @@ export const PRACTITIONER_ORDERED_BY_MEDICATION_CODE = 'practitioner-ordered-by-
 export const MEDICATION_ADMINISTRATION_UNITS_SYSTEM = 'http://unitsofmeasure.org';
 export const MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM = 'http://hl7.org/fhir/ValueSet/route-codes';
 
-export const MEDICATION_ADMINISTRATION_CSS_RESOURCE_SYSTEM = 'css-medication-administration';
-export const MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE = 'in-house-medication-administration-order';
+export const MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM = 'css-medication-administration';
+export const MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE = 'in-house-medication-administration-order';
 
 export const MEDICATION_ADMINISTRATION_REASON_CODE = 'mainReason';
 export const MEDICATION_ADMINISTRATION_OTHER_REASON_CODE = 'otherReason';

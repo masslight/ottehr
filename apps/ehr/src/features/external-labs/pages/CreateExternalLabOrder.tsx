@@ -19,7 +19,19 @@ import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ActionsList } from 'src/components/ActionsList';
+import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import {
+  useGetCreateExternalLabResources,
+  useICD10SearchNew,
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import {
+  useAppointmentData,
+  useChartData,
+  useSaveChartData,
+} from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   DiagnosisDTO,
   getAttendingPractitionerId,
@@ -29,16 +41,6 @@ import {
 } from 'utils';
 import { createExternalLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import {
-  ActionsList,
-  DeleteIconButton,
-  useAppointmentData,
-  useChartData,
-  useDebounce,
-  useGetCreateExternalLabResources,
-  useICD10SearchNew,
-  useSaveChartData,
-} from '../../../telemed';
 import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';

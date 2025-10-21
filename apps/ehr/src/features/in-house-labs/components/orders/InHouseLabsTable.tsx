@@ -26,7 +26,7 @@ import { ReactElement, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCreateInHouseLabOrderResources } from 'src/api/api';
 import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
-import { getInHouseLabOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
+import { getInHouseLabOrderDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { InHouseOrderListPageItemDTO, InHouseOrdersSearchBy, TestItem } from 'utils';
 import { LabOrdersSearchBy } from 'utils/lib/types/data/labs';

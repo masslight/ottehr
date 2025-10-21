@@ -13,11 +13,12 @@ import {
   TableBody,
   TableCell,
   TableRow,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
-import { Encounter, Patient } from 'fhir/r4b';
+import { DocumentReference, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { Fragment, ReactElement, useEffect, useState } from 'react';
@@ -32,16 +33,24 @@ import {
   PatientPaymentDTO,
   PaymentVariant,
   PostPatientPaymentInput,
+  RECEIPT_CODE,
+  SendReceiptByEmailZambdaInput,
   updateEncounterPaymentVariantExtension,
 } from 'utils';
+import { sendReceiptByEmail } from '../api/api';
 import PaymentDialog from './dialogs/PaymentDialog';
+import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendReceiptByEmailDialog';
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
 
 export interface PaymentListProps {
-  patient: Patient;
+  patient: Patient | undefined;
   encounterId: string;
   loading?: boolean;
   patientSelectSelfPay?: boolean;
+  responsibleParty?: {
+    fullName?: string;
+    email?: string;
+  };
 }
 
 const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
@@ -57,6 +66,7 @@ export default function PatientPaymentList({
   patient,
   encounterId,
   patientSelectSelfPay,
+  responsibleParty,
 }: PaymentListProps): ReactElement {
   const { oystehr } = useApiClients();
   const theme = useTheme();
@@ -64,6 +74,8 @@ export default function PatientPaymentList({
   const [paymentVariant, setPaymentVariant] = useState(
     patientSelectSelfPay ? PaymentVariant.selfPay : PaymentVariant.insurance
   );
+  const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
+  const [receiptDocRefId, setReceiptDocRefId] = useState<string | undefined>();
   const {
     data: encounter,
     refetch: refetchEncounter,
@@ -75,11 +87,53 @@ export default function PatientPaymentList({
     refetch: refetchPaymentList,
     isRefetching,
   } = useGetPatientPaymentsList({
-    patientId: patient.id ?? '',
+    patientId: patient?.id ?? '',
     encounterId,
-    disabled: !encounterId || !patient.id,
+    disabled: !encounterId || !patient?.id,
   });
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
+
+  useEffect(() => {
+    if (oystehr && encounterId) {
+      void oystehr.fhir
+        .search<DocumentReference>({
+          resourceType: 'DocumentReference',
+          params: [
+            {
+              name: 'type',
+              value: RECEIPT_CODE,
+            },
+            {
+              name: 'encounter',
+              value: 'Encounter/' + encounterId,
+            },
+          ],
+        })
+        .then((response) => {
+          const docRef = response.unbundle()[0];
+          if (docRef) {
+            setReceiptDocRefId(docRef.id);
+          }
+        });
+    }
+  }, [encounterId, oystehr, paymentData]);
+
+  const sendReceipt = async (formData: SendReceiptFormData): Promise<void> => {
+    if (!oystehr) return;
+    try {
+      if (!receiptDocRefId) throw new Error("unable to send email, don't have receipt docRefId");
+      const sendReceiptParams: SendReceiptByEmailZambdaInput = {
+        recipientFullName: formData.recipientName,
+        email: formData.recipientEmail,
+        receiptDocRefId: receiptDocRefId,
+      };
+      await sendReceiptByEmail(oystehr, sendReceiptParams);
+      setSendReceiptByEmailDialogOpen(false);
+      enqueueSnackbar('Receipt sent successfully', { variant: 'success' });
+    } catch {
+      enqueueSnackbar('Something went wrong! Unable to send receipt.', { variant: 'error' });
+    }
+  };
 
   const getLabelForPayment = (payment: PatientPaymentDTO): string | ReactElement => {
     if (payment.paymentMethod === 'card') {
@@ -160,7 +214,7 @@ export default function PatientPaymentList({
   });
 
   useEffect(() => {
-    if (encounter && !isEncounterRefetching) {
+    if (encounter) {
       const variant = getPaymentVariantFromEncounter(encounter);
       if (variant) setPaymentVariant(variant);
       else if (variant === undefined) {
@@ -174,7 +228,7 @@ export default function PatientPaymentList({
         );
       }
     }
-  }, [encounter, isEncounterRefetching, patientSelectSelfPay, updateEncounter]);
+  }, [encounter, patientSelectSelfPay, updateEncounter]);
 
   const errorMessage = (() => {
     const networkError = createNewPayment.error;
@@ -227,6 +281,15 @@ export default function PatientPaymentList({
       </Typography>
       <Table size="small" style={{ tableLayout: 'fixed' }}>
         <TableBody>
+          {payments.length === 0 && !loading && (
+            <TableRow>
+              <TableCell sx={{ paddingTop: 1, paddingBottom: 1 }}>
+                <Typography variant="body1" color="textSecondary">
+                  No payments recorded.
+                </Typography>
+              </TableCell>
+            </TableRow>
+          )}
           {payments.map((payment) => {
             const paymentDateString = DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT);
             return (
@@ -283,18 +346,48 @@ export default function PatientPaymentList({
       <Button sx={{ marginTop: 2 }} onClick={() => setPaymentDialogOpen(true)} variant="contained" color="primary">
         $ Add Payment
       </Button>
-      <PaymentDialog
-        open={paymentDialogOpen}
-        patient={patient}
-        handleClose={() => setPaymentDialogOpen(false)}
-        isSubmitting={createNewPayment.isPending}
-        submitPayment={async (data: CashOrCardPayment) => {
-          const postInput: PostPatientPaymentInput = {
-            patientId: patient.id ?? '',
-            encounterId,
-            paymentDetails: data,
-          };
-          createNewPayment.mutate(postInput);
+      <Tooltip
+        disableHoverListener={receiptDocRefId !== undefined}
+        placement="top"
+        title="Patient doesn't have any receipt for this encounter"
+      >
+        <span>
+          <Button
+            sx={{ mt: 2, ml: 2 }}
+            disabled={!receiptDocRefId}
+            onClick={() => setSendReceiptByEmailDialogOpen(true)}
+            variant="contained"
+            color="primary"
+          >
+            Email receipt
+          </Button>
+        </span>
+      </Tooltip>
+      {patient && (
+        <PaymentDialog
+          open={paymentDialogOpen}
+          patient={patient}
+          handleClose={() => setPaymentDialogOpen(false)}
+          isSubmitting={createNewPayment.isPending}
+          submitPayment={async (data: CashOrCardPayment) => {
+            const postInput: PostPatientPaymentInput = {
+              patientId: patient.id ?? '',
+              encounterId,
+              paymentDetails: data,
+            };
+            createNewPayment.mutate(postInput);
+          }}
+        />
+      )}
+      <SendReceiptByEmailDialog
+        title="Send receipt"
+        modalOpen={sendReceiptByEmailDialogOpen}
+        handleClose={() => setSendReceiptByEmailDialogOpen(false)}
+        onSubmit={sendReceipt}
+        submitButtonName="Send Receipt"
+        defaultValues={{
+          recipientName: responsibleParty?.fullName,
+          recipientEmail: responsibleParty?.email,
         }}
       />
       <Snackbar

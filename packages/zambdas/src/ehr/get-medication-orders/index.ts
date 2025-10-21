@@ -23,7 +23,7 @@ import {
   getProviderIdAndDateMedicationWasAdministered,
   getReasonAndOtherReasonForNotAdministeredOrder,
   mapFhirToOrderStatus,
-  MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   OrderPackage,
 } from 'utils';
 import { createOystehrClient, wrapHandler } from '../../shared';
@@ -143,7 +143,7 @@ async function getOrderPackages(
   const searchParams = [
     {
       name: '_tag',
-      value: MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
+      value: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
     },
     {
       name: '_include',

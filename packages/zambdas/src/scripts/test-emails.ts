@@ -11,14 +11,17 @@ import {
   InPersonCancelationTemplateData,
   InPersonCompletionTemplateData,
   InPersonConfirmationTemplateData,
+  InPersonReceiptTemplateData,
   InPersonReminderTemplateData,
+  MIME_TYPES,
   ServiceMode,
   TelemedCancelationTemplateData,
   TelemedCompletionTemplateData,
   TelemedConfirmationTemplateData,
   TelemedInvitationTemplateData,
 } from 'utils';
-import { createOystehrClient, getAuth0Token, getEmailClient } from '../shared';
+import { createOystehrClient, EmailAttachment, getAuth0Token, getEmailClient } from '../shared';
+
 const randomVisitId = randomUUID();
 
 const inPersonConfirmationTestInput = (
@@ -59,6 +62,21 @@ const inPersonReminderTemplateData = (env: any, appointmentData: AppointmentData
   'cancel-visit-url': `${env['WEBSITE_URL']}/visit/${appointmentData.id ?? randomVisitId}/cancel`,
   'paperwork-url': `${env['WEBSITE_URL']}/paperwork/${appointmentData.id ?? randomVisitId}`,
 });
+
+const inPersonReceiptTemplateData = (appointmentData: AppointmentData): InPersonReceiptTemplateData => ({
+  'recipient-name': appointmentData.patientName ?? '',
+  date: appointmentData.startTime ?? DateTime.now().toFormat(DATETIME_FULL_NO_YEAR),
+});
+
+const getInPersonReceiptTestPdfFileAttachment = (): EmailAttachment => {
+  const file = fs.readFileSync('test/data/files/test-receipt.pdf');
+  return {
+    content: file.toString('base64'),
+    filename: 'receipt.pdf',
+    type: MIME_TYPES.PDF,
+    disposition: 'attachment',
+  };
+};
 
 const telemedConfirmationTestInput = (env: any, appointmentData: AppointmentData): TelemedConfirmationTemplateData => ({
   location: `${appointmentData.locationName}`,
@@ -103,6 +121,9 @@ const testEmails = async (envConfig: any, to: string, appointmentData: Appointme
       await emailClient.sendInPersonCancelationEmail(to, inPersonCancelationTestInput(envConfig, appointmentData));
       await emailClient.sendInPersonCompletionEmail(to, inPersonCompletionTestInput(envConfig, appointmentData));
       await emailClient.sendInPersonReminderEmail(to, inPersonReminderTemplateData(envConfig, appointmentData));
+      await emailClient.sendInPersonReceiptEmail(to, inPersonReceiptTemplateData(appointmentData), [
+        getInPersonReceiptTestPdfFileAttachment(),
+      ]);
     } else {
       await emailClient.sendVirtualConfirmationEmail(to, telemedConfirmationTestInput(envConfig, appointmentData));
       await emailClient.sendVirtualCancelationEmail(to, telemedCancelationTestInput(envConfig, appointmentData));

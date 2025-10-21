@@ -1,18 +1,18 @@
 import { Grid } from '@mui/material';
-import React, { FC } from 'react';
+import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import {
   ClaimState,
   useClaimStore,
   useEditCoverageInformationMutation,
   useEditRelatedPersonInformationMutation,
-} from '../../../state';
+} from 'src/rcm/state';
 import {
   AdditionalInsuranceFormValues,
   mapAdditionalInsuranceToCoverageResource,
   mapAdditionalInsuranceToRelatedPersonResource,
-} from '../../../utils';
+} from 'src/rcm/utils';
+import { getSelectors } from 'utils';
 import { EditModal, TextFieldController } from './components';
 
 const getDefaultValues = (

@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getExternalLabOrdersUrl } from 'src/features/css-module/routing/helpers';
+import { getExternalLabOrdersUrl } from 'src/features/visits/in-person/routing/helpers';
 import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
   DeleteLabOrderZambdaInput,

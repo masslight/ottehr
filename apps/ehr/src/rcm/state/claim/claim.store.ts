@@ -11,7 +11,6 @@ import {
   Patient,
   RelatedPerson,
 } from 'fhir/r4b';
-import { create } from 'zustand';
 import {
   findResourceByType,
   findResourceByTypeAndId,
@@ -19,7 +18,8 @@ import {
   getCoverageData,
   getPatientData,
   PlanOwnedBy,
-} from '../../utils';
+} from 'src/rcm/utils';
+import { create } from 'zustand';
 
 export type ClaimState = {
   claim?: Claim;

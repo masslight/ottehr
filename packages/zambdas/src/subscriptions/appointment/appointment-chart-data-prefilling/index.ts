@@ -10,8 +10,8 @@ import {
   getPatchBinary,
   getPatchOperationForNewMetaTag,
   getSecret,
+  isInPersonAppointment,
   MDM_FIELD_DEFAULT_TEXT,
-  OTTEHR_MODULE,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -84,9 +84,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ],
       })
     ).unbundle();
+
     console.log('Got Appointment related resources');
 
-    const isInPersonAppointment = !!appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
+    const isInPerson = isInPersonAppointment(appointment);
 
     const patient = resourceBundle?.find((resource: FhirResource) => resource.resourceType === 'Patient') as
       | Patient
@@ -97,15 +98,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const encounter = resourceBundle?.find(
       (resource: FhirResource) =>
-        resource.resourceType === 'Encounter' &&
-        (isInPersonAppointment || Boolean(getVideoRoomResourceExtension(resource)))
+        resource.resourceType === 'Encounter' && (isInPerson || Boolean(getVideoRoomResourceExtension(resource)))
     ) as Encounter | undefined;
+
     if (!encounter?.id) throw new Error('Encounter is missing from resource bundle.');
     // When in forEach, TS forgets this is no longer undefined.
     const encounterId = encounter.id;
 
     // Exam observations
-    const examObservations = createExamObservations(isInPersonAppointment);
+    const examObservations = createExamObservations(isInPerson);
 
     examObservations?.forEach((element) => {
       const { code, bodySite, label, ...rest } = element;

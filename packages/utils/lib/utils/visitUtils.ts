@@ -2,6 +2,7 @@ import { Appointment, Encounter, EncounterParticipant, EncounterStatusHistory } 
 import { DateTime } from 'luxon';
 import {
   InPersonAppointmentInformation,
+  SupervisorApprovalStatus,
   VisitStatusHistoryEntry,
   VisitStatusHistoryLabel,
   VisitStatusLabel,
@@ -38,7 +39,7 @@ export const formatMinutes = (minutes: number): string => {
   return minutes.toLocaleString('en', { maximumFractionDigits: 0 });
 };
 
-export const getVisitStatus = (
+export const getInPersonVisitStatus = (
   appointment: Appointment,
   encounter: Encounter,
   supervisorApprovalEnabled = false
@@ -179,4 +180,23 @@ const getInProgressVisitHistories = (
   }
 
   return histories;
+};
+
+export const getSupervisorApprovalStatus = (
+  appointment?: Appointment,
+  encounter?: Encounter
+): SupervisorApprovalStatus => {
+  if (!appointment || !encounter) {
+    return 'loading';
+  }
+
+  const visitStatus = getInPersonVisitStatus(appointment, encounter, true);
+
+  if (visitStatus === 'awaiting supervisor approval') {
+    return 'waiting-for-approval';
+  } else if (visitStatus === 'completed') {
+    return 'approved';
+  }
+
+  return 'unknown';
 };

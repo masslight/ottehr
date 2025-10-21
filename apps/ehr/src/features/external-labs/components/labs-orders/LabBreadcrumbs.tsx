@@ -1,6 +1,6 @@
 import { FC, useMemo } from 'react';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
-import { useAppointmentData } from '../../../../telemed';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 
 interface LabBreadcrumbsProps {
   sectionName: string;

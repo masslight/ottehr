@@ -1,8 +1,17 @@
-import { PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
-import { ChartDataRequestedFields, CSS_NOTE_ID } from '../../types';
+import { PRIVATE_EXTENSION_BASE_URL, SearchParams } from '../../fhir';
+import { ChartDataRequestedFields, IN_PERSON_NOTE_ID } from '../../types';
 import { VitalFieldNames } from '../../types/api/chart-data/chart-data.constants';
 import { NOTE_TYPE } from '../../types/api/chart-data/chart-data.types';
 import { createVitalsSearchConfig } from './create-vitals-search-config.helper';
+
+export const vitalsObservationsRequest: SearchParams = {
+  _search_by: 'encounter',
+  _sort: '-_lastUpdated',
+  _count: 100,
+  _tag: Object.values(VitalFieldNames)
+    .map((name) => (createVitalsSearchConfig(name, 'encounter').searchParams as { _tag: string })._tag)
+    .join(','),
+};
 
 export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   chiefComplaint: { _tag: 'chief-complaint' },
@@ -24,17 +33,10 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
       NOTE_TYPE.SURGICAL_HISTORY,
       NOTE_TYPE.MEDICATION,
     ]
-      .map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${CSS_NOTE_ID}`)
+      .map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${IN_PERSON_NOTE_ID}`)
       .join(','),
   },
-  vitalsObservations: {
-    _search_by: 'encounter',
-    _sort: '-_lastUpdated',
-    _count: 100,
-    _tag: Object.values(VitalFieldNames)
-      .map((name) => (createVitalsSearchConfig(name, 'encounter').searchParams as { _tag: string })._tag)
-      .join(','),
-  },
+  vitalsObservations: vitalsObservationsRequest,
   externalLabResults: {},
   inHouseLabResults: {},
   practitioners: {},
@@ -54,4 +56,5 @@ export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFiel
   surgicalHistoryNote: {
     _tag: 'surgical-history-note',
   },
+  vitalsObservations: vitalsObservationsRequest,
 };

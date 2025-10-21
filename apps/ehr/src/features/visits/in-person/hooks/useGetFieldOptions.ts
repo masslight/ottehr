@@ -1,0 +1,205 @@
+import Oystehr from '@oystehr/sdk';
+import { Location } from 'fhir/r4b';
+import { useEffect, useState } from 'react';
+import { UNIT_OPTIONS } from 'src/shared/utils';
+import { isLocationVirtual, MedicationApplianceRoutes, medicationApplianceRoutes, RoleType } from 'utils';
+import { getEmployees } from '../../../../api/api';
+import { useApiClients } from '../../../../hooks/useAppClients';
+import useEvolveUser from '../../../../hooks/useEvolveUser';
+import { useGetMedicationList } from '../../shared/stores/appointment/appointment.queries';
+import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { Option } from '../components/medication-administration/medicationTypes';
+
+const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
+  // Priority routes that should appear at the top
+  const priorityRouteCodes = [
+    '26643006', // Oral route
+    '37839007', // Sublingual route
+    '447694001', // Respiratory tract route (inhaled)
+    '47625008', // Intravenous route (IV)
+    '78421000', // Intramuscular route (IM)
+    '6064005', // Topical route
+    '10547007', // Otic route
+    '54485002', // Ophthalmic route
+  ];
+
+  const allRoutes = Object.entries(routes).map(([_, value]) => ({
+    value: value.code,
+    label: value.display,
+  })) as Option[];
+
+  // Separate priority routes from other routes
+  const priorityRoutes = allRoutes.filter((route) => priorityRouteCodes.includes(route.value));
+
+  const otherRoutes = allRoutes
+    .filter((route) => !priorityRouteCodes.includes(route.value))
+    .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+
+  // Sort priority routes in the specified order
+  priorityRoutes.sort((a, b) => {
+    const aIndex = priorityRouteCodes.indexOf(a.value);
+    const bIndex = priorityRouteCodes.indexOf(b.value);
+    return aIndex - bIndex;
+  });
+
+  // Create the grouped options with "Popular" and "Other" section headers
+  const groupedOptions: Option[] = [
+    { value: 'popular-separator', label: 'Popular' }, // Popular section header
+    ...priorityRoutes,
+    { value: 'other-separator', label: 'Other' }, // Other section header
+    ...otherRoutes,
+  ];
+
+  return groupedOptions;
+};
+
+export type OrderFieldsSelectsOptions = Record<
+  'medicationId' | 'location' | 'route' | 'units' | 'associatedDx' | 'providerId',
+  { options: Option[]; status: 'loading' | 'loaded'; defaultOption?: Option }
+>;
+
+// fast fix to prevent multiple requests to get locations
+const cacheLocations = {} as any;
+
+export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
+  const { data: medicationList, isLoading: isMedicationLoading } = useGetMedicationList();
+  const [locationsOptions, setLocationsOptions] = useState<Option[]>([]);
+  const [isLocationLoading, setIsLocationLoading] = useState(true);
+  const [providersOptions, setProvidersOptions] = useState<Option[]>([]);
+  const [isProvidersLoading, setIsProvidersLoading] = useState(true);
+  const { oystehrZambda } = useApiClients();
+  const currentUser = useEvolveUser();
+  const { encounter } = useAppointmentData();
+  const { chartData, isChartDataLoading } = useChartData();
+  const encounterId = encounter?.id;
+  const diagnosis = chartData?.diagnosis;
+
+  const diagnosisSelectOptions: Option[] =
+    diagnosis?.map((item) => ({
+      value: item.resourceId || '',
+      label: `${item.code} - ${item.display}`,
+    })) || [];
+
+  const primaryDiagnosis = diagnosis?.find((item) => item.isPrimary);
+
+  const diagnosisDefaultOption = primaryDiagnosis && {
+    value: primaryDiagnosis.resourceId || '',
+    label: `${primaryDiagnosis.code} - ${primaryDiagnosis.display}`,
+  };
+
+  useEffect(() => {
+    if (!oystehrZambda) {
+      return;
+    }
+
+    async function getLocationsResults(oystehr: Oystehr): Promise<void> {
+      try {
+        setIsLocationLoading(true);
+
+        cacheLocations[encounterId || 'default'] =
+          cacheLocations[encounterId || 'default'] ||
+          oystehr.fhir.search<Location>({
+            resourceType: 'Location',
+            params: [{ name: '_count', value: '1000' }],
+          });
+
+        const locationsBundle = await cacheLocations[encounterId || 'default'];
+        const locationsResults = locationsBundle.unbundle().filter((loc: Location) => !isLocationVirtual(loc));
+
+        setLocationsOptions(
+          locationsResults.map((loc: Location) => ({
+            value: loc.id as string,
+            label: loc.name as string,
+          }))
+        );
+      } catch (e) {
+        console.error('error loading locations', e);
+      } finally {
+        setIsLocationLoading(false);
+      }
+    }
+
+    void getLocationsResults(oystehrZambda);
+  }, [encounterId, oystehrZambda]);
+
+  useEffect(() => {
+    if (!oystehrZambda || !encounterId) {
+      return;
+    }
+
+    async function getProvidersResults(): Promise<void> {
+      try {
+        if (!oystehrZambda) {
+          return;
+        }
+
+        setIsProvidersLoading(true);
+        const data = await getEmployees(oystehrZambda);
+
+        if (data.employees) {
+          const activeProviders = data.employees.filter(
+            (employee: any) => employee.status === 'Active' && employee.isProvider
+          );
+
+          const providerOptions = activeProviders.map((employee: any) => ({
+            value: employee.profile.split('/')[1],
+            label: `${employee.firstName} ${employee.lastName}`.trim() || employee.name,
+          }));
+
+          providerOptions.sort((a: Option, b: Option) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+          setProvidersOptions(providerOptions);
+        }
+      } catch (e) {
+        console.error('error loading provided by field', e);
+      } finally {
+        setIsProvidersLoading(false);
+      }
+    }
+
+    void getProvidersResults();
+  }, [oystehrZambda, encounterId]);
+
+  const medicationListOptions: Option[] = Object.entries(medicationList || {})
+    .map(([id, value]) => ({
+      value: id,
+      label: value,
+    }))
+    .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+
+  // Determine default provider (current user for Provider role)
+  const currentUserProviderId = currentUser?.profile?.replace('Practitioner/', '');
+  const currentUserHasProviderRole = currentUser?.hasRole?.([RoleType.Provider]);
+  const defaultProvider =
+    currentUserHasProviderRole && currentUserProviderId
+      ? providersOptions.find((option) => option.value === currentUserProviderId)
+      : undefined;
+
+  return {
+    medicationId: {
+      options: medicationListOptions,
+      status: isMedicationLoading ? 'loading' : 'loaded',
+    },
+    location: {
+      options: locationsOptions,
+      status: isLocationLoading ? 'loading' : 'loaded',
+    },
+    route: {
+      options: getRoutesArray(medicationApplianceRoutes),
+      status: 'loaded',
+    },
+    units: {
+      options: UNIT_OPTIONS,
+      status: 'loaded',
+    },
+    associatedDx: {
+      options: diagnosisSelectOptions,
+      status: isChartDataLoading ? 'loading' : 'loaded',
+      defaultOption: diagnosisDefaultOption,
+    },
+    providerId: {
+      options: providersOptions,
+      status: isProvidersLoading ? 'loading' : 'loaded',
+      defaultOption: defaultProvider,
+    },
+  };
+};

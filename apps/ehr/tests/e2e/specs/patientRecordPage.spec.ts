@@ -554,12 +554,14 @@ test.describe('Patient Record Page mutating tests', () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await populateAllRequiredFields(patientInformationPage);
     await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.waitForSaveChangeButtonToBeEnabled();
     await patientInformationPage.verifyCheckboxOff();
     await patientInformationPage.verifyFirstNameFromPcpIsVisible();
     await patientInformationPage.verifyLastNameFromPcpIsVisible();
     await patientInformationPage.verifyPracticeNameFromPcpIsVisible();
     await patientInformationPage.verifyAddressFromPcpIsVisible();
     await patientInformationPage.verifyMobileFromPcpIsVisible();
+    await patientInformationPage.verifyLoadingScreenIsNotVisible();
 
     await patientInformationPage.clearFirstNameFromPcp();
     await patientInformationPage.clickSaveChangesButton();
@@ -620,7 +622,7 @@ test.describe('Patient Record Page mutating tests', () => {
   const INSURANCE_POLICY_HOLDER_STATE = 'AK';
   const INSURANCE_POLICY_HOLDER_ZIP = '78956';
   const INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
-  const INSURANCE_CARRIER = '6 Degrees Health Incorporated';
+  const INSURANCE_CARRIER = '20446 - 6 Degrees Health Incorporated';
 
   const INSURANCE_PLAN_TYPE_2 = '12 - PPO';
   const INSURANCE_MEMBER_ID_2 = '987548ert';
@@ -636,7 +638,7 @@ test.describe('Patient Record Page mutating tests', () => {
   const INSURANCE_POLICY_HOLDER_STATE_2 = 'CO';
   const INSURANCE_POLICY_HOLDER_ZIP_2 = '21211';
   const INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2 = 'testing2';
-  const INSURANCE_CARRIER_2 = 'ACTIN Care Groups';
+  const INSURANCE_CARRIER_2 = '24585 - ACTIN Care Groups';
 
   test('Check validation error is displayed if any required field in Add insurance dialog is missing', async ({
     page,
@@ -732,7 +734,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await addInsuranceDialog.enterAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
     await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
 
-    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.verifyCoverageAddedSuccessfullyMessageShown();
     await patientInformationPage.reloadPatientInformationPage();
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     await primaryInsuranceCard.clickShowMoreButton();
@@ -772,7 +774,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await addInsuranceDialog.enterAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2);
     await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
 
-    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.verifyCoverageAddedSuccessfullyMessageShown();
     await patientInformationPage.reloadPatientInformationPage();
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
     await secondaryInsuranceCard.clickShowMoreButton();

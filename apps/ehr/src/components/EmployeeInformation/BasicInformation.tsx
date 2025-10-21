@@ -1,4 +1,4 @@
-import { FormLabel, TextField } from '@mui/material';
+import { Box, TextField, Typography, useTheme } from '@mui/material';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -10,10 +10,13 @@ import InputMask from '../InputMask';
 import { BasicInformationProps } from './types';
 
 export function BasicInformation({ control, existingUser, isActive }: BasicInformationProps): JSX.Element {
+  const theme = useTheme();
   const fieldsDisabled = isActive === false;
   return (
-    <>
-      <FormLabel sx={{ mb: 1, fontWeight: '600 !important' }}>Employee information</FormLabel>
+    <Box>
+      <Typography sx={{ ...theme.typography.h4, color: theme.palette.primary.dark, mb: 2 }}>
+        Employee information
+      </Typography>
       <Controller
         name="firstName"
         control={control}
@@ -95,6 +98,7 @@ export function BasicInformation({ control, existingUser, isActive }: BasicInfor
                 },
               }}
               value={value || null}
+              sx={{ mb: 2 }}
             />
           </LocalizationProvider>
         )}
@@ -266,6 +270,6 @@ export function BasicInformation({ control, existingUser, isActive }: BasicInfor
           />
         )}
       />
-    </>
+    </Box>
   );
 }

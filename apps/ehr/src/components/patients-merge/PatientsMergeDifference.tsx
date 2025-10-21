@@ -17,8 +17,9 @@ import {
 import { Patient } from 'fhir/r4';
 import { FC, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
+import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 import { PROJECT_NAME } from 'utils';
-import { ConfirmationDialog, ContainedPrimaryToggleButton } from '../../telemed';
 import { RoundedButton } from '../RoundedButton';
 import { useGetPatientsForMerge } from './queries';
 

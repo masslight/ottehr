@@ -22,14 +22,7 @@ import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { Bar } from 'react-chartjs-2';
-import {
-  getAllFhirSearchPages,
-  Task_Email_Communication_Url,
-  Task_Send_Messages_Url,
-  Task_Text_Communication_Url,
-  Task_Update_Appointment_Url,
-  TaskIndicator,
-} from 'utils';
+import { getAllFhirSearchPages, getAllTaskTypes, TaskTypeOption } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 
@@ -79,44 +72,8 @@ enum TimeRange {
   Custom = 'Custom',
 }
 
-// Available task types for selection
-const taskTypeOptions = [
-  { value: 'all', label: 'All Task Types', system: '', code: '' },
-  { value: 'send-messages', label: 'Send Messages', system: Task_Send_Messages_Url, code: '' },
-  { value: 'email', label: 'Email Communications', system: Task_Email_Communication_Url, code: '' },
-  { value: 'text', label: 'Text Communications', system: Task_Text_Communication_Url, code: '' },
-  { value: 'appointment-updates', label: 'Appointment Updates', system: Task_Update_Appointment_Url, code: '' },
-  {
-    value: 'cancel-email',
-    label: 'Cancel Email',
-    system: TaskIndicator.cancelEmail.system,
-    code: TaskIndicator.cancelEmail.code,
-  },
-  {
-    value: 'ready-text',
-    label: 'Ready Text',
-    system: TaskIndicator.readyText.system,
-    code: TaskIndicator.readyText.code,
-  },
-  {
-    value: 'checkin-text',
-    label: 'Check-in Text',
-    system: TaskIndicator.checkInText.system,
-    code: TaskIndicator.checkInText.code,
-  },
-  {
-    value: 'record-wait-time',
-    label: 'Record Wait Time',
-    system: TaskIndicator.recordWaitTime.system,
-    code: TaskIndicator.recordWaitTime.code,
-  },
-  {
-    value: 'confirmation-messages',
-    label: 'Confirmation Messages',
-    system: TaskIndicator.confirmationMessages.system,
-    code: TaskIndicator.confirmationMessages.code,
-  },
-];
+// Get all available task types dynamically from the system
+const taskTypeOptions: TaskTypeOption[] = getAllTaskTypes();
 
 // DataGrid column definitions
 const columns: GridColDef[] = [
@@ -199,7 +156,7 @@ export default function TaskAdmin(): React.ReactElement {
   const [taskCountByDate, setTaskCountByDate] = React.useState<TaskCountByStatus[] | undefined>(undefined);
   const [taskDetails, setTaskDetails] = React.useState<TaskDetailRow[]>([]);
   const [totalTasks, setTotalTasks] = React.useState<number | undefined>(undefined);
-  const [selectedTaskType, setSelectedTaskType] = React.useState<string>('send-messages');
+  const [selectedTaskType, setSelectedTaskType] = React.useState<string>('sendClaim');
   const [viewType, setViewType] = React.useState<ViewType>(ViewType.Chart);
   const [timeRange, setTimeRange] = React.useState<TimeRange>(TimeRange.Today);
   const [filterStartDate, setStartFilterDate] = React.useState<DateTime | null>(DateTime.now());

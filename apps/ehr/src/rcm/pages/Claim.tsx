@@ -1,9 +1,8 @@
 import { Box, CircularProgress, Skeleton } from '@mui/material';
-import React, { FC, useEffect, useMemo } from 'react';
+import { FC, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { FHIR_EXTENSION } from 'utils';
+import { FHIR_EXTENSION, getSelectors } from 'utils';
 import CustomBreadcrumbs from '../../components/CustomBreadcrumbs';
-import { getSelectors } from '../../shared/store/getSelectors';
 import {
   AdditionalInformationModal,
   AdditionalInsuranceModal,
