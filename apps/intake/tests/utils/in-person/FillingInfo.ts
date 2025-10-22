@@ -1,4 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
+import { BOOKING_CONFIG } from 'utils';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class FillingInfo {
@@ -16,37 +17,8 @@ export class FillingInfo {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-  private reasonForVisit = [
-    'Cough and/or congestion',
-    'Throat pain',
-    'Eye concern',
-    'Fever',
-    'Ear pain',
-    'Vomiting and/or diarrhea',
-    'Abdominal (belly) pain',
-    'Rash or skin issue',
-    'Urinary problem',
-    'Breathing problem',
-    'Injury to arm',
-    'Injury to leg',
-    'Injury to head',
-    'Injury (Other)',
-    'Cut to arm or leg',
-    'Cut to face or head',
-    'Removal of sutures/stitches/staples',
-    'Choked or swallowed something',
-    'Allergic reaction to medication or food',
-    'Other',
-  ];
-  private cancelReason = [
-    'Patient improved',
-    'Wait time too long',
-    'Prefer another provider',
-    'Changing location',
-    'Changing to telemedicine',
-    'Financial responsibility concern',
-    'Insurance issue',
-  ];
+  private reasonForVisit = [BOOKING_CONFIG.reasonForVisitOptions[0]];
+  private cancelReason = BOOKING_CONFIG.cancelReasonOptions.slice();
   private months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   getRandomString() {
