@@ -81,7 +81,7 @@ export const getLabOrderRelatedResources = async (
 
     if (!serviceRequest?.id) {
       console.error('Lab order not found or invalid response', serviceRequestResponse);
-      return { serviceRequest: null, questionnaireResponse: null, task: null, labConditions: [] };
+      return { serviceRequest: null, questionnaireResponse: null, tasks: [], labConditions: [] };
     }
 
     const encounter = encounters.find(
