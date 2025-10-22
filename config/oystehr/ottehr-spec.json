@@ -832,7 +832,11 @@
       "type": "subscription",
       "runtime": "nodejs20.x",
       "src": "src/subscriptions/task/sub-send-claim/index",
-      "zip": ".dist/zips/sub-send-claim.zip"
+      "zip": ".dist/zips/sub-send-claim.zip",
+      "subscription": {
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/claim-sync|send-claim&status=requested",
+        "reason": "send claim"
+      }
     },
     "SUB-VISIT-NOTE-PDF-AND-EMAIL": {
       "name": "sub-visit-note-pdf-and-email",
