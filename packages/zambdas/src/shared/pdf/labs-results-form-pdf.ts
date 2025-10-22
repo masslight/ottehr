@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import {
   ActivityDefinition,
+  Coding,
   DiagnosticReport,
   DocumentReference,
   Encounter,
@@ -1627,8 +1628,8 @@ const parseObservationForPDF = (
   if (base64PdfAttachment || base64PngAttachment || base64JpgAttachment) {
     const initialText = base64PdfAttachment ? 'A pdf' : 'An image';
     const attachmentResult: ExternalLabResult = {
-      resultCode: '',
-      resultCodeDisplay: '',
+      resultCodeAndDisplay: '',
+      loincCodeAndDisplay: '',
       resultValue: '',
       attachmentText: `${initialText} attachment is included at the end of this document`,
       observationStatus: observation.status,
@@ -1666,20 +1667,39 @@ const parseObservationForPDF = (
         .join('. ')
     : undefined;
 
-  const codes = observation.code.coding
-    ?.reduce((acc: string[], code) => {
-      if (
-        code.system &&
-        ![OYSTEHR_OBR_NOTE_CODING_SYSTEM, OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM].includes(code.system)
-      ) {
-        if (code.code) acc.push(code.code);
+  let resultCodeCodings: Coding[] | undefined;
+  let resultLoincCodings: Coding[] | undefined;
+  observation.code.coding?.forEach((coding) => {
+    if (coding.system === `http://loinc.org`) {
+      if (resultLoincCodings !== undefined) {
+        console.info(`Found multiple loinc codings in Observation/${observation.id} code`);
+        resultLoincCodings.push(coding);
+        return;
       }
-      return acc;
-    }, [])
-    .join(', ');
+      resultLoincCodings = [coding];
+    } else if (
+      ![OYSTEHR_OBR_NOTE_CODING_SYSTEM, OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM].includes(coding.system || '')
+    ) {
+      if (resultCodeCodings !== undefined) {
+        console.info(`Found multiple code codings in Observation/${observation.id} code`);
+        resultCodeCodings.push(coding);
+        return;
+      }
+      resultCodeCodings = [coding];
+    }
+  });
+
+  const formatResultCodeAndDisplay = (coding: Coding): string => {
+    if (!coding.code) return '';
+    return `${coding.code}${coding.display ? `(${coding.display})` : ''}`;
+  };
+
+  const resultCodesAndDisplays = resultCodeCodings?.map((coding) => formatResultCodeAndDisplay(coding)).join(', ');
+  const loincCodesAndDisplays = resultLoincCodings?.map((coding) => formatResultCodeAndDisplay(coding)).join(', ');
+
   const labResult: ExternalLabResult = {
-    resultCode: codes || '',
-    resultCodeDisplay: observation.code.coding?.[0].display || '',
+    resultCodeAndDisplay: resultCodesAndDisplays || '',
+    loincCodeAndDisplay: loincCodesAndDisplays || '',
     resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
     resultInterpretationDisplay: interpretationDisplay,
     resultValue: value || '',
@@ -1780,15 +1800,15 @@ const writeResultDetailLinesInPdf = (
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
-  let codeText: string | undefined;
-  if (labResult.resultCode) {
-    codeText = `Code: ${labResult.resultCode}`;
+  if (labResult.resultCodeAndDisplay) {
+    console.log('writing code', labResult.resultCodeAndDisplay);
+    pdfClient.drawText(`Code: ${labResult.resultCodeAndDisplay}`, textStyles.text);
+    pdfClient.newLine(STANDARD_NEW_LINE);
   }
-  if (labResult.resultCodeDisplay) {
-    codeText += ` (${labResult.resultCodeDisplay})`;
-  }
-  if (codeText) {
-    pdfClient.drawText(codeText, textStyles.text);
+
+  if (labResult.loincCodeAndDisplay) {
+    console.log('writing loinc code', labResult.loincCodeAndDisplay);
+    pdfClient.drawText(`LOINC Code: ${labResult.loincCodeAndDisplay}`, textStyles.text);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
