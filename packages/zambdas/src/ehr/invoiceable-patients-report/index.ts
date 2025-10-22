@@ -5,6 +5,7 @@ import { Account, Appointment, Encounter, Patient, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createCandidApiClient,
+  getPatientReferenceFromAccount,
   getResourcesFromBatchInlineRequests,
   getSecret,
   InvoiceablePatientReport,
@@ -175,9 +176,7 @@ async function getInvoiceablePatientsReport(input: {
         patientToIdMap[resource.id] = resource as Patient;
       }
       if (resource.resourceType === 'Account') {
-        const patientId = (resource as Account).subject
-          ?.find((subject) => subject.reference?.includes('Patient/'))
-          ?.reference?.split('/')[1];
+        const patientId = getPatientReferenceFromAccount(resource as Account)?.split('/')[1];
         if (patientId) {
           accountsToPatientIdMap[patientId] = resource as Account;
         }

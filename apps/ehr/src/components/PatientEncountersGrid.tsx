@@ -29,12 +29,12 @@ import {
   visitStatusArray,
 } from 'utils';
 import { create } from 'zustand';
-import { getEmployees } from '../api/api';
+import { getEmployees, getPrefilledInvoiceInfo, sendInvoiceToPatient } from '../api/api';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { AppointmentHistoryRow } from '../hooks/useGetPatient';
 import { SendInvoiceToPatientDialog } from './dialogs';
-import { SendInvoiceFormData } from './dialogs/SendInvoiceToPatientDialog';
+import { SendPatientInvoiceOnSubmitProps } from './dialogs/SendInvoiceToPatientDialog';
 import { RoundedButton } from './RoundedButton';
 import { TelemedAppointmentStatusChip } from './TelemedAppointmentStatusChip';
 
@@ -69,6 +69,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [hideCancelled, setHideCancelled] = useState(false);
   const [hideNoShow, setHideNoShow] = useState(false);
   const [sendInvoiceDialogOpen, setSendInvoiceDialogOpen] = useState(false);
+  const [selectedEncounterId, setSelectedEncounterId] = useState<string | undefined>(undefined);
 
   const { oystehrZambda } = useApiClients();
 
@@ -85,6 +86,15 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       return data;
     },
     enabled: !!oystehrZambda,
+  });
+
+  const { data: prefilledInvoice } = useQuery({
+    queryKey: ['get-prefilled-invoice-info', patientId],
+    queryFn: () => {
+      if (oystehrZambda && patientId) return getPrefilledInvoiceInfo(oystehrZambda, { patientId });
+      return undefined;
+    },
+    enabled: !!oystehrZambda && !!patientId,
   });
 
   useSuccessQuery(employeesData, (data) => {
@@ -131,8 +141,15 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     return filterStatus === appointmentStatus;
   }
 
-  const sendInvoice = async (input: SendInvoiceFormData): Promise<void> => {
-    console.log('sending, ', JSON.stringify(input));
+  const sendInvoice = async (props: SendPatientInvoiceOnSubmitProps): Promise<void> => {
+    if (oystehrZambda) {
+      const { patientId, prefilledInfo, oystEncounterId } = props;
+      await sendInvoiceToPatient(oystehrZambda, {
+        oystPatientId: patientId,
+        oystEncounterId,
+        prefilledInfo,
+      });
+    }
   };
 
   const columns: GridColDef<AppointmentHistoryRow>[] = [
@@ -253,7 +270,16 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       field: 'invoice',
       headerName: 'Invoice',
       width: 150,
-      renderCell: () => <RoundedButton onClick={() => setSendInvoiceDialogOpen(true)}>Invoice</RoundedButton>,
+      renderCell: ({ row: { encounter } }) => (
+        <RoundedButton
+          onClick={() => {
+            setSendInvoiceDialogOpen(true);
+            setSelectedEncounterId(encounter?.id);
+          }}
+        >
+          Invoice
+        </RoundedButton>
+      ),
     },
   ];
 
@@ -368,6 +394,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         submitButtonName="Send"
         onSubmit={sendInvoice}
         patientId={patientId}
+        encounterId={selectedEncounterId}
+        prefilledInvoice={prefilledInvoice}
       />
     </Paper>
   );

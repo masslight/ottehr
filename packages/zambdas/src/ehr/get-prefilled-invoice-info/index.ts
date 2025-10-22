@@ -1,12 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Account, Patient, RelatedPerson } from 'fhir/r4b';
+import { Account, Patient, RelatedPerson, Resource } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   getEmailForIndividual,
   getFullName,
   getPatientReferenceFromAccount,
   getPhoneNumberForIndividual,
   GetPrefilledInvoiceInfoZambdaOutput,
+  getResponsiblePartyReferenceFromAccount,
   getSecret,
   SecretsKeys,
   takeContainedOrFind,
@@ -32,15 +34,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = createOystehrClient(m2mToken, secrets);
 
     const fhirResources = await getFhirPatientAndResponsibleParty({ oystehr, patientId });
-    const smsMessage = getSecret(SecretsKeys.INVOICING_DEFAULT_SMS_MESSAGE, secrets);
+    const smsMessageFromSecret = getSecret(SecretsKeys.INVOICING_DEFAULT_SMS_MESSAGE, secrets);
+    const smsMessage = replaceTemplateVariablesDollar(smsMessageFromSecret, { invoiceLink: 'placeholder' });
+    const memoFromSecret = getSecret(SecretsKeys.INVOICING_DEFAULT_MEMO_MESSAGE, secrets);
+    const dueDateFromSecret = getSecret(SecretsKeys.INVOICING_DEFAULT_DUE_DATE_IN_DAYS, secrets);
 
     if (fhirResources) {
       const { responsibleParty } = fhirResources;
-      const response: GetPrefilledInvoiceInfoZambdaOutput = {
-        responsiblePartyName: getFullName(responsibleParty),
-        responsiblePartyEmail: getEmailForIndividual(responsibleParty) ?? '',
-        responsiblePartyPhoneNumber: getPhoneNumberForIndividual(responsibleParty) ?? '',
+      const response: Partial<GetPrefilledInvoiceInfoZambdaOutput> = {
+        recipientName: getFullName(responsibleParty),
+        recipientEmail: getEmailForIndividual(responsibleParty),
+        recipientPhoneNumber: getPhoneNumberForIndividual(responsibleParty),
         smsTextMessage: smsMessage,
+        memo: memoFromSecret,
+        dueDate: DateTime.now()
+          .plus({ days: parseInt(dueDateFromSecret) })
+          .toISODate(),
       };
       return {
         statusCode: 200,
@@ -48,12 +57,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     }
     return {
-      statusCode: 200,
-      body: JSON.stringify({
-        responsiblePartyName: '',
-        responsiblePartyEmail: '',
-        responsiblePartyPhoneNumber: '',
-      } as GetPrefilledInvoiceInfoZambdaOutput),
+      statusCode: 202,
+      body: JSON.stringify({}),
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
@@ -89,15 +94,18 @@ async function getFhirPatientAndResponsibleParty(input: {
         ],
       })
     ).unbundle();
+    console.log('Fetched FHIR resources:', resources.length);
     const patient = resources.find((resource) => resource.resourceType === 'Patient') as Patient;
     const account = resources.find(
       (resource) =>
         resource.resourceType === 'Account' && getPatientReferenceFromAccount(resource as Account)?.includes(patientId)
     ) as Account;
     if (!patient || !account) return undefined;
-    const responsiblePartyRef = getPatientReferenceFromAccount(account);
+    const responsiblePartyRef = getResponsiblePartyReferenceFromAccount(account);
     if (responsiblePartyRef) {
-      const responsibleParty = takeContainedOrFind(responsiblePartyRef, [], account) as RelatedPerson | undefined;
+      const responsibleParty = takeContainedOrFind(responsiblePartyRef, resources as Resource[], account) as
+        | RelatedPerson
+        | undefined;
       if (patient && responsibleParty) {
         return { patient, responsibleParty };
       }
@@ -107,4 +115,15 @@ async function getFhirPatientAndResponsibleParty(input: {
     console.error('Error fetching fhir resources: ', error);
     throw new Error('Error fetching fhir resources: ' + error);
   }
+}
+
+export interface TemplateVariables {
+  [key: string]: string | number;
+}
+
+// ${} syntax
+export function replaceTemplateVariablesDollar(template: string, variables: TemplateVariables): string {
+  return template.replace(/\$\{(\w+)\}/g, (match, key) => {
+    return variables[key]?.toString() || match;
+  });
 }

@@ -1291,7 +1291,7 @@ export const invoiceablePatientsReport = async (oystehr: Oystehr): Promise<void>
 export const getPrefilledInvoiceInfo = async (
   oystehr: Oystehr,
   parameters: GetPrefilledInvoiceInfoZambdaInput
-): Promise<GetPrefilledInvoiceInfoZambdaOutput> => {
+): Promise<Partial<GetPrefilledInvoiceInfoZambdaOutput>> => {
   try {
     const response = await oystehr.zambda.execute({
       id: GET_PREFILLED_INVOICE_INFO_ZAMBDA_ID,

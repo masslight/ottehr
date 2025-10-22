@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import {
   FHIR_EXTENSION,
   getFullName,
+  getResponsiblePartyReferenceFromAccount,
   InvoiceablePatientReport,
   InvoiceablePatientReportFail,
   takeContainedOrFind,
@@ -52,9 +53,7 @@ export function mapResourcesToInvoiceablePatient(input: {
   const patient = patientToIdMap[claim.patientExternalId];
   if (patient?.id === undefined) return logErrorForClaimAndReturn('Patient', claim);
   const account = accountsToPatientIdMap[claim.patientExternalId];
-  const responsiblePartyRef = account?.guarantor?.find((gRef) => {
-    return gRef.period?.end === undefined;
-  })?.party?.reference;
+  const responsiblePartyRef = getResponsiblePartyReferenceFromAccount(account);
   if (!responsiblePartyRef) return logErrorForClaimAndReturn('RelatedPerson reference', claim);
   const responsibleParty = takeContainedOrFind(responsiblePartyRef, [], account) as RelatedPerson | undefined;
   if (!responsibleParty) return logErrorForClaimAndReturn('RelatedPerson', claim);

@@ -1,12 +1,10 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { GetPrefilledInvoiceInfoZambdaOutput, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { z } from 'zod';
-import { getPrefilledInvoiceInfo } from '../../api/api';
-import { useApiClients } from '../../hooks/useAppClients';
 import { BasicDatePicker } from '../form';
 
 export interface SendInvoiceFormData {
@@ -18,13 +16,21 @@ export interface SendInvoiceFormData {
   smsTextMessage: string;
 }
 
+export interface SendPatientInvoiceOnSubmitProps {
+  prefilledInfo: GetPrefilledInvoiceInfoZambdaOutput;
+  oystEncounterId: string;
+  patientId: string;
+}
+
 interface SendInvoiceToPatientDialogProps {
   title: string;
   modalOpen: boolean;
   handleClose: () => void;
-  onSubmit: (sendReceiptFormData: SendInvoiceFormData) => Promise<void>;
+  onSubmit: (props: SendPatientInvoiceOnSubmitProps) => Promise<void>;
   submitButtonName: string;
   patientId?: string;
+  encounterId?: string;
+  prefilledInvoice?: Partial<GetPrefilledInvoiceInfoZambdaOutput>;
 }
 
 export default function SendInvoiceToPatientDialog({
@@ -34,11 +40,37 @@ export default function SendInvoiceToPatientDialog({
   onSubmit,
   submitButtonName,
   patientId,
+  encounterId,
+  prefilledInvoice,
 }: SendInvoiceToPatientDialogProps): ReactElement {
-  const { oystehrZambda } = useApiClients();
   const emailValidator = z.string().email();
   const phoneNumberValidator = z.string().regex(/^[0-9]{10}$/);
   // const [fieldsDisabled, setFieldsDisabled] = useState();
+
+  const handleSubmitWrapped = (data: SendInvoiceFormData): void => {
+    console.log('submit here');
+    if (!patientId) {
+      enqueueSnackbar("Can't create invoice, patient id is required", { variant: 'error' });
+      return;
+    }
+    if (!encounterId) {
+      enqueueSnackbar("Can't create invoice, encounterId is required", { variant: 'error' });
+      return;
+    }
+    const { recipientName, recipientEmail, recipientPhoneNumber, dueDate, memo, smsTextMessage } = data;
+    void onSubmit({
+      patientId,
+      oystEncounterId: encounterId,
+      prefilledInfo: {
+        recipientName,
+        recipientEmail,
+        recipientPhoneNumber,
+        dueDate,
+        memo,
+        smsTextMessage,
+      },
+    });
+  };
 
   const {
     control,
@@ -49,21 +81,12 @@ export default function SendInvoiceToPatientDialog({
     mode: 'onBlur',
   });
 
-  const { data: prefilledInvoice } = useQuery({
-    queryKey: ['get-prefilled-invoice-info', patientId],
-    queryFn: () => {
-      if (oystehrZambda && patientId) return getPrefilledInvoiceInfo(oystehrZambda, { patientId });
-      return undefined;
-    },
-    enabled: !!oystehrZambda && !!patientId,
-  });
-
   useEffect(() => {
     if (prefilledInvoice) {
       reset({
-        recipientName: prefilledInvoice.responsiblePartyName,
-        recipientEmail: prefilledInvoice.responsiblePartyEmail,
-        recipientPhoneNumber: prefilledInvoice.responsiblePartyPhoneNumber,
+        recipientName: prefilledInvoice.recipientName,
+        recipientEmail: prefilledInvoice.recipientEmail,
+        recipientPhoneNumber: prefilledInvoice.recipientPhoneNumber,
         dueDate: prefilledInvoice.dueDate,
         memo: prefilledInvoice.memo,
         smsTextMessage: prefilledInvoice.smsTextMessage,
@@ -79,7 +102,7 @@ export default function SendInvoiceToPatientDialog({
         </DialogTitle>
 
         <DialogContent sx={{ overflow: 'auto' }}>
-          <Box component="form" id="send-invoice-form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 2 }}>
+          <Box component="form" id="send-invoice-form" onSubmit={handleSubmit(handleSubmitWrapped)} sx={{ mt: 2 }}>
             <Controller
               name="recipientName"
               control={control}
@@ -146,23 +169,16 @@ export default function SendInvoiceToPatientDialog({
               )}
             />
 
-            <Controller
-              name="dueDate"
-              control={control}
-              rules={{
-                required: 'Due date is required',
-              }}
-              render={({ field }) => (
-                <BasicDatePicker
-                  {...field}
-                  name="Due date"
-                  variant="outlined"
-                  control={control}
-                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-                  component="Field"
-                />
-              )}
-            />
+            <Box sx={{ mb: 2 }}>
+              <BasicDatePicker
+                name="dueDate"
+                label="Due date"
+                variant="outlined"
+                control={control}
+                rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                component="Picker"
+              />
+            </Box>
 
             <Controller
               name="memo"

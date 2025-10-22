@@ -1424,3 +1424,9 @@ export function getAppointmentType(appointment: Appointment): { type: string } {
 export function getPatientReferenceFromAccount(account: Account): string | undefined {
   return account.subject?.find((subj) => subj.reference?.includes('Patient/'))?.reference;
 }
+
+export function getResponsiblePartyReferenceFromAccount(account: Account): string | undefined {
+  return account?.guarantor?.find((gRef) => {
+    return gRef.period?.end === undefined;
+  })?.party?.reference;
+}

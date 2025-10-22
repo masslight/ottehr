@@ -13,11 +13,12 @@ export function validateRequestParameters(
   }
 
   const parsedJSON = JSON.parse(input.body);
-  const { patientId, candidClaimId } = SendInvoiceToPatientZambdaInputSchema.parse(parsedJSON);
+  const { oystEncounterId, oystPatientId, prefilledInfo } = SendInvoiceToPatientZambdaInputSchema.parse(parsedJSON);
 
   return {
     secrets: input.secrets,
-    patientId,
-    candidClaimId,
+    oystPatientId,
+    oystEncounterId,
+    prefilledInfo,
   };
 }
