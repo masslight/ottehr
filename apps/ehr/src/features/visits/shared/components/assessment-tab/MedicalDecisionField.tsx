@@ -55,12 +55,9 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
           value={value}
           onChange={(e) => {
             onChange(e);
-            onValueChange(e.target.value);
-          }}
-          onBlur={() => {
-            onValueChange(value, {
-              refetchChartDataOnSave: true,
-              additionalRequestOptions: { createICDRecommendations: true },
+            onValueChange(e.target.value, {
+              refetchChartDataOnSave: false,
+              additionalRequestOptions: { createICDRecommendations: false },
             });
           }}
           size="small"
