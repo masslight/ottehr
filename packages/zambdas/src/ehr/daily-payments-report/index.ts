@@ -1,4 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Appointment, Encounter, PaymentNotice } from 'fhir/r4b';
 import { DailyPaymentsReportZambdaOutput, getSecret, PaymentItem, PaymentMethodSummary, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -67,7 +68,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     // Search for payment notices within the date range with related resources
-    const searchParams: any[] = [
+    const searchParams: { name: string; value: string }[] = [
       {
         name: 'created',
         value: `ge${dateRange.start}`,
@@ -100,7 +101,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       );
     }
 
-    const paymentNoticeSearchResult = await oystehr.fhir.search<any>({
+    const paymentNoticeSearchResult = await oystehr.fhir.search<PaymentNotice | Encounter | Appointment>({
       resourceType: 'PaymentNotice',
       params: searchParams,
     });
@@ -109,33 +110,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const allResources = paymentNoticeSearchResult.unbundle();
 
     // Separate resources by type
-    let paymentNotices = allResources.filter((r: any) => r.resourceType === 'PaymentNotice');
+    let paymentNotices = allResources.filter((r) => r.resourceType === 'PaymentNotice');
     console.log(`Found ${paymentNotices.length} payment notices`);
 
     // If locationId filter is provided, filter payment notices by location
     if (locationId && paymentNotices.length > 0) {
-      const encounters = allResources.filter((r: any) => r.resourceType === 'Encounter');
-      const appointments = allResources.filter((r: any) => r.resourceType === 'Appointment');
+      const encounters = allResources.filter((r) => r.resourceType === 'Encounter');
+      const appointments = allResources.filter((r) => r.resourceType === 'Appointment');
 
       // Create maps for quick lookups
-      const encounterMap = new Map<string, any>();
-      encounters.forEach((encounter: any) => {
+      const encounterMap = new Map<string, Encounter>();
+      encounters.forEach((encounter) => {
         if (encounter.id) {
           encounterMap.set(encounter.id, encounter);
         }
       });
 
-      const appointmentMap = new Map<string, any>();
-      appointments.forEach((appointment: any) => {
+      const appointmentMap = new Map<string, Appointment>();
+      appointments.forEach((appointment) => {
         if (appointment.id) {
           appointmentMap.set(appointment.id, appointment);
         }
       });
 
       // Filter payment notices by location
-      paymentNotices = paymentNotices.filter((payment: any) => {
+      paymentNotices = paymentNotices.filter((payment) => {
         // Get the encounter reference from payment notice
-        if (!payment.request?.reference || payment.request.type !== 'Encounter') {
+        if (!payment.request?.reference || !payment.request.reference.startsWith('Encounter/')) {
           return false;
         }
 
@@ -160,7 +161,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
 
         // Check if appointment has the specified location
-        return appointment.participant.some((participant: any) => {
+        return appointment.participant.some((participant) => {
           const locationRef = participant.actor?.reference;
           return locationRef && locationRef === `Location/${locationId}`;
         });
@@ -185,10 +186,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     // Process payment notices into structured data
-    const paymentItems: PaymentItem[] = paymentNotices.map((payment: any) => {
+    const paymentItems: PaymentItem[] = paymentNotices.map((payment) => {
       // Extract payment method from extension
       const paymentMethodExtension = payment.extension?.find(
-        (ext: any) => ext.url === 'https://extensions.fhir.zapehr.com/payment-method'
+        (ext) => ext.url === 'https://extensions.fhir.zapehr.com/payment-method'
       );
       const paymentMethod = paymentMethodExtension?.valueString || 'N/A';
 

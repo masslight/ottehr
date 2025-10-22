@@ -53,7 +53,10 @@ export default function DailyPayments(): React.ReactElement {
         setLoadingLocations(true);
         const locationResults = await oystehr.fhir.search<Location>({
           resourceType: 'Location',
-          params: [{ name: '_count', value: '1000' }],
+          params: [
+            { name: '_count', value: '1000' },
+            { name: '_sort', value: 'name' },
+          ],
         });
 
         const locationsList = locationResults.unbundle();
@@ -283,7 +286,6 @@ export default function DailyPayments(): React.ReactElement {
               <MenuItem value="all">All Locations</MenuItem>
               {locations
                 .filter((loc) => loc.name)
-                .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
                 .map((location) => (
                   <MenuItem key={location.id} value={location.id}>
                     {location.name}
