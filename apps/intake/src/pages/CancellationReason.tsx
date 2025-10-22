@@ -40,7 +40,7 @@ enum CancelReasonOptions {
 const CancellationReason = (): JSX.Element => {
   const navigate = useNavigate();
   const zambdaClient = useUCZambdaClient({ tokenless: true });
-  const apiClient = useOystehrAPIClient({ tokenless: true });
+  const apiClient = useOystehrAPIClient();
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [cancelErrorDialog, setCancelErrorDialog] = useState<ErrorDialogConfig | undefined>(undefined);
