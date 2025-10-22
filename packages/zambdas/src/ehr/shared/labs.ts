@@ -970,7 +970,7 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
     }
     if (resource.resourceType === 'Task') {
       if (resource.id) {
-        if (resource.status === 'ready') {
+        if (resource.status === 'ready' || resource.status === 'in-progress') {
           readyTasksMap[resource.id] = resource;
         } else if (resource.status === 'completed') {
           completedTasksMap[resource.id] = resource;
