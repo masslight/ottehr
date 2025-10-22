@@ -5917,6 +5917,7 @@
           ],
           "effect": "Allow",
           "resource": [
+            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
@@ -6065,23 +6066,6 @@
       "name": "Customer Support",
       "accessPolicy": [
         {
-          "action": ["FHIR:Search", "FHIR:Read"],
-          "effect": "Allow",
-          "resource": [
-            "FHIR:Consent",
-            "FHIR:Coverage",
-            "FHIR:RelatedPerson",
-            "FHIR:Organization",
-            "FHIR:QuestionnaireResponse",
-            "FHIR:Questionnaire",
-            "FHIR:DocumentReference",
-            "FHIR:Person",
-            "FHIR:Medication",
-            "FHIR:List",
-            "FHIR:Schedule"
-          ]
-        },
-        {
           "action": ["App:ListAllUsers", "App:GetUser"],
           "effect": "Allow",
           "resource": ["App:User"]
@@ -6157,6 +6141,7 @@
         },
         {
           "resource": [
+            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
@@ -6254,6 +6239,7 @@
           ],
           "effect": "Allow",
           "resource": [
+            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
@@ -6433,6 +6419,7 @@
       "accessPolicy": [
         {
           "resource": [
+            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
@@ -6548,6 +6535,7 @@
       "accessPolicy": [
         {
           "resource": [
+            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
