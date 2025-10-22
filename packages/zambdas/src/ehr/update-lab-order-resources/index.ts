@@ -229,8 +229,6 @@ const handleReviewedEvent = async ({
     })
   ).unbundle();
 
-  console.log('!!!!!!!!!!!!!!!Resources: ', JSON.stringify(resources, null, 2));
-
   let serviceRequest: ServiceRequest | undefined;
   const maybeServiceRequest = resources.find(
     (r: any) => r.resourceType === 'ServiceRequest' && r.id === serviceRequestId

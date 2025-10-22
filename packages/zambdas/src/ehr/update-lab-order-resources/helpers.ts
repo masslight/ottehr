@@ -12,7 +12,6 @@ import {
   OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SpecimenCollectionDateConfig,
-  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
 } from 'utils';
 import { parseAccessionNumberFromDr, populateQuestionnaireResponseItems } from '../shared/labs';
 
@@ -152,15 +151,7 @@ export const makePstCompletePatchRequests = (
         {
           op: 'add',
           path: '/owner',
-          value: {
-            ...curUserReference,
-            extension: [
-              {
-                url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
-                valueDateTime: DateTime.now().toISO(),
-              },
-            ],
-          },
+          value: curUserReference,
         },
         {
           op: 'add',

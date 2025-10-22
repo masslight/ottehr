@@ -1392,7 +1392,7 @@ export const parseLabOrderStatusWithSpecificTask = (
       } else {
         return ExternalLabsStatus.reviewed;
       }
-    } else if (task.status === 'ready' || task.status === 'in-progress') {
+    } else if (task.status === 'ready') {
       return ExternalLabsStatus.received;
     }
   }
