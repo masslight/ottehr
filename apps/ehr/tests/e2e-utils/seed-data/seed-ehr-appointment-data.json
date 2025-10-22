@@ -1629,8 +1629,8 @@
                 "system": "phone"
               },
               {
-                "system": "email",
-                "value": "ibenham+test@masslight.com"
+                "value": "ibenham+test@masslight.com",
+                "system": "email"
               }
             ],
             "patient": {
@@ -1655,6 +1655,12 @@
                 ]
               }
             ]
+          }
+        ],
+        "identifier": [
+          {
+            "system": "https://api.stripe.com/v1/customers",
+            "value": "SKIP_ME_FOR_VALUE_CHECKING"
           }
         ]
       }
