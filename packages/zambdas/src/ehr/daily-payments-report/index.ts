@@ -1,5 +1,4 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { PaymentNotice } from 'fhir/r4b';
 import { DailyPaymentsReportZambdaOutput, getSecret, PaymentItem, PaymentMethodSummary, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -56,36 +55,119 @@ function formatGMTToLocalDate(gmtDateString: string): string {
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
-    const { dateRange } = validatedParameters;
+    const { dateRange, locationId } = validatedParameters;
 
     // Get M2M token for FHIR access
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
     const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
 
     console.log('Searching for payment notices in date range:', dateRange);
+    if (locationId) {
+      console.log('Filtering by location ID:', locationId);
+    }
 
-    // Search for payment notices within the date range
-    const paymentNoticeSearchResult = await oystehr.fhir.search<PaymentNotice>({
+    // Search for payment notices within the date range with related resources
+    const searchParams: any[] = [
+      {
+        name: 'created',
+        value: `ge${dateRange.start}`,
+      },
+      {
+        name: 'created',
+        value: `le${dateRange.end}`,
+      },
+      {
+        name: '_count',
+        value: '1000',
+      },
+    ];
+
+    // Add _include parameters to get related resources for location filtering
+    if (locationId) {
+      searchParams.push(
+        {
+          name: '_include',
+          value: 'PaymentNotice:request',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:location',
+        }
+      );
+    }
+
+    const paymentNoticeSearchResult = await oystehr.fhir.search<any>({
       resourceType: 'PaymentNotice',
-      params: [
-        {
-          name: 'created',
-          value: `ge${dateRange.start}`,
-        },
-        {
-          name: 'created',
-          value: `le${dateRange.end}`,
-        },
-        {
-          name: '_count',
-          value: '1000',
-        },
-      ],
+      params: searchParams,
     });
 
-    // Get all payment notices
-    const paymentNotices = paymentNoticeSearchResult.unbundle();
+    // Get all resources from the search
+    const allResources = paymentNoticeSearchResult.unbundle();
+
+    // Separate resources by type
+    let paymentNotices = allResources.filter((r: any) => r.resourceType === 'PaymentNotice');
     console.log(`Found ${paymentNotices.length} payment notices`);
+
+    // If locationId filter is provided, filter payment notices by location
+    if (locationId && paymentNotices.length > 0) {
+      const encounters = allResources.filter((r: any) => r.resourceType === 'Encounter');
+      const appointments = allResources.filter((r: any) => r.resourceType === 'Appointment');
+
+      // Create maps for quick lookups
+      const encounterMap = new Map<string, any>();
+      encounters.forEach((encounter: any) => {
+        if (encounter.id) {
+          encounterMap.set(encounter.id, encounter);
+        }
+      });
+
+      const appointmentMap = new Map<string, any>();
+      appointments.forEach((appointment: any) => {
+        if (appointment.id) {
+          appointmentMap.set(appointment.id, appointment);
+        }
+      });
+
+      // Filter payment notices by location
+      paymentNotices = paymentNotices.filter((payment: any) => {
+        // Get the encounter reference from payment notice
+        if (!payment.request?.reference || payment.request.type !== 'Encounter') {
+          return false;
+        }
+
+        const encounterId = payment.request.reference.replace('Encounter/', '');
+        const encounter = encounterMap.get(encounterId);
+
+        if (!encounter || !encounter.appointment || encounter.appointment.length === 0) {
+          return false;
+        }
+
+        // Get the appointment reference from encounter
+        const appointmentRef = encounter.appointment[0].reference;
+        if (!appointmentRef) {
+          return false;
+        }
+
+        const appointmentId = appointmentRef.replace('Appointment/', '');
+        const appointment = appointmentMap.get(appointmentId);
+
+        if (!appointment || !appointment.participant) {
+          return false;
+        }
+
+        // Check if appointment has the specified location
+        return appointment.participant.some((participant: any) => {
+          const locationRef = participant.actor?.reference;
+          return locationRef && locationRef === `Location/${locationId}`;
+        });
+      });
+
+      console.log(`After location filtering: ${paymentNotices.length} payment notices`);
+    }
 
     if (paymentNotices.length === 0) {
       const response: DailyPaymentsReportZambdaOutput = {
@@ -103,10 +185,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     // Process payment notices into structured data
-    const paymentItems: PaymentItem[] = paymentNotices.map((payment) => {
+    const paymentItems: PaymentItem[] = paymentNotices.map((payment: any) => {
       // Extract payment method from extension
       const paymentMethodExtension = payment.extension?.find(
-        (ext) => ext.url === 'https://extensions.fhir.zapehr.com/payment-method'
+        (ext: any) => ext.url === 'https://extensions.fhir.zapehr.com/payment-method'
       );
       const paymentMethod = paymentMethodExtension?.valueString || 'N/A';
 
