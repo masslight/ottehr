@@ -114,7 +114,6 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
     return (
       <LocalizationProvider dateAdapter={AdapterLuxon}>
         <DatePicker
-          data-testid={dataTestIds.orderMedicationPage.inputField(field)}
           label={label}
           value={dateTimeValue}
           onChange={(newValue) => {
@@ -132,6 +131,9 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
               required: required,
               error: showError && required && !value,
               helperText: showError && required && !value ? REQUIRED_FIELD_ERROR_MESSAGE : '',
+              inputProps: {
+                'data-testid': dataTestIds.orderMedicationPage.inputField(field),
+              },
             },
           }}
           format="yyyy-MM-dd"

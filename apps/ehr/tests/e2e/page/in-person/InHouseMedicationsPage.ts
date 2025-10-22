@@ -3,6 +3,7 @@ import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { EditMedicationCard } from '../EditMedicationCard';
 import { InPersonHeader } from '../InPersonHeader';
 import { expectOrderMedicationPage, OrderMedicationPage } from '../OrderMedicationPage';
+import { Dialog, expectDialog } from '../patient-information/Dialog';
 import { SideMenu } from '../SideMenu';
 
 export class InHouseMedicationsPage {
@@ -32,39 +33,52 @@ export class InHouseMedicationsPage {
   async verifyMedicationPresent(input: {
     medicationName: string;
     dose: string;
+    units: string;
     route: string;
+    orderedBy?: string;
+    givenBy?: string;
     instructions: string;
     status: string;
   }): Promise<void> {
-    await expect(
-      this.#page
-        .getByTestId(dataTestIds.inHouseMedicationsPage.marTableRow)
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableMedicationCell)
-            .filter({ hasText: input.medicationName }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableDoseCell)
-            .filter({ hasText: input.dose }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableRouteCell)
-            .filter({ hasText: input.route }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableInstructionsCell)
-            .filter({ hasText: input.instructions }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableStatusCell)
-            .filter({ hasText: input.status }),
-        })
-    ).toBeVisible();
+    const testIdToTextArray: { testId: string; text: string | undefined }[] = [
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTableMedicationCell,
+        text: input.medicationName,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTableDoseCell,
+        text: input.dose + ' ' + input.units,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTableRouteCell,
+        text: input.route,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTableOrderedByCell,
+        text: input.orderedBy,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTableGivenByCell,
+        text: input.givenBy,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTableInstructionsCell,
+        text: input.instructions,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTableStatusCell,
+        text: input.status,
+      },
+    ];
+    let matchedLocator = this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.marTableRow);
+    for (const testIdToText of testIdToTextArray) {
+      if (testIdToText.text) {
+        matchedLocator = matchedLocator.filter({
+          has: this.#page.getByTestId(testIdToText.testId).filter({ hasText: testIdToText.text }),
+        });
+        await expect(matchedLocator.first()).toBeVisible();
+      }
+    }
   }
 
   async clickMedicationDetailsTab(): Promise<void> {
@@ -73,6 +87,17 @@ export class InHouseMedicationsPage {
 
   async clickPencilIcon(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.pencilIconButton).click();
+  }
+
+  async clickDeleteButton(medicationName: string): Promise<Dialog> {
+    await this.#page
+      .getByTestId(dataTestIds.inHouseMedicationsPage.marTableRow)
+      .filter({
+        hasText: medicationName,
+      })
+      .getByTestId(dataTestIds.inHouseMedicationsPage.deleteButton)
+      .click();
+    return expectDialog(this.#page);
   }
 }
 

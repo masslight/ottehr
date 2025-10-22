@@ -1,5 +1,9 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
+import {
+  AdministeredDialogue,
+  expectAdministrationConfirmationDialogue,
+} from './in-person/inHouseMedicationsAdministrationDialog';
 
 export enum Field {
   MEDICATION,
@@ -10,6 +14,8 @@ export enum Field {
   ROUTE,
   INSTRUCTIONS,
   ORDERED_BY,
+  LOT_NUMBER,
+  EXP_DATE,
 }
 
 const FIELD_TO_TEST_ID = new Map<Field, string>()
@@ -20,7 +26,9 @@ const FIELD_TO_TEST_ID = new Map<Field, string>()
   .set(Field.MANUFACTURER, dataTestIds.orderMedicationPage.inputField('manufacturer'))
   .set(Field.ROUTE, dataTestIds.orderMedicationPage.inputField('route'))
   .set(Field.INSTRUCTIONS, dataTestIds.orderMedicationPage.inputField('instructions'))
-  .set(Field.ORDERED_BY, dataTestIds.orderMedicationPage.inputField('providerId'));
+  .set(Field.ORDERED_BY, dataTestIds.orderMedicationPage.inputField('providerId'))
+  .set(Field.LOT_NUMBER, dataTestIds.orderMedicationPage.inputField('lotNumber'))
+  .set(Field.EXP_DATE, dataTestIds.orderMedicationPage.inputField('expDate'));
 
 export class EditMedicationCard {
   #page: Page;
@@ -96,6 +104,7 @@ export class EditMedicationCard {
     await this.#page.getByTestId(dataTestId).locator('input').fill('');
     await this.#page.getByTestId(dataTestId).locator('input').pressSequentially(dose);
   }
+
   async clearDose(): Promise<void> {
     const dataTestId = this.getDataTestId(Field.DOSE);
     await this.#page.getByTestId(dataTestId).locator('input').clear();
@@ -170,5 +179,22 @@ export class EditMedicationCard {
   async verifyValidationErrorNotShown(field: Field): Promise<void> {
     const dataTestId = this.getDataTestId(field);
     await expect(this.#page.getByTestId(dataTestId).locator('p:text("This field is required")')).toBeHidden();
+  }
+
+  async enterLotNumber(lotNumber: string): Promise<void> {
+    const dataTestId = this.getDataTestId(Field.LOT_NUMBER);
+    await this.#page.getByTestId(dataTestId).locator('input').fill('');
+    await this.#page.getByTestId(dataTestId).locator('input').pressSequentially(lotNumber);
+  }
+
+  async enterExpiratrionDate(expirationDate: string): Promise<void> {
+    const dataTestId = this.getDataTestId(Field.EXP_DATE);
+    await this.#page.getByTestId(dataTestId).click();
+    await this.#page.getByTestId(dataTestId).pressSequentially(expirationDate);
+  }
+
+  async clickAdministeredButton(): Promise<AdministeredDialogue> {
+    await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.administeredButton).click();
+    return expectAdministrationConfirmationDialogue(this.#page);
   }
 }
