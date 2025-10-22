@@ -1629,8 +1629,8 @@
                 "system": "phone"
               },
               {
-                "system": "email",
-                "value": "ibenham+test@masslight.com"
+                "value": "ibenham+test@masslight.com",
+                "system": "email"
               }
             ],
             "patient": {
@@ -1655,6 +1655,12 @@
                 ]
               }
             ]
+          }
+        ],
+        "identifier": [
+          {
+            "system": "https://api.stripe.com/v1/customers",
+            "value": "SKIP_ME_FOR_VALUE_CHECKING"
           }
         ]
       }
@@ -5602,6 +5608,174 @@
           "tag": [
             {
               "code": "normal-canals",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Decreased breath sounds"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "breath-sounds",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Crackles"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "crackles",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Rash"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "rash",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Retractions"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "retractions",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Tender"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "tender",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Wheezing"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "wheezing",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]

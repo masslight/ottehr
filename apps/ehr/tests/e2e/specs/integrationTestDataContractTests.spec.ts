@@ -537,6 +537,14 @@ const cleanAccount = (account: Account): Account => {
     (contained) => contained.resourceType === 'RelatedPerson'
   ) as RelatedPerson;
   containedRelatedPerson.patient.reference = containedRelatedPerson.patient.reference?.split('/')[0]; // cut off the UUID for comparison
+  // stripe id is the only identifier we use. if that changes, update this
+  if (
+    cleanedAccount.identifier &&
+    cleanedAccount.identifier.length > 0 &&
+    cleanedAccount.identifier[0].system === 'https://api.stripe.com/v1/customers'
+  ) {
+    cleanedAccount.identifier[0].value = SKIP_ME;
+  }
   return cleanedAccount;
 };
 
