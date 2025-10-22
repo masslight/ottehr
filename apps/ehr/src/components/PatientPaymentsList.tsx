@@ -68,7 +68,7 @@ export default function PatientPaymentList({
   patientSelectSelfPay,
   responsibleParty,
 }: PaymentListProps): ReactElement {
-  const { oystehr } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentVariant, setPaymentVariant] = useState(
@@ -168,8 +168,8 @@ export default function PatientPaymentList({
 
   const createNewPayment = useMutation({
     mutationFn: async (input: PostPatientPaymentInput) => {
-      if (oystehr && input) {
-        return oystehr.zambda
+      if (oystehrZambda && input) {
+        return oystehrZambda.zambda
           .execute({
             id: 'patient-payments-post',
             ...input,
@@ -375,7 +375,7 @@ export default function PatientPaymentList({
               encounterId,
               paymentDetails: data,
             };
-            createNewPayment.mutate(postInput);
+            await createNewPayment.mutateAsync(postInput);
           }}
         />
       )}
