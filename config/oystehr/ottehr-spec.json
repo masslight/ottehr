@@ -1190,6 +1190,13 @@
       "src": "src/ehr/visit-details/update-visit-details/index",
       "zip": ".dist/zips/ehr-update-visit-details.zip"
     },
+    "INVOICEABLE_PATIENTS_REPORT": {
+      "name": "invoiceable-patients-report",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/invoiceable-patients-report/index",
+      "zip": ".dist/zips/invoiceable-patients-report.zip"
+    },
     "GET-PREFILLED-INVOICE-INFO": {
       "name": "get-prefilled-invoice-info",
       "type": "http_auth",
@@ -5880,6 +5887,11 @@
           "effect": "Allow"
         },
         {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
+        },
+        {
           "action": [
             "Telemed:JoinMeeting"
           ],
@@ -6068,7 +6080,7 @@
       ]
     },
     "CUSTOMER_SUPPORT": {
-      "name": "CustomerSupport",
+      "name": "Customer Support",
       "accessPolicy": [
         {
           "action": ["FHIR:Search", "FHIR:Read"],
@@ -6157,6 +6169,11 @@
           "effect": "Allow"
         },
         {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
+        },
+        {
           "resource": [
             "FHIR:Consent",
             "FHIR:Coverage",
@@ -6193,11 +6210,6 @@
           "resource": ["Z3:*"],
           "action": ["Z3:GetObject"],
           "effect": "Allow"
-        },
-        {
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Allow",
-          "resource": ["Zambda:Function:*"]
         },
         {
           "action": ["FHIR:Read", "FHIR:Update"],
@@ -6247,11 +6259,6 @@
             "FHIR:Patient",
             "FHIR:RelatedPerson"
           ]
-        },
-        {
-          "resource": ["Zambda:Function:*"],
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Allow"
         }
       ]
     },
@@ -6343,6 +6350,11 @@
           ]
         },
         {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
+        },
+        {
           "action": [
             "FHIR:Read",
             "FHIR:Update"
@@ -6415,15 +6427,6 @@
           ]
         },
         {
-          "resource": [
-            "Zambda:Function:*"
-          ],
-          "action": [
-            "Zambda:InvokeFunction"
-          ],
-          "effect": "Allow"
-        },
-        {
           "action": [
             "eRx:SearchAllergen"
           ],
@@ -6473,7 +6476,8 @@
             "FHIR:Appointment",
             "FHIR:Encounter",
             "FHIR:Patient",
-            "FHIR:Flag"
+            "FHIR:Flag",
+            "FHIR:Task"
           ],
           "action": [
             "FHIR:Search",
@@ -6499,6 +6503,11 @@
           "resource": [
             "Zambda:Function:*"
           ]
+        },
+        {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
         },
         {
           "action": [
@@ -6549,15 +6558,6 @@
             "FHIR:Patient",
             "FHIR:Appointment"
           ]
-        },
-        {
-          "resource": [
-            "Zambda:Function:*"
-          ],
-          "action": [
-            "Zambda:InvokeFunction"
-          ],
-          "effect": "Allow"
         }
       ]
     },
@@ -6596,7 +6596,8 @@
             "FHIR:Encounter",
             "FHIR:Patient",
             "FHIR:Flag",
-            "FHIR:QuestionnaireResponse"
+            "FHIR:QuestionnaireResponse",
+            "FHIR:Task"
           ],
           "action": [
             "FHIR:Search",
@@ -6631,6 +6632,11 @@
           "resource": [
             "Zambda:Function:*"
           ]
+        },
+        {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
         },
         {
           "action": [
@@ -6720,15 +6726,6 @@
             "FHIR:Patient",
             "FHIR:RelatedPerson"
           ]
-        },
-        {
-          "resource": [
-            "Zambda:Function:*"
-          ],
-          "action": [
-            "Zambda:InvokeFunction"
-          ],
-          "effect": "Allow"
         }
       ]
     },
@@ -6791,6 +6788,11 @@
             "Zambda:InvokeFunction"
           ],
           "effect": "Allow"
+        },
+        {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
         }
       ]
     }

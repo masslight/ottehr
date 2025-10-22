@@ -49,7 +49,7 @@ import { CategoryChip, TASK_CATEGORY_LABEL } from '../components/CategoryChip';
 const UNKNOWN = 'Unknown';
 const COMPLETED = 'completed';
 const TASK_STATUS_LABEL: Record<string, string> = {
-  requested: 'pending',
+  ready: 'pending',
   'in-progress': 'in progress',
   completed: 'completed',
 };
@@ -93,7 +93,7 @@ export const Tasks: React.FC = () => {
                 taskId: task.id,
                 assignee: {
                   id: currentUserProviderId,
-                  name: currentUser.name,
+                  name: currentUser.userName,
                 },
               });
             }
@@ -175,7 +175,7 @@ export const Tasks: React.FC = () => {
 
   const [pageNumber, setPageNumber] = React.useState(0);
 
-  const { data: tasks, isLoading: isTasksLoading } = useGetTasks({
+  const { data: tasksData, isLoading: isTasksLoading } = useGetTasks({
     assignedTo: searchParams.get('assignedTo'),
     category: searchParams.get('category'),
     location: searchParams.get('location'),
@@ -235,7 +235,7 @@ export const Tasks: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ) : null}
-              {!isTasksLoading && (tasks ?? []).length === 0 ? (
+              {!isTasksLoading && (tasksData?.tasks ?? []).length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} align="center">
                     <Typography variant="body2">No tasks</Typography>
@@ -243,7 +243,7 @@ export const Tasks: React.FC = () => {
                 </TableRow>
               ) : null}
               {!isTasksLoading &&
-                (tasks ?? []).map((task) => {
+                (tasksData?.tasks ?? []).map((task) => {
                   return (
                     <TableRow>
                       <TableCell>
@@ -329,7 +329,7 @@ export const Tasks: React.FC = () => {
           <TablePagination
             rowsPerPageOptions={[TASKS_PAGE_SIZE]}
             component="div"
-            count={-1}
+            count={tasksData?.total ?? -1}
             rowsPerPage={TASKS_PAGE_SIZE}
             page={pageNumber}
             onPageChange={(_e, newPageNumber) => {
