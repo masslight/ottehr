@@ -1,5 +1,6 @@
 import { CodeableConcept, DiagnosticReport, Task } from 'fhir/r4b';
-import { LAB_ORDER_TASK, LabOrderTaskCode } from 'utils';
+import { LAB_DR_TYPE_TAG, LAB_ORDER_TASK, LabOrderTaskCode, LabType } from 'utils';
+import { getAllDrTags } from '../../../ehr/shared/labs';
 
 export const ACCEPTED_RESULTS_STATUS = ['preliminary', 'final', 'corrected', 'cancelled'];
 type AcceptedResultsStatus = (typeof ACCEPTED_RESULTS_STATUS)[number];
@@ -35,4 +36,18 @@ const labOrderTaskCoding = (code: LabOrderTaskCode): CodeableConcept => {
       },
     ],
   };
+};
+
+export const isUnsolicitedResult = (specificTag: LabType | undefined, dr: DiagnosticReport): boolean => {
+  if (!specificTag) return false;
+  if (specificTag === LAB_DR_TYPE_TAG.code.unsolicited) return true;
+  if (specificTag === LAB_DR_TYPE_TAG.code.attachment) {
+    // check if tag also contains unsolicited (we are treating pdf as the primary tag and unsolicited as something secondary)
+    const allTags = getAllDrTags(dr);
+    const unsolicitedTagIsContained = allTags?.includes(LabType.unsolicited);
+    // this is a backup method for checking if the attachment DR is undefined
+    const patientSubjectIsFound = !!dr.subject?.reference?.startsWith('Patient/');
+    return unsolicitedTagIsContained || !patientSubjectIsFound;
+  }
+  return false;
 };

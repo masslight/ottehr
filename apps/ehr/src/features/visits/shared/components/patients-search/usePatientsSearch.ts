@@ -190,13 +190,23 @@ export const usePatientsSearch = (): {
 
   // run search on url params change
   useEffect(() => {
-    if ([...searchParams.entries()].length > 0) {
+    const hasSearchParams = [...searchParams.entries()].length > 0;
+    const hasFilters = Object.values(searchOptions.filters).some(
+      (value) => value && value !== 'All' && value.toString().trim() !== ''
+    );
+
+    if (hasSearchParams || hasFilters) {
       const loadPatients = async (): Promise<void> => {
         setArePatientsLoading(true);
         try {
-          const filter: Partial<SearchOptionsFilters> = getFiltersFromUrl(searchParams);
-          const sort: SearchOptionsSort = getSortFromUrl(searchParams);
-          const pagination: SearchOptionsPagination = getPaginationFromUrl(searchParams);
+          // Use current searchOptions state if URL params are empty but filters exist
+          const filter: Partial<SearchOptionsFilters> = hasSearchParams
+            ? getFiltersFromUrl(searchParams)
+            : searchOptions.filters;
+          const sort: SearchOptionsSort = hasSearchParams ? getSortFromUrl(searchParams) : searchOptions.sort;
+          const pagination: SearchOptionsPagination = hasSearchParams
+            ? getPaginationFromUrl(searchParams)
+            : searchOptions.pagination;
 
           let url = buildSearchQuery(filter);
           url = addSearchSort(url, sort);
@@ -214,7 +224,7 @@ export const usePatientsSearch = (): {
       };
       void loadPatients();
     }
-  }, [getAccessTokenSilently, searchParams]);
+  }, [getAccessTokenSilently, searchParams, searchOptions]);
 
   return {
     searchResult,

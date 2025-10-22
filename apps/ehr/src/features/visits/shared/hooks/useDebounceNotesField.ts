@@ -1,7 +1,7 @@
 import { enqueueSnackbar } from 'notistack';
 import { useRef } from 'react';
 import { AllChartValues, GetChartDataResponse } from 'utils';
-import { useDeleteChartData, useSaveChartData } from '../stores/appointment/appointment.store';
+import { useChartData, useDeleteChartData, useSaveChartData } from '../stores/appointment/appointment.store';
 import { useChartFields } from './useChartFields';
 
 type ChartDataTextValueType = Pick<
@@ -36,11 +36,18 @@ const requestedFieldsOptions: Partial<Record<keyof ChartDataTextValueType, { _ta
 export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   name: T
 ): {
-  onValueChange: (text: string) => void;
+  onValueChange: (
+    text: string,
+    {
+      refetchChartDataOnSave,
+      additionalRequestOptions,
+    }?: { refetchChartDataOnSave: boolean; additionalRequestOptions?: { createICDRecommendations?: boolean } }
+  ) => void;
   isLoading: boolean;
   isChartDataLoading: boolean;
   hasPendingApiRequests: boolean; // we can use it later to prevent navigation if there are pending api requests
 } => {
+  const { refetch } = useChartData();
   const {
     isLoading: isChartDataLoading,
     data: chartFields,
@@ -71,7 +78,13 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   // actual value from user, the latest text typed into the input
   const latestValueFromUserRef = useRef<string>('');
 
-  const onValueChange = (text: string): void => {
+  const onValueChange = (
+    text: string,
+    {
+      refetchChartDataOnSave,
+      additionalRequestOptions,
+    }: { refetchChartDataOnSave?: boolean; additionalRequestOptions?: { createICDRecommendations?: boolean } } = {}
+  ): void => {
     latestValueFromUserRef.current = text.trim();
 
     if (inputDebounceRef.current) {
@@ -98,6 +111,7 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
             (chartFields?.[name] as GetChartDataResponse[T])?.resourceId ||
             latestValueFromServerRef.current?.resourceId,
           [nameToTypeEnum[name]]: latestValueFromUserRef.current,
+          ...additionalRequestOptions,
         },
       };
 
@@ -109,6 +123,13 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
             // skip ui update if value was changed, we need to set only actual value
             if (latestValueFromUserRef.current === valueToSave?.[nameToTypeEnum[name]]) {
               setQueryCache({ [name]: valueToSave });
+            }
+
+            if (refetchChartDataOnSave) {
+              // refetch chart data
+              refetch()
+                .then(() => console.log('Successfully refetched'))
+                .catch(() => console.log('Error refetching'));
             }
 
             hasPendingApiRequestsRef.current = false;

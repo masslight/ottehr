@@ -8,9 +8,10 @@ type Props = {
   name: string;
   label: string;
   required?: boolean;
+  dataTestId?: string;
 };
 
-export const ProviderSelectInput: React.FC<Props> = ({ name, label, required }) => {
+export const ProviderSelectInput: React.FC<Props> = ({ name, label, required, dataTestId }) => {
   const { oystehrZambda } = useApiClients();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [options, setOptions] = useState<Option[] | undefined>(undefined);
@@ -50,6 +51,7 @@ export const ProviderSelectInput: React.FC<Props> = ({ name, label, required }) 
       options={options}
       loading={isLoading}
       required={required}
+      dataTestId={dataTestId}
       valueToOption={(value: any) => {
         return {
           label: value.name,

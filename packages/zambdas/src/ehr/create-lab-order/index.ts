@@ -1,7 +1,6 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { getRandomValues } from 'crypto';
 import {
   Account,
   ActivityDefinition,
@@ -25,6 +24,7 @@ import { DateTime } from 'luxon';
 import {
   APIError,
   CreateLabOrderZambdaOutput,
+  createOrderNumber,
   EXTERNAL_LAB_ERROR,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
@@ -693,18 +693,6 @@ const getSpecimenAndSpecimenDefConfig = (
   };
   return { specimenDefinitionConfig, specimenConfig };
 };
-
-function createOrderNumber(length: number): string {
-  // https://sentry.io/answers/generate-random-string-characters-in-javascript/
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  const randomArray = new Uint8Array(length);
-  getRandomValues(randomArray);
-  randomArray.forEach((number) => {
-    result += chars[number % chars.length];
-  });
-  return result;
-}
 
 /**
  * Ensures the ordering location is configured to order labs from the Lab Organization determined from the orderable item.

@@ -137,33 +137,32 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
 
-  console.time('patching patient resource');
   if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
+    console.time('patching patient resource');
     try {
       patientResource = await oystehr.fhir.patch<Patient>({
         resourceType: 'Patient',
         id: patientResource.id!,
         operations: patientPatchOps.patient.patchOpsForDirectUpdate,
       });
-      const pharmacyPatchOps = createUpdatePharmacyPatchOps(
-        patientResource,
-        flattenQuestionnaireAnswers(qr.item ?? [])
-      );
-      if (pharmacyPatchOps.length > 0) {
-        patientResource = await oystehr.fhir.patch<Patient>({
-          resourceType: 'Patient',
-          id: patientResource.id!,
-          operations: pharmacyPatchOps,
-        });
-      }
-
+      console.timeEnd('patching patient resource');
       console.log('Patient update successful');
     } catch (error: unknown) {
       tasksFailed.push('patch patient');
       console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
     }
   }
-  console.timeEnd('patching patient resource');
+  // combining these patch ops with patientPatchOps caused a bug so keeping separate for now
+  const pharmacyPatchOps = createUpdatePharmacyPatchOps(patientResource, flattenQuestionnaireAnswers(qr.item ?? []));
+  if (pharmacyPatchOps.length > 0) {
+    console.log('Applying pharmacy patch operations: ', JSON.stringify(pharmacyPatchOps, null, 2));
+    patientResource = await oystehr.fhir.patch<Patient>({
+      resourceType: 'Patient',
+      id: patientResource.id!,
+      operations: pharmacyPatchOps,
+    });
+  }
+
   if (patientResource === undefined || patientResource.id === undefined) {
     throw new Error('Patient resource not found');
   }

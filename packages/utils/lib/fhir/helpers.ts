@@ -32,6 +32,7 @@ import {
   RelatedPerson,
   Resource,
   ServiceRequest,
+  Signature,
   Task,
   TaskInput,
 } from 'fhir/r4b';
@@ -1503,4 +1504,9 @@ export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Opera
   } else {
     return;
   }
+};
+
+export const getAttestedConsentFromEncounter = (encounter: Encounter): Signature | undefined => {
+  console.log('getAttestedConsentFromEncounter', JSON.stringify(encounter));
+  return encounter.extension?.find((ext) => ext.url === FHIR_EXTENSION.Encounter.attestedConsent.url)?.valueSignature;
 };

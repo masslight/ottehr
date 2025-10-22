@@ -14,6 +14,7 @@ import { EmergencyContactContainer } from 'src/features/visits/shared/components
 import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { InsuranceSection } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { PatientDetailsContainer } from 'src/features/visits/shared/components/patient/PatientDetailsContainer';
+import { PharmacyContainer } from 'src/features/visits/shared/components/patient/PharmacyContainer';
 import { PrimaryCareContainer } from 'src/features/visits/shared/components/patient/PrimaryCareContainer';
 import { ResponsibleInformationContainer } from 'src/features/visits/shared/components/patient/ResponsibleInformationContainer';
 import { WarningBanner } from 'src/features/visits/shared/components/patient/WarningBanner';
@@ -119,7 +120,7 @@ const transformInsurancePlans = (bundleEntries: BundleEntry[]): InsurancePlanDTO
         return createInsurancePlanDto(organization);
       } catch (err) {
         console.error(err);
-        console.log('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
+        console.error('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
         return {} as InsurancePlanDTO;
       }
     })
@@ -421,7 +422,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
       <FormProvider {...methods}>
         <Box>
           {renderHeader && <Header handleDiscard={handleBackClickWithConfirmation} id={id} />}
-          <Box sx={{ display: 'flex', flexDirection: 'column', ...containerSX }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', ...containerSX, marginBottom: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {renderBreadCrumbs && <BreadCrumbs patient={patient} />}
               {title && (
@@ -451,6 +452,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                   />
                   <ResponsibleInformationContainer />
                   <EmergencyContactContainer />
+                  <PharmacyContainer />
                 </Box>
               </Box>
             </Box>
