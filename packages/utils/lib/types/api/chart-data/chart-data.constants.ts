@@ -34,8 +34,6 @@ export type DispositionMetaFieldsNames = 'disposition-follow-up' | 'sub-follow-u
 
 export const SCHOOL_WORK_NOTE_TYPE_META_SYSTEM = `${SCHOOL_WORK_NOTE}/type`;
 
-export const PATIENT_SUPPORT_PHONE_NUMBER = '202-555-1212';
-
 export const ASQ_FIELD = 'asq';
 
 export enum ASQKeys {

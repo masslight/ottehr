@@ -26,6 +26,7 @@ import procedureType from '../../../../../../config/oystehr/procedure-type.json'
 interface ProcedureInfo {
   consentChecked: boolean;
   procedureType: string;
+  procedureTypeCptCode?: string;
   cptCode: string;
   cptName: string;
   diagnosisCode: string;
@@ -37,9 +38,9 @@ interface ProcedureInfo {
   technique: string;
   instruments: string;
   details: string;
-  specimentSent: string;
+  specimenSent: string;
   complication: string;
-  patinentResponse: string;
+  patientResponse: string;
   instructions: string;
   timeSpent: string;
   documentedBy: string;
@@ -65,9 +66,24 @@ const PROCEDURE_POST_INSTRUCTIONS_CODINGS =
 const PROCEDURE_TIME_SPENT_CODINGS =
   procedureTimeSpent.fhirResources['value-set-procedure-time-spent'].resource.expansion.contains;
 
+const CONFIG_PROCEDURES = PROCEDURE_TYPE_CODINGS.map((procedure) => {
+  const dropDownChoice = procedure.display;
+  const codeableConcept = procedure.extension?.[0].valueCodeableConcept.coding[0];
+  if (!codeableConcept) {
+    return {
+      dropDownChoice,
+    };
+  }
+  return {
+    dropDownChoice,
+    display: codeableConcept.code + ' ' + codeableConcept.display,
+  };
+});
+
 const PROCEDURE_A: ProcedureInfo = {
   consentChecked: true,
-  procedureType: PROCEDURE_TYPE_CODINGS[0].display,
+  procedureType: CONFIG_PROCEDURES[0].dropDownChoice,
+  procedureTypeCptCode: CONFIG_PROCEDURES[0].display,
   cptCode: '73000',
   cptName: 'X-ray of collar bone',
   diagnosisCode: 'D51.0',
@@ -79,9 +95,9 @@ const PROCEDURE_A: ProcedureInfo = {
   technique: PROCEDURE_TECHNIQUES_CODINGS[0].display,
   instruments: PROCEDURE_SUPPLIES_CODINGS[0].display,
   details: 'test details a',
-  specimentSent: 'Yes',
+  specimenSent: 'Yes',
   complication: PROCEDURE_COMPLICATIONS_CODINGS[1].display,
-  patinentResponse: PROCEDURE_PATIENT_RESPONSES_CODINGS[0].display,
+  patientResponse: PROCEDURE_PATIENT_RESPONSES_CODINGS[0].display,
   instructions: PROCEDURE_POST_INSTRUCTIONS_CODINGS[0].display,
   timeSpent: PROCEDURE_TIME_SPENT_CODINGS[0].display,
   documentedBy: 'Provider',
@@ -89,7 +105,8 @@ const PROCEDURE_A: ProcedureInfo = {
 
 const PROCEDURE_B: ProcedureInfo = {
   consentChecked: false,
-  procedureType: PROCEDURE_TYPE_CODINGS[1].display,
+  procedureType: CONFIG_PROCEDURES[1].dropDownChoice,
+  procedureTypeCptCode: CONFIG_PROCEDURES[1].display,
   cptCode: '11900',
   cptName: 'Injection into skin growth, 1-7 growths',
   diagnosisCode: 'R50.9',
@@ -101,9 +118,9 @@ const PROCEDURE_B: ProcedureInfo = {
   technique: PROCEDURE_TECHNIQUES_CODINGS[1].display,
   instruments: PROCEDURE_SUPPLIES_CODINGS[1].display,
   details: 'test details b',
-  specimentSent: 'No',
+  specimenSent: 'No',
   complication: PROCEDURE_COMPLICATIONS_CODINGS[2].display,
-  patinentResponse: PROCEDURE_PATIENT_RESPONSES_CODINGS[1].display,
+  patientResponse: PROCEDURE_PATIENT_RESPONSES_CODINGS[1].display,
   instructions: PROCEDURE_POST_INSTRUCTIONS_CODINGS[1].display,
   timeSpent: PROCEDURE_TIME_SPENT_CODINGS[1].display,
   documentedBy: 'Healthcare staff',
@@ -135,12 +152,12 @@ test.describe('Document Procedures Page mutating tests', () => {
       await verifyProcedureRow(PROCEDURE_A, procedureRow);
     });
 
-    await test.step('Verify prodecure details on progress note', async () => {
+    await test.step('Verify procedure details on progress note', async () => {
       const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
       await progressNotePage.verifyProcedure(PROCEDURE_A.procedureType, progressNoteProcedureDetails(PROCEDURE_A));
     });
 
-    await test.step('Verify prodecure details on procedure details page', async () => {
+    await test.step('Verify procedure details on procedure details page', async () => {
       const proceduresPage = await openProceduresPage(resourceHandler.appointment.id!, page);
       const documentProcedurePage = await proceduresPage.getProcedureRow(PROCEDURE_A.procedureType).click();
       await verifyProcedureInfo(PROCEDURE_A, documentProcedurePage);
@@ -155,12 +172,12 @@ test.describe('Document Procedures Page mutating tests', () => {
       await verifyProcedureRow(PROCEDURE_B, procedureRow);
     });
 
-    await test.step('Verify edited prodecure details on progress note', async () => {
+    await test.step('Verify edited procedure details on progress note', async () => {
       const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
       await progressNotePage.verifyProcedure(PROCEDURE_B.procedureType, progressNoteProcedureDetails(PROCEDURE_B));
     });
 
-    await test.step('Verify edited prodecure details on procedure details page', async () => {
+    await test.step('Verify edited procedure details on procedure details page', async () => {
       const proceduresPage = await openProceduresPage(resourceHandler.appointment.id!, page);
       const procedureRow = proceduresPage.getProcedureRow(PROCEDURE_B.procedureType);
       const documentProcedurePage = await procedureRow.click();
@@ -194,9 +211,9 @@ test.describe('Document Procedures Page mutating tests', () => {
     await documentProcedurePage.selectTechnique(procedureInfo.technique);
     await documentProcedurePage.selectInstruments(procedureInfo.instruments);
     await documentProcedurePage.enterProcedureDetails(procedureInfo.details);
-    await documentProcedurePage.selectSpecimenSent(procedureInfo.specimentSent);
+    await documentProcedurePage.selectSpecimenSent(procedureInfo.specimenSent);
     await documentProcedurePage.selectComplications(procedureInfo.complication);
-    await documentProcedurePage.selectPatientResponse(procedureInfo.patinentResponse);
+    await documentProcedurePage.selectPatientResponse(procedureInfo.patientResponse);
     await documentProcedurePage.selectPostProcedureInstructions(procedureInfo.instructions);
     await documentProcedurePage.selectTimeSpent(procedureInfo.timeSpent);
     await documentProcedurePage.selectDocumentedBy(procedureInfo.documentedBy);
@@ -217,9 +234,9 @@ test.describe('Document Procedures Page mutating tests', () => {
     await documentProcedurePage.verifyTechnique(procedureInfo.technique);
     await documentProcedurePage.verifyInstruments(procedureInfo.instruments);
     await documentProcedurePage.verifyProcedureDetails(procedureInfo.details);
-    await documentProcedurePage.verifySpecimenSent(procedureInfo.specimentSent);
+    await documentProcedurePage.verifySpecimenSent(procedureInfo.specimenSent);
     await documentProcedurePage.verifyComplications(procedureInfo.complication);
-    await documentProcedurePage.verifyPatientResponse(procedureInfo.patinentResponse);
+    await documentProcedurePage.verifyPatientResponse(procedureInfo.patientResponse);
     await documentProcedurePage.verifyPostProcedureInstructions(procedureInfo.instructions);
     await documentProcedurePage.verifyTimeSpent(procedureInfo.timeSpent);
     await documentProcedurePage.verifyDocumentedBy(procedureInfo.documentedBy);
@@ -233,8 +250,10 @@ test.describe('Document Procedures Page mutating tests', () => {
   }
 
   function progressNoteProcedureDetails(procedureInfo: ProcedureInfo): string[] {
+    const cptPrefix = procedureInfo.procedureTypeCptCode ? procedureInfo.procedureTypeCptCode + ':' : '';
     return [
-      'CPT: ' + procedureInfo.cptCode + ' ' + procedureInfo.cptName,
+      // colon will be used to split and reorder string so this line is different
+      'CPT:' + cptPrefix + procedureInfo.cptCode + ' ' + procedureInfo.cptName,
       'Dx: ' + procedureInfo.diagnosisCode + ' ' + procedureInfo.diagnosisName,
       'Performed by: ' + procedureInfo.performedBy,
       'Anaesthesia / medication used: ' + procedureInfo.anaesthesia,
@@ -243,9 +262,9 @@ test.describe('Document Procedures Page mutating tests', () => {
       'Technique: ' + procedureInfo.technique,
       'Instruments / supplies used: ' + procedureInfo.instruments,
       'Procedure details: ' + procedureInfo.details,
-      'Specimen sent: ' + procedureInfo.specimentSent,
+      'Specimen sent: ' + procedureInfo.specimenSent,
       'Complications: ' + procedureInfo.complication,
-      'Patient response: ' + procedureInfo.patinentResponse,
+      'Patient response: ' + procedureInfo.patientResponse,
       'Post-procedure instructions: ' + procedureInfo.instructions,
       'Time spent: ' + procedureInfo.timeSpent,
       'Documented by: ' + procedureInfo.documentedBy,
