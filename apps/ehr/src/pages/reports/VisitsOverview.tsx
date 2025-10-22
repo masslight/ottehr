@@ -16,7 +16,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridToolbarContainer, GridToolbarExport } from '@mui/x-data-grid';
 import {
   BarElement,
   CategoryScale,
@@ -321,6 +321,15 @@ export default function VisitsOverview(): React.ReactElement {
     [dateFilter, getDateRangeLabel]
   );
 
+  // Custom toolbar component with export functionality
+  const CustomToolbar = (): React.ReactElement => {
+    return (
+      <GridToolbarContainer>
+        <GridToolbarExport csvOptions={{ fileName: 'visits-by-provider-report' }} />
+      </GridToolbarContainer>
+    );
+  };
+
   const practitionerColumns: GridColDef[] = useMemo(
     () => [
       {
@@ -552,6 +561,9 @@ export default function VisitsOverview(): React.ReactElement {
                         },
                       }}
                       pageSizeOptions={[5, 10, 25]}
+                      slots={{
+                        toolbar: CustomToolbar,
+                      }}
                       disableRowSelectionOnClick
                       sx={{
                         '& .MuiDataGrid-cell': {
