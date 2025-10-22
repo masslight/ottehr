@@ -215,11 +215,11 @@ function fhirTaskToTask(task: FhirTask): Task {
     const orderId = task.basedOn?.[0]?.reference?.split('/')?.[1];
     const providerName = getInput(LAB_ORDER_TASK.input.providerName, task);
     const orderDate = getInput(LAB_ORDER_TASK.input.orderDate, task);
-    subtitle = `Ordered by ${providerName} on ${
-      orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
-    }`;
     if (code === LAB_ORDER_TASK.code.collectSample) {
       title = `Collect sample for “${testName}” for ${patientName}`;
+      subtitle = `Ordered by ${providerName} on ${
+        orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
+      }`;
       action = {
         name: GO_TO_LAB_TEST,
         link: `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`,
@@ -227,29 +227,32 @@ function fhirTaskToTask(task: FhirTask): Task {
     }
     if (code === LAB_ORDER_TASK.code.reviewResults) {
       title = `Review results for “${testName}” for ${patientName}`;
+      subtitle = `Ordered by ${providerName} on ${
+        orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
+      }`;
       action = {
         name: GO_TO_LAB_TEST,
         link: `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`,
       };
     }
-    /*if (code === LAB_ORDER_TASK.code.preSubmission || LAB_ORDER_TASK.code.reviewFinalResult) {
-      action = {
-        name: GO_TO_LAB_TEST,
-        link: `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`,
-      };
-    }
-    if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
+    if (code === LAB_ORDER_TASK.code.matchUnsolicited) {
+      const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
+      title = `Match unsolicited test results`;
+      subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
       action = {
         name: 'Match',
-        link: `/unsolicited-results/${getInput('diagnosticReportId', task)}/match`,
+        link: `/unsolicited-results/${orderId}/match`,
       };
-    }*/
-    /*if (code === LAB_ORDER_TASK.code.reviewFinalResult) {
+    }
+    if (code === LAB_ORDER_TASK.code.reviewUnsolicitedResults) {
+      const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
+      title = `Review unsolicited test results for  “Some Test / LabCorp” for [Patient Full Name] `;
+      subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
       action = {
-        name: GO_TO_LAB_TEST,
-        link: `/in-person/${appointmentId}/external-lab-orders`,
+        name: 'Go to Lab Test',
+        link: `/unsolicited-results/${orderId}/review`,
       };
-    }*/
+    }
   }
   if (category === IN_HOUSE_LAB_TASK.category) {
     const code = getCoding(task.code, IN_HOUSE_LAB_TASK.system)?.code ?? '';

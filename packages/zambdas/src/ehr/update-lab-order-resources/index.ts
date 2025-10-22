@@ -344,12 +344,15 @@ const handleReviewedEvent = async ({
     await oystehr.fhir.search<Task>({
       resourceType: 'Task',
       params: [
-        { name: 'based-on', value: `ServiceRequest/${serviceRequest?.id}` },
-        { name: 'code', value: LAB_ORDER_TASK.system + '|' + LAB_ORDER_TASK.code.reviewResults },
+        { name: 'based-on', value: `ServiceRequest/${serviceRequest?.id},DiagnosticReport/${diagnosticReportId}` },
+        {
+          name: 'code',
+          value: `${LAB_ORDER_TASK.system}|${LAB_ORDER_TASK.code.reviewResults},${LAB_ORDER_TASK.system}|${LAB_ORDER_TASK.code.reviewUnsolicitedResults}`,
+        },
       ],
     })
   ).unbundle()[0];
-  if (reviewResultsTask.id) {
+  if (reviewResultsTask?.id) {
     taskPatchRequests.push(
       getPatchBinary({
         resourceType: 'Task',

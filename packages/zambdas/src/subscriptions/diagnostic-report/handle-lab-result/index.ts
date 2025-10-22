@@ -119,6 +119,50 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     }
 
+    if (isUnsolicitedAndMatched && (diagnosticReport.status === 'final' || diagnosticReport.status === 'corrected')) {
+      const reviewResultsTask = createTask({
+        category: LAB_ORDER_TASK.category,
+        code: {
+          system: LAB_ORDER_TASK.system,
+          code: LAB_ORDER_TASK.code.reviewUnsolicitedResults,
+        },
+        basedOn: `DiagnosticReport/${diagnosticReport.id}`,
+        input: [
+          {
+            type: LAB_ORDER_TASK.input.receivedDate,
+            value: diagnosticReport.effectiveDateTime,
+          },
+        ],
+      });
+      requests.push({
+        method: 'POST',
+        url: '/Task',
+        resource: reviewResultsTask,
+      });
+    }
+
+    if (isUnsolicited && !isUnsolicitedAndMatched && specificDrTypeFromTag !== LabType.pdfAttachment) {
+      const matchUnsolicitedTask = createTask({
+        category: LAB_ORDER_TASK.category,
+        code: {
+          system: LAB_ORDER_TASK.system,
+          code: LAB_ORDER_TASK.code.matchUnsolicited,
+        },
+        basedOn: `DiagnosticReport/${diagnosticReport.id}`,
+        input: [
+          {
+            type: LAB_ORDER_TASK.input.receivedDate,
+            value: diagnosticReport.effectiveDateTime,
+          },
+        ],
+      });
+      requests.push({
+        method: 'POST',
+        url: '/Task',
+        resource: matchUnsolicitedTask,
+      });
+    }
+
     const newTask: Task = {
       resourceType: 'Task',
       authoredOn: diagnosticReport.effectiveDateTime ?? DateTime.now().toUTC().toISO(), // the effective date is also UTC

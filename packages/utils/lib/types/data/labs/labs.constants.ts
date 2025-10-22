@@ -26,6 +26,8 @@ export const LAB_ORDER_TASK = {
     reviewCancelledResult: 'RCANRT', // cancelled by the lab
     collectSample: 'collect-sample',
     reviewResults: 'review-results',
+    matchUnsolicited: 'match-unsolicited',
+    reviewUnsolicitedResults: 'review-unsolicited-results',
   },
   input: {
     testName: 'test-name',
@@ -33,6 +35,7 @@ export const LAB_ORDER_TASK = {
     providerName: 'provider-name',
     orderDate: 'order-date',
     appointmentId: 'appointment-id',
+    receivedDate: 'received-date',
   },
 } as const;
 export type LabOrderTaskCode = (typeof LAB_ORDER_TASK.code)[keyof typeof LAB_ORDER_TASK.code];

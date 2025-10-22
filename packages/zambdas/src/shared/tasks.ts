@@ -13,7 +13,7 @@ export function createTask(data: {
         code: string;
       }
     | CodeableConcept;
-  encounterId: string;
+  encounterId?: string;
   locationId?: string;
   input?: { type: string; value?: string }[] | TaskInput[];
   basedOn?: string;
@@ -46,7 +46,7 @@ export function createTask(data: {
             },
           ],
         },
-    encounter: { reference: `Encounter/${data.encounterId}` },
+    encounter: data.encounterId ? { reference: `Encounter/${data.encounterId}` } : undefined,
     authoredOn: DateTime.now().toISO(),
     intent: 'order',
     basedOn: data.basedOn
