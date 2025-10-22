@@ -181,7 +181,6 @@ const ExamTableCellComponent: FC<{
       return (
         <ControlledCheckboxSelect
           key={key}
-          name={key}
           label={element.label}
           options={Object.keys(element.options).map((option) => ({
             label: element.options[option].label,
