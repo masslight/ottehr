@@ -599,7 +599,6 @@ export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-ph
 
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
 export const TASK_CATEGORY_IDENTIFIER = ottehrIdentifierSystem('task-category');
-export const TASK_TYPE_SYSTEM = ottehrCodeSystemUrl('task-type');
 export const TASK_INPUT_SYSTEM = ottehrCodeSystemUrl('task-input');
 export const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
 export const TASK_ASSIGNED_DATE_TIME_EXTENSION_URL = ottehrExtensionUrl('task-assigned-date-time');

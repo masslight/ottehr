@@ -25,7 +25,7 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const { serviceRequest, questionnaireResponse, task, labConditions } = await getLabOrderRelatedResources(
+    const { serviceRequest, questionnaireResponse, tasks, labConditions } = await getLabOrderRelatedResources(
       oystehr,
       validatedParameters
     );
@@ -45,8 +45,10 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
       deleteRequests.push(makeDeleteResourceRequest('QuestionnaireResponse', questionnaireResponse.id));
     }
 
-    if (task?.id) {
-      deleteRequests.push(makeDeleteResourceRequest('Task', task.id));
+    for (const task of tasks) {
+      if (task.id) {
+        deleteRequests.push(makeDeleteResourceRequest('Task', task.id));
+      }
     }
 
     labConditions.forEach((condition) => {

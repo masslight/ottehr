@@ -32,6 +32,7 @@ import {
   externalLabOrderIsManual,
   ExternalLabOrderResult,
   ExternalLabOrderResultConfig,
+  getCoding,
   getOrderNumber,
   getPresignedURL,
   getTimezone,
@@ -63,6 +64,7 @@ export type LabOrderResources = {
   patient: Patient;
   practitioner: Practitioner;
   preSubmissionTask: Task;
+  collectSampleTask?: Task;
   labOrganization: Organization;
   encounter: Encounter;
   diagnosticReports: DiagnosticReport[]; // only present if results have come in
@@ -239,7 +241,8 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   const serviceRequests: ServiceRequest[] = [];
   const patients: Patient[] = [];
   const practitioners: Practitioner[] = [];
-  const tasks: Task[] = [];
+  const preSubmissionTasks: Task[] = [];
+  const collectSampleTasks: Task[] = [];
   const organizations: Organization[] = [];
   const encounters: Encounter[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
@@ -260,10 +263,12 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
     if (resource.resourceType === 'QuestionnaireResponse') questionnaireResponses.push(resource);
     if (resource.resourceType === 'Schedule') schedules.push(resource);
     if (resource.resourceType === 'Task') {
-      const taskIsPst = !!resource.code?.coding?.find(
-        (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.preSubmission
-      );
-      if (taskIsPst) tasks.push(resource);
+      if (getCoding(resource.code, LAB_ORDER_TASK.system)?.code === LAB_ORDER_TASK.code.preSubmission) {
+        preSubmissionTasks.push(resource);
+      }
+      if (getCoding(resource.code, LAB_ORDER_TASK.system)?.code === LAB_ORDER_TASK.code.collectSample) {
+        collectSampleTasks.push(resource);
+      }
     }
     if (resource.resourceType === 'DiagnosticReport') {
       const isCorrectCategory = diagnosticReportIncludesCategory(
@@ -291,7 +296,7 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   if (serviceRequests?.length !== 1) throw new Error('service request is not found');
   if (patients?.length !== 1) throw new Error('patient is not found');
   if (practitioners?.length !== 1) throw new Error('practitioner is not found');
-  if (tasks?.length !== 1) throw new Error('task is not found');
+  if (preSubmissionTasks?.length !== 1) throw new Error('task is not found');
   if (organizations?.length !== 1) throw new Error('performing lab Org not found');
   if (encounters?.length !== 1) throw new Error('encounter is not found');
   if (accounts.length !== 1) throw new Error(`found ${accounts.length} active accounts. Expected 1.`);
@@ -299,7 +304,8 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   const serviceRequest = serviceRequests[0];
   const patient = patients[0];
   const practitioner = practitioners[0];
-  const preSubmissionTask = tasks[0];
+  const preSubmissionTask = preSubmissionTasks[0];
+  const collectSampleTask = collectSampleTasks[0];
   const labOrganization = organizations[0];
   const encounter = encounters[0];
   const questionnaireResponse = questionnaireResponses?.[0];
@@ -341,6 +347,7 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
     patient,
     practitioner,
     preSubmissionTask,
+    collectSampleTask,
     labOrganization,
     encounter,
     diagnosticReports,

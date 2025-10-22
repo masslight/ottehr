@@ -7,11 +7,11 @@ import {
   getCoding,
   getExtension,
   IN_HOUSE_LAB_TASK,
+  LAB_ORDER_TASK,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TASK_CATEGORY_IDENTIFIER,
   TASK_INPUT_SYSTEM,
   TASK_LOCATION_SYSTEM,
-  TASK_TYPE_SYSTEM,
 } from 'utils';
 
 const GET_TASKS_KEY = 'get-tasks';
@@ -207,28 +207,49 @@ function fhirTaskToTask(task: FhirTask): Task {
   let action: any = undefined;
   let title = getInput('title', task) ?? '';
   let subtitle = getInput('subtitle', task) ?? '';
-  if (category === 'external-labs') {
-    const type = getCoding(task.code, TASK_TYPE_SYSTEM)?.code ?? '';
-    const appointmentId = getInput('appointmentId', task);
-    const orderId = getInput('orderId', task);
-    if (type === 'collect-sample' || type === 'review-results') {
+  if (category === LAB_ORDER_TASK.category) {
+    const code = getCoding(task.code, LAB_ORDER_TASK.system)?.code ?? '';
+    const testName = getInput(LAB_ORDER_TASK.input.testName, task);
+    const patientName = getInput(LAB_ORDER_TASK.input.patientName, task);
+    const appointmentId = getInput(LAB_ORDER_TASK.input.appointmentId, task);
+    const orderId = task.basedOn?.[0]?.reference?.split('/')?.[1];
+    const providerName = getInput(LAB_ORDER_TASK.input.providerName, task);
+    const orderDate = getInput(LAB_ORDER_TASK.input.orderDate, task);
+    subtitle = `Ordered by ${providerName} on ${
+      orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
+    }`;
+    if (code === LAB_ORDER_TASK.code.collectSample) {
+      title = `Collect sample for “${testName}” for ${patientName}`;
       action = {
         name: GO_TO_LAB_TEST,
         link: `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`,
       };
     }
-    if (type === 'match-unsolicited') {
+    if (code === LAB_ORDER_TASK.code.reviewResults) {
+      title = `Review results for “${testName}” for ${patientName}`;
+      action = {
+        name: GO_TO_LAB_TEST,
+        link: `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`,
+      };
+    }
+    /*if (code === LAB_ORDER_TASK.code.preSubmission || LAB_ORDER_TASK.code.reviewFinalResult) {
+      action = {
+        name: GO_TO_LAB_TEST,
+        link: `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`,
+      };
+    }
+    if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
       action = {
         name: 'Match',
         link: `/unsolicited-results/${getInput('diagnosticReportId', task)}/match`,
       };
-    }
-    if (type === 'review-unsolicited') {
+    }*/
+    /*if (code === LAB_ORDER_TASK.code.reviewFinalResult) {
       action = {
         name: GO_TO_LAB_TEST,
         link: `/in-person/${appointmentId}/external-lab-orders`,
       };
-    }
+    }*/
   }
   if (category === IN_HOUSE_LAB_TASK.category) {
     const code = getCoding(task.code, IN_HOUSE_LAB_TASK.system)?.code ?? '';

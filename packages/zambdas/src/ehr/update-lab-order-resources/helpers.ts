@@ -10,6 +10,7 @@ import {
   OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SpecimenCollectionDateConfig,
+  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
 } from 'utils';
 import { populateQuestionnaireResponseItems } from '../shared/labs';
 
@@ -149,7 +150,15 @@ export const makePstCompletePatchRequests = (
         {
           op: 'add',
           path: '/owner',
-          value: curUserReference,
+          value: {
+            ...curUserReference,
+            extension: [
+              {
+                url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+                valueDateTime: DateTime.now().toISO(),
+              },
+            ],
+          },
         },
         {
           op: 'add',

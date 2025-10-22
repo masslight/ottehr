@@ -144,7 +144,14 @@ const main = async (): Promise<void> => {
 
   const mostZambdas = zambdas.filter((zambda) => !zambdasWithIcd10Search.includes(zambda.name));
   const assetsDir = '.dist/assets';
-  await build(mostZambdas, ['assets/*'], [assetsDir], '.dist');
+  for (const zambda of mostZambdas) {
+    await build(
+      [zambda],
+      ['assets/*'],
+      [assetsDir],
+      `.dist/${zambda.src.substring('src/'.length).replace('/index', '')}`
+    );
+  }
   console.timeEnd('Bundle time');
   console.log('Source maps...');
   console.time('Source maps time');

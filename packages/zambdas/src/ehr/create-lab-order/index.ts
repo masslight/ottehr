@@ -12,6 +12,7 @@ import {
   Location,
   Organization,
   Patient,
+  Practitioner,
   Provenance,
   QuestionnaireResponse,
   Reference,
@@ -28,6 +29,7 @@ import {
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
   getAttendingPractitionerId,
+  getFullestAvailableName,
   getOrderNumber,
   getSecret,
   isApiError,
@@ -50,6 +52,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { createTask } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types';
 import { sortCoveragesByPriority } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -84,6 +87,11 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         'Resource configuration error - user creating this external lab order must have a Practitioner resource linked'
       );
     }
+    const currentUserPractitioner = await oystehrCurrentUser.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: curUserPractitionerId,
+    });
+
     console.log('>>> this is the encounter, ', JSON.stringify(encounter, undefined, 2));
     const attendingPractitionerId = getAttendingPractitionerId(encounter);
 
@@ -95,8 +103,13 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     }
 
     console.log('encounter id', encounter.id);
-    const { labOrganization, coverages, patientId, existingOrderNumber, orderingLocation } =
-      await getAdditionalResources(orderableItem, encounter, psc, oystehr, modifiedOrderingLocation);
+    const { labOrganization, coverages, patient, existingOrderNumber, orderingLocation } = await getAdditionalResources(
+      orderableItem,
+      encounter,
+      psc,
+      oystehr,
+      modifiedOrderingLocation
+    );
 
     validateLabOrgAndOrderingLocationAndGetAccountNumber(labOrganization, orderingLocation);
 
@@ -112,7 +125,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     if (createSpecimenResources) {
       const { specimenDefinitionConfigs, specimenConfigs } = formatSpecimenResources(
         orderableItem,
-        patientId,
+        patient.id ?? '',
         serviceRequestFullUrl
       );
       activityDefinitionToContain.specimenRequirement = specimenDefinitionConfigs.map((sd) => ({
@@ -151,7 +164,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       status: 'draft',
       intent: 'order',
       subject: {
-        reference: `Patient/${patientId}`,
+        reference: `Patient/${patient.id}`,
       },
       encounter: {
         reference: `Encounter/${encounter.id}`,
@@ -217,6 +230,39 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         reference: url,
       }));
     }
+
+    const collectSampleTask = createTask({
+      category: LAB_ORDER_TASK.category,
+      code: {
+        system: LAB_ORDER_TASK.system,
+        code: LAB_ORDER_TASK.code.collectSample,
+      },
+      encounterId: encounter.id ?? '',
+      locationId: orderingLocation.id,
+      basedOn: serviceRequestFullUrl,
+      input: [
+        {
+          type: LAB_ORDER_TASK.input.testName,
+          value: activityDefinitionToContain.name,
+        },
+        {
+          type: LAB_ORDER_TASK.input.patientName,
+          value: getFullestAvailableName(patient),
+        },
+        {
+          type: LAB_ORDER_TASK.input.providerName,
+          value: getFullestAvailableName(currentUserPractitioner),
+        },
+        {
+          type: LAB_ORDER_TASK.input.orderDate,
+          value: serviceRequestConfig.authoredOn,
+        },
+        {
+          type: LAB_ORDER_TASK.input.appointmentId,
+          value: encounter.appointment?.[0]?.reference?.split('/')?.[1],
+        },
+      ],
+    });
 
     const preSubmissionTaskConfig: Task = {
       resourceType: 'Task',
@@ -287,6 +333,11 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       method: 'POST',
       url: '/Task',
       resource: preSubmissionTaskConfig,
+    });
+    requests.push({
+      method: 'POST',
+      url: '/Task',
+      resource: collectSampleTask,
     });
     requests.push({
       method: 'POST',
@@ -457,7 +508,7 @@ const getAdditionalResources = async (
   modifiedOrderingLocation: ModifiedOrderingLocation
 ): Promise<{
   labOrganization: Organization;
-  patientId: string;
+  patient: Patient;
   coverages?: Coverage[];
   existingOrderNumber?: string;
   orderingLocation: Location;
@@ -487,7 +538,7 @@ const getAdditionalResources = async (
   const coverageSearchResults: Coverage[] = [];
   const accountSearchResults: Account[] = [];
   const serviceRequestsForBundle: ServiceRequest[] = [];
-  let patientId: string | undefined;
+  const patientSearchResults: Patient[] = [];
   let orderingLocation: Location | undefined = undefined;
 
   const resources = flattenBundleResources<Organization | Coverage | Patient | Account | ServiceRequest | Location>(
@@ -497,7 +548,7 @@ const getAdditionalResources = async (
   resources.forEach((resource) => {
     if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource);
     if (resource.resourceType === 'Coverage' && resource.status === 'active') coverageSearchResults.push(resource);
-    if (resource.resourceType === 'Patient') patientId = resource.id;
+    if (resource.resourceType === 'Patient') patientSearchResults.push(resource);
     if (resource.resourceType === 'Account' && resource.status === 'active') accountSearchResults.push(resource);
     if (resource.resourceType === 'Location') {
       if (
@@ -535,8 +586,9 @@ const getAdditionalResources = async (
   const coveragesSortedByPriority = sortCoveragesByPriority(patientAccount, coverageSearchResults);
 
   const missingRequiredResources: string[] = [];
-  if (!patientId) missingRequiredResources.push('patient');
-  if (!patientId) {
+  const patient = patientSearchResults?.[0];
+  if (!patient) missingRequiredResources.push('patient');
+  if (!patient) {
     throw EXTERNAL_LAB_ERROR(
       `The following resources could not be found for this encounter: ${missingRequiredResources.join(', ')}`
     );
@@ -559,7 +611,7 @@ const getAdditionalResources = async (
   }
   return {
     labOrganization,
-    patientId,
+    patient,
     coverages: coveragesSortedByPriority,
     existingOrderNumber,
     orderingLocation,

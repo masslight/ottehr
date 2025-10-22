@@ -9,6 +9,7 @@ import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
 } from '../../../shared/pdf/labs-results-form-pdf';
+import { createTask, getTaskLocationId } from '../../../shared/tasks';
 import { getCodeForNewTask, getStatusForNewTask } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -83,7 +84,40 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         });
     });
 
-    // make the new task
+    if (
+      !isUnsolicited &&
+      !isUnsolicitedAndMatched &&
+      (diagnosticReport.status === 'final' || diagnosticReport.status === 'corrected')
+    ) {
+      const collectSampleTask = (
+        await oystehr.fhir.search<Task>({
+          resourceType: 'Task',
+          params: [
+            { name: 'based-on', value: `ServiceRequest/${serviceRequestID}` },
+            { name: 'code', value: LAB_ORDER_TASK.system + '|' + LAB_ORDER_TASK.code.collectSample },
+          ],
+        })
+      ).unbundle()[0];
+      if (collectSampleTask) {
+        const reviewResultsTask = createTask({
+          category: LAB_ORDER_TASK.category,
+          code: {
+            system: LAB_ORDER_TASK.system,
+            code: LAB_ORDER_TASK.code.reviewResults,
+          },
+          encounterId: collectSampleTask.encounter?.reference?.split('/')[1] ?? '',
+          basedOn: `ServiceRequest/${serviceRequestID}`,
+          locationId: getTaskLocationId(collectSampleTask),
+          input: collectSampleTask.input,
+        });
+        requests.push({
+          method: 'POST',
+          url: '/Task',
+          resource: reviewResultsTask,
+        });
+      }
+    }
+
     const newTask: Task = {
       resourceType: 'Task',
       authoredOn: diagnosticReport.effectiveDateTime ?? DateTime.now().toUTC().toISO(), // the effective date is also UTC

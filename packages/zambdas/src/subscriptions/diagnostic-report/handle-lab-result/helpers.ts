@@ -1,4 +1,4 @@
-import { DiagnosticReport, Task } from 'fhir/r4b';
+import { CodeableConcept, DiagnosticReport, Task } from 'fhir/r4b';
 import { LAB_ORDER_TASK, LabOrderTaskCode } from 'utils';
 
 export const ACCEPTED_RESULTS_STATUS = ['preliminary', 'final', 'corrected', 'cancelled'];
@@ -14,7 +14,7 @@ const STATUS_CODE_MAP: Record<AcceptedResultsStatus, LabOrderTaskCode> = {
   cancelled: LAB_ORDER_TASK.code.reviewCancelledResult,
 };
 
-export const getCodeForNewTask = (dr: DiagnosticReport, isUnsolicited: boolean, matched: boolean): Task['code'] => {
+export const getCodeForNewTask = (dr: DiagnosticReport, isUnsolicited: boolean, matched: boolean): CodeableConcept => {
   if (isUnsolicited && !matched) {
     return labOrderTaskCoding(LAB_ORDER_TASK.code.matchUnsolicitedResult);
   } else {
@@ -22,11 +22,11 @@ export const getCodeForNewTask = (dr: DiagnosticReport, isUnsolicited: boolean, 
   }
 };
 
-export const getReviewResultCodeForNewTask = (incomingResultsStatus: AcceptedResultsStatus): Task['code'] => {
+export const getReviewResultCodeForNewTask = (incomingResultsStatus: AcceptedResultsStatus): CodeableConcept => {
   return labOrderTaskCoding(STATUS_CODE_MAP[incomingResultsStatus]);
 };
 
-const labOrderTaskCoding = (code: LabOrderTaskCode): Task['code'] => {
+const labOrderTaskCoding = (code: LabOrderTaskCode): CodeableConcept => {
   return {
     coding: [
       {
