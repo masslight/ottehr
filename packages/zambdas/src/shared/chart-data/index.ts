@@ -863,16 +863,8 @@ export function makeDiagnosisConditionResource(
   encounterId: string,
   patientId: string,
   data: DiagnosisDTO,
-  fieldName: ProviderChartDataFieldsNames,
-  source?: string
+  fieldName: ProviderChartDataFieldsNames
 ): Condition {
-  const meta = getMetaWFieldName(fieldName);
-  if (fieldName === 'ai-potential-diagnosis') {
-    meta.tag?.push({
-      code: source,
-      system: `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}-source`,
-    });
-  }
   const conditionConfig: Condition = {
     id: data.resourceId,
     resourceType: 'Condition',
@@ -887,7 +879,7 @@ export function makeDiagnosisConditionResource(
         },
       ],
     },
-    meta,
+    meta: getMetaWFieldName(fieldName),
   };
   if (data.addedViaLabOrder) {
     conditionConfig.extension = [
