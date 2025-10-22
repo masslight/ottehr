@@ -18,7 +18,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
+import { DataGridPro, GridColDef, GridToolbarContainer, GridToolbarExport } from '@mui/x-data-grid-pro';
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -200,6 +200,15 @@ export default function DailyPayments(): React.ReactElement {
 
     return payments;
   }, [reportData]);
+
+  // Custom toolbar component with export functionality
+  const CustomToolbar = (): React.ReactElement => {
+    return (
+      <GridToolbarContainer>
+        <GridToolbarExport csvOptions={{ fileName: 'daily-payments-report' }} />
+      </GridToolbarContainer>
+    );
+  };
 
   // DataGrid column definitions
   const paymentColumns: GridColDef[] = [
@@ -391,6 +400,9 @@ export default function DailyPayments(): React.ReactElement {
                     sorting: {
                       sortModel: [{ field: 'createdDate', sort: 'desc' }],
                     },
+                  }}
+                  slots={{
+                    toolbar: CustomToolbar,
                   }}
                   disableRowSelectionOnClick
                   sx={{
