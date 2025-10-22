@@ -246,7 +246,7 @@ function fhirTaskToTask(task: FhirTask): Task {
     }
     if (code === LAB_ORDER_TASK.code.reviewUnsolicitedResults) {
       const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
-      title = `Review unsolicited test results for  “Some Test / LabCorp” for [Patient Full Name] `;
+      title = `Review unsolicited test results for “${testName}” for ${patientName}`;
       subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
       action = {
         name: 'Go to Lab Test',

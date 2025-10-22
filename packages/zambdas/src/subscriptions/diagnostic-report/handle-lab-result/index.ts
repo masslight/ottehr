@@ -1,9 +1,9 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DiagnosticReport, Task } from 'fhir/r4b';
+import { DiagnosticReport, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getSecret, LAB_ORDER_TASK, LabType, Secrets, SecretsKeys } from 'utils';
-import { diagnosticReportSpecificResultType } from '../../../ehr/shared/labs';
+import { getFullestAvailableName, getSecret, LAB_ORDER_TASK, LabType, Secrets, SecretsKeys } from 'utils';
+import { diagnosticReportSpecificResultType, getTestNameOrCodeFromDr } from '../../../ehr/shared/labs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   createExternalLabResultPDF,
@@ -120,6 +120,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     if (isUnsolicitedAndMatched && (diagnosticReport.status === 'final' || diagnosticReport.status === 'corrected')) {
+      const patientId = diagnosticReport.subject?.reference?.split('/')[1];
+      const patient = patientId
+        ? await oystehr.fhir.get<Patient>({
+            resourceType: 'Patient',
+            id: patientId,
+          })
+        : undefined;
       const reviewResultsTask = createTask({
         category: LAB_ORDER_TASK.category,
         code: {
@@ -128,6 +135,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         },
         basedOn: `DiagnosticReport/${diagnosticReport.id}`,
         input: [
+          {
+            type: LAB_ORDER_TASK.input.testName,
+            value: getTestNameOrCodeFromDr(diagnosticReport),
+          },
+          {
+            type: LAB_ORDER_TASK.input.patientName,
+            value: patient ? getFullestAvailableName(patient) : 'Unknown',
+          },
           {
             type: LAB_ORDER_TASK.input.receivedDate,
             value: diagnosticReport.effectiveDateTime,
