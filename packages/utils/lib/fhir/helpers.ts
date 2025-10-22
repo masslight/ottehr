@@ -39,6 +39,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   addOperation,
+  CODE_SYSTEM_COVERAGE_CLASS,
   findExistingListByDocumentTypeCode,
   getMimeType,
   getPatchOperationsForNewMetaTags,
@@ -1509,4 +1510,10 @@ export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Opera
 export const getAttestedConsentFromEncounter = (encounter: Encounter): Signature | undefined => {
   console.log('getAttestedConsentFromEncounter', JSON.stringify(encounter));
   return encounter.extension?.find((ext) => ext.url === FHIR_EXTENSION.Encounter.attestedConsent.url)?.valueSignature;
+};
+
+export const getInsuranceNameFromCoverage = (coverage: Coverage): string | undefined => {
+  return coverage?.class?.find(
+    (cls) => cls.type.coding?.find((coding) => coding.system === CODE_SYSTEM_COVERAGE_CLASS && coding.code === 'plan')
+  )?.name;
 };

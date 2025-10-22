@@ -22,15 +22,12 @@ import {
   ClaimsQueueItemStatus,
   ClaimsQueueItemStatuses,
   createReference,
+  getInsuranceNameFromCoverage,
   getResourcesFromBatchInlineRequests,
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import {
-  addCoverageAndRelatedResourcesToPackages,
-  addInsuranceToResultPackages,
-  getInsuranceNameFromCoverage,
-} from './helpers/fhir-utils';
+import { addCoverageAndRelatedResourcesToPackages, addInsuranceToResultPackages } from './helpers/fhir-utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface ClaimPackage {
