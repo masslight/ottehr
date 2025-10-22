@@ -5,28 +5,22 @@ import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonP
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { PerformTestPage } from 'tests/e2e/page/PerformTestPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
+import inHouseLabActivityDefinitionsJson from '../../../../../../config/oystehr/in-house-lab-activity-definitions.json' assert { type: 'json' };
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
 import { expectOrderDetailsPage, OrderInHouseLabPage } from '../../page/OrderInHouseLabPage';
 
-const TEST_TYPE_TO_CPT: Record<string, string> = {
-  'COVID-19 Antigen': '87635',
-  'Flu A': '87501',
-  'Flu B': '87501',
-  'Flu-Vid': '87428',
-  'Glucose Finger/Heel Stick': '82962',
-  'ID Now Strep': '87651',
-  'Monospot test': '86308',
-  'Rapid COVID-19 Antigen': '87426',
-  'Rapid Influenza A': '87804',
-  'Rapid Influenza B': '87804',
-  'Rapid RSV': '87807',
-  'Rapid Strep A': '87880',
-  RSV: '87634',
-  'Stool Guaiac': '82270',
-  'Urinalysis (UA)': '81003',
-  'Urine Pregnancy Test (HCG)': '81025',
-};
+const TEST_TYPE_TO_CPT: Record<string, string> = {};
+Object.values(inHouseLabActivityDefinitionsJson.fhirResources).forEach((resource) => {
+  const coding = resource.resource.code.coding;
+  const name = coding.find(
+    (coding) => coding.system === 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code'
+  )?.code;
+  const cptCode = coding.find((coding) => coding.system === 'http://www.ama-assn.org/go/cpt')?.code;
+  if (name && cptCode) {
+    TEST_TYPE_TO_CPT[name] = cptCode;
+  }
+});
 const PROCESS_ID = `inHouseLabsPage.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 const DIAGNOSIS = 'Situs inversus';

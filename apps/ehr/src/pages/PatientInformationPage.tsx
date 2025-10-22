@@ -120,7 +120,7 @@ const transformInsurancePlans = (bundleEntries: BundleEntry[]): InsurancePlanDTO
         return createInsurancePlanDto(organization);
       } catch (err) {
         console.error(err);
-        console.log('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
+        console.error('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
         return {} as InsurancePlanDTO;
       }
     })

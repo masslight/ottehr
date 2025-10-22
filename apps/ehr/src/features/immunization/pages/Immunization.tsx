@@ -3,6 +3,7 @@ import { AppBar, Box, Stack, Tab, Tabs, useTheme } from '@mui/material';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { Loader } from 'src/features/visits/shared/components/Loader';
@@ -64,7 +65,7 @@ export const Immunization: React.FC = () => {
   return (
     <Stack>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <PageTitle label="Immunization" showIntakeNotesButton={false} />
+        <PageTitle label="Immunization" showIntakeNotesButton={false} dataTestId={dataTestIds.immunizationPage.title} />
         {!isReadOnly && (
           <RoundedButton variant="contained" onClick={onNewOrderClick} startIcon={<AddIcon />}>
             New Order
@@ -92,8 +93,8 @@ export const Immunization: React.FC = () => {
             }}
           >
             <Tabs value={tabName === 'mar' ? 0 : 1} onChange={onTabChanged} aria-label="medication tabs">
-              <Tab label="MAR" />
-              <Tab label="Vaccine Details" />
+              <Tab label="MAR" data-testid={dataTestIds.immunizationPage.marTab} />
+              <Tab label="Vaccine Details" data-testid={dataTestIds.immunizationPage.vaccineDetailsTab} />
             </Tabs>
           </Box>
         </AppBar>
