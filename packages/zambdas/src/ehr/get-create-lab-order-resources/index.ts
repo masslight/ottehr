@@ -261,6 +261,8 @@ const getCoverageInfo = (accounts: Account[], coverages: Coverage[]): CreateLabC
     });
     return coverageInfo;
   } else {
-    return []; // empty array equates to self pay
+    // todo labs this could change when client bill is implemented
+    // empty array equates to self pay
+    return [];
   }
 };
