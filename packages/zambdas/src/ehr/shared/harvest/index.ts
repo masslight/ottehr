@@ -307,8 +307,14 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
 
   const pdfGroups: Record<string, typeof pdfsToCreate> = {};
   for (const pdfInfo of pdfsToCreate) {
-    const typeCoding = pdfInfo.type.coding.find((coding) => coding === PAPERWORK_CONSENT_CODE_UNIQUE);
-    const typeCode = typeCoding?.code;
+    let typeCode = pdfInfo.type.coding[0].code;
+    if (pdfInfo.type.coding.length > 1) {
+      // Case of consent form with multiple type codings
+      typeCode = pdfInfo.type.coding.find(
+        (coding) =>
+          coding.system === PAPERWORK_CONSENT_CODE_UNIQUE.system && coding.code === PAPERWORK_CONSENT_CODE_UNIQUE.code
+      )?.code;
+    }
     if (!typeCode) {
       throw new Error('Unexpectedly could not find type code for PAPERWORK_CONSENT_CODE_UNIQUE');
     }
@@ -409,7 +415,10 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
     let typeCode = pdfInfo.type.coding[0].code;
     // only in the case of Consent DRs, we have introduced multiple codings so we can tell different kinds of Consents apart (labs vs paperwork)
     if (pdfInfo.type.coding.length > 1) {
-      const maybePaperworkTypeCoding = pdfInfo.type.coding.find((coding) => coding === PAPERWORK_CONSENT_CODE_UNIQUE);
+      const maybePaperworkTypeCoding = pdfInfo.type.coding.find(
+        (coding) =>
+          coding.system === PAPERWORK_CONSENT_CODE_UNIQUE.system && coding.code === PAPERWORK_CONSENT_CODE_UNIQUE.code
+      );
       if (maybePaperworkTypeCoding) {
         typeCode = maybePaperworkTypeCoding.code;
       }

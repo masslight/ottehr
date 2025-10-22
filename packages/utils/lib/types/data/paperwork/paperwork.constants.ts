@@ -32,7 +32,7 @@ export const SCHOOL_WORK_NOTE_TEMPLATE_CODE = 'school-work-note-template';
 export const PAPERWORK_CONSENT_CODING_LOINC: Coding = {
   system: 'http://loinc.org',
   code: '59284-0',
-  display: 'Patient Registration Consent',
+  display: 'Consent Documents',
 };
 export const PAPERWORK_CONSENT_CODE_UNIQUE: Coding = {
   system: 'https://fhir.ottehr.com/CodeSystem/consent-source',

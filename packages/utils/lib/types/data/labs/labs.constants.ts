@@ -155,16 +155,10 @@ export const OYSTEHR_LAB_DOC_CATEGORY_CODING = {
   display: 'Lab ABN Document',
 };
 
-export const OYSTEHR_ABN_DOC_REF_CODING_CODE = {
-  system: 'http://loinc.org',
-  code: '59284-0',
-  display: 'Consent Document',
-};
-
 export const OYSTEHR_ABN_DOC_REF_CODING_UNIQUE: Coding = {
   system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
-  code: 'patient-registration',
-  display: 'Patient Registration Consent',
+  code: 'external-lab-abn',
+  display: 'External Lab ABN Consent',
 };
 export const OYSTEHR_ABN_DOC_REF_CODING_LOINC: Coding = {
   system: 'http://loinc.org',
