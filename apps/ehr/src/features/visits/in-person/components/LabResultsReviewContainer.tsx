@@ -1,9 +1,11 @@
 import { WarningAmberOutlined } from '@mui/icons-material';
+import CheckIcon from '@mui/icons-material/Check';
+import QuestionMarkIcon from '@mui/icons-material/QuestionMark';
 import { Box, Typography } from '@mui/material';
 import { FC, Fragment, ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ExternalLabOrderResult, InHouseLabResult, LabType } from 'utils';
+import { ExternalLabOrderResult, InHouseLabResult, LabType, NonNormalResult } from 'utils';
 
 interface LabResultsReviewContainerProps {
   resultDetails:
@@ -24,15 +26,46 @@ export const LabResultsReviewContainer: FC<LabResultsReviewContainerProps> = ({ 
   const keyIdentifier = isExternal ? 'external-lab-result' : 'in-house-lab-result';
 
   const checkForAbnormalResultFlag = (result: ExternalLabOrderResult | InHouseLabResult): ReactElement | null => {
-    if (!result.containsAbnormalResult) return null;
-    return (
-      <>
-        <WarningAmberOutlined sx={{ ml: '8px' }} color="warning" />
-        <Typography color="warning.main" sx={{ ml: '4px' }}>
-          Abnormal Result
-        </Typography>
-      </>
-    );
+    // todo labs team, need to make sure we can get the tags added for external in this release
+    // else all the external labs will show up normal
+    // once that logic is written in oystehr we can remove this
+    if (isExternal) return null;
+
+    if (!result.nonNormalResultContained)
+      return (
+        <>
+          <CheckIcon sx={{ ml: '8px' }} color="success" />
+          <Typography color="success.main" sx={{ ml: '4px' }}>
+            Normal Result
+          </Typography>
+        </>
+      );
+
+    const flags = result.nonNormalResultContained.map((nonNormalFlag) => {
+      switch (nonNormalFlag) {
+        case NonNormalResult.Abnormal:
+          return (
+            <>
+              <WarningAmberOutlined sx={{ ml: '8px' }} color="warning" />
+              <Typography color="warning.main" sx={{ ml: '4px' }}>
+                Abnormal Result
+              </Typography>
+            </>
+          );
+        case NonNormalResult.Inconclusive:
+          return (
+            <>
+              <QuestionMarkIcon sx={{ ml: '8px' }} color="disabled" />
+              <Typography color="text.disabled" sx={{ ml: '4px' }}>
+                Inconclusive Result
+              </Typography>
+            </>
+          );
+        case NonNormalResult.Neutral:
+          return <></>;
+      }
+    });
+    return <>{flags}</>;
   };
 
   return (
