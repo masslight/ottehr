@@ -9,7 +9,7 @@ export const GetPrefilledInvoiceInfoZambdaOutputSchema = z.object({
   responsiblePartyName: z.string(),
   responsiblePartyEmail: z.string().email(),
   responsiblePartyPhoneNumber: z.string(),
-  dueDate: z.date().optional(),
+  dueDate: z.string().optional(),
   memo: z.string().optional(),
   smsTextMessage: z.string().optional(),
 });

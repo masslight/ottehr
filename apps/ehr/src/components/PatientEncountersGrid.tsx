@@ -40,6 +40,7 @@ import { TelemedAppointmentStatusChip } from './TelemedAppointmentStatusChip';
 
 type PatientEncountersGridProps = {
   appointments?: AppointmentHistoryRow[];
+  patientId?: string;
   loading: boolean;
 };
 
@@ -60,7 +61,7 @@ const ProviderCell: FC<{ encounter?: Encounter }> = ({ encounter }) => {
 const emptyEmployeeList: EmployeeDetails[] = [];
 
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
-  const { appointments, loading } = props;
+  const { appointments, loading, patientId } = props;
 
   const [type, setType] = useState('all');
   const [period, setPeriod] = useState(0);
@@ -366,9 +367,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         handleClose={() => setSendInvoiceDialogOpen(false)}
         submitButtonName="Send"
         onSubmit={sendInvoice}
-        defaultValues={{
-          recipientName: '',
-        }}
+        patientId={patientId}
       />
     </Paper>
   );

@@ -1,9 +1,12 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
 import { ReactElement, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { z } from 'zod';
+import { getPrefilledInvoiceInfo } from '../../api/api';
+import { useApiClients } from '../../hooks/useAppClients';
 import { BasicDatePicker } from '../form';
 
 export interface SendInvoiceFormData {
@@ -21,7 +24,7 @@ interface SendInvoiceToPatientDialogProps {
   handleClose: () => void;
   onSubmit: (sendReceiptFormData: SendInvoiceFormData) => Promise<void>;
   submitButtonName: string;
-  defaultValues?: Partial<SendInvoiceFormData>;
+  patientId?: string;
 }
 
 export default function SendInvoiceToPatientDialog({
@@ -29,33 +32,44 @@ export default function SendInvoiceToPatientDialog({
   modalOpen,
   handleClose,
   onSubmit,
-  defaultValues,
   submitButtonName,
+  patientId,
 }: SendInvoiceToPatientDialogProps): ReactElement {
+  const { oystehrZambda } = useApiClients();
   const emailValidator = z.string().email();
   const phoneNumberValidator = z.string().regex(/^[0-9]{10}$/);
+  // const [fieldsDisabled, setFieldsDisabled] = useState();
+
   const {
     control,
     handleSubmit,
-    setValue,
-    formState: { errors, isSubmitting, isDirty },
+    reset,
+    formState: { errors, isSubmitting },
   } = useForm<SendInvoiceFormData>({
-    defaultValues: {
-      recipientName: defaultValues?.recipientName ?? '',
-      recipientEmail: defaultValues?.recipientEmail ?? '',
-    },
     mode: 'onBlur',
   });
+
+  const { data: prefilledInvoice } = useQuery({
+    queryKey: ['get-prefilled-invoice-info', patientId],
+    queryFn: () => {
+      if (oystehrZambda && patientId) return getPrefilledInvoiceInfo(oystehrZambda, { patientId });
+      return undefined;
+    },
+    enabled: !!oystehrZambda && !!patientId,
+  });
+
   useEffect(() => {
-    if (!isDirty) {
-      if (defaultValues?.recipientName) {
-        setValue('recipientName', defaultValues.recipientName);
-      }
-      if (defaultValues?.recipientEmail) {
-        setValue('recipientEmail', defaultValues.recipientEmail);
-      }
+    if (prefilledInvoice) {
+      reset({
+        recipientName: prefilledInvoice.responsiblePartyName,
+        recipientEmail: prefilledInvoice.responsiblePartyEmail,
+        recipientPhoneNumber: prefilledInvoice.responsiblePartyPhoneNumber,
+        dueDate: prefilledInvoice.dueDate,
+        memo: prefilledInvoice.memo,
+        smsTextMessage: prefilledInvoice.smsTextMessage,
+      });
     }
-  }, [defaultValues, setValue, isDirty]);
+  }, [prefilledInvoice, reset]);
 
   return (
     <Dialog open={modalOpen}>

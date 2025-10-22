@@ -57,6 +57,7 @@ import {
   GetNursingOrdersInput,
   GetOrUploadPatientProfilePhotoZambdaResponse,
   GetPrefilledInvoiceInfoZambdaInput,
+  GetPrefilledInvoiceInfoZambdaOutput,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
   GetScheduleParams,
@@ -1277,12 +1278,13 @@ export const updatePatientVisitDetails = async (
 export const getPrefilledInvoiceInfo = async (
   oystehr: Oystehr,
   parameters: GetPrefilledInvoiceInfoZambdaInput
-): Promise<void> => {
+): Promise<GetPrefilledInvoiceInfoZambdaOutput> => {
   try {
-    await oystehr.zambda.execute({
+    const response = await oystehr.zambda.execute({
       id: GET_PREFILLED_INVOICE_INFO_ZAMBDA_ID,
       ...parameters,
     });
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;
