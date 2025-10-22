@@ -55,10 +55,7 @@ export const ChiefComplaintProviderColumn: FC = () => {
             value={value}
             onChange={(e) => {
               onChange(e);
-              onChiefComplaintChange(e.target.value);
-            }}
-            onBlur={() => {
-              onChiefComplaintChange(value, {
+              onChiefComplaintChange(e.target.value, {
                 refetchChartDataOnSave: true,
                 additionalRequestOptions: { createICDRecommendations: true },
               });
