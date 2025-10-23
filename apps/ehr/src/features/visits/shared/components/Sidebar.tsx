@@ -5,6 +5,7 @@ import { alpha, Button, Drawer, IconButton, List, ListItem, ListItemIcon, ListIt
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -364,7 +365,7 @@ export const Sidebar = (): JSX.Element => {
         </IconButton>
       </DrawerHeader>
 
-      <EncounterSwitcher open={open} />
+      {FEATURE_FLAGS.FOLLOW_UP_ENABLED && <EncounterSwitcher open={open} />}
 
       <List sx={{ padding: '0px' }}>
         {menuItems.map((item) => {

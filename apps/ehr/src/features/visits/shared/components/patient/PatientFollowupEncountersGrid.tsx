@@ -6,6 +6,7 @@ import { Encounter, Patient } from 'fhir/r4b';
 import { FC, ReactElement, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useApiClients } from 'src/hooks/useAppClients';
 import styled from 'styled-components';
@@ -188,7 +189,9 @@ export const PatientFollowupEncountersGrid: FC<PatientEncountersGridProps> = (pr
   }, [oystehr, patient]);
 
   const handleRowClick = (params: GridRowParams): void => {
-    navigate(`followup/${params.id}`);
+    if (FEATURE_FLAGS.FOLLOW_UP_ENABLED) {
+      navigate(`followup/${params.id}`);
+    }
   };
 
   return (
@@ -197,13 +200,15 @@ export const PatientFollowupEncountersGrid: FC<PatientEncountersGridProps> = (pr
         <Typography variant="h4" color="primary.dark" sx={{ flexGrow: 1 }}>
           Patient Follow-up
         </Typography>
-        <RoundedButton
-          onClick={() => navigate('followup/add')}
-          variant="contained"
-          startIcon={<AddIcon fontSize="small" />}
-        >
-          New Follow-up
-        </RoundedButton>
+        {FEATURE_FLAGS.FOLLOW_UP_ENABLED && (
+          <RoundedButton
+            onClick={() => navigate('followup/add')}
+            variant="contained"
+            startIcon={<AddIcon fontSize="small" />}
+          >
+            New Follow-up
+          </RoundedButton>
+        )}
       </Box>
 
       <DataGridPro
