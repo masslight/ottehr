@@ -24,8 +24,6 @@ export const LAB_ORDER_TASK = {
     reviewFinalResult: 'RFRT',
     reviewCorrectedResult: 'RCRT',
     reviewCancelledResult: 'RCANRT', // cancelled by the lab
-    collectSample: 'collect-sample',
-    reviewResults: 'review-results',
     matchUnsolicited: 'match-unsolicited',
     reviewUnsolicitedResults: 'review-unsolicited-results',
   },
