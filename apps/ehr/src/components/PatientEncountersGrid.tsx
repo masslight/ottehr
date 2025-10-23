@@ -27,6 +27,7 @@ import { Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
 import { visitTypeToInPersonLabel, visitTypeToTelemedLabel } from 'src/types/types';
 import styled from 'styled-components';
@@ -423,13 +424,15 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         <RoundedButton to="/visits/add" target="_blank" variant="contained" startIcon={<AddIcon fontSize="small" />}>
           New Visit
         </RoundedButton>
-        <RoundedButton
-          variant="contained"
-          startIcon={<AddIcon fontSize="small" />}
-          onClick={() => navigate('followup/add')}
-        >
-          Follow-up
-        </RoundedButton>
+        {FEATURE_FLAGS.FOLLOW_UP_ENABLED && (
+          <RoundedButton
+            variant="contained"
+            startIcon={<AddIcon fontSize="small" />}
+            onClick={() => navigate('followup/add')}
+          >
+            Follow-up
+          </RoundedButton>
+        )}
       </Box>
 
       <Box sx={{ display: 'flex', gap: 2 }}>
@@ -563,7 +566,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                       ))}
                     </TableRow>
 
-                    {hasFollowups && (
+                    {hasFollowups && FEATURE_FLAGS.FOLLOW_UP_ENABLED && (
                       <>
                         {followupEncountersForRow.map((followupEncounter, followupIndex) => (
                           <TableRow

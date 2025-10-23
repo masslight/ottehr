@@ -13,6 +13,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { TestErrorPage } from './components/TestErrorPage';
+import { FEATURE_FLAGS } from './constants/feature-flags';
 import { CustomThemeProvider } from './CustomThemeProvider';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
@@ -212,8 +213,12 @@ function App(): ReactElement {
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/details" element={<PatientVisitDetails />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
-                  <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                  <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  {FEATURE_FLAGS.FOLLOW_UP_ENABLED && (
+                    <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
+                  )}
+                  {FEATURE_FLAGS.FOLLOW_UP_ENABLED && (
+                    <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  )}
                   <Route path="/telemed-admin" element={<Navigate to={INSURANCES_URL} />} />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}`} element={<TelemedAdminPage />} />
                   <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
@@ -250,8 +255,12 @@ function App(): ReactElement {
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
                   <Route path="/patient/:id/details" element={<PatientVisitDetails />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
-                  <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
-                  <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  {FEATURE_FLAGS.FOLLOW_UP_ENABLED && (
+                    <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
+                  )}
+                  {FEATURE_FLAGS.FOLLOW_UP_ENABLED && (
+                    <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+                  )}
                   <Route path="/patients" element={<PatientsPage />} />
 
                   <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
