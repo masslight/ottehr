@@ -216,8 +216,9 @@ export default function PatientPaymentList({
   useEffect(() => {
     if (encounter) {
       const variant = getPaymentVariantFromEncounter(encounter);
-      if (variant) setPaymentVariant(variant);
-      else if (variant === undefined) {
+      if (variant) {
+        setPaymentVariant(variant);
+      } else if (variant === undefined) {
         // encounter must have payment option ext from harvest module, but if it doesn't, set it to patient selected
         console.log('updating encounter');
         updateEncounter.mutate(
@@ -228,7 +229,9 @@ export default function PatientPaymentList({
         );
       }
     }
-  }, [encounter, patientSelectSelfPay, updateEncounter]);
+    // updateEncounter is left out intentionally to avoid an infinite loop condition. updateEncounter should be stable anyways.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [encounter, patientSelectSelfPay]);
 
   const errorMessage = (() => {
     const networkError = createNewPayment.error;
