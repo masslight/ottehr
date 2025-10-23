@@ -55,7 +55,10 @@ export const ChiefComplaintProviderColumn: FC = () => {
             value={value}
             onChange={(e) => {
               onChange(e);
-              onChiefComplaintChange(e.target.value);
+              onChiefComplaintChange(e.target.value, {
+                refetchChartDataOnSave: true,
+                additionalRequestOptions: { createICDRecommendations: true },
+              });
             }}
             disabled={isChiefComplaintChartDataLoading}
             label="HPI provider notes"
