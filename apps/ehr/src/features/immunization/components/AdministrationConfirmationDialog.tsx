@@ -3,6 +3,7 @@ import React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import {
   ReasonListCodes,
@@ -51,14 +52,14 @@ export const AdministrationConfirmationDialog: React.FC<Props> = ({
       closeButtonText="Cancel"
       ContentComponent={
         <Box display="flex" flexDirection="column" gap={1}>
-          <Typography>
+          <Typography data-testid={dataTestIds.administrationConfirmationDialog.patient}>
             <strong>Patient:</strong> {patientName}
           </Typography>
-          <Typography>
+          <Typography data-testid={dataTestIds.administrationConfirmationDialog.vaccine}>
             <strong>Vaccine:</strong> {medicationName} / {dose}
             {unit} / {route}
           </Typography>
-          <Typography>
+          <Typography data-testid={dataTestIds.administrationConfirmationDialog.message}>
             Please confirm that you want to mark this immunization order as{' '}
             {<strong>{administrationType.label}</strong>}
             {administrationType.type !== 'administered' ? ' and select the reason.' : '.'}
@@ -66,6 +67,7 @@ export const AdministrationConfirmationDialog: React.FC<Props> = ({
           {administrationType.type !== 'administered' ? (
             <Stack spacing={2} sx={{ mt: 2 }}>
               <SelectInput
+                dataTestId={dataTestIds.administrationConfirmationDialog.reasonField}
                 name="reason"
                 label="Reason"
                 options={Object.entries(reasonListValues).map(([value, label]) => {

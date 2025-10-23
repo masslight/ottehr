@@ -54,7 +54,11 @@ export const checkInPatient = async (
     updatedByOverride: checkedInBy,
   });
 
-  const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(encounterToUpdate, 'arrived');
+  const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
+    encounterToUpdate,
+    'arrived',
+    'arrived'
+  );
 
   const patchOp: Operation = {
     op: 'replace',

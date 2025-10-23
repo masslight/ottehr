@@ -33,8 +33,10 @@ import {
 } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
+  CreateLabPaymentMethod,
   DiagnosisDTO,
   getAttendingPractitionerId,
+  LabPaymentMethod,
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
   PSC_HOLD_LOCALE,
@@ -73,6 +75,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const [selectedOfficeId, setSelectedOfficeId] = useState<string>('');
   const [labOrgIdsForSelectedOffice, setLabOrgIdsForSelectedOffice] = useState<string>('');
   const [isOrderingDisabled, setIsOrderingDisabled] = useState<boolean>(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<CreateLabPaymentMethod | ''>('');
 
   // used to fetch dx icd10 codes
   const [debouncedDxSearchTerm, setDebouncedDxSearchTerm] = useState('');
@@ -94,8 +97,8 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     patientId,
   });
 
-  const coverageNames = createExternalLabResources?.coverageNames;
-
+  const coverageInfo = createExternalLabResources?.coverages;
+  const hasInsurance = !!(coverageInfo?.length && coverageInfo.length > 0);
   const orderingLocations = createExternalLabResources?.orderingLocations ?? [];
   const orderingLocationIdsStable = (createExternalLabResources?.orderingLocationIds ?? []).join(',');
 
@@ -144,6 +147,19 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     }
   }, [apptLocation, selectedOfficeId, orderingLocationIdToLocationAndLabGuidsMap]);
 
+  useEffect(() => {
+    if (coverageInfo) {
+      if (coverageInfo.length > 0) {
+        setSelectedPaymentMethod(LabPaymentMethod.Insurance);
+      } else {
+        // if no coverage info is returned, self pay
+        setSelectedPaymentMethod(LabPaymentMethod.SelfPay);
+      }
+    } else {
+      console.log('coverageInfo is', coverageInfo);
+    }
+  }, [coverageInfo]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
@@ -151,7 +167,8 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       orderDx.length &&
       selectedLab &&
       selectedOfficeId &&
-      orderingLocationIdToLocationAndLabGuidsMap.has(selectedOfficeId);
+      orderingLocationIdToLocationAndLabGuidsMap.has(selectedOfficeId) &&
+      selectedPaymentMethod !== '';
     if (oystehrZambda && paramsSatisfied) {
       try {
         await addAdditionalDxToEncounter();
@@ -161,6 +178,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           orderableItem: selectedLab,
           psc,
           orderingLocation: orderingLocationIdToLocationAndLabGuidsMap.get(selectedOfficeId)!.location,
+          selectedPaymentMethod: selectedPaymentMethod,
         });
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
@@ -417,20 +435,45 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   </Grid>
                 )}
                 <Grid item xs={12}>
-                  <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-                    Patient insurance
+                  <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark, mb: '8px' }}>
+                    Payment Method
                   </Typography>
-                  {coverageNames ? (
-                    coverageNames.map((coverageName, idx) => (
-                      <Typography key={`coverage-name-${idx}`} variant="body2" sx={{ paddingTop: '8px' }}>
-                        {coverageName}
-                      </Typography>
-                    ))
-                  ) : (
-                    <Typography variant="body2" sx={{ paddingTop: '8px' }}>
-                      unknown
-                    </Typography>
-                  )}
+                  <Grid container gap={1} sx={{ display: 'flex' }}>
+                    <Grid item xs={6} width="100%">
+                      <Select
+                        notched
+                        fullWidth
+                        id="select-payment-method"
+                        onChange={(e) => setSelectedPaymentMethod(e.target.value as CreateLabPaymentMethod)}
+                        displayEmpty
+                        value={selectedPaymentMethod}
+                        sx={{
+                          '& .MuiInputLabel-root': {
+                            top: -8,
+                          },
+                        }}
+                        size="small"
+                      >
+                        {hasInsurance && (
+                          <MenuItem id={'payment-method-item-insurance'} value={LabPaymentMethod.Insurance}>
+                            Insurance
+                          </MenuItem>
+                        )}
+                        <MenuItem id={'payment-method-item-self-pay'} value={LabPaymentMethod.SelfPay}>
+                          Self Pay
+                        </MenuItem>
+                      </Select>
+                    </Grid>
+                    {hasInsurance && selectedPaymentMethod === 'insurance' && (
+                      <Grid item xs={12} width="100%">
+                        {coverageInfo.map((coverageInfo, idx) => (
+                          <Typography key={`coverage-name-${idx}`} variant="body2">
+                            {`${coverageInfo.coverageName}${coverageInfo.isPrimary ? ' (primary)' : ''}`}
+                          </Typography>
+                        ))}
+                      </Grid>
+                    )}
+                  </Grid>
                 </Grid>
                 <Grid item xs={12}>
                   <Typography

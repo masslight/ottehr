@@ -8,6 +8,9 @@ export interface EHRVisitDetails {
   flags: Flag[];
   visitTimezone: Timezone;
   qrId: string;
+  consentIsAttested: boolean;
+  responsiblePartyName: string | null;
+  responsiblePartyEmail: string | null;
   consentDetails: ConsentDetails | null;
   visitLocationName?: string;
   visitLocationId?: string;
