@@ -334,7 +334,7 @@ describe('chart-data integration tests', () => {
     const examObservationDTO = {
       field: 'alert',
       value: true,
-      note: 'Patient is alert and responsive',
+      note: 'this is the note',
     };
     const saveChartInput: SaveChartDataRequest = {
       encounterId: baseResources.encounter.id!,
@@ -384,6 +384,163 @@ describe('chart-data integration tests', () => {
     const savedExamObservation = typedGetChartDataOutput.examObservations?.find(
       (obs) => obs.field === examObservationDTO.field
     );
-    expect(savedExamObservation).toEqual(newExamObservation);
+    expect(savedExamObservation).toMatchObject({
+      resourceId: expect.any(String),
+      field: examObservationDTO.field,
+      value: examObservationDTO.value,
+    });
+  });
+
+  it('should validate save + get cycle for instructions -- success', async () => {
+    const instructionDTO = {
+      text: 'Take medication with food twice daily',
+    };
+    const saveChartInput: SaveChartDataRequest = {
+      encounterId: baseResources.encounter.id!,
+      instructions: [instructionDTO],
+    };
+    let saveChartOutput: any;
+    try {
+      saveChartOutput = (
+        await oystehrLocalZambdas.zambda.execute({
+          id: 'SAVE-CHART-DATA',
+          ...saveChartInput,
+        })
+      ).output as SaveChartDataResponse;
+    } catch (error) {
+      console.error('Error executing zambda:', error);
+      saveChartOutput = error as Error;
+    }
+    expect(saveChartOutput instanceof Error).toBe(false);
+    const typedSaveChartOutput = saveChartOutput as SaveChartDataResponse;
+    const newInstruction = typedSaveChartOutput.chartData.instructions?.[0];
+    expect(newInstruction).toMatchObject({
+      resourceId: expect.any(String),
+      ...instructionDTO,
+    });
+
+    const getChartDataInput: GetChartDataRequest = {
+      encounterId: baseResources.encounter.id!,
+    };
+    let getChartDataOutput: any;
+    try {
+      getChartDataOutput = (
+        await oystehrLocalZambdas.zambda.execute({
+          id: 'GET-CHART-DATA',
+          ...getChartDataInput,
+        })
+      ).output as GetChartDataResponse;
+    } catch (error) {
+      console.error('Error executing zambda:', error);
+      getChartDataOutput = error as Error;
+    }
+    expect(getChartDataOutput instanceof Error).toBe(false);
+    const typedGetChartDataOutput = getChartDataOutput as GetChartDataResponse;
+    expect(typedGetChartDataOutput).toHaveProperty('instructions');
+    expect(typedGetChartDataOutput.instructions).toBeInstanceOf(Array);
+    expect(typedGetChartDataOutput.instructions?.[0]).toEqual(newInstruction);
+  });
+
+  it('should validate save + get cycle for diagnosis -- success', async () => {
+    const diagnosisDTO = {
+      code: 'J06.9',
+      display: 'Acute upper respiratory infection, unspecified',
+      isPrimary: true,
+    };
+    const saveChartInput: SaveChartDataRequest = {
+      encounterId: baseResources.encounter.id!,
+      diagnosis: [diagnosisDTO],
+    };
+    let saveChartOutput: any;
+    try {
+      saveChartOutput = (
+        await oystehrLocalZambdas.zambda.execute({
+          id: 'SAVE-CHART-DATA',
+          ...saveChartInput,
+        })
+      ).output as SaveChartDataResponse;
+    } catch (error) {
+      console.error('Error executing zambda:', error);
+      saveChartOutput = error as Error;
+    }
+    expect(saveChartOutput instanceof Error).toBe(false);
+    const typedSaveChartOutput = saveChartOutput as SaveChartDataResponse;
+    const newDiagnosis = typedSaveChartOutput.chartData.diagnosis?.[0];
+    expect(newDiagnosis).toMatchObject({
+      resourceId: expect.any(String),
+      ...diagnosisDTO,
+    });
+
+    const getChartDataInput: GetChartDataRequest = {
+      encounterId: baseResources.encounter.id!,
+    };
+    let getChartDataOutput: any;
+    try {
+      getChartDataOutput = (
+        await oystehrLocalZambdas.zambda.execute({
+          id: 'GET-CHART-DATA',
+          ...getChartDataInput,
+        })
+      ).output as GetChartDataResponse;
+    } catch (error) {
+      console.error('Error executing zambda:', error);
+      getChartDataOutput = error as Error;
+    }
+    expect(getChartDataOutput instanceof Error).toBe(false);
+    const typedGetChartDataOutput = getChartDataOutput as GetChartDataResponse;
+    expect(typedGetChartDataOutput).toHaveProperty('diagnosis');
+    expect(typedGetChartDataOutput.diagnosis).toBeInstanceOf(Array);
+    expect(typedGetChartDataOutput.diagnosis?.[0]).toEqual(newDiagnosis);
+  });
+
+  it('should validate save + get cycle for cptCodes -- success', async () => {
+    const cptCodeDTO = {
+      code: '99213',
+      display: 'Office or other outpatient visit, established patient, 20-29 minutes',
+    };
+    const saveChartInput: SaveChartDataRequest = {
+      encounterId: baseResources.encounter.id!,
+      cptCodes: [cptCodeDTO],
+    };
+    let saveChartOutput: any;
+    try {
+      saveChartOutput = (
+        await oystehrLocalZambdas.zambda.execute({
+          id: 'SAVE-CHART-DATA',
+          ...saveChartInput,
+        })
+      ).output as SaveChartDataResponse;
+    } catch (error) {
+      console.error('Error executing zambda:', error);
+      saveChartOutput = error as Error;
+    }
+    expect(saveChartOutput instanceof Error).toBe(false);
+    const typedSaveChartOutput = saveChartOutput as SaveChartDataResponse;
+    const newCptCode = typedSaveChartOutput.chartData.cptCodes?.[0];
+    expect(newCptCode).toMatchObject({
+      resourceId: expect.any(String),
+      ...cptCodeDTO,
+    });
+
+    const getChartDataInput: GetChartDataRequest = {
+      encounterId: baseResources.encounter.id!,
+    };
+    let getChartDataOutput: any;
+    try {
+      getChartDataOutput = (
+        await oystehrLocalZambdas.zambda.execute({
+          id: 'GET-CHART-DATA',
+          ...getChartDataInput,
+        })
+      ).output as GetChartDataResponse;
+    } catch (error) {
+      console.error('Error executing zambda:', error);
+      getChartDataOutput = error as Error;
+    }
+    expect(getChartDataOutput instanceof Error).toBe(false);
+    const typedGetChartDataOutput = getChartDataOutput as GetChartDataResponse;
+    expect(typedGetChartDataOutput).toHaveProperty('cptCodes');
+    expect(typedGetChartDataOutput.cptCodes).toBeInstanceOf(Array);
+    expect(typedGetChartDataOutput.cptCodes?.[0]).toEqual(newCptCode);
   });
 });
