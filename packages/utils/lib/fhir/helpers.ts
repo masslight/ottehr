@@ -51,6 +51,7 @@ import {
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM } from '../../../zambdas/src/shared/candid';
 import {
   BookableResource,
   EncounterVirtualServiceExtension,
@@ -1510,3 +1511,11 @@ export const getAttestedConsentFromEncounter = (encounter: Encounter): Signature
   console.log('getAttestedConsentFromEncounter', JSON.stringify(encounter));
   return encounter.extension?.find((ext) => ext.url === FHIR_EXTENSION.Encounter.attestedConsent.url)?.valueSignature;
 };
+
+export function getPatientReferenceFromAccount(account: Account): string | undefined {
+  return account.subject?.find((subj) => subj.reference?.includes('Patient/'))?.reference;
+}
+
+export function getCandidClaimIdFromEncounter(encounter: Encounter): string | undefined {
+  return encounter.identifier?.find((idn) => idn.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM)?.value;
+}

@@ -44,7 +44,7 @@ export default function SendInvoiceToPatientDialog({
   prefilledInvoice,
 }: SendInvoiceToPatientDialogProps): ReactElement {
   const emailValidator = z.string().email();
-  const phoneNumberValidator = z.string().regex(/^[0-9]{10}$/);
+  // const phoneNumberValidator = z.string().regex(/^[0-9]{10}$/);
   // const [fieldsDisabled, setFieldsDisabled] = useState();
 
   const handleSubmitWrapped = (data: SendInvoiceFormData): void => {
@@ -151,18 +151,18 @@ export default function SendInvoiceToPatientDialog({
               control={control}
               rules={{
                 required: REQUIRED_FIELD_ERROR_MESSAGE,
-                validate: (value) => {
-                  const result = phoneNumberValidator.safeParse(value);
-                  return result.success || 'Invalid phone format';
-                },
+                // validate: (value) => {
+                //   const result = phoneNumberValidator.safeParse(value);
+                //   return result.success || 'Invalid phone format';
+                // },
               }}
               render={({ field }) => (
                 <TextField
                   {...field}
                   fullWidth
                   label="Phone number"
-                  error={!!errors.recipientEmail}
-                  helperText={errors.recipientEmail?.message}
+                  error={!!errors.recipientPhoneNumber}
+                  helperText={errors.recipientPhoneNumber?.message}
                   required
                   sx={{ mb: 2 }}
                 />

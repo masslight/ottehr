@@ -5,6 +5,7 @@ import { Account, Appointment, Encounter, Patient, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createCandidApiClient,
+  getCandidClaimIdFromEncounter,
   getPatientReferenceFromAccount,
   getResourcesFromBatchInlineRequests,
   getSecret,
@@ -185,9 +186,7 @@ async function getInvoiceablePatientsReport(input: {
         appointmentToIdMap[resource.id] = resource as Appointment;
       }
       if (resource.resourceType === 'Encounter') {
-        const candidEncounterId = (resource as Encounter).identifier?.find(
-          (idn) => idn.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM
-        )?.value;
+        const candidEncounterId = getCandidClaimIdFromEncounter(resource as Encounter);
         if (candidEncounterId) encounterToCandidIdMap[candidEncounterId] = resource as Encounter;
       }
     });

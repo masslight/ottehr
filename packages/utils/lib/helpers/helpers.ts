@@ -1,7 +1,6 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import {
-  Account,
   Appointment,
   Coverage,
   Extension,
@@ -1419,14 +1418,4 @@ export function getAppointmentType(appointment: Appointment): { type: string } {
   const type = subType ? `${baseType} ${subType}` : baseType;
 
   return { type };
-}
-
-export function getPatientReferenceFromAccount(account: Account): string | undefined {
-  return account.subject?.find((subj) => subj.reference?.includes('Patient/'))?.reference;
-}
-
-export function getResponsiblePartyReferenceFromAccount(account: Account): string | undefined {
-  return account?.guarantor?.find((gRef) => {
-    return gRef.period?.end === undefined;
-  })?.party?.reference;
 }

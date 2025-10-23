@@ -1,9 +1,26 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
+import { Account, Encounter, Patient } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { createCandidApiClient, getSecret, SecretsKeys, SendInvoiceToPatientZambdaInput } from 'utils';
-import { checkOrCreateM2MClientToken, getStripeClient, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  createCandidApiClient,
+  getCandidClaimIdFromEncounter,
+  getPatientReferenceFromAccount,
+  getSecret,
+  getStripeCustomerIdFromAccount,
+  SecretsKeys,
+  SendInvoiceToPatientZambdaInput,
+} from 'utils';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  getStripeClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -13,17 +30,22 @@ const ZAMBDA_NAME = 'send-invoice-to-patient';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParams = validateRequestParameters(input);
-    const { secrets } = validatedParams;
+    const { secrets, oystPatientId, oystEncounterId } = validatedParams;
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    // const oystehr = createOystehrClient(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const candid = createCandidApiClient(secrets);
     const stripe = getStripeClient(secrets);
 
-    const patientBalance = await getPatientBalanceInCentsForClaim({ candid, claimId: validatedParams.candidClaimId });
+    const fhirResources = await getFhirResources(oystehr, oystPatientId, oystEncounterId);
+    const stripeCustomerId = getStripeCustomerIdFromAccount(fhirResources.account);
+    const candidClaimId = getCandidClaimIdFromEncounter(fhirResources.encounter);
+    if (!stripeCustomerId || !candidClaimId) throw new Error('StripeCustomerId or CandidClaimId is not found');
+
+    const patientBalance = await getPatientBalanceInCentsForClaim({ candid, claimId: candidClaimId });
     if (patientBalance === undefined)
-      throw new Error('Patient balance is undefined for this claim, claim id: ' + validatedParams.candidClaimId);
-    const response = await createInvoice(stripe, patientBalance, validatedParams);
+      throw new Error('Patient balance is undefined for this claim, claim id: ' + candidClaimId);
+    const response = await createInvoice(stripe, stripeCustomerId, patientBalance, validatedParams);
     console.log('Invoice created: ', response.id);
 
     return {
@@ -43,13 +65,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function createInvoice(
   stripe: Stripe,
+  stripeCustomerId: string,
   amount: number,
   params: SendInvoiceToPatientZambdaInput
 ): Promise<Stripe.Invoice> {
-  const { oystPatientId, oystEncounterId, stripePatientId, prefilledInfo } = params;
+  const { oystPatientId, oystEncounterId, prefilledInfo } = params;
   const { memo } = prefilledInfo;
   const invoiceItemParams: Stripe.InvoiceItemCreateParams = {
-    customer: stripePatientId,
+    customer: stripeCustomerId,
     amount, // cents
     currency: 'usd',
     description: memo, // ??
@@ -57,7 +80,7 @@ async function createInvoice(
   await stripe.invoiceItems.create(invoiceItemParams);
 
   const invoiceParams: Stripe.InvoiceCreateParams = {
-    customer: stripePatientId,
+    customer: stripeCustomerId,
     collection_method: 'send_invoice',
     description: memo,
     metadata: {
@@ -81,4 +104,46 @@ async function getPatientBalanceInCentsForClaim(input: {
     return itemization.patientBalanceCents;
   }
   return undefined;
+}
+
+async function getFhirResources(
+  oystehr: Oystehr,
+  patientId: string,
+  encounterId: string
+): Promise<{ patient: Patient; encounter: Encounter; account: Account }> {
+  const response = (
+    await oystehr.fhir.search({
+      resourceType: 'Encounter',
+      params: [
+        {
+          name: '_id',
+          value: encounterId,
+        },
+        {
+          name: '_include',
+          value: 'Encounter:patient',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Account:patient',
+        },
+      ],
+    })
+  ).unbundle();
+
+  const encounter = response.find((resource) => resource.resourceType === 'Encounter') as Encounter;
+  const patient = response.find(
+    (resource) => resource.resourceType === 'Patient' && resource.id === patientId
+  ) as Patient;
+  const account = response.find(
+    (resource) =>
+      resource.resourceType === 'Account' && getPatientReferenceFromAccount(resource as Account)?.includes(patientId)
+  ) as Account;
+  if (!encounter || !patient || !account) throw new Error('Encounter, patient, or account not found');
+
+  return {
+    encounter,
+    patient,
+    account,
+  };
 }
