@@ -76,7 +76,7 @@ async function checkForExistingAiResources(oystehr: Oystehr, encounterId: string
   const existingDocRef = await oystehr.fhir.search({
     resourceType: 'DocumentReference',
     params: [
-      { name: 'context', value: `Encounter/${encounterId}` },
+      { name: 'encounter', value: `Encounter/${encounterId}` },
       { name: 'type', value: VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE.code },
     ],
   });
