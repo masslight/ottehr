@@ -8,11 +8,6 @@ export const index = wrapHandler('failing-endpoint', async (input: ZambdaInput):
     throw new Error('Test zambda error');
   } catch (error) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('failing-endpoint', error, ENVIRONMENT);
-    console.log(error);
-    return {
-      body: JSON.stringify({ message: 'Test zambda error' }),
-      statusCode: 500,
-    };
+    return topLevelCatch('failing-endpoint', error, ENVIRONMENT);
   }
 });

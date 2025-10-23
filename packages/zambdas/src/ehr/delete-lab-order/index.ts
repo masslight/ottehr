@@ -25,7 +25,7 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const { serviceRequest, questionnaireResponse, task, labConditions } = await getLabOrderRelatedResources(
+    const { serviceRequest, questionnaireResponse, tasks, labConditions } = await getLabOrderRelatedResources(
       oystehr,
       validatedParameters
     );
@@ -45,8 +45,10 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
       deleteRequests.push(makeDeleteResourceRequest('QuestionnaireResponse', questionnaireResponse.id));
     }
 
-    if (task?.id) {
-      deleteRequests.push(makeDeleteResourceRequest('Task', task.id));
+    for (const task of tasks) {
+      if (task.id) {
+        deleteRequests.push(makeDeleteResourceRequest('Task', task.id));
+      }
     }
 
     labConditions.forEach((condition) => {
@@ -77,11 +79,6 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('delete-lab-order', error, ENVIRONMENT);
-
-    return {
-      statusCode: error.statusCode || 500,
-      body: JSON.stringify({ message: `Error deleting external lab order: ${error.message || error}` }),
-    };
+    return topLevelCatch('delete-lab-order', error, ENVIRONMENT);
   }
 });

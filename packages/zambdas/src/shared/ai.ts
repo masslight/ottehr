@@ -1,6 +1,7 @@
 import { ChatAnthropic } from '@langchain/anthropic';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Condition, DocumentReference, Encounter, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
@@ -278,6 +279,7 @@ export async function generateIcdTenCodesFromNotes(
     return aiResponse.potentialDiagnoses || [];
   } catch (error) {
     console.error('Error generating ICD-10 codes:', error);
+    captureException(error);
     return [];
   }
 }

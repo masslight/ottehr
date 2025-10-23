@@ -1,13 +1,12 @@
 import { BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { DocumentReference, FhirResource, Provenance, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  APIError,
   getPatchBinary,
   getSecret,
-  isApiError,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   OYSTEHR_SUBMIT_LAB_API,
   SecretsKeys,
@@ -99,6 +98,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             isPsc: resources.isPscOrder,
           };
         } catch (e) {
+          captureException(e);
           return { status: 'rejected', orderNumber, reason: (e as Error).message };
         }
       });
@@ -192,15 +192,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log(error);
     console.log('submit external lab order error:', JSON.stringify(error));
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-submit-lab-order', error, ENVIRONMENT);
-    let body = JSON.stringify({ message: 'Error submitting external lab order' });
-    if (isApiError(error)) {
-      const { code, message } = error as APIError;
-      body = JSON.stringify({ message, code });
-    }
-    return {
-      statusCode: 500,
-      body,
-    };
+    return topLevelCatch('admin-submit-lab-order', error, ENVIRONMENT);
   }
 });
