@@ -16,6 +16,7 @@ export const PSC_HOLD_CONFIG = {
 };
 
 export const LAB_ORDER_TASK = {
+  category: 'external-lab',
   system: 'external-lab-task',
   code: {
     matchUnsolicitedResult: 'MURT',
@@ -24,6 +25,14 @@ export const LAB_ORDER_TASK = {
     reviewFinalResult: 'RFRT',
     reviewCorrectedResult: 'RCRT',
     reviewCancelledResult: 'RCANRT', // cancelled by the lab
+  },
+  input: {
+    testName: 'test-name',
+    patientName: 'patient-name',
+    providerName: 'provider-name',
+    orderDate: 'order-date',
+    appointmentId: 'appointment-id',
+    receivedDate: 'received-date',
   },
 } as const;
 export type LabOrderTaskCode = (typeof LAB_ORDER_TASK.code)[keyof typeof LAB_ORDER_TASK.code];
