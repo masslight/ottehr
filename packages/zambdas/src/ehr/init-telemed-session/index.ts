@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
 import { getSecret, InitTelemedSessionResponse, MeetingData, Secrets, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient, getVideoRoomResourceExtension } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import { createVideoRoom } from './video-room-creation';
@@ -48,11 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       statusCode: 200,
     };
   } catch (error) {
-    console.log(error);
-    return {
-      body: JSON.stringify({ message: 'Error initiating video room for appointment' }),
-      statusCode: 500,
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

@@ -1,9 +1,11 @@
 import { WarningAmberOutlined } from '@mui/icons-material';
+import CheckIcon from '@mui/icons-material/Check';
+import QuestionMarkIcon from '@mui/icons-material/QuestionMark';
 import { Box, Typography } from '@mui/material';
 import { FC, Fragment, ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ExternalLabOrderResult, InHouseLabResult, LabType } from 'utils';
+import { ExternalLabOrderResult, InHouseLabResult, LabType, NonNormalResult } from 'utils';
 
 interface LabResultsReviewContainerProps {
   resultDetails:
@@ -24,15 +26,45 @@ export const LabResultsReviewContainer: FC<LabResultsReviewContainerProps> = ({ 
   const keyIdentifier = isExternal ? 'external-lab-result' : 'in-house-lab-result';
 
   const checkForAbnormalResultFlag = (result: ExternalLabOrderResult | InHouseLabResult): ReactElement | null => {
-    if (!result.containsAbnormalResult) return null;
-    return (
-      <>
-        <WarningAmberOutlined sx={{ ml: '8px' }} color="warning" />
-        <Typography color="warning.main" sx={{ ml: '4px' }}>
-          Abnormal Result
-        </Typography>
-      </>
-    );
+    const flags = result.nonNormalResultContained?.map((nonNormalFlag) => {
+      switch (nonNormalFlag) {
+        case NonNormalResult.Abnormal:
+          return (
+            <>
+              <WarningAmberOutlined sx={{ ml: '8px' }} color="warning" />
+              <Typography color="warning.main" sx={{ ml: '4px' }}>
+                Abnormal Result
+              </Typography>
+            </>
+          );
+        case NonNormalResult.Inconclusive:
+          return (
+            <>
+              <QuestionMarkIcon sx={{ ml: '8px' }} color="disabled" />
+              <Typography color="text.disabled" sx={{ ml: '4px' }}>
+                Inconclusive Result
+              </Typography>
+            </>
+          );
+        case NonNormalResult.Neutral:
+          return <></>;
+      }
+    });
+    if (flags) {
+      return <>{flags}</>;
+    } else if (isExternal) {
+      // we cannot assume if no flags the result is normal since the logic to flag abnormal / inconclusive at a high level is murky for external labs
+      return null;
+    } else {
+      return (
+        <>
+          <CheckIcon sx={{ ml: '8px' }} color="success" />
+          <Typography color="success.main" sx={{ ml: '4px' }}>
+            Normal Result
+          </Typography>
+        </>
+      );
+    }
   };
 
   return (

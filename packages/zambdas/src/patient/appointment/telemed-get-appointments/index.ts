@@ -10,7 +10,7 @@ import {
   SecretsKeys,
   TelemedAppointmentInformationIntake,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getUser, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, getUser, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { filterTelemedVideoEncounters, getFhirResources } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -108,9 +108,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     console.log('error', error, error.issue);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });

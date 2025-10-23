@@ -120,11 +120,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('Process ERX MedicationRequest error', error, ENVIRONMENT);
-    console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify(error.message),
-    };
+    return topLevelCatch('Process ERX MedicationRequest error', error, ENVIRONMENT);
   }
 });

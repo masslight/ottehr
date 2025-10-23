@@ -66,10 +66,6 @@ export const index = wrapHandler('get-nursing-orders', async (input: ZambdaInput
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('get-nursing-orders', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: `Error fetching nursing orders: ${error}` }),
-    };
+    return topLevelCatch('get-nursing-orders', error, ENVIRONMENT);
   }
 });

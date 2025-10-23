@@ -39,6 +39,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   addOperation,
+  CODE_SYSTEM_COVERAGE_CLASS,
   findExistingListByDocumentTypeCode,
   getMimeType,
   getPatchOperationsForNewMetaTags,
@@ -328,7 +329,16 @@ export async function createFilesDocumentReferences(
       const docRef = docRefBundle.entry?.[0]?.resource;
       // Collect document reference to list by type
       if (listResources && type.coding?.[0]?.code && docRef) {
-        const typeCode = type.coding[0].code;
+        let typeCode = type.coding[0].code;
+        if (type.coding.length > 1) {
+          // If there is more than 1 it is the consents special case. take the one that has the https://fhir.ottehr.com/CodeSystem/consent-source system
+          const maybeConsentCoding = type.coding.find(
+            (coding) => coding.system === 'https://fhir.ottehr.com/CodeSystem/consent-source'
+          );
+          if (maybeConsentCoding && maybeConsentCoding.code) {
+            typeCode = maybeConsentCoding.code;
+          }
+        }
         if (!newEntriesByType[typeCode]) {
           newEntriesByType[typeCode] = [];
         }
@@ -1509,4 +1519,10 @@ export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Opera
 export const getAttestedConsentFromEncounter = (encounter: Encounter): Signature | undefined => {
   console.log('getAttestedConsentFromEncounter', JSON.stringify(encounter));
   return encounter.extension?.find((ext) => ext.url === FHIR_EXTENSION.Encounter.attestedConsent.url)?.valueSignature;
+};
+
+export const getInsuranceNameFromCoverage = (coverage: Coverage): string | undefined => {
+  return coverage?.class?.find(
+    (cls) => cls.type.coding?.find((coding) => coding.system === CODE_SYSTEM_COVERAGE_CLASS && coding.code === 'plan')
+  )?.name;
 };
