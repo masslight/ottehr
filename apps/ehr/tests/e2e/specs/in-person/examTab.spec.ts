@@ -1,6 +1,9 @@
 import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { TelemedAppointmentVisitTabs } from 'utils';
+import { expectExamPage } from 'tests/e2e/page/in-person/InPersonExamsPage';
+import { InPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
+import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
+import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import {
   discoverAndTestExamSections,
@@ -9,12 +12,14 @@ import {
   verifyExamSectionsPersistence,
   waitForFieldSave,
 } from '../../../e2e-utils/helpers/exam-tab.test-helpers';
-import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
+let sideMenu: SideMenu;
+let progressNotePage: InPersonProgressNotePage;
+
 test.describe('Persistence tests', async () => {
-  const PROCESS_ID = `examTab.spec.ts-persistence-tests-${DateTime.now().toMillis()}`;
-  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
+  const PROCESS_ID = `in-person_examTab.spec.ts-persistence-tests-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
   let page: Page;
 
   // Test data - will be filled dynamically
@@ -29,11 +34,17 @@ test.describe('Persistence tests', async () => {
       await resourceHandler.setResources();
       await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
     }
-
-    await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-    await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.exam)).click();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable)).toBeVisible();
+    progressNotePage = new InPersonProgressNotePage(page);
+    const inPersonHeader = new InPersonHeader(page);
+    sideMenu = new SideMenu(page);
+    await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
+    await inPersonHeader.verifyStatus('pending');
+    await inPersonHeader.selectIntakePractitioner();
+    await inPersonHeader.selectProviderPractitioner();
+    await inPersonHeader.clickSwitchModeButton('provider');
+    await progressNotePage.expectLoaded();
+    await sideMenu.clickExam();
+    await expectExamPage(page);
   });
 
   test.afterAll(async () => {
@@ -92,8 +103,6 @@ test.describe('Persistence tests', async () => {
     // Reload the page
     await page.reload();
 
-    // Wait for exam tab to be visible
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.exam)).click();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable)).toBeVisible();
 
     const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
@@ -109,8 +118,8 @@ test.describe('Persistence tests', async () => {
     }
 
     // Navigate to Review and Sign tab
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-    await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+    await sideMenu.clickProgressNote();
+    await progressNotePage.expectLoaded();
 
     const examinationsContainer = page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabExaminationsContainer);
     await expect(examinationsContainer).toBeVisible();
