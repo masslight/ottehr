@@ -19,7 +19,7 @@ interface UseAiResourcesPollingResult {
 
 const MIN_ANSWERS_REQUIRED = 4;
 const MAX_POLLING_ATTEMPTS = 10;
-const POLLING_INTERVAL_MS = 30000; // 30 seconds
+const POLLING_INTERVAL_MS = 10_000; // 10 seconds
 
 export const useAiResourcesPolling = ({
   appointment,
