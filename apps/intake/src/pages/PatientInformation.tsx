@@ -454,7 +454,7 @@ const PatientInformation = (): JSX.Element => {
               // 'new-patient' apparently isn't getting into form values
               id: patientInfo?.id ?? formValuesCopy?.id ?? 'new-patient',
               authorizedNonLegalGuardians:
-                (formValuesCopy as any)?.authorizedNonLegalGuardians ?? patientInfo?.authorizedNonLegalGuardians,
+                formValuesCopy?.authorizedNonLegalGuardians ?? patientInfo?.authorizedNonLegalGuardians,
             });
             navigate(-1);
           },
