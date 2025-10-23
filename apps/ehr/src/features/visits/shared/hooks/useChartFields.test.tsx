@@ -498,7 +498,6 @@ describe('useChartDataField', () => {
         isStatusEditable: false,
         isCurrentUserHasAccessToAppointment: true,
         isAppointmentLocked: false,
-        visitType: 'main',
       });
 
       const requestedFields = {
@@ -525,7 +524,6 @@ describe('useChartDataField', () => {
         isStatusEditable: true,
         isCurrentUserHasAccessToAppointment: true,
         isAppointmentLocked: false,
-        visitType: 'main',
       });
     });
 

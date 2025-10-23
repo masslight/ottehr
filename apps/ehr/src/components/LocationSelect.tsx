@@ -14,7 +14,6 @@ type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: a
 interface LocationSelectProps {
   location?: LocationWithWalkinSchedule | undefined;
   setLocation: (location: LocationWithWalkinSchedule | undefined) => void;
-  setLocations?: (locations: LocationWithWalkinSchedule[]) => void;
   updateURL?: boolean;
   storeLocationInLocalStorage?: boolean;
   required?: boolean;
@@ -34,7 +33,6 @@ export default function LocationSelect({
   location,
   handleSubmit,
   setLocation,
-  setLocations: setExternalLocations,
   updateURL,
   storeLocationInLocalStorage,
   required,
@@ -84,7 +82,6 @@ export default function LocationSelect({
           return { ...location, walkinSchedule: schedule };
         });
         setLocations(mappedLocations);
-        setExternalLocations?.(mappedLocations);
       } catch (e) {
         console.error('error loading locations', e);
       } finally {
@@ -95,7 +92,7 @@ export default function LocationSelect({
     if (oystehr && loadingState === LoadingState.initial) {
       void getLocationsResults(oystehr);
     }
-  }, [oystehr, loadingState, setExternalLocations]);
+  }, [oystehr, loadingState]);
 
   const getLocationLabel = (location: LocationWithWalkinSchedule): string => {
     if (!location.name) {
@@ -140,7 +137,6 @@ export default function LocationSelect({
     <Autocomplete
       data-testid={dataTestIds.dashboard.locationSelect}
       disabled={renderInputProps?.disabled}
-      size={renderInputProps?.size}
       value={
         location
           ? {

@@ -1,11 +1,11 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, Chip, Grid, IconButton, MenuItem, Skeleton, Stack, TextField, Typography } from '@mui/material';
+import { Box, Grid, IconButton, MenuItem, Skeleton, Stack, TextField, Typography } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   getAdmitterPractitionerId,
@@ -19,7 +19,6 @@ import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
 import { useChartFields } from '../../shared/hooks/useChartFields';
-import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
@@ -65,55 +64,6 @@ const format = (
   return prefix + (value || emptyValuePlaceholder);
 };
 
-const getFollowupStatusChip = (status: 'OPEN' | 'RESOLVED'): ReactElement => {
-  interface ColorScheme {
-    bg: string;
-    text: string;
-  }
-
-  type StatusType = 'OPEN' | 'RESOLVED';
-
-  const StatusChip = styled(Chip)(() => ({
-    borderRadius: '8px',
-    padding: '0 9px',
-    margin: 0,
-    height: '24px',
-    '& .MuiChip-label': {
-      padding: 0,
-      fontWeight: 'bold',
-      fontSize: '0.7rem',
-    },
-    '& .MuiChip-icon': {
-      marginLeft: 'auto',
-      marginRight: '-4px',
-      order: 1,
-    },
-  }));
-
-  const statusColors: Record<StatusType, ColorScheme> = {
-    OPEN: { bg: '#b3e5fc', text: '#01579B' },
-    RESOLVED: { bg: '#c8e6c9', text: '#1b5e20' },
-  };
-  const statusVal =
-    status === 'OPEN'
-      ? { statusText: 'OPEN', statusColors: statusColors.OPEN }
-      : { statusText: 'RESOLVED', statusColors: statusColors.RESOLVED };
-  return (
-    <StatusChip
-      label={statusVal.statusText}
-      sx={{
-        backgroundColor: statusVal.statusColors.bg,
-        color: statusVal.statusColors.text,
-        '& .MuiSvgIcon-root': {
-          color: 'inherit',
-          fontSize: '1.2rem',
-          margin: '0 -4px 0 2px',
-        },
-      }}
-    />
-  );
-};
-
 export const Header = (): JSX.Element => {
   const { id: appointmentID } = useParams();
   const navigate = useNavigate();
@@ -128,8 +78,6 @@ export const Header = (): JSX.Element => {
   const { chartData } = useChartData();
   const { encounter } = visitState;
   const encounterId = encounter?.id;
-  const { visitType } = useGetAppointmentAccessibility();
-  const isFollowup = visitType === 'follow-up';
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
   const patientName = format(mappedData?.patientName, 'Name');
@@ -286,15 +234,11 @@ export const Header = (): JSX.Element => {
               <Grid item>
                 <Grid container alignItems="center" spacing={2}>
                   <Grid item>
-                    {isFollowup ? (
-                      getFollowupStatusChip(encounter?.status === 'in-progress' ? 'OPEN' : 'RESOLVED')
-                    ) : (
-                      <ChangeStatusDropdown
-                        appointmentID={appointmentID}
-                        onStatusChange={setStatus}
-                        dataTestId={dataTestIds.inPersonHeader.changeStatusDropdown}
-                      />
-                    )}
+                    <ChangeStatusDropdown
+                      appointmentID={appointmentID}
+                      onStatusChange={setStatus}
+                      dataTestId={dataTestIds.inPersonHeader.changeStatusDropdown}
+                    />
                   </Grid>
                   <Grid item>
                     <PatientMetadata>
@@ -305,9 +249,33 @@ export const Header = (): JSX.Element => {
                     </PatientMetadata>
                   </Grid>
                   <Grid item>
-                    {isFollowup ? (
+                    <Stack direction="row" spacing={2}>
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <PatientMetadata>Follow-up provider: </PatientMetadata>
+                        <PatientMetadata>Intake: </PatientMetadata>
+                        <TextField
+                          select
+                          fullWidth
+                          data-testid={dataTestIds.inPersonHeader.intakePractitionerInput}
+                          sx={{ minWidth: 120 }}
+                          variant="standard"
+                          value={assignedIntakePerformerId ?? ''}
+                          disabled={isUpdatingPractitionerForIntake}
+                          onChange={(e) => {
+                            void handleUpdateIntakeAssignment(e.target.value);
+                          }}
+                        >
+                          {employees.nonProviders
+                            ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                            ?.map((nonProvider) => (
+                              <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
+                                {nonProvider.name}
+                              </MenuItem>
+                            ))}
+                        </TextField>
+                      </Stack>
+
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <PatientMetadata>Provider: </PatientMetadata>
                         <TextField
                           select
                           fullWidth
@@ -329,57 +297,7 @@ export const Header = (): JSX.Element => {
                             ))}
                         </TextField>
                       </Stack>
-                    ) : (
-                      <Stack direction="row" spacing={2}>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <PatientMetadata>Intake: </PatientMetadata>
-                          <TextField
-                            select
-                            fullWidth
-                            data-testid={dataTestIds.inPersonHeader.intakePractitionerInput}
-                            sx={{ minWidth: 120 }}
-                            variant="standard"
-                            value={assignedIntakePerformerId ?? ''}
-                            disabled={isUpdatingPractitionerForIntake}
-                            onChange={(e) => {
-                              void handleUpdateIntakeAssignment(e.target.value);
-                            }}
-                          >
-                            {employees.nonProviders
-                              ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-                              ?.map((nonProvider) => (
-                                <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
-                                  {nonProvider.name}
-                                </MenuItem>
-                              ))}
-                          </TextField>
-                        </Stack>
-
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <PatientMetadata>Provider: </PatientMetadata>
-                          <TextField
-                            select
-                            fullWidth
-                            data-testid={dataTestIds.inPersonHeader.providerPractitionerInput}
-                            sx={{ minWidth: 120 }}
-                            variant="standard"
-                            value={assignedProviderId ?? ''}
-                            disabled={isUpdatingPractitionerForProvider}
-                            onChange={(e) => {
-                              void handleUpdateProviderAssignment(e.target.value);
-                            }}
-                          >
-                            {employees.providers
-                              ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-                              ?.map((provider) => (
-                                <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
-                                  {provider.name}
-                                </MenuItem>
-                              ))}
-                          </TextField>
-                        </Stack>
-                      </Stack>
-                    )}
+                    </Stack>
                   </Grid>
                 </Grid>
               </Grid>
@@ -433,13 +351,11 @@ export const Header = (): JSX.Element => {
                   mt: 0.5,
                 }}
               >
-                {!isFollowup && (
-                  <SwitchIntakeModeButton
-                    isDisabled={!appointmentID || isEncounterUpdatePending}
-                    handleSwitchMode={handleSwitchMode}
-                    nextMode={nextMode}
-                  />
-                )}
+                <SwitchIntakeModeButton
+                  isDisabled={!appointmentID || isEncounterUpdatePending}
+                  handleSwitchMode={handleSwitchMode}
+                  nextMode={nextMode}
+                />
                 {encounterId ? <InternalNotes /> : null}
               </Grid>
             </Grid>

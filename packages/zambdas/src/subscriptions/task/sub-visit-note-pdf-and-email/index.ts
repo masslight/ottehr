@@ -8,7 +8,6 @@ import {
   getPatientContactEmail,
   getSecret,
   InPersonCompletionTemplateData,
-  isFollowupEncounter,
   OTTEHR_MODULE,
   progressNoteChartDataRequestedFields,
   Secrets,
@@ -90,12 +89,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error('no appointment ID found on task focus');
   }
 
-  const visitResources = await getAppointmentAndRelatedResources(
-    oystehr,
-    appointmentId,
-    true,
-    task.encounter?.reference?.split('/')[1]
-  );
+  const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
   if (!visitResources) {
     {
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
@@ -112,9 +106,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
-
-  // Check if this is a PDF-only task (for follow-ups) or regular PDF+email task
-  const isPDFOnlyTask = isFollowupEncounter(encounter);
 
   const chartDataPromise = getChartData(oystehr, oystehrToken, visitResources.encounter.id!);
   const additionalChartDataPromise = getChartData(
@@ -154,7 +145,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const emailClient = getEmailClient(secrets);
     const emailEnabled = emailClient.getFeatureFlag();
-    if (emailEnabled && !isPDFOnlyTask) {
+    if (emailEnabled) {
       const patientEmail = getPatientContactEmail(patient);
       let prettyStartTime = '';
       let locationName = '';
@@ -214,8 +205,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // update task status and status reason
     console.log('making patch request to update task status');
-    const statusMessage = isPDFOnlyTask ? 'PDF created successfully' : 'PDF created and emailed successfully';
-    const patchedTask = await patchTaskStatus(oystehr, task.id, 'completed', statusMessage);
+    const patchedTask = await patchTaskStatus(oystehr, task.id, 'completed', 'PDF created and emailed successfully');
 
     const response = {
       taskStatus: patchedTask.status,

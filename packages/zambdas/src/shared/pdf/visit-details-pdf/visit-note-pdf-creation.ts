@@ -55,14 +55,7 @@ export async function composeAndCreateVisitNotePdf(
   console.log('Start composing data for pdf');
   const data = composeDataForPdf(allChartData, appointmentPackage, isInPerson);
   console.log('Start creating pdf');
-  return await createVisitNotePDF(
-    data,
-    appointmentPackage.patient!,
-    secrets,
-    token,
-    isInPerson,
-    appointmentPackage.encounter
-  );
+  return await createVisitNotePDF(data, appointmentPackage.patient!, secrets, token, isInPerson);
 }
 
 function composeDataForPdf(
@@ -72,7 +65,7 @@ function composeDataForPdf(
 ): VisitNoteData {
   const { chartData, additionalChartData, medicationOrders, immunizationOrders } = allChartData;
 
-  const { patient, encounter, mainEncounter, appointment, location, questionnaireResponse, practitioners, timezone } =
+  const { patient, encounter, appointment, location, questionnaireResponse, practitioners, timezone } =
     appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');
   // if (!practitioner) throw new Error('No practitioner found for this encounter'); // TODO: fix that
@@ -85,7 +78,7 @@ function composeDataForPdf(
     .valueString;
 
   // --- Visit details ---
-  const { dateOfService, signedOnDate } = getStatusRelatedDates(mainEncounter ?? encounter, appointment, timezone);
+  const { dateOfService, signedOnDate } = getStatusRelatedDates(encounter, appointment, timezone);
   const reasonForVisit = appointment?.description;
   let providerName: string;
   let intakePersonName: string | undefined = undefined;
