@@ -143,6 +143,12 @@ export default function ProceduresNew(): ReactElement {
   });
   const [saveInProgress, setSaveInProgress] = useState<boolean>(false);
 
+  const sortedProcedureTypes = useMemo(() => {
+    return (selectOptions?.procedureTypes ?? [])
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  }, [selectOptions?.procedureTypes]);
+
   const updateState = (stateMutator: (state: PageState) => void): void => {
     stateMutator(state);
     setState({ ...state });
@@ -521,7 +527,7 @@ export default function ProceduresNew(): ReactElement {
 
             {dropdown(
               'Procedure type',
-              selectOptions?.procedureTypes.map((procedureType) => procedureType.name),
+              sortedProcedureTypes.map((procedureType) => procedureType.name),
               state.procedureType,
               (value, state) => {
                 state.procedureType = value;

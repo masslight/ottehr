@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import {
   ActivityDefinition,
+  Coding,
   DiagnosticReport,
   DocumentReference,
   Encounter,
@@ -25,6 +26,7 @@ import {
   convertActivityDefinitionToTestItem,
   createFilesDocumentReferences,
   EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
+  formatPhoneNumberDisplay,
   getFullestAvailableName,
   getOrderNumber,
   getOrderNumberFromDr,
@@ -174,7 +176,9 @@ const getResultDataConfigForDrResources = (
     patientSex: patient.gender || '',
     patientDOB: patient.birthDate ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy') : '',
     patientId: patient.id || '',
-    patientPhone: patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || '',
+    patientPhone: formatPhoneNumberDisplay(
+      patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ''
+    ),
     todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
     dateIncludedInFileName: diagnosticReport.effectiveDateTime || '',
     orderPriority: '',
@@ -247,7 +251,8 @@ const getResultDataConfig = (
     locationCity: location?.address?.city,
     locationState: location?.address?.state,
     locationZip: location?.address?.postalCode,
-    locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
+    locationPhone:
+      formatPhoneNumberDisplay(location?.telecom?.find((t) => t.system === 'phone')?.value || '') || undefined,
     locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
     providerName: providerName || '',
     providerNPI: (providerNPI || '') as string,
@@ -257,7 +262,9 @@ const getResultDataConfig = (
     patientSex: patient.gender || '',
     patientDOB: patient.birthDate ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy') : '',
     patientId: patient.id || '',
-    patientPhone: patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || '',
+    patientPhone: formatPhoneNumberDisplay(
+      patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ''
+    ),
     todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
     dateIncludedInFileName: serviceRequest.authoredOn || '',
     orderPriority: serviceRequest.priority || '',
@@ -710,29 +717,17 @@ async function getResultsDetailsForPDF(
     pngAttachments: [],
     jpgAttachments: [],
   };
-  observations
-    .filter(
-      (observation) =>
-        diagnosticReport.result?.some((resultTemp) => resultTemp.reference?.split('/')[1] === observation.id)
-    )
-    .sort((a, b) => {
-      // obr notes should be sorted at the top of the observations list
-      const aIsObrNote = a.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
-      const bIsObrNote = b.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
 
-      if (!aIsObrNote && bIsObrNote) return 1; // a comes before b
-      if (aIsObrNote && !bIsObrNote) return -1; // a comes after b
-      return 0; // no change
-    })
-    .forEach((observation) => {
-      const { labResult, interpretationDisplay, base64PdfAttachment, base64PngAttachment, base64JpgAttachment } =
-        parseObservationForPDF(observation, oystehr);
-      externalLabResults.push(labResult);
-      if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
-      if (base64PdfAttachment) obsAttachments.pdfAttachments.push(base64PdfAttachment);
-      if (base64PngAttachment) obsAttachments.pngAttachments.push(base64PngAttachment);
-      if (base64JpgAttachment) obsAttachments.jpgAttachments.push(base64JpgAttachment);
-    });
+  const filteredAndSortedObservations = filterAndSortObservations(observations, diagnosticReport);
+  filteredAndSortedObservations.forEach((observation) => {
+    const { labResult, interpretationDisplay, base64PdfAttachment, base64PngAttachment, base64JpgAttachment } =
+      parseObservationForPDF(observation, oystehr);
+    externalLabResults.push(labResult);
+    if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
+    if (base64PdfAttachment) obsAttachments.pdfAttachments.push(base64PdfAttachment);
+    if (base64PngAttachment) obsAttachments.pngAttachments.push(base64PngAttachment);
+    if (base64JpgAttachment) obsAttachments.jpgAttachments.push(base64JpgAttachment);
+  });
 
   return {
     reviewingProvider,
@@ -742,6 +737,35 @@ async function getResultsDetailsForPDF(
     resultInterpretationDisplays,
     obsAttachments,
   };
+}
+
+const isObrNoteObs = (obs: Observation): boolean => {
+  return !!obs.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
+};
+
+// function to ensure the order of the observations from dr.result is preserved
+function filterAndSortObservations(observations: Observation[], diagnosticReport: DiagnosticReport): Observation[] {
+  const obrNotes: Observation[] = [];
+  const otherObs: Observation[] = [];
+
+  diagnosticReport.result?.forEach((obsRef) => {
+    const isObs = obsRef.reference?.startsWith('Observation/');
+    if (isObs) {
+      const obsId = obsRef.reference?.replace('Observation/', '');
+      const fhirObs = observations.find((obs) => obs.id === obsId);
+      if (fhirObs) {
+        const isObrNote = isObrNoteObs(fhirObs);
+        if (isObrNote) {
+          obrNotes.push(fhirObs);
+        } else {
+          otherObs.push(fhirObs);
+        }
+      }
+    }
+  });
+
+  const sortedObservations = [...obrNotes, ...otherObs];
+  return sortedObservations;
 }
 
 async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Promise<Uint8Array> {
@@ -1621,8 +1645,8 @@ const parseObservationForPDF = (
   if (base64PdfAttachment || base64PngAttachment || base64JpgAttachment) {
     const initialText = base64PdfAttachment ? 'A pdf' : 'An image';
     const attachmentResult: ExternalLabResult = {
-      resultCode: '',
-      resultCodeDisplay: '',
+      resultCodeAndDisplay: '',
+      loincCodeAndDisplay: '',
       resultValue: '',
       attachmentText: `${initialText} attachment is included at the end of this document`,
       observationStatus: observation.status,
@@ -1660,20 +1684,39 @@ const parseObservationForPDF = (
         .join('. ')
     : undefined;
 
-  const codes = observation.code.coding
-    ?.reduce((acc: string[], code) => {
-      if (
-        code.system &&
-        ![OYSTEHR_OBR_NOTE_CODING_SYSTEM, OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM].includes(code.system)
-      ) {
-        if (code.code) acc.push(code.code);
+  let resultCodeCodings: Coding[] | undefined;
+  let resultLoincCodings: Coding[] | undefined;
+  observation.code.coding?.forEach((coding) => {
+    if (coding.system === `http://loinc.org`) {
+      if (resultLoincCodings !== undefined) {
+        console.info(`Found multiple loinc codings in Observation/${observation.id} code`);
+        resultLoincCodings.push(coding);
+        return;
       }
-      return acc;
-    }, [])
-    .join(', ');
+      resultLoincCodings = [coding];
+    } else if (
+      ![OYSTEHR_OBR_NOTE_CODING_SYSTEM, OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM].includes(coding.system || '')
+    ) {
+      if (resultCodeCodings !== undefined) {
+        console.info(`Found multiple code codings in Observation/${observation.id} code`);
+        resultCodeCodings.push(coding);
+        return;
+      }
+      resultCodeCodings = [coding];
+    }
+  });
+
+  const formatResultCodeAndDisplay = (coding: Coding): string => {
+    if (!coding.code) return '';
+    return `${coding.code}${coding.display ? `(${coding.display})` : ''}`;
+  };
+
+  const resultCodesAndDisplays = resultCodeCodings?.map((coding) => formatResultCodeAndDisplay(coding)).join(', ');
+  const loincCodesAndDisplays = resultLoincCodings?.map((coding) => formatResultCodeAndDisplay(coding)).join(', ');
+
   const labResult: ExternalLabResult = {
-    resultCode: codes || '',
-    resultCodeDisplay: observation.code.coding?.[0].display || '',
+    resultCodeAndDisplay: resultCodesAndDisplays || '',
+    loincCodeAndDisplay: loincCodesAndDisplays || '',
     resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
     resultInterpretationDisplay: interpretationDisplay,
     resultValue: value || '',
@@ -1774,15 +1817,15 @@ const writeResultDetailLinesInPdf = (
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
-  let codeText: string | undefined;
-  if (labResult.resultCode) {
-    codeText = `Code: ${labResult.resultCode}`;
+  if (labResult.resultCodeAndDisplay) {
+    console.log('writing code', labResult.resultCodeAndDisplay);
+    pdfClient.drawText(`Code: ${labResult.resultCodeAndDisplay}`, textStyles.text);
+    pdfClient.newLine(STANDARD_NEW_LINE);
   }
-  if (labResult.resultCodeDisplay) {
-    codeText += ` (${labResult.resultCodeDisplay})`;
-  }
-  if (codeText) {
-    pdfClient.drawText(codeText, textStyles.text);
+
+  if (labResult.loincCodeAndDisplay) {
+    console.log('writing loinc code', labResult.loincCodeAndDisplay);
+    pdfClient.drawText(`LOINC Code: ${labResult.loincCodeAndDisplay}`, textStyles.text);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 

@@ -2,7 +2,6 @@ import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Encounter, FhirResource, ServiceRequest, Specimen, Task } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import {
   CollectInHouseLabSpecimenParameters,
   CollectInHouseLabSpecimenZambdaOutput,
@@ -21,6 +20,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { createTask, getTaskLocationId } from '../../shared/tasks';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'collect-in-house-lab-specimen';
@@ -154,23 +154,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       status: 'completed',
     };
 
-    const inputResultTaskConfig: Task = {
-      resourceType: 'Task',
-      status: 'ready',
-      intent: 'order',
+    const inputResultTaskConfig = createTask({
+      category: IN_HOUSE_LAB_TASK.category,
       code: {
-        coding: [
-          {
-            system: IN_HOUSE_LAB_TASK.system,
-            code: IN_HOUSE_LAB_TASK.code.inputResultsTask,
-          },
-        ],
+        system: IN_HOUSE_LAB_TASK.system,
+        code: IN_HOUSE_LAB_TASK.code.inputResultsTask,
       },
-      basedOn: [{ reference: `ServiceRequest/${serviceRequestId}` }],
-      encounter: { reference: `Encounter/${encounterId}` },
-      authoredOn: DateTime.now().toISO(),
-      ...(collectionTask.location && { location: collectionTask.location }),
-    };
+      encounterId: encounterId,
+      locationId: getTaskLocationId(collectionTask),
+      input: collectionTask.input,
+      basedOn: `ServiceRequest/${serviceRequestId}`,
+    });
 
     const transactionResponse = await oystehr.fhir.transaction({
       requests: [
