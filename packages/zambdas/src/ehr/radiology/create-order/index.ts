@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputPutRequest, User } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Patient, Practitioner, Procedure, ServiceRequest } from 'fhir/r4b';
 import { ServiceRequest as ServiceRequestR5 } from 'fhir/r5';
@@ -13,7 +14,14 @@ import {
   SecretsKeys,
   userMe,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, fillMeta, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  fillMeta,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
@@ -88,11 +96,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
       body: JSON.stringify({ output }),
     };
   } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
   }
 });
 
@@ -135,6 +139,7 @@ const performEffect = async (
   try {
     await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, secrets, oystehr);
   } catch (error) {
+    captureException(error);
     console.error('Error sending order to AdvaPACS: ', error);
     await rollbackOurServiceRequest(ourServiceRequest, oystehr);
   }

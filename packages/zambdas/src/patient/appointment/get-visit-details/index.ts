@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
 import { createOystehrClient, getSecret, GetVisitDetailsResponse, SecretsKeys } from 'utils';
@@ -52,6 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
       appointmentTime = appointment?.start ?? encounter?.period?.start ?? 'unknown date';
     } catch (error) {
+      captureException(error);
       console.log('getEncounterForAppointment', error);
     }
 
@@ -64,6 +66,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         encounter?.id
       );
     } catch (error) {
+      captureException(error);
       console.log('getPaymentDataRequest', error);
     }
 
@@ -74,6 +77,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       documents = await getPresignedURLs(oystehr, oystehrToken, encounter?.id);
     } catch (error) {
       console.log('getPresignedURLs', error);
+      captureException(error);
     }
 
     let medications = null;
@@ -81,6 +85,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     try {
       medications = await getMedications(oystehr, encounter?.id);
     } catch (error) {
+      captureException(error);
       console.log('getMedications', error);
     }
 

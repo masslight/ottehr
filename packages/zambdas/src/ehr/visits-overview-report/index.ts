@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
@@ -6,6 +7,8 @@ import {
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
   getSecret,
+  isInPersonAppointment,
+  isTelemedAppointment,
   LocationVisitCount,
   OTTEHR_MODULE,
   PractitionerVisitCount,
@@ -165,8 +168,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     appointments.forEach((appointment) => {
       // Determine appointment type based on meta tags
-      const isTelemedicine = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
-      const isInPerson = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.IP);
+      const isTelemedicine = isTelemedAppointment(appointment);
+      const isInPerson = isInPersonAppointment(appointment);
 
       // Extract date from appointment start time in local timezone (America/New_York)
       let appointmentDate = 'unknown';
@@ -180,6 +183,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           appointmentDate = localDate;
         } catch (error) {
           console.warn('Failed to parse appointment date:', appointment.start, error);
+          captureException(error);
           appointmentDate = 'unknown';
         }
       }
@@ -211,8 +215,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const participantWithLocation = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'));
 
       // Check if appointment is telemedicine or in-person (using same logic as daily visits)
-      const isTelemedicine = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
-      const isInPerson = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.IP);
+      const isTelemedicine = isTelemedAppointment(appointment);
+      const isInPerson = isInPersonAppointment(appointment);
 
       let locationKey = 'Unknown Location';
       let locationId = 'unknown';
@@ -281,8 +285,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (!appointment.id) return;
 
       // Check if appointment is telemedicine or in-person (using same logic as daily visits)
-      const isTelemedicine = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
-      const isInPerson = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.IP);
+      const isTelemedicine = isTelemedAppointment(appointment);
+      const isInPerson = isInPersonAppointment(appointment);
 
       // Skip appointments without clear type
       if (!isTelemedicine && !isInPerson) return;
@@ -388,11 +392,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-    console.log('Error occurred:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });

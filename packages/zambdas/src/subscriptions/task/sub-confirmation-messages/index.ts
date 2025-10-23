@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -10,7 +11,7 @@ import {
   getPatientFirstName,
   getSecret,
   InPersonConfirmationTemplateData,
-  OTTEHR_MODULE,
+  isTelemedAppointment,
   SecretsKeys,
   TaskStatus,
   TelemedConfirmationTemplateData,
@@ -149,7 +150,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     let smsOutcome: 'success' | 'failed' | 'skipped' = 'skipped';
 
     if (fhirAppointment.id && startTime.isValid) {
-      const isTelemed = Boolean(fhirAppointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM));
+      const isTelemed = isTelemedAppointment(fhirAppointment);
       const patientEmail = getPatientContactEmail(fhirPatient);
       const firstName = getPatientFirstName(fhirPatient);
       let ownerName = getNameFromScheduleResource(fhirSchedule);
@@ -177,6 +178,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             } catch (e) {
               console.log('telemed confirmation email send error: ', JSON.stringify(e));
               emailOutcome = 'failed';
+              captureException(e);
             }
           }
           try {
@@ -196,6 +198,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           } catch (e) {
             console.log('message send error: ', JSON.stringify(e));
             smsOutcome = 'failed';
+            captureException(e);
           }
         } else {
           if (patientEmail) {
@@ -235,6 +238,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             } catch (e) {
               console.log('in person confirmation email send error: ', JSON.stringify(e));
               emailOutcome = 'failed';
+              captureException(e);
             }
           }
 
@@ -268,6 +272,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
       } catch (err) {
         console.log('failed to send messages', err, JSON.stringify(err));
+        captureException(err);
         taskStatusToUpdate = 'failed';
       } finally {
         statusReasonToUpdate = `send email status: ${emailOutcome}; send sms status: ${smsOutcome}`;

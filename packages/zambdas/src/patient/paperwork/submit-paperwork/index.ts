@@ -1,8 +1,9 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_EXTENSION, getSecret, OTTEHR_MODULE, SecretsKeys } from 'utils';
+import { FHIR_EXTENSION, getSecret, isTelemedAppointment, SecretsKeys } from 'utils';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { SubmitPaperworkEffectInput, validateSubmitInputs } from '../validateRequestParameters';
@@ -88,7 +89,7 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
         });
 
         const appointmentStatus = appointment.status;
-        const isOttehrTm = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
+        const isOttehrTm = isTelemedAppointment(appointment);
 
         if (isOttehrTm && appointmentStatus === 'proposed') {
           return oystehr.fhir.patch<Appointment>({
@@ -106,6 +107,7 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
         return null;
       } catch (e) {
         console.log('error updating appointment status', JSON.stringify(e, null, 2));
+        captureException(e);
         return null;
       }
     })();
@@ -120,6 +122,7 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
     await createAuditEvent(AuditableZambdaEndpoints.submitPaperwork, oystehr, input, patientId, secrets);
   } catch (e) {
     console.log('error writing audit event', JSON.stringify(e, null, 2));
+    captureException(e);
   }
   return patchedPaperwork;
 };

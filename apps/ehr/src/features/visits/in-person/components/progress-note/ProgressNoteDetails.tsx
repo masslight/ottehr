@@ -40,7 +40,7 @@ import { isEligibleSupervisor } from 'src/helpers';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   examConfig,
-  getVisitStatus,
+  getSupervisorApprovalStatus,
   LabType,
   NOTE_TYPE,
   progressNoteChartDataRequestedFields,
@@ -54,7 +54,7 @@ import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
-  const { appointment, encounter, appointmentSetState, location } = useAppointmentData();
+  const { appointment, encounter, appointmentSetState } = useAppointmentData();
   const apiClient = useOystehrAPIClient();
   const { isInPerson } = useAppFlags();
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
@@ -127,12 +127,9 @@ export const ProgressNoteDetails: FC = () => {
   const showVitalsObservations =
     !!(vitalsObservations && vitalsObservations.length > 0) || !!(vitalsNotes && vitalsNotes.length > 0);
 
-  let isAwaitingSupervisorApproval = false;
-  if (appointment) {
-    isAwaitingSupervisorApproval =
-      getVisitStatus(appointment, encounter, FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED) ===
-      'awaiting supervisor approval';
-  }
+  const approvalStatus = FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED
+    ? getSupervisorApprovalStatus(appointment, encounter)
+    : 'unknown';
 
   const medicalHistorySections = [
     <AllergiesContainer notes={allergyNotes} />,
@@ -157,7 +154,7 @@ export const ProgressNoteDetails: FC = () => {
       </Typography>
       <ExaminationContainer examConfig={examConfig.inPerson.default.components} />
     </Stack>,
-    ...(!isAwaitingSupervisorApproval ? medicalHistorySections : []),
+    ...(!(approvalStatus === 'waiting-for-approval') ? medicalHistorySections : []),
     showAssessment && <AssessmentContainer />,
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,
@@ -210,9 +207,9 @@ export const ProgressNoteDetails: FC = () => {
   return (
     <AccordionCard label="Visit Note" dataTestId={dataTestIds.progressNotePage.visitNoteCard}>
       {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED &&
-        isAwaitingSupervisorApproval &&
+        approvalStatus === 'waiting-for-approval' &&
         user &&
-        isEligibleSupervisor(user.profileResource!, location!) && (
+        isEligibleSupervisor(user.profileResource!) && (
           <>
             <Box
               sx={{

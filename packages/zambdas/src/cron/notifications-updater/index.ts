@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Encounter, EncounterStatusHistory, Location, Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
@@ -10,7 +11,7 @@ import {
   getPatchOperationForNewMetaTag,
   getProviderNotificationSettingsForPractitioner,
   getSecret,
-  mapStatusToTelemed,
+  getTelemedVisitStatus,
   OTTEHR_MODULE,
   PROVIDER_NOTIFICATION_TAG_SYSTEM,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
@@ -137,7 +138,10 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         const { appointment, encounter, practitioner, location, communications } =
           readyOrUnsignedVisitPackages[appointmentId];
         if (encounter && appointment) {
-          const status: TelemedAppointmentStatus | undefined = mapStatusToTelemed(encounter.status, appointment.status);
+          const status: TelemedAppointmentStatus | undefined = getTelemedVisitStatus(
+            encounter.status,
+            appointment.status
+          );
           if (!status) return;
 
           // getting communications that were postponed after practitioner will become not busy
@@ -295,6 +299,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         }
       } catch (error) {
         console.error(`Error trying to process notifications for appointment ${appointmentId}`, error);
+        captureException(error);
       }
     });
 
@@ -413,6 +418,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           `Error trying to send SMS notifications for practitioner ${sendSMSPractitionerCommunications[id].practitioner.id}`,
           error
         );
+        captureException(error);
       }
     });
 
@@ -450,12 +456,8 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('Notification-updater', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify(error.message),
-    };
+    return topLevelCatch('Notification-updater', error, ENVIRONMENT);
   }
 });
 

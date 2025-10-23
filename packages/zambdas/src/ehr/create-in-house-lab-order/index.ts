@@ -13,7 +13,6 @@ import {
   Procedure,
   Provenance,
   ServiceRequest,
-  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -22,11 +21,13 @@ import {
   FHIR_IDC10_VALUESET_SYSTEM,
   getAttendingPractitionerId,
   getFullestAvailableName,
+  getSecret,
   IN_HOUSE_LAB_ERROR,
   IN_HOUSE_LAB_TASK,
   isApiError,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   Secrets,
+  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -34,9 +35,11 @@ import {
   fillMeta,
   getMyPractitionerId,
   parseCreatedResourcesBundle,
+  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { createTask } from '../../shared/tasks';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
@@ -348,23 +351,38 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ];
     }
 
-    const taskConfig: Task = {
-      resourceType: 'Task',
-      status: 'ready',
+    const taskConfig = createTask({
+      category: IN_HOUSE_LAB_TASK.category,
       code: {
-        coding: [
-          {
-            system: IN_HOUSE_LAB_TASK.system,
-            code: IN_HOUSE_LAB_TASK.code.collectSampleTask,
-          },
-        ],
+        system: IN_HOUSE_LAB_TASK.system,
+        code: IN_HOUSE_LAB_TASK.code.collectSampleTask,
       },
-      basedOn: [{ reference: serviceRequestFullUrl }],
-      encounter: { reference: `Encounter/${encounterId}` },
-      authoredOn: DateTime.now().toISO(),
-      intent: 'order',
-      ...(location && { location: { reference: `Location/${location.id}` } }),
-    };
+      encounterId: encounterId,
+      locationId: location?.id,
+      input: [
+        {
+          type: IN_HOUSE_LAB_TASK.input.testName,
+          value: activityDefinition.name,
+        },
+        {
+          type: IN_HOUSE_LAB_TASK.input.patientName,
+          value: getFullestAvailableName(patient),
+        },
+        {
+          type: IN_HOUSE_LAB_TASK.input.providerName,
+          value: currentUserPractitionerName ?? 'Unknown',
+        },
+        {
+          type: IN_HOUSE_LAB_TASK.input.orderDate,
+          value: serviceRequestConfig.authoredOn,
+        },
+        {
+          type: IN_HOUSE_LAB_TASK.input.appointmentId,
+          value: encounter.appointment?.[0]?.reference?.split('/')?.[1],
+        },
+      ],
+      basedOn: serviceRequestFullUrl,
+    });
 
     const provenanceConfig: Provenance = {
       resourceType: 'Provenance',
@@ -475,11 +493,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const { code, message } = error as APIError;
       body = JSON.stringify({ message, code });
       statusCode = 400;
+      return {
+        statusCode,
+        body,
+      };
     }
-
-    return {
-      statusCode,
-      body,
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });

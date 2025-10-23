@@ -2,8 +2,16 @@ import { CircularProgress, FormControl, Grid, MenuItem, Select, SelectChangeEven
 import { styled } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
-import { getVisitStatus, Visit_Status_Array, VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils';
-import { CHIP_STATUS_MAP } from '../../../../components/AppointmentTableRow';
+import { IN_PERSON_CHIP_STATUS_MAP } from 'src/components/InPersonAppointmentStatusChip';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import {
+  getAdmitterPractitionerId,
+  getAttendingPractitionerId,
+  getInPersonVisitStatus,
+  visitStatusArray,
+  VisitStatusLabel,
+  VisitStatusWithoutUnknown,
+} from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { handleChangeInPersonVisitStatus } from '../../../../helpers/inPersonVisitStatusUtils';
 import { useApiClients } from '../../../../hooks/useAppClients';
@@ -64,13 +72,15 @@ export const ChangeStatusDropdown = ({
   const user = useEvolveUser();
   const { visitState: telemedData, appointmentRefetch } = useAppointmentData(appointmentID);
   const { appointment, encounter } = telemedData;
+  const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
+  const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
 
   useEffect(() => {
     if (!encounter?.id || !appointment) {
       return;
     }
 
-    const encounterStatus = getVisitStatus(appointment, encounter);
+    const encounterStatus = getInPersonVisitStatus(appointment, encounter);
 
     if (encounterStatus === 'unknown') {
       console.warn('Encounter status is unknown, so not setting a status');
@@ -95,8 +105,18 @@ export const ChangeStatusDropdown = ({
   const hasDropdown = !nonDropdownStatuses.includes(status);
 
   const updateInPersonVisitStatus = async (event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> => {
-    if ((event.target.value as VisitStatusWithoutUnknown) === 'completed') {
+    const targetValue = event.target.value as VisitStatusWithoutUnknown;
+
+    if (targetValue === 'completed') {
       alert('To mark a visit as completed, scroll to the bottom of the "Progress Note" and click "Review & Sign"');
+      return;
+    }
+    if (
+      !assignedIntakePerformerId &&
+      !assignedProviderId &&
+      !(targetValue === 'pending' || targetValue === 'arrived')
+    ) {
+      alert('Select an intake performer and a provider to change the status.');
       return;
     }
     setStatusLoading(true);
@@ -135,15 +155,15 @@ export const ChangeStatusDropdown = ({
             id="appointment-status"
             value={status}
             {...(hasDropdown ? { hasdropdown: 'true' } : {})}
-            arrowcolor={CHIP_STATUS_MAP[status].color.primary}
+            arrowcolor={IN_PERSON_CHIP_STATUS_MAP[status].color.primary}
             onChange={updateInPersonVisitStatus}
             sx={{
-              border: `1px solid ${CHIP_STATUS_MAP[status].color.primary}`,
+              border: `1px solid ${IN_PERSON_CHIP_STATUS_MAP[status].color.primary}`,
               borderRadius: '7px',
-              backgroundColor: CHIP_STATUS_MAP[status].background.primary,
-              color: CHIP_STATUS_MAP[status].color.primary,
+              backgroundColor: IN_PERSON_CHIP_STATUS_MAP[status].background.primary,
+              color: IN_PERSON_CHIP_STATUS_MAP[status].color.primary,
               '&:hover': {
-                backgroundColor: CHIP_STATUS_MAP[status].background.primary,
+                backgroundColor: IN_PERSON_CHIP_STATUS_MAP[status].background.primary,
                 filter: 'brightness(0.95)',
               },
             }}
@@ -158,42 +178,47 @@ export const ChangeStatusDropdown = ({
               },
             }}
           >
-            {Visit_Status_Array.filter((statusTemp) => {
-              let allHiddenStatuses: Partial<VisitStatusLabel>[] = [
-                'no show',
-                'unknown',
-                ...(['cancelled', 'intake', 'provider', 'ready for provider', 'discharged'].filter(
-                  (s) => s !== status
-                ) as Partial<VisitStatusLabel>[]),
-              ];
-              if (status === 'ready for provider' || status === 'intake') {
-                allHiddenStatuses = allHiddenStatuses.filter((s) => s !== 'provider');
-              }
-              return !allHiddenStatuses.includes(statusTemp);
-            }).map((statusTemp) => (
-              <MenuItem
-                key={statusTemp}
-                value={statusTemp}
-                sx={{
-                  backgroundColor: CHIP_STATUS_MAP[statusTemp].background.primary,
-                  color: CHIP_STATUS_MAP[statusTemp].color.primary,
-                  '&:hover': {
-                    backgroundColor: CHIP_STATUS_MAP[statusTemp].background.primary,
-                    filter: 'brightness(0.95)',
-                  },
-                  '&.Mui-selected': {
-                    backgroundColor: CHIP_STATUS_MAP[statusTemp].background.primary,
-                    color: CHIP_STATUS_MAP[statusTemp].color.primary,
+            {visitStatusArray
+              .filter((statusTemp) => {
+                let allHiddenStatuses: Partial<VisitStatusLabel>[] = [
+                  'no show',
+                  'unknown',
+                  ...(['cancelled', 'intake', 'provider', 'ready for provider', 'discharged'].filter(
+                    (s) => s !== status
+                  ) as Partial<VisitStatusLabel>[]),
+                ];
+                if (status === 'ready for provider' || status === 'intake') {
+                  allHiddenStatuses = allHiddenStatuses.filter((s) => s !== 'provider');
+                }
+                if (!FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED) {
+                  allHiddenStatuses.push('awaiting supervisor approval');
+                }
+                return !allHiddenStatuses.includes(statusTemp);
+              })
+              .map((statusTemp) => (
+                <MenuItem
+                  key={statusTemp}
+                  value={statusTemp}
+                  sx={{
+                    backgroundColor: IN_PERSON_CHIP_STATUS_MAP[statusTemp].background.primary,
+                    color: IN_PERSON_CHIP_STATUS_MAP[statusTemp].color.primary,
                     '&:hover': {
-                      backgroundColor: CHIP_STATUS_MAP[statusTemp].background.primary,
+                      backgroundColor: IN_PERSON_CHIP_STATUS_MAP[statusTemp].background.primary,
                       filter: 'brightness(0.95)',
                     },
-                  },
-                }}
-              >
-                {statusTemp}
-              </MenuItem>
-            ))}
+                    '&.Mui-selected': {
+                      backgroundColor: IN_PERSON_CHIP_STATUS_MAP[statusTemp].background.primary,
+                      color: IN_PERSON_CHIP_STATUS_MAP[statusTemp].color.primary,
+                      '&:hover': {
+                        backgroundColor: IN_PERSON_CHIP_STATUS_MAP[statusTemp].background.primary,
+                        filter: 'brightness(0.95)',
+                      },
+                    },
+                  }}
+                >
+                  {statusTemp}
+                </MenuItem>
+              ))}
           </StyledSelect>
         </FormControl>
         {statusLoading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}

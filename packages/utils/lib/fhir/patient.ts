@@ -8,6 +8,7 @@ import {
   Encounter,
   HumanName,
   Identifier,
+  Organization,
   Patient,
   Period,
   Person,
@@ -18,6 +19,7 @@ import {
 } from 'fhir/r4b';
 import { removePrefix } from '../helpers';
 import {
+  ORG_TYPE_CODE_SYSTEM,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PatientInfo,
   PROVIDER_NOTIFICATION_METHOD_URL,
@@ -674,4 +676,17 @@ export const getPronounsFromExtension = (patient: Patient): string => {
   );
   if (!pronounsExtension?.valueCodeableConcept?.coding?.[0]) return '';
   return pronounsExtension.valueCodeableConcept.coding[0].display || '';
+};
+
+export const getPreferredPharmacyFromPatient = (patient: Patient): Organization | undefined => {
+  return patient?.contained?.find((res) => {
+    return (
+      res.resourceType === 'Organization' &&
+      res.type?.some((type) => {
+        return type.coding?.some((coding) => {
+          return coding.code === 'pharmacy' && coding.system === ORG_TYPE_CODE_SYSTEM;
+        });
+      })
+    );
+  }) as Organization | undefined;
 };

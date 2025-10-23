@@ -4,11 +4,13 @@ import { Appointment, Encounter } from 'fhir/r4b';
 import {
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
+  getSecret,
   Secrets,
+  SecretsKeys,
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
 import { ZambdaInput } from '../../shared/types';
@@ -43,10 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('Stringified error: ' + JSON.stringify(error));
     console.error('Error: ' + error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error updating in person visit status' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

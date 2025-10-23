@@ -43,7 +43,7 @@ import SendReceiptByEmailDialog, { SendReceiptFormData } from './dialogs/SendRec
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
 
 export interface PaymentListProps {
-  patient: Patient;
+  patient: Patient | undefined;
   encounterId: string;
   loading?: boolean;
   patientSelectSelfPay?: boolean;
@@ -87,9 +87,9 @@ export default function PatientPaymentList({
     refetch: refetchPaymentList,
     isRefetching,
   } = useGetPatientPaymentsList({
-    patientId: patient.id ?? '',
+    patientId: patient?.id ?? '',
     encounterId,
-    disabled: !encounterId || !patient.id,
+    disabled: !encounterId || !patient?.id,
   });
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
 
@@ -214,7 +214,7 @@ export default function PatientPaymentList({
   });
 
   useEffect(() => {
-    if (encounter && !isEncounterRefetching) {
+    if (encounter) {
       const variant = getPaymentVariantFromEncounter(encounter);
       if (variant) setPaymentVariant(variant);
       else if (variant === undefined) {
@@ -228,7 +228,7 @@ export default function PatientPaymentList({
         );
       }
     }
-  }, [encounter, isEncounterRefetching, patientSelectSelfPay, updateEncounter]);
+  }, [encounter, patientSelectSelfPay, updateEncounter]);
 
   const errorMessage = (() => {
     const networkError = createNewPayment.error;
@@ -281,6 +281,15 @@ export default function PatientPaymentList({
       </Typography>
       <Table size="small" style={{ tableLayout: 'fixed' }}>
         <TableBody>
+          {payments.length === 0 && !loading && (
+            <TableRow>
+              <TableCell sx={{ paddingTop: 1, paddingBottom: 1 }}>
+                <Typography variant="body1" color="textSecondary">
+                  No payments recorded.
+                </Typography>
+              </TableCell>
+            </TableRow>
+          )}
           {payments.map((payment) => {
             const paymentDateString = DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT);
             return (
@@ -354,20 +363,22 @@ export default function PatientPaymentList({
           </Button>
         </span>
       </Tooltip>
-      <PaymentDialog
-        open={paymentDialogOpen}
-        patient={patient}
-        handleClose={() => setPaymentDialogOpen(false)}
-        isSubmitting={createNewPayment.isPending}
-        submitPayment={async (data: CashOrCardPayment) => {
-          const postInput: PostPatientPaymentInput = {
-            patientId: patient.id ?? '',
-            encounterId,
-            paymentDetails: data,
-          };
-          createNewPayment.mutate(postInput);
-        }}
-      />
+      {patient && (
+        <PaymentDialog
+          open={paymentDialogOpen}
+          patient={patient}
+          handleClose={() => setPaymentDialogOpen(false)}
+          isSubmitting={createNewPayment.isPending}
+          submitPayment={async (data: CashOrCardPayment) => {
+            const postInput: PostPatientPaymentInput = {
+              patientId: patient.id ?? '',
+              encounterId,
+              paymentDetails: data,
+            };
+            createNewPayment.mutate(postInput);
+          }}
+        />
+      )}
       <SendReceiptByEmailDialog
         title="Send receipt"
         modalOpen={sendReceiptByEmailDialogOpen}

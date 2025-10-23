@@ -1,4 +1,4 @@
-import { getSecret, SecretsKeys, User, Visit_Status_Array, VisitStatusWithoutUnknown } from 'utils';
+import { getSecret, SecretsKeys, User, visitStatusArray, VisitStatusWithoutUnknown } from 'utils';
 import { ZambdaInput } from '../../shared/types';
 import { ChangeInPersonVisitStatusInputValidated } from '.';
 
@@ -43,7 +43,7 @@ export function validateRequestParameters(input: ZambdaInput): ChangeInPersonVis
 
   // Validate updatedStatus is a valid VisitStatusWithoutUnknown
   // Derive valid statuses from the Visit_Status_Array, excluding 'unknown'
-  const validStatuses = Visit_Status_Array.filter((status) => status !== 'unknown') as VisitStatusWithoutUnknown[];
+  const validStatuses = visitStatusArray.filter((status) => status !== 'unknown') as VisitStatusWithoutUnknown[];
 
   if (!validStatuses.includes(updatedStatus as VisitStatusWithoutUnknown)) {
     throw new Error(`Field "updatedStatus" must be one of: ${validStatuses.join(', ')}`);

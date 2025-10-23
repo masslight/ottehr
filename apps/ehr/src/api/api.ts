@@ -43,6 +43,7 @@ import {
   DeleteLabOrderZambdaInput,
   DeleteLabOrderZambdaOutput,
   DownloadPatientProfilePhotoInput,
+  EHRVisitDetails,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
   GetConversationInput,
@@ -95,9 +96,11 @@ import {
   UpdateScheduleParams,
   UpdateUserParams,
   UpdateUserZambdaOutput,
+  UpdateVisitDetailsInput,
   UploadPatientProfilePhotoInput,
   UserActivationZambdaInput,
   UserActivationZambdaOutput,
+  VisitDocuments,
   VisitsOverviewReportZambdaInput,
   VisitsOverviewReportZambdaOutput,
 } from 'utils';
@@ -158,6 +161,7 @@ const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
+const INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID = 'invoiceable-patients-report';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1212,6 +1216,65 @@ export const sendReceiptByEmail = async (
     const response = await oystehr.zambda.execute({
       id: SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID,
       ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getPatientVisitFiles = async (
+  oystehr: Oystehr,
+  parameters: { appointmentId: string }
+): Promise<VisitDocuments> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-visit-files',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getPatientVisitDetails = async (
+  oystehr: Oystehr,
+  parameters: { appointmentId: string }
+): Promise<EHRVisitDetails> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'ehr-get-visit-details',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updatePatientVisitDetails = async (
+  oystehr: Oystehr,
+  parameters: UpdateVisitDetailsInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'ehr-update-visit-details',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const invoiceablePatientsReport = async (oystehr: Oystehr): Promise<void> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID,
     });
     return chooseJson(response);
   } catch (error: unknown) {

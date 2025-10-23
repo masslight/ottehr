@@ -2,9 +2,9 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment as FhirAppointment, Encounter, Location, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  getInPersonVisitStatus,
   getPatientsForUser,
   getSecret,
-  getVisitStatus,
   isNonPaperworkQuestionnaireResponse,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   PatientAppointmentDTO,
@@ -197,7 +197,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
           paperworkComplete: checkPaperworkComplete(questionnaireResponse),
           checkedIn: fhirAppointment.status !== 'booked',
           visitType: fhirAppointment.appointmentType?.text || 'Unknown',
-          visitStatus: getVisitStatus(fhirAppointment, encounter),
+          visitStatus: getInPersonVisitStatus(fhirAppointment, encounter),
         };
         return appointment;
       });

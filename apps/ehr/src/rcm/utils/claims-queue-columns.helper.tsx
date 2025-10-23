@@ -46,7 +46,7 @@ export const ClaimsQueueColumns: Record<string, GridColDef<ClaimsQueueItem, any,
       // const statuses = useMemo(
       //   () =>
       //     encounter.statusHistory && appointment?.status
-      //       ? mapEncounterStatusHistory(encounter.statusHistory, appointment.status)
+      //       ? getTelemedEncounterStatusHistory(encounter.statusHistory, appointment.status)
       //       : undefined,
       //   [encounter.statusHistory, appointment?.status]
       // );

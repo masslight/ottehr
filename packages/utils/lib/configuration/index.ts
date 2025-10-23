@@ -1,3 +1,4 @@
+export * from './booking';
 export * from './branding';
 export * from './sendgrid';
 export * from './examination';

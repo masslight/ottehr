@@ -8,7 +8,7 @@ import {
   getPatientContactEmail,
   getQuestionnaireResponseByLinkId,
   getSecret,
-  mapStatusToTelemed,
+  getTelemedVisitStatus,
   SecretsKeys,
   TelemedAppointmentStatusEnum,
   TelemedCompletionTemplateData,
@@ -24,6 +24,7 @@ import {
   getMyPractitionerId,
   parseCreatedResourcesBundle,
   saveResourceRequest,
+  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -59,10 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('Stringified error: ' + JSON.stringify(error));
     console.error('Error: ' + error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error changing appointment status and creating a charge.' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
@@ -101,7 +99,7 @@ export const performEffect = async (
   }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
-  const currentStatus = mapStatusToTelemed(encounter.status, appointment.status);
+  const currentStatus = getTelemedVisitStatus(encounter.status, appointment.status);
   if (currentStatus) {
     const myPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);

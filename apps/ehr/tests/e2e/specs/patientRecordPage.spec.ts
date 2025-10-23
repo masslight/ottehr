@@ -2,6 +2,7 @@ import { BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForResponseWithData } from 'test-utils';
 import {
+  BOOKING_CONFIG,
   CreateAppointmentResponse,
   DEMO_VISIT_CITY,
   DEMO_VISIT_MARKETING_MESSAGING,
@@ -41,7 +42,7 @@ import {
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
 import { openAddPatientPage } from '../page/AddPatientPage';
-import { expectDiscardChangesDialog } from '../page/patient-information/DiscardChangesDialog';
+import { expectDialog } from '../page/patient-information/Dialog';
 import {
   expectPatientInformationPage,
   Field,
@@ -91,6 +92,7 @@ const NEW_PRACTICE_NAME = 'Dental';
 const NEW_PHYSICIAN_ADDRESS = '5th avenue';
 const NEW_PHYSICIAN_MOBILE = '(202) 222-2222';
 const NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD = 'testing gender';
+const NEW_REASON_FOR_VISIT = BOOKING_CONFIG.reasonForVisitOptions[0];
 
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
@@ -273,8 +275,8 @@ test.describe('Patient Record Page non-mutating tests', () => {
     let patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
-    const discardChangesDialog = await expectDiscardChangesDialog(page);
-    await discardChangesDialog.clickDiscardChangesButton();
+    const discardChangesDialog = await expectDialog(page);
+    await discardChangesDialog.clickProceedButton();
     await expectPatientRecordPage(resourceHandler.patient.id!, page);
     patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
@@ -284,7 +286,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
-    const discardChangesDialog = await expectDiscardChangesDialog(page);
+    const discardChangesDialog = await expectDialog(page);
     await discardChangesDialog.clickCancelButton();
     await expectPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
@@ -294,7 +296,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
-    const discardChangesDialog = await expectDiscardChangesDialog(page);
+    const discardChangesDialog = await expectDialog(page);
     await discardChangesDialog.clickCloseButton();
     await expectPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
@@ -472,6 +474,7 @@ test.describe('Patient Record Page mutating tests', () => {
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await populateAllRequiredFields(patientInformationPage);
     await patientInformationPage.selectRelationshipFromResponsibleContainer(
       NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
     );
@@ -551,12 +554,16 @@ test.describe('Patient Record Page mutating tests', () => {
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await populateAllRequiredFields(patientInformationPage);
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.waitForSaveChangeButtonToBeEnabled();
     await patientInformationPage.verifyCheckboxOff();
     await patientInformationPage.verifyFirstNameFromPcpIsVisible();
     await patientInformationPage.verifyLastNameFromPcpIsVisible();
     await patientInformationPage.verifyPracticeNameFromPcpIsVisible();
     await patientInformationPage.verifyAddressFromPcpIsVisible();
     await patientInformationPage.verifyMobileFromPcpIsVisible();
+    await patientInformationPage.verifyLoadingScreenIsNotVisible();
 
     await patientInformationPage.clearFirstNameFromPcp();
     await patientInformationPage.clickSaveChangesButton();
@@ -617,7 +624,7 @@ test.describe('Patient Record Page mutating tests', () => {
   const INSURANCE_POLICY_HOLDER_STATE = 'AK';
   const INSURANCE_POLICY_HOLDER_ZIP = '78956';
   const INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
-  const INSURANCE_CARRIER = '6 Degrees Health Incorporated';
+  const INSURANCE_CARRIER = '20446 - 6 Degrees Health Incorporated';
 
   const INSURANCE_PLAN_TYPE_2 = '12 - PPO';
   const INSURANCE_MEMBER_ID_2 = '987548ert';
@@ -633,7 +640,7 @@ test.describe('Patient Record Page mutating tests', () => {
   const INSURANCE_POLICY_HOLDER_STATE_2 = 'CO';
   const INSURANCE_POLICY_HOLDER_ZIP_2 = '21211';
   const INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2 = 'testing2';
-  const INSURANCE_CARRIER_2 = 'ACTIN Care Groups';
+  const INSURANCE_CARRIER_2 = '24585 - ACTIN Care Groups';
 
   test('Check validation error is displayed if any required field in Add insurance dialog is missing', async ({
     page,
@@ -729,7 +736,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await addInsuranceDialog.enterAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
     await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
 
-    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.verifyCoverageAddedSuccessfullyMessageShown();
     await patientInformationPage.reloadPatientInformationPage();
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     await primaryInsuranceCard.clickShowMoreButton();
@@ -769,7 +776,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await addInsuranceDialog.enterAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2);
     await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
 
-    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.verifyCoverageAddedSuccessfullyMessageShown();
     await patientInformationPage.reloadPatientInformationPage();
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
     await secondaryInsuranceCard.clickShowMoreButton();
@@ -820,7 +827,7 @@ test.describe('Patient Record Page tests with zero patient data filled in', asyn
     await addPatientPage.enterLastName(NEW_PATIENT_FIRST_NAME);
     await addPatientPage.enterDateOfBirth(NEW_PATIENT_DATE_OF_BIRTH);
     await addPatientPage.selectSexAtBirth(NEW_PATIENT_BIRTH_SEX);
-    await addPatientPage.selectReasonForVisit('Injury to head');
+    await addPatientPage.selectReasonForVisit(NEW_REASON_FOR_VISIT);
     await addPatientPage.selectVisitType('Walk-in In Person Visit');
     const appointmentCreationResponse = waitForResponseWithData(page, /\/create-appointment\//);
     await addPatientPage.clickAddButton();

@@ -29,7 +29,10 @@ export class ProcedureRow {
   }
 
   async verifyProcedureCptCode(procedureCptCode: string): Promise<void> {
-    await expect(this.#container.getByTestId(dataTestIds.proceduresPage.cptCode)).toHaveText(procedureCptCode);
+    const code = (await this.#container.getByTestId(dataTestIds.proceduresPage.cptCode).allInnerTexts()).find((text) =>
+      text.includes(procedureCptCode)
+    );
+    expect(code).toBe(procedureCptCode);
   }
 
   async verifyProcedureType(procedureType: string): Promise<void> {
@@ -49,7 +52,9 @@ export class ProcedureRow {
   }
 
   async click(): Promise<DocumentProcedurePage> {
-    await this.#container.getByTestId(dataTestIds.proceduresPage.cptCode).click();
+    // sometimes there are 2 procedures, and this breaks playwright's strict mode
+    this.#container.getByTestId(dataTestIds.proceduresPage.cptCode);
+    await this.#container.click();
     return expectDocumentProcedurePage(this.#container.page());
   }
 }

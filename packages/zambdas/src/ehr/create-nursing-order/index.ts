@@ -251,12 +251,6 @@ export const index = wrapHandler('create-nursing-order', async (input: ZambdaInp
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('create-nursing-order', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: `Error processing request: ${error.message || error}`,
-      }),
-    };
+    return topLevelCatch('create-nursing-order', error, ENVIRONMENT);
   }
 });

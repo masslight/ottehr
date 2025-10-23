@@ -44,20 +44,75 @@ test('Ensure Resources created by generate test data -> harvest -> prefill is th
   const e2eResources = await getAllResourcesFromFHIR(e2eHandler.appointment.id!);
   const integrationResources = await getAllResourcesFromFHIR(integrationHandler.appointment.id!);
 
+  console.group('appointment tests');
   appointmentTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('appointment tests success');
+
+  console.group('patient tests');
   patientTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('patient tests success');
+
+  console.group('relatedPerson tests');
   relatedPersonTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('relatedPerson tests success');
+
+  console.group('person tests');
   personTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('person tests success');
+
+  console.group('observation tests');
   observationTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('observation tests success');
+
+  console.group('encounter tests');
   encounterTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('encounter tests success');
+
+  console.group('slot tests');
   slotTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('slot tests success');
+
+  console.group('list tests');
   listTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('list tests success');
+
+  console.group('serviceRequest tests');
   serviceRequestTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('serviceRequest tests success');
+
+  console.group('clinicalImpression tests');
   clinicalImpressionTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('clinicalImpression tests success');
+
+  console.group('documentReference tests');
   documentReferenceTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('documentReference tests success');
+
+  console.group('questionnaireResponse tests');
   questionnaireResponseTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('questionnaireResponse tests success');
+
+  console.group('consent tests');
   consentTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('consent tests success');
+
+  console.group('account tests');
   accountTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('account tests success');
 });
 
 const appointmentTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
@@ -94,9 +149,20 @@ const relatedPersonTests = (e2eResources: Resource[], integrationResources: Reso
 
   expect(e2eRPs.length).toEqual(integrationRPs.length);
 
-  const e2eRP = cleanRelatedPerson(e2eRPs[0]);
-  const integrationRP = cleanRelatedPerson(integrationRPs[0]);
-  checkKeysAndValuesBothWays(e2eRP, integrationRP, 'RelatedPerson');
+  const e2eCleaned = e2eRPs.map((rp) => cleanRelatedPerson(rp));
+  const integrationCleaned = integrationRPs.map((rp) => cleanRelatedPerson(rp));
+
+  e2eCleaned.forEach((e2eRP) => {
+    const integrationRP = integrationCleaned.find(
+      (rp) => rp.relationship?.[0].coding?.[0].code === e2eRP.relationship?.[0].coding?.[0].code
+    );
+    if (!integrationRP) {
+      throw new Error(
+        `Could not find matching RelatedPerson for relationship code ${e2eRP.relationship?.[0].coding?.[0].code}`
+      );
+    }
+    checkKeysAndValuesBothWays(e2eRP, integrationRP, `${e2eRP.relationship} RelatedPerson`);
+  });
 };
 
 const personTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
@@ -471,6 +537,14 @@ const cleanAccount = (account: Account): Account => {
     (contained) => contained.resourceType === 'RelatedPerson'
   ) as RelatedPerson;
   containedRelatedPerson.patient.reference = containedRelatedPerson.patient.reference?.split('/')[0]; // cut off the UUID for comparison
+  // stripe id is the only identifier we use. if that changes, update this
+  if (
+    cleanedAccount.identifier &&
+    cleanedAccount.identifier.length > 0 &&
+    cleanedAccount.identifier[0].system === 'https://api.stripe.com/v1/customers'
+  ) {
+    cleanedAccount.identifier[0].value = SKIP_ME;
+  }
   return cleanedAccount;
 };
 

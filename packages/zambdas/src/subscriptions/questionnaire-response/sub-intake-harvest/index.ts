@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
@@ -15,6 +16,7 @@ import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   flattenIntakeQuestionnaireItems,
+  flattenQuestionnaireAnswers,
   getRelatedPersonForPatient,
   getSecret,
   IntakeQuestionnaireItem,
@@ -26,6 +28,8 @@ import {
   createConsentResources,
   createDocumentResources,
   createErxContactOperation,
+  createMasterRecordPatchOperations,
+  createUpdatePharmacyPatchOps,
   flagPaperworkEdit,
   getAccountAndCoverageResourcesForPatient,
   updatePatientAccountFromQuestionnaire,
@@ -117,13 +121,49 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   console.timeEnd('querying for resources to support qr harvest');
 
   const encounterResource = resources.find((res) => res.resourceType === 'Encounter') as Encounter | undefined;
-  const patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
+  let patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
   const listResources = resources.filter((res) => res.resourceType === 'List') as List[];
   const documentReferenceResources = resources.filter(
     (res) => res.resourceType === 'DocumentReference'
   ) as DocumentReference[];
   const locationResource = resources.find((res) => res.resourceType === 'Location') as Location | undefined;
   const appointmentResource = resources.find((res) => res.resourceType === 'Appointment') as Appointment | undefined;
+
+  if (patientResource === undefined || patientResource.id === undefined) {
+    throw new Error('Patient resource not found');
+  }
+
+  console.log('creating patch operations');
+  const patientPatchOps = createMasterRecordPatchOperations(qr.item || [], patientResource);
+
+  console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
+
+  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
+    console.time('patching patient resource');
+    try {
+      patientResource = await oystehr.fhir.patch<Patient>({
+        resourceType: 'Patient',
+        id: patientResource.id!,
+        operations: patientPatchOps.patient.patchOpsForDirectUpdate,
+      });
+      console.timeEnd('patching patient resource');
+      console.log('Patient update successful');
+    } catch (error: unknown) {
+      tasksFailed.push('patch patient');
+      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
+      captureException(error);
+    }
+  }
+  // combining these patch ops with patientPatchOps caused a bug so keeping separate for now
+  const pharmacyPatchOps = createUpdatePharmacyPatchOps(patientResource, flattenQuestionnaireAnswers(qr.item ?? []));
+  if (pharmacyPatchOps.length > 0) {
+    console.log('Applying pharmacy patch operations: ', JSON.stringify(pharmacyPatchOps, null, 2));
+    patientResource = await oystehr.fhir.patch<Patient>({
+      resourceType: 'Patient',
+      id: patientResource.id!,
+      operations: pharmacyPatchOps,
+    });
+  }
 
   if (patientResource === undefined || patientResource.id === undefined) {
     throw new Error('Patient resource not found');
@@ -137,6 +177,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   } catch (error: unknown) {
     tasksFailed.push(`Failed to update Account: ${JSON.stringify(error)}`);
     console.log(`Failed to update Account: ${JSON.stringify(error)}`);
+    captureException(error);
   }
   // fetch the latest account resources and update the stripe customer
   try {
@@ -146,11 +187,14 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     if (updatedAccount && updatedGuarantorResource) {
       console.time('updating stripe customer');
       const stripeClient = getStripeClient(secrets);
-      await updateStripeCustomer({
-        account: updatedAccount,
-        guarantorResource: updatedGuarantorResource,
-        stripeClient,
-      });
+      await updateStripeCustomer(
+        {
+          account: updatedAccount,
+          guarantorResource: updatedGuarantorResource,
+          stripeClient,
+        },
+        oystehr
+      );
       console.timeEnd('updating stripe customer');
     } else {
       console.log('Stripe customer id, account or guarantor resource missing, skipping stripe customer update');
@@ -158,6 +202,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   } catch (error: unknown) {
     tasksFailed.push('update stripe customer');
     console.log(`Failed to update stripe customer: ${JSON.stringify(error)}`);
+    captureException(error);
   }
 
   const paperwork = qr.item ?? [];
@@ -191,6 +236,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     } catch (error: unknown) {
       tasksFailed.push('create consent resources');
       console.log(`Failed to create consent resources: ${error}`);
+      captureException(error);
     }
     console.timeEnd('creating consent resources');
   }
@@ -208,6 +254,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   } catch (error: unknown) {
     tasksFailed.push('create insurances cards, condition photo, work school notes resources');
     console.log(`Failed to create insurances cards, condition photo, work school notes resources: ${error}`);
+    captureException(error);
   }
   console.timeEnd('creating insurances cards, condition photo, work school notes resources');
 
@@ -222,6 +269,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     } catch (error: unknown) {
       tasksFailed.push('flag paperwork edit');
       console.log(`Failed to update flag paperwork edit: ${error}`);
+      captureException(error);
     }
   }
 
@@ -251,6 +299,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     } catch (error: unknown) {
       tasksFailed.push('add payment variant extension to encounter');
       console.log(`Failed to add payment variant extension to encounter: ${error}`);
+      captureException(error);
     }
   }
 
@@ -285,6 +334,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     } catch (error: unknown) {
       tasksFailed.push(JSON.stringify(error));
       console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
+      captureException(error);
     }
   }
 
@@ -314,6 +364,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   } catch (error: unknown) {
     tasksFailed.push('create additional questions chart data resource', JSON.stringify(error));
     console.log(`Failed to create additional questions chart data resource: ${error}`);
+    captureException(error);
   }
 
   try {
@@ -327,6 +378,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   } catch (error: unknown) {
     tasksFailed.push('patch appointment resource tag failed', JSON.stringify(error));
     console.log(`Failed to patch appointment resource tag: ${JSON.stringify(error)}`);
+    captureException(error);
   }
 
   const response = tasksFailed.length

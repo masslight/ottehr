@@ -21,10 +21,18 @@ export const inHouseLabsTestStatuses: Record<TestStatus, TestStatus> = {
 };
 
 export const IN_HOUSE_LAB_TASK = {
+  category: 'in-house-lab',
   system: 'in-house-lab-task',
   code: {
     collectSampleTask: 'CST',
     inputResultsTask: 'IRT',
+  },
+  input: {
+    testName: 'test-name',
+    patientName: 'patient-name',
+    providerName: 'provider-name',
+    orderDate: 'order-date',
+    appointmentId: 'appointment-id',
   },
 } as const;
 
@@ -129,4 +137,10 @@ export const DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE = 10;
 export const REPEATABLE_TEXT_EXTENSION_CONFIG = {
   url: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-repeatable-test',
   valueString: 'repeatable-test',
+};
+
+export const ABNORMAL_RESULT_DR_TAG = {
+  system: 'result-recording-detail',
+  code: 'abnormal',
+  display: 'At least one abnormal result was recorded',
 };

@@ -1,149 +1,21 @@
-import Oystehr, { AccessPolicy, Role, RoleListItem } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
 import {
   AllStatesValues,
   makeQualificationForPractitioner,
   PractitionerLicense,
+  RoleType,
   SCHEDULE_EXTENSION_URL,
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import {
-  ADMINISTRATOR_RULES,
-  INACTIVE_RULES,
-  MANAGER_RULES,
-  PRESCRIBER_RULES,
-  PROVIDER_RULES,
-  STAFF_RULES,
-} from '../shared/';
+import { filterIdsOnlyToTheseRoles, updateUserRoles } from '../shared';
 
 const DEFAULTS = {
   firstName: 'Example',
   lastName: 'Doctor',
   phone: '+12125551212',
   npi: '1234567890',
-};
-export const enum RoleType {
-  NewUser = 'NewUser',
-  Inactive = 'Inactive',
-  Manager = 'Manager',
-  FrontDesk = 'FrontDesk',
-  Staff = 'Staff',
-  Provider = 'Provider',
-  Prescriber = 'Prescriber',
-  Administrator = 'Administrator',
-}
-
-const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
-  console.log('Updating user roles.');
-
-  const zambdaRules: AccessPolicy['rule'] = [
-    {
-      resource: ['Zambda:Function:*'],
-      action: ['Zambda:InvokeFunction'],
-      effect: 'Allow',
-    },
-  ];
-  const inactiveAccessPolicy = { rule: [...INACTIVE_RULES.rule, ...zambdaRules] };
-  const administratorAccessPolicy = { rule: [...ADMINISTRATOR_RULES.rule, ...zambdaRules] };
-  const managerAccessPolicy = { rule: [...MANAGER_RULES.rule, ...zambdaRules] };
-  const staffAccessPolicy = { rule: [...STAFF_RULES.rule, ...zambdaRules] };
-  const providerAccessPolicy = { rule: [...PROVIDER_RULES.rule, ...zambdaRules] };
-  const prescriberAccessPolicy = { rule: [...PRESCRIBER_RULES, ...zambdaRules] };
-
-  const roles = [
-    { name: RoleType.Inactive, accessPolicy: inactiveAccessPolicy },
-    { name: RoleType.Administrator, accessPolicy: administratorAccessPolicy },
-    { name: RoleType.Manager, accessPolicy: managerAccessPolicy },
-    { name: RoleType.Staff, accessPolicy: staffAccessPolicy },
-    { name: RoleType.Provider, accessPolicy: providerAccessPolicy },
-    { name: RoleType.Prescriber, accessPolicy: prescriberAccessPolicy },
-  ];
-
-  console.log('searching for existing roles for the project');
-  let existingRoles: RoleListItem[];
-  try {
-    existingRoles = await oystehr.role.list();
-  } catch {
-    throw new Error('Error searching for existing roles');
-  }
-  console.log('existingRoles: ', existingRoles);
-
-  let adminUserRole = undefined;
-  let prescriberUserRole = undefined;
-  let providerUserRole = undefined;
-  let managerUserRole = undefined;
-
-  for (const role of roles) {
-    const roleName = role.name;
-    let foundRole;
-    if (existingRoles.length > 0) {
-      foundRole = existingRoles.find((existingRole: any) => existingRole.name === roleName);
-    }
-    let roleResult: Role;
-    if (foundRole) {
-      console.log(`${roleName} role found: `, foundRole);
-      try {
-        roleResult = await oystehr.role.update({
-          roleId: foundRole.id,
-          accessPolicy: role.accessPolicy as AccessPolicy,
-        });
-        console.log(`${roleName} role accessPolicy patched: `, roleResult, JSON.stringify(roleResult.accessPolicy));
-      } catch (err) {
-        console.error(err);
-        throw new Error(`Failed to patch role ${roleName}`);
-      }
-    } else {
-      console.log(`creating ${roleName} role`);
-      try {
-        roleResult = await oystehr.role.create({ name: roleName, accessPolicy: role.accessPolicy as AccessPolicy });
-        console.log(`${roleName} role: `, roleResult, JSON.stringify(roleResult.accessPolicy));
-      } catch (err) {
-        console.error(err);
-        throw new Error(`Failed to create role ${roleName}`);
-      }
-    }
-
-    if (roleResult.name === RoleType.Administrator) {
-      adminUserRole = roleResult;
-    }
-    if (roleResult.name === RoleType.Prescriber) {
-      prescriberUserRole = roleResult;
-    }
-    if (roleResult.name === RoleType.Provider) {
-      providerUserRole = roleResult;
-    }
-    if (roleResult.name === RoleType.Manager) {
-      managerUserRole = roleResult;
-    }
-  }
-
-  // console.group(`Setting defaultSSOUserRole for project to Administrator user role ${adminUserRole.id}`);
-  // const endpoint = `${projectApiUrl}/project`;
-  // const response = await fetch(endpoint, {
-  //   method: 'PATCH',
-  //   headers: httpHeaders,
-  //   body: JSON.stringify({ defaultSSOUserRoleId: adminUserRole.id }),
-  // });
-  // const responseJSON = await response.json();
-  // console.log('response', responseJSON);
-  // if (!response.ok) {
-  // throw new Error(`Failed to set defaultSSOUserRole`);
-  // }
-
-  if (!adminUserRole) {
-    throw new Error('Could not create adminUserRole');
-  }
-  if (!prescriberUserRole) {
-    throw new Error('Could not create adminUserRole');
-  }
-  if (!providerUserRole) {
-    throw new Error('Could not create adminUserRole');
-  }
-  if (!managerUserRole) {
-    throw new Error('Could not create adminUserRole');
-  }
-  return [adminUserRole, prescriberUserRole, providerUserRole, managerUserRole];
 };
 
 export async function inviteUser(
@@ -155,7 +27,15 @@ export async function inviteUser(
   includeDefaultSchedule?: boolean,
   slug?: string
 ): Promise<{ invitationUrl: string | undefined; userProfileId: string | undefined }> {
-  const defaultRoles = await updateUserRoles(oystehr);
+  const defaultRoleNames = [
+    RoleType.Administrator,
+    RoleType.CustomerSupport,
+    RoleType.Manager,
+    RoleType.Prescriber,
+    RoleType.Provider,
+  ];
+  const allRoleIds = await updateUserRoles(oystehr);
+  const defaultRoleIds = filterIdsOnlyToTheseRoles(allRoleIds, defaultRoleNames);
 
   const practitionerQualificationExtension: any = [];
   (
@@ -224,7 +104,7 @@ export async function inviteUser(
         email: email,
         applicationId: applicationId,
         resource: practitioner,
-        roles: defaultRoles.map((role) => role.id),
+        roles: defaultRoleIds,
       });
       console.log('User invited:', invitedUser);
       return { invitationUrl: invitedUser.invitationUrl, userProfileId: invitedUser.profile.split('/')[1] };

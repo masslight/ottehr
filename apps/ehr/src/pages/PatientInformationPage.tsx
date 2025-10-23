@@ -1,8 +1,8 @@
-import { Box, Typography, useTheme } from '@mui/material';
+import { Box, SxProps, Typography, useTheme } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { BundleEntry, Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useEffect, useMemo, useState } from 'react';
+import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
@@ -10,9 +10,11 @@ import { ActionBar } from 'src/features/visits/shared/components/patient/ActionB
 import { AddInsuranceModal } from 'src/features/visits/shared/components/patient/AddInsuranceModal';
 import { BreadCrumbs } from 'src/features/visits/shared/components/patient/BreadCrumbs';
 import { ContactContainer } from 'src/features/visits/shared/components/patient/ContactContainer';
+import { EmergencyContactContainer } from 'src/features/visits/shared/components/patient/EmergencyContactContainer';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { InsuranceSection } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { PatientDetailsContainer } from 'src/features/visits/shared/components/patient/PatientDetailsContainer';
+import { PharmacyContainer } from 'src/features/visits/shared/components/patient/PharmacyContainer';
 import { PrimaryCareContainer } from 'src/features/visits/shared/components/patient/PrimaryCareContainer';
 import { ResponsibleInformationContainer } from 'src/features/visits/shared/components/patient/ResponsibleInformationContainer';
 import { WarningBanner } from 'src/features/visits/shared/components/patient/WarningBanner';
@@ -118,7 +120,7 @@ const transformInsurancePlans = (bundleEntries: BundleEntry[]): InsurancePlanDTO
         return createInsurancePlanDto(organization);
       } catch (err) {
         console.error(err);
-        console.log('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
+        console.error('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
         return {} as InsurancePlanDTO;
       }
     })
@@ -276,9 +278,25 @@ const useMutations = (): {
   return { submitQR, removeCoverage, queryClient };
 };
 
-const PatientInformationPage: FC = () => {
-  const theme = useTheme();
-  const { id } = useParams();
+interface PatientAccountComponentProps {
+  id: string | undefined;
+  title?: string;
+  renderBreadCrumbs?: boolean;
+  renderHeader?: boolean;
+  containerSX?: SxProps;
+  loadingComponent?: ReactElement;
+  renderBackButton?: boolean;
+}
+
+export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
+  id,
+  title,
+  renderBreadCrumbs = false,
+  renderHeader = false,
+  containerSX = {},
+  loadingComponent = <LoadingScreen />,
+  renderBackButton = true,
+}) => {
   const navigate = useNavigate();
   const { setInsurancePlans } = usePatientStore();
 
@@ -357,7 +375,7 @@ const PatientInformationPage: FC = () => {
     }
   };
 
-  const handleSaveForm = async (values: Record<string, any>): Promise<void> => {
+  const handleSaveForm = async (values: any): Promise<void> => {
     if (!questionnaire || !patient?.id) {
       enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
       return;
@@ -391,7 +409,7 @@ const PatientInformationPage: FC = () => {
   };
 
   if ((isFetching || questionnaireFetching || coveragesFetching) && !patient) {
-    return <LoadingScreen />;
+    return loadingComponent;
   }
 
   if (!patient) return null;
@@ -403,13 +421,15 @@ const PatientInformationPage: FC = () => {
       {isFetching && <LoadingScreen />}
       <FormProvider {...methods}>
         <Box>
-          <Header handleDiscard={handleBackClickWithConfirmation} id={id} />
-          <Box sx={{ display: 'flex', flexDirection: 'column', padding: theme.spacing(3) }}>
+          {renderHeader && <Header handleDiscard={handleBackClickWithConfirmation} id={id} />}
+          <Box sx={{ display: 'flex', flexDirection: 'column', ...containerSX, marginBottom: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <BreadCrumbs patient={patient} />
-              <Typography variant="h3" color="primary.main">
-                Patient Profile
-              </Typography>
+              {renderBreadCrumbs && <BreadCrumbs patient={patient} />}
+              {title && (
+                <Typography variant="h3" color="primary.main">
+                  {title}
+                </Typography>
+              )}
               <WarningBanner
                 otherPatientsWithSameName={otherPatientsWithSameName}
                 onClose={() => setOtherPatientsWithSameName(false)}
@@ -431,6 +451,8 @@ const PatientInformationPage: FC = () => {
                     onAddInsurance={() => setOpenAddInsuranceModal(true)}
                   />
                   <ResponsibleInformationContainer />
+                  <EmergencyContactContainer />
+                  <PharmacyContainer />
                 </Box>
               </Box>
             </Box>
@@ -443,6 +465,7 @@ const PatientInformationPage: FC = () => {
             loading={submitQR.isPending}
             hidden={false}
             submitDisabled={Object.keys(dirtyFields).length === 0}
+            backButtonHidden={renderBackButton === false}
           />
         </Box>
         <CustomDialog
@@ -465,6 +488,20 @@ const PatientInformationPage: FC = () => {
         )}
       />
     </div>
+  );
+};
+
+const PatientInformationPage: FC = () => {
+  const { id } = useParams();
+  const theme = useTheme();
+  return (
+    <PatientAccountComponent
+      id={id}
+      title="Patient Profile"
+      renderBreadCrumbs
+      renderHeader
+      containerSX={{ padding: theme.spacing(3) }}
+    />
   );
 };
 

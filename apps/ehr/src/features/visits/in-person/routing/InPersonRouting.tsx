@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { Loader } from '../../shared/components/Loader';
-import { AppTypeProvider } from '../../shared/stores/contexts/useAppFlags';
+import { AppFlagsProvider } from '../../shared/stores/contexts/useAppFlags';
 import { InPersonNavigationProvider, useInPersonNavigationContext } from '../context/InPersonNavigationContext';
 import { InPersonLayout } from '../layout/InPersonLayout';
 
@@ -21,7 +21,7 @@ const InPersonRouting: React.FC = () => {
   // }
 
   return (
-    <AppTypeProvider flagsToSet={{ isInPerson: true }}>
+    <AppFlagsProvider flagsToSet={{ isInPerson: true }}>
       <Routes>
         <Route element={<InPersonLayout />}>
           <Route index element={<Navigate to={availableRoutes[0].path} replace />} />
@@ -32,7 +32,7 @@ const InPersonRouting: React.FC = () => {
           <Route path="*" element={<Navigate to={availableRoutes[0].path} replace />} />
         </Route>
       </Routes>
-    </AppTypeProvider>
+    </AppFlagsProvider>
   );
 };
 

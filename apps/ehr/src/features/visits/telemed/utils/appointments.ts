@@ -2,8 +2,9 @@ import { Appointment, DocumentReference, Encounter, EncounterStatusHistory, Fhir
 import { DateTime, Duration } from 'luxon';
 import {
   ApptTelemedTab,
+  BRANDING_CONFIG,
   GetTelemedAppointmentsInput,
-  mapStatusToTelemed,
+  getTelemedVisitStatus,
   PATIENT_PHOTO_CODE,
   PROJECT_NAME,
   RefreshableAppointmentData,
@@ -205,7 +206,7 @@ export const extractReviewAndSignAppointmentData = (data: AppointmentResources[]
     return;
   }
 
-  const telemedAppointmentStatus = mapStatusToTelemed(encounterStatus, appointmentStatus);
+  const telemedAppointmentStatus = getTelemedVisitStatus(encounterStatus, appointmentStatus);
 
   return telemedAppointmentStatus === TelemedAppointmentStatusEnum.complete
     ? { signedOnDate: finishedAtTime }
@@ -286,71 +287,10 @@ export type GetAppointmentsRequestParams = Pick<
   | 'visitTypesFilter'
 >;
 
-export const APPT_STATUS_MAP: {
-  [status in TelemedAppointmentStatus]: {
-    background: {
-      primary: string;
-      secondary?: string;
-    };
-    color: {
-      primary: string;
-      secondary?: string;
-    };
-  };
-} = {
-  ready: {
-    background: {
-      primary: '#FFE0B2',
-    },
-    color: {
-      primary: '#E65100',
-    },
-  },
-  'pre-video': {
-    background: {
-      primary: '#B3E5FC',
-    },
-    color: {
-      primary: '#01579B',
-    },
-  },
-  'on-video': {
-    background: {
-      primary: '#D1C4E9',
-    },
-    color: {
-      primary: '#311B92',
-    },
-  },
-  unsigned: {
-    background: {
-      primary: '#FFCCBC',
-    },
-    color: {
-      primary: '#BF360C',
-    },
-  },
-  complete: {
-    background: {
-      primary: '#C8E6C9',
-    },
-    color: {
-      primary: '#1B5E20',
-    },
-  },
-  cancelled: {
-    background: {
-      primary: '#FFCCBC',
-    },
-    color: {
-      primary: '#BF360C',
-    },
-  },
-};
-
+const defaultSupportPhone = BRANDING_CONFIG.email.supportPhoneNumber;
 export const quickTexts: string[] = [
-  `Hello from ${PROJECT_NAME} Telemedicine. A provider will see you soon. Please have your child with you, seated & in a quiet room. Please be in an area where you have strong wifi connection sufficient for video use. Have your video turned on. Questions? Call <phone>202-555-1212</phone>`,
-  `Hello from ${PROJECT_NAME} Telemedicine. Due to high volumes our providers are busier than usual. A provider will message you when they have an update or are ready to see you. We apologize for the delay. Questions? Call <phone>202-555-1212</phone>`,
-  `Hello from ${PROJECT_NAME} Telemedicine. We tried connecting, you seem to be having trouble connecting. If you still want a visit, log out then log back in. Click “Return to call” and we will connect with you in 5-10 minutes. If you are still having trouble, call <phone>202-555-1212</phone>`,
-  `Hello from ${PROJECT_NAME} Telemedicine. We are sorry you canceled your visit. If accidental, please request a new visit. We will be sure to see you. If you are experiencing technical difficulties, call <phone>202-555-1212</phone>`,
+  `Hello from ${PROJECT_NAME} Telemedicine. A provider will see you soon. Please have your child with you, seated & in a quiet room. Please be in an area where you have strong wifi connection sufficient for video use. Have your video turned on. Questions? Call <phone>${defaultSupportPhone}</phone>`,
+  `Hello from ${PROJECT_NAME} Telemedicine. Due to high volumes our providers are busier than usual. A provider will message you when they have an update or are ready to see you. We apologize for the delay. Questions? Call <phone>${defaultSupportPhone}</phone>`,
+  `Hello from ${PROJECT_NAME} Telemedicine. We tried connecting, you seem to be having trouble connecting. If you still want a visit, log out then log back in. Click “Return to call” and we will connect with you in 5-10 minutes. If you are still having trouble, call <phone>${defaultSupportPhone}</phone>`,
+  `Hello from ${PROJECT_NAME} Telemedicine. We are sorry you canceled your visit. If accidental, please request a new visit. We will be sure to see you. If you are experiencing technical difficulties, call <phone>${defaultSupportPhone}</phone>`,
 ];

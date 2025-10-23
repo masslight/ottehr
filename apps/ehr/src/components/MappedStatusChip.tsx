@@ -1,10 +1,8 @@
 import { Chip } from '@mui/material';
 import { ReactElement } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { TelemedAppointmentStatus } from 'utils';
-import { APPT_STATUS_MAP } from './appointments';
 
-type Mapper<T extends string> = {
+export type Mapper<T extends string> = {
   [status in T]: {
     background: {
       primary: string;
@@ -18,17 +16,21 @@ type Mapper<T extends string> = {
 };
 
 // added to handle different mappers (e.g. IP ones) with same style
-function getAppointmentStatusChip<T extends string>(status?: T, map?: Mapper<T>): ReactElement;
-function getAppointmentStatusChip(status?: TelemedAppointmentStatus, count?: number): ReactElement;
-function getAppointmentStatusChip<T extends string>(status?: T, item?: number | Mapper<T>): ReactElement {
-  const count = typeof item === 'number' ? item : undefined;
-  const mapper = typeof item === 'object' ? item : (APPT_STATUS_MAP as Mapper<T>);
-
+export function MappedStatusChip<T extends string>({
+  status,
+  count,
+  mapper,
+}: {
+  status: T;
+  count?: number;
+  mapper: Mapper<T>;
+}): ReactElement {
   if (!status) {
-    return <span>todo1</span>;
+    return <></>;
   }
+
   if (!mapper[status]) {
-    return <span>todo2</span>;
+    return <></>;
   }
 
   // to swap color and background if background is white
@@ -51,5 +53,3 @@ function getAppointmentStatusChip<T extends string>(status?: T, item?: number | 
     />
   );
 }
-
-export { getAppointmentStatusChip };

@@ -8,7 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getAdmitterPractitionerId, getVisitStatus, PRACTITIONER_CODINGS } from 'utils';
+import { getAdmitterPractitionerId, getInPersonVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeButton';
 import { RouteInPerson, useInPersonNavigationContext } from '../../in-person/context/InPersonNavigationContext';
@@ -257,7 +257,7 @@ export const Sidebar = (): JSX.Element => {
   const { visitState, appointmentRefetch } = useAppointmentData();
   const { chartData } = useChartData();
   const { appointment, encounter } = visitState;
-  const status = appointment && encounter ? getVisitStatus(appointment, encounter) : undefined;
+  const status = appointment && encounter ? getInPersonVisitStatus(appointment, encounter) : undefined;
 
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,

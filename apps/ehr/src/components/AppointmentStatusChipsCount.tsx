@@ -2,7 +2,7 @@ import { Box } from '@mui/material';
 import { ReactElement } from 'react';
 import { InPersonAppointmentInformation } from 'utils';
 import { classifyAppointments } from '../helpers';
-import { getAppointmentStatusChip } from './AppointmentTableRow';
+import { InPersonAppointmentStatusChip } from './InPersonAppointmentStatusChip';
 
 export interface AppointmentChip {
   appointments: InPersonAppointmentInformation[];
@@ -33,7 +33,9 @@ export const AppointmentsStatusChipsCount = ({ appointments }: AppointmentChip):
             ORDER_STATUS.indexOf(statusOne) - ORDER_STATUS.indexOf(statusTwo)
         )
         .map(([status, count]) => (
-          <Box key={status}>{getAppointmentStatusChip(status, count)}</Box>
+          <Box key={status}>
+            <InPersonAppointmentStatusChip status={status} count={count} />
+          </Box>
         ))}
     </Box>
   );

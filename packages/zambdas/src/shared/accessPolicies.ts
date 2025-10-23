@@ -354,34 +354,44 @@ export const PROVIDER_RULES: AccessPolicy = {
   ],
 };
 
-export const PRESCRIBER_RULES: AccessPolicy['rule'] = [
-  {
-    action: ['FHIR:Search', 'FHIR:Read'],
-    effect: 'Allow',
-    resource: ['FHIR:AllergyIntolerance', 'FHIR:MedicationStatement'],
-  },
+export const CUSTOMER_SUPPORT_RULES: AccessPolicy = {
+  rule: [...ADMINISTRATOR_RULES.rule, ...PROVIDER_RULES.rule],
+};
 
-  {
-    action: ['eRx:SearchMedication'],
-    effect: 'Allow',
-    resource: ['eRx:Medication'],
-  },
-  {
-    action: ['eRx:SearchAllergy'],
-    effect: 'Allow',
-    resource: ['eRx:Allergy'],
-  },
-  {
-    action: ['eRx:SyncPatient'],
-    effect: 'Allow',
-    resource: ['eRx:Patient'],
-  },
-  {
-    action: ['eRx:Create', 'eRx:Read'],
-    effect: 'Allow',
-    resource: ['eRx:Enrollment'],
-  },
-];
+export const PRESCRIBER_RULES: AccessPolicy = {
+  rule: [
+    {
+      action: ['FHIR:Search', 'FHIR:Read'],
+      effect: 'Allow',
+      resource: ['FHIR:AllergyIntolerance', 'FHIR:MedicationStatement'],
+    },
+    {
+      action: ['eRx:SearchMedication'],
+      effect: 'Allow',
+      resource: ['eRx:Medication'],
+    },
+    {
+      action: ['eRx:SearchAllergy'],
+      effect: 'Allow',
+      resource: ['eRx:Allergy'],
+    },
+    {
+      action: ['eRx:SyncPatient'],
+      effect: 'Allow',
+      resource: ['eRx:Patient'],
+    },
+    {
+      action: ['eRx:Create', 'eRx:Read'],
+      effect: 'Allow',
+      resource: ['eRx:Enrollment'],
+    },
+    {
+      action: ['Zambda:InvokeFunction'],
+      effect: 'Allow',
+      resource: ['Zambda:Function:*'],
+    },
+  ],
+};
 
 export const FRONT_DESK_RULES: AccessPolicy = {
   rule: [

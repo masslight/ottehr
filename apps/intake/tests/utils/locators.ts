@@ -233,6 +233,10 @@ export class Locators {
   selectedCard: Locator;
   cardNumberFilled: Locator;
   itemAddedValue: Locator;
+  emergencyContactInformationRelationship: Locator;
+  emergencyContactInformationFirstName: Locator;
+  emergencyContactInformationLastName: Locator;
+  emergencyContactInformationPhone: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -314,7 +318,7 @@ export class Locators {
     // Payment, insurance locators
     this.selfPayOption = page.getByLabel('I will pay without insurance');
     this.insuranceOption = page.getByLabel('I have insurance');
-    this.insuranceHeading = page.getByText('Insurance details');
+    this.insuranceHeading = page.getByText('We use this information to help determine your coverage and costs.');
     this.insuranceCarrier = page.locator("[id='insurance-carrier']");
     this.insuranceCarrierFirstOption = page.locator("[id='insurance-carrier-option-0']");
     this.insuranceMemberID = page.locator("[id='insurance-member-id']");
@@ -377,6 +381,12 @@ export class Locators {
     this.responsiblePartyCity = page.locator('[id="responsible-party-city"]');
     this.responsiblePartyState = page.locator('[id="responsible-party-state"]');
     this.responsiblePartyZip = page.locator('[id="responsible-party-zip"]');
+
+    // Emergency Contact Information locators
+    this.emergencyContactInformationRelationship = page.locator('[id="emergency-contact-relationship"]');
+    this.emergencyContactInformationFirstName = page.locator('[id="emergency-contact-first-name"]');
+    this.emergencyContactInformationLastName = page.locator('[id="emergency-contact-last-name"]');
+    this.emergencyContactInformationPhone = page.locator('[id="emergency-contact-number"]');
 
     // Paperwork calendar locators
     this.calendarCurrentDay = page.locator('button[aria-current="date"]');

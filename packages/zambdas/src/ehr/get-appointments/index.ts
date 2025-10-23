@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -6,7 +7,6 @@ import {
   DocumentReference,
   Encounter,
   HealthcareService,
-  Location,
   Patient,
   Practitioner,
   Provenance,
@@ -22,13 +22,13 @@ import {
   GetAppointmentsZambdaInput,
   getAttendingPractitionerId,
   getChatContainsUnreadMessages,
+  getInPersonVisitStatus,
   getMiddleName,
   getPatientFirstName,
   getPatientLastName,
   getSecret,
   getSMSNumberForIndividual,
   getUnconfirmedDOBForAppointment,
-  getVisitStatus,
   getVisitStatusHistory,
   InPersonAppointmentInformation,
   INSURANCE_CARD_CODE,
@@ -57,7 +57,7 @@ import {
   makeEncounterSearchParams,
   makeResourceCacheKey,
   mergeResources,
-  parseAttenderQualification,
+  parseAttenderProviderType,
   parseEncounterParticipants,
   timezoneMap,
 } from './helpers';
@@ -230,9 +230,6 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     const practitionerIdToResourceMap: Record<string, Practitioner> = {};
     const healthcareServiceIdToResourceMap: Record<string, HealthcareService> = {};
 
-    const location = appointmentResources.find(({ resourceType }) => resourceType === 'Location') as
-      | Location
-      | undefined;
     appointmentResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
         allAppointments.push(resource as Appointment);
@@ -431,7 +428,6 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         group: undefined,
         supervisorApprovalEnabled,
         encounterSignatures,
-        location,
       };
 
       preBooked = appointmentQueues.prebooked
@@ -518,17 +514,12 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-get-appointments', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error getting patient appointments' }),
-    };
+    return topLevelCatch('admin-get-appointments', error, ENVIRONMENT);
   }
 });
 
 interface AppointmentInformationInputs {
   appointment: Appointment;
-  location?: Location;
   patientIdMap: Record<string, Patient>;
   apptRefToEncounterMap: Record<string, Encounter>;
   encounterRefToQRMap: Record<string, QuestionnaireResponse>;
@@ -550,7 +541,6 @@ const makeAppointmentInformation = (
 ): InPersonAppointmentInformation | undefined => {
   const {
     appointment,
-    location,
     patientIdMap,
     apptRefToEncounterMap,
     encounterRefToQRMap,
@@ -608,6 +598,7 @@ const makeAppointmentInformation = (
     } catch (e) {
       console.log('error building sms model: ', e);
       console.log('related persons value prior to error: ', rps);
+      captureException(e);
     }
   } else {
     console.log(`no patient ref found for appointment ${appointment.id}`);
@@ -633,7 +624,7 @@ const makeAppointmentInformation = (
   const idCard = docRefComplete('Photo ID cards', 'photo-id-front');
   const insuranceCard = docRefComplete('Insurance cards', 'insurance-card-front');
   const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
-  const status = getVisitStatus(appointment, encounter, supervisorApprovalEnabled);
+  const status = getInPersonVisitStatus(appointment, encounter, supervisorApprovalEnabled);
 
   const unconfirmedDOB = getUnconfirmedDOBForAppointment(appointment);
 
@@ -654,7 +645,7 @@ const makeAppointmentInformation = (
   const paperworkHasBeenSubmitted = !!questionnaireResponse?.authored;
 
   const participants = parseEncounterParticipants(encounter, practitionerIdToResourceMap);
-  const attenderQualification = parseAttenderQualification(encounter, location, practitionerIdToResourceMap);
+  const attenderProviderType = parseAttenderProviderType(encounter, practitionerIdToResourceMap);
   const signature = encounterSignatures.find((provenance) =>
     provenance.target.find((ref) => ref.reference === `Encounter/${encounter.id}`)
   );
@@ -687,7 +678,7 @@ const makeAppointmentInformation = (
     status,
     cancellationReason: cancellationReason,
     provider: provider,
-    attenderQualification,
+    attenderProviderType,
     approvalDate,
     group: group ? group.name : undefined,
     room: room,

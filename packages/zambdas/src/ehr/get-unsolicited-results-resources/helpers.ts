@@ -12,8 +12,8 @@ import {
 import {
   compareDates,
   DiagnosticReportLabDetailPageDTO,
+  DR_CONTAINED_PRACTITIONER_REF,
   DR_UNSOLICITED_PATIENT_REF,
-  DR_UNSOLICITED_PRACTITIONER_REF,
   getFullestAvailableName,
   GetUnsolicitedResultsDetailOutput,
   GetUnsolicitedResultsIconStatusOutput,
@@ -194,7 +194,7 @@ const formatResourcesForTaskTableResponse = (resources: ResourcesByDr): Unsolici
           actionText,
           actionUrl,
           taskRowDescription,
-          resultsReceivedDateTime: task.authoredOn || 'unknown',
+          resultsReceivedDateTime: diagnosticReport.effectiveDateTime || 'unknown',
         };
         taskDetails.push(row);
       }
@@ -309,7 +309,7 @@ const getUnsolicitedResourcesFromDr = (
     unsolicitedPatient = containedPatient as Patient;
   }
   const containedProvider = dr.contained?.find(
-    (resource) => resource.resourceType === 'Practitioner' && resource.id === DR_UNSOLICITED_PRACTITIONER_REF
+    (resource) => resource.resourceType === 'Practitioner' && resource.id === DR_CONTAINED_PRACTITIONER_REF
   );
   if (containedProvider) {
     unsolicitedProvider = containedProvider as Practitioner;

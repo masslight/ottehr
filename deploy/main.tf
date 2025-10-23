@@ -118,4 +118,6 @@ module "apps_upload" {
   patient_portal_bucket_id           = one(module.infra[*].patient_portal_bucket_id)
   ehr_cdn_distribution_id            = one(module.infra[*].ehr_cdn_distribution_id)
   patient_portal_cdn_distribution_id = one(module.infra[*].patient_portal_cdn_distribution_id)
+  ehr_hash                           = one(module.ottehr_apps[*].ehr_hash)
+  patient_portal_hash                = one(module.ottehr_apps[*].patient_portal_hash)
 }
