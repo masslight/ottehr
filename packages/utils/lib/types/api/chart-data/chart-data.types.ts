@@ -109,7 +109,6 @@ export interface ChartDataWithResources {
 export interface SaveableDTO {
   resourceId?: string;
   derivedFrom?: string;
-  createICDRecommendations?: boolean;
 }
 
 export interface FreeTextNoteDTO extends SaveableDTO {
