@@ -7,7 +7,7 @@ import { ThemeProvider } from 'styled-components';
 import {
   getQuestionnaireResponseByLinkId,
   getSelectors,
-  mapStatusToTelemed,
+  getTelemedVisitStatus,
   RefreshableAppointmentData,
   TelemedAppointmentStatusEnum,
 } from 'utils';
@@ -83,7 +83,7 @@ export const AppointmentPage: FC = () => {
   };
 
   const shouldPeriodicallyRefreshAppointmentData = useMemo(() => {
-    const appointmentStatus = mapStatusToTelemed(encounter.status, appointment?.status);
+    const appointmentStatus = getTelemedVisitStatus(encounter.status, appointment?.status);
     return (
       appointmentStatus === TelemedAppointmentStatusEnum.ready ||
       appointmentStatus === TelemedAppointmentStatusEnum['pre-video'] ||

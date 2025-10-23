@@ -166,8 +166,8 @@ export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessmen
 }
 
 export interface ExternalLabResult {
-  resultCode: string;
-  resultCodeDisplay: string;
+  resultCodeAndDisplay: string;
+  loincCodeAndDisplay: string;
   resultInterpretation?: string;
   resultInterpretationDisplay?: string;
   resultValue: string;
@@ -179,6 +179,7 @@ export interface ExternalLabResult {
   performingLabPhone?: string;
   performingLabDirectorFullName?: string;
   observationStatus: string;
+  additionalLabCode: string | undefined;
 }
 
 export interface InHouseLabResult {
@@ -231,6 +232,7 @@ export interface ExternalLabResultAttachments {
 }
 export interface ExternalLabResultsData extends LabResultsData {
   orderNumber: string;
+  alternatePlacerId: string | undefined;
   accessionNumber: string;
   orderSubmitDate: string;
   collectionDate: string;

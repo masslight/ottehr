@@ -9,6 +9,7 @@ import {
   Location,
   Patient,
   QuestionnaireResponse,
+  RelatedPerson,
   Schedule,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -18,7 +19,10 @@ import {
   EHRVisitDetails,
   FHIR_RESOURCE_NOT_FOUND,
   flattenQuestionnaireAnswers,
+  getAttestedConsentFromEncounter,
   getConsentAndRelatedDocRefsForAppointment,
+  getEmailForIndividual,
+  getFullestAvailableName,
   getNameFromScheduleResource,
   getSecret,
   getTimezone,
@@ -40,6 +44,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'get-visit-details';
 
@@ -72,7 +77,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 const performEffect = (input: EffectInput): EHRVisitDetails => {
-  const { appointment, patient, encounter, flags, consents, qr, location, schedule, scheduleOwner } = input;
+  const { appointment, patient, encounter, flags, consents, qr, location, schedule, scheduleOwner, guarantorResource } =
+    input;
 
   const firstConsent = consents && consents.length > 0 ? consents[0] : undefined;
 
@@ -84,6 +90,15 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     visitTimezone = getTimezone(location);
   }
 
+  let responsiblePartyName: string | null = null;
+  let responsiblePartyEmail: string | null = null;
+  if (guarantorResource) {
+    responsiblePartyName = getFullestAvailableName(guarantorResource) || null;
+    responsiblePartyEmail = getEmailForIndividual(guarantorResource) || null;
+  }
+
+  const consentIsAttested = getAttestedConsentFromEncounter(encounter) ? true : false;
+
   const output: EHRVisitDetails = {
     appointment,
     patient,
@@ -94,6 +109,9 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     consentDetails: firstConsent ? makeConsentDetails(firstConsent, visitTimezone, qr) : null,
     qrId: qr.id,
     visitLocationId: location?.id,
+    responsiblePartyName,
+    responsiblePartyEmail,
+    consentIsAttested,
   };
 
   if (schedule) {
@@ -120,6 +138,7 @@ interface EffectInput {
   schedule?: Schedule;
   scheduleOwner?: ScheduleOwnerFhirResource;
   location?: Location;
+  guarantorResource?: Patient | RelatedPerson | undefined;
 }
 
 const complexValidation = async (input: Input, oystehr: Oystehr): Promise<EffectInput> => {
@@ -191,14 +210,17 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     }
   }
 
-  const docRefsAndConsents = await getConsentAndRelatedDocRefsForAppointment(
-    {
-      appointmentId,
-      patientId: patient.id,
-    },
-    oystehr
-  );
-
+  const [docRefsAndConsents, accountResources] = await Promise.all([
+    getConsentAndRelatedDocRefsForAppointment(
+      {
+        appointmentId,
+        patientId: patient.id,
+      },
+      oystehr
+    ),
+    getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
+  ]);
+  const { guarantorResource } = accountResources;
   return {
     appointment,
     patient,
@@ -208,6 +230,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     location,
     schedule,
     scheduleOwner,
+    guarantorResource,
     ...docRefsAndConsents,
   };
 };

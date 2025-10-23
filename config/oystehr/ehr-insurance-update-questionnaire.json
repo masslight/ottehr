@@ -1915,6 +1915,25 @@
             ]
           },
           {
+            "linkId": "preferred-pharmacy-section",
+            "text": "Preferred pharmacy",
+            "type": "group",
+            "item": [
+               {
+                "linkId": "pharmacy-name",
+                "text": "Pharmacy name",
+                "type": "string",
+                "required": false
+              },
+              {
+                "linkId": "pharmacy-address",
+                "text": "Pharmacy address",
+                "type": "string",
+                "required": false
+              }
+            ]
+          },
+          {
             "linkId": "user-settings-section",
             "type": "group",
             "text": "User settings",

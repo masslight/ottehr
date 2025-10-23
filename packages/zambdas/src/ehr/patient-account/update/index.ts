@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import {
   AUDIT_EVENT_OUTCOME_CODE,
   checkBundleOutcomeOk,
+  flattenQuestionnaireAnswers,
   getSecret,
   getVersionedReferencesFromBundleResources,
   isValidUUID,
@@ -33,6 +34,7 @@ import {
 } from '../../../shared';
 import {
   createMasterRecordPatchOperations,
+  createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
   updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
@@ -70,7 +72,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<void> => {
   const { questionnaireResponse, items, patientId, providerProfileReference, preserveOmittedCoverages } = input;
 
-  const patientResource = await oystehr.fhir.get<Patient>({
+  let patientResource = await oystehr.fhir.get<Patient>({
     resourceType: 'Patient',
     id: patientId,
   });
@@ -82,7 +84,7 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
 
   if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
     console.time('patching patient resource');
-    await oystehr.fhir.patch({
+    patientResource = await oystehr.fhir.patch({
       resourceType: 'Patient',
       id: patientResource.id!,
       operations: patientPatchOps.patient.patchOpsForDirectUpdate,
@@ -90,6 +92,17 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     console.timeEnd('patching patient resource');
   } else {
     console.log('no patient patch operations to perform--skipping');
+  }
+  const pharmacyPatchOps = createUpdatePharmacyPatchOps(patientResource, flattenQuestionnaireAnswers(items));
+  console.log('Pharmacy patch operations being attempted: ', JSON.stringify(pharmacyPatchOps, null, 2));
+  if (pharmacyPatchOps.length > 0) {
+    await oystehr.fhir.patch<Patient>({
+      resourceType: 'Patient',
+      id: patientResource.id!,
+      operations: pharmacyPatchOps,
+    });
+  } else {
+    console.log('no pharmacy patch operations to perform--skipping');
   }
 
   let resultBundle: Bundle;

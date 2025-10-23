@@ -1,8 +1,18 @@
 import { SearchParam } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Task as FhirTask } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { getCoding, TASK_CATEGORY_IDENTIFIER, TASK_INPUT_SYSTEM, TASK_LOCATION_SYSTEM, TASK_TYPE_SYSTEM } from 'utils';
+import {
+  getCoding,
+  getExtension,
+  IN_HOUSE_LAB_TASK,
+  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+  TASK_CATEGORY_IDENTIFIER,
+  TASK_INPUT_SYSTEM,
+  TASK_LOCATION_SYSTEM,
+  TASK_TYPE_SYSTEM,
+} from 'utils';
 
 const GET_TASKS_KEY = 'get-tasks';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
@@ -54,7 +64,7 @@ export const useGetTasks = ({
   location,
   status,
   page,
-}: TasksSearchParams): UseQueryResult<Task[], Error> => {
+}: TasksSearchParams): UseQueryResult<{ tasks: Task[]; total: number }, Error> => {
   const { oystehr } = useApiClients();
   return useQuery({
     queryKey: [GET_TASKS_KEY, assignedTo, category, location, status, page],
@@ -104,13 +114,15 @@ export const useGetTasks = ({
           value: status,
         });
       }
-      const tasks = (
-        await oystehr.fhir.search<FhirTask>({
-          resourceType: 'Task',
-          params,
-        })
-      ).unbundle();
-      return tasks.map(fhirTaskToTask);
+      const bundle = await oystehr.fhir.search<FhirTask>({
+        resourceType: 'Task',
+        params,
+      });
+      const tasks = bundle.unbundle().map(fhirTaskToTask);
+      return {
+        tasks,
+        total: bundle.total ?? -1,
+      };
     },
     enabled: oystehr != null,
     retry: 2,
@@ -130,11 +142,22 @@ export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskReques
         operations: [
           {
             op: 'add',
-            path: 'owner',
+            path: '/owner',
             value: {
               reference: 'Practitioner/' + input.assignee.id,
               display: input.assignee.name,
+              extension: [
+                {
+                  url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+                  valueDateTime: DateTime.now().toISO(),
+                },
+              ],
             },
+          },
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'in-progress',
           },
         ],
       });
@@ -160,7 +183,12 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
         operations: [
           {
             op: 'remove',
-            path: 'owner',
+            path: '/owner',
+          },
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'ready',
           },
         ],
       });
@@ -176,11 +204,13 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
 
 function fhirTaskToTask(task: FhirTask): Task {
   const category = task.groupIdentifier?.value ?? '';
-  const type = getCoding(task.code, TASK_TYPE_SYSTEM)?.code ?? '';
-  const appointmentId = getInput('appointmentId', task);
-  const orderId = getInput('orderId', task);
   let action: any = undefined;
+  let title = getInput('title', task) ?? '';
+  let subtitle = getInput('subtitle', task) ?? '';
   if (category === 'external-labs') {
+    const type = getCoding(task.code, TASK_TYPE_SYSTEM)?.code ?? '';
+    const appointmentId = getInput('appointmentId', task);
+    const orderId = getInput('orderId', task);
     if (type === 'collect-sample' || type === 'review-results') {
       action = {
         name: GO_TO_LAB_TEST,
@@ -200,25 +230,42 @@ function fhirTaskToTask(task: FhirTask): Task {
       };
     }
   }
-  if (category === 'in-house-labs') {
+  if (category === IN_HOUSE_LAB_TASK.category) {
+    const code = getCoding(task.code, IN_HOUSE_LAB_TASK.system)?.code ?? '';
+    const testName = getInput(IN_HOUSE_LAB_TASK.input.testName, task);
+    const patientName = getInput(IN_HOUSE_LAB_TASK.input.patientName, task);
+    const providerName = getInput(IN_HOUSE_LAB_TASK.input.providerName, task);
+    const orderDate = getInput(IN_HOUSE_LAB_TASK.input.orderDate, task);
+    const appointmentId = getInput(IN_HOUSE_LAB_TASK.input.appointmentId, task);
+    subtitle = `Ordered by ${providerName} on ${
+      orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
+    }`;
+    if (code === IN_HOUSE_LAB_TASK.code.collectSampleTask) {
+      title = `Collect sample for “${testName}” for ${patientName}`;
+    }
+    if (code === IN_HOUSE_LAB_TASK.code.inputResultsTask) {
+      title = `Perform test & enter results for “${testName}” for ${patientName}`;
+    }
     action = {
       name: GO_TO_LAB_TEST,
-      link: `/in-person/${appointmentId}/in-house-lab-orders/${orderId}/order-details`,
+      link: `/in-person/${appointmentId}/in-house-lab-orders/${task.basedOn?.[0]?.reference?.split(
+        '/'
+      )?.[1]}/order-details`,
     };
   }
   return {
     id: task.id ?? '',
     category: category,
     createdDate: task.authoredOn ?? '',
-    title: getInput('title', task) ?? '',
-    subtitle: getInput('subtitle', task) ?? '',
+    title: title,
+    subtitle: subtitle,
     status: task.status,
     action: action,
     assignee: task.owner
       ? {
-          id: task.owner?.id ?? '',
+          id: task.owner?.reference?.split('/')?.[1] ?? '',
           name: task.owner?.display ?? '',
-          date: task.lastModified ?? '',
+          date: getExtension(task.owner, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime ?? '',
         }
       : undefined,
     alert: getInput('alert', task) ?? '',

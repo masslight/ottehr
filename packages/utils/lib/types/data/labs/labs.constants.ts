@@ -29,7 +29,8 @@ export type LabOrderTaskCode = (typeof LAB_ORDER_TASK.code)[keyof typeof LAB_ORD
 
 // should match oystehr
 export const DR_UNSOLICITED_PATIENT_REF = 'unsolicitedResultPatientId';
-export const DR_UNSOLICITED_PRACTITIONER_REF = 'unsolicitedResultPractitionerId';
+// export const DR_UNSOLICITED_PRACTITIONER_REF = 'unsolicitedResultPractitionerId'; this has been replaced by the below
+export const DR_CONTAINED_PRACTITIONER_REF = 'resultOrderingProviderPractitionerId';
 
 export const PSC_HOLD_LOCALE = 'PSC Hold';
 export const PSC_LOCALE = 'PSC';
@@ -129,8 +130,8 @@ export const OYSTEHR_LAB_GUID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab
 export const OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-order-placer-id';
 export const OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM =
   'https://extensions.fhir.oystehr.com/observation-value-attachment-pre-release';
-export const OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM =
-  'https://extensions.fhir.oystehr.com/unsolicited-result-ordering-provider-reference';
+export const OYSTEHR_SAME_TRANSMISSION_DR_REF_URL =
+  'https://extensions.fhir.oystehr.com/same-transmission-diagnostic-report';
 
 export const OYSTEHR_OBS_CONTENT_TYPES = {
   pdf: 'AP',
@@ -253,3 +254,10 @@ export const OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM =
 
 export const OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL =
   'https://extensions.fhir.oystehr.com/lab-result-ordering-provider-reference';
+
+// This is primarily for LabCorp
+export const OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-additional-lab-code';
+
+export const OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM =
+  'https://identifiers.fhir.oystehr.com/lab-result-additional-placer-id';

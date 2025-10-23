@@ -4,6 +4,8 @@ import { CodeableConcept, DiagnosticReport, Observation, ServiceRequest } from '
 import fs from 'fs';
 import { LAB_DR_TYPE_TAG } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
+import { DR_REFLEX_TAG, LAB_PDF_ATTACHMENT_DR_TAG, PDF_ATTACHMENT_CODE } from './lab-script-consts';
+import { createPdfAttachmentObs } from './lab-script-helpers';
 
 // Creates a DiagnosticReport and Observation(s) to mock a reflex test
 // npm run mock-reflex-test ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
@@ -114,9 +116,7 @@ const main = async (): Promise<void> => {
 
   const reflexDR: DiagnosticReport = { ...drToDuplicate, code: REFLEX_TEST_CODE };
   reflexDR.meta = {};
-  reflexDR.meta.tag = [
-    { system: LAB_DR_TYPE_TAG.system, code: LAB_DR_TYPE_TAG.code.reflex, display: LAB_DR_TYPE_TAG.display.reflex },
-  ];
+  reflexDR.meta.tag = [DR_REFLEX_TAG];
   reflexDR.result = resultRefsForReflexTest;
 
   // override existing filler id value
@@ -135,6 +135,28 @@ const main = async (): Promise<void> => {
     method: 'POST',
     url: '/DiagnosticReport',
     resource: reflexDR,
+  });
+
+  // mock pdf attachment for reflex
+  const pdfAttachmentDR: DiagnosticReport = {
+    ...reflexDR,
+    code: PDF_ATTACHMENT_CODE,
+    meta: { tag: [DR_REFLEX_TAG, LAB_PDF_ATTACHMENT_DR_TAG] },
+  };
+  const pdfAttachmentObsFullUrl = `urn:uuid:${randomUUID()}`;
+  const pdfAttachmentResultRefs = [{ reference: pdfAttachmentObsFullUrl }];
+  const newObsResource: Observation = createPdfAttachmentObs();
+  requests.push({
+    method: 'POST',
+    url: '/Observation',
+    resource: newObsResource,
+    fullUrl: pdfAttachmentObsFullUrl,
+  });
+  pdfAttachmentDR.result = pdfAttachmentResultRefs;
+  requests.push({
+    method: 'POST',
+    url: '/DiagnosticReport',
+    resource: pdfAttachmentDR,
   });
 
   console.log('making transaction request');

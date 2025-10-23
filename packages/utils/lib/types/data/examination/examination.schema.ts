@@ -92,6 +92,7 @@ const ExamCardMultiSelectOptionSchema = z.object({
 // Schema for multi-select component
 const ExamCardMultiSelectComponentSchema = z.object({
   label: z.string().min(1, 'Label is required'),
+  defaultValue: z.boolean().optional(),
   type: z.literal('multi-select'),
   options: z.record(z.string(), ExamCardMultiSelectOptionSchema),
 });

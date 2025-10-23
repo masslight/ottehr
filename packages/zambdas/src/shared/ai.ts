@@ -15,7 +15,7 @@ import {
   SecretsKeys,
   VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
-import { makeDiagnosisConditionResource, makeObservationResource } from './chart-data/index';
+import { makeObservationResource } from './chart-data/index';
 import { assertDefined } from './helpers';
 import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.helpers';
 
@@ -74,7 +74,7 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
   process.env.ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
   if (chatbot == null) {
     chatbot = new ChatAnthropic({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-haiku-4-5-20251001',
       temperature: 0,
     });
   }
@@ -94,7 +94,8 @@ export async function createResourcesFromAiInterview(
   let fields =
     'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history and potential diagnoses';
   // if there is a provider user profile, it is a recording
-  if (providerUserProfile) {
+  const source = providerUserProfile ? 'audio-recording' : 'chat';
+  if (source === 'audio-recording') {
     fields = 'labs, erx, procedures, ' + fields;
   }
   const aiResponseString = (
@@ -123,7 +124,6 @@ export async function createResourcesFromAiInterview(
     )
   );
   requests.push(...createObservations(aiResponse, documentReferenceCreateUrl, encounterId, patientId));
-  requests.push(...createDiagnosis(aiResponse, encounterId, patientId));
   console.log('Transaction requests: ' + JSON.stringify(requests, null, 2));
   const transactionBundle = await oystehr.fhir.transaction({
     requests: requests,
@@ -236,19 +236,48 @@ function createObservations(
   });
 }
 
-function createDiagnosis(aiResponse: any, encounterId: string, patientId: string): BatchInputPostRequest<Condition>[] {
-  return aiResponse.potentialDiagnoses?.map((diagnosis: { diagnosis: any; icd10: string }) => {
-    return saveResourceRequest(
-      makeDiagnosisConditionResource(
-        encounterId,
-        patientId,
-        {
-          code: diagnosis.icd10,
-          display: diagnosis.diagnosis,
-          isPrimary: false,
-        },
-        'ai-potential-diagnosis'
-      )
-    );
-  });
+function getIcdTenCodesPrompt(hpiText: string | undefined, mdmText: string | undefined): string {
+  const content = [];
+  if (hpiText) {
+    content.push(`History of Present Illness: ${hpiText}`);
+  }
+  if (mdmText) {
+    content.push(`Medical Decision Making: ${mdmText}`);
+  }
+
+  return `Based on the following clinical notes, suggest potential ICD-10 diagnoses for a patient
+
+${content.join('\n\n')}
+
+Provide a JSON response with this example format. Do not include markdown formatting.
+
+{
+  "potentialDiagnoses": [
+    {
+      "diagnosis": "Diagnosis description",
+      "icd10": "ICD-10 Code"
+    }
+  ]
+}
+
+Only suggest diagnoses that are supported by the clinical information provided. Provide at most 5 results. If there are not relevant results, return an empty list`;
+}
+
+export async function generateIcdTenCodesFromNotes(
+  hpiText: string | undefined,
+  mdmText: string | undefined,
+  secrets: Secrets | null
+): Promise<{ diagnosis: string; icd10: string }[]> {
+  try {
+    const prompt = getIcdTenCodesPrompt(hpiText, mdmText);
+    const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
+
+    console.log(`AI ICD-10 codes response: "${aiResponseString}"`);
+    const aiResponse = JSON.parse(aiResponseString);
+
+    return aiResponse.potentialDiagnoses || [];
+  } catch (error) {
+    console.error('Error generating ICD-10 codes:', error);
+    return [];
+  }
 }
