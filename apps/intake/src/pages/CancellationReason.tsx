@@ -155,10 +155,8 @@ const CancellationReason = (): JSX.Element => {
           value: CancellationReasonOptionsTelemed[key as keyof typeof CancellationReasonOptionsTelemed],
         }))
       : Object.keys(BOOKING_CONFIG.cancelReasonOptions).map((key, index) => ({
-          label:
-            t(`cancel.reasons.reason${index + 1}`, { PROJECT_NAME }) ||
-            BOOKING_CONFIG.cancelReasonOptions[key as keyof typeof BOOKING_CONFIG.cancelReasonOptions],
-          value: BOOKING_CONFIG.cancelReasonOptions[key as keyof typeof BOOKING_CONFIG.cancelReasonOptions],
+          label: t(`cancel.reasons.reason${index + 1}`, { PROJECT_NAME }) || BOOKING_CONFIG.cancelReasonOptions[index],
+          value: BOOKING_CONFIG.cancelReasonOptions[index],
         }));
   }, [t, isVirtualAppt]);
 
