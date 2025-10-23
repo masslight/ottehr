@@ -359,6 +359,7 @@ const PatientInformation = (): JSX.Element => {
         sex: patient?.sex,
         reasonForVisit: reasonForVisit,
         email: patient?.email,
+        authorizedNonLegalGuardians: patient?.authorizedNonLegalGuardians,
       });
     },
     [setPatientInfo]
@@ -405,6 +406,7 @@ const PatientInformation = (): JSX.Element => {
         });
         data.dateOfBirth = dateOfBirth || 'Unknown';
         data.id = data.id === 'new-patient' ? undefined : data.id;
+        data.authorizedNonLegalGuardians = data.authorizedNonLegalGuardians ?? patientInfo?.authorizedNonLegalGuardians;
 
         setPatientInfo(data as PatientInfoInProgress);
 
@@ -420,6 +422,8 @@ const PatientInformation = (): JSX.Element => {
       ...(formValuesCopy as PatientInformation),
       // 'new-patient' apparently isn't getting into form values
       id: patientInfo?.id ?? formValuesCopy?.id ?? 'new-patient',
+      authorizedNonLegalGuardians:
+        (formValuesCopy as any)?.authorizedNonLegalGuardians ?? patientInfo?.authorizedNonLegalGuardians,
     });
   });
 
@@ -449,6 +453,8 @@ const PatientInformation = (): JSX.Element => {
               ...(formValuesCopy as PatientInformation),
               // 'new-patient' apparently isn't getting into form values
               id: patientInfo?.id ?? formValuesCopy?.id ?? 'new-patient',
+              authorizedNonLegalGuardians:
+                (formValuesCopy as any)?.authorizedNonLegalGuardians ?? patientInfo?.authorizedNonLegalGuardians,
             });
             navigate(-1);
           },

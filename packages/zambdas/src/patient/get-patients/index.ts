@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getPatientsForUser, getSecret, PatientInfo, Secrets, SecretsKeys } from 'utils';
+import { FHIR_EXTENSION, getPatientsForUser, getSecret, PatientInfo, Secrets, SecretsKeys } from 'utils';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -41,6 +41,10 @@ export const index = wrapHandler('get-patients', async (input: ZambdaInput): Pro
     console.log('building patient information resource array');
     for (const patientTemp of patients) {
       const email = patientTemp.telecom?.find((telecom) => telecom.system === 'email')?.value;
+      const guardiansExt = patientTemp.extension?.find(
+        (ext) => ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+      );
+
       const patient: PatientInfo = {
         id: patientTemp.id,
         dateOfBirth: patientTemp.birthDate,
@@ -49,6 +53,7 @@ export const index = wrapHandler('get-patients', async (input: ZambdaInput): Pro
         middleName: patientTemp.name?.[0].given?.[1],
         lastName: patientTemp.name?.[0].family,
         email: email,
+        authorizedNonLegalGuardians: guardiansExt?.valueString,
       };
       patientsInformation.push(patient);
     }

@@ -502,6 +502,14 @@ export async function generatePatientRelatedRequests(
       throw PATIENT_NOT_FOUND_ERROR;
     }
 
+    const guardiansExt = foundPatient?.extension?.find(
+      (ext) => ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+    );
+
+    if (guardiansExt?.valueString) {
+      patient.authorizedNonLegalGuardians = guardiansExt.valueString;
+    }
+
     updatePatientRequest = creatingPatientUpdateRequest(patient, maybeFhirPatient);
   } else {
     createPatientRequest = creatingPatientCreateRequest(patient, isEHRUser);

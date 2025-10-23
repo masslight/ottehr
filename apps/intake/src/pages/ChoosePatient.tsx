@@ -142,6 +142,10 @@ const ChoosePatient = (): JSX.Element => {
             sex: data.sex || currentPatient.sex,
             reasonForVisit: data.reasonForVisit || patientInfo?.reasonForVisit,
             email: data.email || currentPatient.email,
+            authorizedNonLegalGuardians:
+              data.authorizedNonLegalGuardians ??
+              currentPatient.authorizedNonLegalGuardians ??
+              patientInfo?.authorizedNonLegalGuardians,
           });
         }
       });
