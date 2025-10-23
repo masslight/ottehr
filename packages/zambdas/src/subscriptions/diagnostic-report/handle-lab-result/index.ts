@@ -1,8 +1,16 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DiagnosticReport, Patient, Task } from 'fhir/r4b';
-import { getFullestAvailableName, getSecret, LAB_ORDER_TASK, LabType, Secrets, SecretsKeys } from 'utils';
-import { diagnosticReportSpecificResultType, getTestNameOrCodeFromDr } from '../../../ehr/shared/labs';
+import { DiagnosticReport, Patient, Task, TaskInput } from 'fhir/r4b';
+import {
+  getFullestAvailableName,
+  getSecret,
+  getTestNameOrCodeFromDr,
+  LAB_ORDER_TASK,
+  LabType,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
+import { diagnosticReportSpecificResultType } from '../../../ehr/shared/labs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   createExternalLabResultPDF,
@@ -84,6 +92,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         });
     });
 
+    // todo these additional fhir calls can probably happen in one query or at least in a transaction
     const preSubmissionTask = (
       await oystehr.fhir.search<Task>({
         resourceType: 'Task',
@@ -101,6 +110,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         })
       : undefined;
 
+    const taskInput: { type: string; value?: string }[] | TaskInput[] | undefined = preSubmissionTask
+      ? preSubmissionTask.input
+      : [
+          {
+            type: LAB_ORDER_TASK.input.testName,
+            // this is just the test name, we should pull the lab name too if possible
+            value: getTestNameOrCodeFromDr(diagnosticReport),
+          },
+          {
+            type: LAB_ORDER_TASK.input.receivedDate,
+            value: diagnosticReport.effectiveDateTime,
+          },
+          {
+            type: LAB_ORDER_TASK.input.patientName,
+            // we won't have a fhir resource for patient for unsolicited but we will have the patient information embedded in the DR
+            // i think its misleading to put unknown in this case, maybe we should not add this input for unsolicited
+            value: patient ? getFullestAvailableName(patient) : 'Unknown',
+          },
+        ];
+
+    if (specificDrTypeFromTag && taskInput) {
+      taskInput.push({
+        type: LAB_ORDER_TASK.input.drTag,
+        value: specificDrTypeFromTag,
+      });
+    }
+
     const newTask = createTask({
       category: LAB_ORDER_TASK.category,
       code: {
@@ -113,22 +149,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ...(serviceRequestID ? [`ServiceRequest/${serviceRequestID}`] : []),
       ],
       locationId: preSubmissionTask ? getTaskLocationId(preSubmissionTask) : undefined,
-      input: preSubmissionTask
-        ? preSubmissionTask.input
-        : [
-            {
-              type: LAB_ORDER_TASK.input.testName,
-              value: getTestNameOrCodeFromDr(diagnosticReport),
-            },
-            {
-              type: LAB_ORDER_TASK.input.receivedDate,
-              value: diagnosticReport.effectiveDateTime,
-            },
-            {
-              type: LAB_ORDER_TASK.input.patientName,
-              value: patient ? getFullestAvailableName(patient) : 'Unknown',
-            },
-          ],
+      input: taskInput,
     });
     if (diagnosticReport.status === 'cancelled') {
       newTask.status = 'completed';
