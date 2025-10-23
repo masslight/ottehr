@@ -267,26 +267,6 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
     }
   };
 
-  const handleDateChange = (date: DateTime): void => {
-    if (!date || !formData.followupTime) return;
-
-    updateFormData('followupDate', date);
-    const isToday = date.hasSame(DateTime.now(), 'day');
-
-    const combinedDateTime = date.set({
-      hour: formData.followupTime.hour,
-      minute: formData.followupTime.minute,
-      second: formData.followupTime.second,
-    });
-
-    if (isToday && combinedDateTime < DateTime.now()) {
-      const currentTime = DateTime.now();
-      if (!formData.followupTime.hasSame(currentTime, 'minute')) {
-        updateFormData('followupTime', currentTime);
-      }
-    }
-  };
-
   return (
     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
       <form onSubmit={handleFormSubmit}>
@@ -394,11 +374,10 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
           <Grid item xs={5}>
             <LocalizationProvider dateAdapter={AdapterLuxon}>
               <DatePicker
-                onChange={(val) => val && handleDateChange(val)}
+                onChange={(val) => val && updateFormData('followupDate', val)}
                 label="Follow-up date"
                 format="MM/dd/yyyy"
                 value={formData.followupDate}
-                minDate={DateTime.now().startOf('day')}
                 slotProps={{
                   textField: {
                     id: 'followup-date',
@@ -419,7 +398,6 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
                 onChange={(val) => val && updateFormData('followupTime', val)}
                 value={formData.followupTime}
                 label="Follow-up time *"
-                minTime={formData.followupDate.hasSame(DateTime.now(), 'day') ? DateTime.now() : undefined}
                 slotProps={{
                   textField: {
                     fullWidth: true,
