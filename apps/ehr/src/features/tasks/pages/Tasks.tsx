@@ -46,6 +46,7 @@ import { formatDate } from '../common';
 import { AssignTaskDialog } from '../components/AssignTaskDialog';
 import { CategoryChip, TASK_CATEGORY_LABEL } from '../components/CategoryChip';
 
+const LOCAL_STORAGE_FILTERS_KEY = 'tasks.filters';
 const UNKNOWN = 'Unknown';
 const COMPLETED = 'completed';
 const TASK_STATUS_LABEL: Record<string, string> = {
@@ -161,17 +162,36 @@ export const Tasks: React.FC = () => {
       },
       callback: ({ values }) => {
         const queryParams = new URLSearchParams();
+        const filtersToPersist: Record<string, string> = {};
         for (const key in values) {
           const value = values[key]?.id ?? values[key];
           if (value) {
             queryParams.set(key, value);
+            filtersToPersist[key] = value;
           }
         }
         setSearchParams(queryParams);
+        if (Object.keys(filtersToPersist).length > 0) {
+          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(filtersToPersist));
+        } else {
+          localStorage.removeItem(LOCAL_STORAGE_FILTERS_KEY);
+        }
       },
     });
     return () => callback();
   }, [methods, navigate, setSearchParams]);
+
+  useEffect(() => {
+    const persistedFilters = localStorage.getItem(LOCAL_STORAGE_FILTERS_KEY);
+    if (searchParams.size === 0 && persistedFilters != null) {
+      const filters = JSON.parse(persistedFilters);
+      const queryParams = new URLSearchParams();
+      for (const key in filters) {
+        queryParams.set(key, filters[key]);
+      }
+      setSearchParams(queryParams);
+    }
+  }, [searchParams, setSearchParams]);
 
   const [pageNumber, setPageNumber] = React.useState(0);
 
