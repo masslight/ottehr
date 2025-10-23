@@ -18,6 +18,9 @@ export const MissingCard: FC = () => {
       medicalDecision: {
         _tag: 'medical-decision',
       },
+      chiefComplaint: {
+        _tag: 'chief-complaint',
+      },
     },
   });
 
@@ -26,8 +29,9 @@ export const MissingCard: FC = () => {
   const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
   const medicalDecision = chartFields?.medicalDecision?.text;
   const emCode = chartData?.emCode;
+  const hpi = chartFields?.chiefComplaint?.text;
 
-  if (primaryDiagnosis && medicalDecision && emCode) {
+  if (primaryDiagnosis && medicalDecision && emCode && hpi) {
     return null;
   }
 
@@ -41,14 +45,36 @@ export const MissingCard: FC = () => {
     }
   };
 
+  const scrollOrNavigateToHPI = (): void => {
+    if (isInPerson) {
+      const headings = Array.from(document.querySelectorAll('h6'));
+      const hpiHeading = headings.find((heading) => heading.textContent === 'Chief Complaint & HPI');
+      if (hpiHeading) {
+        hpiHeading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else {
+      useAppTelemedLocalStore.setState({ currentTab: TelemedAppointmentVisitTabs.hpi });
+    }
+  };
+
   return (
     <AccordionCard label="Missing" dataTestId={dataTestIds.progressNotePage.missingCard}>
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'start' }}>
         <Typography data-testid={dataTestIds.progressNotePage.missingCardText}>
-          This information is required to sign the chart. Please go to Assessment tab and complete it.
+          This information is required to sign the chart. Click on the item to navigate to it.
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {!hpi && (
+            <Link
+              sx={{ cursor: 'pointer' }}
+              color="error"
+              onClick={scrollOrNavigateToHPI}
+              data-testid={dataTestIds.progressNotePage.emCodeLink}
+            >
+              HPI
+            </Link>
+          )}
           {!primaryDiagnosis && (
             <Link
               sx={{ cursor: 'pointer' }}
