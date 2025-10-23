@@ -722,42 +722,32 @@ function consolidateExtensionOperations(operations: Operation[], extension: Exte
   const extensionOps = operations.filter((op) => op.path.startsWith('/extension'));
   if (!extensionOps.length) return operations;
 
-  const newExtensions = [...extension.map((e) => structuredClone(e))];
+  const byUrl = new Map<string, any>();
+  for (const ext of extension ?? []) {
+    byUrl.set(ext.url, ext);
+  }
 
   for (const op of extensionOps) {
-    const match = op.path.match(/^\/extension\/(\d+|-)$/);
-    if (!match) continue;
-
-    const idx = match[1];
-    if (idx === '-') {
-      if (op.op === 'add' && op.value) {
-        newExtensions.push(structuredClone(op.value));
-      }
-      continue;
+    let value;
+    if (op.op === 'add' || op.op === 'replace') {
+      value = op.value;
     }
+    if (!value?.url) continue;
 
-    const index = parseInt(idx, 10);
-    if (index < 0 || index >= extension.length) continue;
-
-    switch (op.op) {
-      case 'remove':
-        delete newExtensions[index];
-        break;
-      case 'replace':
-      case 'add':
-        if (op.value) newExtensions[index] = structuredClone(op.value);
-        break;
+    if (op.op === 'replace' || op.op === 'add') {
+      byUrl.set(value.url, value);
+    } else if (op.op === 'remove') {
+      byUrl.delete(value.url);
     }
   }
 
-  const mergedExtensions = newExtensions.filter(Boolean);
-
-  const otherOps = operations.filter((op) => !op.path.startsWith('/extension'));
+  const mergedExtensions = Array.from(byUrl.values());
   const consolidatedOp: Operation = {
     op: 'replace',
     path: '/extension',
     value: mergedExtensions,
   };
 
+  const otherOps = operations.filter((op) => !op.path.startsWith('/extension'));
   return [...otherOps, consolidatedOp];
 }
