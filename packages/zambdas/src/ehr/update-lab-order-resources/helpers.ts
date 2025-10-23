@@ -8,7 +8,6 @@ import {
   EXTERNAL_LAB_ERROR,
   getPatchBinary,
   LAB_DR_TYPE_TAG,
-  LAB_ORDER_TASK,
   OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SpecimenCollectionDateConfig,
@@ -271,31 +270,6 @@ export const handleMatchUnsolicitedRequest = async ({
   };
 
   const requests = [diagnosticReportPutRequest, markTaskAsCompleteRequest, ...serviceRequestPatch];
-
-  const matchUnsolicitedTask = (
-    await oystehr.fhir.search<Task>({
-      resourceType: 'Task',
-      params: [
-        { name: 'based-on', value: `DiagnosticReport/${diagnosticReportResource.id}` },
-        { name: 'code', value: LAB_ORDER_TASK.system + '|' + LAB_ORDER_TASK.code.matchUnsolicited },
-      ],
-    })
-  ).unbundle()[0];
-  if (matchUnsolicitedTask?.id) {
-    requests.push(
-      getPatchBinary({
-        resourceType: 'Task',
-        resourceId: matchUnsolicitedTask.id,
-        patchOperations: [
-          {
-            op: 'replace',
-            path: '/status',
-            value: 'completed',
-          },
-        ],
-      })
-    );
-  }
 
   if (relatedPdfAttachmentDrs) {
     relatedPdfAttachmentDrs.forEach((dr) => {

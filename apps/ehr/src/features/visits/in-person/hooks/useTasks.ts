@@ -230,7 +230,10 @@ function fhirTaskToTask(task: FhirTask): Task {
         link: `/in-person/${appointmentId}/external-lab-orders/${serviceRequestId}/order-details`,
       };
     }
-    if (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult) {
+    if (
+      serviceRequestId &&
+      (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
+    ) {
       title = `Review results for “${testName}” for ${patientName}`;
       subtitle = `Ordered by ${providerName} on ${
         orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
@@ -249,7 +252,10 @@ function fhirTaskToTask(task: FhirTask): Task {
         link: `/unsolicited-results/${diagnosticReportId}/match`,
       };
     }
-    if (code === LAB_ORDER_TASK.code.reviewUnsolicitedResults) {
+    if (
+      diagnosticReportId &&
+      (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
+    ) {
       const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
       title = `Review unsolicited test results for “${testName}” for ${patientName}`;
       subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
