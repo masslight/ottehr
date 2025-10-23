@@ -570,7 +570,7 @@ export const getLabResources = async (
 
   const {
     serviceRequests,
-    tasks: preSubmissionTasks,
+    tasks: tasksBasedOnSrs,
     encounters,
     diagnosticReports,
     observations,
@@ -583,6 +583,10 @@ export const getLabResources = async (
     appointments,
     appointmentScheduleMap,
   } = extractLabResources(labResources);
+
+  // todo labs team
+  // see comment above fetchFinalAndPrelimAndCorrectedTasks
+  const preSubmissionTasks = tasksBasedOnSrs.filter((task) => isTaskPST(task));
 
   // Locations for ServiceRequest
   const srLocationIds = serviceRequests.flatMap(
@@ -713,7 +717,6 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       value: 'ServiceRequest:encounter',
     },
 
-    // it's only PST tasks, because RFRT and RPRT tasks are based on DiagnosticReport, they should be requested later
     {
       name: '_revinclude',
       value: 'Task:based-on',
@@ -1042,6 +1045,11 @@ export const fetchPractitionersForServiceRequests = async (
   }
 };
 
+// todo labs team
+// SRs are now being linked to tasks in addition to DRs so that the tasks module has direct access to the service request
+// either the tasks module has to do different work to fetch the SR (i think this could probably be done easily since the DR is related to the SR)
+// if that logic remains than this function may not be needed but there is some filtering happening here i don't fully understand
+// for now im going to restore the pre-existing logic by doing some filtering on the tasks returned from the SR query
 export const fetchFinalAndPrelimAndCorrectedTasks = async (
   oystehr: Oystehr,
   results: DiagnosticReport[]
