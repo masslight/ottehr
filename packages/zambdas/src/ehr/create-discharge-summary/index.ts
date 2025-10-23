@@ -59,13 +59,7 @@ export const index = wrapHandler(
       };
     } catch (error: any) {
       const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      await topLevelCatch('create-discharge-summary', error, ENVIRONMENT);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          message: `Error processing request: ${error.message || error}`,
-        }),
-      };
+      return topLevelCatch('create-discharge-summary', error, ENVIRONMENT);
     }
   }
 );

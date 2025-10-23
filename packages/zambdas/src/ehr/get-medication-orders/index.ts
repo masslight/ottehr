@@ -22,11 +22,13 @@ import {
   getPractitionerIdThatOrderedMedication,
   getProviderIdAndDateMedicationWasAdministered,
   getReasonAndOtherReasonForNotAdministeredOrder,
+  getSecret,
   mapFhirToOrderStatus,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   OrderPackage,
+  SecretsKeys,
 } from 'utils';
-import { createOystehrClient, wrapHandler } from '../../shared';
+import { createOystehrClient, topLevelCatch, wrapHandler } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken } from '../../shared';
 import { getMedicationFromMA } from '../create-update-medication-order/helpers';
@@ -50,10 +52,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.log('Error: ', error);
     console.log('Stringified error: ', JSON.stringify(error));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: `Error getting orders: ${error}` }),
-    };
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
 

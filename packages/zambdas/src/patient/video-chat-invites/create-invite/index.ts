@@ -17,6 +17,7 @@ import {
   getAuth0Token,
   getVideoEncounterForAppointment,
   lambdaResponse,
+  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
@@ -165,7 +166,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return lambdaResponse(200, result);
   } catch (error: any) {
     console.log(error);
-    return lambdaResponse(500, { error: 'Internal error' });
+    return topLevelCatch('create-invite', error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

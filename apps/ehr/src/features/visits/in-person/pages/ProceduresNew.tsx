@@ -80,14 +80,14 @@ interface PageState {
   otherBodySite?: string;
   bodySide?: string;
   technique?: string;
-  suppliesUsed?: string;
+  suppliesUsed?: string[];
   otherSuppliesUsed?: string;
   procedureDetails?: string;
   specimenSent?: boolean;
   complications?: string;
   otherComplications?: string;
   patientResponse?: string;
-  postInstructions?: string;
+  postInstructions?: string[];
   otherPostInstructions?: string;
   timeSpent?: string;
   documentedBy?: string;
@@ -113,6 +113,33 @@ interface SelectOptions {
   postProcedureInstructions: string[];
   timeSpent: string[];
 }
+
+type ParseResult = {
+  values: string[];
+  other?: string;
+};
+
+const parseWithOther = (rawValue: string | undefined, validOptions: string[] | undefined): ParseResult => {
+  const result: ParseResult = { values: [], other: undefined };
+
+  if (!rawValue) return result;
+
+  const [generalPart, otherPart] = rawValue.split(`${OTHER}:`, 2);
+
+  result.values = generalPart
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => validOptions?.includes(item));
+
+  if (otherPart !== undefined) {
+    const trimmedOther = otherPart.trim();
+    if (trimmedOther) result.other = trimmedOther;
+    result.values.push(OTHER);
+  }
+
+  return result;
+};
 
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
@@ -149,9 +176,28 @@ export default function ProceduresNew(): ReactElement {
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   }, [selectOptions?.procedureTypes]);
 
-  const updateState = (stateMutator: (state: PageState) => void): void => {
-    stateMutator(state);
-    setState({ ...state });
+  const updateState = (stateMutator: (draft: PageState) => void): void => {
+    setState((prev) => {
+      const next = { ...prev };
+      stateMutator(next);
+      return next;
+    });
+  };
+
+  const parseSuppliesUsed = (
+    rawValue: string | undefined,
+    validOptions: string[] | undefined
+  ): { suppliesUsed: string[]; otherSuppliesUsed?: string } => {
+    const { values, other } = parseWithOther(rawValue, validOptions);
+    return { suppliesUsed: values, otherSuppliesUsed: other };
+  };
+
+  const parsePostInstructions = (
+    rawValue: string | undefined,
+    validOptions: string[] | undefined
+  ): { postInstructions: string[]; otherPostInstructions?: string } => {
+    const { values, other } = parseWithOther(rawValue, validOptions);
+    return { postInstructions: values, otherPostInstructions: other };
   };
 
   const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
@@ -162,6 +208,11 @@ export default function ProceduresNew(): ReactElement {
     }
     const procedureDateTime =
       procedure.procedureDateTime != null ? DateTime.fromISO(procedure.procedureDateTime) : undefined;
+    const parsedSupplies = parseSuppliesUsed(procedure.suppliesUsed, selectOptions?.supplies);
+    const parsedPostInstructions = parsePostInstructions(
+      procedure.postInstructions,
+      selectOptions?.postProcedureInstructions
+    );
     setState({
       procedureType: procedure.procedureType,
       cptCodes: procedure.cptCodes,
@@ -174,18 +225,15 @@ export default function ProceduresNew(): ReactElement {
       otherBodySite: getPredefinedValueIfOther(procedure.bodySite, selectOptions?.bodySites),
       bodySide: procedure.bodySide,
       technique: procedure.technique,
-      suppliesUsed: getPredefinedValueOrOther(procedure.suppliesUsed, selectOptions?.supplies),
-      otherSuppliesUsed: getPredefinedValueIfOther(procedure.suppliesUsed, selectOptions?.supplies),
+      suppliesUsed: parsedSupplies.suppliesUsed,
+      otherSuppliesUsed: parsedSupplies.otherSuppliesUsed,
       procedureDetails: procedure.procedureDetails,
       specimenSent: procedure.specimenSent,
       complications: getPredefinedValueOrOther(procedure.complications, selectOptions?.complications),
       otherComplications: getPredefinedValueIfOther(procedure.complications, selectOptions?.complications),
       patientResponse: procedure.patientResponse,
-      postInstructions: getPredefinedValueOrOther(procedure.postInstructions, selectOptions?.postProcedureInstructions),
-      otherPostInstructions: getPredefinedValueIfOther(
-        procedure.postInstructions,
-        selectOptions?.postProcedureInstructions
-      ),
+      postInstructions: parsedPostInstructions.postInstructions,
+      otherPostInstructions: parsedPostInstructions.otherPostInstructions,
       timeSpent: procedure.timeSpent,
       documentedBy: procedure.documentedBy,
       consentObtained: procedure.consentObtained,
@@ -195,6 +243,22 @@ export default function ProceduresNew(): ReactElement {
 
   const onCancel = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
+  };
+
+  const combineMultipleValuesForSave = (values: string[] | undefined, otherValue: string | undefined): string => {
+    if (!values?.length && !otherValue) return '';
+
+    const result: string[] = [];
+
+    (values ?? []).forEach((value) => {
+      if (value === OTHER && otherValue?.trim()) {
+        result.push(`${OTHER}: ${otherValue.trim()}`);
+      } else {
+        result.push(value);
+      }
+    });
+
+    return result.join(', ');
   };
 
   const onSave = async (): Promise<void> => {
@@ -241,13 +305,12 @@ export default function ProceduresNew(): ReactElement {
             bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim(),
             bodySide: state.bodySide,
             technique: state.technique,
-            suppliesUsed: state.suppliesUsed !== OTHER ? state.suppliesUsed : state.otherSuppliesUsed?.trim(),
+            suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
             procedureDetails: state.procedureDetails,
             specimenSent: state.specimenSent,
             complications: state.complications !== OTHER ? state.complications : state.otherComplications?.trim(),
             patientResponse: state.patientResponse,
-            postInstructions:
-              state.postInstructions !== OTHER ? state.postInstructions : state.otherPostInstructions?.trim(),
+            postInstructions: combineMultipleValuesForSave(state.postInstructions, state.otherPostInstructions),
             timeSpent: state.timeSpent,
             documentedBy: state.documentedBy,
             consentObtained: state.consentObtained,
@@ -440,13 +503,16 @@ export default function ProceduresNew(): ReactElement {
 
   const otherTextInput = (
     parentLabel: string,
-    parentValue: string | undefined,
+    parentValue: string | string[] | undefined,
     value: string | undefined,
     stateMutator: (value: string, state: PageState) => void
   ): ReactElement => {
-    if (parentValue !== 'Other') {
+    const shouldShow = (Array.isArray(parentValue) && parentValue.includes(OTHER)) || parentValue === OTHER;
+
+    if (!shouldShow) {
       return <></>;
     }
+
     return (
       <TextField
         label={'Other ' + parentLabel.toLocaleLowerCase()}
@@ -489,6 +555,38 @@ export default function ProceduresNew(): ReactElement {
         </RadioGroup>
         {error ? <FormHelperText>{REQUIRED_FIELD_ERROR_MESSAGE}</FormHelperText> : undefined}
       </FormControl>
+    );
+  };
+
+  const multiSelect = (
+    label: string,
+    options: string[] | undefined,
+    values: string[] | undefined,
+    stateMutator: (values: string[], state: PageState) => void,
+    dataTestId: string
+  ): ReactElement => {
+    return (
+      <Autocomplete
+        multiple
+        disableCloseOnSelect
+        options={(options ?? []).map((opt) => ({ value: opt, label: opt }))}
+        value={(values ?? []).map((v) => ({ value: v, label: v }))}
+        onChange={(_e, newValues) =>
+          updateState((state) =>
+            stateMutator(
+              newValues.map((v) => v.value),
+              state
+            )
+          )
+        }
+        renderOption={(props, option) => (
+          <li {...props} key={option.value}>
+            {option.label}
+          </li>
+        )}
+        renderInput={(params) => <TextField {...params} label={label} data-testid={dataTestId} />}
+        disabled={isReadOnly}
+      />
     );
   };
 
@@ -623,13 +721,12 @@ export default function ProceduresNew(): ReactElement {
               (value, state) => (state.technique = value),
               dataTestIds.documentProcedurePage.technique
             )}
-            {dropdown(
+            {multiSelect(
               'Instruments / supplies used',
               selectOptions?.supplies,
               state.suppliesUsed,
-              (value, state) => {
-                state.suppliesUsed = value;
-                state.otherSuppliesUsed = undefined;
+              (values, state) => {
+                state.suppliesUsed = values;
               },
               dataTestIds.documentProcedurePage.instruments
             )}
@@ -678,13 +775,12 @@ export default function ProceduresNew(): ReactElement {
               (value, state) => (state.patientResponse = value),
               dataTestIds.documentProcedurePage.patientResponse
             )}
-            {dropdown(
+            {multiSelect(
               'Post-procedure Instructions',
               selectOptions?.postProcedureInstructions,
               state.postInstructions,
-              (value, state) => {
-                state.postInstructions = value;
-                state.otherPostInstructions = undefined;
+              (values, state) => {
+                state.postInstructions = values;
               },
               dataTestIds.documentProcedurePage.postProcedureInstructions
             )}
