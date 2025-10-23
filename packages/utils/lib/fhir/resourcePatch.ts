@@ -338,10 +338,6 @@ export function consolidateOperations(operations: Operation[], resource: FhirRes
     consolidateContactNameOperations(mergedOperations);
   }
 
-  if (resource.resourceType === 'Patient' && resource.extension) {
-    consolidateExtensionOperations(mergedOperations, resource.extension);
-  }
-
   // Group operations by their root paths
   const groupedOperationsWithNewPath = mergedOperations.reduce<GroupedOperation[]>(
     (groups, op) => groupAddOperationsForNewPaths(groups, op, resource),
@@ -356,7 +352,6 @@ export function consolidateOperations(operations: Operation[], resource: FhirRes
   // Convert groups to consolidated operations
   const consolidatedOps = groupedOperationsWithNewPath.map(consolidateGroupedOperationsForNewPaths);
   const consolidatedAppendOps = groupedOperationsAppendingExistingArray.map(createArrayAppendOperation);
-
   // Filter standalone operations
   const standaloneOperations = filterStandaloneOperations(
     mergedOperations,
@@ -364,7 +359,6 @@ export function consolidateOperations(operations: Operation[], resource: FhirRes
     groupedOperationsAppendingExistingArray,
     resource
   );
-
   // Combine consolidated and standalone operations
   const combinedOperations = [...consolidatedOps, ...consolidatedAppendOps, ...standaloneOperations];
   // Normalize all array operations
@@ -716,38 +710,4 @@ function consolidateContactNameOperations(operations: Operation[]): Operation[] 
   const nonNameOps = operations.filter((op) => !(op.op === 'add' && op.path.includes(consolidatedNameOps[0].path)));
 
   return [...consolidatedNameOps, ...nonNameOps];
-}
-
-function consolidateExtensionOperations(operations: Operation[], extension: Extension[]): Operation[] {
-  const extensionOps = operations.filter((op) => op.path.startsWith('/extension'));
-  if (!extensionOps.length) return operations;
-
-  const byUrl = new Map<string, any>();
-  for (const ext of extension ?? []) {
-    byUrl.set(ext.url, ext);
-  }
-
-  for (const op of extensionOps) {
-    let value;
-    if (op.op === 'add' || op.op === 'replace') {
-      value = op.value;
-    }
-    if (!value?.url) continue;
-
-    if (op.op === 'replace' || op.op === 'add') {
-      byUrl.set(value.url, value);
-    } else if (op.op === 'remove') {
-      byUrl.delete(value.url);
-    }
-  }
-
-  const mergedExtensions = Array.from(byUrl.values());
-  const consolidatedOp: Operation = {
-    op: 'replace',
-    path: '/extension',
-    value: mergedExtensions,
-  };
-
-  const otherOps = operations.filter((op) => !op.path.startsWith('/extension'));
-  return [...otherOps, consolidatedOp];
 }
