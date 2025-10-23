@@ -1,4 +1,5 @@
 import { BatchInputDeleteRequest, BatchInputGetRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, HealthcareService, Location, Patient, Practitioner, Schedule } from 'fhir/r4b';
@@ -237,6 +238,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
           };
           await emailClient.sendInPersonCancelationEmail(email, templateData);
         } catch (error: any) {
+          captureException(error);
           console.error('error sending cancellation email', error);
         }
         console.groupEnd();

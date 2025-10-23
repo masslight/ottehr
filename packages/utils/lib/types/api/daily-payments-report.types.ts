@@ -3,6 +3,7 @@ export interface DailyPaymentsReportZambdaInput {
     start: string; // ISO date string
     end: string; // ISO date string
   };
+  locationId?: string; // Optional filter by location ID
 }
 
 export interface PaymentItem {

@@ -36,8 +36,11 @@ import {
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_TASK,
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
+  INCONCLUSIVE_RESULT_DR_TAG,
   INDETERMINATE_OBSERVATION_INTERPRETATION,
   LabComponentValueSetConfig,
+  NEUTRAL_RESULT_DR_TAG,
+  NonNormalResult,
   NORMAL_OBSERVATION_INTERPRETATION,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   ResultEntryInput,
@@ -168,13 +171,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('Error handling in-house lab results:', error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('handle-in-house-lab-results', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: `Error processing request: ${error.message || error}`,
-      }),
-    };
+    return topLevelCatch('handle-in-house-lab-results', error, ENVIRONMENT);
   }
 });
 
@@ -219,10 +216,6 @@ const getInHouseLabResultResources = async (
         {
           name: '_include',
           value: 'ServiceRequest:patient',
-        },
-        {
-          name: '_revinclude',
-          value: 'Task:based-on',
         },
         { name: '_include:iterate', value: 'Encounter:location' },
         {
@@ -294,8 +287,8 @@ const getInHouseLabResultResources = async (
   if (inputResultTask.status === 'completed') {
     throw new Error('Result has already been entered. Refresh the page to continue.');
   }
-  if (inputResultTask.status !== 'ready') {
-    throw new Error(`One ready IRT task should exist for ServiceRequest/${serviceRequestId}`);
+  if (inputResultTask.status !== 'ready' && inputResultTask.status !== 'in-progress') {
+    throw new Error(`One ready or in-progress IRT task should exist for ServiceRequest/${serviceRequestId}`);
   }
 
   const serviceRequestsRelatedViaRepeat =
@@ -388,7 +381,7 @@ const makeResultEntryRequests = (
     ],
   };
 
-  const { obsRefs, obsPostRequests, abnormalResultRecorded } = makeObservationPostRequests(
+  const { obsRefs, obsPostRequests, nonNormalResultRecorded } = makeObservationPostRequests(
     serviceRequest,
     specimen,
     activityDefinition,
@@ -400,7 +393,7 @@ const makeResultEntryRequests = (
     serviceRequest,
     activityDefinition,
     obsRefs,
-    abnormalResultRecorded
+    nonNormalResultRecorded
   );
 
   return [
@@ -419,7 +412,11 @@ const makeObservationPostRequests = (
   activityDefinition: ActivityDefinition,
   curUser: PractitionerConfig,
   resultsEntryData: ResultEntryInput
-): { obsRefs: Reference[]; obsPostRequests: BatchInputPostRequest<Observation>[]; abnormalResultRecorded: boolean } => {
+): {
+  obsRefs: Reference[];
+  obsPostRequests: BatchInputPostRequest<Observation>[];
+  nonNormalResultRecorded: NonNormalResult[];
+} => {
   if (!activityDefinition.code) throw new Error('activityDefinition.code is missing and is required');
 
   const activityDefContained = activityDefinition.contained;
@@ -450,7 +447,7 @@ const makeObservationPostRequests = (
   const obsRefs: Reference[] = [];
   const obsPostRequests: BatchInputPostRequest<Observation>[] = [];
 
-  let abnormalResultRecorded = false;
+  const nonNormalResultRecorded: NonNormalResult[] = [];
   Object.keys(resultsEntryData).forEach((observationDefinitionId) => {
     const entry = resultsEntryData[observationDefinitionId];
     const obsFullUrl = `urn:uuid:${randomUUID()}`;
@@ -458,14 +455,14 @@ const makeObservationPostRequests = (
     obsRefs.push({
       reference: obsFullUrl,
     });
-    const { obsValue, obsInterpretation, isAbnormal } = formatObsValueAndInterpretation(
+    const { obsValue, obsInterpretation, nonNormalResult } = formatObsValueAndInterpretation(
       entry,
       obsDef,
       activityDefContained
     );
-    if (isAbnormal) {
-      console.log('flagging abnormal result for', activityDefinition.code?.coding?.map((coding) => coding.code));
-      abnormalResultRecorded = true;
+    if (nonNormalResult) {
+      console.log('flagging non-normal result for', activityDefinition.code?.coding?.map((coding) => coding.code));
+      nonNormalResultRecorded.push(nonNormalResult);
     }
     const obsFinalConfig: Observation = {
       ...obsConfig,
@@ -487,7 +484,7 @@ const makeObservationPostRequests = (
     obsPostRequests.push(request);
   });
 
-  return { obsRefs, obsPostRequests, abnormalResultRecorded };
+  return { obsRefs, obsPostRequests, nonNormalResultRecorded };
 };
 
 const getObsDefFromActivityDef = (obsDefId: string, activityDefContained: FhirResource[]): ObservationDefinition => {
@@ -506,7 +503,7 @@ const formatObsValueAndInterpretation = (
 ): {
   obsValue: { valueQuantity: Quantity } | { valueString: string };
   obsInterpretation: { interpretation?: CodeableConcept[] };
-  isAbnormal: boolean;
+  nonNormalResult: NonNormalResult | undefined;
 } => {
   if (obsDef.permittedDataType?.includes('Quantity')) {
     const floatVal = parseFloat(dataEntry);
@@ -516,11 +513,14 @@ const formatObsValueAndInterpretation = (
       },
     };
     const range = extractQuantityRange(obsDef).normalRange;
-    const { interpretation: interpretationCodeableConcept, isAbnormal } = determineQuantInterpretation(floatVal, range);
+    const { interpretation: interpretationCodeableConcept, nonNormalResult } = determineQuantInterpretation(
+      floatVal,
+      range
+    );
     const obsInterpretation = {
       interpretation: [interpretationCodeableConcept],
     };
-    return { obsValue, obsInterpretation, isAbnormal };
+    return { obsValue, obsInterpretation, nonNormalResult };
   }
 
   if (obsDef.permittedDataType?.includes('CodeableConcept')) {
@@ -531,7 +531,9 @@ const formatObsValueAndInterpretation = (
       (resource) => resource.resourceType === 'ObservationDefinition' || resource.resourceType === 'ValueSet'
     ) as (ObservationDefinition | ValueSet)[];
     const abnormalValues = extractAbnormalValueSetValues(obsDef, filteredContained);
-    const { interpretation: interpretationCodeableConcept, isAbnormal } = determineCodeableConceptInterpretation(
+    const isNeutral = abnormalValues.length === 0;
+    console.log('isNeutral:', isNeutral);
+    const { interpretation: interpretationCodeableConcept, nonNormalResult } = determineCodeableConceptInterpretation(
       dataEntry,
       abnormalValues
     );
@@ -539,7 +541,7 @@ const formatObsValueAndInterpretation = (
       interpretation: [interpretationCodeableConcept],
     };
 
-    return { obsValue, obsInterpretation, isAbnormal };
+    return { obsValue, obsInterpretation, nonNormalResult: isNeutral ? NonNormalResult.Neutral : nonNormalResult };
   }
 
   throw new Error('obsDef.permittedDataType should be Quantity or CodeableConcept');
@@ -553,11 +555,11 @@ const determineQuantInterpretation = (
     unit: string;
     precision?: number;
   }
-): { interpretation: CodeableConcept; isAbnormal: boolean } => {
+): { interpretation: CodeableConcept; nonNormalResult?: NonNormalResult } => {
   if (entry > range.high || entry < range.low) {
-    return { interpretation: ABNORMAL_OBSERVATION_INTERPRETATION, isAbnormal: true };
+    return { interpretation: ABNORMAL_OBSERVATION_INTERPRETATION, nonNormalResult: NonNormalResult.Abnormal };
   } else {
-    return { interpretation: NORMAL_OBSERVATION_INTERPRETATION, isAbnormal: false };
+    return { interpretation: NORMAL_OBSERVATION_INTERPRETATION };
   }
 };
 
@@ -565,13 +567,13 @@ const determineQuantInterpretation = (
 const determineCodeableConceptInterpretation = (
   value: string,
   abnormalValues: LabComponentValueSetConfig[]
-): { interpretation: CodeableConcept; isAbnormal: boolean } => {
+): { interpretation: CodeableConcept; nonNormalResult?: NonNormalResult } => {
   if (value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode) {
-    return { interpretation: INDETERMINATE_OBSERVATION_INTERPRETATION, isAbnormal: false };
+    return { interpretation: INDETERMINATE_OBSERVATION_INTERPRETATION, nonNormalResult: NonNormalResult.Inconclusive };
   } else {
     return abnormalValues.map((val) => val.code).includes(value)
-      ? { interpretation: ABNORMAL_OBSERVATION_INTERPRETATION, isAbnormal: true }
-      : { interpretation: NORMAL_OBSERVATION_INTERPRETATION, isAbnormal: false };
+      ? { interpretation: ABNORMAL_OBSERVATION_INTERPRETATION, nonNormalResult: NonNormalResult.Abnormal }
+      : { interpretation: NORMAL_OBSERVATION_INTERPRETATION };
   }
 };
 
@@ -579,7 +581,7 @@ const makeDiagnosticReportPostRequest = (
   serviceRequest: ServiceRequest,
   activityDefinition: ActivityDefinition,
   obsRefs: Reference[],
-  abnormalResultRecorded: boolean
+  nonNormalResultRecorded: NonNormalResult[]
 ): BatchInputPostRequest<DiagnosticReport> => {
   if (!activityDefinition.code) throw new Error('activityDefinition.code is missing and is required');
 
@@ -595,10 +597,27 @@ const makeDiagnosticReportPostRequest = (
     result: obsRefs,
   };
 
-  if (abnormalResultRecorded) {
-    diagnosticReportConfig.meta = {
-      tag: [ABNORMAL_RESULT_DR_TAG],
-    };
+  if (nonNormalResultRecorded.length) {
+    const tags = [];
+    if (nonNormalResultRecorded.includes(NonNormalResult.Abnormal)) {
+      tags.push(ABNORMAL_RESULT_DR_TAG);
+    }
+    if (nonNormalResultRecorded.includes(NonNormalResult.Inconclusive)) {
+      tags.push(INCONCLUSIVE_RESULT_DR_TAG);
+    }
+    if (nonNormalResultRecorded.includes(NonNormalResult.Neutral)) {
+      tags.push(NEUTRAL_RESULT_DR_TAG);
+    }
+    if (tags.length) {
+      console.log('adding non normal result tags to dr, count: ', tags.length);
+      diagnosticReportConfig.meta = {
+        tag: tags,
+      };
+    } else {
+      console.log('something is off and no non normal tags are being recorded', nonNormalResultRecorded);
+    }
+  } else {
+    console.log('all recorded results are reported normal');
   }
 
   const diagnosticReportPostRequest: BatchInputPostRequest<DiagnosticReport> = {

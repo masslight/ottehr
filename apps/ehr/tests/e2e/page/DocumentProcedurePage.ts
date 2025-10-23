@@ -39,7 +39,10 @@ export class DocumentProcedurePage {
   }
 
   async verifyCptCode(cptCode: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.documentProcedurePage.cptCode)).toHaveText(cptCode);
+    const code = (await this.#page.getByTestId(dataTestIds.documentProcedurePage.cptCode).allInnerTexts()).find(
+      (text) => text.includes(cptCode)
+    );
+    expect(code).toBe(cptCode);
   }
 
   async selectDiagnosis(diagnosis: string): Promise<void> {

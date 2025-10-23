@@ -48,12 +48,7 @@ export const index = wrapHandler('user-activation', async (input: ZambdaInput): 
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-user-activation', error, ENVIRONMENT);
-    console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify(error.message),
-    };
+    return topLevelCatch('admin-user-activation', error, ENVIRONMENT);
   }
 });
 

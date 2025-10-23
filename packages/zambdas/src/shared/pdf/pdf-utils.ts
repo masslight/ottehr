@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import fontkit from '@pdf-lib/fontkit';
+import { captureException } from '@sentry/aws-serverless';
 import { DocumentReference } from 'fhir/r4b';
 import {
   Color,
@@ -393,7 +394,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       });
 
       // Move to the next line and reset x position
-      newLine(lineHeight + spacing);
+      newLine(lineHeight);
 
       // Recursively call the function with the remaining text
       console.log('recursively calling drawTextSequential');
@@ -762,6 +763,7 @@ export async function getPdfLogo(): Promise<Buffer | undefined> {
     return fs.readFileSync(url);
   } catch (error) {
     console.warn(`Could not load PDF logo from "${url || './assets/logo.png'}": ${(error as Error).message}`);
+    captureException(error);
     return undefined;
   }
 }
