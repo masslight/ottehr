@@ -329,4 +329,61 @@ describe('chart-data integration tests', () => {
     expect(typedGetChartDataOutput.surgicalHistory).toBeInstanceOf(Array);
     expect(typedGetChartDataOutput.surgicalHistory?.[0]).toEqual(newSurgicalHistory);
   });
+
+  it('should validate save + get cycle for examObservations -- success', async () => {
+    const examObservationDTO = {
+      field: 'alert',
+      value: true,
+      note: 'Patient is alert and responsive',
+    };
+    const saveChartInput: SaveChartDataRequest = {
+      encounterId: baseResources.encounter.id!,
+      examObservations: [examObservationDTO],
+    };
+    let saveChartOutput: any;
+    try {
+      saveChartOutput = (
+        await oystehrLocalZambdas.zambda.execute({
+          id: 'SAVE-CHART-DATA',
+          ...saveChartInput,
+        })
+      ).output as SaveChartDataResponse;
+    } catch (error) {
+      console.error('Error executing zambda:', error);
+      saveChartOutput = error as Error;
+    }
+    expect(saveChartOutput instanceof Error).toBe(false);
+    const typedSaveChartOutput = saveChartOutput as SaveChartDataResponse;
+    const newExamObservation = typedSaveChartOutput.chartData.examObservations?.find(
+      (obs) => obs.field === examObservationDTO.field
+    );
+    expect(newExamObservation).toMatchObject({
+      resourceId: expect.any(String),
+      ...examObservationDTO,
+    });
+
+    const getChartDataInput: GetChartDataRequest = {
+      encounterId: baseResources.encounter.id!,
+    };
+    let getChartDataOutput: any;
+    try {
+      getChartDataOutput = (
+        await oystehrLocalZambdas.zambda.execute({
+          id: 'GET-CHART-DATA',
+          ...getChartDataInput,
+        })
+      ).output as GetChartDataResponse;
+    } catch (error) {
+      console.error('Error executing zambda:', error);
+      getChartDataOutput = error as Error;
+    }
+    expect(getChartDataOutput instanceof Error).toBe(false);
+    const typedGetChartDataOutput = getChartDataOutput as GetChartDataResponse;
+    expect(typedGetChartDataOutput).toHaveProperty('examObservations');
+    expect(typedGetChartDataOutput.examObservations).toBeInstanceOf(Array);
+    const savedExamObservation = typedGetChartDataOutput.examObservations?.find(
+      (obs) => obs.field === examObservationDTO.field
+    );
+    expect(savedExamObservation).toEqual(newExamObservation);
+  });
 });
