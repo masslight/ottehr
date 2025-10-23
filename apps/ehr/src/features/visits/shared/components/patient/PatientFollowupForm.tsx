@@ -58,7 +58,6 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   const [previousEncounters, setPreviousEncounters] = useState<EncounterRow[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
-  const selectedLocation = localStorage.getItem('selectedLocation');
 
   const [formData, setFormData] = useState<FormData>({
     provider: followupDetails?.provider || undefined,
@@ -67,7 +66,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
     initialVisit: undefined,
     followupDate: followupDetails?.start ? DateTime.fromISO(followupDetails.start) : DateTime.now(),
     followupTime: followupDetails?.start ? DateTime.fromISO(followupDetails.start) : DateTime.now(),
-    location: followupDetails?.location || (selectedLocation && JSON.parse(selectedLocation)),
+    location: followupDetails?.location || JSON.parse(localStorage?.getItem('selectedLocation') || ''),
   });
 
   const validateForm = (): boolean => {
