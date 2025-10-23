@@ -24,7 +24,6 @@ import {
   getPatientLastName,
   getSecret,
   isPSCOrder,
-  LAB_ORDER_TASK,
   LAB_ORDER_UPDATE_RESOURCES_EVENTS,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SaveOrderCollectionData,
@@ -308,13 +307,6 @@ const handleReviewedEvent = async ({
       path: '/status',
       value: 'completed',
     },
-    {
-      op: 'add',
-      path: '/owner',
-      value: {
-        reference: `Practitioner/${practitionerIdFromCurrentUser}`,
-      },
-    },
     ...(shouldAddRelevantHistory
       ? [
           {
@@ -330,43 +322,12 @@ const handleReviewedEvent = async ({
       : []),
   ];
 
-  const taskPatchRequests = [
-    getPatchBinary({
-      resourceType: 'Task',
-      resourceId: taskId,
-      patchOperations: taskPatchOperations,
-    }),
-  ];
-
-  const reviewResultsTask = (
-    await oystehr.fhir.search<Task>({
-      resourceType: 'Task',
-      params: [
-        { name: 'based-on', value: `ServiceRequest/${serviceRequest?.id},DiagnosticReport/${diagnosticReportId}` },
-        {
-          name: 'code',
-          value: `${LAB_ORDER_TASK.system}|${LAB_ORDER_TASK.code.reviewResults},${LAB_ORDER_TASK.system}|${LAB_ORDER_TASK.code.reviewUnsolicitedResults}`,
-        },
-      ],
-    })
-  ).unbundle()[0];
-  if (reviewResultsTask?.id) {
-    taskPatchRequests.push(
-      getPatchBinary({
-        resourceType: 'Task',
-        resourceId: reviewResultsTask.id,
-        patchOperations: [
-          {
-            op: 'replace',
-            path: '/status',
-            value: 'completed',
-          },
-        ],
-      })
-    );
-  }
-
-  const requests = shouldAddRelevantHistory ? [provenanceRequest, ...taskPatchRequests] : taskPatchRequests;
+  const taskPatchRequest = getPatchBinary({
+    resourceType: 'Task',
+    resourceId: taskId,
+    patchOperations: taskPatchOperations,
+  });
+  const requests = shouldAddRelevantHistory ? [provenanceRequest, taskPatchRequest] : [taskPatchRequest];
 
   const updateTransactionRequest = await oystehr.fhir.transaction({
     requests,
@@ -461,7 +422,6 @@ const handleSaveCollectionData = async (
     patient,
     questionnaireResponse,
     preSubmissionTask,
-    collectSampleTask,
     encounter,
     labOrganization,
     specimens: specimenResources,
@@ -506,19 +466,6 @@ const handleSaveCollectionData = async (
     now
   );
   requests.push(...pstCompletedRequests);
-
-  const collectSampleTaskRequest = getPatchBinary({
-    resourceType: 'Task',
-    resourceId: collectSampleTask?.id ?? '',
-    patchOperations: [
-      {
-        op: 'replace',
-        path: '/status',
-        value: 'completed',
-      },
-    ],
-  });
-  requests.push(collectSampleTaskRequest);
 
   // make specimen label
   if (!isPSCOrder(serviceRequest)) {

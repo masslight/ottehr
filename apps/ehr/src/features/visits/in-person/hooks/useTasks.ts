@@ -212,45 +212,56 @@ function fhirTaskToTask(task: FhirTask): Task {
     const testName = getInput(LAB_ORDER_TASK.input.testName, task);
     const patientName = getInput(LAB_ORDER_TASK.input.patientName, task);
     const appointmentId = getInput(LAB_ORDER_TASK.input.appointmentId, task);
-    const orderId = task.basedOn?.[0]?.reference?.split('/')?.[1];
+    const serviceRequestId = task.basedOn
+      ?.find((reference) => reference.reference?.startsWith('ServiceRequest'))
+      ?.reference?.split('/')?.[1];
+    const diagnosticReportId = task.basedOn
+      ?.find((reference) => reference.reference?.startsWith('DiagnosticReport'))
+      ?.reference?.split('/')?.[1];
     const providerName = getInput(LAB_ORDER_TASK.input.providerName, task);
     const orderDate = getInput(LAB_ORDER_TASK.input.orderDate, task);
-    if (code === LAB_ORDER_TASK.code.collectSample) {
+    if (code === LAB_ORDER_TASK.code.preSubmission) {
       title = `Collect sample for “${testName}” for ${patientName}`;
       subtitle = `Ordered by ${providerName} on ${
         orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
       }`;
       action = {
         name: GO_TO_LAB_TEST,
-        link: `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`,
+        link: `/in-person/${appointmentId}/external-lab-orders/${serviceRequestId}/order-details`,
       };
     }
-    if (code === LAB_ORDER_TASK.code.reviewResults) {
+    if (
+      serviceRequestId &&
+      (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
+    ) {
       title = `Review results for “${testName}” for ${patientName}`;
       subtitle = `Ordered by ${providerName} on ${
         orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
       }`;
       action = {
         name: GO_TO_LAB_TEST,
-        link: `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`,
+        link: `/in-person/${appointmentId}/external-lab-orders/${serviceRequestId}/order-details`,
       };
     }
-    if (code === LAB_ORDER_TASK.code.matchUnsolicited) {
+    if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
       const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
       title = `Match unsolicited test results`;
       subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
       action = {
         name: 'Match',
-        link: `/unsolicited-results/${orderId}/match`,
+        link: `/unsolicited-results/${diagnosticReportId}/match`,
       };
     }
-    if (code === LAB_ORDER_TASK.code.reviewUnsolicitedResults) {
+    if (
+      diagnosticReportId &&
+      (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
+    ) {
       const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
       title = `Review unsolicited test results for “${testName}” for ${patientName}`;
       subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
       action = {
         name: 'Go to Lab Test',
-        link: `/unsolicited-results/${orderId}/review`,
+        link: `/unsolicited-results/${diagnosticReportId}/review`,
       };
     }
   }
