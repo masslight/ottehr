@@ -140,7 +140,7 @@ const updateZambdas = async (config: any, selectedTriggerMethod: string | undefi
   const zambdasToDeploy = Object.fromEntries(zambdasToDeployEntries);
 
   // First check if any zambdas are not found
-  for await (const zambda of Object.keys(zambdasToDeploy).filter((zambda) => zambda === 'handle-lab-result')) {
+  for await (const zambda of Object.keys(zambdasToDeploy)) {
     const currentZambda = zambdasToDeploy[zambda];
     if (currentZambda.environments && !currentZambda.environments.includes(config.ENVIRONMENT)) {
       console.log(`\nZambda ${zambda} is not run in ${config.ENVIRONMENT}`);

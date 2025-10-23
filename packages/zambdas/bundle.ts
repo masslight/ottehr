@@ -142,18 +142,9 @@ const main = async (): Promise<void> => {
   const radiologyCreateOrderZambda = zambdas.filter((zambda) => zambda.name === 'radiology-create-order');
   await build(radiologyCreateOrderZambda, ['icd-10-cm-tabular/*'], [icd10AssetDir], '.dist/ehr/radiology/create-order');
 
-  const mostZambdas = zambdas
-    .filter((zambda) => !zambdasWithIcd10Search.includes(zambda.name))
-    .filter((zambda) => zambda.name === 'handle-lab-result');
+  const mostZambdas = zambdas.filter((zambda) => !zambdasWithIcd10Search.includes(zambda.name));
   const assetsDir = '.dist/assets';
-  for (const zambda of mostZambdas) {
-    await build(
-      [zambda],
-      ['assets/*'],
-      [assetsDir],
-      `.dist/${zambda.src.substring('src/'.length).replace('/index', '')}`
-    );
-  }
+  await build(mostZambdas, ['assets/*'], [assetsDir], '.dist');
   console.timeEnd('Bundle time');
   console.log('Source maps...');
   console.time('Source maps time');
