@@ -1361,7 +1361,7 @@
         "resourceType": "Subscription",
         "status": "active",
         "reason": "send visit note PDF and email",
-        "criteria": "Task?code=visit-note-pdf-and-email|&status=requested",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email|visit-note-pdf-and-email&status=requested",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-VISIT-NOTE-PDF-AND-EMAIL/id}"
