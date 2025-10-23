@@ -29,15 +29,18 @@ import {
   visitStatusArray,
 } from 'utils';
 import { create } from 'zustand';
-import { getEmployees } from '../api/api';
+import { getEmployees, getPrefilledInvoiceInfo, sendInvoiceToPatient } from '../api/api';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { AppointmentHistoryRow } from '../hooks/useGetPatient';
+import { SendInvoiceToPatientDialog } from './dialogs';
+import { SendPatientInvoiceOnSubmitProps } from './dialogs/SendInvoiceToPatientDialog';
 import { RoundedButton } from './RoundedButton';
 import { TelemedAppointmentStatusChip } from './TelemedAppointmentStatusChip';
 
 type PatientEncountersGridProps = {
   appointments?: AppointmentHistoryRow[];
+  patientId?: string;
   loading: boolean;
 };
 
@@ -55,129 +58,18 @@ const ProviderCell: FC<{ encounter?: Encounter }> = ({ encounter }) => {
   return <Typography variant="body2">{employee ? `${employee.firstName} ${employee.lastName}` : '-'}</Typography>;
 };
 
-const columns: GridColDef<AppointmentHistoryRow>[] = [
-  {
-    sortComparator: (a, b) => {
-      const createdA = DateTime.fromISO(a ?? '');
-      const createdB = DateTime.fromISO(b ?? '');
-      return createdA.diff(createdB).milliseconds;
-    },
-    field: 'dateTime',
-    headerName: 'Date & Time',
-    width: 150,
-    renderCell: ({ row: { dateTime, officeTimeZone } }) =>
-      dateTime ? formatISOStringToDateAndTime(dateTime, officeTimeZone) : '-',
-  },
-  {
-    sortable: false,
-    field: 'status',
-    headerName: 'Status',
-    width: 140,
-    renderCell: ({ row: { appointment, serviceMode: serviceType, encounter } }) => {
-      if (serviceType === ServiceMode.virtual) {
-        if (!encounter) {
-          return;
-        }
-        const status = getTelemedVisitStatus(encounter.status, appointment.status);
-        return !!status && <TelemedAppointmentStatusChip status={status} />;
-      } else {
-        if (!encounter) return;
-        const encounterStatus = getInPersonVisitStatus(appointment, encounter);
-        if (!encounterStatus) {
-          return;
-        }
-
-        return encounterStatus;
-      }
-    },
-  },
-  {
-    sortable: false,
-    field: 'type',
-    headerName: 'Type',
-    width: 150,
-    renderCell: ({ row: { typeLabel: type } }) => type || '-',
-  },
-  {
-    sortable: false,
-    field: 'reason',
-    headerName: 'Reason for visit',
-    width: 150,
-    renderCell: ({ row: { appointment } }) => (
-      <Typography variant="body2">
-        {(appointment?.description ?? '')
-          .split(',')
-          .map((complaint) => complaint.trim())
-          .join(', ') || '-'}
-      </Typography>
-    ),
-  },
-  {
-    sortable: false,
-    field: 'provider',
-    headerName: 'Provider',
-    width: 150,
-    renderCell: ({ row: { encounter } }) => <ProviderCell encounter={encounter} />,
-  },
-  {
-    sortable: false,
-    field: 'office',
-    headerName: 'Office',
-    width: 150,
-    renderCell: ({ row: { office } }) => office || '-',
-  },
-  {
-    sortable: false,
-    field: 'los',
-    headerName: 'LOS',
-    width: 100,
-    renderCell: ({ row: { length } }) =>
-      length !== undefined ? `${formatMinutes(length)} ${length === 1 ? 'min' : 'mins'}` : '-',
-  },
-  {
-    sortable: false,
-    field: 'info',
-    headerName: 'Visit Info',
-    headerAlign: 'center',
-    width: 120,
-    renderCell: ({ row: { id, appointment } }) => {
-      if (!id) {
-        return null;
-      }
-
-      const isInPerson = isInPersonAppointment(appointment);
-      return <RoundedButton to={isInPerson ? `/visit/${id}` : getTelemedVisitDetailsUrl(id)}>Visit Info</RoundedButton>;
-    },
-  },
-  {
-    sortable: false,
-    field: 'note',
-    headerName: 'Progress Note',
-    width: 150,
-    renderCell: ({ row: { id, serviceMode: serviceType } }) => (
-      <RoundedButton
-        to={
-          serviceType === ServiceMode.virtual
-            ? `/telemed/appointments/${id}?tab=sign`
-            : `/in-person/${id}/progress-note`
-        }
-      >
-        Progress Note
-      </RoundedButton>
-    ),
-  },
-];
-
 const emptyEmployeeList: EmployeeDetails[] = [];
 
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
-  const { appointments, loading } = props;
+  const { appointments, loading, patientId } = props;
 
   const [type, setType] = useState('all');
   const [period, setPeriod] = useState(0);
   const [status, setStatus] = useState('all');
   const [hideCancelled, setHideCancelled] = useState(false);
   const [hideNoShow, setHideNoShow] = useState(false);
+  const [sendInvoiceDialogOpen, setSendInvoiceDialogOpen] = useState(false);
+  const [selectedEncounterId, setSelectedEncounterId] = useState<string | undefined>(undefined);
 
   const { oystehrZambda } = useApiClients();
 
@@ -194,6 +86,15 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       return data;
     },
     enabled: !!oystehrZambda,
+  });
+
+  const { data: prefilledInvoice } = useQuery({
+    queryKey: ['get-prefilled-invoice-info', patientId],
+    queryFn: () => {
+      if (oystehrZambda && patientId) return getPrefilledInvoiceInfo(oystehrZambda, { patientId });
+      return undefined;
+    },
+    enabled: !!oystehrZambda && !!patientId,
   });
 
   useSuccessQuery(employeesData, (data) => {
@@ -239,6 +140,148 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         : getInPersonVisitStatus(appointmentHistory.appointment, appointmentHistory.encounter);
     return filterStatus === appointmentStatus;
   }
+
+  const sendInvoice = async (props: SendPatientInvoiceOnSubmitProps): Promise<void> => {
+    if (oystehrZambda) {
+      const { patientId, prefilledInfo, oystEncounterId } = props;
+      await sendInvoiceToPatient(oystehrZambda, {
+        oystPatientId: patientId,
+        oystEncounterId,
+        prefilledInfo,
+      });
+    }
+  };
+
+  const columns: GridColDef<AppointmentHistoryRow>[] = [
+    {
+      sortComparator: (a, b) => {
+        const createdA = DateTime.fromISO(a ?? '');
+        const createdB = DateTime.fromISO(b ?? '');
+        return createdA.diff(createdB).milliseconds;
+      },
+      field: 'dateTime',
+      headerName: 'Date & Time',
+      width: 150,
+      renderCell: ({ row: { dateTime, officeTimeZone } }) =>
+        dateTime ? formatISOStringToDateAndTime(dateTime, officeTimeZone) : '-',
+    },
+    {
+      sortable: false,
+      field: 'status',
+      headerName: 'Status',
+      width: 140,
+      renderCell: ({ row: { appointment, serviceMode: serviceType, encounter } }) => {
+        if (serviceType === ServiceMode.virtual) {
+          if (!encounter) {
+            return;
+          }
+          const status = getTelemedVisitStatus(encounter.status, appointment.status);
+          return !!status && <TelemedAppointmentStatusChip status={status} />;
+        } else {
+          if (!encounter) return;
+          const encounterStatus = getInPersonVisitStatus(appointment, encounter);
+          if (!encounterStatus) {
+            return;
+          }
+
+          return encounterStatus;
+        }
+      },
+    },
+    {
+      sortable: false,
+      field: 'type',
+      headerName: 'Type',
+      width: 150,
+      renderCell: ({ row: { typeLabel: type } }) => type || '-',
+    },
+    {
+      sortable: false,
+      field: 'reason',
+      headerName: 'Reason for visit',
+      width: 150,
+      renderCell: ({ row: { appointment } }) => (
+        <Typography variant="body2">
+          {(appointment?.description ?? '')
+            .split(',')
+            .map((complaint) => complaint.trim())
+            .join(', ') || '-'}
+        </Typography>
+      ),
+    },
+    {
+      sortable: false,
+      field: 'provider',
+      headerName: 'Provider',
+      width: 150,
+      renderCell: ({ row: { encounter } }) => <ProviderCell encounter={encounter} />,
+    },
+    {
+      sortable: false,
+      field: 'office',
+      headerName: 'Office',
+      width: 150,
+      renderCell: ({ row: { office } }) => office || '-',
+    },
+    {
+      sortable: false,
+      field: 'los',
+      headerName: 'LOS',
+      width: 100,
+      renderCell: ({ row: { length } }) =>
+        length !== undefined ? `${formatMinutes(length)} ${length === 1 ? 'min' : 'mins'}` : '-',
+    },
+    {
+      sortable: false,
+      field: 'info',
+      headerName: 'Visit Info',
+      headerAlign: 'center',
+      width: 120,
+      renderCell: ({ row: { id, appointment } }) => {
+        if (!id) {
+          return null;
+        }
+
+        const isInPerson = isInPersonAppointment(appointment);
+        return (
+          <RoundedButton to={isInPerson ? `/visit/${id}` : getTelemedVisitDetailsUrl(id)}>Visit Info</RoundedButton>
+        );
+      },
+    },
+    {
+      sortable: false,
+      field: 'note',
+      headerName: 'Progress Note',
+      width: 150,
+      renderCell: ({ row: { id, serviceMode: serviceType } }) => (
+        <RoundedButton
+          to={
+            serviceType === ServiceMode.virtual
+              ? `/telemed/appointments/${id}?tab=sign`
+              : `/in-person/${id}/progress-note`
+          }
+        >
+          Progress Note
+        </RoundedButton>
+      ),
+    },
+    {
+      sortable: false,
+      field: 'invoice',
+      headerName: 'Invoice',
+      width: 150,
+      renderCell: ({ row: { encounter } }) => (
+        <RoundedButton
+          onClick={() => {
+            setSendInvoiceDialogOpen(true);
+            setSelectedEncounterId(encounter?.id);
+          }}
+        >
+          Invoice
+        </RoundedButton>
+      ),
+    },
+  ];
 
   return (
     <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
@@ -343,6 +386,16 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
             fontWeight: 500,
           },
         }}
+      />
+      <SendInvoiceToPatientDialog
+        title="Send invoice"
+        modalOpen={sendInvoiceDialogOpen}
+        handleClose={() => setSendInvoiceDialogOpen(false)}
+        submitButtonName="Send"
+        onSubmit={sendInvoice}
+        patientId={patientId}
+        encounterId={selectedEncounterId}
+        prefilledInvoice={prefilledInvoice}
       />
     </Paper>
   );
