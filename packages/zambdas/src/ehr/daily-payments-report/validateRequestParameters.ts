@@ -3,6 +3,7 @@ import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): {
   dateRange: { start: string; end: string };
+  locationId?: string;
   secrets: Secrets;
 } {
   console.log('validating request parameters');
@@ -38,6 +39,7 @@ export function validateRequestParameters(input: ZambdaInput): {
 
   return {
     dateRange: requestBody.dateRange,
+    locationId: requestBody.locationId,
     secrets: input.secrets,
   };
 }

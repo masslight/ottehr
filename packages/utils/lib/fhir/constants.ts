@@ -11,14 +11,14 @@ import {
 } from 'fhir/r4b';
 import {
   AppointmentType,
-  CONSENT_CODE,
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   INSURANCE_CARD_CODE,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_RESULT_DOC_REF_CODING_CODE,
-  OYSTEHR_ABN_DOC_REF_CODING_CODE,
+  OYSTEHR_ABN_DOC_REF_CODING_UNIQUE,
+  PAPERWORK_CONSENT_CODE_UNIQUE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -398,7 +398,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   {
     title: BUCKET_NAMES.CONSENT_FORMS,
     display: 'Consent Forms',
-    documentTypeCode: CONSENT_CODE,
+    documentTypeCode: PAPERWORK_CONSENT_CODE_UNIQUE.code!,
   },
   {
     title: BUCKET_NAMES.PRIVACY_POLICY,
@@ -437,7 +437,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
       LAB_ORDER_DOC_REF_CODING_CODE.code,
       LAB_RESULT_DOC_REF_CODING_CODE.code,
       EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code,
-      OYSTEHR_ABN_DOC_REF_CODING_CODE.code,
+      OYSTEHR_ABN_DOC_REF_CODING_UNIQUE.code!,
     ],
   },
   {
@@ -631,3 +631,4 @@ export const TASK_CATEGORY_IDENTIFIER = ottehrIdentifierSystem('task-category');
 export const TASK_TYPE_SYSTEM = ottehrCodeSystemUrl('task-type');
 export const TASK_INPUT_SYSTEM = ottehrCodeSystemUrl('task-input');
 export const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
+export const TASK_ASSIGNED_DATE_TIME_EXTENSION_URL = ottehrExtensionUrl('task-assigned-date-time');
