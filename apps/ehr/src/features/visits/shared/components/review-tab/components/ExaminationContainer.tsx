@@ -102,7 +102,7 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
               }
             });
             const observation = examObservations[fieldName];
-            if (observation.value === true && selectedOptions.length === 0) {
+            if (observation && observation.value === true && selectedOptions.length === 0) {
               items.push({
                 field: fieldName,
                 label: `${componentLabel}`,
