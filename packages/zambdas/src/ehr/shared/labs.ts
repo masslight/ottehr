@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputGetRequest, SearchParam } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import {
   Account,
   ActivityDefinition,
@@ -686,6 +687,7 @@ export const fetchLabOrderPDFsPresignedUrls = async (
               return null;
             })
             .catch((error) => {
+              captureException(error);
               console.error(`Failed to get presigned URL for document ${docRef.id}:`, error);
               return null;
             })
@@ -773,6 +775,12 @@ export const isLabDrTypeTagCode = (code: any): code is LabDrTypeTagCode => {
   return Object.values(LAB_DR_TYPE_TAG.code).includes(code);
 };
 
+export const getAllDrTags = (dr: DiagnosticReport): LabDrTypeTagCode[] | undefined => {
+  const codes = dr?.meta?.tag?.filter((t) => t.system === LAB_DR_TYPE_TAG.system).map((t) => t.code);
+  const labDrCodes = codes?.filter((code) => isLabDrTypeTagCode(code));
+  return labDrCodes;
+};
+
 /**
  * Returns diagnostic report result-type tag if any exists and validates the code is one of the known LabDrTypeTagCode values.
  *
@@ -780,8 +788,24 @@ export const isLabDrTypeTagCode = (code: any): code is LabDrTypeTagCode => {
  * @returns The validated tag ('unsolicited', 'reflex', 'pdfAttachment') or undefined.
  */
 export const diagnosticReportSpecificResultType = (dr: DiagnosticReport): LabDrTypeTagCode | undefined => {
-  const code = dr?.meta?.tag?.find((t) => t.system === LAB_DR_TYPE_TAG.system)?.code;
-  return isLabDrTypeTagCode(code) ? code : undefined;
+  const labDrCodes = getAllDrTags(dr);
+  console.log('labDrCodes:', labDrCodes);
+  if (!labDrCodes || labDrCodes.length === 0) return;
+
+  // it is possible for two codes to be assigned, unsolicited and pdfAttachment (this may be expanded in the future)
+  if (labDrCodes.length === 2) {
+    const containsPdfAttachment = labDrCodes.includes(LabType.pdfAttachment);
+    if (containsPdfAttachment) {
+      // pdfAttachment should drive the logic for pdf generation
+      return LabType.pdfAttachment;
+    } else {
+      throw new Error(`an unexpected result-type tag has been assigned: ${labDrCodes} on DR: ${dr.id}`);
+    }
+  } else if (labDrCodes.length === 1) {
+    return labDrCodes[0];
+  } else {
+    throw new Error(`an unexpected number of result-type tag have been assigned: ${labDrCodes} on DR: ${dr.id}`);
+  }
 };
 
 export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {

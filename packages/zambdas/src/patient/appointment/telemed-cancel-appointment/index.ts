@@ -1,4 +1,5 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Location } from 'fhir/r4b';
@@ -17,6 +18,7 @@ import {
   getPatientContactEmail,
   getRelatedPersonForPatient,
   getSecret,
+  getSupportPhoneFor,
   Secrets,
   SecretsKeys,
   TelemedCancelationTemplateData,
@@ -28,6 +30,7 @@ import {
   getEmailClient,
   getVideoEncounterForAppointment,
   sendSms,
+  topLevelCatch,
   validateBundleAndExtractAppointment,
   wrapHandler,
   ZambdaInput,
@@ -55,10 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return response;
   } catch (error: any) {
     console.log(`Error: ${error} Error stringified: `, JSON.stringify(error, null, 4));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
@@ -197,6 +197,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
     }
   } catch (error: any) {
     console.error('error sending cancellation email', error);
+    captureException(error);
   }
   console.groupEnd();
 
@@ -204,7 +205,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
 
   const relatedPerson = await getRelatedPersonForPatient(patient.id || '', oystehr);
   if (relatedPerson) {
-    const message = `Sorry to see you go. Questions? Call 202-555-1212 `;
+    const message = `Sorry to see you go. Questions? Call ${getSupportPhoneFor(locationName)} `;
 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     await sendSms(message, `RelatedPerson/${relatedPerson.id}`, oystehr, ENVIRONMENT);

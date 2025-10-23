@@ -2,13 +2,12 @@ import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Coverage, Location, Organization } from 'fhir/r4b';
 import {
-  APIError,
   CODE_SYSTEM_COVERAGE_CLASS,
+  CreateLabCoverageInfo,
   EXTERNAL_LAB_ERROR,
   ExternalLabOrderingLocations,
   flattenBundleResources,
   getSecret,
-  isApiError,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORG_TYPE_CODING,
   LabOrderResourcesRes,
@@ -46,9 +45,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       labOrgIdsString
     );
 
-    let coverageNames: string[] | undefined;
+    let coverageInfo: CreateLabCoverageInfo[] | undefined;
     if (patientId) {
-      coverageNames = getCoverageNames(accounts, coverages);
+      coverageInfo = getCoverageInfo(accounts, coverages);
     }
 
     let labs: OrderableItemSearchResult[] = [];
@@ -57,7 +56,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const response: LabOrderResourcesRes = {
-      coverageNames,
+      coverages: coverageInfo,
       labs,
       ...orderingLocationDetails,
     };
@@ -68,16 +67,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-get-create-lab-order-resources', error, ENVIRONMENT);
-    let body = JSON.stringify({ message: `Error getting resources for create lab order: ${error}` });
-    if (isApiError(error)) {
-      const { code, message } = error as APIError;
-      body = JSON.stringify({ message, code });
-    }
-    return {
-      statusCode: 500,
-      body,
-    };
+    return topLevelCatch('admin-get-create-lab-order-resources', error, ENVIRONMENT);
   }
 });
 
@@ -220,7 +210,7 @@ const getLabs = async (
   return items;
 };
 
-const getCoverageNames = (accounts: Account[], coverages: Coverage[]): string[] => {
+const getCoverageInfo = (accounts: Account[], coverages: Coverage[]): CreateLabCoverageInfo[] => {
   if (accounts.length !== 1)
     // there should only be one active account
     throw EXTERNAL_LAB_ERROR(
@@ -242,21 +232,26 @@ const getCoverageNames = (accounts: Account[], coverages: Coverage[]): string[] 
   }
 
   if (coveragesSortedByPriority) {
-    const coverageNames = coveragesSortedByPriority.map((coverage, idx) => {
+    const coverageInfo = coveragesSortedByPriority.map((coverage, idx) => {
       const coverageName = coverage.class?.find(
         (c) => c.type.coding?.find((code) => code.system === CODE_SYSTEM_COVERAGE_CLASS)
       )?.name;
-      if (!coverageName) {
-        throw EXTERNAL_LAB_ERROR('Insurance appears to be malformed, cannot reconcile insurance class name');
+      const coverageId = coverage.id;
+      if (!coverageName || !coverageId) {
+        throw EXTERNAL_LAB_ERROR(
+          `Insurance appears to be malformed, cannot reconcile insurance class name and/or coverage id: ${coverageName}, ${coverageId}`
+        );
       }
       if (idx === 0) {
-        return `${coverageName} (primary)`;
+        return { coverageName, coverageId, isPrimary: true };
       } else {
-        return coverageName;
+        return { coverageName, coverageId, isPrimary: false };
       }
     });
-    return coverageNames;
+    return coverageInfo;
   } else {
-    return ['Self Pay'];
+    // todo labs this could change when client bill is implemented
+    // empty array equates to self pay
+    return [];
   }
 };

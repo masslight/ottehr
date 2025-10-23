@@ -152,7 +152,6 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
   test('IPPP-6 Check Secondary insurance has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
     await expect(locator.insuranceHeading).toBeVisible();
-    await locator.addSecondaryInsurance.click();
     await test.step('Secondary Insurance cards are prefilled', async () => {
       await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
       await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);

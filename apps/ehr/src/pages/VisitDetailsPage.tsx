@@ -6,6 +6,7 @@ import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   FormControl,
   Grid,
@@ -19,7 +20,7 @@ import {
 } from '@mui/material';
 import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Appointment, Flag, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -46,10 +47,12 @@ import {
   getLastName,
   getMiddleName,
   getPatchOperationForNewMetaTag,
+  getReasonForVisitFromAppointment,
+  getTelemedVisitStatus,
+  getUnconfirmedDOBForAppointment,
   isApiError,
   isEncounterSelfPay,
   isInPersonAppointment,
-  mapStatusToTelemed,
   TelemedAppointmentStatus,
   UpdateVisitDetailsInput,
   VisitDocuments,
@@ -156,19 +159,20 @@ export default function VisitDetailsPage(): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
 
+  const queryClient = useQueryClient();
+
   // state variables
   const [patient, setPatient] = useState<Patient | undefined>(undefined);
   const [appointment, setAppointment] = useState<Appointment | undefined>(undefined);
   const [paperworkModifiedFlag, setPaperworkModifiedFlag] = useState<Flag | undefined>(undefined);
   const [status, setStatus] = useState<VisitStatusLabel | TelemedAppointmentStatus | undefined>(undefined);
-  const [errors, setErrors] = useState<{ editName?: boolean; editDOB?: boolean; hopError?: string }>({
-    editName: false,
-    editDOB: false,
-  });
+  const [errors, setErrors] = useState<{ hopError?: string }>({});
   const [toastMessage, setToastMessage] = React.useState<string | undefined>(undefined);
   const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
   const [paperworkPdfLoading, setPaperworkPdfLoading] = React.useState<boolean>(false);
+
+  const [consentAttested, setConsentAttested] = useState<boolean | null>(null);
 
   const [editDialogConfig, setEditDialogConfig] = useState<EditDialogConfig>(CLOSED_EDIT_DIALOG);
 
@@ -222,6 +226,7 @@ export default function VisitDetailsPage(): ReactElement {
         return getPatientVisitDetails(oystehrZambda, { appointmentId: appointmentID }).then((details) => {
           setAppointment(details.appointment);
           setPatient(details.patient);
+          setConsentAttested(details.consentIsAttested);
           setPaperworkModifiedFlag(
             details.flags.find(
               (resource: Flag) =>
@@ -271,7 +276,7 @@ export default function VisitDetailsPage(): ReactElement {
       await refetchVisitDetails();
       if (editDialogConfig.type === 'name') {
         await getAndSetHistoricResources({ logs: true }).catch((error) => {
-          console.log('error getting activity logs after name update', error);
+          console.error('error getting activity logs after name update', error);
         });
       }
       setEditDialogConfig(CLOSED_EDIT_DIALOG);
@@ -310,6 +315,9 @@ export default function VisitDetailsPage(): ReactElement {
       appointmentId: appointmentID,
       bookingDetails,
     });
+    if (editDialogConfig.type === 'dob' || editDialogConfig.type === 'name') {
+      await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
+    }
   };
 
   async function dismissPaperworkModifiedFlag(): Promise<void> {
@@ -351,7 +359,7 @@ export default function VisitDetailsPage(): ReactElement {
         setErrors(errorsCopy);
         setHopQueueDialogOpen(false);
       } catch (e) {
-        console.log('error hopping queue', e);
+        console.error('error hopping queue', e);
         setErrors({ ...errors, hopError: 'There was an error moving this appointment to next' });
       }
       setHopLoading(false);
@@ -382,7 +390,7 @@ export default function VisitDetailsPage(): ReactElement {
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
-  const unconfirmedDOB = DateTime.fromFormat('11/11/2011', 'MM/dd/yyyy').toISO(); //appointment && getUnconfirmedDOBForAppointment(appointment);
+  const unconfirmedDOB = appointment && getUnconfirmedDOBForAppointment(appointment);
   const getAppointmentType = (appointmentType: FhirAppointmentType | undefined): string => {
     if (!appointmentType) {
       return '';
@@ -436,7 +444,7 @@ export default function VisitDetailsPage(): ReactElement {
   useEffect(() => {
     if (!activityLogs && appointment && locationTimeZone && oystehr) {
       getAndSetHistoricResources({ logs: true, notes: true }).catch((error) => {
-        console.log('error getting activity logs', error);
+        console.error('error getting activity logs', error);
         setActivityLogsLoading(false);
       });
     }
@@ -446,7 +454,7 @@ export default function VisitDetailsPage(): ReactElement {
     if (appointment && encounter) {
       const encounterStatus = isInPerson
         ? getInPersonVisitStatus(appointment, encounter)
-        : mapStatusToTelemed(encounter.status, appointment.status);
+        : getTelemedVisitStatus(encounter.status, appointment.status);
 
       setStatus(encounterStatus);
     } else {
@@ -534,10 +542,7 @@ export default function VisitDetailsPage(): ReactElement {
     [insuranceCards, insuranceCardsSecondary, photoIdCards]
   );
 
-  const reasonForVisit = useMemo(() => {
-    const complaints = (appointment?.description ?? '').split(',');
-    return complaints.map((complaint) => complaint.trim()).join(', ');
-  }, [appointment?.description]);
+  const reasonForVisit = getReasonForVisitFromAppointment(appointment);
 
   const authorizedGuardians =
     patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ??
@@ -694,7 +699,7 @@ export default function VisitDetailsPage(): ReactElement {
                   <CancellationReasonDialog
                     handleClose={handleCancelDialogClose}
                     refetchData={async () => {
-                      refetchVisitDetails().catch((error) => console.log('error refetching visit details', error));
+                      refetchVisitDetails().catch((error) => console.error('error refetching visit details', error));
                     }}
                     appointment={appointment}
                     encounter={encounter}
@@ -977,6 +982,44 @@ export default function VisitDetailsPage(): ReactElement {
                         patientDetails={{
                           ...signedConsentForm,
                         }}
+                        footerCellContent={
+                          consentAttested !== null && (
+                            <Box style={{ display: 'flex', alignItems: 'center' }}>
+                              <Checkbox
+                                checked={consentAttested ?? false}
+                                onChange={(_e: any, checked: boolean) => {
+                                  setConsentAttested(checked);
+                                }}
+                              />
+                              <Typography>I verify that patient consent has been obtained.</Typography>
+                              <LoadingButton
+                                onClick={async () => {
+                                  await bookingDetailsMutation
+                                    .mutateAsync({
+                                      appointmentId: appointment?.id ?? '',
+                                      bookingDetails: {
+                                        consentForms: {
+                                          consentAttested: consentAttested ?? false,
+                                        },
+                                      },
+                                    })
+                                    .catch((error) => {
+                                      if (isApiError(error)) {
+                                        enqueueSnackbar(error.message, { variant: 'error' });
+                                      } else {
+                                        console.error('Error updating consent attestation:', error);
+                                        enqueueSnackbar('An unexpected error occurred.', { variant: 'error' });
+                                      }
+                                    });
+                                }}
+                                loading={bookingDetailsMutation.isPending && editDialogConfig.type === 'closed'}
+                                disabled={consentAttested === visitDetailsData?.consentIsAttested}
+                              >
+                                Save
+                              </LoadingButton>
+                            </Box>
+                          )
+                        }
                       />
                     </Grid>
                   </Grid>
@@ -988,8 +1031,8 @@ export default function VisitDetailsPage(): ReactElement {
                         encounterId={encounter?.id ?? ''}
                         patientSelectSelfPay={selfPay}
                         responsibleParty={{
-                          fullName: '',
-                          email: '',
+                          fullName: visitDetailsData?.responsiblePartyName || '',
+                          email: visitDetailsData?.responsiblePartyEmail || '',
                         }}
                       />
                     </Grid>

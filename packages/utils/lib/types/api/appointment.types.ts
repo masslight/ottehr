@@ -12,7 +12,7 @@ export type RefreshableAppointmentData = {
   patientConditionPhotoUrls: string[];
 };
 
-export const mapStatusToTelemed = (
+export const getTelemedVisitStatus = (
   encounterStatus: string,
   appointmentStatus: string | undefined
 ): TelemedAppointmentStatusEnum | undefined => {
@@ -38,7 +38,6 @@ export type FhirAppointmentStatus = Appointment['status'];
 export const visitStatusArray = [
   'pending',
   'arrived',
-  'awaiting supervisor approval',
   'ready',
   'intake',
   'ready for provider',
@@ -46,6 +45,7 @@ export const visitStatusArray = [
   'discharged',
   'cancelled',
   'no show',
+  'awaiting supervisor approval',
   'completed',
   'unknown',
 ] as const;

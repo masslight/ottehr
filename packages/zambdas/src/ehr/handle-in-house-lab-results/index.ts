@@ -168,13 +168,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('Error handling in-house lab results:', error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('handle-in-house-lab-results', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: `Error processing request: ${error.message || error}`,
-      }),
-    };
+    return topLevelCatch('handle-in-house-lab-results', error, ENVIRONMENT);
   }
 });
 
@@ -219,10 +213,6 @@ const getInHouseLabResultResources = async (
         {
           name: '_include',
           value: 'ServiceRequest:patient',
-        },
-        {
-          name: '_revinclude',
-          value: 'Task:based-on',
         },
         { name: '_include:iterate', value: 'Encounter:location' },
         {
@@ -294,8 +284,8 @@ const getInHouseLabResultResources = async (
   if (inputResultTask.status === 'completed') {
     throw new Error('Result has already been entered. Refresh the page to continue.');
   }
-  if (inputResultTask.status !== 'ready') {
-    throw new Error(`One ready IRT task should exist for ServiceRequest/${serviceRequestId}`);
+  if (inputResultTask.status !== 'ready' && inputResultTask.status !== 'in-progress') {
+    throw new Error(`One ready or in-progress IRT task should exist for ServiceRequest/${serviceRequestId}`);
   }
 
   const serviceRequestsRelatedViaRepeat =
@@ -567,7 +557,7 @@ const determineCodeableConceptInterpretation = (
   abnormalValues: LabComponentValueSetConfig[]
 ): { interpretation: CodeableConcept; isAbnormal: boolean } => {
   if (value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode) {
-    return { interpretation: INDETERMINATE_OBSERVATION_INTERPRETATION, isAbnormal: true };
+    return { interpretation: INDETERMINATE_OBSERVATION_INTERPRETATION, isAbnormal: false };
   } else {
     return abnormalValues.map((val) => val.code).includes(value)
       ? { interpretation: ABNORMAL_OBSERVATION_INTERPRETATION, isAbnormal: true }

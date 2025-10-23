@@ -52,9 +52,9 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserParams 
 
   if (selectedRoles) {
     for (const role of selectedRoles) {
-      if (!Object.keys(RoleType).includes(role))
+      if (!Object.values(RoleType).includes(role))
         throw new Error(
-          `Invalid roles selected. Role must be one of "${Object.keys(RoleType).join('", "')}". Received "${role}"`
+          `Invalid roles selected. Role must be one of "${Object.values(RoleType).join('", "')}". Received "${role}"`
         );
     }
   }
