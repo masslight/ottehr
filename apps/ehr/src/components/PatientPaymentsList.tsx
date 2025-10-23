@@ -46,7 +46,6 @@ export interface PaymentListProps {
   patient: Patient | undefined;
   encounterId: string;
   loading?: boolean;
-  patientSelectSelfPay?: boolean;
   responsibleParty?: {
     fullName?: string;
     email?: string;
@@ -65,15 +64,11 @@ export default function PatientPaymentList({
   loading,
   patient,
   encounterId,
-  patientSelectSelfPay,
   responsibleParty,
 }: PaymentListProps): ReactElement {
   const { oystehr } = useApiClients();
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [paymentVariant, setPaymentVariant] = useState(
-    patientSelectSelfPay ? PaymentVariant.selfPay : PaymentVariant.insurance
-  );
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
   const [receiptDocRefId, setReceiptDocRefId] = useState<string | undefined>();
   const {
@@ -213,22 +208,12 @@ export default function PatientPaymentList({
     retry: 0,
   });
 
-  useEffect(() => {
+  const paymentVariant = (() => {
     if (encounter) {
-      const variant = getPaymentVariantFromEncounter(encounter);
-      if (variant) setPaymentVariant(variant);
-      else if (variant === undefined) {
-        // encounter must have payment option ext from harvest module, but if it doesn't, set it to patient selected
-        console.log('updating encounter');
-        updateEncounter.mutate(
-          updateEncounterPaymentVariantExtension(
-            encounter,
-            patientSelectSelfPay ? PaymentVariant.selfPay : PaymentVariant.insurance
-          )
-        );
-      }
+      return getPaymentVariantFromEncounter(encounter);
     }
-  }, [encounter, patientSelectSelfPay, updateEncounter]);
+    return undefined;
+  })();
 
   const errorMessage = (() => {
     const networkError = createNewPayment.error;
@@ -254,11 +239,12 @@ export default function PatientPaymentList({
       <RadioGroup
         row
         name="options"
-        value={paymentVariant}
+        value={paymentVariant || null}
         onChange={async (e) => {
           if (encounter) {
-            setPaymentVariant(e.target.value as PaymentVariant);
-            updateEncounter.mutate(updateEncounterPaymentVariantExtension(encounter, e.target.value as PaymentVariant));
+            await updateEncounter.mutateAsync(
+              updateEncounterPaymentVariantExtension(encounter, e.target.value as PaymentVariant)
+            );
           }
         }}
         sx={{ mt: 2 }}
