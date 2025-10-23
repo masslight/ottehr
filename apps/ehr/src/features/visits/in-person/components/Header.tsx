@@ -1,6 +1,6 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, Grid, IconButton, MenuItem, Skeleton, Stack, TextField, Typography } from '@mui/material';
+import { Box, Grid, IconButton, MenuItem, Skeleton, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
@@ -10,6 +10,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
+  PaymentVariant,
   PRACTITIONER_CODINGS,
   ProviderDetails,
   VisitStatusLabel,
@@ -69,7 +70,7 @@ export const Header = (): JSX.Element => {
   const navigate = useNavigate();
 
   const {
-    resources: { appointment, patient },
+    resources: { appointment, patient, encounter: encounterValues },
     mappedData,
     visitState,
     appointmentRefetch,
@@ -80,6 +81,9 @@ export const Header = (): JSX.Element => {
   const encounterId = encounter?.id;
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
+  const paymentVariant = format(
+    encounterValues?.payment === PaymentVariant.selfPay ? 'Self-pay' : mappedData?.activeInsurance
+  );
   const patientName = format(mappedData?.patientName, 'Name');
   const pronouns = format(mappedData?.pronouns, 'Pronouns');
   const gender = format(mappedData?.gender, 'Gender');
@@ -241,12 +245,18 @@ export const Header = (): JSX.Element => {
                     />
                   </Grid>
                   <Grid item>
-                    <PatientMetadata>
-                      PID:{' '}
-                      <u style={{ cursor: 'pointer' }} onClick={() => navigate(`/patient/${userId}`)}>
-                        {userId}
-                      </u>
-                    </PatientMetadata>
+                    <Tooltip title={paymentVariant}>
+                      <PatientMetadata
+                        sx={{
+                          maxWidth: 250,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Payment: {paymentVariant}
+                      </PatientMetadata>
+                    </Tooltip>
                   </Grid>
                   <Grid item>
                     <Stack direction="row" spacing={2}>
