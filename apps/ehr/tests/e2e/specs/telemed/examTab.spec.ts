@@ -23,12 +23,8 @@ test.describe('Persistence tests', async () => {
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
     page = await context.newPage();
-    if (process.env.INTEGRATION_TEST === 'true') {
-      await resourceHandler.setResourcesFast();
-    } else {
-      await resourceHandler.setResources();
-      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-    }
+    await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
