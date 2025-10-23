@@ -124,17 +124,17 @@ const parseWithOther = (rawValue: string | undefined, validOptions: string[] | u
 
   if (!rawValue) return result;
 
-  const items = rawValue
+  const [generalPart, otherPart] = rawValue.split(`${OTHER}:`, 2);
+
+  result.values = generalPart
     .split(',')
     .map((item) => item.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((item) => validOptions?.includes(item));
 
-  const known = items.filter((item) => validOptions?.includes(item));
-  const unknown = items.find((item) => !validOptions?.includes(item));
-
-  result.values = known;
-  if (unknown) {
-    result.other = unknown;
+  if (otherPart !== undefined) {
+    const trimmedOther = otherPart.trim();
+    if (trimmedOther) result.other = trimmedOther;
     result.values.push(OTHER);
   }
 
@@ -251,12 +251,8 @@ export default function ProceduresNew(): ReactElement {
     const result: string[] = [];
 
     (values ?? []).forEach((value) => {
-      if (value === OTHER) {
-        if (otherValue && otherValue.trim().length > 0) {
-          result.push(otherValue.trim());
-        } else {
-          result.push(OTHER);
-        }
+      if (value === OTHER && otherValue?.trim()) {
+        result.push(`${OTHER}: ${otherValue.trim()}`);
       } else {
         result.push(value);
       }
