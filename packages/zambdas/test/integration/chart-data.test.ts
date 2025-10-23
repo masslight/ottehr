@@ -278,4 +278,55 @@ describe('chart-data integration tests', () => {
     expect(typedGetChartDataOutput.allergies).toBeInstanceOf(Array);
     expect(typedGetChartDataOutput.allergies?.[0]).toEqual(newAllergy);
   });
+
+  it('should validate save + get cycle for surgicalHistory -- success', async () => {
+    const surgicalHistoryDTO = {
+      code: '44950',
+      display: 'Appendectomy',
+    };
+    const saveChartInput: SaveChartDataRequest = {
+      encounterId: baseResources.encounter.id!,
+      surgicalHistory: [surgicalHistoryDTO],
+    };
+    let saveChartOutput: any;
+    try {
+      saveChartOutput = (
+        await oystehrLocalZambdas.zambda.execute({
+          id: 'SAVE-CHART-DATA',
+          ...saveChartInput,
+        })
+      ).output as SaveChartDataResponse;
+    } catch (error) {
+      console.error('Error executing zambda:', error);
+      saveChartOutput = error as Error;
+    }
+    expect(saveChartOutput instanceof Error).toBe(false);
+    const typedSaveChartOutput = saveChartOutput as SaveChartDataResponse;
+    const newSurgicalHistory = typedSaveChartOutput.chartData.surgicalHistory?.[0];
+    expect(newSurgicalHistory).toMatchObject({
+      resourceId: expect.any(String),
+      ...surgicalHistoryDTO,
+    });
+
+    const getChartDataInput: GetChartDataRequest = {
+      encounterId: baseResources.encounter.id!,
+    };
+    let getChartDataOutput: any;
+    try {
+      getChartDataOutput = (
+        await oystehrLocalZambdas.zambda.execute({
+          id: 'GET-CHART-DATA',
+          ...getChartDataInput,
+        })
+      ).output as GetChartDataResponse;
+    } catch (error) {
+      console.error('Error executing zambda:', error);
+      getChartDataOutput = error as Error;
+    }
+    expect(getChartDataOutput instanceof Error).toBe(false);
+    const typedGetChartDataOutput = getChartDataOutput as GetChartDataResponse;
+    expect(typedGetChartDataOutput).toHaveProperty('surgicalHistory');
+    expect(typedGetChartDataOutput.surgicalHistory).toBeInstanceOf(Array);
+    expect(typedGetChartDataOutput.surgicalHistory?.[0]).toEqual(newSurgicalHistory);
+  });
 });
