@@ -1,12 +1,9 @@
-import { DiagnosticReport, Task } from 'fhir/r4b';
+import { DiagnosticReport } from 'fhir/r4b';
 import { LAB_DR_TYPE_TAG, LAB_ORDER_TASK, LabOrderTaskCode, LabType } from 'utils';
 import { getAllDrTags } from '../../../ehr/shared/labs';
 
 export const ACCEPTED_RESULTS_STATUS = ['preliminary', 'final', 'corrected', 'cancelled'];
 type AcceptedResultsStatus = (typeof ACCEPTED_RESULTS_STATUS)[number];
-export const getStatusForNewTask = (incomingResultsStatus: AcceptedResultsStatus): Task['status'] => {
-  return incomingResultsStatus === 'cancelled' ? 'completed' : 'ready';
-};
 
 const STATUS_CODE_MAP: Record<AcceptedResultsStatus, LabOrderTaskCode> = {
   preliminary: LAB_ORDER_TASK.code.reviewPreliminaryResult,
@@ -15,27 +12,12 @@ const STATUS_CODE_MAP: Record<AcceptedResultsStatus, LabOrderTaskCode> = {
   cancelled: LAB_ORDER_TASK.code.reviewCancelledResult,
 };
 
-export const getCodeForNewTask = (dr: DiagnosticReport, isUnsolicited: boolean, matched: boolean): Task['code'] => {
+export const getCodeForNewTask = (dr: DiagnosticReport, isUnsolicited: boolean, matched: boolean): string => {
   if (isUnsolicited && !matched) {
-    return labOrderTaskCoding(LAB_ORDER_TASK.code.matchUnsolicitedResult);
+    return LAB_ORDER_TASK.code.matchUnsolicitedResult;
   } else {
-    return getReviewResultCodeForNewTask(dr.status);
+    return STATUS_CODE_MAP[dr.status];
   }
-};
-
-export const getReviewResultCodeForNewTask = (incomingResultsStatus: AcceptedResultsStatus): Task['code'] => {
-  return labOrderTaskCoding(STATUS_CODE_MAP[incomingResultsStatus]);
-};
-
-const labOrderTaskCoding = (code: LabOrderTaskCode): Task['code'] => {
-  return {
-    coding: [
-      {
-        system: LAB_ORDER_TASK.system,
-        code,
-      },
-    ],
-  };
 };
 
 export const isUnsolicitedResult = (specificTag: LabType | undefined, dr: DiagnosticReport): boolean => {

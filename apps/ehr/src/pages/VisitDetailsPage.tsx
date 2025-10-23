@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Appointment, Flag, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -159,15 +159,14 @@ export default function VisitDetailsPage(): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
 
+  const queryClient = useQueryClient();
+
   // state variables
   const [patient, setPatient] = useState<Patient | undefined>(undefined);
   const [appointment, setAppointment] = useState<Appointment | undefined>(undefined);
   const [paperworkModifiedFlag, setPaperworkModifiedFlag] = useState<Flag | undefined>(undefined);
   const [status, setStatus] = useState<VisitStatusLabel | TelemedAppointmentStatus | undefined>(undefined);
-  const [errors, setErrors] = useState<{ editName?: boolean; editDOB?: boolean; hopError?: string }>({
-    editName: false,
-    editDOB: false,
-  });
+  const [errors, setErrors] = useState<{ hopError?: string }>({});
   const [toastMessage, setToastMessage] = React.useState<string | undefined>(undefined);
   const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
@@ -316,6 +315,9 @@ export default function VisitDetailsPage(): ReactElement {
       appointmentId: appointmentID,
       bookingDetails,
     });
+    if (editDialogConfig.type === 'dob' || editDialogConfig.type === 'name') {
+      await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
+    }
   };
 
   async function dismissPaperworkModifiedFlag(): Promise<void> {

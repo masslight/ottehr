@@ -54,7 +54,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return await topLevelCatch('ehr-icd-search', error, ENVIRONMENT);
+    return topLevelCatch('ehr-icd-search', error, ENVIRONMENT);
   }
 });
 

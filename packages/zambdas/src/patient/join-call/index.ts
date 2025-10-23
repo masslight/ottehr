@@ -26,15 +26,18 @@ import {
   getVideoEncounterForAppointment,
   lambdaResponse,
   searchInvitedParticipantResourcesByEncounterId,
+  topLevelCatch,
   userHasAccessToPatient,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
+const ZAMBDA_NAME = 'join-call';
+
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
-export const index = wrapHandler('join-call', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const authorization = input.headers.Authorization;
     if (!authorization) {
@@ -166,7 +169,7 @@ export const index = wrapHandler('join-call', async (input: ZambdaInput): Promis
     return lambdaResponse(200, joinCallResponse);
   } catch (error: any) {
     console.log(error);
-    return lambdaResponse(500, { error: 'Internal error' });
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

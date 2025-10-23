@@ -66,6 +66,6 @@ export const index = wrapHandler('create-user', async (input: ZambdaInput): Prom
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return await topLevelCatch('create-user', error, ENVIRONMENT);
+    return topLevelCatch('create-user', error, ENVIRONMENT);
   }
 });
