@@ -235,8 +235,9 @@ async function sendAutomatedText(
       console.log('no conversationSID returned for appointment:', fhirAppointment.id);
       void sendErrors('no conversationSID when sending automated text', ENVIRONMENT);
     }
-  } catch (e) {
-    console.log('error trying to send message: ', e, JSON.stringify(e));
+  } catch (error) {
+    console.log('error trying to send message: ', error, JSON.stringify(error));
+    await sendErrors(error, ENVIRONMENT);
   }
 }
 

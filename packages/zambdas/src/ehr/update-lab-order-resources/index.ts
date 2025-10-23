@@ -191,13 +191,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('Error updating external lab order resource:', error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('update-lab-order-resources', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: `Error handling ${validatedParameters.event} event: ${error.message || error}`,
-      }),
-    };
+    return topLevelCatch('update-lab-order-resources', error, ENVIRONMENT);
   }
 });
 

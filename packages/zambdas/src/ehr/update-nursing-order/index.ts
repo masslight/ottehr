@@ -176,12 +176,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('update-nursing-order', error, ENVIRONMENT);
-
-    return {
-      statusCode: error.statusCode || 500,
-      body: JSON.stringify({ message: `Error updating nursing order: ${error.message || error}` }),
-    };
+    return topLevelCatch('update-nursing-order', error, ENVIRONMENT);
   }
 });
 

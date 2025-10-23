@@ -60,6 +60,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });

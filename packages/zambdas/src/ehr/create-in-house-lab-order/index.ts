@@ -21,11 +21,13 @@ import {
   FHIR_IDC10_VALUESET_SYSTEM,
   getAttendingPractitionerId,
   getFullestAvailableName,
+  getSecret,
   IN_HOUSE_LAB_ERROR,
   IN_HOUSE_LAB_TASK,
   isApiError,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   Secrets,
+  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -33,6 +35,7 @@ import {
   fillMeta,
   getMyPractitionerId,
   parseCreatedResourcesBundle,
+  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -490,11 +493,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const { code, message } = error as APIError;
       body = JSON.stringify({ message, code });
       statusCode = 400;
+      return {
+        statusCode,
+        body,
+      };
     }
-
-    return {
-      statusCode,
-      body,
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });

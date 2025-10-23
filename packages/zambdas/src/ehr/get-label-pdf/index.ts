@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { APIError, getPresignedURL, getSecret, isApiError, LabelPdf, MIME_TYPES, SecretsKeys } from 'utils';
+import { getPresignedURL, getSecret, LabelPdf, MIME_TYPES, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -77,15 +77,6 @@ export const index = wrapHandler('get-label-pdf', async (input: ZambdaInput): Pr
     console.log(error);
     console.log('get label pdf error:', JSON.stringify(error));
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-get-label-pdf', error, ENVIRONMENT);
-    let body = JSON.stringify({ message: 'Error fetching label pdf' });
-    if (isApiError(error)) {
-      const { code, message } = error as APIError;
-      body = JSON.stringify({ message, code });
-    }
-    return {
-      statusCode: 500,
-      body,
-    };
+    return topLevelCatch('admin-get-label-pdf', error, ENVIRONMENT);
   }
 });
