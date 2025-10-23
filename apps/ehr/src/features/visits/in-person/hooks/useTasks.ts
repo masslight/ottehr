@@ -215,7 +215,7 @@ function fhirTaskToTask(task: FhirTask): Task {
     const orderId = task.basedOn?.[0]?.reference?.split('/')?.[1];
     const providerName = getInput(LAB_ORDER_TASK.input.providerName, task);
     const orderDate = getInput(LAB_ORDER_TASK.input.orderDate, task);
-    if (code === LAB_ORDER_TASK.code.collectSample) {
+    if (code === LAB_ORDER_TASK.code.preSubmission) {
       title = `Collect sample for “${testName}” for ${patientName}`;
       subtitle = `Ordered by ${providerName} on ${
         orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''

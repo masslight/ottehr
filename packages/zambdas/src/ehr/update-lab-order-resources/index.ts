@@ -461,7 +461,6 @@ const handleSaveCollectionData = async (
     patient,
     questionnaireResponse,
     preSubmissionTask,
-    collectSampleTask,
     encounter,
     labOrganization,
     specimens: specimenResources,
@@ -506,19 +505,6 @@ const handleSaveCollectionData = async (
     now
   );
   requests.push(...pstCompletedRequests);
-
-  const collectSampleTaskRequest = getPatchBinary({
-    resourceType: 'Task',
-    resourceId: collectSampleTask?.id ?? '',
-    patchOperations: [
-      {
-        op: 'replace',
-        path: '/status',
-        value: 'completed',
-      },
-    ],
-  });
-  requests.push(collectSampleTaskRequest);
 
   // make specimen label
   if (!isPSCOrder(serviceRequest)) {

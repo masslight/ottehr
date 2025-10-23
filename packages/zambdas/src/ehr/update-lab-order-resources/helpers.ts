@@ -150,11 +150,6 @@ export const makePstCompletePatchRequests = (
       patchOperations: [
         {
           op: 'add',
-          path: '/owner',
-          value: curUserReference,
-        },
-        {
-          op: 'add',
           path: '/relevantHistory',
           value: [
             {

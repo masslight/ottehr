@@ -18,7 +18,6 @@ import {
   ServiceRequest,
   Specimen,
   SpecimenDefinition,
-  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -231,11 +230,11 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       }));
     }
 
-    const collectSampleTask = createTask({
+    const preSubmissionTaskConfig = createTask({
       category: LAB_ORDER_TASK.category,
       code: {
         system: LAB_ORDER_TASK.system,
-        code: LAB_ORDER_TASK.code.collectSample,
+        code: LAB_ORDER_TASK.code.preSubmission,
       },
       encounterId: encounter.id ?? '',
       locationId: orderingLocation.id,
@@ -263,34 +262,6 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         },
       ],
     });
-
-    const preSubmissionTaskConfig: Task = {
-      resourceType: 'Task',
-      intent: 'order',
-      encounter: {
-        reference: `Encounter/${encounter.id}`,
-      },
-      basedOn: [
-        {
-          type: 'ServiceRequest',
-          reference: serviceRequestFullUrl,
-        },
-      ],
-      status: 'ready',
-      authoredOn: DateTime.now().toISO() || undefined,
-      code: {
-        coding: [
-          {
-            system: LAB_ORDER_TASK.system,
-            code: LAB_ORDER_TASK.code.preSubmission,
-          },
-        ],
-      },
-    };
-
-    preSubmissionTaskConfig.location = {
-      reference: `Location/${orderingLocation.id}`,
-    };
 
     const aoeQRConfig = formatAoeQR(serviceRequestFullUrl, encounter.id || '', orderableItem);
     if (aoeQRConfig) {
@@ -333,11 +304,6 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       method: 'POST',
       url: '/Task',
       resource: preSubmissionTaskConfig,
-    });
-    requests.push({
-      method: 'POST',
-      url: '/Task',
-      resource: collectSampleTask,
     });
     requests.push({
       method: 'POST',
