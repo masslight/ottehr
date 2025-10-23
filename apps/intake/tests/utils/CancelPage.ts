@@ -1,5 +1,5 @@
 import { BrowserContext, expect, Page } from '@playwright/test';
-import { CancellationReasonOptionsTelemed } from 'utils';
+import { CancellationReasonOptionsInPerson } from 'utils';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
 
@@ -15,8 +15,7 @@ export class CancelPage {
     this.fillingInfo = new FillingInfo(page);
     this.context = page.context();
   }
-  // the CancelationDialog currently selects from the telemed options even for in-person visits
-  private cancellationReasonOptions = Object.values(CancellationReasonOptionsTelemed);
+  private cancellationReasonOptions = Object.values(CancellationReasonOptionsInPerson);
 
   private getRandomEnumValue<T>(values: T[]): T {
     const randomIndex = Math.floor(Math.random() * (values.length - 2));
