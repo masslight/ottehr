@@ -1,5 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
+import { BOOKING_CONFIG } from 'utils';
 import { Locators } from '../locators';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
@@ -26,7 +27,7 @@ export class FillingInfo {
   }
 
   // randomize in tests maybe not a good idea, left one option for now
-  private reasonForVisit = ['Fever'];
+  private reasonForVisit = [BOOKING_CONFIG.reasonForVisitOptions[0]];
   private ethnicity = ['Hispanic or Latino', 'Not Hispanic or Latino', 'Decline to Specify'];
   private race = ['American Indian or Alaska Native'];
   private discovery = ['Friend/Family'];

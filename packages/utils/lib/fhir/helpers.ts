@@ -12,6 +12,7 @@ import {
   Coverage,
   DocumentReference,
   DomainResource,
+  Element,
   Encounter,
   Extension,
   FhirResource,
@@ -31,6 +32,7 @@ import {
   RelatedPerson,
   Resource,
   ServiceRequest,
+  Signature,
   Task,
   TaskInput,
 } from 'fhir/r4b';
@@ -326,7 +328,16 @@ export async function createFilesDocumentReferences(
       const docRef = docRefBundle.entry?.[0]?.resource;
       // Collect document reference to list by type
       if (listResources && type.coding?.[0]?.code && docRef) {
-        const typeCode = type.coding[0].code;
+        let typeCode = type.coding[0].code;
+        if (type.coding.length > 1) {
+          // If there is more than 1 it is the consents special case. take the one that has the https://fhir.ottehr.com/CodeSystem/consent-source system
+          const maybeConsentCoding = type.coding.find(
+            (coding) => coding.system === 'https://fhir.ottehr.com/CodeSystem/consent-source'
+          );
+          if (maybeConsentCoding && maybeConsentCoding.code) {
+            typeCode = maybeConsentCoding.code;
+          }
+        }
         if (!newEntriesByType[typeCode]) {
           newEntriesByType[typeCode] = [];
         }
@@ -1485,7 +1496,8 @@ export const getAddressStringForScheduleResource = (
   console.log('getAddressStringForScheduleResource', scheduleResource.resourceType, address);
   return address;
 };
-export function getExtension(resource: DomainResource, url: string): Extension | undefined {
+
+export function getExtension(resource: DomainResource | Element, url: string): Extension | undefined {
   return resource.extension?.find((extension) => extension.url === url);
 }
 
@@ -1501,4 +1513,9 @@ export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Opera
   } else {
     return;
   }
+};
+
+export const getAttestedConsentFromEncounter = (encounter: Encounter): Signature | undefined => {
+  console.log('getAttestedConsentFromEncounter', JSON.stringify(encounter));
+  return encounter.extension?.find((ext) => ext.url === FHIR_EXTENSION.Encounter.attestedConsent.url)?.valueSignature;
 };

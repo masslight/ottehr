@@ -6,13 +6,14 @@ export function validateRequestParameters(input: ZambdaInput): CreateLabOrderPar
     throw MISSING_REQUEST_BODY;
   }
 
-  const { dx, encounter, orderableItem, psc, orderingLocation } = JSON.parse(input.body);
+  const { dx, encounter, orderableItem, psc, orderingLocation, selectedPaymentMethod } = JSON.parse(input.body);
 
   const missingResources = [];
   if (!dx) missingResources.push('dx (diagnosis)');
   if (!encounter) missingResources.push('encounter');
   if (!orderableItem) missingResources.push('orderableItem (lab test)');
   if (!orderingLocation) missingResources.push('ordering location');
+  if (!selectedPaymentMethod) missingResources.push('selectedPaymentMethod');
   if (missingResources.length) {
     throw MISSING_REQUIRED_PARAMETERS(missingResources);
   }
@@ -23,6 +24,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateLabOrderPar
     orderableItem,
     psc,
     orderingLocation,
+    selectedPaymentMethod,
     secrets: input.secrets,
   };
 }

@@ -39,7 +39,15 @@ root.render(
         }}
         cacheLocation="localstorage"
       >
-        <ErrorBoundary fallback={<p>An error has occurred</p>}>
+        <ErrorBoundary
+          onError={(error, errorInfo) => {
+            console.log(String(error), errorInfo);
+            if (String(error).includes('TypeError: Failed to fetch dynamically imported module')) {
+              location.reload();
+            }
+          }}
+          fallback={<p>An error has occurred</p>}
+        >
           <App />
         </ErrorBoundary>
       </Auth0Provider>

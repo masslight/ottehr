@@ -14,7 +14,13 @@ import {
   SelectChangeEvent,
   Typography,
 } from '@mui/material';
-import { DataGridPro, GridColDef, GridRenderCellParams } from '@mui/x-data-grid-pro';
+import {
+  DataGridPro,
+  GridColDef,
+  GridRenderCellParams,
+  GridToolbarContainer,
+  GridToolbarExport,
+} from '@mui/x-data-grid-pro';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -182,6 +188,15 @@ export default function IncompleteEncounters(): React.ReactElement {
 
   const handleRefresh = (): void => {
     void refetch();
+  };
+
+  // Custom toolbar component with export functionality
+  const CustomToolbar = (): React.ReactElement => {
+    return (
+      <GridToolbarContainer>
+        <GridToolbarExport csvOptions={{ fileName: 'incomplete-encounters-report' }} />
+      </GridToolbarContainer>
+    );
   };
 
   const columns: GridColDef[] = useMemo(
@@ -372,6 +387,9 @@ export default function IncompleteEncounters(): React.ReactElement {
               },
             }}
             pageSizeOptions={[10, 25, 50, 100]}
+            slots={{
+              toolbar: CustomToolbar,
+            }}
             disableRowSelectionOnClick
             sx={{
               '& .MuiDataGrid-cell': {

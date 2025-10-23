@@ -1,4 +1,4 @@
-import { IN_HOUSE_LAB_TASK, LAB_ORDER_TASK, TaskIndicator } from '../../types';
+import { LAB_ORDER_TASK, TaskIndicator } from '../../types';
 
 export interface TaskTypeOption {
   value: string;
@@ -37,17 +37,6 @@ export function getAllTaskTypes(): TaskTypeOption[] {
       value: `lab-order-${key}`,
       label: `Lab Order: ${label}`,
       system: LAB_ORDER_TASK.system,
-      code: code,
-    });
-  });
-
-  // IN_HOUSE_LAB_TASK - in-house lab tasks
-  Object.entries(IN_HOUSE_LAB_TASK.code).forEach(([key, code]) => {
-    const label = formatTaskLabel(key);
-    taskTypes.push({
-      value: `in-house-lab-${key}`,
-      label: `In-House Lab: ${label}`,
-      system: IN_HOUSE_LAB_TASK.system,
       code: code,
     });
   });

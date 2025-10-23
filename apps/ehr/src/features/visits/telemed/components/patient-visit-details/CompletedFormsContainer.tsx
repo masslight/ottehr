@@ -4,11 +4,11 @@ import { Button } from '@mui/material';
 import { Bundle, BundleEntry, DocumentReference } from 'fhir/r4b';
 import { FC, ReactElement, useState } from 'react';
 import {
-  CONSENT_CODE,
   getIpAddress,
   getPresignedURL,
   getQuestionnaireResponseByLinkId,
   mdyStringFromISOString,
+  PAPERWORK_CONSENT_CODE_UNIQUE,
 } from 'utils';
 import { useGetDocumentReferences } from '../../../shared/stores/appointment/appointment.queries';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
@@ -57,9 +57,11 @@ export const CompletedFormsContainer: FC = () => {
     });
 
     for (const docRef of documentReferenceResources) {
-      const docRefCode = docRef.type?.coding?.[0].code;
+      const isDocRefPaperworkConsent = docRef.type?.coding?.some((coding) => {
+        return coding === PAPERWORK_CONSENT_CODE_UNIQUE;
+      });
 
-      if (docRefCode === CONSENT_CODE) {
+      if (isDocRefPaperworkConsent) {
         for (const content of docRef.content) {
           const title = content.attachment.title;
           const z3Url = content.attachment.url;

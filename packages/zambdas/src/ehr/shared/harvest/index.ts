@@ -38,7 +38,6 @@ import Stripe from 'stripe';
 import {
   CANDID_PLAN_TYPE_SYSTEM,
   codeableConcept,
-  CONSENT_CODE,
   ConsentSigner,
   consolidateOperations,
   ContactTelecomConfig,
@@ -90,6 +89,8 @@ import {
   OrderedCoverages,
   OrderedCoveragesWithSubscribers,
   OTTEHR_MODULE,
+  PAPERWORK_CONSENT_CODE_UNIQUE,
+  PAPERWORK_CONSENT_CODING_LOINC,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PATIENT_NOT_FOUND_ERROR,
   PATIENT_PHOTO_CODE,
@@ -282,13 +283,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
       resourceTitle: 'Consent forms',
       type: {
-        coding: [
-          {
-            system: 'http://loinc.org',
-            code: CONSENT_CODE,
-            display: 'Consent Documents',
-          },
-        ],
+        coding: [PAPERWORK_CONSENT_CODING_LOINC, PAPERWORK_CONSENT_CODE_UNIQUE],
         text: 'Consent forms',
       },
     },
@@ -312,7 +307,17 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
 
   const pdfGroups: Record<string, typeof pdfsToCreate> = {};
   for (const pdfInfo of pdfsToCreate) {
-    const typeCode = pdfInfo.type.coding[0].code;
+    let typeCode = pdfInfo.type.coding[0].code;
+    if (pdfInfo.type.coding.length > 1) {
+      // Case of consent form with multiple type codings
+      typeCode = pdfInfo.type.coding.find(
+        (coding) =>
+          coding.system === PAPERWORK_CONSENT_CODE_UNIQUE.system && coding.code === PAPERWORK_CONSENT_CODE_UNIQUE.code
+      )?.code;
+    }
+    if (!typeCode) {
+      throw new Error('Unexpectedly could not find type code for PAPERWORK_CONSENT_CODE_UNIQUE');
+    }
     if (!pdfGroups[typeCode]) {
       pdfGroups[typeCode] = [];
     }
@@ -407,14 +412,27 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   }
 
   for (const pdfInfo of pdfsToCreate) {
-    const typeCode = pdfInfo.type.coding[0].code;
+    let typeCode = pdfInfo.type.coding[0].code;
+    // only in the case of Consent DRs, we have introduced multiple codings so we can tell different kinds of Consents apart (labs vs paperwork)
+    if (pdfInfo.type.coding.length > 1) {
+      const maybePaperworkTypeCoding = pdfInfo.type.coding.find(
+        (coding) =>
+          coding.system === PAPERWORK_CONSENT_CODE_UNIQUE.system && coding.code === PAPERWORK_CONSENT_CODE_UNIQUE.code
+      );
+      if (maybePaperworkTypeCoding) {
+        typeCode = maybePaperworkTypeCoding.code;
+      }
+    }
+    if (!typeCode) {
+      throw new Error('Unexpectedly could not find type code for PAPERWORK_CONSENT_CODE_UNIQUE');
+    }
     const groupRefs = allDocRefsByType[typeCode] || [];
     const matchingRef = groupRefs.find((dr) => dr.content[0]?.attachment.title === pdfInfo.formTitle);
     if (!matchingRef?.id) {
       throw new Error(`DocumentReference for "${pdfInfo.formTitle}" not found`);
     }
 
-    if (typeCode === CONSENT_CODE) {
+    if (typeCode === PAPERWORK_CONSENT_CODE_UNIQUE.code) {
       await createConsentResource(patientResource.id!, matchingRef.id, nowIso, oystehr);
     }
   }
@@ -2176,6 +2194,17 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       {
         value: formatPhoneNumber(emergencyContactData?.number),
         system: 'phone',
+      },
+    ];
+    emergencyContactResourceToPut.relationship = [
+      {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+            code: 'EP',
+            display: emergencyContactData.relationship,
+          },
+        ],
       },
     ];
     puts.push({

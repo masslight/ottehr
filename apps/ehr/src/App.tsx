@@ -43,6 +43,7 @@ import {
   DailyPayments,
   DataExports,
   IncompleteEncounters,
+  InvoiceablePatients,
   VisitsOverview,
   WorkflowEfficiency,
 } from './pages/reports/index';
@@ -184,13 +185,14 @@ function App(): ReactElement {
               )}
               {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) && (
                 <>
-                  <Route path="/tasks" element={<TaskAdmin />} />
+                  <Route path="/tasks-observability" element={<TaskAdmin />} />
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
                   <Route path="/reports/daily-payments" element={<DailyPayments />} />
                   <Route path="/reports/data-exports" element={<DataExports />} />
                   <Route path="/reports/workflow-efficiency" element={<WorkflowEfficiency />} />
                   <Route path="/reports/visits-overview" element={<VisitsOverview />} />
+                  <Route path="/reports/invoiceable-patients" element={<InvoiceablePatients />} />
                 </>
               )}
               {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) && (
@@ -237,7 +239,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
-                  <Route path="/tasks-list" element={<Tasks />} />
+                  <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
               )}
@@ -283,7 +285,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
-                  <Route path="/tasks-list" element={<Tasks />} />
+                  <Route path="/tasks" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
               )}

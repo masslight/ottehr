@@ -1,7 +1,6 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { getRandomValues } from 'crypto';
 import {
   Account,
   ActivityDefinition,
@@ -24,6 +23,8 @@ import { DateTime } from 'luxon';
 import {
   APIError,
   CreateLabOrderZambdaOutput,
+  CreateLabPaymentMethod,
+  createOrderNumber,
   EXTERNAL_LAB_ERROR,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
@@ -35,6 +36,7 @@ import {
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORDER_TASK,
   LAB_ORG_TYPE_CODING,
+  LabPaymentMethod,
   ModifiedOrderingLocation,
   ORDER_NUMBER_LEN,
   OrderableItemSearchResult,
@@ -67,6 +69,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       psc,
       secrets,
       orderingLocation: modifiedOrderingLocation,
+      selectedPaymentMethod,
     } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -96,7 +99,14 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
 
     console.log('encounter id', encounter.id);
     const { labOrganization, coverages, patientId, existingOrderNumber, orderingLocation } =
-      await getAdditionalResources(orderableItem, encounter, psc, oystehr, modifiedOrderingLocation);
+      await getAdditionalResources(
+        orderableItem,
+        encounter,
+        psc,
+        selectedPaymentMethod,
+        oystehr,
+        modifiedOrderingLocation
+      );
 
     validateLabOrgAndOrderingLocationAndGetAccountNumber(labOrganization, orderingLocation);
 
@@ -188,14 +198,19 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       },
     ];
 
-    if (coverages) {
-      const coverageRefs: Reference[] = coverages.map((coverage) => {
-        return {
-          reference: `Coverage/${coverage.id}`,
-        };
-      });
-
-      serviceRequestConfig.insurance = coverageRefs;
+    console.log('selected payment method', selectedPaymentMethod);
+    if (selectedPaymentMethod === 'insurance') {
+      if (coverages) {
+        console.log('assigning serviceRequestConfig.insurance');
+        const coverageRefs: Reference[] = coverages.map((coverage) => {
+          return {
+            reference: `Coverage/${coverage.id}`,
+          };
+        });
+        serviceRequestConfig.insurance = coverageRefs;
+      } else {
+        console.log('insurance payment method was selected but no coverages were returned from the search');
+      }
     }
     if (psc) {
       serviceRequestConfig.orderDetail = [
@@ -453,6 +468,7 @@ const getAdditionalResources = async (
   orderableItem: OrderableItemSearchResult,
   encounter: Encounter,
   psc: boolean,
+  selectedPaymentMethod: CreateLabPaymentMethod,
   oystehr: Oystehr,
   modifiedOrderingLocation: ModifiedOrderingLocation
 ): Promise<{
@@ -515,11 +531,23 @@ const getAdditionalResources = async (
         labGuid &&
       resource.status === 'draft'
     ) {
-      const curSrIsPsc = isPSCOrder(resource);
-      if (curSrIsPsc === psc) {
-        // we bundled psc orders separately, so if the current test being submitted is psc
-        // it should only be bundled under the same requsition number if there are other psc orders for this lab
-        serviceRequestsForBundle.push(resource);
+      const resourceHasInsurance = resource.insurance?.some(
+        (insurance) => insurance.reference?.startsWith('Coverage/')
+      );
+      const resourcePaymentMethod: CreateLabPaymentMethod = resourceHasInsurance
+        ? LabPaymentMethod.Insurance
+        : LabPaymentMethod.SelfPay;
+      const paymentMethodMatches = selectedPaymentMethod === resourcePaymentMethod;
+
+      // different payment method selection means the order must be in a different bundle,
+      // IN1 (insurance) is shared across all order segments
+      if (paymentMethodMatches) {
+        const curSrIsPsc = isPSCOrder(resource);
+        if (curSrIsPsc === psc) {
+          // we bundled psc orders separately, so if the current test being submitted is psc
+          // it should only be bundled under the same requsition number if there are other psc orders for this lab
+          serviceRequestsForBundle.push(resource);
+        }
       }
     }
   });
@@ -641,18 +669,6 @@ const getSpecimenAndSpecimenDefConfig = (
   };
   return { specimenDefinitionConfig, specimenConfig };
 };
-
-function createOrderNumber(length: number): string {
-  // https://sentry.io/answers/generate-random-string-characters-in-javascript/
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  const randomArray = new Uint8Array(length);
-  getRandomValues(randomArray);
-  randomArray.forEach((number) => {
-    result += chars[number % chars.length];
-  });
-  return result;
-}
 
 /**
  * Ensures the ordering location is configured to order labs from the Lab Organization determined from the orderable item.
