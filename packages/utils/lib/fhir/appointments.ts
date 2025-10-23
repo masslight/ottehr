@@ -3,10 +3,10 @@ import { Appointment, CodeableConcept, Consent, DocumentReference, Encounter } f
 import { DateTime } from 'luxon';
 import {
   AppointmentType,
-  CONSENT_CODE,
   diffInMinutes,
   EncounterVirtualServiceExtension,
   FHIR_APPOINTMENT_TYPE_MAP,
+  PAPERWORK_CONSENT_CODE_UNIQUE,
   PUBLIC_EXTENSION_BASE_URL,
   TELEMED_VIDEO_ROOM_CODE,
   TelemedAppointmentStatusEnum,
@@ -152,7 +152,7 @@ export const getConsentAndRelatedDocRefsForAppointment = async (
         },
         {
           name: 'type',
-          value: CONSENT_CODE,
+          value: `${PAPERWORK_CONSENT_CODE_UNIQUE.system}|${PAPERWORK_CONSENT_CODE_UNIQUE.code}`,
         },
         {
           name: 'subject',

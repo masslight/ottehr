@@ -1,3 +1,5 @@
+import { Coding } from 'fhir/r4b';
+
 export const FULL_PHOTO_ID_CARD_TITLE = 'fullPhotoIDCard';
 export const FULL_INSURANCE_CARD_TITLE = 'fullInsuranceCard';
 export const FULL_INSURANCE_CARD_2_TITLE = 'fullInsuranceCard-2';
@@ -27,7 +29,16 @@ export const RECEIPT_CODE = '34105-7';
 export const EXPORTED_QUESTIONNAIRE_CODE = '74465-6';
 export const SCHOOL_WORK_NOTE_TEMPLATE_CODE = 'school-work-note-template';
 
-export const CONSENT_CODE = '59284-0';
+export const PAPERWORK_CONSENT_CODING_LOINC: Coding = {
+  system: 'http://loinc.org',
+  code: '59284-0',
+  display: 'Consent Documents',
+};
+export const PAPERWORK_CONSENT_CODE_UNIQUE: Coding = {
+  system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+  code: 'patient-registration',
+  display: 'Patient Registration Consent',
+};
 export const PRIVACY_POLICY_CODE = '64292-6';
 export const VISIT_NOTE_SUMMARY_CODE = '75498-6';
 export const DISCHARGE_SUMMARY_CODE = 'discharge-summary';
