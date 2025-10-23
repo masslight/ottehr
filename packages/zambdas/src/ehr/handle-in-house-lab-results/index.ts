@@ -467,7 +467,7 @@ const makeObservationPostRequests = (
       activityDefContained
     );
     if (nonNormalResult) {
-      console.log('flagging abnormal result for', activityDefinition.code?.coding?.map((coding) => coding.code));
+      console.log('flagging non-normal result for', activityDefinition.code?.coding?.map((coding) => coding.code));
       nonNormalResultRecorded.push(nonNormalResult);
     }
     const obsFinalConfig: Observation = {
