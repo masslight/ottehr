@@ -123,6 +123,11 @@ export class DocumentProcedurePage {
     const field = this.#page.getByTestId(dataTestIds.documentProcedurePage.instruments);
     await field.click();
 
+    const clearButton = field.locator('button[aria-label="Clear"]');
+    if (await clearButton.isVisible()) {
+      await clearButton.click();
+    }
+
     for (const instrument of instruments) {
       await this.#page.getByText(instrument, { exact: true }).click();
     }
@@ -132,10 +137,18 @@ export class DocumentProcedurePage {
 
   async verifyInstruments(expected: string[]): Promise<void> {
     const instrumentsField = this.#page.getByTestId(dataTestIds.documentProcedurePage.instruments);
-    const displayedText = await instrumentsField.textContent();
+    const selectedOptions = instrumentsField.locator('.MuiChip-label');
+    const count = await selectedOptions.count();
+    const actualValues: string[] = [];
 
-    for (const item of expected) {
-      expect(displayedText).toContain(item);
+    for (let i = 0; i < count; i++) {
+      actualValues.push(await selectedOptions.nth(i).innerText());
+    }
+
+    expect(actualValues.length).toBe(expected.length);
+
+    for (const value of expected) {
+      expect(actualValues).toContain(value);
     }
   }
 
@@ -198,6 +211,11 @@ export class DocumentProcedurePage {
     const field = this.#page.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions);
     await field.click();
 
+    const clearButton = field.locator('button[aria-label="Clear"]');
+    if (await clearButton.isVisible()) {
+      await clearButton.click();
+    }
+
     for (const instruction of postProcedureInstructions) {
       await this.#page.getByText(instruction, { exact: true }).click();
     }
@@ -207,10 +225,18 @@ export class DocumentProcedurePage {
 
   async verifyPostProcedureInstructions(expected: string[]): Promise<void> {
     const instructionsField = this.#page.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions);
-    const displayedText = await instructionsField.textContent();
+    const selectedOptions = instructionsField.locator('.MuiChip-label');
+    const count = await selectedOptions.count();
+    const actualValues: string[] = [];
 
-    for (const item of expected) {
-      expect(displayedText).toContain(item);
+    for (let i = 0; i < count; i++) {
+      actualValues.push(await selectedOptions.nth(i).innerText());
+    }
+
+    expect(actualValues.length).toBe(expected.length);
+
+    for (const value of expected) {
+      expect(actualValues).toContain(value);
     }
   }
 
