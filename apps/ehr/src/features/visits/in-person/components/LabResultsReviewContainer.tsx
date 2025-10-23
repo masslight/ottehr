@@ -26,22 +26,7 @@ export const LabResultsReviewContainer: FC<LabResultsReviewContainerProps> = ({ 
   const keyIdentifier = isExternal ? 'external-lab-result' : 'in-house-lab-result';
 
   const checkForAbnormalResultFlag = (result: ExternalLabOrderResult | InHouseLabResult): ReactElement | null => {
-    // todo labs team, need to make sure we can get the tags added for external in this release
-    // else all the external labs will show up normal
-    // once that logic is written in oystehr we can remove this
-    if (isExternal) return null;
-
-    if (!result.nonNormalResultContained)
-      return (
-        <>
-          <CheckIcon sx={{ ml: '8px' }} color="success" />
-          <Typography color="success.main" sx={{ ml: '4px' }}>
-            Normal Result
-          </Typography>
-        </>
-      );
-
-    const flags = result.nonNormalResultContained.map((nonNormalFlag) => {
+    const flags = result.nonNormalResultContained?.map((nonNormalFlag) => {
       switch (nonNormalFlag) {
         case NonNormalResult.Abnormal:
           return (
@@ -65,7 +50,21 @@ export const LabResultsReviewContainer: FC<LabResultsReviewContainerProps> = ({ 
           return <></>;
       }
     });
-    return <>{flags}</>;
+    if (flags) {
+      return <>{flags}</>;
+    } else if (isExternal) {
+      // we cannot assume if no flags the result is normal since the logic to flag abnormal / inconclusive at a high level is murky for external labs
+      return null;
+    } else {
+      return (
+        <>
+          <CheckIcon sx={{ ml: '8px' }} color="success" />
+          <Typography color="success.main" sx={{ ml: '4px' }}>
+            Normal Result
+          </Typography>
+        </>
+      );
+    }
   };
 
   return (
