@@ -257,9 +257,10 @@ function getObservationRequirement(item: TestItem): {
 }
 
 const getUrlAndVersion = (
-  item: TestItem,
+  item: TestItem | ActivityDefinition,
   adUrlVersionMap: { [url: string]: string }
 ): { url: string; version: string } => {
+  if (!item.name) throw new Error('Item must have a name');
   const nameForUrl = item.name.split(' ').join('');
   const url = `${AD_CANONICAL_URL_BASE}/${nameForUrl}`;
   const curVersion = adUrlVersionMap[url];
@@ -358,6 +359,7 @@ async function main(): Promise<void> {
   for (const testItem of testItems) {
     const { obsDefReferences, contained } = getObservationRequirement(testItem);
 
+    // this will default to version 1 at the onset which is fine, but if running in API mode, we need to figure out the current version and increment
     const { url: activityDefUrl, version: activityDefVersion } = getUrlAndVersion(testItem, adUrlVersionMap);
 
     const activityDef: ActivityDefinition = {
@@ -449,11 +451,20 @@ async function main(): Promise<void> {
         }
       });
 
-    activityDefinitions.map((activityDefinition) => {
+    activityDefinitions.forEach((activityDefinition) => {
+      // update the URL for the items we made so far in activityDefinitions
+      const { url: activityDefUrl, version: activityDefVersion } = getUrlAndVersion(
+        activityDefinition,
+        adUrlVersionMap
+      );
+      console.log(
+        `Updating new ${activityDefinition.name} version from ${activityDefinition.version} -> ${activityDefVersion}`
+      );
+      console.log(`Updating new ${activityDefinition.name} url from ${activityDefinition.url} -> ${activityDefUrl}`);
       requests.push({
         method: 'POST',
         url: '/ActivityDefinition',
-        resource: activityDefinition,
+        resource: { ...activityDefinition, version: activityDefVersion, url: activityDefUrl },
       });
     });
 

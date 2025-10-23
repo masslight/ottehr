@@ -8,6 +8,7 @@ import { useOystehrAPIClient } from 'src/telemed/utils';
 import {
   APIError,
   APPOINTMENT_NOT_FOUND_ERROR,
+  BOOKING_CONFIG,
   CancellationReasonOptionsTelemed,
   CANT_CANCEL_CHECKED_IN_APT_ERROR,
   PROJECT_NAME,
@@ -23,19 +24,6 @@ import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { useVisitContext } from './ThankYou';
-
-// these are the options for a patient in the IP intake app and are a product requirement for that app
-// please don't attempt to extract this to a shared util. if another app has similar or even identical options
-// that is fine; enumerate them within that scope and don't sweat any duplication
-enum CancelReasonOptions {
-  'reason1' = 'Patient improved',
-  'reason2' = 'Wait time too long',
-  'reason3' = 'Prefer another provider',
-  'reason4' = 'Changing location',
-  'reason5' = 'Changing to telemedicine',
-  'reason6' = 'Financial responsibility concern',
-  'reason7' = 'Insurance issue',
-}
 
 const CancellationReason = (): JSX.Element => {
   const navigate = useNavigate();
@@ -166,11 +154,11 @@ const CancellationReason = (): JSX.Element => {
             CancellationReasonOptionsTelemed[key as keyof typeof CancellationReasonOptionsTelemed],
           value: CancellationReasonOptionsTelemed[key as keyof typeof CancellationReasonOptionsTelemed],
         }))
-      : Object.keys(CancelReasonOptions).map((key, index) => ({
+      : Object.keys(BOOKING_CONFIG.cancelReasonOptions).map((key, index) => ({
           label:
             t(`cancel.reasons.reason${index + 1}`, { PROJECT_NAME }) ||
-            CancelReasonOptions[key as keyof typeof CancelReasonOptions],
-          value: CancelReasonOptions[key as keyof typeof CancelReasonOptions],
+            BOOKING_CONFIG.CancelReasonOptions[key as keyof typeof BOOKING_CONFIG.CancelReasonOptions],
+          value: BOOKING_CONFIG.CancelReasonOptions[key as keyof typeof BOOKING_CONFIG.CancelReasonOptions],
         }));
   }, [t, isVirtualAppt]);
 

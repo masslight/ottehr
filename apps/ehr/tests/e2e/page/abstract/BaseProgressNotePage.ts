@@ -37,8 +37,43 @@ export abstract class BaseProgressNotePage {
       this.#page.getByTestId(dataTestIds.progressNotePage.procedureItem).filter({ hasText: procedureType })
     );
     for (const procedureDetail of procedureDetails) {
-      await matcher.toContainText(procedureDetail);
+      if (procedureDetail.startsWith('CPT:')) {
+        // sometimes it's not in order and that flakes the test
+        const [cptPrefix, cptCode1, cptCode2] = procedureDetail.split(':');
+        let regex: string;
+        if (cptCode2 != null) {
+          regex = `${cptPrefix}: (${cptCode1 + '; ' + cptCode2}|${cptCode2 + '; ' + cptCode1})`;
+        } else {
+          regex = `${cptPrefix}: ${cptCode1}`;
+        }
+        await matcher.toContainText(new RegExp(regex));
+      } else {
+        await matcher.toContainText(procedureDetail);
+      }
     }
+  }
+
+  async verifyVaccine(vaccine: {
+    vaccine: string;
+    dose: string;
+    units: string;
+    route: string;
+    location: string;
+  }): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.vaccineItem).filter({
+        hasText:
+          vaccine.vaccine +
+          ' - ' +
+          vaccine.dose +
+          ' ' +
+          vaccine.units +
+          ' / ' +
+          vaccine.route +
+          ' - ' +
+          vaccine.location,
+      })
+    ).toBeVisible();
   }
 
   async verifyInHouseLabs(sectionTitle: string, testName: string): Promise<void> {

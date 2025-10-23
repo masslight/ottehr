@@ -7,6 +7,7 @@ const BRANDING_DEFAULTS: any = {
   projectName: 'Ottehr',
   email: {
     logoURL: '',
+    supportPhoneNumber: '(202) 555-1212',
     palette: {
       deemphasizedText: '#00000061',
       headerText: '#0F347C',
@@ -14,7 +15,7 @@ const BRANDING_DEFAULTS: any = {
       footerText: '#212130',
       buttonColor: '#295F75',
     },
-    sender: 'ottehr-support@masslight.com',
+    sender: 'support@ottehr.com',
   },
   logo: {
     default: '',
@@ -65,4 +66,24 @@ export function getLogoFor(target: Exclude<LogoTarget, 'default'>): string | und
   const { logo } = BRANDING_CONFIG;
 
   return logo?.[target] || logo?.default;
+}
+
+export function getSupportPhoneFor(locationName?: string): string | undefined {
+  const { email } = BRANDING_CONFIG;
+
+  if (locationName) {
+    return email.locationSupportPhoneNumberMap?.[locationName];
+  }
+
+  return email.supportPhoneNumber;
+}
+
+export function getLocationNames(): string[] {
+  const { locationSupportPhoneNumberMap } = BRANDING_CONFIG.email;
+
+  if (locationSupportPhoneNumberMap == undefined) {
+    return [];
+  }
+
+  return Object.keys(locationSupportPhoneNumberMap);
 }

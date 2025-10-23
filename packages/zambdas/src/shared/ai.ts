@@ -74,7 +74,7 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
   process.env.ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
   if (chatbot == null) {
     chatbot = new ChatAnthropic({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-haiku-4-5-20251001',
       temperature: 0,
     });
   }

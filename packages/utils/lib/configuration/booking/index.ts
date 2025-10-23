@@ -38,9 +38,19 @@ export const intakeQuestionnaireUrls: Readonly<Array<string>> = (() => {
   }
   return urls;
 })();
+const CANCEL_REASON_OPTIONS = Object.freeze([
+  'Patient improved',
+  'Wait time too long',
+  'Prefer another provider',
+  'Changing location',
+  'Changing to telemedicine',
+  'Financial responsibility concern',
+  'Insurance issue',
+]);
 
 const BOOKING_DEFAULTS = Object.freeze({
   reasonForVisitOptions: REASON_FOR_VISIT_OPTIONS,
+  cancelReasonOptions: CANCEL_REASON_OPTIONS,
   intakeQuestionnaireUrls,
 });
 
