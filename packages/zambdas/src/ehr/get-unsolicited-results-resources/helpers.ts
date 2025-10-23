@@ -15,6 +15,8 @@ import {
   DR_CONTAINED_PRACTITIONER_REF,
   DR_UNSOLICITED_PATIENT_REF,
   getFullestAvailableName,
+  getTestItemCodeFromDr,
+  getTestNameOrCodeFromDr,
   GetUnsolicitedResultsDetailOutput,
   GetUnsolicitedResultsIconStatusOutput,
   GetUnsolicitedResultsMatchDataOutput,
@@ -31,8 +33,6 @@ import { parseLabOrderStatusWithSpecificTask } from '../get-lab-orders/helpers';
 import {
   AllResources,
   formatResourcesIntoDiagnosticReportLabDTO,
-  getTestItemCodeFromDr,
-  getTestNameOrCodeFromDr,
   groupResourcesByDr,
   parseAccessionNumberFromDr,
   ResourcesByDr,

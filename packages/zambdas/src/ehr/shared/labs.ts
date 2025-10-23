@@ -36,6 +36,7 @@ import {
   getCoding,
   getOrderNumber,
   getPresignedURL,
+  getTestNameOrCodeFromDr,
   getTimezone,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
   IN_HOUSE_TEST_CODE_SYSTEM,
@@ -1171,26 +1172,4 @@ export const parseAccessionNumberFromDr = (result: DiagnosticReport): string => 
   }
 
   return NOT_FOUND;
-};
-
-export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
-  const testName =
-    dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
-    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.display ||
-    dr.code.coding?.find((temp) => temp.system === '(HL7_V2)')?.display;
-  return testName;
-};
-
-export const getTestItemCodeFromDr = (dr: DiagnosticReport): string | undefined => {
-  const testName =
-    dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
-    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code;
-  return testName;
-};
-
-export const getTestNameOrCodeFromDr = (dr: DiagnosticReport): string => {
-  const testName = getTestNameFromDr(dr);
-  const testItemCode = getTestItemCodeFromDr(dr);
-  const testDescription = testName || testItemCode || 'missing test name';
-  return testDescription;
 };

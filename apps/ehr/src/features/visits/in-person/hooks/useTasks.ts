@@ -8,6 +8,7 @@ import {
   getExtension,
   IN_HOUSE_LAB_TASK,
   LAB_ORDER_TASK,
+  LabType,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TASK_CATEGORY_IDENTIFIER,
   TASK_INPUT_SYSTEM,
@@ -220,6 +221,8 @@ function fhirTaskToTask(task: FhirTask): Task {
       ?.reference?.split('/')?.[1];
     const providerName = getInput(LAB_ORDER_TASK.input.providerName, task);
     const orderDate = getInput(LAB_ORDER_TASK.input.orderDate, task);
+    const labTypeString = getInput(LAB_ORDER_TASK.input.drTag, task);
+
     if (code === LAB_ORDER_TASK.code.preSubmission) {
       title = `Collect sample for “${testName}” for ${patientName}`;
       subtitle = `Ordered by ${providerName} on ${
@@ -254,6 +257,7 @@ function fhirTaskToTask(task: FhirTask): Task {
     }
     if (
       diagnosticReportId &&
+      labTypeString === LabType.unsolicited &&
       (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
     ) {
       const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
