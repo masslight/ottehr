@@ -119,15 +119,24 @@ export class DocumentProcedurePage {
     );
   }
 
-  async selectInstruments(instruments: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.documentProcedurePage.instruments).click();
-    await this.#page.getByText(instruments, { exact: true }).click();
+  async selectInstruments(instruments: string[]): Promise<void> {
+    const field = this.#page.getByTestId(dataTestIds.documentProcedurePage.instruments);
+    await field.click();
+
+    for (const instrument of instruments) {
+      await this.#page.getByText(instrument, { exact: true }).click();
+    }
+
+    await this.#page.keyboard.press('Escape');
   }
 
-  async verifyInstruments(instruments: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.documentProcedurePage.instruments).locator('input')).toHaveValue(
-      instruments
-    );
+  async verifyInstruments(expected: string[]): Promise<void> {
+    const instrumentsField = this.#page.getByTestId(dataTestIds.documentProcedurePage.instruments);
+    const displayedText = await instrumentsField.textContent();
+
+    for (const item of expected) {
+      expect(displayedText).toContain(item);
+    }
   }
 
   async enterProcedureDetails(procedureDetails: string): Promise<void> {
@@ -185,15 +194,24 @@ export class DocumentProcedurePage {
     ).toHaveValue(patientResponse);
   }
 
-  async selectPostProcedureInstructions(postProcedureInstructions: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions).click();
-    await this.#page.getByText(postProcedureInstructions, { exact: true }).click();
+  async selectPostProcedureInstructions(postProcedureInstructions: string[]): Promise<void> {
+    const field = this.#page.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions);
+    await field.click();
+
+    for (const instruction of postProcedureInstructions) {
+      await this.#page.getByText(instruction, { exact: true }).click();
+    }
+
+    await this.#page.keyboard.press('Escape');
   }
 
-  async verifyPostProcedureInstructions(postProcedureInstructions: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions).locator('input')
-    ).toHaveValue(postProcedureInstructions);
+  async verifyPostProcedureInstructions(expected: string[]): Promise<void> {
+    const instructionsField = this.#page.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions);
+    const displayedText = await instructionsField.textContent();
+
+    for (const item of expected) {
+      expect(displayedText).toContain(item);
+    }
   }
 
   async selectTimeSpent(timeSpent: string): Promise<void> {
