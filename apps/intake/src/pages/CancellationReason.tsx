@@ -157,8 +157,8 @@ const CancellationReason = (): JSX.Element => {
       : Object.keys(BOOKING_CONFIG.cancelReasonOptions).map((key, index) => ({
           label:
             t(`cancel.reasons.reason${index + 1}`, { PROJECT_NAME }) ||
-            BOOKING_CONFIG.CancelReasonOptions[key as keyof typeof BOOKING_CONFIG.CancelReasonOptions],
-          value: BOOKING_CONFIG.CancelReasonOptions[key as keyof typeof BOOKING_CONFIG.CancelReasonOptions],
+            BOOKING_CONFIG.cancelReasonOptions[key as keyof typeof BOOKING_CONFIG.cancelReasonOptions],
+          value: BOOKING_CONFIG.cancelReasonOptions[key as keyof typeof BOOKING_CONFIG.cancelReasonOptions],
         }));
   }, [t, isVirtualAppt]);
 
