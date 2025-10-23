@@ -1708,7 +1708,7 @@ const parseObservationForPDF = (
 
   const formatResultCodeAndDisplay = (coding: Coding): string => {
     if (!coding.code) return '';
-    return `${coding.code}${coding.display ? `(${coding.display})` : ''}`;
+    return `${coding.code}${coding.display ? ` (${coding.display})` : ''}`;
   };
 
   const resultCodesAndDisplays = resultCodeCodings?.map((coding) => formatResultCodeAndDisplay(coding)).join(', ');
