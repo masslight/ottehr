@@ -9,7 +9,6 @@ export const RoundedButton = styled(
       target?: '_self' | '_blank' | '_parent' | '_top' | string;
       loading?: boolean;
       loadingPosition?: 'start' | 'end' | 'center';
-      state?: any;
     }
   ) => (
     <LoadingButton
@@ -17,7 +16,7 @@ export const RoundedButton = styled(
       size="large"
       loadingPosition={props.loadingPosition || 'center'}
       {...props}
-      {...(props.to ? { component: Link, to: props.to, target: props.target, state: props.state } : {})}
+      {...(props.to ? { component: Link, to: props.to, target: props.target } : {})}
     />
   )
 )(() => ({

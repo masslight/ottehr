@@ -39,21 +39,7 @@ export async function createEncounterResource(
   }
 
   if (encounterDetails.reason) {
-    encounterResource.reasonCode = createEncounterReasonCode(encounterDetails.reason, encounterDetails.otherReason);
-  }
-
-  if (encounterDetails.initialEncounterID) {
-    encounterResource.partOf = {
-      reference: `Encounter/${encounterDetails.initialEncounterID}`,
-    };
-  }
-
-  if (encounterDetails.appointmentId) {
-    encounterResource.appointment = [
-      {
-        reference: `Appointment/${encounterDetails.appointmentId}`,
-      },
-    ];
+    encounterResource.reasonCode = createEncounterReasonCode(encounterDetails.reason);
   }
 
   const encounterParticipant: EncounterParticipant[] = [];
@@ -143,15 +129,12 @@ export async function updateEncounterResource(
     });
   }
 
-  if (
-    encounterDetails.reason !== curEncounterDetails.reason ||
-    encounterDetails.otherReason !== curEncounterDetails.otherReason
-  ) {
+  if (encounterDetails.reason !== curEncounterDetails.reason) {
     if (encounterDetails.reason) {
       operations.push({
         op: `${curEncounterDetails.reason ? 'replace' : 'add'}`,
         path: '/reasonCode',
-        value: createEncounterReasonCode(encounterDetails.reason, encounterDetails.otherReason),
+        value: createEncounterReasonCode(encounterDetails.reason),
       });
     } else if (curEncounterDetails.reason) {
       operations.push({
@@ -340,7 +323,7 @@ const createEncounterType = (type: string): Encounter['type'] => {
   ];
 };
 
-const createEncounterReasonCode = (reason: FollowupReason, otherReason?: string): Encounter['reasonCode'] => {
+const createEncounterReasonCode = (reason: FollowupReason): Encounter['reasonCode'] => {
   return [
     {
       coding: [
@@ -349,7 +332,7 @@ const createEncounterReasonCode = (reason: FollowupReason, otherReason?: string)
           display: reason,
         },
       ],
-      text: otherReason || reason,
+      text: reason,
     },
   ];
 };

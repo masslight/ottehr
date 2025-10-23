@@ -3,8 +3,6 @@ import { EvolveUser } from 'src/hooks/useEvolveUser';
 import {
   allLicensesForPractitioner,
   checkEncounterHasPractitioner,
-  EncounterVisitType,
-  getEncounterVisitType,
   getTelemedVisitStatus,
   isAppointmentLocked,
   PractitionerLicense,
@@ -32,7 +30,6 @@ export type GetAppointmentAccessibilityDataResult = {
   isAppointmentReadOnly: boolean;
   isCurrentUserHasAccessToAppointment: boolean;
   isAppointmentLocked: boolean;
-  visitType: EncounterVisitType;
 };
 
 export const getAppointmentAccessibilityData = ({
@@ -63,12 +60,10 @@ export const getAppointmentAccessibilityData = ({
 
   // Check if appointment is locked via meta tag
   const isAppointmentLockedByMetaTag = appointment ? isAppointmentLocked(appointment) : false;
-  const visitType = getEncounterVisitType(encounter);
-  const isFollowup = visitType === 'follow-up';
 
   const isAppointmentReadOnly = (() => {
     if (featureFlags.isInPerson) {
-      return isAppointmentLockedByMetaTag && !isFollowup;
+      return isAppointmentLockedByMetaTag;
     }
 
     return (
@@ -92,6 +87,5 @@ export const getAppointmentAccessibilityData = ({
     isAppointmentReadOnly,
     isCurrentUserHasAccessToAppointment,
     isAppointmentLocked: isAppointmentLockedByMetaTag,
-    visitType,
   };
 };

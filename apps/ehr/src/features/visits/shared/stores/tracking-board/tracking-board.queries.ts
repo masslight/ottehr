@@ -116,7 +116,6 @@ export const useSignAppointmentMutation = () =>
     mutationFn: ({
       apiClient,
       appointmentId,
-      encounterId,
       timezone,
       supervisorApprovalEnabled,
     }: {
@@ -124,7 +123,6 @@ export const useSignAppointmentMutation = () =>
     } & Omit<SignAppointmentInput, 'secrets'>) => {
       return apiClient.signAppointment({
         appointmentId,
-        encounterId,
         timezone,
         supervisorApprovalEnabled,
       });

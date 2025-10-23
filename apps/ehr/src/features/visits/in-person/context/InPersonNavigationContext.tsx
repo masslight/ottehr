@@ -2,12 +2,11 @@ import React, { createContext, ReactNode, useCallback, useContext, useEffect, us
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router-dom';
 import { sidebarMenuIcons } from '../../shared/components/Sidebar';
 import { useChartFields } from '../../shared/hooks/useChartFields';
-import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { InPersonModal } from '../components/InPersonModal';
 import { ROUTER_PATH, routesInPerson } from '../routing/routesInPerson';
 
-export type InteractionMode = 'intake' | 'provider' | 'readonly' | 'follow-up';
+export type InteractionMode = 'intake' | 'provider' | 'readonly';
 export type CSSValidator = () => React.ReactElement | string;
 export type CSSValidators = Record<string, CSSValidator>;
 
@@ -65,7 +64,6 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [_disabledNavigationState, _setDisabledNavigationState] = useState<Record<string, boolean>>({});
   const { isAppointmentLoading, visitState } = useAppointmentData();
-  const { visitType } = useGetAppointmentAccessibility();
   const { encounter } = visitState;
 
   const { chartData, isLoading } = useChartData();
@@ -115,10 +113,7 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
       return;
     }
 
-    let targetMode: InteractionMode;
-    if (visitType === 'follow-up') {
-      targetMode = 'follow-up';
-    } else if (
+    if (
       encounter?.participant?.find(
         (participant) =>
           participant.type?.find(
@@ -129,18 +124,11 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
                   coding.code === 'ATND'
               ) != null
           ) != null
-      )
+      ) &&
+      !isModeInitialized
     ) {
-      targetMode = 'provider';
-    } else {
-      targetMode = 'intake';
-    }
-
-    if (targetMode === 'follow-up' || !isModeInitialized) {
-      setInteractionMode(targetMode, false);
-    }
-
-    if (encounter?.id) {
+      setInteractionMode('provider', false);
+    } else if (encounter?.id) {
       setIsModeInitialized(true);
     }
   }, [
@@ -151,7 +139,6 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
     isModeInitialized,
     appointmentIdFromUrl,
     encounter?.appointment,
-    visitType,
   ]);
 
   setNavigationDisable = (newState: Record<string, boolean>): void => {
