@@ -87,7 +87,7 @@ interface PageState {
   complications?: string;
   otherComplications?: string;
   patientResponse?: string;
-  postInstructions?: string;
+  postInstructions?: string[];
   otherPostInstructions?: string;
   timeSpent?: string;
   documentedBy?: string;
@@ -113,6 +113,33 @@ interface SelectOptions {
   postProcedureInstructions: string[];
   timeSpent: string[];
 }
+
+type ParseResult = {
+  values: string[];
+  other?: string;
+};
+
+const parseWithOther = (rawValue: string | undefined, validOptions: string[] | undefined): ParseResult => {
+  const result: ParseResult = { values: [], other: undefined };
+
+  if (!rawValue) return result;
+
+  const items = rawValue
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const known = items.filter((item) => validOptions?.includes(item));
+  const unknown = items.find((item) => !validOptions?.includes(item));
+
+  result.values = known;
+  if (unknown) {
+    result.other = unknown;
+    result.values.push(OTHER);
+  }
+
+  return result;
+};
 
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
@@ -161,25 +188,16 @@ export default function ProceduresNew(): ReactElement {
     rawValue: string | undefined,
     validOptions: string[] | undefined
   ): { suppliesUsed: string[]; otherSuppliesUsed?: string } => {
-    const result = { suppliesUsed: [] as string[], otherSuppliesUsed: undefined as string | undefined };
+    const { values, other } = parseWithOther(rawValue, validOptions);
+    return { suppliesUsed: values, otherSuppliesUsed: other };
+  };
 
-    if (!rawValue) return result;
-
-    const items = rawValue
-      .split(',')
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-
-    const known = items.filter((v) => validOptions?.includes(v));
-    const unknown = items.find((v) => !validOptions?.includes(v));
-
-    result.suppliesUsed = known;
-    if (unknown) {
-      result.otherSuppliesUsed = unknown;
-      result.suppliesUsed.push(OTHER);
-    }
-
-    return result;
+  const parsePostInstructions = (
+    rawValue: string | undefined,
+    validOptions: string[] | undefined
+  ): { postInstructions: string[]; otherPostInstructions?: string } => {
+    const { values, other } = parseWithOther(rawValue, validOptions);
+    return { postInstructions: values, otherPostInstructions: other };
   };
 
   const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
@@ -191,6 +209,10 @@ export default function ProceduresNew(): ReactElement {
     const procedureDateTime =
       procedure.procedureDateTime != null ? DateTime.fromISO(procedure.procedureDateTime) : undefined;
     const parsedSupplies = parseSuppliesUsed(procedure.suppliesUsed, selectOptions?.supplies);
+    const parsedPostInstructions = parsePostInstructions(
+      procedure.postInstructions,
+      selectOptions?.postProcedureInstructions
+    );
     setState({
       procedureType: procedure.procedureType,
       cptCodes: procedure.cptCodes,
@@ -210,11 +232,8 @@ export default function ProceduresNew(): ReactElement {
       complications: getPredefinedValueOrOther(procedure.complications, selectOptions?.complications),
       otherComplications: getPredefinedValueIfOther(procedure.complications, selectOptions?.complications),
       patientResponse: procedure.patientResponse,
-      postInstructions: getPredefinedValueOrOther(procedure.postInstructions, selectOptions?.postProcedureInstructions),
-      otherPostInstructions: getPredefinedValueIfOther(
-        procedure.postInstructions,
-        selectOptions?.postProcedureInstructions
-      ),
+      postInstructions: parsedPostInstructions.postInstructions,
+      otherPostInstructions: parsedPostInstructions.otherPostInstructions,
       timeSpent: procedure.timeSpent,
       documentedBy: procedure.documentedBy,
       consentObtained: procedure.consentObtained,
@@ -226,7 +245,7 @@ export default function ProceduresNew(): ReactElement {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
   };
 
-  const combineSuppliesForSave = (values: string[] | undefined, otherValue: string | undefined): string => {
+  const combineMultipleValuesForSave = (values: string[] | undefined, otherValue: string | undefined): string => {
     if (!values?.length && !otherValue) return '';
 
     const result: string[] = [];
@@ -290,13 +309,12 @@ export default function ProceduresNew(): ReactElement {
             bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite?.trim(),
             bodySide: state.bodySide,
             technique: state.technique,
-            suppliesUsed: combineSuppliesForSave(state.suppliesUsed, state.otherSuppliesUsed),
+            suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
             procedureDetails: state.procedureDetails,
             specimenSent: state.specimenSent,
             complications: state.complications !== OTHER ? state.complications : state.otherComplications?.trim(),
             patientResponse: state.patientResponse,
-            postInstructions:
-              state.postInstructions !== OTHER ? state.postInstructions : state.otherPostInstructions?.trim(),
+            postInstructions: combineMultipleValuesForSave(state.postInstructions, state.otherPostInstructions),
             timeSpent: state.timeSpent,
             documentedBy: state.documentedBy,
             consentObtained: state.consentObtained,
@@ -761,13 +779,12 @@ export default function ProceduresNew(): ReactElement {
               (value, state) => (state.patientResponse = value),
               dataTestIds.documentProcedurePage.patientResponse
             )}
-            {dropdown(
+            {multiSelect(
               'Post-procedure Instructions',
               selectOptions?.postProcedureInstructions,
               state.postInstructions,
-              (value, state) => {
-                state.postInstructions = value;
-                state.otherPostInstructions = undefined;
+              (values, state) => {
+                state.postInstructions = values;
               },
               dataTestIds.documentProcedurePage.postProcedureInstructions
             )}
