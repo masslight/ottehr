@@ -114,7 +114,7 @@ export const ChangeStatusDropdown = ({
     if (
       !assignedIntakePerformerId &&
       !assignedProviderId &&
-      !(targetValue === 'pending' || targetValue === 'arrived')
+      !(targetValue === 'pending' || targetValue === 'arrived' || targetValue === 'ready')
     ) {
       alert('Select an intake performer and a provider to change the status.');
       return;
