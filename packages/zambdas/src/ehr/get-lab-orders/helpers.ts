@@ -1250,7 +1250,7 @@ export const parseLabOrderStatus = (
   // 'pending': If the SR.status == draft and a pre-submission task exists
   const pendingStatusConditions = {
     serviceRequestStatusIsDraft: serviceRequest.status === 'draft',
-    pstTaskStatusIsReady: taskPST?.status === 'ready',
+    pstTaskStatusIsReady: taskPST?.status === 'ready' || taskPST?.status === 'in-progress',
   };
 
   if (hasAllConditions(pendingStatusConditions)) {
@@ -1296,7 +1296,7 @@ export const parseLabOrderStatus = (
     if (
       !(
         task.code?.coding?.some((coding) => coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult) &&
-        task.status === 'ready'
+        (task.status === 'ready' || task.status === 'in-progress')
       )
     )
       return false;
@@ -1315,7 +1315,7 @@ export const parseLabOrderStatus = (
 
   // received: Task(RFRT).status = 'ready' and DR the Task is basedOn have DR.status = ‘final’
   const hasReadyTaskWithFinalResult = finalAndCorrectedTasks.some((task) => {
-    if (task.status !== 'ready') {
+    if (task.status !== 'ready' && task.status !== 'in-progress') {
       return false;
     }
 
@@ -1392,16 +1392,18 @@ export const parseLabOrderStatusWithSpecificTask = (
       } else {
         return ExternalLabsStatus.reviewed;
       }
-    } else if (task.status === 'ready') {
+    } else if (task.status === 'ready' || task.status === 'in-progress') {
       return ExternalLabsStatus.received;
     }
   }
 
-  if (result.status === 'corrected' && task.status === 'ready') return ExternalLabsStatus.corrected;
+  if (result.status === 'corrected' && (task.status === 'ready' || task.status === 'in-progress'))
+    return ExternalLabsStatus.corrected;
   if ((result.status === 'final' || result.status == 'corrected') && task.status === 'completed')
     return ExternalLabsStatus.reviewed;
   if (result.status === 'preliminary') return ExternalLabsStatus.prelim;
-  if (serviceRequest?.status === 'draft' && PSTTask?.status === 'ready') return ExternalLabsStatus.pending;
+  if (serviceRequest?.status === 'draft' && (PSTTask?.status === 'ready' || PSTTask?.status === 'in-progress'))
+    return ExternalLabsStatus.pending;
   if (serviceRequest?.status === 'active' && PSTTask?.status === 'completed') return ExternalLabsStatus.sent;
   return ExternalLabsStatus.unknown;
 };

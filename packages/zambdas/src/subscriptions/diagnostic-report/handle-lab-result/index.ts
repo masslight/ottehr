@@ -1,7 +1,6 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Patient, Task } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { getFullestAvailableName, getSecret, LAB_ORDER_TASK, LabType, Secrets, SecretsKeys } from 'utils';
 import { diagnosticReportSpecificResultType, getTestNameOrCodeFromDr } from '../../../ehr/shared/labs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
@@ -10,7 +9,7 @@ import {
   createExternalLabResultPDFBasedOnDr,
 } from '../../../shared/pdf/labs-results-form-pdf';
 import { createTask, getTaskLocationId } from '../../../shared/tasks';
-import { getCodeForNewTask, getStatusForNewTask, isUnsolicitedResult } from './helpers';
+import { getCodeForNewTask, isUnsolicitedResult } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'handle-lab-result';
@@ -85,112 +84,55 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         });
     });
 
-    if (
-      !isUnsolicited &&
-      !isUnsolicitedAndMatched &&
-      (diagnosticReport.status === 'final' || diagnosticReport.status === 'corrected')
-    ) {
-      const collectSampleTask = (
-        await oystehr.fhir.search<Task>({
-          resourceType: 'Task',
-          params: [
-            { name: 'based-on', value: `ServiceRequest/${serviceRequestID}` },
-            { name: 'code', value: LAB_ORDER_TASK.system + '|' + LAB_ORDER_TASK.code.collectSample },
-          ],
+    const preSubmissionTask = (
+      await oystehr.fhir.search<Task>({
+        resourceType: 'Task',
+        params: [
+          { name: 'based-on', value: `ServiceRequest/${serviceRequestID}` },
+          { name: 'code', value: LAB_ORDER_TASK.system + '|' + LAB_ORDER_TASK.code.preSubmission },
+        ],
+      })
+    ).unbundle()[0];
+    const patientId = diagnosticReport.subject?.reference?.split('/')[1];
+    const patient = patientId
+      ? await oystehr.fhir.get<Patient>({
+          resourceType: 'Patient',
+          id: patientId,
         })
-      ).unbundle()[0];
-      if (collectSampleTask) {
-        const reviewResultsTask = createTask({
-          category: LAB_ORDER_TASK.category,
-          code: {
-            system: LAB_ORDER_TASK.system,
-            code: LAB_ORDER_TASK.code.reviewResults,
-          },
-          encounterId: collectSampleTask.encounter?.reference?.split('/')[1] ?? '',
-          basedOn: `ServiceRequest/${serviceRequestID}`,
-          locationId: getTaskLocationId(collectSampleTask),
-          input: collectSampleTask.input,
-        });
-        requests.push({
-          method: 'POST',
-          url: '/Task',
-          resource: reviewResultsTask,
-        });
-      }
-    }
+      : undefined;
 
-    if (isUnsolicitedAndMatched && (diagnosticReport.status === 'final' || diagnosticReport.status === 'corrected')) {
-      const patientId = diagnosticReport.subject?.reference?.split('/')[1];
-      const patient = patientId
-        ? await oystehr.fhir.get<Patient>({
-            resourceType: 'Patient',
-            id: patientId,
-          })
-        : undefined;
-      const reviewResultsTask = createTask({
-        category: LAB_ORDER_TASK.category,
-        code: {
-          system: LAB_ORDER_TASK.system,
-          code: LAB_ORDER_TASK.code.reviewUnsolicitedResults,
-        },
-        basedOn: `DiagnosticReport/${diagnosticReport.id}`,
-        input: [
-          {
-            type: LAB_ORDER_TASK.input.testName,
-            value: getTestNameOrCodeFromDr(diagnosticReport),
-          },
-          {
-            type: LAB_ORDER_TASK.input.patientName,
-            value: patient ? getFullestAvailableName(patient) : 'Unknown',
-          },
-          {
-            type: LAB_ORDER_TASK.input.receivedDate,
-            value: diagnosticReport.effectiveDateTime,
-          },
-        ],
-      });
-      requests.push({
-        method: 'POST',
-        url: '/Task',
-        resource: reviewResultsTask,
-      });
-    }
-
-    if (isUnsolicited && !isUnsolicitedAndMatched && specificDrTypeFromTag !== LabType.pdfAttachment) {
-      const matchUnsolicitedTask = createTask({
-        category: LAB_ORDER_TASK.category,
-        code: {
-          system: LAB_ORDER_TASK.system,
-          code: LAB_ORDER_TASK.code.matchUnsolicited,
-        },
-        basedOn: `DiagnosticReport/${diagnosticReport.id}`,
-        input: [
-          {
-            type: LAB_ORDER_TASK.input.receivedDate,
-            value: diagnosticReport.effectiveDateTime,
-          },
-        ],
-      });
-      requests.push({
-        method: 'POST',
-        url: '/Task',
-        resource: matchUnsolicitedTask,
-      });
-    }
-
-    const newTask: Task = {
-      resourceType: 'Task',
-      authoredOn: diagnosticReport.effectiveDateTime ?? DateTime.now().toUTC().toISO(), // the effective date is also UTC
-      intent: 'order',
+    const newTask = createTask({
+      category: LAB_ORDER_TASK.category,
+      code: {
+        system: LAB_ORDER_TASK.system,
+        code: getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched),
+      },
+      encounterId: preSubmissionTask?.encounter?.reference?.split('/')[1] ?? '',
       basedOn: [
-        {
-          type: 'DiagnosticReport',
-          reference: `DiagnosticReport/${diagnosticReport.id}`,
-        },
+        `DiagnosticReport/${diagnosticReport.id}`,
+        ...(serviceRequestID ? [`ServiceRequest/${serviceRequestID}`] : []),
       ],
-      status: getStatusForNewTask(diagnosticReport.status),
-      code: getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched),
-    };
+      locationId: preSubmissionTask ? getTaskLocationId(preSubmissionTask) : undefined,
+      input: preSubmissionTask
+        ? preSubmissionTask.input
+        : [
+            {
+              type: LAB_ORDER_TASK.input.testName,
+              value: getTestNameOrCodeFromDr(diagnosticReport),
+            },
+            {
+              type: LAB_ORDER_TASK.input.receivedDate,
+              value: diagnosticReport.effectiveDateTime,
+            },
+            {
+              type: LAB_ORDER_TASK.input.patientName,
+              value: patient ? getFullestAvailableName(patient) : 'Unknown',
+            },
+          ],
+    });
+    if (diagnosticReport.status === 'cancelled') {
+      newTask.status = 'completed';
+    }
 
     // no task will be created for an unsolicited result pdf attachment
     // no result pdf can be created until it is matched and it should come in with at least one other DR that will trigger the task

@@ -64,7 +64,6 @@ export type LabOrderResources = {
   patient: Patient;
   practitioner: Practitioner;
   preSubmissionTask: Task;
-  collectSampleTask?: Task;
   labOrganization: Organization;
   encounter: Encounter;
   diagnosticReports: DiagnosticReport[]; // only present if results have come in
@@ -242,7 +241,6 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   const patients: Patient[] = [];
   const practitioners: Practitioner[] = [];
   const preSubmissionTasks: Task[] = [];
-  const collectSampleTasks: Task[] = [];
   const organizations: Organization[] = [];
   const encounters: Encounter[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
@@ -265,9 +263,6 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
     if (resource.resourceType === 'Task') {
       if (getCoding(resource.code, LAB_ORDER_TASK.system)?.code === LAB_ORDER_TASK.code.preSubmission) {
         preSubmissionTasks.push(resource);
-      }
-      if (getCoding(resource.code, LAB_ORDER_TASK.system)?.code === LAB_ORDER_TASK.code.collectSample) {
-        collectSampleTasks.push(resource);
       }
     }
     if (resource.resourceType === 'DiagnosticReport') {
@@ -305,7 +300,6 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   const patient = patients[0];
   const practitioner = practitioners[0];
   const preSubmissionTask = preSubmissionTasks[0];
-  const collectSampleTask = collectSampleTasks[0];
   const labOrganization = organizations[0];
   const encounter = encounters[0];
   const questionnaireResponse = questionnaireResponses?.[0];
@@ -347,7 +341,6 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
     patient,
     practitioner,
     preSubmissionTask,
-    collectSampleTask,
     labOrganization,
     encounter,
     diagnosticReports,
@@ -970,7 +963,7 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
     }
     if (resource.resourceType === 'Task') {
       if (resource.id) {
-        if (resource.status === 'ready') {
+        if (resource.status === 'ready' || resource.status === 'in-progress') {
           readyTasksMap[resource.id] = resource;
         } else if (resource.status === 'completed') {
           completedTasksMap[resource.id] = resource;

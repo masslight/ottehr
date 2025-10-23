@@ -674,7 +674,7 @@ async function getResultsDetailsForPDF(
         },
         {
           name: 'status',
-          value: 'completed,ready',
+          value: 'completed,ready,in-progress',
         },
         {
           name: 'code',

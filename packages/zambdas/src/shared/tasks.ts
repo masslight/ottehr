@@ -16,7 +16,7 @@ export function createTask(data: {
   encounterId?: string;
   locationId?: string;
   input?: { type: string; value?: string }[] | TaskInput[];
-  basedOn?: string;
+  basedOn?: string[];
 }): Task {
   const tag: Coding[] = [
     {
@@ -50,11 +50,11 @@ export function createTask(data: {
     authoredOn: DateTime.now().toISO(),
     intent: 'order',
     basedOn: data.basedOn
-      ? [
-          {
-            reference: data.basedOn,
-          },
-        ]
+      ? data.basedOn.map((basedOn) => {
+          return {
+            reference: basedOn,
+          };
+        })
       : undefined,
     input: undefinedIfEmptyArray(
       (data.input ?? [])
