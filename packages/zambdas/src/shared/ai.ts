@@ -7,6 +7,7 @@ import { uuid } from 'short-uuid';
 import {
   AI_OBSERVATION_META_SYSTEM,
   AiObservationField,
+  fixAndParseJsonObjectFromString,
   getFormatDuration,
   getSecret,
   MIME_TYPES,
@@ -102,7 +103,13 @@ export async function createResourcesFromAiInterview(
     await invokeChatbot([{ role: 'user', content: getPrompt(fields) + '\n' + chatTranscript }], secrets)
   ).content.toString();
   console.log(`AI response: "${aiResponseString}"`);
-  const aiResponse = JSON.parse(aiResponseString);
+  let aiResponse;
+  try {
+    aiResponse = JSON.parse(aiResponseString);
+  } catch (error) {
+    console.warn('Failed to parse AI response, attempting to fix JSON format:', error);
+    aiResponse = fixAndParseJsonObjectFromString(aiResponseString);
+  }
   const encounter = await oystehr.fhir.get<Encounter>({
     resourceType: 'Encounter',
     id: encounterID,
@@ -273,7 +280,13 @@ export async function generateIcdTenCodesFromNotes(
     const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
 
     console.log(`AI ICD-10 codes response: "${aiResponseString}"`);
-    const aiResponse = JSON.parse(aiResponseString);
+    let aiResponse;
+    try {
+      aiResponse = JSON.parse(aiResponseString);
+    } catch (parseError) {
+      console.warn('Failed to parse AI ICD-10 response, attempting to fix JSON format:', parseError);
+      aiResponse = fixAndParseJsonObjectFromString(aiResponseString);
+    }
 
     return aiResponse.potentialDiagnoses || [];
   } catch (error) {
