@@ -1,12 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  APIError,
-  getSecret,
-  GetUnsolicitedResultsResourcesOutput,
-  isApiError,
-  SecretsKeys,
-  UnsolicitedResultsRequestType,
-} from 'utils';
+import { getSecret, GetUnsolicitedResultsResourcesOutput, SecretsKeys, UnsolicitedResultsRequestType } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -92,15 +85,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
-    let body = JSON.stringify({ message: `Error getting unsolicited result resources: ${error}` });
-    if (isApiError(error)) {
-      const { code, message } = error as APIError;
-      body = JSON.stringify({ message, code });
-    }
-    return {
-      statusCode: 500,
-      body,
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });

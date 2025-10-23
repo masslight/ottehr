@@ -1,4 +1,5 @@
 // cSpell:ignore RCRT, RFRT, RPRT
+import { Coding } from 'fhir/r4b';
 import { Pagination } from '..';
 import { LabelConfig, LabType } from './labs.types';
 
@@ -15,6 +16,7 @@ export const PSC_HOLD_CONFIG = {
 };
 
 export const LAB_ORDER_TASK = {
+  category: 'external-lab',
   system: 'external-lab-task',
   code: {
     matchUnsolicitedResult: 'MURT',
@@ -23,6 +25,14 @@ export const LAB_ORDER_TASK = {
     reviewFinalResult: 'RFRT',
     reviewCorrectedResult: 'RCRT',
     reviewCancelledResult: 'RCANRT', // cancelled by the lab
+  },
+  input: {
+    testName: 'test-name',
+    patientName: 'patient-name',
+    providerName: 'provider-name',
+    orderDate: 'order-date',
+    appointmentId: 'appointment-id',
+    receivedDate: 'received-date',
   },
 } as const;
 export type LabOrderTaskCode = (typeof LAB_ORDER_TASK.code)[keyof typeof LAB_ORDER_TASK.code];
@@ -154,7 +164,12 @@ export const OYSTEHR_LAB_DOC_CATEGORY_CODING = {
   display: 'Lab ABN Document',
 };
 
-export const OYSTEHR_ABN_DOC_REF_CODING_CODE = {
+export const OYSTEHR_ABN_DOC_REF_CODING_UNIQUE: Coding = {
+  system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+  code: 'external-lab-abn',
+  display: 'External Lab ABN Consent',
+};
+export const OYSTEHR_ABN_DOC_REF_CODING_LOINC: Coding = {
   system: 'http://loinc.org',
   code: '59284-0',
   display: 'Consent Document',
