@@ -156,7 +156,6 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
     await locator.insuranceOption.click();
     await expect(locator.insuranceHeading).toBeVisible();
-    await locator.addSecondaryInsurance.click();
     await test.step('Secondary Insurance cards are prefilled', async () => {
       await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
       await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
