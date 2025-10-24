@@ -75,7 +75,18 @@ export async function fetchRelatedResources(
     requests,
   });
   console.log(`bundle:\n${JSON.stringify(bundle, null, 2)}`);
-  const resources = bundle.unbundle();
+  const resources = (bundle.entry ?? []).flatMap((entry) => {
+    if (entry.resource) {
+      if (entry.resource.resourceType === 'Bundle') {
+        const innerBundle = entry.resource;
+        return (innerBundle.entry ?? []).flatMap((innerEntry) => (innerEntry.resource ? [innerEntry.resource] : []));
+      } else {
+        return [entry.resource];
+      }
+    }
+    return [];
+  });
+  console.log(`resources:\n${JSON.stringify(resources, null, 2)}`);
   return {
     tasks: resources.filter((resource) => resource.resourceType === 'Task'),
     patient: resources.find((resource) => resource.resourceType === 'Patient'),
