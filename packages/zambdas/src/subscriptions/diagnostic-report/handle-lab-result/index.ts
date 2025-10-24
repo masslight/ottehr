@@ -1,7 +1,8 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DiagnosticReport, Patient, Task, TaskInput } from 'fhir/r4b';
+import { DiagnosticReport, Task, TaskInput } from 'fhir/r4b';
 import {
+  getCoding,
   getFullestAvailableName,
   getSecret,
   getTestNameOrCodeFromDr,
@@ -17,7 +18,7 @@ import {
   createExternalLabResultPDFBasedOnDr,
 } from '../../../shared/pdf/labs-results-form-pdf';
 import { createTask, getTaskLocationId } from '../../../shared/tasks';
-import { getCodeForNewTask, isUnsolicitedResult } from './helpers';
+import { fetchRelatedResources, getCodeForNewTask, isUnsolicitedResult } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'handle-lab-result';
@@ -47,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const isUnsolicited = isUnsolicitedResult(specificDrTypeFromTag, diagnosticReport);
     const isUnsolicitedAndMatched = isUnsolicited && !!diagnosticReport.subject?.reference?.startsWith('Patient/');
 
-    const serviceRequestID = diagnosticReport?.basedOn
+    const serviceRequestId = diagnosticReport?.basedOn
       ?.find((temp) => temp.reference?.startsWith('ServiceRequest/'))
       ?.reference?.split('/')[1];
 
@@ -55,30 +56,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('isUnsolicitedAndMatched:', isUnsolicitedAndMatched);
     console.log('isUnsolicited', isUnsolicited);
     console.log('diagnosticReport: ', diagnosticReport.id);
-    console.log('serviceRequestID:', serviceRequestID);
+    console.log('serviceRequestId:', serviceRequestId);
 
-    if (!serviceRequestID && specificDrTypeFromTag === undefined) {
+    if (!serviceRequestId && specificDrTypeFromTag === undefined) {
       throw new Error('ServiceRequest id is not found');
     }
 
     const oystehr = createOystehrClient(oystehrToken, secrets);
+    const { tasks, patient, labOrg } = await fetchRelatedResources(diagnosticReport, oystehr);
+
     const requests: BatchInputRequest<Task>[] = [];
 
     // See if the diagnosticReport has any existing tasks associated in the
     // if there were existing in-progress or ready tasks, then those should be set to 'cancelled' (two l's)
-    const existingTasks = (
-      await oystehr.fhir.search<Task>({
-        resourceType: 'Task',
-        params: [
-          { name: 'based-on', value: `DiagnosticReport/${diagnosticReport.id}` },
-          { name: 'code:not', value: LAB_ORDER_TASK.code.preSubmission },
-          { name: 'status', value: 'ready,in-progress' },
-        ],
-      })
-    ).unbundle();
-
-    existingTasks.forEach((task) => {
-      if (task.id)
+    tasks.forEach((task) => {
+      if (
+        ['ready', 'in-progress'].includes(task.status) &&
+        getCoding(task.code, LAB_ORDER_TASK.system)?.code != LAB_ORDER_TASK.code.preSubmission
+      ) {
         requests.push({
           url: `/Task/${task.id}`,
           method: 'PATCH',
@@ -90,33 +85,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             },
           ],
         });
+      }
     });
 
-    // todo these additional fhir calls can probably happen in one query or at least in a transaction
-    const preSubmissionTask = (
-      await oystehr.fhir.search<Task>({
-        resourceType: 'Task',
-        params: [
-          { name: 'based-on', value: `ServiceRequest/${serviceRequestID}` },
-          { name: 'code', value: LAB_ORDER_TASK.system + '|' + LAB_ORDER_TASK.code.preSubmission },
-        ],
-      })
-    ).unbundle()[0];
-    const patientId = diagnosticReport.subject?.reference?.split('/')[1];
-    const patient = patientId
-      ? await oystehr.fhir.get<Patient>({
-          resourceType: 'Patient',
-          id: patientId,
-        })
-      : undefined;
+    const preSubmissionTask = tasks.find(
+      (task) => getCoding(task.code, LAB_ORDER_TASK.system)?.code == LAB_ORDER_TASK.code.preSubmission
+    );
 
     const taskInput: { type: string; value?: string }[] | TaskInput[] | undefined = preSubmissionTask
       ? preSubmissionTask.input
       : [
           {
             type: LAB_ORDER_TASK.input.testName,
-            // this is just the test name, we should pull the lab name too if possible
             value: getTestNameOrCodeFromDr(diagnosticReport),
+          },
+          {
+            type: LAB_ORDER_TASK.input.labName,
+            value: labOrg?.name,
           },
           {
             type: LAB_ORDER_TASK.input.receivedDate,
@@ -124,9 +109,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           },
           {
             type: LAB_ORDER_TASK.input.patientName,
-            // we won't have a fhir resource for patient for unsolicited but we will have the patient information embedded in the DR
-            // i think its misleading to put unknown in this case, maybe we should not add this input for unsolicited
-            value: patient ? getFullestAvailableName(patient) : 'Unknown',
+            value: patient ? getFullestAvailableName(patient) : undefined,
           },
         ];
 
@@ -146,7 +129,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounterId: preSubmissionTask?.encounter?.reference?.split('/')[1] ?? '',
       basedOn: [
         `DiagnosticReport/${diagnosticReport.id}`,
-        ...(serviceRequestID ? [`ServiceRequest/${serviceRequestID}`] : []),
+        ...(serviceRequestId ? [`ServiceRequest/${serviceRequestId}`] : []),
       ],
       locationId: preSubmissionTask ? getTaskLocationId(preSubmissionTask) : undefined,
       input: taskInput,
@@ -186,8 +169,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       else if (ent.response?.outcome?.id === 'created' && ent.resource) response.createdTasks.push(ent.resource);
     });
 
-    if (serviceRequestID) {
-      await createExternalLabResultPDF(oystehr, serviceRequestID, diagnosticReport, false, secrets, oystehrToken);
+    if (serviceRequestId) {
+      await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, false, secrets, oystehrToken);
     } else if (specificDrTypeFromTag !== undefined) {
       // unsolicited result pdfs will be created after matching to a patient
       if (

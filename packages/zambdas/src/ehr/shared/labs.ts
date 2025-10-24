@@ -296,7 +296,7 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   if (serviceRequests?.length !== 1) throw new Error('service request is not found');
   if (patients?.length !== 1) throw new Error('patient is not found');
   if (practitioners?.length !== 1) throw new Error('practitioner is not found');
-  if (preSubmissionTasks?.length !== 1) throw new Error('task is not found');
+  if (preSubmissionTasks?.length !== 1) throw new Error('preSubmissionTasks is not found');
   if (organizations?.length !== 1) throw new Error('performing lab Org not found');
   if (encounters?.length !== 1) throw new Error('encounter is not found');
   if (accounts.length !== 1) throw new Error(`found ${accounts.length} active accounts. Expected 1.`);

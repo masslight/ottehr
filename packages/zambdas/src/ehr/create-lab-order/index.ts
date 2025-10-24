@@ -252,6 +252,10 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
           value: activityDefinitionToContain.name,
         },
         {
+          type: LAB_ORDER_TASK.input.labName,
+          value: labOrganization.name,
+        },
+        {
           type: LAB_ORDER_TASK.input.patientName,
           value: getFullestAvailableName(patient),
         },

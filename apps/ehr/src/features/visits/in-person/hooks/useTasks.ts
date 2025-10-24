@@ -211,6 +211,8 @@ function fhirTaskToTask(task: FhirTask): Task {
   if (category === LAB_ORDER_TASK.category) {
     const code = getCoding(task.code, LAB_ORDER_TASK.system)?.code ?? '';
     const testName = getInput(LAB_ORDER_TASK.input.testName, task);
+    const labName = getInput(LAB_ORDER_TASK.input.labName, task);
+    const fullTestName = testName + (labName ? '/' + labName : '');
     const patientName = getInput(LAB_ORDER_TASK.input.patientName, task);
     const appointmentId = getInput(LAB_ORDER_TASK.input.appointmentId, task);
     const serviceRequestId = task.basedOn
@@ -224,7 +226,7 @@ function fhirTaskToTask(task: FhirTask): Task {
     const labTypeString = getInput(LAB_ORDER_TASK.input.drTag, task);
 
     if (code === LAB_ORDER_TASK.code.preSubmission) {
-      title = `Collect sample for “${testName}” for ${patientName}`;
+      title = `Collect sample for “${fullTestName}” for ${patientName}`;
       subtitle = `Ordered by ${providerName} on ${
         orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
       }`;
@@ -237,7 +239,7 @@ function fhirTaskToTask(task: FhirTask): Task {
       serviceRequestId &&
       (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
     ) {
-      title = `Review results for “${testName}” for ${patientName}`;
+      title = `Review results for “${fullTestName}” for ${patientName}`;
       subtitle = `Ordered by ${providerName} on ${
         orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
       }`;
@@ -261,7 +263,7 @@ function fhirTaskToTask(task: FhirTask): Task {
       (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
     ) {
       const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
-      title = `Review unsolicited test results for “${testName}” for ${patientName}`;
+      title = `Review unsolicited test results for “${fullTestName}” for ${patientName}`;
       subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
       action = {
         name: 'Go to Lab Test',

@@ -1,4 +1,5 @@
-import { DiagnosticReport } from 'fhir/r4b';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { DiagnosticReport, FhirResource, Organization, Patient, Task } from 'fhir/r4b';
 import { LAB_DR_TYPE_TAG, LAB_ORDER_TASK, LabOrderTaskCode, LabType } from 'utils';
 import { getAllDrTags } from '../../../ehr/shared/labs';
 
@@ -33,3 +34,62 @@ export const isUnsolicitedResult = (specificTag: LabType | undefined, dr: Diagno
   }
   return false;
 };
+
+export async function fetchRelatedResources(
+  diagnosticReport: DiagnosticReport,
+  oystehr: Oystehr
+): Promise<{
+  tasks: Task[];
+  patient?: Patient;
+  labOrg?: Organization;
+}> {
+  const patientReference = diagnosticReport.subject?.reference;
+  const serviceRequestReference = diagnosticReport?.basedOn?.find(
+    (temp) => temp.reference?.startsWith('ServiceRequest/')
+  )?.reference;
+  const labOrgReference = diagnosticReport.performer?.find(
+    (performer) => performer.reference != null && performer.reference.startsWith('Organization')
+  )?.reference;
+  const requests: BatchInputRequest<FhirResource>[] = [
+    {
+      method: 'GET',
+      url: `/Task?based-on=DiagnosticReport/${diagnosticReport.id}${
+        serviceRequestReference ? ',' + serviceRequestReference : ''
+      }`,
+    },
+  ];
+  if (patientReference) {
+    requests.push({
+      method: 'GET',
+      url: `/${patientReference}`,
+    });
+  }
+  if (labOrgReference) {
+    requests.push({
+      method: 'GET',
+      url: `/${labOrgReference}`,
+    });
+  }
+  console.log(`requests:\n${JSON.stringify(requests, null, 2)}`);
+  const bundle = await oystehr.fhir.batch({
+    requests,
+  });
+  console.log(`bundle:\n${JSON.stringify(bundle, null, 2)}`);
+  const resources = (bundle.entry ?? []).flatMap((entry) => {
+    if (entry.resource) {
+      if (entry.resource.resourceType === 'Bundle') {
+        const innerBundle = entry.resource;
+        return (innerBundle.entry ?? []).flatMap((innerEntry) => (innerEntry.resource ? [innerEntry.resource] : []));
+      } else {
+        return [entry.resource];
+      }
+    }
+    return [];
+  });
+  console.log(`resources:\n${JSON.stringify(resources, null, 2)}`);
+  return {
+    tasks: resources.filter((resource) => resource.resourceType === 'Task'),
+    patient: resources.find((resource) => resource.resourceType === 'Patient'),
+    labOrg: resources.find((resource) => resource.resourceType === 'Organization'),
+  };
+}
