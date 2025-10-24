@@ -7,6 +7,7 @@ import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './in-perso
 import { expectAssessmentPage, InPersonAssessmentPage } from './in-person/InPersonAssessmentPage';
 import { expectInPersonProgressNotePage, InPersonProgressNotePage } from './in-person/InPersonProgressNotePage';
 import { expectMedicalConditionsPage, MedicalConditionsPage } from './MedicalConditionsPage';
+import { expectSurgicalHistoryPage, SurgicalHistoryPage } from './SurgicalHistoryPage';
 
 export class SideMenu {
   #page: Page;
@@ -30,6 +31,10 @@ export class SideMenu {
   async clickMedicalConditions(): Promise<MedicalConditionsPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('medical-conditions')).click();
     return expectMedicalConditionsPage(this.#page);
+  }
+  async clickSurgicalHistory(): Promise<SurgicalHistoryPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('surgical-history')).click();
+    return expectSurgicalHistoryPage(this.#page);
   }
   async clickHospitalization(): Promise<HospitalizationPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('hospitalization')).click();
