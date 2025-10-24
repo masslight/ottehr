@@ -6,8 +6,8 @@ const globalSetup = async (_config: FullConfig): Promise<void> => {
   if (!processId) {
     throw new Error('PLAYWRIGHT_SUITE_ID is not set. Please set it before running the tests.');
   }
-  if (!processId.startsWith('intake-')) {
-    throw new Error('PLAYWRIGHT_SUITE_ID must start with "intake-". Current value: ' + processId);
+  if (!processId.startsWith('intake-') && !processId.startsWith('ehr-')) {
+    throw new Error('PLAYWRIGHT_SUITE_ID must start with "intake-" or "ehr-". Current value: ' + processId);
   }
   console.log('Running global setup for intake tests', processId);
 

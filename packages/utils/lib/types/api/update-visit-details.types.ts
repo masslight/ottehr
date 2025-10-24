@@ -8,6 +8,9 @@ export interface BookingDetails {
     last?: string;
     suffix?: string;
   };
+  consentForms?: {
+    consentAttested: boolean;
+  };
 }
 
 export interface UpdateVisitDetailsInput {

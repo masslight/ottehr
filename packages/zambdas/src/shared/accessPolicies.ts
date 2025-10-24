@@ -6,6 +6,7 @@ export const ADMINISTRATOR_RULES: AccessPolicy = {
       action: ['FHIR:Search', 'FHIR:Read'],
       effect: 'Allow',
       resource: [
+        'FHIR:Account',
         'FHIR:Consent',
         'FHIR:Coverage',
         'FHIR:RelatedPerson',
@@ -95,6 +96,7 @@ export const MANAGER_RULES: AccessPolicy = {
       action: ['FHIR:Search', 'FHIR:Read'],
       effect: 'Allow',
       resource: [
+        'FHIR:Account',
         'FHIR:Consent',
         'FHIR:Coverage',
         'FHIR:RelatedPerson',
@@ -191,6 +193,7 @@ export const STAFF_RULES: AccessPolicy = {
   rule: [
     {
       resource: [
+        'FHIR:Account',
         'FHIR:Consent',
         'FHIR:Coverage',
         'FHIR:RelatedPerson',
@@ -258,6 +261,7 @@ export const PROVIDER_RULES: AccessPolicy = {
   rule: [
     {
       resource: [
+        'FHIR:Account',
         'FHIR:Consent',
         'FHIR:Coverage',
         'FHIR:RelatedPerson',
