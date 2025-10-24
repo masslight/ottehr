@@ -110,6 +110,17 @@
       "reason6": "Problema de responsabilidad financiera",
       "reason7": "Problema con el seguro"
     },
+     "telemedReasons": {
+      "reason1": "Tiempo de espera demasiado largo",
+      "reason2": "Voy a otra empresa",
+      "reason3": "Voy a un servicio de urgencias",
+      "reason4": "El costo es demasiado alto",
+      "reason5": "Problema con el seguro",
+      "reason6": "Problema técnico",
+      "reason7": "El paciente mejoró",
+      "reason8": "Hice clic por accidente",
+      "reason9": "Otro"
+    },
     "subtitle": "Motivo de cancelación",
     "title": "¿Por qué cancela?"
   },

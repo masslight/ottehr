@@ -110,6 +110,17 @@
       "reason6": "Financial responsibility concern",
       "reason7": "Insurance issue"
     },
+    "telemedReasons": {
+      "reason1": "Wait time too long",
+      "reason2": "Going to another company",
+      "reason3": "Going to an emergency department",
+      "reason4": "Cost is too high",
+      "reason5": "Insurance issue",
+      "reason6": "Technical issue",
+      "reason7": "Patient improved",
+      "reason8": "Clicked accidentally",
+      "reason9": "Other"
+    },
     "subtitle": "Cancelation reason",
     "title": "Why are you canceling?"
   },

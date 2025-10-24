@@ -36,12 +36,12 @@ interface ProcedureInfo {
   bodySite: string;
   bodySide: string;
   technique: string;
-  instruments: string;
+  instruments: string[];
   details: string;
   specimenSent: string;
   complication: string;
   patientResponse: string;
-  instructions: string;
+  instructions: string[];
   timeSpent: string;
   documentedBy: string;
 }
@@ -93,12 +93,12 @@ const PROCEDURE_A: ProcedureInfo = {
   bodySite: PROCEDURE_BODY_SITES_CODINGS[0].display,
   bodySide: PROCEDURE_BODY_SIDES_CODINGS[0].display,
   technique: PROCEDURE_TECHNIQUES_CODINGS[0].display,
-  instruments: PROCEDURE_SUPPLIES_CODINGS[0].display,
+  instruments: [PROCEDURE_SUPPLIES_CODINGS[0].display],
   details: 'test details a',
   specimenSent: 'Yes',
   complication: PROCEDURE_COMPLICATIONS_CODINGS[1].display,
   patientResponse: PROCEDURE_PATIENT_RESPONSES_CODINGS[0].display,
-  instructions: PROCEDURE_POST_INSTRUCTIONS_CODINGS[0].display,
+  instructions: [PROCEDURE_POST_INSTRUCTIONS_CODINGS[0].display],
   timeSpent: PROCEDURE_TIME_SPENT_CODINGS[0].display,
   documentedBy: 'Provider',
 };
@@ -116,12 +116,12 @@ const PROCEDURE_B: ProcedureInfo = {
   bodySite: PROCEDURE_BODY_SITES_CODINGS[1].display,
   bodySide: PROCEDURE_BODY_SIDES_CODINGS[1].display,
   technique: PROCEDURE_TECHNIQUES_CODINGS[1].display,
-  instruments: PROCEDURE_SUPPLIES_CODINGS[1].display,
+  instruments: [PROCEDURE_SUPPLIES_CODINGS[1].display],
   details: 'test details b',
   specimenSent: 'No',
   complication: PROCEDURE_COMPLICATIONS_CODINGS[2].display,
   patientResponse: PROCEDURE_PATIENT_RESPONSES_CODINGS[1].display,
-  instructions: PROCEDURE_POST_INSTRUCTIONS_CODINGS[1].display,
+  instructions: [PROCEDURE_POST_INSTRUCTIONS_CODINGS[1].display],
   timeSpent: PROCEDURE_TIME_SPENT_CODINGS[1].display,
   documentedBy: 'Healthcare staff',
 };

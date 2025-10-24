@@ -31,11 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error) {
     console.log(error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('delete-patient-instruction', error, ENVIRONMENT);
-    return {
-      body: JSON.stringify({ message: 'Error deleting patient instructions...' }),
-      statusCode: 500,
-    };
+    return topLevelCatch('delete-patient-instruction', error, ENVIRONMENT);
   }
 });
 

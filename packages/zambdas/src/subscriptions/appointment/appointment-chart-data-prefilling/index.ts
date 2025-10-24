@@ -192,10 +192,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-telemedicine-appointment-subscription', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify(error.message),
-    };
+    return topLevelCatch('admin-telemedicine-appointment-subscription', error, ENVIRONMENT);
   }
 });

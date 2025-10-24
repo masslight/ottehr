@@ -24,8 +24,10 @@ import {
   createReference,
   getInsuranceNameFromCoverage,
   getResourcesFromBatchInlineRequests,
+  getSecret,
+  SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { addCoverageAndRelatedResourcesToPackages, addInsuranceToResultPackages } from './helpers/fhir-utils';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -48,8 +50,8 @@ export interface ClaimPackage {
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
-
-export const index = wrapHandler('get-claims', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'get-claims';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
@@ -64,10 +66,7 @@ export const index = wrapHandler('get-claims', async (input: ZambdaInput): Promi
     };
   } catch (error: any) {
     console.error(error, JSON.stringify(error));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error trying to get claims.' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
