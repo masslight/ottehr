@@ -976,6 +976,13 @@
       "src": "src/ehr/schedules/create-schedule/index",
       "zip": ".dist/zips/create-schedule.zip"
     },
+    "RECOMMEND-BILLING-CODES": {
+      "name": "recommend-billing-codes",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/recommend-billing-codes/index",
+      "zip": ".dist/zips/recommend-billing-codes.zip"
+    },
     "AI-INTERVIEW-SUMMARY": {
       "name": "ai-interview-summary",
       "type": "subscription",
@@ -1361,7 +1368,7 @@
         "resourceType": "Subscription",
         "status": "active",
         "reason": "send visit note PDF and email",
-        "criteria": "Task?code=visit-note-pdf-and-email|&status=requested",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email|visit-note-pdf-and-email&status=requested",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-VISIT-NOTE-PDF-AND-EMAIL/id}"
@@ -5781,6 +5788,7 @@
           "action": ["FHIR:Search", "FHIR:Read"],
           "effect": "Allow",
           "resource": [
+            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
@@ -5869,23 +5877,6 @@
       "name": "Customer Support",
       "accessPolicy": [
         {
-          "action": ["FHIR:Search", "FHIR:Read"],
-          "effect": "Allow",
-          "resource": [
-            "FHIR:Consent",
-            "FHIR:Coverage",
-            "FHIR:RelatedPerson",
-            "FHIR:Organization",
-            "FHIR:QuestionnaireResponse",
-            "FHIR:Questionnaire",
-            "FHIR:DocumentReference",
-            "FHIR:Person",
-            "FHIR:Medication",
-            "FHIR:List",
-            "FHIR:Schedule"
-          ]
-        },
-        {
           "action": ["App:ListAllUsers", "App:GetUser"],
           "effect": "Allow",
           "resource": ["App:User"]
@@ -5961,6 +5952,7 @@
         },
         {
           "resource": [
+            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
@@ -6055,6 +6047,7 @@
           "action": ["FHIR:Search", "FHIR:Read"],
           "effect": "Allow",
           "resource": [
+            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
@@ -6164,6 +6157,7 @@
       "accessPolicy": [
         {
           "resource": [
+            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
@@ -6233,6 +6227,7 @@
       "accessPolicy": [
         {
           "resource": [
+            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",

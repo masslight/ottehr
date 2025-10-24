@@ -36,7 +36,7 @@ on:
 jobs:
   deploy:
     env:
-      NODE_OPTIONS: '--max_old_space_size=4096'
+      NODE_OPTIONS: '--max_old_space_size=8192'
       ENVIRONMENT: ${{ github.event.inputs.environment }}
       SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
       AWS_DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE }} # AWS IAM role for deployment

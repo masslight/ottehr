@@ -33,11 +33,14 @@ import {
   externalLabOrderIsManual,
   ExternalLabOrderResult,
   ExternalLabOrderResultConfig,
+  getCoding,
   getOrderNumber,
   getPresignedURL,
+  getTestNameOrCodeFromDr,
   getTimezone,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
   IN_HOUSE_TEST_CODE_SYSTEM,
+  INCONCLUSIVE_RESULT_DR_TAG,
   InHouseLabResult,
   LAB_DR_TYPE_TAG,
   LAB_ORDER_DOC_REF_CODING_CODE,
@@ -51,6 +54,8 @@ import {
   LabResultPDF,
   LabType,
   nameLabTest,
+  NEUTRAL_RESULT_DR_TAG,
+  NonNormalResult,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_DOC_CATEGORY_CODING,
   OYSTEHR_LAB_GUID_SYSTEM,
@@ -240,7 +245,7 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   const serviceRequests: ServiceRequest[] = [];
   const patients: Patient[] = [];
   const practitioners: Practitioner[] = [];
-  const tasks: Task[] = [];
+  const preSubmissionTasks: Task[] = [];
   const organizations: Organization[] = [];
   const encounters: Encounter[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
@@ -261,10 +266,9 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
     if (resource.resourceType === 'QuestionnaireResponse') questionnaireResponses.push(resource);
     if (resource.resourceType === 'Schedule') schedules.push(resource);
     if (resource.resourceType === 'Task') {
-      const taskIsPst = !!resource.code?.coding?.find(
-        (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.preSubmission
-      );
-      if (taskIsPst) tasks.push(resource);
+      if (getCoding(resource.code, LAB_ORDER_TASK.system)?.code === LAB_ORDER_TASK.code.preSubmission) {
+        preSubmissionTasks.push(resource);
+      }
     }
     if (resource.resourceType === 'DiagnosticReport') {
       const isCorrectCategory = diagnosticReportIncludesCategory(
@@ -292,7 +296,7 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   if (serviceRequests?.length !== 1) throw new Error('service request is not found');
   if (patients?.length !== 1) throw new Error('patient is not found');
   if (practitioners?.length !== 1) throw new Error('practitioner is not found');
-  if (tasks?.length !== 1) throw new Error('task is not found');
+  if (preSubmissionTasks?.length !== 1) throw new Error('task is not found');
   if (organizations?.length !== 1) throw new Error('performing lab Org not found');
   if (encounters?.length !== 1) throw new Error('encounter is not found');
   if (accounts.length !== 1) throw new Error(`found ${accounts.length} active accounts. Expected 1.`);
@@ -300,7 +304,7 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   const serviceRequest = serviceRequests[0];
   const patient = patients[0];
   const practitioner = practitioners[0];
-  const preSubmissionTask = tasks[0];
+  const preSubmissionTask = preSubmissionTasks[0];
   const labOrganization = organizations[0];
   const encounter = encounters[0];
   const questionnaireResponse = questionnaireResponses?.[0];
@@ -485,14 +489,9 @@ export const makeEncounterLabResults = async (
             formattedName = nameLabTest(reflexTestName, labName, true);
           }
 
-          // this tag would be set by oystehr when the DR is created
-          const drIsTaggedAbnormal = !!relatedDR.meta?.tag?.find(
-            (tag) => tag.system === ABNORMAL_RESULT_DR_TAG.system && tag.code === ABNORMAL_RESULT_DR_TAG.code
-          );
-
           const { externalResultConfigs } = await getLabOrderResultPDFConfig(docRef, formattedName, m2mToken, {
             type: LabType.external,
-            containsAbnormalResult: drIsTaggedAbnormal,
+            nonNormalResultContained: nonNonNormalTagsContained(relatedDR),
             orderNumber,
           });
           if (isReflex) {
@@ -501,16 +500,13 @@ export const makeEncounterLabResults = async (
             externalLabOrderResults.push(...externalResultConfigs);
           }
         } else if (relatedSRDetail.type === LabType.inHouse) {
-          const drIsTaggedAbnormal = !!relatedDR.meta?.tag?.find(
-            (tag) => tag.system === ABNORMAL_RESULT_DR_TAG.system && tag.code === ABNORMAL_RESULT_DR_TAG.code
-          );
           const sr = relatedSRDetail.resource;
           const testName = sr.code?.text;
           const { inHouseResultConfigs } = await getLabOrderResultPDFConfig(
             docRef,
             testName || 'missing test details',
             m2mToken,
-            { type: LabType.inHouse, containsAbnormalResult: drIsTaggedAbnormal }
+            { type: LabType.inHouse, nonNormalResultContained: nonNonNormalTagsContained(relatedDR) }
           );
           inHouseLabOrderResults.push(...inHouseResultConfigs);
         }
@@ -556,6 +552,25 @@ export const makeEncounterLabResults = async (
   return { externalLabResultConfig, inHouseLabResultConfig };
 };
 
+// these tags would be set by oystehr when the DR is created for external labs
+const nonNonNormalTagsContained = (dr: DiagnosticReport): NonNormalResult[] | undefined => {
+  const drIsTaggedAbnormal = dr.meta?.tag?.some(
+    (tag) => tag.system === ABNORMAL_RESULT_DR_TAG.system && tag.code === ABNORMAL_RESULT_DR_TAG.code
+  );
+  const drIsTaggedInconclusive = dr.meta?.tag?.some(
+    (tag) => tag.system === INCONCLUSIVE_RESULT_DR_TAG.system && tag.code === INCONCLUSIVE_RESULT_DR_TAG.code
+  );
+  const drIsTaggedNeutral = dr.meta?.tag?.some(
+    (tag) => tag.system === NEUTRAL_RESULT_DR_TAG.system && tag.code === NEUTRAL_RESULT_DR_TAG.code
+  );
+  let nonNormalResultContained: NonNormalResult[] | undefined = [];
+  if (drIsTaggedAbnormal) nonNormalResultContained.push(NonNormalResult.Abnormal);
+  if (drIsTaggedInconclusive) nonNormalResultContained.push(NonNormalResult.Inconclusive);
+  if (drIsTaggedNeutral) nonNormalResultContained.push(NonNormalResult.Neutral);
+  if (nonNormalResultContained.length === 0) nonNormalResultContained = undefined;
+  return nonNormalResultContained;
+};
+
 const getLabOrderResultPDFConfig = async (
   docRef: DocumentReference,
   formattedName: string,
@@ -563,12 +578,12 @@ const getLabOrderResultPDFConfig = async (
   resultDetails:
     | {
         type: LabType.external;
-        containsAbnormalResult: boolean;
+        nonNormalResultContained: NonNormalResult[] | undefined;
         orderNumber?: string;
       }
     | {
         type: LabType.inHouse;
-        containsAbnormalResult: boolean;
+        nonNormalResultContained: NonNormalResult[] | undefined;
         simpleResultValue?: string; // todo not implemented, displaying this is a post mvp feature
       }
 ): Promise<{ externalResultConfigs: ExternalLabOrderResultConfig[]; inHouseResultConfigs: InHouseLabResult[] }> => {
@@ -588,7 +603,7 @@ const getLabOrderResultPDFConfig = async (
         const labResult: ExternalLabOrderResultConfig = {
           name: formattedName,
           url,
-          containsAbnormalResult: resultDetails.containsAbnormalResult,
+          nonNormalResultContained: resultDetails.nonNormalResultContained,
           orderNumber: resultDetails?.orderNumber,
         };
         externalResults.push(labResult);
@@ -596,7 +611,7 @@ const getLabOrderResultPDFConfig = async (
         const labResult: InHouseLabResult = {
           name: formattedName,
           url,
-          containsAbnormalResult: resultDetails.containsAbnormalResult,
+          nonNormalResultContained: resultDetails.nonNormalResultContained,
           simpleResultValue: resultDetails?.simpleResultValue,
         };
         inHouseResults.push(labResult);
@@ -965,7 +980,7 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
     }
     if (resource.resourceType === 'Task') {
       if (resource.id) {
-        if (resource.status === 'ready') {
+        if (resource.status === 'ready' || resource.status === 'in-progress') {
           readyTasksMap[resource.id] = resource;
         } else if (resource.status === 'completed') {
           completedTasksMap[resource.id] = resource;
@@ -1157,26 +1172,4 @@ export const parseAccessionNumberFromDr = (result: DiagnosticReport): string => 
   }
 
   return NOT_FOUND;
-};
-
-export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
-  const testName =
-    dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
-    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.display ||
-    dr.code.coding?.find((temp) => temp.system === '(HL7_V2)')?.display;
-  return testName;
-};
-
-export const getTestItemCodeFromDr = (dr: DiagnosticReport): string | undefined => {
-  const testName =
-    dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
-    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code;
-  return testName;
-};
-
-export const getTestNameOrCodeFromDr = (dr: DiagnosticReport): string => {
-  const testName = getTestNameFromDr(dr);
-  const testItemCode = getTestItemCodeFromDr(dr);
-  const testDescription = testName || testItemCode || 'missing test name';
-  return testDescription;
 };

@@ -1,4 +1,4 @@
-import { LAB_ORDER_TASK, TaskIndicator } from '../../types';
+import { TaskIndicator } from '../../types';
 
 export interface TaskTypeOption {
   value: string;
@@ -27,17 +27,6 @@ export function getAllTaskTypes(): TaskTypeOption[] {
       label,
       system: taskCoding.system,
       code: taskCoding.code,
-    });
-  });
-
-  // LAB_ORDER_TASK - external lab tasks
-  Object.entries(LAB_ORDER_TASK.code).forEach(([key, code]) => {
-    const label = formatTaskLabel(key);
-    taskTypes.push({
-      value: `lab-order-${key}`,
-      label: `Lab Order: ${label}`,
-      system: LAB_ORDER_TASK.system,
-      code: code,
     });
   });
 

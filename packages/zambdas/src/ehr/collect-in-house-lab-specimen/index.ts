@@ -163,7 +163,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounterId: encounterId,
       locationId: getTaskLocationId(collectionTask),
       input: collectionTask.input,
-      basedOn: `ServiceRequest/${serviceRequestId}`,
+      basedOn: [`ServiceRequest/${serviceRequestId}`],
     });
 
     const transactionResponse = await oystehr.fhir.transaction({

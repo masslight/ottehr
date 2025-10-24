@@ -7,11 +7,12 @@ import {
   getCoding,
   getExtension,
   IN_HOUSE_LAB_TASK,
+  LAB_ORDER_TASK,
+  LabType,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TASK_CATEGORY_IDENTIFIER,
   TASK_INPUT_SYSTEM,
   TASK_LOCATION_SYSTEM,
-  TASK_TYPE_SYSTEM,
 } from 'utils';
 
 const GET_TASKS_KEY = 'get-tasks';
@@ -207,26 +208,64 @@ function fhirTaskToTask(task: FhirTask): Task {
   let action: any = undefined;
   let title = getInput('title', task) ?? '';
   let subtitle = getInput('subtitle', task) ?? '';
-  if (category === 'external-labs') {
-    const type = getCoding(task.code, TASK_TYPE_SYSTEM)?.code ?? '';
-    const appointmentId = getInput('appointmentId', task);
-    const orderId = getInput('orderId', task);
-    if (type === 'collect-sample' || type === 'review-results') {
+  if (category === LAB_ORDER_TASK.category) {
+    const code = getCoding(task.code, LAB_ORDER_TASK.system)?.code ?? '';
+    const testName = getInput(LAB_ORDER_TASK.input.testName, task);
+    const patientName = getInput(LAB_ORDER_TASK.input.patientName, task);
+    const appointmentId = getInput(LAB_ORDER_TASK.input.appointmentId, task);
+    const serviceRequestId = task.basedOn
+      ?.find((reference) => reference.reference?.startsWith('ServiceRequest'))
+      ?.reference?.split('/')?.[1];
+    const diagnosticReportId = task.basedOn
+      ?.find((reference) => reference.reference?.startsWith('DiagnosticReport'))
+      ?.reference?.split('/')?.[1];
+    const providerName = getInput(LAB_ORDER_TASK.input.providerName, task);
+    const orderDate = getInput(LAB_ORDER_TASK.input.orderDate, task);
+    const labTypeString = getInput(LAB_ORDER_TASK.input.drTag, task);
+
+    if (code === LAB_ORDER_TASK.code.preSubmission) {
+      title = `Collect sample for “${testName}” for ${patientName}`;
+      subtitle = `Ordered by ${providerName} on ${
+        orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
+      }`;
       action = {
         name: GO_TO_LAB_TEST,
-        link: `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`,
+        link: `/in-person/${appointmentId}/external-lab-orders/${serviceRequestId}/order-details`,
       };
     }
-    if (type === 'match-unsolicited') {
+    if (
+      serviceRequestId &&
+      (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
+    ) {
+      title = `Review results for “${testName}” for ${patientName}`;
+      subtitle = `Ordered by ${providerName} on ${
+        orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
+      }`;
+      action = {
+        name: GO_TO_LAB_TEST,
+        link: `/in-person/${appointmentId}/external-lab-orders/${serviceRequestId}/order-details`,
+      };
+    }
+    if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
+      const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
+      title = `Match unsolicited test results`;
+      subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
       action = {
         name: 'Match',
-        link: `/unsolicited-results/${getInput('diagnosticReportId', task)}/match`,
+        link: `/unsolicited-results/${diagnosticReportId}/match`,
       };
     }
-    if (type === 'review-unsolicited') {
+    if (
+      diagnosticReportId &&
+      labTypeString === LabType.unsolicited &&
+      (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
+    ) {
+      const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
+      title = `Review unsolicited test results for “${testName}” for ${patientName}`;
+      subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
       action = {
-        name: GO_TO_LAB_TEST,
-        link: `/in-person/${appointmentId}/external-lab-orders`,
+        name: 'Go to Lab Test',
+        link: `/unsolicited-results/${diagnosticReportId}/review`,
       };
     }
   }
