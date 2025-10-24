@@ -123,14 +123,20 @@ jobs:
           npm exec -- tsx ./scripts/secrets.ts validate ${{ env.ENVIRONMENT }}
 
       # TODO: Remove this step and references to it once transition to TF is complete
+      # If this succeeds, we will use the import file in the terraform module and deploy apps through Terraform
+      # If it fails, we will use a different deployment method
       - name: Maybe copy import file into aws_infra module
         id: copy-import-file
         continue-on-error: true
         run: |
           cp secrets/terraform/${{ env.ENVIRONMENT }}_import.tf deploy/aws_infra
 
+      # If this succeeds, we will use the CDK config and deploy apps through AWS CDK
+      # If it fails, we will deploy using npm scripts and the AWS SDK
       - name: Move aws-cdk-deploy-config into scripted deploy dir.
         if: ${{ steps.copy-import-file.outcome != 'success' }}
+        id: copy-aws-cdk-deploy-config
+        continue-on-error: true
         run: mkdir -p scripts/deploy; cp secrets/aws-cdk-deploy-config/deploy-config.${{ env.ENVIRONMENT }}.json scripts/deploy/deploy-config.json
 
       - name: Configure AWS Credentials
@@ -153,17 +159,17 @@ jobs:
 
       # Build once first because CDK checks for everything before deciding which stacks to deploy
       - name: Build Intake
-        if: ${{ steps.copy-import-file.outcome != 'success' }}
+        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
         working-directory: apps/intake
         run: npm run build:env --env=${{ env.ENVIRONMENT }}
 
       - name: Build EHR
-        if: ${{ steps.copy-import-file.outcome != 'success' }}
+        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
         working-directory: apps/ehr
         run: npm run build:env --env=${{ env.ENVIRONMENT }}
 
       - name: Deploy Cloud Infrastructure Using Legacy Scripted Deploy
-        if: ${{ steps.copy-import-file.outcome != 'success' }}
+        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
         working-directory: scripts/deploy/aws
         run: |
           aws_profile=$(grep '"aws_profile"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
@@ -177,17 +183,17 @@ jobs:
           npx ts-node ./bin/update-config.ts --no-update-apps
 
       - name: Build Intake
-        if: ${{ steps.copy-import-file.outcome != 'success' }}
+        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
         working-directory: apps/intake
         run: npm run build:env --env=${{ env.ENVIRONMENT}}
 
       - name: Build EHR
-        if: ${{ steps.copy-import-file.outcome != 'success' }}
+        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
         working-directory: apps/ehr
         run: npm run build:env --env=${{ env.ENVIRONMENT }}
 
       - name: Deploy Websites Using Legacy Scripted Deploy
-        if: ${{ steps.copy-import-file.outcome != 'success' }}
+        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
         working-directory: scripts/deploy/aws
         run: |
           aws_profile=$(grep '"aws_profile"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
@@ -197,6 +203,16 @@ jobs:
           prefix="${stack_prefix:-ottehr}"
           echo "Using stack prefix: ${prefix}"
           npx cdk deploy --require-approval=never --profile "${profile}" "${prefix}-data-stack-${{ env.ENVIRONMENT }}"
+
+      # Deploy using AWS SDK scripts if neither import file nor CDK config were present
+      - name: Deploy Patient Portal
+        if: ${{ steps.copy-import-file.outcome != 'success' && steps.copy-aws-cdk-deploy-config.outcome != 'success' }}
+        run: cd apps/intake && npm run ci-deploy:${{ env.ENVIRONMENT }}
+
+      # Deploy using AWS SDK scripts if neither import file nor CDK config were present
+      - name: Deploy EHR
+        if: ${{ steps.copy-import-file.outcome != 'success' && steps.copy-aws-cdk-deploy-config.outcome != 'success' }}
+        run: cd apps/ehr && npm run ci-deploy:${{ env.ENVIRONMENT }}
 
       - name: Deploy Ottehr Resources Using Terraform
         working-directory: deploy
