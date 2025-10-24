@@ -70,6 +70,7 @@ export async function fetchRelatedResources(
       url: `/${labOrgReference}`,
     });
   }
+  console.log(`requests:\n${JSON.stringify(requests, null, 2)}`);
   const resources = (
     await oystehr.fhir.batch({
       requests,
