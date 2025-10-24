@@ -3,10 +3,10 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
 import { Account, Encounter, Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   createCandidApiClient,
-  getCandidClaimIdFromEncounter,
   getPatientReferenceFromAccount,
   getSecret,
   getStripeCustomerIdFromAccount,
@@ -16,6 +16,7 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  getCandidEncounterIdFromEncounter,
   getStripeClient,
   topLevelCatch,
   wrapHandler,
@@ -38,19 +39,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const stripe = getStripeClient(secrets);
 
     const fhirResources = await getFhirResources(oystehr, oystPatientId, oystEncounterId);
+    if (!fhirResources) throw new Error('Failed to fetch all needed FHIR resources');
     const stripeCustomerId = getStripeCustomerIdFromAccount(fhirResources.account);
-    const candidClaimId = getCandidClaimIdFromEncounter(fhirResources.encounter);
-    if (!stripeCustomerId || !candidClaimId) throw new Error('StripeCustomerId or CandidClaimId is not found');
+    if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
+    const candidEncounterId = getCandidEncounterIdFromEncounter(fhirResources.encounter);
+    if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
+    const candidClaimId = await getCandidClaimIdFromCandidEncounterId(candid, candidEncounterId);
+    if (!candidClaimId) throw new Error('CandidClaimId is not found');
 
     const patientBalance = await getPatientBalanceInCentsForClaim({ candid, claimId: candidClaimId });
     if (patientBalance === undefined)
       throw new Error('Patient balance is undefined for this claim, claim id: ' + candidClaimId);
     const response = await createInvoice(stripe, stripeCustomerId, patientBalance, validatedParams);
+    if (!response || !response.id) throw new Error('Failed to create invoice');
     console.log('Invoice created: ', response.id);
+    const sendInvoiceResponse = await stripe.invoices.sendInvoice(response.id);
+    console.log('Invoice sent: ', sendInvoiceResponse.status);
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Invoice created successfully' }),
+      body: JSON.stringify({ message: 'Invoice created and sent successfully' }),
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
@@ -70,14 +78,7 @@ async function createInvoice(
   params: SendInvoiceToPatientZambdaInput
 ): Promise<Stripe.Invoice> {
   const { oystPatientId, oystEncounterId, prefilledInfo } = params;
-  const { memo } = prefilledInfo;
-  const invoiceItemParams: Stripe.InvoiceItemCreateParams = {
-    customer: stripeCustomerId,
-    amount, // cents
-    currency: 'usd',
-    description: memo, // ??
-  };
-  await stripe.invoiceItems.create(invoiceItemParams);
+  const { memo, dueDate } = prefilledInfo;
 
   const invoiceParams: Stripe.InvoiceCreateParams = {
     customer: stripeCustomerId,
@@ -88,9 +89,44 @@ async function createInvoice(
       oystehr_encounter_id: oystEncounterId,
     },
     currency: 'USD',
-    due_date: 2, // days since invoice created
+    due_date: DateTime.fromISO(dueDate).toUnixInteger(), // ???
+    pending_invoice_items_behavior: 'exclude', // Start with a blank invoice
+    auto_advance: false, // Ensure it stays a draft
   };
-  return await stripe.invoices.create(invoiceParams);
+  const invoiceResponse = await stripe.invoices.create(invoiceParams);
+  console.log('Invoice created: ', invoiceResponse.id);
+
+  const invoiceItemParams: Stripe.InvoiceItemCreateParams = {
+    customer: stripeCustomerId,
+    // amount, // cents
+    amount: 100,
+    currency: 'usd',
+    description: memo, // ??
+    invoice: invoiceResponse.id, // force add current invoiceItem to previously created invoice
+  };
+  const invoiceItemResponse = await stripe.invoiceItems.create(invoiceItemParams);
+  console.log('Invoice item created: ', invoiceItemResponse.id);
+
+  return invoiceResponse;
+}
+
+async function getCandidClaimIdFromCandidEncounterId(
+  candid: CandidApiClient,
+  candidEncounterId: string
+): Promise<string | undefined> {
+  const candidEncounter = await candid.encounters.v4.get(CandidApi.EncounterId(candidEncounterId));
+  if (candidEncounter && candidEncounter.ok && candidEncounter.body) {
+    const candidEncounterResponse = candidEncounter.body;
+    console.log(
+      'Candid encounter claims statuses: ',
+      candidEncounterResponse.claims.map((claim) => claim.status)
+    );
+    // todo what i'm suppose to get here as claim id? i have array of claims with statuses
+    // return candidEncounterResponse.claims.find((claim) => claim.status === CandidApi.ClaimStatus.BillerReceived)
+    //   ?.claimId;
+    return candidEncounterResponse.claims[0]?.claimId;
+  }
+  return undefined;
 }
 
 async function getPatientBalanceInCentsForClaim(input: {
@@ -110,7 +146,7 @@ async function getFhirResources(
   oystehr: Oystehr,
   patientId: string,
   encounterId: string
-): Promise<{ patient: Patient; encounter: Encounter; account: Account }> {
+): Promise<{ patient: Patient; encounter: Encounter; account: Account } | undefined> {
   const response = (
     await oystehr.fhir.search({
       resourceType: 'Encounter',
@@ -139,7 +175,10 @@ async function getFhirResources(
     (resource) =>
       resource.resourceType === 'Account' && getPatientReferenceFromAccount(resource as Account)?.includes(patientId)
   ) as Account;
-  if (!encounter || !patient || !account) throw new Error('Encounter, patient, or account not found');
+  console.log('Fhir encounter found: ', encounter.id);
+  console.log('Fhir patient found: ', patient.id);
+  console.log('Fhir account found', account.id);
+  if (!encounter || !patient || !account) return undefined;
 
   return {
     encounter,

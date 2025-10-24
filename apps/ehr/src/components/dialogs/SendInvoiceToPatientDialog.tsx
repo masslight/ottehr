@@ -3,9 +3,10 @@ import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, T
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { GetPrefilledInvoiceInfoZambdaOutput, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { GetPrefilledInvoiceInfoZambdaOutput, isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { z } from 'zod';
 import { BasicDatePicker } from '../form';
+import InputMask from '../InputMask';
 
 export interface SendInvoiceFormData {
   recipientName: string;
@@ -150,20 +151,26 @@ export default function SendInvoiceToPatientDialog({
               name="recipientPhoneNumber"
               control={control}
               rules={{
+                validate: (value: string) => {
+                  if (!value) return true;
+                  return (
+                    isPhoneNumberValid(value) ||
+                    'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number'
+                  );
+                },
                 required: REQUIRED_FIELD_ERROR_MESSAGE,
-                // validate: (value) => {
-                //   const result = phoneNumberValidator.safeParse(value);
-                //   return result.success || 'Invalid phone format';
-                // },
               }}
               render={({ field }) => (
                 <TextField
                   {...field}
                   fullWidth
+                  inputProps={{ mask: '(000) 000-0000' }}
+                  InputProps={{
+                    inputComponent: InputMask as any,
+                  }}
                   label="Phone number"
                   error={!!errors.recipientPhoneNumber}
                   helperText={errors.recipientPhoneNumber?.message}
-                  required
                   sx={{ mb: 2 }}
                 />
               )}

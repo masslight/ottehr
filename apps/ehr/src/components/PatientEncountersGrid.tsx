@@ -14,6 +14,7 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { useQuery } from '@tanstack/react-query';
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
 import { visitTypeToInPersonLabel, visitTypeToTelemedLabel } from 'src/types/types';
@@ -142,13 +143,19 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   }
 
   const sendInvoice = async (props: SendPatientInvoiceOnSubmitProps): Promise<void> => {
-    if (oystehrZambda) {
-      const { patientId, prefilledInfo, oystEncounterId } = props;
-      await sendInvoiceToPatient(oystehrZambda, {
-        oystPatientId: patientId,
-        oystEncounterId,
-        prefilledInfo,
-      });
+    try {
+      if (oystehrZambda) {
+        const { patientId, prefilledInfo, oystEncounterId } = props;
+        await sendInvoiceToPatient(oystehrZambda, {
+          oystPatientId: patientId,
+          oystEncounterId,
+          prefilledInfo,
+        });
+        setSendInvoiceDialogOpen(false);
+        enqueueSnackbar('Invoice created and sent successfully', { variant: 'success' });
+      }
+    } catch {
+      enqueueSnackbar('Error occured during invoice creation, please try again', { variant: 'error' });
     }
   };
 

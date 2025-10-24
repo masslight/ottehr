@@ -3,12 +3,12 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Patient, RelatedPerson, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  getActiveAccountGuarantorReference,
   getEmailForIndividual,
   getFullName,
   getPatientReferenceFromAccount,
   getPhoneNumberForIndividual,
   GetPrefilledInvoiceInfoZambdaOutput,
-  getResponsiblePartyReferenceFromAccount,
   getSecret,
   SecretsKeys,
   takeContainedOrFind,
@@ -101,7 +101,7 @@ async function getFhirPatientAndResponsibleParty(input: {
         resource.resourceType === 'Account' && getPatientReferenceFromAccount(resource as Account)?.includes(patientId)
     ) as Account;
     if (!patient || !account) return undefined;
-    const responsiblePartyRef = getResponsiblePartyReferenceFromAccount(account);
+    const responsiblePartyRef = getActiveAccountGuarantorReference(account);
     if (responsiblePartyRef) {
       const responsibleParty = takeContainedOrFind(responsiblePartyRef, resources as Resource[], account) as
         | RelatedPerson
