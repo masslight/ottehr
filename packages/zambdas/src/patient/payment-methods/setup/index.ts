@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { FHIR_RESOURCE_NOT_FOUND, getSecret, SecretsKeys } from 'utils';
+import { checkForStripeCustomerDeletedError, FHIR_RESOURCE_NOT_FOUND, getSecret, SecretsKeys } from 'utils';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
 import {
   createOystehrClient,
@@ -59,13 +59,18 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
       oystehrClient
     );
 
-    const setupIntent: Stripe.SetupIntent = await stripeClient.setupIntents.create({
-      customer: `${customerId}`,
-      automatic_payment_methods: {
-        enabled: false,
-      },
-      payment_method_types: ['card'],
-    });
+    let setupIntent: Stripe.SetupIntent | undefined;
+    try {
+      setupIntent = await stripeClient.setupIntents.create({
+        customer: `${customerId}`,
+        automatic_payment_methods: {
+          enabled: false,
+        },
+        payment_method_types: ['card'],
+      });
+    } catch (stripeError: any) {
+      throw checkForStripeCustomerDeletedError(stripeError);
+    }
 
     return lambdaResponse(200, setupIntent.client_secret);
   } catch (error: any) {

@@ -39,6 +39,7 @@ export enum APIErrorCode {
   MISCONFIGURED_SCHEDULING_GROUP = 4304,
   MISSING_SCHEDULE_EXTENSION = 4305,
   MISSING_PATIENT_COVERAGE_INFO = 4306,
+  STRIPE_CUSTOMER_ID_DOES_NOT_EXIST = 4307,
   // 434x
   INVALID_INPUT = 4340,
   APPOINTMENT_ALREADY_EXISTS = 4341,
@@ -292,6 +293,11 @@ export const STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR: APIError = {
   message: 'Access to this Stripe resource is not authorized. Perhaps it is no longer attached to the customer',
 };
 
+export const STRIPE_CUSTOMER_ID_DOES_NOT_EXIST_ERROR: APIError = {
+  code: APIErrorCode.STRIPE_CUSTOMER_ID_DOES_NOT_EXIST,
+  message: 'The Stripe customer ID associated with this account does not exist and may have been deleted.',
+};
+
 export const INVALID_INPUT_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.INVALID_INPUT,
@@ -384,4 +390,11 @@ export const parseStripeError = (stripeError: any): APIError => {
     }
   }
   return GENERIC_STRIPE_PAYMENT_ERROR;
+};
+
+export const checkForStripeCustomerDeletedError = (stripeError: any): APIError | undefined => {
+  if (stripeError?.code === 'resource_missing' && stripeError?.message?.includes('No such customer')) {
+    return STRIPE_CUSTOMER_ID_DOES_NOT_EXIST_ERROR;
+  }
+  return stripeError;
 };

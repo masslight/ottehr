@@ -3,6 +3,7 @@ import { Account } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
+  checkForStripeCustomerDeletedError,
   CreditCardInfo,
   FHIR_RESOURCE_NOT_FOUND,
   getSecret,
@@ -63,55 +64,61 @@ export const index = wrapHandler('payment-list', async (input: ZambdaInput): Pro
     }
     const output: ListPaymentMethodsZambdaOutput = { cards: [] };
     const customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
-    if (customerId !== undefined) {
-      const customer = await stripeClient.customers.retrieve(customerId, {
-        expand: ['invoice_settings.default_payment_method', 'sources'],
-      });
-      const paymentMethods = (
-        await stripeClient.customers.listPaymentMethods(customer.id, {
-          type: 'card',
-        })
-      )?.data;
-      console.log('payment methods', paymentMethods, JSON.stringify(customer, null, 2));
-      if (
-        customer !== undefined &&
-        customer.deleted !== true &&
-        customer.invoice_settings?.default_payment_method !== undefined &&
-        customer.invoice_settings?.default_payment_method !== null
-      ) {
-        const defaultPaymentMethod: Stripe.PaymentMethod = customer.invoice_settings
-          ?.default_payment_method as Stripe.PaymentMethod;
+
+    // we're performing effect at this point...
+    try {
+      if (customerId !== undefined) {
+        const customer = await stripeClient.customers.retrieve(customerId, {
+          expand: ['invoice_settings.default_payment_method', 'sources'],
+        });
+        const paymentMethods = (
+          await stripeClient.customers.listPaymentMethods(customer.id, {
+            type: 'card',
+          })
+        )?.data;
+        console.log('payment methods', paymentMethods, JSON.stringify(customer, null, 2));
         if (
-          defaultPaymentMethod !== undefined &&
-          defaultPaymentMethod.type === 'card' &&
-          defaultPaymentMethod.card !== undefined
+          customer !== undefined &&
+          customer.deleted !== true &&
+          customer.invoice_settings?.default_payment_method !== undefined &&
+          customer.invoice_settings?.default_payment_method !== null
         ) {
-          const allCards = paymentMethods.map((pm) => {
-            return {
-              id: pm.id,
-              brand: pm.card!.brand,
-              expMonth: pm.card!.exp_month,
-              expYear: pm.card!.exp_year,
-              lastFour: pm.card!.last4,
-              default: pm.id === defaultPaymentMethod.id,
-            };
-          });
-          console.log('all cards', allCards);
-          output.cards = filterExpired(allCards).sort((a, b) => {
-            if (a.default && !b.default) {
-              return -1;
-            }
-            if (!a.default && b.default) {
-              return 1;
-            }
-            return 0;
-          });
+          const defaultPaymentMethod: Stripe.PaymentMethod = customer.invoice_settings
+            ?.default_payment_method as Stripe.PaymentMethod;
+          if (
+            defaultPaymentMethod !== undefined &&
+            defaultPaymentMethod.type === 'card' &&
+            defaultPaymentMethod.card !== undefined
+          ) {
+            const allCards = paymentMethods.map((pm) => {
+              return {
+                id: pm.id,
+                brand: pm.card!.brand,
+                expMonth: pm.card!.exp_month,
+                expYear: pm.card!.exp_year,
+                lastFour: pm.card!.last4,
+                default: pm.id === defaultPaymentMethod.id,
+              };
+            });
+            console.log('all cards', allCards);
+            output.cards = filterExpired(allCards).sort((a, b) => {
+              if (a.default && !b.default) {
+                return -1;
+              }
+              if (!a.default && b.default) {
+                return 1;
+              }
+              return 0;
+            });
+          } else {
+            console.log('no default payment method found');
+          }
         } else {
-          console.log('no default payment method found');
+          console.log('no default payment method found in customer invoice settings');
         }
-      } else {
-        console.log('no default payment method found in customer invoice settings');
       }
+    } catch (stripeError: any) {
+      throw checkForStripeCustomerDeletedError(stripeError);
     }
 
     return lambdaResponse(200, output);

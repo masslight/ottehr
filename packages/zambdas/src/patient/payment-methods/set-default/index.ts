@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, SecretsKeys } from 'utils';
+import { checkForStripeCustomerDeletedError, getSecret, SecretsKeys } from 'utils';
 import {
   createOystehrClient,
   getAuth0Token,
@@ -37,13 +37,16 @@ export const index = wrapHandler('payment-set-default', async (input: ZambdaInpu
     const { stripeCustomerId } = await complexValidation({ patientId: beneficiaryPatientId, oystehrClient });
 
     const stripeClient = getStripeClient(secrets);
-    const customer = await stripeClient.customers.update(stripeCustomerId, {
-      invoice_settings: {
-        default_payment_method: paymentMethodId,
-      },
-    });
-
-    console.log('customer updated', customer);
+    try {
+      const customer = await stripeClient.customers.update(stripeCustomerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      });
+      console.log('customer updated', customer);
+    } catch (stripeError: any) {
+      throw checkForStripeCustomerDeletedError(stripeError);
+    }
 
     return lambdaResponse(200, {});
   } catch (error: any) {
