@@ -218,7 +218,7 @@ export default function ProceduresNew(): ReactElement {
         bodySite: state.bodySite,
         bodySide: state.bodySide,
         technique: state.technique,
-        suppliesUsed: state.suppliesUsed,
+        suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
         procedureDetails: state.procedureDetails,
         timeSpent: state.timeSpent,
       });
