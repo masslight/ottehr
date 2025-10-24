@@ -219,22 +219,31 @@ export function creatingPatientUpdateRequest(
     // Do not update weight last updated date
   }
 
-  if (patient.authorizedNonLegalGuardians) {
+  const guardianExtIndex = patientExtension.findIndex(
+    (ext) => ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+  );
+
+  const guardianValue =
+    patient.authorizedNonLegalGuardians ??
+    maybeFhirPatient.extension?.find((ext) => ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)
+      ?.valueString;
+
+  if (guardianValue) {
     const extensionValue = {
       url: FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url,
-      valueString: String(patient.authorizedNonLegalGuardians),
+      valueString: guardianValue,
     };
-    const authorizedNonLegalGuardiansIndex = patientExtension.findIndex(
-      (ext) => ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
-    );
-    if (authorizedNonLegalGuardiansIndex >= 0) {
-      patientExtension[authorizedNonLegalGuardiansIndex] = extensionValue;
+    if (guardianExtIndex >= 0) {
+      patientExtension[guardianExtIndex] = extensionValue;
     } else {
       patientExtension.push(extensionValue);
     }
+  } else if (guardianExtIndex >= 0) {
+    patientExtension = [
+      ...patientExtension.slice(0, guardianExtIndex),
+      ...patientExtension.slice(guardianExtIndex + 1),
+    ];
   }
-
-  console.log('patient extension', patientExtension);
 
   patientPatchOperations.push({
     op: maybeFhirPatient.extension ? 'replace' : 'add',
