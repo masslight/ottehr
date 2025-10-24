@@ -34,6 +34,7 @@ export const useAiResourcesPolling = ({
   const pollingAttemptsRef = useRef(0);
   const pollingIntervalRef = useRef<NodeJS.Timeout>();
   const pollingExhaustedRef = useRef(false);
+  const initialCheckDoneRef = useRef(false);
 
   // Check if there's an AI interview with sufficient answers but no AI resources
   const checkForInterviewWithoutResources = useCallback(async (): Promise<boolean> => {
@@ -78,15 +79,26 @@ export const useAiResourcesPolling = ({
         setIsPolling(false);
         pollingAttemptsRef.current = 0;
         pollingExhaustedRef.current = false;
+        initialCheckDoneRef.current = false;
         return;
       }
 
-      const needsPolling = await checkForInterviewWithoutResources();
-      setHasInterviewWithoutResources(needsPolling);
+      // Only check and start polling if we haven't done initial check yet
+      // or if we know resources are missing
+      if (!initialCheckDoneRef.current || !chartDataHasResources) {
+        const needsPolling = await checkForInterviewWithoutResources();
+        setHasInterviewWithoutResources(needsPolling);
+        initialCheckDoneRef.current = true;
 
-      if (needsPolling && !isPolling && pollingAttemptsRef.current < MAX_POLLING_ATTEMPTS) {
-        setIsPolling(true);
-        pollingExhaustedRef.current = false;
+        if (needsPolling && !isPolling && pollingAttemptsRef.current < MAX_POLLING_ATTEMPTS) {
+          setIsPolling(true);
+          pollingExhaustedRef.current = false;
+        } else if (!needsPolling && isPolling) {
+          // Stop polling if resources appeared
+          setIsPolling(false);
+          pollingAttemptsRef.current = 0;
+          pollingExhaustedRef.current = false;
+        }
       }
     };
 
