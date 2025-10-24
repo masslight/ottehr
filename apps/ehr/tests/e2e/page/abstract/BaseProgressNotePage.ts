@@ -102,5 +102,15 @@ export abstract class BaseProgressNotePage {
       medicalCondition
     );
   }
+  async verifyAddedSurgeryIsShown(surgery: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).toBeVisible();
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).toContainText(surgery);
+  }
+  async verifyRemovedSurgeryIsNotShown(surgery: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).toBeVisible();
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).not.toContainText(
+      surgery
+    );
+  }
   abstract expectLoaded(): Promise<void>;
 }
