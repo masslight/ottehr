@@ -328,7 +328,12 @@ export const getInHouseResources = async (
     }
   }
 
-  const practitioners = await fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters);
+  const practitioners = await fetchPractitionersForServiceRequests(
+    oystehr,
+    serviceRequests,
+    encounters,
+    params.secrets.ENVIRONMENT
+  );
 
   return {
     serviceRequests,
@@ -572,7 +577,8 @@ export const extractInHouseResources = (
 export const fetchPractitionersForServiceRequests = async (
   oystehr: Oystehr,
   serviceRequests: ServiceRequest[],
-  encounters: Encounter[]
+  encounters: Encounter[],
+  environment: string
 ): Promise<Practitioner[]> => {
   const practitionerIds = new Set<string>();
 
@@ -605,6 +611,7 @@ export const fetchPractitionersForServiceRequests = async (
       (resource): resource is Practitioner => resource?.resourceType === 'Practitioner'
     );
   } catch (error) {
+    await sendErrors(error, environment);
     console.error('Failed to fetch Practitioners', JSON.stringify(error, null, 2));
     return [];
   }

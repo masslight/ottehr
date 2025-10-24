@@ -13,20 +13,20 @@ export type User = OystehrUser & {
 };
 
 export enum RoleType {
-  NewUser = 'NewUser',
   Administrator = 'Administrator',
   AssistantAdmin = 'AssistantAdmin',
-  RegionalTelemedLead = 'RegionalTelemedLead',
-  CallCentre = 'CallCentre',
   Billing = 'Billing',
-  Manager = 'Manager',
-  Staff = 'Staff',
-  Provider = 'Provider',
+  CallCentre = 'CallCentre',
+  CustomerSupport = 'Customer Support',
   FrontDesk = 'Front Desk',
   Inactive = 'Inactive',
-  Prescriber = 'Prescriber',
-  CustomerSupport = 'CustomerSupport',
+  Manager = 'Manager',
   // Medical Assistant
+  NewUser = 'NewUser',
+  Prescriber = 'Prescriber',
+  Provider = 'Provider',
+  RegionalTelemedLead = 'RegionalTelemedLead',
+  Staff = 'Staff',
 }
 
 export interface AccessPolicy {

@@ -19,7 +19,7 @@ import {
   useInitTelemedSessionMutation,
 } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { mapStatusToTelemed, TelemedAppointmentStatusEnum } from 'utils';
+import { getTelemedVisitStatus, TelemedAppointmentStatusEnum } from 'utils';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { updateEncounterStatusHistory } from '../../utils/appointments';
 
@@ -100,7 +100,7 @@ export const AppointmentFooterButton: FC = () => {
   };
 
   const onConnect = useCallback(async (): Promise<void> => {
-    if (mapStatusToTelemed(encounter.status, appointment?.status) === TelemedAppointmentStatusEnum['on-video']) {
+    if (getTelemedVisitStatus(encounter.status, appointment?.status) === TelemedAppointmentStatusEnum['on-video']) {
       const meetingDataResponse = await getMeetingData.refetch({ throwOnError: true });
       useVideoCallStore.setState({
         meetingData: meetingDataResponse.data,

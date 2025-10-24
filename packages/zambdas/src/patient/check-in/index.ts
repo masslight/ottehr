@@ -7,6 +7,7 @@ import {
   APPOINTMENT_NOT_FOUND_ERROR,
   CheckInInput,
   CheckInZambdaOutput,
+  FHIR_EXTENSION,
   formatPhoneNumberDisplay,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryIdx,
@@ -210,6 +211,12 @@ async function checkIn(
         period: {
           start: now,
         },
+        extension: [
+          {
+            url: FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url,
+            valueCode: 'arrived',
+          },
+        ],
       },
     });
   }

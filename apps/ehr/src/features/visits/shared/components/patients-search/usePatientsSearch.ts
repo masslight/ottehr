@@ -190,7 +190,9 @@ export const usePatientsSearch = (): {
 
   // run search on url params change
   useEffect(() => {
-    if ([...searchParams.entries()].length > 0) {
+    const hasSearchParams = [...searchParams.entries()].length > 0;
+
+    if (hasSearchParams) {
       const loadPatients = async (): Promise<void> => {
         setArePatientsLoading(true);
         try {
@@ -204,10 +206,8 @@ export const usePatientsSearch = (): {
           url = `${import.meta.env.VITE_APP_FHIR_API_URL}/${url}`;
 
           await fetchPatients({ searchUrl: url, setSearchResult, setArePatientsLoading, getAccessTokenSilently });
-        } catch (error) {
+        } catch {
           setSearchResult(emptySearchResult);
-          const message = error instanceof Error ? error.message : 'An error occurred while searching';
-          enqueueSnackbar(message, { variant: 'error' });
         } finally {
           setArePatientsLoading(false);
         }

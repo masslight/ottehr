@@ -39,7 +39,10 @@ export class DocumentProcedurePage {
   }
 
   async verifyCptCode(cptCode: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.documentProcedurePage.cptCode)).toHaveText(cptCode);
+    const code = (await this.#page.getByTestId(dataTestIds.documentProcedurePage.cptCode).allInnerTexts()).find(
+      (text) => text.includes(cptCode)
+    );
+    expect(code).toBe(cptCode);
   }
 
   async selectDiagnosis(diagnosis: string): Promise<void> {
@@ -116,15 +119,37 @@ export class DocumentProcedurePage {
     );
   }
 
-  async selectInstruments(instruments: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.documentProcedurePage.instruments).click();
-    await this.#page.getByText(instruments, { exact: true }).click();
+  async selectInstruments(instruments: string[]): Promise<void> {
+    const field = this.#page.getByTestId(dataTestIds.documentProcedurePage.instruments);
+    await field.click();
+
+    const clearButton = field.locator('button[aria-label="Clear"]');
+    if (await clearButton.isVisible()) {
+      await clearButton.click();
+    }
+
+    for (const instrument of instruments) {
+      await this.#page.getByText(instrument, { exact: true }).click();
+    }
+
+    await this.#page.keyboard.press('Escape');
   }
 
-  async verifyInstruments(instruments: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.documentProcedurePage.instruments).locator('input')).toHaveValue(
-      instruments
-    );
+  async verifyInstruments(expected: string[]): Promise<void> {
+    const instrumentsField = this.#page.getByTestId(dataTestIds.documentProcedurePage.instruments);
+    const selectedOptions = instrumentsField.locator('.MuiChip-label');
+    const count = await selectedOptions.count();
+    const actualValues: string[] = [];
+
+    for (let i = 0; i < count; i++) {
+      actualValues.push(await selectedOptions.nth(i).innerText());
+    }
+
+    expect(actualValues.length).toBe(expected.length);
+
+    for (const value of expected) {
+      expect(actualValues).toContain(value);
+    }
   }
 
   async enterProcedureDetails(procedureDetails: string): Promise<void> {
@@ -182,15 +207,37 @@ export class DocumentProcedurePage {
     ).toHaveValue(patientResponse);
   }
 
-  async selectPostProcedureInstructions(postProcedureInstructions: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions).click();
-    await this.#page.getByText(postProcedureInstructions, { exact: true }).click();
+  async selectPostProcedureInstructions(postProcedureInstructions: string[]): Promise<void> {
+    const field = this.#page.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions);
+    await field.click();
+
+    const clearButton = field.locator('button[aria-label="Clear"]');
+    if (await clearButton.isVisible()) {
+      await clearButton.click();
+    }
+
+    for (const instruction of postProcedureInstructions) {
+      await this.#page.getByText(instruction, { exact: true }).click();
+    }
+
+    await this.#page.keyboard.press('Escape');
   }
 
-  async verifyPostProcedureInstructions(postProcedureInstructions: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions).locator('input')
-    ).toHaveValue(postProcedureInstructions);
+  async verifyPostProcedureInstructions(expected: string[]): Promise<void> {
+    const instructionsField = this.#page.getByTestId(dataTestIds.documentProcedurePage.postProcedureInstructions);
+    const selectedOptions = instructionsField.locator('.MuiChip-label');
+    const count = await selectedOptions.count();
+    const actualValues: string[] = [];
+
+    for (let i = 0; i < count; i++) {
+      actualValues.push(await selectedOptions.nth(i).innerText());
+    }
+
+    expect(actualValues.length).toBe(expected.length);
+
+    for (const value of expected) {
+      expect(actualValues).toContain(value);
+    }
   }
 
   async selectTimeSpent(timeSpent: string): Promise<void> {

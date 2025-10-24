@@ -42,9 +42,9 @@ import { getPatientName } from 'src/shared/utils';
 import {
   calculatePatientAge,
   getQuestionnaireResponseByLinkId,
+  getTelemedVisitStatus,
   INTERPRETER_PHONE_NUMBER,
   isInPersonAppointment,
-  mapStatusToTelemed,
   TelemedAppointmentStatusEnum,
   TelemedAppointmentVisitTabs,
 } from 'utils';
@@ -141,7 +141,7 @@ export const AppointmentSidePanel: FC = () => {
       .join(', ');
   };
 
-  const telemedStatus = mapStatusToTelemed(encounter.status, appointment?.status);
+  const telemedStatus = getTelemedVisitStatus(encounter.status, appointment?.status);
 
   return (
     <Drawer

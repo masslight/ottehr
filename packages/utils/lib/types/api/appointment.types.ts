@@ -12,7 +12,7 @@ export type RefreshableAppointmentData = {
   patientConditionPhotoUrls: string[];
 };
 
-export const mapStatusToTelemed = (
+export const getTelemedVisitStatus = (
   encounterStatus: string,
   appointmentStatus: string | undefined
 ): TelemedAppointmentStatusEnum | undefined => {
@@ -38,7 +38,6 @@ export type FhirAppointmentStatus = Appointment['status'];
 export const visitStatusArray = [
   'pending',
   'arrived',
-  'awaiting supervisor approval',
   'ready',
   'intake',
   'ready for provider',
@@ -46,6 +45,7 @@ export const visitStatusArray = [
   'discharged',
   'cancelled',
   'no show',
+  'awaiting supervisor approval',
   'completed',
   'unknown',
 ] as const;
@@ -53,7 +53,9 @@ export const visitStatusArray = [
 export type VISIT_STATUS_TYPE = typeof visitStatusArray;
 export type VisitStatusLabel = VISIT_STATUS_TYPE[number];
 export type VisitStatusWithoutUnknown = Exclude<VisitStatusLabel, 'unknown'>;
-export type VisitStatusHistoryLabel = Exclude<VisitStatusWithoutUnknown, 'ready'>;
+
+// todo: ready status should be included in history. if there is no mistakes we can remove this type and use VisitStatusWithoutUnknown instead
+export type VisitStatusHistoryLabel = VisitStatusWithoutUnknown;
 
 export type SupervisorApprovalStatus = 'loading' | 'waiting-for-approval' | 'approved' | 'unknown';
 
