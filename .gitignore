@@ -33,3 +33,4 @@ packages/ui-components/dist/*
 config/sendgrid/*
 
 terraform.json
+.test-appointment-id

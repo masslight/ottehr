@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Consent, Encounter, QuestionnaireResponse } from 'fhir/r4b';
 import {
+  AI_QUESTIONNAIRE_ID,
   createOystehrClient,
   FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
   getSecret,
@@ -31,7 +32,6 @@ const INITIAL_USER_MESSAGE = `Perform a medical history intake session in the ma
 •	Phrase questions in a clear, patient-friendly way that keeps the conversation moving quickly.
 •	If I give vague or incomplete answers, ask a brief follow-up before moving on.
 •	When you have gathered all useful information, end by saying: "No further questions, thanks for chatting. We've sent the information to your nurse or doctor to review. ${INTERVIEW_COMPLETED}"`;
-const QUESTIONNAIRE_ID = 'aiInterviewQuestionnaire';
 
 let oystehrToken: string;
 
@@ -135,13 +135,14 @@ async function findAIInterviewQuestionnaireResponse(
         },
         {
           name: 'questionnaire',
-          value: '#' + QUESTIONNAIRE_ID,
+          value: '#' + AI_QUESTIONNAIRE_ID,
         },
       ],
     })
   ).unbundle()[0];
 }
 
+// #aiInterview: start ai interview questionnaire
 async function createQuestionnaireResponse(
   encounterId: string,
   oystehr: Oystehr,
@@ -153,7 +154,7 @@ async function createQuestionnaireResponse(
   return oystehr.fhir.create<QuestionnaireResponse>({
     resourceType: 'QuestionnaireResponse',
     status: 'in-progress',
-    questionnaire: '#' + QUESTIONNAIRE_ID,
+    questionnaire: '#' + AI_QUESTIONNAIRE_ID,
     encounter: {
       reference: 'Encounter/' + encounterId,
     },
@@ -170,7 +171,7 @@ async function createQuestionnaireResponse(
     contained: [
       {
         resourceType: 'Questionnaire',
-        id: QUESTIONNAIRE_ID,
+        id: AI_QUESTIONNAIRE_ID,
         status: 'active',
         item: [
           {

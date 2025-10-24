@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { Questionnaire } from 'fhir/r4b';
+import { FhirResource, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
+import { BOOKING_CONFIG } from '../configuration';
 import { CanonicalUrl } from '../types';
 
 // throws an error if unable to find exactly 1 matching resource
@@ -41,4 +42,18 @@ export const getCanonicalQuestionnaire = async (
     throw new Error('Questionnaire does not have a version');
   }
   return questionnaire;
+};
+
+export const selectIntakeQuestionnaireResponse = (resources: FhirResource[]): QuestionnaireResponse | undefined => {
+  return resources.find((res) => {
+    if (res.resourceType !== 'QuestionnaireResponse') {
+      return false;
+    }
+    const qr = res as QuestionnaireResponse;
+    const questionnaireUrl = qr.questionnaire;
+    if (!questionnaireUrl) {
+      return false;
+    }
+    return BOOKING_CONFIG.intakeQuestionnaireUrls.some((intakeUrl) => questionnaireUrl.startsWith(intakeUrl));
+  }) as QuestionnaireResponse | undefined;
 };

@@ -1,5 +1,4 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
@@ -358,7 +357,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         });
       } catch (error) {
         console.log('Error generating ICD-10 codes', error);
-        captureException(error);
       }
     }
 

@@ -1,15 +1,23 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DiagnosticReport, Task } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import { getSecret, LAB_ORDER_TASK, LabType, Secrets, SecretsKeys } from 'utils';
+import { DiagnosticReport, Patient, Task, TaskInput } from 'fhir/r4b';
+import {
+  getFullestAvailableName,
+  getSecret,
+  getTestNameOrCodeFromDr,
+  LAB_ORDER_TASK,
+  LabType,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import { diagnosticReportSpecificResultType } from '../../../ehr/shared/labs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
 } from '../../../shared/pdf/labs-results-form-pdf';
-import { getCodeForNewTask, getStatusForNewTask, isUnsolicitedResult } from './helpers';
+import { createTask, getTaskLocationId } from '../../../shared/tasks';
+import { getCodeForNewTask, isUnsolicitedResult } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'handle-lab-result';
@@ -84,20 +92,68 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         });
     });
 
-    // make the new task
-    const newTask: Task = {
-      resourceType: 'Task',
-      authoredOn: diagnosticReport.effectiveDateTime ?? DateTime.now().toUTC().toISO(), // the effective date is also UTC
-      intent: 'order',
+    // todo these additional fhir calls can probably happen in one query or at least in a transaction
+    const preSubmissionTask = (
+      await oystehr.fhir.search<Task>({
+        resourceType: 'Task',
+        params: [
+          { name: 'based-on', value: `ServiceRequest/${serviceRequestID}` },
+          { name: 'code', value: LAB_ORDER_TASK.system + '|' + LAB_ORDER_TASK.code.preSubmission },
+        ],
+      })
+    ).unbundle()[0];
+    const patientId = diagnosticReport.subject?.reference?.split('/')[1];
+    const patient = patientId
+      ? await oystehr.fhir.get<Patient>({
+          resourceType: 'Patient',
+          id: patientId,
+        })
+      : undefined;
+
+    const taskInput: { type: string; value?: string }[] | TaskInput[] | undefined = preSubmissionTask
+      ? preSubmissionTask.input
+      : [
+          {
+            type: LAB_ORDER_TASK.input.testName,
+            // this is just the test name, we should pull the lab name too if possible
+            value: getTestNameOrCodeFromDr(diagnosticReport),
+          },
+          {
+            type: LAB_ORDER_TASK.input.receivedDate,
+            value: diagnosticReport.effectiveDateTime,
+          },
+          {
+            type: LAB_ORDER_TASK.input.patientName,
+            // we won't have a fhir resource for patient for unsolicited but we will have the patient information embedded in the DR
+            // i think its misleading to put unknown in this case, maybe we should not add this input for unsolicited
+            value: patient ? getFullestAvailableName(patient) : 'Unknown',
+          },
+        ];
+
+    if (specificDrTypeFromTag && taskInput) {
+      taskInput.push({
+        type: LAB_ORDER_TASK.input.drTag,
+        value: specificDrTypeFromTag,
+      });
+    }
+
+    const newTask = createTask({
+      category: LAB_ORDER_TASK.category,
+      code: {
+        system: LAB_ORDER_TASK.system,
+        code: getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched),
+      },
+      encounterId: preSubmissionTask?.encounter?.reference?.split('/')[1] ?? '',
       basedOn: [
-        {
-          type: 'DiagnosticReport',
-          reference: `DiagnosticReport/${diagnosticReport.id}`,
-        },
+        `DiagnosticReport/${diagnosticReport.id}`,
+        ...(serviceRequestID ? [`ServiceRequest/${serviceRequestID}`] : []),
       ],
-      status: getStatusForNewTask(diagnosticReport.status),
-      code: getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched),
-    };
+      locationId: preSubmissionTask ? getTaskLocationId(preSubmissionTask) : undefined,
+      input: taskInput,
+    });
+    if (diagnosticReport.status === 'cancelled') {
+      newTask.status = 'completed';
+    }
 
     // no task will be created for an unsolicited result pdf attachment
     // no result pdf can be created until it is matched and it should come in with at least one other DR that will trigger the task

@@ -301,13 +301,6 @@ const handleReviewedEvent = async ({
       path: '/status',
       value: 'completed',
     },
-    {
-      op: 'add',
-      path: '/owner',
-      value: {
-        reference: `Practitioner/${practitionerIdFromCurrentUser}`,
-      },
-    },
     ...(shouldAddRelevantHistory
       ? [
           {
@@ -328,7 +321,6 @@ const handleReviewedEvent = async ({
     resourceId: taskId,
     patchOperations: taskPatchOperations,
   });
-
   const requests = shouldAddRelevantHistory ? [provenanceRequest, taskPatchRequest] : [taskPatchRequest];
 
   const updateTransactionRequest = await oystehr.fhir.transaction({
@@ -423,7 +415,7 @@ const handleSaveCollectionData = async (
     serviceRequest,
     patient,
     questionnaireResponse,
-    preSubmissionTask: pstTask,
+    preSubmissionTask,
     encounter,
     labOrganization,
     specimens: specimenResources,
@@ -462,12 +454,13 @@ const handleSaveCollectionData = async (
   // update pst task to complete, add agent and relevant history (provenance created)
   // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask
   const pstCompletedRequests = makePstCompletePatchRequests(
-    pstTask,
+    preSubmissionTask,
     serviceRequest,
     practitionerIdFromCurrentUser,
     now
   );
   requests.push(...pstCompletedRequests);
+
   // make specimen label
   if (!isPSCOrder(serviceRequest)) {
     const labelConfig: ExternalLabsLabelConfig = {

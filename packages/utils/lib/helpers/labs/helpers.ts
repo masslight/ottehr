@@ -4,6 +4,7 @@ import {
   LabsTableColumn,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   ORDER_NUMBER_LEN,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
 } from '../../types';
@@ -148,3 +149,25 @@ export function createOrderNumber(length = ORDER_NUMBER_LEN): string {
   });
   return result;
 }
+
+export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
+  const testName =
+    dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
+    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.display ||
+    dr.code.coding?.find((temp) => temp.system === '(HL7_V2)')?.display;
+  return testName;
+};
+
+export const getTestItemCodeFromDr = (dr: DiagnosticReport): string | undefined => {
+  const testName =
+    dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
+    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code;
+  return testName;
+};
+
+export const getTestNameOrCodeFromDr = (dr: DiagnosticReport): string => {
+  const testName = getTestNameFromDr(dr);
+  const testItemCode = getTestItemCodeFromDr(dr);
+  const testDescription = testName || testItemCode || 'missing test name';
+  return testDescription;
+};

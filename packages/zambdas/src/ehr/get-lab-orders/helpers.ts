@@ -571,7 +571,7 @@ export const getLabResources = async (
 
   const {
     serviceRequests,
-    tasks: preSubmissionTasks,
+    tasks: tasksBasedOnSrs,
     encounters,
     diagnosticReports,
     observations,
@@ -584,6 +584,10 @@ export const getLabResources = async (
     appointments,
     appointmentScheduleMap,
   } = extractLabResources(labResources);
+
+  // todo labs team
+  // see comment above fetchFinalAndPrelimAndCorrectedTasks
+  const preSubmissionTasks = tasksBasedOnSrs.filter((task) => isTaskPST(task));
 
   // Locations for ServiceRequest
   const srLocationIds = serviceRequests.flatMap(
@@ -714,7 +718,6 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       value: 'ServiceRequest:encounter',
     },
 
-    // it's only PST tasks, because RFRT and RPRT tasks are based on DiagnosticReport, they should be requested later
     {
       name: '_revinclude',
       value: 'Task:based-on',
@@ -1047,6 +1050,11 @@ export const fetchPractitionersForServiceRequests = async (
   }
 };
 
+// todo labs team
+// SRs are now being linked to tasks in addition to DRs so that the tasks module has direct access to the service request
+// either the tasks module has to do different work to fetch the SR (i think this could probably be done easily since the DR is related to the SR)
+// if that logic remains than this function may not be needed but there is some filtering happening here i don't fully understand
+// for now im going to restore the pre-existing logic by doing some filtering on the tasks returned from the SR query
 export const fetchFinalAndPrelimAndCorrectedTasks = async (
   oystehr: Oystehr,
   results: DiagnosticReport[]
@@ -1255,7 +1263,7 @@ export const parseLabOrderStatus = (
   // 'pending': If the SR.status == draft and a pre-submission task exists
   const pendingStatusConditions = {
     serviceRequestStatusIsDraft: serviceRequest.status === 'draft',
-    pstTaskStatusIsReady: taskPST?.status === 'ready',
+    pstTaskStatusIsReady: taskPST?.status === 'ready' || taskPST?.status === 'in-progress',
   };
 
   if (hasAllConditions(pendingStatusConditions)) {
@@ -1301,7 +1309,7 @@ export const parseLabOrderStatus = (
     if (
       !(
         task.code?.coding?.some((coding) => coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult) &&
-        task.status === 'ready'
+        (task.status === 'ready' || task.status === 'in-progress')
       )
     )
       return false;
@@ -1320,7 +1328,7 @@ export const parseLabOrderStatus = (
 
   // received: Task(RFRT).status = 'ready' and DR the Task is basedOn have DR.status = ‘final’
   const hasReadyTaskWithFinalResult = finalAndCorrectedTasks.some((task) => {
-    if (task.status !== 'ready') {
+    if (task.status !== 'ready' && task.status !== 'in-progress') {
       return false;
     }
 
@@ -1397,16 +1405,18 @@ export const parseLabOrderStatusWithSpecificTask = (
       } else {
         return ExternalLabsStatus.reviewed;
       }
-    } else if (task.status === 'ready') {
+    } else if (task.status === 'ready' || task.status === 'in-progress') {
       return ExternalLabsStatus.received;
     }
   }
 
-  if (result.status === 'corrected' && task.status === 'ready') return ExternalLabsStatus.corrected;
+  if (result.status === 'corrected' && (task.status === 'ready' || task.status === 'in-progress'))
+    return ExternalLabsStatus.corrected;
   if ((result.status === 'final' || result.status == 'corrected') && task.status === 'completed')
     return ExternalLabsStatus.reviewed;
   if (result.status === 'preliminary') return ExternalLabsStatus.prelim;
-  if (serviceRequest?.status === 'draft' && PSTTask?.status === 'ready') return ExternalLabsStatus.pending;
+  if (serviceRequest?.status === 'draft' && (PSTTask?.status === 'ready' || PSTTask?.status === 'in-progress'))
+    return ExternalLabsStatus.pending;
   if (serviceRequest?.status === 'active' && PSTTask?.status === 'completed') return ExternalLabsStatus.sent;
   return ExternalLabsStatus.unknown;
 };
