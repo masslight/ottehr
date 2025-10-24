@@ -90,10 +90,12 @@ enum TimeRange {
   Custom = 'Custom',
 }
 
+type HistoryStatusWithoutReady = Exclude<VisitStatusHistoryLabel, 'ready'>;
+
 export default function WorkflowEfficiency(): React.ReactElement {
   const [appointmentCountByDate, setAppointmentCountByDate] = React.useState<AppointmentCount[] | undefined>(undefined);
   const [appointmentStatuses, setAppointmentStatuses] = React.useState<
-    { [status in VisitStatusHistoryLabel]: VisitStatusMetrics } | undefined
+    { [status in HistoryStatusWithoutReady]: VisitStatusMetrics } | undefined
   >(undefined);
   const [appointmentsSeenIn45Ratio, setAppointmentsSeenIn45Ratio] = React.useState<number | undefined>(undefined);
   const [avgMinutesToProvider, setAvgMinutesToProvider] = React.useState<number | undefined>(undefined);
@@ -203,7 +205,7 @@ export default function WorkflowEfficiency(): React.ReactElement {
         });
         console.log('visitCountByDay', visitCountByDay);
 
-        const statusesCount: { [status in VisitStatusHistoryLabel]: VisitStatusMetrics } = {
+        const statusesCount: { [status in HistoryStatusWithoutReady]: VisitStatusMetrics } = {
           pending: { numAppointments: 0, averageTime: 0 },
           arrived: { numAppointments: 0, averageTime: 0 },
           'awaiting supervisor approval': { numAppointments: 0, averageTime: 0 },
@@ -221,7 +223,7 @@ export default function WorkflowEfficiency(): React.ReactElement {
         formattedAppointments.forEach((appointment) => {
           let timeArrived, timeSeenByProvider;
           appointment.visitStatusHistory?.forEach((statusTemp) => {
-            const statusName = statusTemp.status as VisitStatusHistoryLabel;
+            const statusName = statusTemp.status as HistoryStatusWithoutReady;
             const statusPeriod = statusTemp.period;
             if (statusName !== 'no show' && statusName !== 'completed' && statusName !== 'cancelled') {
               if (statusPeriod.end && statusPeriod.start) {
@@ -633,7 +635,7 @@ export default function WorkflowEfficiency(): React.ReactElement {
                               keyTemp !== 'pending'
                           )
                           .map((keyTemp) =>
-                            Math.round(appointmentStatuses[keyTemp as VisitStatusHistoryLabel].averageTime)
+                            Math.round(appointmentStatuses[keyTemp as HistoryStatusWithoutReady].averageTime)
                           ),
                         backgroundColor: Object.keys(appointmentStatuses).map(
                           (statusTemp) => IN_PERSON_CHIP_STATUS_MAP[statusTemp as VisitStatusLabel].color.primary

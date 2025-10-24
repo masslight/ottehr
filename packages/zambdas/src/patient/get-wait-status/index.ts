@@ -8,7 +8,7 @@ import {
   getAppointmentResourceById,
   getLocationIdFromAppointment,
   getSecret,
-  mapStatusToTelemed,
+  getTelemedVisitStatus,
   PROJECT_WEBSITE,
   SecretsKeys,
   TelemedAppointmentStatusEnum,
@@ -109,7 +109,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     }
 
-    const telemedStatus = mapStatusToTelemed(videoEncounter.status, appointment.status);
+    const telemedStatus = getTelemedVisitStatus(videoEncounter.status, appointment.status);
 
     if (telemedStatus === 'ready' || telemedStatus === 'pre-video' || telemedStatus === 'on-video') {
       const appointments = await getAppointmentsForLocation(oystehr, locationId);

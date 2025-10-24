@@ -3,7 +3,15 @@ import { styled } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { IN_PERSON_CHIP_STATUS_MAP } from 'src/components/InPersonAppointmentStatusChip';
-import { getInPersonVisitStatus, visitStatusArray, VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import {
+  getAdmitterPractitionerId,
+  getAttendingPractitionerId,
+  getInPersonVisitStatus,
+  visitStatusArray,
+  VisitStatusLabel,
+  VisitStatusWithoutUnknown,
+} from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { handleChangeInPersonVisitStatus } from '../../../../helpers/inPersonVisitStatusUtils';
 import { useApiClients } from '../../../../hooks/useAppClients';
@@ -64,6 +72,8 @@ export const ChangeStatusDropdown = ({
   const user = useEvolveUser();
   const { visitState: telemedData, appointmentRefetch } = useAppointmentData(appointmentID);
   const { appointment, encounter } = telemedData;
+  const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
+  const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
 
   useEffect(() => {
     if (!encounter?.id || !appointment) {
@@ -95,8 +105,18 @@ export const ChangeStatusDropdown = ({
   const hasDropdown = !nonDropdownStatuses.includes(status);
 
   const updateInPersonVisitStatus = async (event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> => {
-    if ((event.target.value as VisitStatusWithoutUnknown) === 'completed') {
+    const targetValue = event.target.value as VisitStatusWithoutUnknown;
+
+    if (targetValue === 'completed') {
       alert('To mark a visit as completed, scroll to the bottom of the "Progress Note" and click "Review & Sign"');
+      return;
+    }
+    if (
+      !assignedIntakePerformerId &&
+      !assignedProviderId &&
+      !(targetValue === 'pending' || targetValue === 'arrived' || targetValue === 'ready')
+    ) {
+      alert('Select an intake performer and a provider to change the status.');
       return;
     }
     setStatusLoading(true);
@@ -169,6 +189,9 @@ export const ChangeStatusDropdown = ({
                 ];
                 if (status === 'ready for provider' || status === 'intake') {
                   allHiddenStatuses = allHiddenStatuses.filter((s) => s !== 'provider');
+                }
+                if (!FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED) {
+                  allHiddenStatuses.push('awaiting supervisor approval');
                 }
                 return !allHiddenStatuses.includes(statusTemp);
               })

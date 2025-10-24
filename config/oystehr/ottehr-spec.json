@@ -5842,7 +5842,7 @@
       ]
     },
     "CUSTOMER_SUPPORT": {
-      "name": "CustomerSupport",
+      "name": "Customer Support",
       "accessPolicy": [
         {
           "action": ["FHIR:Search", "FHIR:Read"],

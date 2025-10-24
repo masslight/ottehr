@@ -63,6 +63,11 @@ export const FHIR_EXTENSION = {
       },
     },
   },
+  EncounterStatusHistory: {
+    ottehrVisitStatus: {
+      url: `${PUBLIC_EXTENSION_BASE_URL}/visit-status`,
+    },
+  },
   Location: {
     locationFormPreRelease: {
       url: `${PUBLIC_EXTENSION_BASE_URL}/location-form-pre-release`,
