@@ -71,11 +71,11 @@ export async function fetchRelatedResources(
     });
   }
   console.log(`requests:\n${JSON.stringify(requests, null, 2)}`);
-  const resources = (
-    await oystehr.fhir.batch({
-      requests,
-    })
-  ).unbundle();
+  const bundle = await oystehr.fhir.batch({
+    requests,
+  });
+  console.log(`bundle:\n${JSON.stringify(bundle, null, 2)}`);
+  const resources = bundle.unbundle();
   return {
     tasks: resources.filter((resource) => resource.resourceType === 'Task'),
     patient: resources.find((resource) => resource.resourceType === 'Patient'),
