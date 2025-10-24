@@ -70,7 +70,7 @@ export const MissingCard: FC = () => {
               sx={{ cursor: 'pointer' }}
               color="error"
               onClick={scrollOrNavigateToHPI}
-              data-testid={dataTestIds.progressNotePage.emCodeLink}
+              data-testid={dataTestIds.progressNotePage.hpiLink}
             >
               HPI
             </Link>
