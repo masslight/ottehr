@@ -24,10 +24,24 @@ export const useMedicationAPI = (): MedicationAPI => {
   const { data: medications, isLoading } = useGetMedicationOrders(searchBy);
 
   const invalidateCache = async (): Promise<void> => {
-    return await queryClient.invalidateQueries({
-      queryKey: ['telemed-get-medication-orders', JSON.stringify(searchBy)],
-      // 'exact: false' is used for ignoring other cache keys (apiClient)
-      exact: false,
+    const encounterId = encounter.id;
+    if (!encounterId) return;
+
+    await queryClient.invalidateQueries({
+      predicate: (query) => {
+        const [prefix, searchByString] = query.queryKey as [string, string?];
+        if (prefix !== 'telemed-get-medication-orders' || !searchByString) return false;
+
+        try {
+          const searchBy = JSON.parse(searchByString);
+          return (
+            (searchBy.field === 'encounterId' && searchBy.value === encounterId) ||
+            (searchBy.field === 'encounterIds' && Array.isArray(searchBy.value) && searchBy.value.includes(encounterId))
+          );
+        } catch {
+          return false;
+        }
+      },
     });
   };
 

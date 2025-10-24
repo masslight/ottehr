@@ -8,9 +8,10 @@ type Props = {
   label: string;
   required?: boolean;
   validate?: (value: string) => boolean | string;
+  dataTestId?: string;
 };
 
-export const PhoneInput: React.FC<Props> = ({ name, label, required, validate }) => {
+export const PhoneInput: React.FC<Props> = ({ name, label, required, validate, dataTestId }) => {
   return (
     <TextInput
       name={name}
@@ -32,6 +33,7 @@ export const PhoneInput: React.FC<Props> = ({ name, label, required, validate })
         }
         return true;
       }}
+      dataTestId={dataTestId}
     />
   );
 };

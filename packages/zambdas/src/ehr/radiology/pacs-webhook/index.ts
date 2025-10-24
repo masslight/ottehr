@@ -5,7 +5,13 @@ import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
 import { ImagingStudy as ImagingStudyR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
 import { getSecret, Secrets, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
@@ -53,10 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
   }
 });
 

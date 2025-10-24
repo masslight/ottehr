@@ -5,6 +5,7 @@ import { Encounter, FhirResource, Provenance } from 'fhir/r4b';
 import {
   createExtensionValue,
   findExtensionIndex,
+  getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
   getSecret,
   PendingSupervisorApprovalInputValidated,
@@ -68,6 +69,15 @@ export const index = wrapHandler(
         },
       ];
 
+      // Add statusHistory with Ottehr status extension
+      const statusHistoryUpdate = getEncounterStatusHistoryUpdateOp(
+        encounter,
+        encounterStatus,
+        'awaiting supervisor approval'
+      );
+
+      encounterPatchOps.push(statusHistoryUpdate);
+
       const awaitingSupervisorApprovalExtension = createExtensionValue(
         'awaiting-supervisor-approval',
         true,
@@ -116,11 +126,7 @@ export const index = wrapHandler(
       };
     } catch (error: any) {
       const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      await topLevelCatch('pending-supervisor-approval', error, ENVIRONMENT);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ message: `Error pending supervisor approval: ${error}` }),
-      };
+      return topLevelCatch('pending-supervisor-approval', error, ENVIRONMENT);
     }
   }
 );

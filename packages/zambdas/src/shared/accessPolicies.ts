@@ -6,6 +6,7 @@ export const ADMINISTRATOR_RULES: AccessPolicy = {
       action: ['FHIR:Search', 'FHIR:Read'],
       effect: 'Allow',
       resource: [
+        'FHIR:Account',
         'FHIR:Consent',
         'FHIR:Coverage',
         'FHIR:RelatedPerson',
@@ -95,6 +96,7 @@ export const MANAGER_RULES: AccessPolicy = {
       action: ['FHIR:Search', 'FHIR:Read'],
       effect: 'Allow',
       resource: [
+        'FHIR:Account',
         'FHIR:Consent',
         'FHIR:Coverage',
         'FHIR:RelatedPerson',
@@ -191,6 +193,7 @@ export const STAFF_RULES: AccessPolicy = {
   rule: [
     {
       resource: [
+        'FHIR:Account',
         'FHIR:Consent',
         'FHIR:Coverage',
         'FHIR:RelatedPerson',
@@ -258,6 +261,7 @@ export const PROVIDER_RULES: AccessPolicy = {
   rule: [
     {
       resource: [
+        'FHIR:Account',
         'FHIR:Consent',
         'FHIR:Coverage',
         'FHIR:RelatedPerson',
@@ -358,34 +362,40 @@ export const CUSTOMER_SUPPORT_RULES: AccessPolicy = {
   rule: [...ADMINISTRATOR_RULES.rule, ...PROVIDER_RULES.rule],
 };
 
-export const PRESCRIBER_RULES: AccessPolicy['rule'] = [
-  {
-    action: ['FHIR:Search', 'FHIR:Read'],
-    effect: 'Allow',
-    resource: ['FHIR:AllergyIntolerance', 'FHIR:MedicationStatement'],
-  },
-
-  {
-    action: ['eRx:SearchMedication'],
-    effect: 'Allow',
-    resource: ['eRx:Medication'],
-  },
-  {
-    action: ['eRx:SearchAllergy'],
-    effect: 'Allow',
-    resource: ['eRx:Allergy'],
-  },
-  {
-    action: ['eRx:SyncPatient'],
-    effect: 'Allow',
-    resource: ['eRx:Patient'],
-  },
-  {
-    action: ['eRx:Create', 'eRx:Read'],
-    effect: 'Allow',
-    resource: ['eRx:Enrollment'],
-  },
-];
+export const PRESCRIBER_RULES: AccessPolicy = {
+  rule: [
+    {
+      action: ['FHIR:Search', 'FHIR:Read'],
+      effect: 'Allow',
+      resource: ['FHIR:AllergyIntolerance', 'FHIR:MedicationStatement'],
+    },
+    {
+      action: ['eRx:SearchMedication'],
+      effect: 'Allow',
+      resource: ['eRx:Medication'],
+    },
+    {
+      action: ['eRx:SearchAllergy'],
+      effect: 'Allow',
+      resource: ['eRx:Allergy'],
+    },
+    {
+      action: ['eRx:SyncPatient'],
+      effect: 'Allow',
+      resource: ['eRx:Patient'],
+    },
+    {
+      action: ['eRx:Create', 'eRx:Read'],
+      effect: 'Allow',
+      resource: ['eRx:Enrollment'],
+    },
+    {
+      action: ['Zambda:InvokeFunction'],
+      effect: 'Allow',
+      resource: ['Zambda:Function:*'],
+    },
+  ],
+};
 
 export const FRONT_DESK_RULES: AccessPolicy = {
   rule: [

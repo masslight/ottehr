@@ -75,7 +75,7 @@ export const useUpdateAppointmentMutation = (): UseMutationResult<
   });
 };
 
-export const useCancelAppointmentMutation = (): UseMutationResult<
+export const useCancelTelemedAppointmentMutation = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrAPIClient['cancelAppointment']>>,
   Error,
   {

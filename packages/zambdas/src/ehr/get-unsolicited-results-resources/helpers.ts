@@ -12,9 +12,11 @@ import {
 import {
   compareDates,
   DiagnosticReportLabDetailPageDTO,
+  DR_CONTAINED_PRACTITIONER_REF,
   DR_UNSOLICITED_PATIENT_REF,
-  DR_UNSOLICITED_PRACTITIONER_REF,
   getFullestAvailableName,
+  getTestItemCodeFromDr,
+  getTestNameOrCodeFromDr,
   GetUnsolicitedResultsDetailOutput,
   GetUnsolicitedResultsIconStatusOutput,
   GetUnsolicitedResultsMatchDataOutput,
@@ -31,8 +33,6 @@ import { parseLabOrderStatusWithSpecificTask } from '../get-lab-orders/helpers';
 import {
   AllResources,
   formatResourcesIntoDiagnosticReportLabDTO,
-  getTestItemCodeFromDr,
-  getTestNameOrCodeFromDr,
   groupResourcesByDr,
   parseAccessionNumberFromDr,
   ResourcesByDr,
@@ -63,7 +63,7 @@ export const getUnsolicitedResultResourcesResourcesByDR = async (
 
 export const handleIconResourceRequest = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsIconStatusOutput> => {
   const resources = await getUnsolicitedResultResourcesResourcesByDR(oystehr, [
-    { name: '_has:Task:based-on:status', value: 'ready' },
+    { name: '_has:Task:based-on:status', value: 'ready,in-progress' },
     { name: '_revinclude', value: 'Task:based-on' },
   ]);
   return {
@@ -73,7 +73,7 @@ export const handleIconResourceRequest = async (oystehr: Oystehr): Promise<GetUn
 
 export const handleGetTasks = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsTasksOutput> => {
   const resources = await getUnsolicitedResultResourcesResourcesByDR(oystehr, [
-    { name: '_has:Task:based-on:status', value: 'ready' },
+    { name: '_has:Task:based-on:status', value: 'ready,in-progress' },
     { name: '_revinclude', value: 'Task:based-on' },
     { name: '_include', value: 'DiagnosticReport:subject' }, // patient
     { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
@@ -91,7 +91,7 @@ export const handleUnsolicitedRequestMatch = async (
   diagnosticReportId: string
 ): Promise<GetUnsolicitedResultsMatchDataOutput> => {
   const resources = await getUnsolicitedResultResourcesResourcesByDR(oystehr, [
-    { name: '_has:Task:based-on:status', value: 'ready' },
+    { name: '_has:Task:based-on:status', value: 'ready,in-progress' },
     { name: '_revinclude', value: 'Task:based-on' },
     { name: '_id', value: diagnosticReportId },
     { name: '_include', value: 'DiagnosticReport:subject' }, // patient
@@ -194,7 +194,7 @@ const formatResourcesForTaskTableResponse = (resources: ResourcesByDr): Unsolici
           actionText,
           actionUrl,
           taskRowDescription,
-          resultsReceivedDateTime: task.authoredOn || 'unknown',
+          resultsReceivedDateTime: diagnosticReport.effectiveDateTime || 'unknown',
         };
         taskDetails.push(row);
       }
@@ -309,7 +309,7 @@ const getUnsolicitedResourcesFromDr = (
     unsolicitedPatient = containedPatient as Patient;
   }
   const containedProvider = dr.contained?.find(
-    (resource) => resource.resourceType === 'Practitioner' && resource.id === DR_UNSOLICITED_PRACTITIONER_REF
+    (resource) => resource.resourceType === 'Practitioner' && resource.id === DR_CONTAINED_PRACTITIONER_REF
   );
   if (containedProvider) {
     unsolicitedProvider = containedProvider as Practitioner;

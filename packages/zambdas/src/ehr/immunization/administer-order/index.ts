@@ -19,6 +19,7 @@ import {
   EMERGENCY_CONTACT_RELATIONSHIPS,
   getFullName,
   getMedicationName,
+  getSecret,
   ImmunizationEmergencyContact,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
@@ -26,12 +27,14 @@ import {
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
+  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   fillMeta,
   getMyPractitionerId,
+  topLevelCatch,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -71,10 +74,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: `Error updating order: ${JSON.stringify(error.message)}` }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

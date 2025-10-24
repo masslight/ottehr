@@ -2,14 +2,13 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DocumentReference, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  APIError,
   DYMO_30334_LABEL_CONFIG,
   getMiddleName,
   getPatientFirstName,
   getPatientLastName,
   getPresignedURL,
   getSecret,
-  isApiError,
+  MIME_TYPES,
   SecretsKeys,
 } from 'utils';
 import {
@@ -115,8 +114,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     } else if (labelDocRefs.length === 1) {
       const labelDocRef = labelDocRefs[0];
       console.log(`Found existing DocumentReference/${labelDocRef.id} for Encounter/${encounterId}`);
-      const url = labelDocRef.content.find((content) => content.attachment.contentType === 'application/pdf')
-        ?.attachment.url;
+      const url = labelDocRef.content.find((content) => content.attachment.contentType === MIME_TYPES.PDF)?.attachment
+        .url;
 
       if (!url) {
         throw new Error(`No url found matching an application/pdf for DocumentReference/${labelDocRef.id}`);
@@ -137,15 +136,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('get or create visit label pdf error:', JSON.stringify(error));
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-get-or-create-visit-label-pdf', error, ENVIRONMENT);
-    let body = JSON.stringify({ message: 'Error fetching or creating visit label pdf' });
-    if (isApiError(error)) {
-      const { code, message } = error as APIError;
-      body = JSON.stringify({ message, code });
-    }
-    return {
-      statusCode: 500,
-      body,
-    };
+    return topLevelCatch('admin-get-or-create-visit-label-pdf', error, ENVIRONMENT);
   }
 });

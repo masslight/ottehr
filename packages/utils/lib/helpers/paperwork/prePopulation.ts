@@ -233,22 +233,10 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           items: itemItems,
           physician: accountInfo?.primaryCarePhysician,
         });
-      } else if (item.linkId === 'pharmacy-page') {
-        const pharmacyName = accountInfo?.pharmacy?.name;
-        const pharmacyAddress = accountInfo?.pharmacy?.address?.[0].text;
-        return itemItems.map((item) => {
-          const { linkId } = item;
-          let answer: QuestionnaireResponseItemAnswer[] | undefined;
-          if (linkId === 'pharmacy-name' && pharmacyName && pharmacyName != '-') {
-            answer = makeAnswer(pharmacyName);
-          }
-          if (linkId === 'pharmacy-address' && pharmacyAddress) {
-            answer = makeAnswer(pharmacyAddress);
-          }
-          return {
-            linkId,
-            answer,
-          };
+      } else if (PHARMACY_ITEMS.includes(item.linkId)) {
+        return mapPharmacyToQuestionnaireResponseItems({
+          items: itemItems,
+          pharmacyResource: accountInfo?.pharmacy,
         });
       } else if (GUARANTOR_ITEMS.includes(item.linkId)) {
         return mapGuarantorToQuestionnaireResponseItems({
@@ -361,8 +349,9 @@ export const makePrepopulatedItemsFromPatientRecord = (
     guarantorResource,
     insuranceOrgs,
     emergencyContactResource,
+    pharmacy,
   } = input;
-  console.log('making prepopulated items from patient record', coverages);
+  console.log('making prepopulated items from patient record', coverages, pharmacy);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
       const itemItems = (item.item ?? []).filter((i: QuestionnaireItem) => i.type !== 'display');
@@ -392,6 +381,12 @@ export const makePrepopulatedItemsFromPatientRecord = (
       }
       if (EMERGENCY_CONTACT_ITEMS.includes(item.linkId)) {
         return mapEmergencyContactToQuestionnaireResponseItems({ items: itemItems, emergencyContactResource });
+      }
+      if (PHARMACY_ITEMS.includes(item.linkId)) {
+        return mapPharmacyToQuestionnaireResponseItems({
+          items: itemItems,
+          pharmacyResource: pharmacy,
+        });
       }
       return [];
     })();
@@ -913,6 +908,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       if (linkId === 'insurance-card-back-2' && secondaryInsuranceCardBackDocumentReference) {
         answer = makeAnswer(secondaryInsuranceCardBack, 'Attachment');
       }
+      if (linkId === 'display-secondary-insurance') {
+        answer = secondary ? makeAnswer(true, 'Boolean') : makeAnswer(false, 'Boolean');
+      }
 
       return {
         linkId,
@@ -1073,6 +1071,32 @@ const mapEmergencyContactToQuestionnaireResponseItems = (
     }
     if (linkId === 'emergency-contact-number' && phone) {
       answer = makeAnswer(phone);
+    }
+    return {
+      linkId,
+      answer,
+    };
+  });
+};
+
+const PHARMACY_ITEMS = ['preferred-pharmacy-section', 'pharmacy-page'];
+interface MapPharmacyItemsInput {
+  items: QuestionnaireItem[];
+  pharmacyResource?: Organization;
+}
+
+const mapPharmacyToQuestionnaireResponseItems = (input: MapPharmacyItemsInput): QuestionnaireResponseItem[] => {
+  const { pharmacyResource, items } = input;
+  const pharmacyName = pharmacyResource?.name;
+  const pharmacyAddress = pharmacyResource?.address?.[0].text;
+  return items.map((item) => {
+    const { linkId } = item;
+    let answer: QuestionnaireResponseItemAnswer[] | undefined;
+    if (linkId === 'pharmacy-name' && pharmacyName && pharmacyName != '-') {
+      answer = makeAnswer(pharmacyName);
+    }
+    if (linkId === 'pharmacy-address' && pharmacyAddress) {
+      answer = makeAnswer(pharmacyAddress);
     }
     return {
       linkId,

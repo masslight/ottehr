@@ -6,7 +6,7 @@ import Oystehr, {
 } from '@oystehr/sdk';
 import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import { randomUUID } from 'crypto';
-import { applyPatch, Operation, RemoveOperation } from 'fast-json-patch';
+import { Operation, RemoveOperation } from 'fast-json-patch';
 import {
   Account,
   AccountGuarantor,
@@ -38,7 +38,6 @@ import Stripe from 'stripe';
 import {
   CANDID_PLAN_TYPE_SYSTEM,
   codeableConcept,
-  CONSENT_CODE,
   ConsentSigner,
   consolidateOperations,
   ContactTelecomConfig,
@@ -75,7 +74,6 @@ import {
   getPayerId,
   getPhoneNumberForIndividual,
   getSecret,
-  getStripeCustomerIdFromAccount,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
@@ -91,6 +89,8 @@ import {
   OrderedCoverages,
   OrderedCoveragesWithSubscribers,
   OTTEHR_MODULE,
+  PAPERWORK_CONSENT_CODE_UNIQUE,
+  PAPERWORK_CONSENT_CODING_LOINC,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PATIENT_NOT_FOUND_ERROR,
   PATIENT_PHOTO_CODE,
@@ -117,12 +117,12 @@ import {
   uploadPDF,
 } from 'utils';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
-import { createPdfBytes } from '../../../shared';
+import { createPdfBytes, ensureStripeCustomerId } from '../../../shared';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
-const PATIENT_UPDATE_MAX_RETRIES = 3;
+// const PATIENT_UPDATE_MAX_RETRIES = 3;
 
 interface ResponsiblePartyContact {
   birthSex: 'Male' | 'Female' | 'Intersex';
@@ -283,13 +283,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
       resourceTitle: 'Consent forms',
       type: {
-        coding: [
-          {
-            system: 'http://loinc.org',
-            code: CONSENT_CODE,
-            display: 'Consent Documents',
-          },
-        ],
+        coding: [PAPERWORK_CONSENT_CODING_LOINC, PAPERWORK_CONSENT_CODE_UNIQUE],
         text: 'Consent forms',
       },
     },
@@ -313,7 +307,17 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
 
   const pdfGroups: Record<string, typeof pdfsToCreate> = {};
   for (const pdfInfo of pdfsToCreate) {
-    const typeCode = pdfInfo.type.coding[0].code;
+    let typeCode = pdfInfo.type.coding[0].code;
+    if (pdfInfo.type.coding.length > 1) {
+      // Case of consent form with multiple type codings
+      typeCode = pdfInfo.type.coding.find(
+        (coding) =>
+          coding.system === PAPERWORK_CONSENT_CODE_UNIQUE.system && coding.code === PAPERWORK_CONSENT_CODE_UNIQUE.code
+      )?.code;
+    }
+    if (!typeCode) {
+      throw new Error('Unexpectedly could not find type code for PAPERWORK_CONSENT_CODE_UNIQUE');
+    }
     if (!pdfGroups[typeCode]) {
       pdfGroups[typeCode] = [];
     }
@@ -408,14 +412,27 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   }
 
   for (const pdfInfo of pdfsToCreate) {
-    const typeCode = pdfInfo.type.coding[0].code;
+    let typeCode = pdfInfo.type.coding[0].code;
+    // only in the case of Consent DRs, we have introduced multiple codings so we can tell different kinds of Consents apart (labs vs paperwork)
+    if (pdfInfo.type.coding.length > 1) {
+      const maybePaperworkTypeCoding = pdfInfo.type.coding.find(
+        (coding) =>
+          coding.system === PAPERWORK_CONSENT_CODE_UNIQUE.system && coding.code === PAPERWORK_CONSENT_CODE_UNIQUE.code
+      );
+      if (maybePaperworkTypeCoding) {
+        typeCode = maybePaperworkTypeCoding.code;
+      }
+    }
+    if (!typeCode) {
+      throw new Error('Unexpectedly could not find type code for PAPERWORK_CONSENT_CODE_UNIQUE');
+    }
     const groupRefs = allDocRefsByType[typeCode] || [];
     const matchingRef = groupRefs.find((dr) => dr.content[0]?.attachment.title === pdfInfo.formTitle);
     if (!matchingRef?.id) {
       throw new Error(`DocumentReference for "${pdfInfo.formTitle}" not found`);
     }
 
-    if (typeCode === CONSENT_CODE) {
+    if (typeCode === PAPERWORK_CONSENT_CODE_UNIQUE.code) {
       await createConsentResource(patientResource.id!, matchingRef.id, nowIso, oystehr);
     }
   }
@@ -755,17 +772,6 @@ const PCP_FIELDS = ['pcp-first', 'pcp-last', 'pcp-practice', 'pcp-address', 'pcp
 
 export interface PatientMasterRecordResources {
   patient: Patient;
-}
-
-function updatePatientData(patient: Patient, questionnaireResponseItems: QuestionnaireResponseItem[]): void {
-  const patientPatchOps = createMasterRecordPatchOperations(questionnaireResponseItems, patient);
-  patient = applyPatch(patient, patientPatchOps.patient.patchOpsForDirectUpdate, true).newDocument;
-
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    questionnaireResponseItems as IntakeQuestionnaireItem[]
-  ) as QuestionnaireResponseItem[];
-
-  updatePharmacy(patient, flattenedPaperwork);
 }
 
 export function createMasterRecordPatchOperations(
@@ -1135,7 +1141,10 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
   return operations;
 };
 
-const updatePharmacy = (patient: Patient, flattenedItems: QuestionnaireResponseItem[]): void => {
+export const createUpdatePharmacyPatchOps = (
+  patient: Patient,
+  flattenedItems: QuestionnaireResponseItem[]
+): Operation[] => {
   const inputPharmacyName = getAnswer('pharmacy-name', flattenedItems)?.valueString;
   const inputPharmacyAddress = getAnswer('pharmacy-address', flattenedItems)?.valueString;
   const newContained = (patient.contained ?? []).filter((resource) => resource.id !== PATIENT_CONTAINED_PHARMACY_ID);
@@ -1163,9 +1172,23 @@ const updatePharmacy = (patient: Patient, flattenedItems: QuestionnaireResponseI
         reference: '#' + PATIENT_CONTAINED_PHARMACY_ID,
       },
     });
+    const containedOp = patient.contained ? 'replace' : 'add';
+    const extensionOp = patient.extension ? 'replace' : 'add';
+    const patchOps: Operation[] = [
+      {
+        op: containedOp,
+        path: '/contained',
+        value: newContained,
+      },
+      {
+        op: extensionOp,
+        path: '/extension',
+        value: newExtensions,
+      },
+    ];
+    return patchOps;
   }
-  patient.contained = newContained;
-  patient.extension = newExtensions;
+  return [];
 };
 
 function separateResourceUpdates(
@@ -2173,6 +2196,17 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         system: 'phone',
       },
     ];
+    emergencyContactResourceToPut.relationship = [
+      {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+            code: 'EP',
+            display: emergencyContactData.relationship,
+          },
+        ],
+      },
+    ];
     puts.push({
       method: 'PUT',
       url: `RelatedPerson/${existingEmergencyContact.id}`,
@@ -3126,36 +3160,6 @@ export const updatePatientAccountFromQuestionnaire = async (
     emergencyContactResource: existingEmergencyContact,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
 
-  console.time('updating patient resource');
-  let patientToUpdate = patient;
-  let retryCount = 0;
-  while (retryCount < PATIENT_UPDATE_MAX_RETRIES) {
-    try {
-      updatePatientData(patientToUpdate, questionnaireResponseItem ?? []);
-      await oystehr.fhir.update(patientToUpdate, {
-        optimisticLockingVersionId: patientToUpdate.meta?.versionId,
-      });
-      break;
-    } catch (error: unknown) {
-      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
-    }
-    try {
-      patientToUpdate = await oystehr.fhir.get({
-        resourceType: 'Patient',
-        id: patient.id!,
-      });
-    } catch (error: unknown) {
-      console.log(`Failed to read Patient: ${JSON.stringify(error)}`);
-    }
-    retryCount++;
-  }
-
-  if (retryCount === PATIENT_UPDATE_MAX_RETRIES) {
-    console.log(`Failed to update Patient using optimistic lock`);
-  }
-
-  console.timeEnd('updating patient resource');
-
   /*
   console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
   console.log('existing account', JSON.stringify(existingAccount, null, 2));
@@ -3209,16 +3213,24 @@ interface UpdateStripeCustomerInput {
   guarantorResource: RelatedPerson | Patient;
   stripeClient: Stripe;
 }
-export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Promise<void> => {
-  const { guarantorResource, account } = input;
+export const updateStripeCustomer = async (input: UpdateStripeCustomerInput, oystehr: Oystehr): Promise<void> => {
+  const { guarantorResource, account, stripeClient } = input;
   console.log('updating Stripe customer for account', account.id);
   console.log('guarantor resource:', `${guarantorResource?.resourceType}/${guarantorResource?.id}`);
-  const stripeCustomerId = getStripeCustomerIdFromAccount(account);
+  const { customerId: stripeCustomerId } = await ensureStripeCustomerId(
+    {
+      patientId: account.subject?.[0]?.reference?.split('/')[1] || '',
+      account,
+      guarantorResource,
+      stripeClient,
+    },
+    oystehr
+  );
   const email = getEmailForIndividual(guarantorResource);
   const name = getFullName(guarantorResource);
   const phone = getPhoneNumberForIndividual(guarantorResource);
   if (stripeCustomerId) {
-    await input.stripeClient.customers.update(stripeCustomerId, {
+    await stripeClient.customers.update(stripeCustomerId, {
       email,
       name,
       phone,

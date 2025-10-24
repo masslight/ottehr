@@ -151,9 +151,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     return lambdaResponse(200, response);
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-get-employee-details', error, ENVIRONMENT);
-    console.log('Error: ', JSON.stringify(error.message));
-    return lambdaResponse(500, error.message);
+    return topLevelCatch('admin-get-employee-details', error, ENVIRONMENT);
   }
 });
 

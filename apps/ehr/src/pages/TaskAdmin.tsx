@@ -1,16 +1,18 @@
-import { BarChart as BarChartIcon, TableView as TableViewIcon } from '@mui/icons-material';
+import { BarChart as BarChartIcon, Refresh as RefreshIcon, TableView as TableViewIcon } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
 import {
   Chip,
   CircularProgress,
   FormControl,
   Grid,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
   Select,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip as MuiTooltip,
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef, GridRenderCellParams } from '@mui/x-data-grid-pro';
@@ -53,6 +55,7 @@ interface TaskDetailRow {
   authoredOn?: string;
   statusReason?: string;
   focus?: string;
+  canRetry?: boolean;
 }
 
 enum ViewType {
@@ -75,83 +78,6 @@ enum TimeRange {
 // Get all available task types dynamically from the system
 const taskTypeOptions: TaskTypeOption[] = getAllTaskTypes();
 
-// DataGrid column definitions
-const columns: GridColDef[] = [
-  {
-    field: 'id',
-    headerName: 'ID',
-    width: 120,
-    sortable: true,
-  },
-  {
-    field: 'status',
-    headerName: 'Status',
-    width: 120,
-    sortable: true,
-    renderCell: (params: GridRenderCellParams) => (
-      <Chip
-        label={params.value}
-        color={
-          params.value === 'completed'
-            ? 'success'
-            : params.value === 'failed'
-            ? 'error'
-            : params.value === 'in-progress'
-            ? 'info'
-            : params.value === 'cancelled'
-            ? 'warning'
-            : 'default'
-        }
-        size="small"
-      />
-    ),
-  },
-  {
-    field: 'code',
-    headerName: 'Code',
-    width: 150,
-    sortable: true,
-  },
-  {
-    field: 'system',
-    headerName: 'System',
-    width: 200,
-    sortable: true,
-    renderCell: (params: GridRenderCellParams) => (
-      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{params.value}</div>
-    ),
-  },
-  {
-    field: 'lastUpdated',
-    headerName: 'Last Updated',
-    width: 160,
-    sortable: true,
-  },
-  {
-    field: 'authoredOn',
-    headerName: 'Authored On',
-    width: 160,
-    sortable: true,
-    renderCell: (params: GridRenderCellParams) => params.value || 'N/A',
-  },
-  {
-    field: 'statusReason',
-    headerName: 'Status Reason',
-    width: 150,
-    sortable: true,
-    renderCell: (params: GridRenderCellParams) => params.value || 'N/A',
-  },
-  {
-    field: 'focus',
-    headerName: 'Focus',
-    width: 200,
-    sortable: true,
-    renderCell: (params: GridRenderCellParams) => (
-      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{params.value || 'N/A'}</div>
-    ),
-  },
-];
-
 export default function TaskAdmin(): React.ReactElement {
   const [taskCountByDate, setTaskCountByDate] = React.useState<TaskCountByStatus[] | undefined>(undefined);
   const [taskDetails, setTaskDetails] = React.useState<TaskDetailRow[]>([]);
@@ -165,9 +91,151 @@ export default function TaskAdmin(): React.ReactElement {
   const [customFilterEndDate, setCustomEndFilterDate] = React.useState<DateTime | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [retryingTaskIds, setRetryingTaskIds] = React.useState<Set<string>>(new Set());
   const { oystehr } = useApiClients();
 
   ChartJS.register(CategoryScale, LinearScale, BarElement, Legend, Title, Tooltip, Colors);
+
+  const handleRetryTask = async (taskId: string): Promise<void> => {
+    if (!oystehr) return;
+
+    setRetryingTaskIds((prev) => new Set(prev).add(taskId));
+
+    try {
+      await oystehr.fhir.patch<Task>({
+        resourceType: 'Task',
+        id: taskId,
+        operations: [
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'requested',
+          },
+        ],
+      });
+
+      // Update the task in the local state
+      setTaskDetails((prevTasks) =>
+        prevTasks.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                status: 'requested',
+                lastUpdated: DateTime.now().toLocaleString(DateTime.DATETIME_SHORT),
+              }
+            : task
+        )
+      );
+    } catch (error) {
+      console.error('Error retrying task:', error);
+      alert('Failed to retry task. Please try again.');
+    } finally {
+      setRetryingTaskIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(taskId);
+        return newSet;
+      });
+    }
+  };
+
+  // DataGrid column definitions
+  const columns: GridColDef[] = [
+    {
+      field: 'id',
+      headerName: 'ID',
+      width: 120,
+      sortable: true,
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 120,
+      sortable: true,
+      renderCell: (params: GridRenderCellParams) => (
+        <Chip
+          label={params.value}
+          color={
+            params.value === 'completed'
+              ? 'success'
+              : params.value === 'failed'
+              ? 'error'
+              : params.value === 'in-progress'
+              ? 'info'
+              : params.value === 'cancelled'
+              ? 'warning'
+              : 'default'
+          }
+          size="small"
+        />
+      ),
+    },
+    {
+      field: 'code',
+      headerName: 'Code',
+      width: 150,
+      sortable: true,
+    },
+    {
+      field: 'system',
+      headerName: 'System',
+      width: 200,
+      sortable: true,
+      renderCell: (params: GridRenderCellParams) => (
+        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{params.value}</div>
+      ),
+    },
+    {
+      field: 'lastUpdated',
+      headerName: 'Last Updated',
+      width: 160,
+      sortable: true,
+    },
+    {
+      field: 'authoredOn',
+      headerName: 'Authored On',
+      width: 160,
+      sortable: true,
+      renderCell: (params: GridRenderCellParams) => params.value || 'N/A',
+    },
+    {
+      field: 'statusReason',
+      headerName: 'Status Reason',
+      width: 150,
+      sortable: true,
+      renderCell: (params: GridRenderCellParams) => params.value || 'N/A',
+    },
+    {
+      field: 'focus',
+      headerName: 'Focus',
+      width: 200,
+      sortable: true,
+      renderCell: (params: GridRenderCellParams) => (
+        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {params.value || 'N/A'}
+        </div>
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 100,
+      sortable: false,
+      renderCell: (params: GridRenderCellParams) => {
+        const row = params.row as TaskDetailRow;
+        if (row.canRetry) {
+          const isRetrying = retryingTaskIds.has(row.id);
+          return (
+            <MuiTooltip title="Retry send claim">
+              <IconButton size="small" color="primary" onClick={() => handleRetryTask(row.id)} disabled={isRetrying}>
+                {isRetrying ? <CircularProgress size={20} /> : <RefreshIcon />}
+              </IconButton>
+            </MuiTooltip>
+          );
+        }
+        return null;
+      },
+    },
+  ];
 
   React.useEffect(() => {
     async function updateTasks(): Promise<void> {
@@ -247,17 +315,25 @@ export default function TaskAdmin(): React.ReactElement {
               }
 
               // Create task detail row
+              const taskCode = task.code?.coding?.[0]?.code || 'Unknown';
+              const taskSystem = task.code?.coding?.[0]?.system || 'Unknown';
+              const canRetry =
+                task.status === 'failed' &&
+                taskSystem === 'https://fhir.ottehr.com/CodeSystem/claim-sync' &&
+                taskCode === 'send-claim';
+
               const taskDetail: TaskDetailRow = {
                 id: task.id || 'Unknown',
                 status: task.status,
-                code: task.code?.coding?.[0]?.code || 'Unknown',
-                system: task.code?.coding?.[0]?.system || 'Unknown',
+                code: taskCode,
+                system: taskSystem,
                 lastUpdated: DateTime.fromISO(task.meta.lastUpdated).toLocaleString(DateTime.DATETIME_SHORT),
                 authoredOn: task.authoredOn
                   ? DateTime.fromISO(task.authoredOn).toLocaleString(DateTime.DATETIME_SHORT)
                   : undefined,
                 statusReason: task.statusReason?.text || task.statusReason?.coding?.[0]?.display,
                 focus: task.focus?.reference,
+                canRetry,
               };
               taskDetailsArray.push(taskDetail);
             }
