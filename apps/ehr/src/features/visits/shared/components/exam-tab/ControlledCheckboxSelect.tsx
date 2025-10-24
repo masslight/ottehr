@@ -7,11 +7,12 @@ export type ControlledCheckboxSelectOptionType = { label: string; name: string; 
 
 type ControlledCheckboxSelectProps = {
   label: string;
+  name: string;
   options: ControlledCheckboxSelectOptionType[];
 };
 
 export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (props) => {
-  const { label, options } = props;
+  const { label, options, name } = props;
 
   const { value: fields, update, isLoading } = useExamObservations(options.map((option) => option.name));
 
