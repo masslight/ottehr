@@ -52,7 +52,7 @@ export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (prop
             onChange={(event) => {
               const selectedFields = event.target.value as string[];
               const fieldsToUpdate = fields.filter((field) => {
-                const fieldValues = fields.find((f) => f.field === field.field)?.value;
+                const fieldValues = fields.find((f) => f.field !== name && f.field === field.field)?.value;
                 return selectedFields.includes(field.field) ? !fieldValues : fieldValues;
               });
               update(fieldsToUpdate.map((field) => ({ ...field, value: !field.value })));
