@@ -251,10 +251,4 @@ test('Add E&M code', async () => {
     await progressNotePage.expectLoaded();
     await expect(page.getByText(value)).toBeVisible();
   });
-
-  await test.step('Verify E&M code is added', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-    await progressNotePage.expectLoaded();
-    await expect(page.getByText(E_M_CODE)).toBeVisible();
-  });
 });

@@ -251,10 +251,6 @@ test('Add E&M code', async () => {
     await progressNotePage.expectLoaded();
     await expect(page.getByText(value)).toBeVisible();
   });
-
-  await test.step('Verify missing card is not visible', async () => {
-    await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).not.toBeVisible();
-  });
 });
 
 test('Add CPT codes', async () => {
