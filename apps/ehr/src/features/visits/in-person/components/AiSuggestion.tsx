@@ -1,20 +1,29 @@
 import { ottehrAiIcon } from '@ehrTheme/icons';
 import { InfoOutlined } from '@mui/icons-material';
-import { Box, Container, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
+import { Box, CircularProgress, Container, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import { DocumentReference } from 'fhir/r4b';
 import React from 'react';
 import { getSource } from 'src/features/visits/shared/components/OttehrAi';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { GetChartDataResponse, ObservationTextFieldDTO } from 'utils';
+import { GetChartDataResponse, ObservationTextFieldDTO, ProcedureSuggestion } from 'utils';
 
 export interface AiSuggestionProps {
   title: string;
-  chartData: GetChartDataResponse | undefined;
-  content: ObservationTextFieldDTO[];
+  chartData?: GetChartDataResponse | undefined;
+  content?: ObservationTextFieldDTO[];
+  procedureSuggestions?: ProcedureSuggestion[];
+  loading?: boolean;
   hideHeader?: boolean;
 }
 
-export default function AiSuggestion({ title, chartData, content, hideHeader }: AiSuggestionProps): React.ReactElement {
+export default function AiSuggestion({
+  title,
+  chartData,
+  content,
+  procedureSuggestions,
+  loading,
+  hideHeader,
+}: AiSuggestionProps): React.ReactElement {
   const { oystehr } = useApiClients();
   const theme = useTheme();
 
@@ -26,6 +35,24 @@ export default function AiSuggestion({ title, chartData, content, hideHeader }: 
   }
 
   function SuggestionsItem(): React.ReactElement {
+    if (procedureSuggestions) {
+      return (
+        <>
+          {procedureSuggestions.map((code) => (
+            <>
+              <Typography variant="body1">
+                <strong>{code.code}</strong> &ndash; {code.description}
+                <Tooltip title={code.useWhen}>
+                  <IconButton size="small" sx={{ marginLeft: '5px' }}>
+                    <InfoOutlined sx={{ fontSize: '17px' }} />
+                  </IconButton>
+                </Tooltip>
+              </Typography>
+            </>
+          ))}
+        </>
+      );
+    }
     return (
       <>
         {content
@@ -98,9 +125,12 @@ export default function AiSuggestion({ title, chartData, content, hideHeader }: 
           padding: '4px 8px 4px 8px',
         }}
       >
-        <Typography variant="body1" style={{ fontWeight: 700 }}>
-          {title}
-        </Typography>
+        <Container style={{ display: 'flex', alignItems: 'center', padding: 0 }}>
+          <Typography variant="body1" style={{ fontWeight: 700 }}>
+            {title}
+          </Typography>
+          {loading && <CircularProgress size={17} style={{ marginLeft: '7px' }} />}
+        </Container>
         <SuggestionsItem />
       </Container>
     </Box>

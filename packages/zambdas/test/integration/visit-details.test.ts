@@ -10,6 +10,7 @@ import {
   FHIR_EXTENSION,
   getAttestedConsentFromEncounter,
   getReasonForVisitFromAppointment,
+  getUnconfirmedDOBIdx,
   isValidUUID,
   UpdateVisitDetailsInput,
 } from 'utils';
@@ -33,6 +34,7 @@ describe('saving and getting visit details', () => {
     existingPatientId?: string;
     patientAge?: { units: 'years' | 'months'; value: number };
     patientSex?: 'male' | 'female';
+    unconfirmedDob?: string;
   }
 
   const makeTestResources = async ({
@@ -42,6 +44,7 @@ describe('saving and getting visit details', () => {
     patientAge,
     existingPatientId,
     patientSex,
+    unconfirmedDob,
   }: MakeTestResourcesParams): Promise<{
     encounter: Encounter;
     appointment: Appointment;
@@ -80,6 +83,14 @@ describe('saving and getting visit details', () => {
           status: 'accepted',
         },
       ],
+      extension: unconfirmedDob
+        ? [
+            {
+              url: FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url,
+              valueString: unconfirmedDob,
+            },
+          ]
+        : undefined,
     };
     const batchInputApp: BatchInputPostRequest<Appointment> = {
       method: 'POST',
@@ -299,6 +310,7 @@ describe('saving and getting visit details', () => {
       processId,
       oystehr,
       patientAge: { units: 'years', value: 5 },
+      unconfirmedDob: '2022-02-02',
     });
     const originalBirthDate = DateTime.now().minus({ years: 5 }).toISODate();
     expect(encounter).toBeDefined();
@@ -307,6 +319,8 @@ describe('saving and getting visit details', () => {
     expect(patient?.birthDate).toBeDefined();
     expect(patient?.birthDate).toEqual(originalBirthDate);
     expect(originalBirthDate).toBeDefined();
+    expect(getUnconfirmedDOBIdx(appointment)).toBeDefined();
+    expect(getUnconfirmedDOBIdx(appointment)).toEqual(0);
 
     const visitDetails = await getVisitDetails(appointment.id!);
     expect(visitDetails).toBeDefined();
@@ -327,6 +341,7 @@ describe('saving and getting visit details', () => {
     expect(updatedVisitDetails.patient).toBeDefined();
     expect(updatedVisitDetails.patient.birthDate).toBeDefined();
     expect(updatedVisitDetails.patient.birthDate).toEqual(newBirthDate);
+    expect(getUnconfirmedDOBIdx(updatedVisitDetails.appointment)).toBeUndefined();
   });
   test.concurrent('can save and retrieve authorized non-legal guardians', async () => {
     if (!oystehr || !processId) {

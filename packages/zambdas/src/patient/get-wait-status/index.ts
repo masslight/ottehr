@@ -14,7 +14,14 @@ import {
   TelemedAppointmentStatusEnum,
   WaitingRoomResponse,
 } from 'utils';
-import { getAuth0Token, getUser, getVideoEncounterForAppointment, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  getAuth0Token,
+  getUser,
+  getVideoEncounterForAppointment,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { estimatedTimeStatesGroups } from '../../shared/appointment/constants';
 import { convertStatesAbbreviationsToLocationIds, getAllAppointmentsByLocations } from './utils/fhir';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -142,10 +149,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   } catch (error: any) {
     console.log(error, JSON.stringify(error));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

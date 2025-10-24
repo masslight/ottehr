@@ -126,11 +126,7 @@ export const index = wrapHandler(
       };
     } catch (error: any) {
       const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      await topLevelCatch('pending-supervisor-approval', error, ENVIRONMENT);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ message: `Error pending supervisor approval: ${error}` }),
-      };
+      return topLevelCatch('pending-supervisor-approval', error, ENVIRONMENT);
     }
   }
 );

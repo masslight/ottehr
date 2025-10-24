@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputRequest, OystehrConfig } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -211,8 +212,9 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
   let parsedExtValue: { display: string; url: string }[] = [];
   try {
     parsedExtValue = JSON.parse(rawExtensionValue);
-  } catch {
+  } catch (e) {
     console.log('Location other-offices extension is formatted incorrectly');
+    captureException(e);
     return [];
   }
 

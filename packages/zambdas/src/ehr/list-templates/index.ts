@@ -37,7 +37,7 @@ export const index = wrapHandler('list-templates', async (input: ZambdaInput): P
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return await topLevelCatch('apply-template', error, ENVIRONMENT);
+    return topLevelCatch('apply-template', error, ENVIRONMENT);
   }
 });
 

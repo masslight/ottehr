@@ -1,5 +1,5 @@
 import { Box, ListItemText, MenuItem, Select } from '@mui/material';
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
@@ -12,34 +12,29 @@ type ControlledCheckboxSelectProps = {
 };
 
 export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (props) => {
-  const { label, name, options } = props;
+  const { label, options, name } = props;
 
-  const params = [name].concat(options.map((option) => option.name));
-  const { value, update, isLoading } = useExamObservations(params);
-  // appointments made before https://github.com/masslight/ottehr/issues/4055 is ready might have some undefined fields
-  const fields = value.filter((field) => field !== undefined);
+  const { value: fields, update, isLoading } = useExamObservations(options.map((option) => option.name));
+
   const [booleanValue, setBooleanValue] = useState(fields.some((field) => field.value === true));
 
-  const onCheckboxChange = (value: boolean): void => {
+  useEffect(() => {
+    if (fields.some((field) => field.value === true)) {
+      setBooleanValue(true);
+    }
+  }, [fields]);
+
+  const onCheckboxChange = (): void => {
     setBooleanValue(!booleanValue);
-    // if the checkbox is unchecked, update options
-    if (value === false) {
-      // get fields that are checked and update them to be unchecked
-      const fieldsToUpdate = fields.filter((field) => field.value === true);
-      if (fieldsToUpdate.length > 0) {
-        update(fieldsToUpdate.map((field) => ({ ...field, value: false })));
-      }
-    } else {
-      // if the checkbox is checked, update only the checkbox
-      const field = fields.filter((field) => field.field === name)?.[0];
-      if (field) {
-        update({ ...field, value });
-      }
+    const fieldsToUpdate = fields.filter((field) => field.value === true);
+    if (booleanValue && fieldsToUpdate.length > 0) {
+      update(fieldsToUpdate.map((field) => ({ ...field, value: !field.value })));
     }
   };
 
   const selectedFields = fields.filter((field) => field.value === true).map((field) => field.field);
   const showSelected = options.some((option) => !!option.description);
+
   return (
     <Box>
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -54,14 +49,11 @@ export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (prop
           <Select
             size="small"
             multiple
-            value={fields
-              .filter((field) => field.field !== name)
-              .filter((field) => field.value === true)
-              .map((field) => field.field)}
+            value={fields.filter((field) => field.value === true).map((field) => field.field)}
             onChange={(event) => {
               const selectedFields = event.target.value as string[];
               const fieldsToUpdate = fields.filter((field) => {
-                const fieldValues = fields.find((f) => f.field === field.field)?.value;
+                const fieldValues = fields.find((f) => f.field !== name && f.field === field.field)?.value;
                 return selectedFields.includes(field.field) ? !fieldValues : fieldValues;
               });
               update(fieldsToUpdate.map((field) => ({ ...field, value: !field.value })));
