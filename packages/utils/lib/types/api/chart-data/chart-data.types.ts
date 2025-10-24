@@ -85,7 +85,6 @@ export type RequestedFields =
   | 'addendumNote'
   | 'medications'
   | 'inhouseMedications'
-  | 'observations'
   | 'preferredPharmacies';
 
 export type AllChartValuesKeys = keyof AllChartValues;

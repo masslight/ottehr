@@ -104,10 +104,7 @@ type ReactQueryState = {
   isPending: boolean;
 };
 
-type ChartDataResponse = Omit<
-  GetChartDataResponse,
-  Exclude<RequestedFields, 'medications' | 'inhouseMedications' | 'observations'>
->;
+type ChartDataResponse = Omit<GetChartDataResponse, Exclude<RequestedFields, 'medications' | 'inhouseMedications'>>;
 
 export type ChartDataState = {
   chartData: ChartDataResponse | undefined;
