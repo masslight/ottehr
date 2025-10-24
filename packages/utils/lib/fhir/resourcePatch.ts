@@ -331,11 +331,15 @@ interface GroupedOperation {
 
 export function consolidateOperations(operations: Operation[], resource: FhirResource): Operation[] {
   // Merge 'replace' and 'add' operations with the same path
-  const mergedOperations: Operation[] = mergeOperations(operations, resource);
+  let mergedOperations: Operation[] = mergeOperations(operations, resource);
 
   if (resource.resourceType === 'Patient' && resource.contact) {
     // Special handling for contact name operations
-    consolidateContactNameOperations(mergedOperations);
+    mergedOperations = consolidateContactNameOperations(mergedOperations);
+  }
+
+  if (resource.resourceType === 'Patient' && resource.extension) {
+    mergedOperations = consolidateExtensionOperations(mergedOperations, resource.extension);
   }
 
   // Group operations by their root paths
@@ -710,4 +714,48 @@ function consolidateContactNameOperations(operations: Operation[]): Operation[] 
   const nonNameOps = operations.filter((op) => !(op.op === 'add' && op.path.includes(consolidatedNameOps[0].path)));
 
   return [...consolidatedNameOps, ...nonNameOps];
+}
+
+function consolidateExtensionOperations(operations: Operation[], extension: Extension[]): Operation[] {
+  const extensionOps = operations.filter((op) => op.path.startsWith('/extension'));
+  if (!extensionOps.length) return operations;
+
+  const newExtensions = [...extension.map((e) => structuredClone(e))];
+
+  for (const op of extensionOps) {
+    const match = op.path.match(/^\/extension\/(\d+|-)$/);
+    if (!match) continue;
+
+    const idx = match[1];
+    if (idx === '-') {
+      if (op.op === 'add' && op.value) {
+        newExtensions.push(structuredClone(op.value));
+      }
+      continue;
+    }
+
+    const index = parseInt(idx, 10);
+    if (index < 0 || index >= extension.length) continue;
+
+    switch (op.op) {
+      case 'remove':
+        delete newExtensions[index];
+        break;
+      case 'replace':
+      case 'add':
+        if (op.value) newExtensions[index] = structuredClone(op.value);
+        break;
+    }
+  }
+
+  const mergedExtensions = newExtensions.filter(Boolean);
+
+  const otherOps = operations.filter((op) => !op.path.startsWith('/extension'));
+  const consolidatedOp: Operation = {
+    op: 'replace',
+    path: '/extension',
+    value: mergedExtensions,
+  };
+
+  return [...otherOps, consolidatedOp];
 }

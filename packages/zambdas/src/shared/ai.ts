@@ -293,6 +293,6 @@ export async function generateIcdTenCodesFromNotes(
   } catch (error) {
     console.error('Error generating ICD-10 codes:', error);
     captureException(error);
-    return [];
+    throw error;
   }
 }
