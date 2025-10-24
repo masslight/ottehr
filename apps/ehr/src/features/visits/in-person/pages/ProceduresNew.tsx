@@ -47,6 +47,7 @@ import {
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
   PROCEDURE_TYPE_CPT_EXTENSION_URL,
   PROCEDURE_TYPES_VALUE_SET_URL,
+  ProcedureSuggestion,
   REQUIRED_FIELD_ERROR_MESSAGE,
   SUPPLIES_VALUE_SET_URL,
   TECHNIQUES_VALUE_SET_URL,
@@ -56,9 +57,10 @@ import {
 import { DiagnosesField } from '../../shared/components/assessment-tab/DiagnosesField';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
-import { useGetIcd10Search } from '../../shared/stores/appointment/appointment.queries';
+import { useGetIcd10Search, useRecommendBillingCodes } from '../../shared/stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../shared/stores/appointment/appointment.store';
 import { useAppFlags } from '../../shared/stores/contexts/useAppFlags';
+import AiSuggestion from '../components/AiSuggestion';
 import { InfoAlert } from '../components/InfoAlert';
 import { ROUTER_PATH } from '../routing/routesInPerson';
 
@@ -150,6 +152,8 @@ export default function ProceduresNew(): ReactElement {
   const { chartData, setPartialChartData } = useChartData();
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const { isInPerson } = useAppFlags();
+  const { mutateAsync: recommendBillingCodes } = useRecommendBillingCodes();
+  const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
 
   const isReadOnly = useMemo(() => {
     if (isInPerson) {
@@ -169,6 +173,7 @@ export default function ProceduresNew(): ReactElement {
     procedureTime: DateTime.now(),
   });
   const [saveInProgress, setSaveInProgress] = useState<boolean>(false);
+  const [recommendedBillingCodes, setRecommendedBillingCodes] = useState<ProcedureSuggestion[] | null>(null);
 
   const sortedProcedureTypes = useMemo(() => {
     return (selectOptions?.procedureTypes ?? [])
@@ -199,6 +204,42 @@ export default function ProceduresNew(): ReactElement {
     const { values, other } = parseWithOther(rawValue, validOptions);
     return { postInstructions: values, otherPostInstructions: other };
   };
+
+  useEffect(() => {
+    const fetchRecommendedBillingCodes = async (): Promise<void> => {
+      if (!state.procedureType) {
+        return;
+      }
+      setLoadingSuggestions(true);
+      const codes = await recommendBillingCodes({
+        procedureType: state.procedureType,
+        diagnoses: state.diagnoses,
+        medicationUsed: state.medicationUsed,
+        bodySite: state.bodySite,
+        bodySide: state.bodySide,
+        technique: state.technique,
+        suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
+        procedureDetails: state.procedureDetails,
+        timeSpent: state.timeSpent,
+      });
+      setRecommendedBillingCodes(codes);
+      setLoadingSuggestions(false);
+    };
+
+    fetchRecommendedBillingCodes().catch((error) => console.log(error));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    state.procedureType,
+    state.diagnoses,
+    state.medicationUsed,
+    state.bodySite,
+    state.bodySide,
+    state.technique,
+    state.suppliesUsed,
+    // state.procedureDetails,
+    state.timeSpent,
+    recommendBillingCodes,
+  ]);
 
   const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
   useEffect(() => {
@@ -616,11 +657,7 @@ export default function ProceduresNew(): ReactElement {
             </Box>
 
             <Box sx={{ marginTop: '16px', color: '#0F347C' }}>
-              <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
-                <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
-                  Procedure Type & CPT Code
-                </Typography>
-              </TooltipWrapper>
+              <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>Procedure Type</Typography>
             </Box>
 
             {dropdown(
@@ -638,7 +675,6 @@ export default function ProceduresNew(): ReactElement {
               },
               dataTestIds.documentProcedurePage.procedureType
             )}
-            {cptWidget()}
             <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Dx
             </Typography>
@@ -804,6 +840,17 @@ export default function ProceduresNew(): ReactElement {
               (value, state) => (state.documentedBy = value),
               dataTestIds.documentProcedurePage.documentedBy
             )}
+            <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
+              <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>CPT Code</Typography>
+            </TooltipWrapper>
+            {recommendedBillingCodes && (
+              <AiSuggestion
+                title="Recommended CPT Codes"
+                procedureSuggestions={recommendedBillingCodes}
+                loading={loadingSuggestions}
+              />
+            )}
+            {cptWidget()}
             <Divider orientation="horizontal" />
             <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
               <RoundedButton color="primary" onClick={onCancel}>

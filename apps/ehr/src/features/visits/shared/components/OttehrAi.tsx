@@ -171,46 +171,6 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
                 </Container>
               );
             })}
-            {/* {Object.entries(observations)?.map(([observationDocumentRefence, observationItems]) => {
-              // let date = undefined;
-              // if (aiChat?.resourceType === 'DocumentReference') {
-              //   date = DateTime.fromISO(aiChat?.date ?? '').toFormat('MM/dd/yyyy hh:mm a');
-              // }
-              // observation = observation as ObservationTextFieldDTO;
-
-              // if (observation == null) {
-              //   return undefined;
-              // }
-              const documentReference = chartData?.aiChat?.documents.find(
-                (resource) => resource.id === observationDocumentRefence
-              );
-
-              if (!documentReference) {
-                return;
-              }
-
-              return (
-                <>
-                  <Typography variant="body1">Source: {getSource(documentReference, oystehr, providers)}</Typography>
-                  <Box sx={{ paddingLeft: '15px' }}>
-                    {observationItems.map((observationItem) => {
-                      const title = AI_OBSERVATION_FIELDS.find(([field]) => field === observationItem.field)?.[1];
-
-                      return (
-                        <AiSuggestion
-                          key={observationItem.resourceId}
-                          title={title || 'Unknown'}
-                          // source={documentReference ? getSource(documentReference) : 'unknown'}
-                          chartData={chartData}
-                          content={[observationItem]}
-                          hideHeader={true}
-                        />
-                      );
-                    })}
-                  </Box>
-                </>
-              );
-            })} */}
             {aiPotentialDiagnoses.length > 0 ? (
               <Box
                 style={{
