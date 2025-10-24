@@ -32,7 +32,7 @@ jobs:
   deploy:
     env:
       NODE_VERSION: "20"
-      NODE_OPTIONS: "--max_old_space_size=4096"
+      NODE_OPTIONS: "--max_old_space_size=8192"
       ENVIRONMENT: ${{ github.event.inputs.environment }}
       # Override these values, or populate vars and secrets
       AWS_DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE }} # AWS IAM role for deployment

@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { zustandDevtools } from '../../utils';
 
 interface IntakeCommonState extends LocationState {
   supportDialogOpen: boolean;
@@ -31,5 +30,3 @@ export const useIntakeCommonStore = create<IntakeCommonState>()(
     }
   )
 );
-
-zustandDevtools('Telemed intake common', useIntakeCommonStore);

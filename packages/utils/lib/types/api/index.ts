@@ -34,6 +34,7 @@ export * from './patient-payment-types';
 export * from './practitioner.types';
 export * from './create-discharge-summary';
 export * from './prebook-create-appointment';
+export * from './procedures.types';
 export * from './procedures.constants';
 export * from './radiology';
 export * from './rcm-claims';

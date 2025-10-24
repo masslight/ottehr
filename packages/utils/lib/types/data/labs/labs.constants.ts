@@ -33,6 +33,7 @@ export const LAB_ORDER_TASK = {
     orderDate: 'order-date',
     appointmentId: 'appointment-id',
     receivedDate: 'received-date',
+    drTag: 'dr-tag',
   },
 } as const;
 export type LabOrderTaskCode = (typeof LAB_ORDER_TASK.code)[keyof typeof LAB_ORDER_TASK.code];
