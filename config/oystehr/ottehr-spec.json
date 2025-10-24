@@ -5781,7 +5781,6 @@
           "action": ["FHIR:Search", "FHIR:Read"],
           "effect": "Allow",
           "resource": [
-            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
@@ -5945,7 +5944,6 @@
         },
         {
           "resource": [
-            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
@@ -6040,7 +6038,6 @@
           "action": ["FHIR:Search", "FHIR:Read"],
           "effect": "Allow",
           "resource": [
-            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
@@ -6150,7 +6147,6 @@
       "accessPolicy": [
         {
           "resource": [
-            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
@@ -6220,7 +6216,6 @@
       "accessPolicy": [
         {
           "resource": [
-            "FHIR:Account",
             "FHIR:Consent",
             "FHIR:Coverage",
             "FHIR:RelatedPerson",
