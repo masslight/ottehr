@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { FC, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { AddCreditCardForm } from 'ui-components';
 import { CreditCardInfo } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
@@ -55,15 +55,18 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
       setCards(data.cards);
       const defaultCard = data.cards.find((card: any) => card.default);
       setSelectedOption(defaultCard?.id);
-      if (defaultCard?.id !== undefined) {
-        onChange({ target: { value: true } });
-      } else {
-        onChange({ target: { value: false } });
-      }
     },
   });
 
   const { mutate: setDefault, isPending: isSetDefaultLoading } = useSetDefaultPaymentMethod(patient?.id);
+
+  useEffect(() => {
+    if (selectedOption !== undefined && validCreditCardOnFile !== true) {
+      onChange({ target: { value: true } });
+    } else if (selectedOption === undefined && validCreditCardOnFile === true) {
+      onChange({ target: { value: false } });
+    }
+  }, [onChange, selectedOption, validCreditCardOnFile]);
 
   const disabled = cardsAreLoading || isSetDefaultLoading || isSetupDataLoading;
 
