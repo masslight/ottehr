@@ -152,6 +152,9 @@ jobs:
       - name: Configure AWS CLI
         run: |
           aws_profile=$(grep '"aws_profile"' "scripts/deploy/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+          if [ -z "$aws_profile" ]; then
+            aws_profile=$(grep "profile" "deploy/backend.config" | sed 's/.* = "\(.*\)".*/\1/')
+          fi
           profile="${aws_profile:-ottehr}"
           echo "Using AWS profile: ${profile}"
           aws configure --profile "${profile}" set aws_access_key_id ${{ steps.configure-aws-credentials.outputs.aws-access-key-id }}
