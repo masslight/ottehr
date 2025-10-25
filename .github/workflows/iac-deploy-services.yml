@@ -10,8 +10,10 @@ on:
         type: choice
         options:
           - local
+          - development
+          - testing
           - staging
-          - production
+          - demo
       incrementVersion:
         description: "Bump Version?"
         type: boolean
@@ -69,9 +71,9 @@ jobs:
           app-id: ${{ env.GITHUB_APP_ID }}
           private-key: ${{ env.GITHUB_APP_PRIVATE_KEY }}
 
-      - name: If environment is production, ensure keys are coming in through input parameters.
-        if: ${{ env.ENVIRONMENT == 'production' && !(github.event.inputs.confirmProduction == 'Yes') }}
-        run: echo 'Please confirm you want to deploy to production.' && exit 1
+      - name: If environment is demo, ensure keys are coming in through input parameters.
+        if: ${{ env.ENVIRONMENT == 'demo' && !(github.event.inputs.confirmProduction == 'Yes') }}
+        run: echo 'Please confirm you want to deploy to demo.' && exit 1
 
       - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
         with:
