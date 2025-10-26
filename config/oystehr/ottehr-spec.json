@@ -5700,7 +5700,8 @@
           "action": ["*"],
           "effect": "Allow"
         }
-      ]
+      ],
+      "roles": ["#{ref/roles/PROVIDER/id}"]
     }
   },
   "roles": {
