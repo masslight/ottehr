@@ -32,7 +32,16 @@ import {
 } from './data/expected-coverage-resources-qr1';
 import { fillReferences } from './helpers/harvest-test-helpers';
 
-const InPersonQuestionnaire = InPersonQuestionnaireFile.fhirResources['questionnaire-in-person-previsit'].resource;
+const questionnaire = Object.values(InPersonQuestionnaireFile.fhirResources).find(
+  (q) =>
+    q.resource.resourceType === 'Questionnaire' &&
+    q.resource.status === 'active' &&
+    q.resource.url.includes('intake-paperwork-inperson')
+);
+if (!questionnaire) {
+  throw new Error('Questionnaire not found in local config');
+}
+const InPersonQuestionnaire = questionnaire.resource;
 
 const expectedPrimaryPolicyHolderFromQR1 = fillReferences(rawPPHQR1, ['Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61']);
 const expectedSecondaryPolicyHolderFromQR1 = fillReferences(rawSPHQR1, [

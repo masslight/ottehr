@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.20.2",
+  "version": "1.20.4",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -61,7 +61,8 @@
     "test": "turbo test",
     "prepare": "husky",
     "spellcheck": "cspell .",
-    "merge-payer-addresses": "tsx scripts/merge-payer-addresses.ts config/payers.json scripts/data/payers-addresses.csv config/payers-with-addresses.json scripts/data/payers-addresses-unmatched.csv"
+    "merge-payer-addresses": "tsx scripts/merge-payer-addresses.ts config/payers.json scripts/data/payers-addresses.csv config/payers-with-addresses.json scripts/data/payers-addresses-unmatched.csv",
+    "bump-canonical-version": "tsx scripts/config/bump-canonical-version.ts"
   },
   "workspaces": [
     "packages/**/*",

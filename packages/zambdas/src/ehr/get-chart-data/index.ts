@@ -252,6 +252,16 @@ export async function getChartData(
     chartDataRequests.push(configProceduresRequestsForGetChartData(encounter.id));
   }
 
+  if (requestedFields?.preferredPharmacies) {
+    const pharmacies = patient.contained?.filter((r) => r.resourceType === 'Organization') ?? [];
+
+    if (pharmacies.length > 0 && encounter.id) {
+      chartDataRequests.push(
+        createFindResourceRequest(patient, encounter, 'QuestionnaireResponse', { _search_by: 'encounter' })
+      );
+    }
+  }
+
   console.timeLog('check', 'before resources fetch');
   console.log('Starting a transaction to retrieve chart data...');
   let result: Bundle<FhirResource> | undefined;
@@ -272,7 +282,8 @@ export async function getChartData(
     m2mToken,
     patient.id!,
     encounterId,
-    requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataRequestedFields)[]) : undefined
+    requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataRequestedFields)[]) : undefined,
+    patient
   );
   console.timeLog('check', 'after converting to response');
   if (chartDataResult.chartData.aiChat) {
