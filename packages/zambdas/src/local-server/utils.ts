@@ -56,6 +56,7 @@ function parseArgs(args: string[]): Record<string, string> {
 const secrets: Record<string, string> = {};
 
 async function populateSecrets(): Promise<void> {
+  console.log('Populating secrets');
   const cliParams = parseArgs(process.argv.slice(2));
   const pathToEnvFile = cliParams['env'];
   const useIac = cliParams['iac'];
@@ -110,6 +111,7 @@ async function populateSecrets(): Promise<void> {
       secrets[key] = value;
     }
   });
+  console.log('Populated secrets' /*, JSON.stringify(secrets)*/);
 }
 
 export async function replaceSecretValue<T>(
@@ -170,13 +172,11 @@ const singleValueHeaders = (input: IncomingHttpHeaders): APIGatewayProxyEventHea
   return headers;
 };
 
+const populateSecretsPromise = populateSecrets();
+
 async function buildLambdaInput(req: Request): Promise<ZambdaInput> {
   console.log('build lambda body,', JSON.stringify(req.body));
-  if (!Object.keys(secrets).length) {
-    console.log('Populating secrets');
-    await populateSecrets();
-    console.log('Populated secrets' /*, JSON.stringify(secrets)*/);
-  }
+  await populateSecretsPromise;
   return {
     body: !_.isEmpty(req.body) ? req.body : null,
     headers: singleValueHeaders(req.headers),
