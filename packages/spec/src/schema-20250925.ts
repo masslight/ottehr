@@ -145,7 +145,7 @@ export class Schema20250925 implements Schema<Spec20250925> {
           this.getValue(JSON.stringify(app.allowedWebOriginsUrls ?? []), this.resources)
         ),
         allowed_cors_origins_urls: JSON.parse(
-          this.getValue(JSON.stringify(app.allowedCorsOriginsUrls ?? []), this.resources)
+          this.getValue(JSON.stringify(app.allowedCORSOriginsUrls ?? []), this.resources)
         ),
         passwordless_sms: this.getValue(app.passwordlessSMS, this.resources),
         mfa_enabled: this.getValue(app.mfaEnabled, this.resources),
@@ -173,6 +173,7 @@ export class Schema20250925 implements Schema<Spec20250925> {
     for (const [bucketName, bucket] of Object.entries(this.resources.buckets)) {
       bucketResources.resource.oystehr_z3_bucket[bucketName] = {
         name: this.getValue(bucket.name, this.resources),
+        removal_policy: this.getValue(bucket.removalPolicy, this.resources),
       };
     }
     if (Object.keys(bucketResources.resource.oystehr_z3_bucket).length) {
@@ -461,7 +462,6 @@ export class Schema20250925 implements Schema<Spec20250925> {
   getIdentifierForResourceType(resourceType: keyof Spec20250925): string {
     switch (resourceType) {
       case 'apps':
-      case 'buckets':
       case 'fhirResources':
       case 'labRoutes':
       case 'm2ms':
@@ -471,6 +471,7 @@ export class Schema20250925 implements Schema<Spec20250925> {
         return 'id';
       case 'faxNumbers':
         return 'number';
+      case 'buckets':
       case 'secrets':
         return 'name';
       default:
