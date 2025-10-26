@@ -325,8 +325,6 @@ const useGetAppointment = (
                 value: 'QuestionnaireResponse:encounter',
               },
               { name: '_revinclude', value: 'DocumentReference:related' },
-              { name: '_revinclude:iterate', value: 'Account:patient' },
-              { name: '_revinclude:iterate', value: 'Coverage:patient' },
             ],
           })
         )

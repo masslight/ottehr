@@ -10,8 +10,10 @@ on:
         type: choice
         options:
           - local
+          - development
+          - testing
           - staging
-          - production
+          - demo
       incrementVersion:
         description: "Bump Version?"
         type: boolean
@@ -41,7 +43,7 @@ jobs:
       GITHUB_APP_PRIVATE_KEY: ${{ secrets.OTTEHR_GITHUB_APP_PRIVATE_KEY }} # Ottehr GitHub App Private Key
 
     runs-on: ubuntu-latest-16-cores
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     permissions:
       id-token: write # Required for OIDC
@@ -69,9 +71,9 @@ jobs:
           app-id: ${{ env.GITHUB_APP_ID }}
           private-key: ${{ env.GITHUB_APP_PRIVATE_KEY }}
 
-      - name: If environment is production, ensure keys are coming in through input parameters.
-        if: ${{ env.ENVIRONMENT == 'production' && !(github.event.inputs.confirmProduction == 'Yes') }}
-        run: echo 'Please confirm you want to deploy to production.' && exit 1
+      - name: If environment is demo, ensure keys are coming in through input parameters.
+        if: ${{ env.ENVIRONMENT == 'demo' && !(github.event.inputs.confirmProduction == 'Yes') }}
+        run: echo 'Please confirm you want to deploy to demo.' && exit 1
 
       - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
         with:
@@ -123,14 +125,20 @@ jobs:
           npm exec -- tsx ./scripts/secrets.ts validate ${{ env.ENVIRONMENT }}
 
       # TODO: Remove this step and references to it once transition to TF is complete
+      # If this succeeds, we will use the import file in the terraform module and deploy apps through Terraform
+      # If it fails, we will use a different deployment method
       - name: Maybe copy import file into aws_infra module
         id: copy-import-file
         continue-on-error: true
         run: |
           cp secrets/terraform/${{ env.ENVIRONMENT }}_import.tf deploy/aws_infra
 
+      # If this succeeds, we will use the CDK config and deploy apps through AWS CDK
+      # If it fails, we will deploy using npm scripts and the AWS SDK
       - name: Move aws-cdk-deploy-config into scripted deploy dir.
         if: ${{ steps.copy-import-file.outcome != 'success' }}
+        id: copy-aws-cdk-deploy-config
+        continue-on-error: true
         run: mkdir -p scripts/deploy; cp secrets/aws-cdk-deploy-config/deploy-config.${{ env.ENVIRONMENT }}.json scripts/deploy/deploy-config.json
 
       - name: Configure AWS Credentials
@@ -144,6 +152,9 @@ jobs:
       - name: Configure AWS CLI
         run: |
           aws_profile=$(grep '"aws_profile"' "scripts/deploy/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+          if [ -z "$aws_profile" ]; then
+            aws_profile=$(grep "profile" "deploy/backend.config" | sed 's/.* = "\(.*\)".*/\1/')
+          fi
           profile="${aws_profile:-ottehr}"
           echo "Using AWS profile: ${profile}"
           aws configure --profile "${profile}" set aws_access_key_id ${{ steps.configure-aws-credentials.outputs.aws-access-key-id }}
@@ -153,17 +164,17 @@ jobs:
 
       # Build once first because CDK checks for everything before deciding which stacks to deploy
       - name: Build Intake
-        if: ${{ steps.copy-import-file.outcome != 'success' }}
+        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
         working-directory: apps/intake
         run: npm run build:env --env=${{ env.ENVIRONMENT }}
 
       - name: Build EHR
-        if: ${{ steps.copy-import-file.outcome != 'success' }}
+        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
         working-directory: apps/ehr
         run: npm run build:env --env=${{ env.ENVIRONMENT }}
 
       - name: Deploy Cloud Infrastructure Using Legacy Scripted Deploy
-        if: ${{ steps.copy-import-file.outcome != 'success' }}
+        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
         working-directory: scripts/deploy/aws
         run: |
           aws_profile=$(grep '"aws_profile"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
@@ -177,17 +188,17 @@ jobs:
           npx ts-node ./bin/update-config.ts --no-update-apps
 
       - name: Build Intake
-        if: ${{ steps.copy-import-file.outcome != 'success' }}
+        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
         working-directory: apps/intake
         run: npm run build:env --env=${{ env.ENVIRONMENT}}
 
       - name: Build EHR
-        if: ${{ steps.copy-import-file.outcome != 'success' }}
+        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
         working-directory: apps/ehr
         run: npm run build:env --env=${{ env.ENVIRONMENT }}
 
       - name: Deploy Websites Using Legacy Scripted Deploy
-        if: ${{ steps.copy-import-file.outcome != 'success' }}
+        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
         working-directory: scripts/deploy/aws
         run: |
           aws_profile=$(grep '"aws_profile"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
@@ -197,6 +208,16 @@ jobs:
           prefix="${stack_prefix:-ottehr}"
           echo "Using stack prefix: ${prefix}"
           npx cdk deploy --require-approval=never --profile "${profile}" "${prefix}-data-stack-${{ env.ENVIRONMENT }}"
+
+      # Deploy using AWS SDK scripts if neither import file nor CDK config were present
+      - name: Deploy Patient Portal
+        if: ${{ steps.copy-import-file.outcome != 'success' && steps.copy-aws-cdk-deploy-config.outcome != 'success' }}
+        run: cd apps/intake && npm run ci-deploy:${{ env.ENVIRONMENT }}
+
+      # Deploy using AWS SDK scripts if neither import file nor CDK config were present
+      - name: Deploy EHR
+        if: ${{ steps.copy-import-file.outcome != 'success' && steps.copy-aws-cdk-deploy-config.outcome != 'success' }}
+        run: cd apps/ehr && npm run ci-deploy:${{ env.ENVIRONMENT }}
 
       - name: Deploy Ottehr Resources Using Terraform
         working-directory: deploy
