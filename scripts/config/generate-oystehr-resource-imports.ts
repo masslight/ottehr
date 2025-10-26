@@ -309,7 +309,7 @@ async function generateOystehrResourceImports(input: {
                     imports.push(
                       `terraform import -var-file="\${ENV}.tfvars" module.oystehr.${schema.oystehrResourceFromResourceType(
                         resourceType as keyof Spec20250925
-                      )}.${key} HealthcareService${hcs.id}`
+                      )}.${key} HealthcareService/${hcs.id}`
                     );
                     const pracs = existingHCS.filter((res) => res.resourceType === 'Practitioner') as Practitioner[];
                     const pracIds: Record<string, string> = {};
