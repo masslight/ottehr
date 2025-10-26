@@ -239,10 +239,11 @@ export class Schema20250925 implements Schema<Spec20250925> {
         name: this.getValue(m2m.name, this.resources),
         description: this.getValue(m2m.description, this.resources),
         access_policy: {
-          rule: JSON.parse(this.getValue(JSON.stringify(m2m.accessPolicy), this.resources)),
+          rule: JSON.parse(this.getValue(JSON.stringify(m2m.accessPolicy ?? []), this.resources)),
         },
-        roles: this.getValue(m2m.roles, this.resources),
+        roles: JSON.parse(this.getValue(JSON.stringify(m2m.roles ?? []), this.resources)),
         jwks_url: this.getValue(m2m.jwksUrl, this.resources),
+        client_secret_version: this.getValue(m2m.clientSecretVersion, this.resources),
       };
     }
     if (Object.keys(m2mResources.resource.oystehr_m2m).length) {
