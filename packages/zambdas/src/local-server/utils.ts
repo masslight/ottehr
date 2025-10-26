@@ -124,38 +124,38 @@ export async function replaceSecretValue<T>(
   const refMatches = [...result.matchAll(REF_REGEX)];
   if (refMatches.length) {
     console.log(`Found ${refMatches.length} terraform references in secret ${secret.name}`);
-    if (useIac !== 'true') {
-      console.log(`Warning: not using IaC but reference found in secret ${secret.name}`);
-      if ('legacyValue' in secret && secret.legacyValue != null) {
-        const legacyValue = secret.legacyValue as string;
-        console.log(`Using legacy value for secret ${secret.name}: ${legacyValue}`);
-        result = schema.replaceVariableWithValue(legacyValue);
-      } else {
-        console.log(`Warning: no legacy value found for secret ${secret.name}`);
+    if ('legacyValue' in secret && secret.legacyValue != null) {
+      const legacyValue = secret.legacyValue as string;
+      console.log(`Using legacy value for secret ${secret.name}: ${legacyValue}`);
+      result = schema.replaceVariableWithValue(legacyValue);
+    } else {
+      console.log(`Warning: no legacy value found for secret ${secret.name}`);
+      if (useIac !== 'true') {
+        console.log(`Skipping terraform resolution for secret ${secret.name} because iac flag not set`);
+        return result;
       }
-      return result;
-    }
-    for (const match of refMatches) {
-      const [fullMatch, resourceType, resourceName, fieldName] = match;
-      const tfRef = schema.getTerraformResourceReference(
-        ottehrSpec as T,
-        resourceType as keyof T,
-        resourceName,
-        fieldName
-      );
-      if (tfRef) {
-        console.log(`Resolving terraform reference for ${fullMatch}: ${tfRef}`);
-        const tfOutputName = schema.getTerraformResourceOutputName(fullMatch, 'oystehr');
-        const opts: Options = {
-          cwd: resolve(__dirname, '../../../../deploy'),
-          input: `nonsensitive(${tfOutputName})`,
-        };
-        const tfConsoleRead = await $(opts)`terraform console`;
-        console.log(`Terraform console read for ${fullMatch}: ${tfConsoleRead.stdout}`);
-        const tfValue = tfConsoleRead.stdout;
-        // console value will either be the actual value or 'tostring(null)'
-        if (tfValue && typeof tfValue === 'string' && tfValue !== 'tostring(null)') {
-          result = result.replace(fullMatch, tfValue.slice(1, -1));
+      for (const match of refMatches) {
+        const [fullMatch, resourceType, resourceName, fieldName] = match;
+        const tfRef = schema.getTerraformResourceReference(
+          ottehrSpec as T,
+          resourceType as keyof T,
+          resourceName,
+          fieldName
+        );
+        if (tfRef) {
+          console.log(`Resolving terraform reference for ${fullMatch}: ${tfRef}`);
+          const tfOutputName = schema.getTerraformResourceOutputName(fullMatch, 'oystehr');
+          const opts: Options = {
+            cwd: resolve(__dirname, '../../../../deploy'),
+            input: `nonsensitive(${tfOutputName})`,
+          };
+          const tfConsoleRead = await $(opts)`terraform console`;
+          console.log(`Terraform console read for ${fullMatch}: ${tfConsoleRead.stdout}`);
+          const tfValue = tfConsoleRead.stdout;
+          // console value will either be the actual value or 'tostring(null)'
+          if (tfValue && typeof tfValue === 'string' && tfValue !== 'tostring(null)') {
+            result = result.replace(fullMatch, tfValue.slice(1, -1));
+          }
         }
       }
     }
