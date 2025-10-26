@@ -1515,6 +1515,9 @@
       }
     },
     "SCHEDULE_TELEMED_NJ": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1566,6 +1569,9 @@
       }
     },
     "SCHEDULE_TELEMED_OH": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1723,6 +1729,9 @@
       }
     },
     "SCHEDULE_PHYSICAL_NY": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1890,6 +1899,9 @@
       }
     },
     "SCHEDULE_PHYSICAL_CA": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -5488,6 +5500,9 @@
       }
     },
     "SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_1": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -5509,6 +5524,9 @@
       }
     },
     "SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_2": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -5546,7 +5564,8 @@
         "name": "Issue Report Recipients",
         "member": [],
         "actual": true
-      }
+      },
+      "managedFields": ["name"]
     },
     "DEFAULT_BILLING_RESOURCE": {
       "resource": {
@@ -5597,14 +5616,12 @@
     "PATIENT_PORTAL": {
       "name": "#{var/PATIENT_APP_NAME}",
       "description": "Patient Portal application with sms authentication",
-      "loginRedirectUri": "https://intake-local.ottehr.com/patients",
+      "loginRedirectUri": "#{var/PATIENT_LOGIN_REDIRECT_URL}",
       "allowedCallbackUrls": [
         "#{var/PATIENT_ALLOWED_URL_1}",
         "#{var/PATIENT_ALLOWED_URL_2}",
         "#{var/PATIENT_ALLOWED_URL_3}",
-        "#{var/PATIENT_ALLOWED_URL_4}",
-        "#{var/PATIENT_ALLOWED_URL_5}",
-        "#{var/PATIENT_ALLOWED_URL_6}"
+        "#{var/PATIENT_ALLOWED_URL_4}"
       ],
       "allowedLogoutUrls": [
         "#{var/PATIENT_ALLOWED_URL_1}",
@@ -5628,26 +5645,16 @@
     "OTTEHR_EHR": {
       "name": "#{var/EHR_APP_NAME}",
       "description": "EHR application with email authentication",
-      "loginRedirectUri": "https://ehr-local.ottehr.com/dashboard",
+      "loginRedirectUri": "#{var/PROVIDER_LOGIN_REDIRECT_URL}",
       "allowedCallbackUrls": [
         "#{var/PROVIDER_ALLOWED_URL_1}",
-        "#{var/PROVIDER_ALLOWED_URL_2}",
-        "#{var/PROVIDER_ALLOWED_URL_3}",
-        "#{var/PROVIDER_ALLOWED_URL_4}"
+        "#{var/PROVIDER_ALLOWED_URL_2}"
       ],
-      "allowedLogoutUrls": [
-        "#{var/PROVIDER_ALLOWED_URL_1}",
-        "#{var/PROVIDER_ALLOWED_URL_3}"
-      ],
-      "allowedWebOriginsUrls": [
-        "#{var/PROVIDER_ALLOWED_URL_1}",
-        "#{var/PROVIDER_ALLOWED_URL_3}"
-      ],
-      "allowedCORSOriginsUrls": [
-        "#{var/PROVIDER_ALLOWED_URL_1}",
-        "#{var/PROVIDER_ALLOWED_URL_3}"
-      ],
-      "shouldSendInviteEmail": true
+      "allowedLogoutUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
+      "allowedWebOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
+      "allowedCORSOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
+      "shouldSendInviteEmail": true,
+      "logoUri": "#{var/PROVIDER_APP_LOGO_URI}"
     }
   },
   "m2ms": {
@@ -6762,43 +6769,56 @@
   },
   "buckets": {
     "VISIT_NOTES": {
-      "name": "#{var/PROJECT_ID}-visit-notes"
+      "name": "#{var/PROJECT_ID}-visit-notes",
+      "removalPolicy": "retain"
     },
     "CONSENT_FORMS": {
-      "name": "#{var/PROJECT_ID}-consent-forms"
+      "name": "#{var/PROJECT_ID}-consent-forms",
+      "removalPolicy": "retain"
     },
     "PRIVACY_POLICY": {
-      "name": "#{var/PROJECT_ID}-privacy-policy"
+      "name": "#{var/PROJECT_ID}-privacy-policy",
+      "removalPolicy": "retain"
     },
     "INSURANCE_CARDS": {
-      "name": "#{var/PROJECT_ID}-insurance-cards"
+      "name": "#{var/PROJECT_ID}-insurance-cards",
+      "removalPolicy": "retain"
     },
     "PHOTO_ID_CARDS": {
-      "name": "#{var/PROJECT_ID}-photo-id-cards"
+      "name": "#{var/PROJECT_ID}-photo-id-cards",
+      "removalPolicy": "retain"
     },
     "PATIENT_PHOTOS": {
-      "name": "#{var/PROJECT_ID}-patient-photos"
+      "name": "#{var/PROJECT_ID}-patient-photos",
+      "removalPolicy": "retain"
     },
     "SCHOOL_WORK_NOTES": {
-      "name": "#{var/PROJECT_ID}-school-work-notes"
+      "name": "#{var/PROJECT_ID}-school-work-notes",
+      "removalPolicy": "retain"
     },
     "SCHOOL_WORK_NOTE_TEMPLATES": {
-      "name": "#{var/PROJECT_ID}-school-work-note-templates"
+      "name": "#{var/PROJECT_ID}-school-work-note-templates",
+      "removalPolicy": "retain"
     },
     "AUDIO-RECORDINGS": {
-      "name": "#{var/PROJECT_ID}-audio-recordings"
+      "name": "#{var/PROJECT_ID}-audio-recordings",
+      "removalPolicy": "retain"
     },
     "LABS": {
-      "name": "#{var/PROJECT_ID}-labs"
+      "name": "#{var/PROJECT_ID}-labs",
+      "removalPolicy": "retain"
     },
     "RECEIPTS": {
-      "name": "#{var/PROJECT_ID}-receipts"
+      "name": "#{var/PROJECT_ID}-receipts",
+      "removalPolicy": "retain"
     },
     "PAPERWORK": {
-      "name": "#{var/PROJECT_ID}-exported-questionnaires"
+      "name": "#{var/PROJECT_ID}-exported-questionnaires",
+      "removalPolicy": "retain"
     },
     "DISCHARGE_SUMMARIES": {
-      "name": "#{var/PROJECT_ID}-discharge-summaries"
+      "name": "#{var/PROJECT_ID}-discharge-summaries",
+      "removalPolicy": "retain"
     }
   },
   "labRoutes": {
