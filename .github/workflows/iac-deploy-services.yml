@@ -43,7 +43,7 @@ jobs:
       GITHUB_APP_PRIVATE_KEY: ${{ secrets.OTTEHR_GITHUB_APP_PRIVATE_KEY }} # Ottehr GitHub App Private Key
 
     runs-on: ubuntu-latest-16-cores
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     permissions:
       id-token: write # Required for OIDC
