@@ -212,7 +212,7 @@ function fhirTaskToTask(task: FhirTask): Task {
     const code = getCoding(task.code, LAB_ORDER_TASK.system)?.code ?? '';
     const testName = getInput(LAB_ORDER_TASK.input.testName, task);
     const labName = getInput(LAB_ORDER_TASK.input.labName, task);
-    const fullTestName = testName + (labName ? '/' + labName : '');
+    const fullTestName = testName + (labName ? ' / ' + labName : '');
     const patientName = getInput(LAB_ORDER_TASK.input.patientName, task);
     const appointmentId = getInput(LAB_ORDER_TASK.input.appointmentId, task);
     const serviceRequestId = task.basedOn
