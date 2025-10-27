@@ -42,24 +42,59 @@ export const expressLambda = async (
   }
 };
 
-function parseArgs(args: string[]): Record<string, string> {
-  return args.reduce(
-    (acc, arg) => {
-      const [key, value] = arg.split('=');
-      acc[key] = value;
-      return acc;
-    },
-    {} as Record<string, string>
-  );
+export async function replaceSecretValue<T>(
+  secret: { name: string; value: string; legacyValue?: string },
+  schema: Schema<T>,
+  useIac?: string
+): Promise<string> {
+  const { $ } = await import('execa');
+  let result = schema.replaceVariableWithValue(secret.value);
+  const refMatches = [...result.matchAll(REF_REGEX)];
+  if (refMatches.length) {
+    console.log(`Found ${refMatches.length} terraform references in secret ${secret.name}`);
+    if ('legacyValue' in secret && secret.legacyValue != null) {
+      const legacyValue = secret.legacyValue as string;
+      console.log(`Using legacy value for secret ${secret.name}: ${legacyValue}`);
+      result = schema.replaceVariableWithValue(legacyValue);
+    } else {
+      console.log(`Warning: no legacy value found for secret ${secret.name}`);
+      if (useIac !== 'true') {
+        console.log(`Skipping terraform resolution for secret ${secret.name} because iac flag not set`);
+        return result;
+      }
+      for (const match of refMatches) {
+        const [fullMatch, resourceType, resourceName, fieldName] = match;
+        const tfRef = schema.getTerraformResourceReference(
+          ottehrSpec as T,
+          resourceType as keyof T,
+          resourceName,
+          fieldName
+        );
+        if (tfRef) {
+          console.log(`Resolving terraform reference for ${fullMatch}: ${tfRef}`);
+          const tfOutputName = schema.getTerraformResourceOutputName(fullMatch, 'oystehr');
+          const opts: Options = {
+            cwd: resolve(__dirname, '../../../../deploy'),
+            input: `nonsensitive(${tfOutputName})`,
+          };
+          const tfConsoleRead = await $(opts)`terraform console`;
+          console.log(`Terraform console read for ${fullMatch}: ${tfConsoleRead.stdout}`);
+          const tfValue = tfConsoleRead.stdout;
+          // console value will either be the actual value or 'tostring(null)'
+          if (tfValue && typeof tfValue === 'string' && tfValue !== 'tostring(null)') {
+            result = result.replace(fullMatch, tfValue.slice(1, -1));
+          }
+        }
+      }
+    }
+  }
+  return result;
 }
 
 const secrets: Record<string, string> = {};
 
-async function populateSecrets(): Promise<void> {
+async function populateSecrets({ pathToEnvFile, useIac }: { pathToEnvFile: string; useIac: string }): Promise<void> {
   console.log('Populating secrets');
-  const cliParams = parseArgs(process.argv.slice(2));
-  const pathToEnvFile = cliParams['env'];
-  const useIac = cliParams['iac'];
 
   console.log('pathToEnvFile', pathToEnvFile);
   console.log('useIac', useIac);
@@ -114,55 +149,6 @@ async function populateSecrets(): Promise<void> {
   console.log('Populated secrets' /*, JSON.stringify(secrets)*/);
 }
 
-export async function replaceSecretValue<T>(
-  secret: { name: string; value: string; legacyValue?: string },
-  schema: Schema<T>,
-  useIac?: string
-): Promise<string> {
-  const { $ } = await import('execa');
-  let result = schema.replaceVariableWithValue(secret.value);
-  const refMatches = [...result.matchAll(REF_REGEX)];
-  if (refMatches.length) {
-    console.log(`Found ${refMatches.length} terraform references in secret ${secret.name}`);
-    if ('legacyValue' in secret && secret.legacyValue != null) {
-      const legacyValue = secret.legacyValue as string;
-      console.log(`Using legacy value for secret ${secret.name}: ${legacyValue}`);
-      result = schema.replaceVariableWithValue(legacyValue);
-    } else {
-      console.log(`Warning: no legacy value found for secret ${secret.name}`);
-      if (useIac !== 'true') {
-        console.log(`Skipping terraform resolution for secret ${secret.name} because iac flag not set`);
-        return result;
-      }
-      for (const match of refMatches) {
-        const [fullMatch, resourceType, resourceName, fieldName] = match;
-        const tfRef = schema.getTerraformResourceReference(
-          ottehrSpec as T,
-          resourceType as keyof T,
-          resourceName,
-          fieldName
-        );
-        if (tfRef) {
-          console.log(`Resolving terraform reference for ${fullMatch}: ${tfRef}`);
-          const tfOutputName = schema.getTerraformResourceOutputName(fullMatch, 'oystehr');
-          const opts: Options = {
-            cwd: resolve(__dirname, '../../../../deploy'),
-            input: `nonsensitive(${tfOutputName})`,
-          };
-          const tfConsoleRead = await $(opts)`terraform console`;
-          console.log(`Terraform console read for ${fullMatch}: ${tfConsoleRead.stdout}`);
-          const tfValue = tfConsoleRead.stdout;
-          // console value will either be the actual value or 'tostring(null)'
-          if (tfValue && typeof tfValue === 'string' && tfValue !== 'tostring(null)') {
-            result = result.replace(fullMatch, tfValue.slice(1, -1));
-          }
-        }
-      }
-    }
-  }
-  return result;
-}
-
 const singleValueHeaders = (input: IncomingHttpHeaders): APIGatewayProxyEventHeaders => {
   const headers = _.flow([
     Object.entries,
@@ -172,7 +158,24 @@ const singleValueHeaders = (input: IncomingHttpHeaders): APIGatewayProxyEventHea
   return headers;
 };
 
-const populateSecretsPromise = populateSecrets();
+function parseArgs(args: string[]): Record<string, string> {
+  return args.reduce(
+    (acc, arg) => {
+      const [key, value] = arg.split('=');
+      acc[key] = value;
+      return acc;
+    },
+    {} as Record<string, string>
+  );
+}
+
+const cliParams = parseArgs(process.argv.slice(2));
+const pathToEnvFile = cliParams['env'];
+const useIac = cliParams['iac'];
+let populateSecretsPromise: Promise<void>;
+if (pathToEnvFile) {
+  populateSecretsPromise = populateSecrets({ pathToEnvFile, useIac });
+}
 
 async function buildLambdaInput(req: Request): Promise<ZambdaInput> {
   console.log('build lambda body,', JSON.stringify(req.body));
