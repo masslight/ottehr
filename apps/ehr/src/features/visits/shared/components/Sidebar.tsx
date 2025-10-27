@@ -11,6 +11,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getAdmitterPractitionerId, getInPersonVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeButton';
+import { EncounterSwitcher } from '../../in-person/components/EncounterSwitcher';
 import { RouteInPerson, useInPersonNavigationContext } from '../../in-person/context/InPersonNavigationContext';
 import { ROUTER_PATH, routesInPerson } from '../../in-person/routing/routesInPerson';
 import { usePractitionerActions } from '../hooks/usePractitioner';
@@ -362,6 +363,9 @@ export const Sidebar = (): JSX.Element => {
           <ArrowIcon direction={open ? 'left' : 'right'} />
         </IconButton>
       </DrawerHeader>
+
+      <EncounterSwitcher open={open} />
+
       <List sx={{ padding: '0px' }}>
         {menuItems.map((item) => {
           const comparedPath = item?.activeCheckPath || item.to;

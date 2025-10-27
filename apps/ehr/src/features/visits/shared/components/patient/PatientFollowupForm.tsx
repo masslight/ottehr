@@ -1,23 +1,10 @@
 import { LoadingButton } from '@mui/lab';
-import {
-  Autocomplete,
-  Box,
-  Button,
-  Checkbox,
-  Divider,
-  FormControlLabel,
-  Grid,
-  lighten,
-  Paper,
-  TextField,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Autocomplete, Box, Button, Grid, Paper, TextField } from '@mui/material';
 import { DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import Oystehr from '@oystehr/sdk';
-import { Patient } from 'fhir/r4b';
+import { Appointment, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
@@ -26,76 +13,98 @@ import { getEmployees, saveFollowup } from 'src/api/api';
 import LocationSelect from 'src/components/LocationSelect';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import {
-  FOLLOWUP_TYPES,
-  FollowupReason,
-  FollowupType,
-  NON_BILLABLE_REASONS,
-  PatientFollowupDetails,
-  ProviderDetails,
-  SLUG_SYSTEM,
-  TELEPHONE_REASONS,
-} from 'utils';
+import { FOLLOWUP_REASONS, FOLLOWUP_SYSTEMS, FollowupReason, PatientFollowupDetails, ProviderDetails } from 'utils';
 
 interface PatientFollowupFormProps {
   patient: Patient | undefined;
-  followupStatus: 'RESOLVED' | 'OPEN' | 'NEW';
-  setFollowupStatus?: any;
   followupDetails?: PatientFollowupDetails;
 }
 
-export default function PatientFollowupForm({
-  patient,
-  followupDetails,
-  followupStatus,
-  setFollowupStatus,
-}: PatientFollowupFormProps): JSX.Element {
-  const theme = useTheme();
+interface EncounterRow {
+  id: string | undefined;
+  typeLabel: string;
+  dateTime: string | undefined;
+  appointment: Appointment;
+  encounter: Encounter;
+}
+
+interface FormData {
+  provider: ProviderDetails | undefined;
+  reason: FollowupReason | undefined;
+  otherReason: string;
+  initialVisit: EncounterRow | undefined;
+  followupDate: DateTime;
+  followupTime: DateTime;
+  location: LocationWithWalkinSchedule | undefined;
+}
+
+interface FormErrors {
+  provider?: string;
+  reason?: string;
+  otherReason?: string;
+  initialVisit?: string;
+  followupDate?: string;
+  followupTime?: string;
+  location?: string;
+}
+
+export default function PatientFollowupForm({ patient, followupDetails }: PatientFollowupFormProps): JSX.Element {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
   const patientId = patient?.id;
 
   const [loading, setLoading] = useState<boolean>(false);
-  const storedLocation = localStorage?.getItem('selectedLocation');
-  const parsedStoredLocation = storedLocation ? JSON.parse(storedLocation) : undefined;
-  const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule | undefined>(
-    followupDetails?.location ? followupDetails?.location : parsedStoredLocation
-  );
-  const [reasonOptions, setReasonOptions] = useState<FollowupReason[]>(
-    followupDetails?.followupType
-      ? followupDetails.followupType === 'Non-Billable'
-        ? [...NON_BILLABLE_REASONS]
-        : [...TELEPHONE_REASONS]
-      : []
-  );
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
+  const [previousEncounters, setPreviousEncounters] = useState<EncounterRow[]>([]);
+  const [errors, setErrors] = useState<FormErrors>({});
 
-  const [followupType, setFollowupType] = useState<FollowupType | null>(followupDetails?.followupType || null);
-  const [followupReason, setFollowupReason] = useState<FollowupReason | null>(followupDetails?.reason || null);
-  const [answered, setAnswered] = useState<string>(followupDetails?.answered || '');
-  const [caller, setCaller] = useState<string>(followupDetails?.caller || '');
-  const [followupDate, setFollowupDate] = useState<DateTime>(
-    followupDetails?.start ? DateTime.fromISO(followupDetails.start) : DateTime.now()
-  );
-  const [provider, setProvider] = useState<ProviderDetails | null>(followupDetails?.provider || null);
-  const [resolved, setResolved] = useState<boolean>(false);
-  const [message, setMessage] = useState<string>(followupDetails?.message || '');
+  const [formData, setFormData] = useState<FormData>({
+    provider: followupDetails?.provider || undefined,
+    reason: followupDetails?.reason || undefined,
+    otherReason: followupDetails?.otherReason || '',
+    initialVisit: undefined,
+    followupDate: followupDetails?.start ? DateTime.fromISO(followupDetails.start) : DateTime.now(),
+    followupTime: followupDetails?.start ? DateTime.fromISO(followupDetails.start) : DateTime.now(),
+    location: followupDetails?.location || JSON.parse(localStorage?.getItem('selectedLocation') || ''),
+  });
 
-  useEffect(() => {
-    const locationSlug = selectedLocation?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)
-      ?.value;
-    const locationState = selectedLocation?.address?.state;
-    if (!locationSlug || !locationState) {
-      console.log(
-        'show some toast: location is missing slug or address.state',
-        selectedLocation,
-        locationSlug,
-        locationState
-      );
-      return;
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+
+    if (!formData.provider) {
+      newErrors.provider = 'Provider is required';
     }
-  }, [selectedLocation]);
+    if (!formData.reason) {
+      newErrors.reason = 'Reason is required';
+    }
+    if (formData.reason === 'Other' && !formData.otherReason.trim()) {
+      newErrors.otherReason = 'Other reason is required when "Other" is selected';
+    }
+    if (!formData.initialVisit) {
+      newErrors.initialVisit = 'Initial visit is required';
+    }
+    if (!formData.followupDate) {
+      newErrors.followupDate = 'Follow-up date is required';
+    }
+    if (!formData.followupTime) {
+      newErrors.followupTime = 'Follow-up time is required';
+    }
+    if (!formData.location) {
+      newErrors.location = 'Location is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const updateFormData = (field: keyof FormData, value: any): void => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
 
   useEffect(() => {
     const getAndSetProviders = async (client: Oystehr): Promise<void> => {
@@ -115,57 +124,127 @@ export default function PatientFollowupForm({
     }
   }, [oystehrZambda, providers]);
 
-  const handleTypeChange = (event: any, newValue: any): void => {
-    const type = newValue;
-    if (!type) {
-      setReasonOptions([]);
-      setFollowupReason(null);
-    } else {
-      setReasonOptions(type === 'Telephone Encounter' ? [...TELEPHONE_REASONS] : [...NON_BILLABLE_REASONS]);
-      if (followupType && type !== followupType) setFollowupReason(null);
+  useEffect(() => {
+    const getPreviousEncounters = async (client: Oystehr): Promise<void> => {
+      if (!patientId) return;
+      try {
+        const resources = (
+          await client.fhir.search({
+            resourceType: 'Encounter',
+            params: [
+              {
+                name: 'patient',
+                value: patientId,
+              },
+              {
+                name: '_include',
+                value: 'Encounter:appointment',
+              },
+              {
+                name: '_sort',
+                value: '-date',
+              },
+            ],
+          })
+        ).unbundle();
+
+        const encounters = resources.filter((resource) => resource.resourceType === 'Encounter') as Encounter[];
+        const appointments = resources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
+
+        const nonFollowupEncounters = encounters.filter((encounter) => {
+          const isFollowup = encounter.type?.some(
+            (type) =>
+              type.coding?.some(
+                (coding) => coding.system === FOLLOWUP_SYSTEMS.type.url && coding.code === FOLLOWUP_SYSTEMS.type.code
+              )
+          );
+          return !isFollowup;
+        });
+
+        const encounterRows: EncounterRow[] = nonFollowupEncounters
+          .map((encounter) => {
+            const appointment = encounter.appointment?.[0]?.reference
+              ? appointments.find((app) => `Appointment/${app.id}` === encounter.appointment?.[0]?.reference)
+              : undefined;
+
+            return {
+              id: encounter.id,
+              typeLabel: appointment?.appointmentType?.text || 'Visit',
+              dateTime: appointment?.start || encounter.period?.start,
+              appointment: appointment!,
+              encounter: encounter,
+            };
+          })
+          .filter((row) => row.id)
+          .sort((a, b) => {
+            const dateA = DateTime.fromISO(a.dateTime ?? '');
+            const dateB = DateTime.fromISO(b.dateTime ?? '');
+            return dateB.diff(dateA).milliseconds;
+          });
+
+        setPreviousEncounters(encounterRows);
+
+        if (followupDetails?.initialEncounterID && encounterRows.length > 0) {
+          const matchingVisit = encounterRows.find((row) => row.encounter?.id === followupDetails.initialEncounterID);
+          if (matchingVisit) {
+            setFormData((prev) => ({ ...prev, initialVisit: matchingVisit }));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching previous encounters:', error);
+      }
+    };
+
+    if (oystehrZambda && patientId) {
+      void getPreviousEncounters(oystehrZambda);
     }
-    setFollowupType(type);
-  };
+  }, [oystehrZambda, patientId, followupDetails?.initialEncounterID]);
 
-  const handleReasonChange = (event: any, newValue: any): void => {
-    const selectedReason = newValue;
-    setFollowupReason(selectedReason);
-  };
+  const handleFormSubmit = async (e: React.FormEvent): Promise<void> => {
+    e.preventDefault();
 
-  const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
+    if (!validateForm()) {
+      return;
+    }
+
     setLoading(true);
     let apiErr = false;
     let errorMessage = '';
 
     try {
       if (!oystehrZambda) throw new Error('Zambda client not found');
-      if (!followupType || !patientId) {
-        errorMessage = `Required input fields are missing: ${!followupType ? 'Type, ' : ''} ${
-          !patientId ? 'Patient Id, ' : ''
-        }`;
+      if (!patientId) {
+        errorMessage = `Required input fields are missing: Patient Id`;
         throw new Error(errorMessage);
       }
+
+      // Combine date and time for the start time
+      const combinedDateTime = formData.followupDate.set({
+        hour: formData.followupTime.hour,
+        minute: formData.followupTime.minute,
+        second: formData.followupTime.second,
+      });
+
       const encounterDetails: PatientFollowupDetails = {
         encounterId: followupDetails?.encounterId,
-        followupType,
+        followupType: 'Telephone Encounter',
         patientId,
-        reason: (followupReason as FollowupReason) || undefined,
-        answered,
-        caller,
-        resolved,
-        message,
-        start: followupDate.toISO() || '',
-        end: resolved ? DateTime.now().toISO() : undefined,
-        location: selectedLocation,
-        provider: provider || undefined,
+        reason: formData.reason || undefined,
+        otherReason: formData.reason === 'Other' ? formData.otherReason : undefined,
+        initialEncounterID: formData.initialVisit?.encounter?.id,
+        appointmentId: formData.initialVisit?.appointment?.id,
+        answered: '',
+        caller: '',
+        resolved: false,
+        message: '',
+        start: combinedDateTime.toISO() || '',
+        location: formData.location,
+        provider: formData.provider || undefined,
       };
 
-      const res = await saveFollowup(oystehrZambda, { encounterDetails });
-      if (res.encounterId && resolved && setFollowupStatus) {
-        setFollowupStatus('RESOLVED');
-      }
-      navigate(`/patient/${patientId}`, { state: { defaultTab: 'followups' } });
+      await saveFollowup(oystehrZambda, { encounterDetails });
+
+      navigate(`/patient/${patientId}`, { state: { defaultTab: 'encounters' } });
     } catch (error) {
       console.error(`Failed to add patient followup: ${error}`);
       if (!errorMessage) errorMessage = `Failed to add patient followup: ${error}`;
@@ -181,7 +260,7 @@ export default function PatientFollowupForm({
 
   const handleCancel = (): void => {
     if (patientId) {
-      navigate(`/patient/${patientId}`, { state: { defaultTab: 'followups' } });
+      navigate(`/patient/${patientId}`, { state: { defaultTab: 'encounters' } });
     } else {
       navigate('/visits');
     }
@@ -189,101 +268,17 @@ export default function PatientFollowupForm({
 
   return (
     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-      <form onSubmit={(e) => handleFormSubmit(e)}>
+      <form onSubmit={handleFormSubmit}>
         <Grid container spacing={2} columns={10}>
-          <Grid item xs={5}>
+          <Grid item xs={10}>
             <Autocomplete
-              disabled={followupStatus === 'RESOLVED'}
-              options={FOLLOWUP_TYPES}
-              onChange={handleTypeChange}
-              value={followupType}
-              fullWidth
-              renderInput={(params) => (
-                <TextField required placeholder="Select type" name="type" {...params} label="Type" />
-              )}
-            />
-          </Grid>
-          <Grid item xs={5}>
-            <Autocomplete
-              disabled={followupStatus === 'RESOLVED'}
-              options={reasonOptions}
-              onChange={handleReasonChange}
-              fullWidth
-              value={followupReason}
-              noOptionsText="Please select a type"
-              renderInput={(params) => (
-                <TextField placeholder="Select reason" name="reason" {...params} label="Reason" />
-              )}
-            />
-          </Grid>
-          <Grid item xs={5}>
-            <TextField
-              disabled={followupStatus !== 'NEW'}
-              fullWidth
-              id="answered"
-              label="Answered"
-              variant="outlined"
-              value={answered}
-              onChange={(e) => setAnswered(e.target.value)}
-            />
-          </Grid>
-          <Grid item xs={5}>
-            <TextField
-              disabled={followupStatus === 'RESOLVED'}
-              fullWidth
-              id="caller"
-              label="Caller"
-              variant="outlined"
-              value={caller}
-              onChange={(e) => setCaller(e.target.value)}
-            />
-          </Grid>
-          <Grid item xs={5}>
-            <LocalizationProvider dateAdapter={AdapterLuxon}>
-              <DatePicker
-                disabled={followupStatus !== 'NEW'}
-                onChange={(val) => val && setFollowupDate(val)}
-                label="Date"
-                format="MM/dd/yyyy"
-                value={followupDate}
-                slotProps={{ textField: { id: 'followup-date', label: 'Date', fullWidth: true } }}
-              />
-            </LocalizationProvider>
-          </Grid>
-          <Grid item xs={5}>
-            <LocalizationProvider dateAdapter={AdapterLuxon}>
-              <TimePicker
-                disabled={followupStatus !== 'NEW'}
-                onChange={(val) => val && setFollowupDate(val)}
-                value={followupDate}
-                label="Time"
-                slotProps={{
-                  textField: {
-                    fullWidth: true,
-                  },
-                }}
-              ></TimePicker>
-            </LocalizationProvider>
-          </Grid>
-          <Grid item xs={5}>
-            <LocationSelect
-              location={selectedLocation}
-              setLocation={setSelectedLocation}
-              updateURL={false}
-              renderInputProps={{ disabled: followupStatus === 'RESOLVED' }}
-            />
-          </Grid>
-          <Grid item xs={5}>
-            <Autocomplete
-              disabled={followupStatus === 'RESOLVED'}
               options={providers}
               fullWidth
+              size="small"
               getOptionLabel={(option) => `${option.name}`}
               isOptionEqualToValue={(option, value) => option.practitionerId === value.practitionerId}
-              value={provider}
-              onChange={(_, newVal) => {
-                setProvider(newVal);
-              }}
+              value={formData.provider}
+              onChange={(_, newVal) => updateFormData('provider', newVal || undefined)}
               renderOption={(props, option) => {
                 return (
                   <li {...props} key={option.practitionerId}>
@@ -292,25 +287,138 @@ export default function PatientFollowupForm({
                 );
               }}
               renderInput={(params) => (
-                <TextField placeholder="Select provider" name="provider" {...params} label="Provider" />
+                <TextField
+                  placeholder="Select provider"
+                  name="provider"
+                  {...params}
+                  label="Follow-up provider *"
+                  error={!!errors.provider}
+                  helperText={errors.provider}
+                />
               )}
             />
           </Grid>
+
           <Grid item xs={10}>
-            <TextField
-              disabled={followupStatus === 'RESOLVED'}
+            <Autocomplete
+              options={FOLLOWUP_REASONS}
+              onChange={(_, newVal) => {
+                updateFormData('reason', newVal || undefined);
+
+                if (newVal !== 'Other') {
+                  updateFormData('otherReason', '');
+                }
+              }}
+              size="small"
               fullWidth
-              id="message"
-              label="Message"
-              variant="outlined"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              multiline
+              value={formData.reason}
+              renderInput={(params) => (
+                <TextField
+                  placeholder="Select reason"
+                  name="reason"
+                  {...params}
+                  label="Reason *"
+                  error={!!errors.reason}
+                  helperText={errors.reason}
+                />
+              )}
             />
           </Grid>
+
+          {formData.reason === 'Other' && (
+            <Grid item xs={10}>
+              <TextField
+                fullWidth
+                size="small"
+                id="otherReason"
+                label="Other reason *"
+                variant="outlined"
+                value={formData.otherReason}
+                onChange={(e) => updateFormData('otherReason', e.target.value)}
+                placeholder="Please specify the reason"
+                error={!!errors.otherReason}
+                helperText={errors.otherReason}
+              />
+            </Grid>
+          )}
+
           <Grid item xs={10}>
-            <Divider sx={{ ml: -3, mr: -3 }} />
+            <Autocomplete
+              options={previousEncounters}
+              fullWidth
+              size="small"
+              getOptionLabel={(option) => {
+                const dateTime = option.dateTime
+                  ? DateTime.fromISO(option.dateTime).toFormat('MM/dd/yyyy h:mm a')
+                  : 'Unknown date/time';
+                const type = option.typeLabel || 'Visit';
+                return `${dateTime} - ${type}`;
+              }}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              value={formData.initialVisit}
+              onChange={(_, newVal) => updateFormData('initialVisit', newVal || undefined)}
+              renderInput={(params) => (
+                <TextField
+                  placeholder="Select initial visit"
+                  name="initialVisit"
+                  {...params}
+                  label="Initial visit *"
+                  error={!!errors.initialVisit}
+                  helperText={errors.initialVisit}
+                />
+              )}
+            />
           </Grid>
+
+          <Grid item xs={5}>
+            <LocalizationProvider dateAdapter={AdapterLuxon}>
+              <DatePicker
+                onChange={(val) => val && updateFormData('followupDate', val)}
+                label="Follow-up date"
+                format="MM/dd/yyyy"
+                value={formData.followupDate}
+                slotProps={{
+                  textField: {
+                    id: 'followup-date',
+                    label: 'Follow-up date *',
+                    fullWidth: true,
+                    size: 'small',
+                    error: !!errors.followupDate,
+                    helperText: errors.followupDate,
+                  },
+                }}
+              />
+            </LocalizationProvider>
+          </Grid>
+
+          <Grid item xs={5}>
+            <LocalizationProvider dateAdapter={AdapterLuxon}>
+              <TimePicker
+                onChange={(val) => val && updateFormData('followupTime', val)}
+                value={formData.followupTime}
+                label="Follow-up time *"
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    size: 'small',
+                    error: !!errors.followupTime,
+                    helperText: errors.followupTime,
+                  },
+                }}
+              />
+            </LocalizationProvider>
+          </Grid>
+
+          <Grid item xs={10}>
+            <LocationSelect
+              location={formData.location}
+              setLocation={(location) => updateFormData('location', location)}
+              updateURL={false}
+              renderInputProps={{ size: 'small' }}
+            />
+            {errors.location && <Box sx={{ color: 'error.main', fontSize: '0.75rem', mt: 0.5 }}>{errors.location}</Box>}
+          </Grid>
+
           <Grid item xs={10}>
             <Box display="flex" flexDirection="row" justifyContent="space-between" gap={2}>
               <Button
@@ -325,57 +433,20 @@ export default function PatientFollowupForm({
               >
                 Cancel
               </Button>
-              {followupStatus !== 'RESOLVED' && (
-                <Box display="flex" flexDirection="row">
-                  <FormControlLabel
-                    sx={{
-                      backgroundColor: 'transparent',
-                      pr: 0,
-                    }}
-                    control={
-                      <Checkbox
-                        size="small"
-                        sx={{
-                          color: theme.palette.primary.main,
-                          '&.Mui-checked': {
-                            color: theme.palette.primary.main,
-                          },
-                          '&.Mui-disabled': {
-                            color: lighten(theme.palette.primary.main, 0.4),
-                          },
-                        }}
-                        checked={resolved}
-                        onChange={(e) => setResolved(e.target.checked)}
-                      />
-                    }
-                    label={
-                      <Typography
-                        sx={{
-                          fontSize: '16px',
-                          fontWeight: 500,
-                          color: theme.palette.text.primary,
-                        }}
-                      >
-                        Mark as resolved
-                      </Typography>
-                    }
-                  />
 
-                  <LoadingButton
-                    variant="contained"
-                    type="submit"
-                    loading={loading}
-                    sx={{
-                      borderRadius: 100,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      marginRight: 1,
-                    }}
-                  >
-                    Save
-                  </LoadingButton>
-                </Box>
-              )}
+              <LoadingButton
+                variant="contained"
+                type="submit"
+                loading={loading}
+                sx={{
+                  borderRadius: 100,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  marginRight: 1,
+                }}
+              >
+                Create follow-up
+              </LoadingButton>
             </Box>
           </Grid>
         </Grid>

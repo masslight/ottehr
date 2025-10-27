@@ -616,6 +616,7 @@ export default function AppointmentTableRow({
         appointmentId: appointment.id,
         timezone: tz,
         supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
+        encounterId: encounterId,
       });
       await updateAppointments();
       navigate('/visits', { state: { tab: ApptTab.completed } });

@@ -21,7 +21,8 @@ import { FullAppointmentResourcePackage } from './types';
 export const getAppointmentAndRelatedResources = async (
   oystehr: Oystehr,
   appointmentId: string,
-  inPerson?: boolean
+  inPerson?: boolean,
+  encounterId?: string
 ): Promise<FullAppointmentResourcePackage | undefined> => {
   //
   // Attempting to get three items: Encounter, Appointment and charge Item
@@ -36,36 +37,64 @@ export const getAppointmentAndRelatedResources = async (
   // is its context, a patient that's the subject of the encounter, and the Account for this patient
   //
 
-  const items: Array<
-    | Appointment
-    | Encounter
-    | ChargeItem
-    | Patient
-    | Account
-    | Location
-    | QuestionnaireResponse
-    | Practitioner
-    | DocumentReference
-    | List
-    | Coverage
-    | Schedule
-  > = (
-    await oystehr.fhir.search<
-      | Appointment
-      | Encounter
-      | ChargeItem
-      | Patient
-      | Account
-      | Location
-      | QuestionnaireResponse
-      | Practitioner
-      | DocumentReference
-      | List
-      | Coverage
-      | Schedule
-    >({
-      resourceType: 'Encounter',
-      params: [
+  // Build search parameters based on whether we have encounterId or need to search by appointment
+  const searchParams = encounterId
+    ? [
+        {
+          name: '_id',
+          value: encounterId,
+        },
+        {
+          name: '_include',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include',
+          value: 'Encounter:part-of',
+        },
+        {
+          name: '_revinclude',
+          value: 'ChargeItem:context',
+        },
+        {
+          name: '_include',
+          value: 'Encounter:subject',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:location',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Schedule:actor:Location',
+        },
+        { name: '_revinclude:iterate', value: 'Schedule:actor:Practitioner' },
+        {
+          name: '_include:iterate',
+          value: 'Encounter:participant:Practitioner',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Account:patient',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'QuestionnaireResponse:encounter',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'DocumentReference:encounter',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Coverage:beneficiary',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'List:patient',
+        },
+      ]
+    : [
         {
           name: 'appointment',
           value: `Appointment/${appointmentId}`,
@@ -115,7 +144,38 @@ export const getAppointmentAndRelatedResources = async (
           name: '_revinclude:iterate',
           value: 'List:patient',
         },
-      ],
+      ];
+
+  const items: Array<
+    | Appointment
+    | Encounter
+    | ChargeItem
+    | Patient
+    | Account
+    | Location
+    | QuestionnaireResponse
+    | Practitioner
+    | DocumentReference
+    | List
+    | Coverage
+    | Schedule
+  > = (
+    await oystehr.fhir.search<
+      | Appointment
+      | Encounter
+      | ChargeItem
+      | Patient
+      | Account
+      | Location
+      | QuestionnaireResponse
+      | Practitioner
+      | DocumentReference
+      | List
+      | Coverage
+      | Schedule
+    >({
+      resourceType: 'Encounter',
+      params: searchParams,
     })
   )
     .unbundle()
@@ -128,9 +188,17 @@ export const getAppointmentAndRelatedResources = async (
   if (!appointment) return undefined;
 
   const encounter: Encounter | undefined = items.find((item: Resource) => {
-    return item.resourceType === 'Encounter' && (inPerson || getVideoRoomResourceExtension(item));
+    return (
+      item.resourceType === 'Encounter' &&
+      (inPerson || getVideoRoomResourceExtension(item)) &&
+      (encounterId ? item.id === encounterId : true)
+    );
   }) as Encounter;
   if (!encounter) return undefined;
+
+  const mainEncounter: Encounter | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Encounter' && !(item as Encounter).partOf;
+  }) as Encounter;
 
   const chargeItem: ChargeItem | undefined = items.find((item: Resource) => {
     return item.resourceType === 'ChargeItem';
@@ -175,6 +243,7 @@ export const getAppointmentAndRelatedResources = async (
   return {
     appointment,
     encounter,
+    mainEncounter,
     chargeItem,
     patient,
     account,
