@@ -8,7 +8,6 @@ import {
   IN_PERSON_PREVISIT_QUESTIONNAIRE,
   PROJECT_API,
   PROJECT_ID,
-  RC_CLIENT_APP_SERVER,
   RC_CLIENT_ID,
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
@@ -25,5 +24,4 @@ export const SECRETS = {
   PROJECT_ID,
   API_TOKEN,
   RC_CLIENT_ID,
-  RC_CLIENT_APP_SERVER,
 };
