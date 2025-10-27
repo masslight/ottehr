@@ -78,8 +78,8 @@ export const LogTimerModal: React.FC<LogTimerModalProps> = ({
         interactiveCommunication: interactiveCommunication ?? false,
         notes: notes.trim(),
       });
+      resetForm();
     }
-    resetForm();
   };
 
   const handleCancel = (): void => {
