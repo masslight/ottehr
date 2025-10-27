@@ -1,4 +1,5 @@
 import {
+  API_TOKEN,
   AUTH0_AUDIENCE,
   AUTH0_CLIENT,
   AUTH0_ENDPOINT,
@@ -7,6 +8,7 @@ import {
   IN_PERSON_PREVISIT_QUESTIONNAIRE,
   PROJECT_API,
   PROJECT_ID,
+  RC_CLIENT_ID,
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
 } from '../../.env/local.json';
@@ -20,4 +22,6 @@ export const SECRETS = {
   PROJECT_API: PROJECT_API,
   IN_PERSON_PREVISIT_QUESTIONNAIRE: IN_PERSON_PREVISIT_QUESTIONNAIRE,
   PROJECT_ID,
+  API_TOKEN,
+  RC_CLIENT_ID,
 };

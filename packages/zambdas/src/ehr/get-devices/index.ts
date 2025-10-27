@@ -2,7 +2,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Output } from 'utils';
 import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
 
-// For local development it makes it easier to track performance
 if (process.env.IS_OFFLINE === 'true') {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('console-stamp')(console, { pattern: 'HH:MM:ss.l' });
@@ -25,18 +24,25 @@ export const index = wrapHandler('get-devices', async (input: ZambdaInput): Prom
     }
 
     const oystehr = createOystehrClient(oystehrToken, secrets);
+
+    const searchParams: any[] = [
+      ...(body.offset ? [{ name: '_offset', value: body.offset }] : []),
+      ...(body.count ? [{ name: '_count', value: body.count }] : []),
+      { name: '_total', value: 'accurate' },
+      ...(body.patientId ? [{ name: 'patient', value: body.patientId }] : []),
+      ...(body.deviceId ? [{ name: '_id', value: body.deviceId }] : []),
+      ...(Object.prototype.hasOwnProperty.call(body, 'missing')
+        ? [{ name: 'patient:missing', value: body.missing }]
+        : []),
+    ];
+
+    if (body.search) {
+      searchParams.push({ name: 'identifier:contains', value: body.search });
+    }
+
     const locationsResults = await oystehr.fhir.search<any>({
       resourceType: 'Device',
-      params: [
-        ...(body.offset ? [{ name: '_offset', value: body.offset }] : []),
-        ...(body.count ? [{ name: '_count', value: body.count }] : []),
-        ...(body.offset || body.count ? [{ name: '_total', value: 'accurate' }] : []),
-        ...(body.patientId ? [{ name: 'patient', value: body.patientId }] : []),
-        ...(body.deviceId ? [{ name: '_id', value: body.deviceId }] : []),
-        ...(Object.prototype.hasOwnProperty.call(body, 'missing')
-          ? [{ name: 'patient:missing', value: body.missing }]
-          : []),
-      ],
+      params: searchParams,
     });
 
     const response: Output = {
