@@ -36,9 +36,11 @@ import {
   getCoding,
   getOrderNumber,
   getPresignedURL,
+  getTestNameOrCodeFromDr,
   getTimezone,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
   IN_HOUSE_TEST_CODE_SYSTEM,
+  INCONCLUSIVE_RESULT_DR_TAG,
   InHouseLabResult,
   LAB_DR_TYPE_TAG,
   LAB_ORDER_DOC_REF_CODING_CODE,
@@ -52,6 +54,8 @@ import {
   LabResultPDF,
   LabType,
   nameLabTest,
+  NEUTRAL_RESULT_DR_TAG,
+  NonNormalResult,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_DOC_CATEGORY_CODING,
   OYSTEHR_LAB_GUID_SYSTEM,
@@ -485,14 +489,9 @@ export const makeEncounterLabResults = async (
             formattedName = nameLabTest(reflexTestName, labName, true);
           }
 
-          // this tag would be set by oystehr when the DR is created
-          const drIsTaggedAbnormal = !!relatedDR.meta?.tag?.find(
-            (tag) => tag.system === ABNORMAL_RESULT_DR_TAG.system && tag.code === ABNORMAL_RESULT_DR_TAG.code
-          );
-
           const { externalResultConfigs } = await getLabOrderResultPDFConfig(docRef, formattedName, m2mToken, {
             type: LabType.external,
-            containsAbnormalResult: drIsTaggedAbnormal,
+            nonNormalResultContained: nonNonNormalTagsContained(relatedDR),
             orderNumber,
           });
           if (isReflex) {
@@ -501,16 +500,13 @@ export const makeEncounterLabResults = async (
             externalLabOrderResults.push(...externalResultConfigs);
           }
         } else if (relatedSRDetail.type === LabType.inHouse) {
-          const drIsTaggedAbnormal = !!relatedDR.meta?.tag?.find(
-            (tag) => tag.system === ABNORMAL_RESULT_DR_TAG.system && tag.code === ABNORMAL_RESULT_DR_TAG.code
-          );
           const sr = relatedSRDetail.resource;
           const testName = sr.code?.text;
           const { inHouseResultConfigs } = await getLabOrderResultPDFConfig(
             docRef,
             testName || 'missing test details',
             m2mToken,
-            { type: LabType.inHouse, containsAbnormalResult: drIsTaggedAbnormal }
+            { type: LabType.inHouse, nonNormalResultContained: nonNonNormalTagsContained(relatedDR) }
           );
           inHouseLabOrderResults.push(...inHouseResultConfigs);
         }
@@ -556,6 +552,25 @@ export const makeEncounterLabResults = async (
   return { externalLabResultConfig, inHouseLabResultConfig };
 };
 
+// these tags would be set by oystehr when the DR is created for external labs
+const nonNonNormalTagsContained = (dr: DiagnosticReport): NonNormalResult[] | undefined => {
+  const drIsTaggedAbnormal = dr.meta?.tag?.some(
+    (tag) => tag.system === ABNORMAL_RESULT_DR_TAG.system && tag.code === ABNORMAL_RESULT_DR_TAG.code
+  );
+  const drIsTaggedInconclusive = dr.meta?.tag?.some(
+    (tag) => tag.system === INCONCLUSIVE_RESULT_DR_TAG.system && tag.code === INCONCLUSIVE_RESULT_DR_TAG.code
+  );
+  const drIsTaggedNeutral = dr.meta?.tag?.some(
+    (tag) => tag.system === NEUTRAL_RESULT_DR_TAG.system && tag.code === NEUTRAL_RESULT_DR_TAG.code
+  );
+  let nonNormalResultContained: NonNormalResult[] | undefined = [];
+  if (drIsTaggedAbnormal) nonNormalResultContained.push(NonNormalResult.Abnormal);
+  if (drIsTaggedInconclusive) nonNormalResultContained.push(NonNormalResult.Inconclusive);
+  if (drIsTaggedNeutral) nonNormalResultContained.push(NonNormalResult.Neutral);
+  if (nonNormalResultContained.length === 0) nonNormalResultContained = undefined;
+  return nonNormalResultContained;
+};
+
 const getLabOrderResultPDFConfig = async (
   docRef: DocumentReference,
   formattedName: string,
@@ -563,12 +578,12 @@ const getLabOrderResultPDFConfig = async (
   resultDetails:
     | {
         type: LabType.external;
-        containsAbnormalResult: boolean;
+        nonNormalResultContained: NonNormalResult[] | undefined;
         orderNumber?: string;
       }
     | {
         type: LabType.inHouse;
-        containsAbnormalResult: boolean;
+        nonNormalResultContained: NonNormalResult[] | undefined;
         simpleResultValue?: string; // todo not implemented, displaying this is a post mvp feature
       }
 ): Promise<{ externalResultConfigs: ExternalLabOrderResultConfig[]; inHouseResultConfigs: InHouseLabResult[] }> => {
@@ -588,7 +603,7 @@ const getLabOrderResultPDFConfig = async (
         const labResult: ExternalLabOrderResultConfig = {
           name: formattedName,
           url,
-          containsAbnormalResult: resultDetails.containsAbnormalResult,
+          nonNormalResultContained: resultDetails.nonNormalResultContained,
           orderNumber: resultDetails?.orderNumber,
         };
         externalResults.push(labResult);
@@ -596,7 +611,7 @@ const getLabOrderResultPDFConfig = async (
         const labResult: InHouseLabResult = {
           name: formattedName,
           url,
-          containsAbnormalResult: resultDetails.containsAbnormalResult,
+          nonNormalResultContained: resultDetails.nonNormalResultContained,
           simpleResultValue: resultDetails?.simpleResultValue,
         };
         inHouseResults.push(labResult);
@@ -1157,26 +1172,4 @@ export const parseAccessionNumberFromDr = (result: DiagnosticReport): string => 
   }
 
   return NOT_FOUND;
-};
-
-export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
-  const testName =
-    dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
-    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.display ||
-    dr.code.coding?.find((temp) => temp.system === '(HL7_V2)')?.display;
-  return testName;
-};
-
-export const getTestItemCodeFromDr = (dr: DiagnosticReport): string | undefined => {
-  const testName =
-    dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
-    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code;
-  return testName;
-};
-
-export const getTestNameOrCodeFromDr = (dr: DiagnosticReport): string => {
-  const testName = getTestNameFromDr(dr);
-  const testItemCode = getTestItemCodeFromDr(dr);
-  const testDescription = testName || testItemCode || 'missing test name';
-  return testDescription;
 };

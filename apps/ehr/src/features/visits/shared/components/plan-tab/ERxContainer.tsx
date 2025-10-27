@@ -28,6 +28,7 @@ import { useChartFields } from '../../hooks/useChartFields';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { ERX, ERXStatus } from '../ERX';
+import { PreferredPharmacy } from '../PreferredPharmacy';
 
 const getPractitionerName = (practitioner?: Practitioner): string | undefined => {
   if (!practitioner) {
@@ -134,6 +135,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
         _include: 'MedicationRequest:requester',
         _tag: ERX_MEDICATION_META_TAG_CODE,
       },
+      preferredPharmacies: {},
     },
     refetchInterval: 10000,
   });
@@ -224,6 +226,9 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
             </Stack>
           </Tooltip>
         </Stack>
+
+        {chartFields?.preferredPharmacies && <PreferredPharmacy data={chartFields?.preferredPharmacies} />}
+
         {!erxConfigData?.configured && !isErxConfigLoading && <CompleteConfiguration handleSetup={handleSetup} />}
         {isERXOpen && (
           <ERX

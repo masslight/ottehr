@@ -200,6 +200,7 @@ async function BookAppointmentFillInfoSignProgressNote(page: Page, resourceHandl
   await patientInfoPage.inPersonHeader().changeStatus('provider');
   const progressNotePage = await expectInPersonProgressNotePage(page);
   await progressNotePage.verifyReviewAndSignButtonDisabled();
+  await progressNotePage.fillHPI();
   await patientInfoPage.sideMenu().clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);
   await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });

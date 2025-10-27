@@ -1,6 +1,6 @@
 import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { waitForGetChartDataResponse } from 'test-utils';
+import { waitForGetChartDataResponse, waitForSaveChartDataResponse } from 'test-utils';
 import { ApptTelemedTab, TelemedAppointmentStatusEnum, TelemedAppointmentVisitTabs } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
@@ -70,6 +70,14 @@ test('Visit should be in "unsigned" tab on the tracking board', async () => {
 
 test('Should fill all required fields', async () => {
   await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
+
+  await page
+    .getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes)
+    .locator('textarea')
+    .first()
+    .fill('patient reports a fever');
+  await waitForSaveChartDataResponse(page);
+
   await page
     .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
     .click();
