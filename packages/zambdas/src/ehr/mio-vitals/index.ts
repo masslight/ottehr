@@ -19,7 +19,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
     console.group('validateRequestParameters');
     try {
       console.log('Body : ', input.body);
-      requestBody = JSON.parse(input.body as string);
+      requestBody = JSON.parse(input.body as string).data;
     } catch (error) {
       console.error(error);
       return lambdaResponse(500, {
