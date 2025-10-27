@@ -6,7 +6,11 @@ import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { InPersonAppointmentInformation, OrdersForTrackingBoardTable } from 'utils';
+import {
+  GetVitalsForListOfEncountersResponseData,
+  InPersonAppointmentInformation,
+  OrdersForTrackingBoardTable,
+} from 'utils';
 import { dataTestIds } from '../constants/data-test-ids';
 import AppointmentTable from './AppointmentTable';
 import Loading from './Loading';
@@ -30,6 +34,7 @@ interface AppointmentsTabProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   orders: OrdersForTrackingBoardTable;
+  vitals?: GetVitalsForListOfEncountersResponseData;
 }
 
 export default function AppointmentTabs({
@@ -44,6 +49,7 @@ export default function AppointmentTabs({
   updateAppointments,
   setEditingComment,
   orders,
+  vitals,
 }: AppointmentsTabProps): ReactElement {
   const routeLocation = useLocation();
   const initialTab = (routeLocation.state?.tab as ApptTab) || ApptTab['in-office'];
@@ -101,6 +107,7 @@ export default function AppointmentTabs({
       <AppointmentTable
         appointments={appointments}
         orders={orders}
+        vitals={vitals}
         location={location}
         tab={value}
         now={now}
