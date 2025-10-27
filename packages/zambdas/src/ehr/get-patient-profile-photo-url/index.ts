@@ -62,11 +62,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('update-patient-profile-photo', error, ENVIRONMENT);
-    return {
-      statusCode: error.statusCode || 500,
-      body: JSON.stringify({ message: `Error updating patient's photo: ${error.message || error}` }),
-    };
+    return topLevelCatch('update-patient-profile-photo', error, ENVIRONMENT);
   }
 });
 

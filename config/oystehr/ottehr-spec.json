@@ -835,8 +835,7 @@
       "zip": ".dist/zips/sub-send-claim.zip",
       "subscription": {
         "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/claim-sync|send-claim&status=requested",
-        "reason": "in person communication",
-        "event": "create"
+        "reason": "send claim"
       }
     },
     "SUB-VISIT-NOTE-PDF-AND-EMAIL": {
@@ -976,6 +975,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/schedules/create-schedule/index",
       "zip": ".dist/zips/create-schedule.zip"
+    },
+    "RECOMMEND-BILLING-CODES": {
+      "name": "recommend-billing-codes",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/recommend-billing-codes/index",
+      "zip": ".dist/zips/recommend-billing-codes.zip"
     },
     "AI-INTERVIEW-SUMMARY": {
       "name": "ai-interview-summary",
@@ -1185,6 +1191,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/visit-details/update-visit-details/index",
       "zip": ".dist/zips/ehr-update-visit-details.zip"
+    },
+    "INVOICEABLE_PATIENTS_REPORT": {
+      "name": "invoiceable-patients-report",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/invoiceable-patients-report/index",
+      "zip": ".dist/zips/invoiceable-patients-report.zip"
     }
   },
   "faxNumbers": {
@@ -1233,9 +1246,7 @@
           {
             "name": {
               "family": "Smith",
-              "given": [
-                "John"
-              ]
+              "given": ["John"]
             },
             "telecom": [
               {
@@ -1349,13 +1360,7 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-CLAIM/id}"
-        },
-        "extension": [
-          {
-            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-            "valueString": "create"
-          }
-        ]
+        }
       }
     },
     "SUB_VISIT_NOTE_PDF_AND_EMAIL_SUBSCRIPTION": {
@@ -1363,7 +1368,7 @@
         "resourceType": "Subscription",
         "status": "active",
         "reason": "send visit note PDF and email",
-        "criteria": "Task?code=visit-note-pdf-and-email|&status=requested",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email|visit-note-pdf-and-email&status=requested",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-VISIT-NOTE-PDF-AND-EMAIL/id}"
@@ -1515,6 +1520,9 @@
       }
     },
     "SCHEDULE_TELEMED_NJ": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1566,6 +1574,9 @@
       }
     },
     "SCHEDULE_TELEMED_OH": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1595,9 +1606,7 @@
         "address": {
           "use": "work",
           "type": "physical",
-          "line": [
-            "12345 Test St"
-          ],
+          "line": ["12345 Test St"],
           "city": "New York",
           "state": "NY",
           "postalCode": "12345"
@@ -1674,55 +1683,44 @@
           {
             "openingTime": "04:00:00",
             "closingTime": "20:00:00",
-            "daysOfWeek": [
-              "mon"
-            ]
+            "daysOfWeek": ["mon"]
           },
           {
             "openingTime": "08:00:00",
             "closingTime": "21:00:00",
-            "daysOfWeek": [
-              "tue"
-            ]
+            "daysOfWeek": ["tue"]
           },
           {
             "openingTime": "08:00:00",
             "closingTime": "00:00:00",
-            "daysOfWeek": [
-              "wed"
-            ]
+            "daysOfWeek": ["wed"]
           },
           {
             "openingTime": "18:00:00",
-            "daysOfWeek": [
-              "thu"
-            ]
+            "daysOfWeek": ["thu"]
           },
           {
             "openingTime": "14:00:00",
             "closingTime": "21:00:00",
-            "daysOfWeek": [
-              "fri"
-            ]
+            "daysOfWeek": ["fri"]
           },
           {
             "openingTime": "04:00:00",
             "closingTime": "20:00:00",
-            "daysOfWeek": [
-              "sat"
-            ]
+            "daysOfWeek": ["sat"]
           },
           {
             "openingTime": "04:00:00",
             "closingTime": "20:00:00",
-            "daysOfWeek": [
-              "sun"
-            ]
+            "daysOfWeek": ["sun"]
           }
         ]
       }
     },
     "SCHEDULE_PHYSICAL_NY": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1762,9 +1760,7 @@
         "address": {
           "use": "work",
           "type": "physical",
-          "line": [
-            "12345 Test St"
-          ],
+          "line": ["12345 Test St"],
           "city": "Los Angeles",
           "state": "CA",
           "postalCode": "12345"
@@ -1841,55 +1837,44 @@
           {
             "openingTime": "04:00:00",
             "closingTime": "20:00:00",
-            "daysOfWeek": [
-              "mon"
-            ]
+            "daysOfWeek": ["mon"]
           },
           {
             "openingTime": "08:00:00",
             "closingTime": "21:00:00",
-            "daysOfWeek": [
-              "tue"
-            ]
+            "daysOfWeek": ["tue"]
           },
           {
             "openingTime": "08:00:00",
             "closingTime": "00:00:00",
-            "daysOfWeek": [
-              "wed"
-            ]
+            "daysOfWeek": ["wed"]
           },
           {
             "openingTime": "18:00:00",
-            "daysOfWeek": [
-              "thu"
-            ]
+            "daysOfWeek": ["thu"]
           },
           {
             "openingTime": "14:00:00",
             "closingTime": "21:00:00",
-            "daysOfWeek": [
-              "fri"
-            ]
+            "daysOfWeek": ["fri"]
           },
           {
             "openingTime": "04:00:00",
             "closingTime": "20:00:00",
-            "daysOfWeek": [
-              "sat"
-            ]
+            "daysOfWeek": ["sat"]
           },
           {
             "openingTime": "04:00:00",
             "closingTime": "20:00:00",
-            "daysOfWeek": [
-              "sun"
-            ]
+            "daysOfWeek": ["sun"]
           }
         ]
       }
     },
     "SCHEDULE_PHYSICAL_CA": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1951,7 +1936,12 @@
             ]
           }
         ]
-      }
+      },
+      "managedFields": [
+        "name",
+        "active",
+        "identifier"
+      ]
     },
     "PRACTITIONER_EXAMPLE_1": {
       "resource": {
@@ -1959,9 +1949,7 @@
         "name": [
           {
             "family": "Doe",
-            "given": [
-              "Jane"
-            ]
+            "given": ["Jane"]
           }
         ],
         "active": true,
@@ -3713,9 +3701,7 @@
         "name": [
           {
             "family": "Brown",
-            "given": [
-              "Kevin"
-            ]
+            "given": ["Kevin"]
           }
         ],
         "active": true,
@@ -5488,6 +5474,9 @@
       }
     },
     "SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_1": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -5509,6 +5498,9 @@
       }
     },
     "SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_2": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -5546,7 +5538,8 @@
         "name": "Issue Report Recipients",
         "member": [],
         "actual": true
-      }
+      },
+      "managedFields": ["name"]
     },
     "DEFAULT_BILLING_RESOURCE": {
       "resource": {
@@ -5585,9 +5578,7 @@
             "postalCode": "98105",
             "country": "United States",
             "type": "physical",
-            "line": [
-              "371 Pine St"
-            ]
+            "line": ["371 Pine St"]
           }
         ]
       }
@@ -5597,27 +5588,16 @@
     "PATIENT_PORTAL": {
       "name": "#{var/PATIENT_APP_NAME}",
       "description": "Patient Portal application with sms authentication",
-      "loginRedirectUri": "https://intake-local.ottehr.com/patients",
+      "loginRedirectUri": "#{var/PATIENT_LOGIN_REDIRECT_URL}",
       "allowedCallbackUrls": [
         "#{var/PATIENT_ALLOWED_URL_1}",
         "#{var/PATIENT_ALLOWED_URL_2}",
         "#{var/PATIENT_ALLOWED_URL_3}",
-        "#{var/PATIENT_ALLOWED_URL_4}",
-        "#{var/PATIENT_ALLOWED_URL_5}",
-        "#{var/PATIENT_ALLOWED_URL_6}"
-      ],
-      "allowedLogoutUrls": [
-        "#{var/PATIENT_ALLOWED_URL_1}",
         "#{var/PATIENT_ALLOWED_URL_4}"
       ],
-      "allowedWebOriginsUrls": [
-        "#{var/PATIENT_ALLOWED_URL_1}",
-        "#{var/PATIENT_ALLOWED_URL_4}"
-      ],
-      "allowedCORSOriginsUrls": [
-        "#{var/PATIENT_ALLOWED_URL_1}",
-        "#{var/PATIENT_ALLOWED_URL_4}"
-      ],
+      "allowedLogoutUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
+      "allowedWebOriginsUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
+      "allowedCORSOriginsUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
       "loginWithEmailEnabled": true,
       "passwordlessSMS": true,
       "mfaEnabled": false,
@@ -5628,26 +5608,16 @@
     "OTTEHR_EHR": {
       "name": "#{var/EHR_APP_NAME}",
       "description": "EHR application with email authentication",
-      "loginRedirectUri": "https://ehr-local.ottehr.com/dashboard",
+      "loginRedirectUri": "#{var/PROVIDER_LOGIN_REDIRECT_URL}",
       "allowedCallbackUrls": [
         "#{var/PROVIDER_ALLOWED_URL_1}",
-        "#{var/PROVIDER_ALLOWED_URL_2}",
-        "#{var/PROVIDER_ALLOWED_URL_3}",
-        "#{var/PROVIDER_ALLOWED_URL_4}"
+        "#{var/PROVIDER_ALLOWED_URL_2}"
       ],
-      "allowedLogoutUrls": [
-        "#{var/PROVIDER_ALLOWED_URL_1}",
-        "#{var/PROVIDER_ALLOWED_URL_3}"
-      ],
-      "allowedWebOriginsUrls": [
-        "#{var/PROVIDER_ALLOWED_URL_1}",
-        "#{var/PROVIDER_ALLOWED_URL_3}"
-      ],
-      "allowedCORSOriginsUrls": [
-        "#{var/PROVIDER_ALLOWED_URL_1}",
-        "#{var/PROVIDER_ALLOWED_URL_3}"
-      ],
-      "shouldSendInviteEmail": true
+      "allowedLogoutUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
+      "allowedWebOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
+      "allowedCORSOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
+      "shouldSendInviteEmail": true,
+      "logoUri": "#{var/PROVIDER_APP_LOGO_URI}"
     }
   },
   "m2ms": {
@@ -5656,100 +5626,43 @@
       "description": "This M2M Client is used inside Ottehr Zambdas",
       "accessPolicy": [
         {
-          "resource": [
-            "FHIR:*"
-          ],
-          "action": [
-            "FHIR:*"
-          ],
+          "resource": ["FHIR:*"],
+          "action": ["FHIR:*"],
           "effect": "Allow"
         },
         {
-          "resource": [
-            "Z3:#{ref/project/PROJECT/id}-photo-id-cards/*",
-            "Z3:#{ref/project/PROJECT/id}-insurance-cards/*",
-            "Z3:#{ref/project/PROJECT/id}-school-work-note-templates/*",
-            "Z3:#{ref/project/PROJECT/id}-patient-photos/*",
-            "Z3:#{ref/project/PROJECT/id}-consent-forms/*",
-            "Z3:#{ref/project/PROJECT/id}-visit-notes/*",
-            "Z3:#{ref/project/PROJECT/id}-receipts/*",
-            "Z3:#{ref/project/PROJECT/id}-school-work-notes/*",
-            "Z3:#{ref/project/PROJECT/id}-privacy-policy/*",
-            "Z3:#{ref/project/PROJECT/id}-audio-recordings/*",
-            "Z3:#{ref/project/PROJECT/id}-exported-questionnaires/*",
-            "Z3:#{ref/project/PROJECT/id}-discharge-summaries/*",
-            "Z3:#{ref/project/PROJECT/id}-labs/*"
-          ],
+          "resource": ["Telemed:*"],
+          "action": ["Telemed:*"],
           "effect": "Allow"
         },
         {
-          "resource": [
-            "Telemed:*"
-          ],
-          "action": [
-            "Telemed:*"
-          ],
+          "resource": ["App:User"],
+          "action": ["App:CreateUser", "App:GetUser", "App:UpdateUser", "App:ListAllUsers"],
           "effect": "Allow"
         },
         {
-          "resource": [
-            "App:User"
-          ],
-          "action": [
-            "App:CreateUser",
-            "App:GetUser",
-            "App:UpdateUser",
-            "App:ListAllUsers"
-          ],
+          "resource": ["Zambda:*"],
+          "action": ["Zambda:*"],
           "effect": "Allow"
         },
         {
-          "resource": [
-            "Zambda:*"
-          ],
-          "action": [
-            "Zambda:*"
-          ],
+          "resource": ["Fax:Fax:*"],
+          "action": ["Fax:Send"],
           "effect": "Allow"
         },
         {
-          "resource": [
-            "Fax:Fax:*"
-          ],
-          "action": [
-            "Fax:Send"
-          ],
+          "resource": ["IAM:M2MClient:*"],
+          "action": ["IAM:ListAllM2MClients", "IAM:GetM2MClient"],
           "effect": "Allow"
         },
         {
-          "resource": [
-            "IAM:M2MClient:*"
-          ],
-          "action": [
-            "IAM:ListAllM2MClients",
-            "IAM:GetM2MClient"
-          ],
+          "resource": ["IAM:Role"],
+          "action": ["IAM:GetRole", "IAM:ListAllRoles", "IAM:CreateRole", "IAM:UpdateRole"],
           "effect": "Allow"
         },
         {
-          "resource": [
-            "IAM:Role"
-          ],
-          "action": [
-            "IAM:GetRole",
-            "IAM:ListAllRoles",
-            "IAM:CreateRole",
-            "IAM:UpdateRole"
-          ],
-          "effect": "Allow"
-        },
-        {
-          "resource": [
-            "Lab:*"
-          ],
-          "action": [
-            "Lab:*"
-          ],
+          "resource": ["Lab:*"],
+          "action": ["Lab:*"],
           "effect": "Allow"
         },
         {
@@ -5765,31 +5678,21 @@
             "Z3:#{var/PROJECT_ID}-privacy-policy/*",
             "Z3:#{var/PROJECT_ID}-audio-recordings/*",
             "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
-            "Z3:#{var/PROJECT_ID}-discharge-summaries/*"
+            "Z3:#{var/PROJECT_ID}-discharge-summaries/*",
+            "Z3:#{var/PROJECT_ID}-labs/*"
           ],
-          "action": [
-            "Z3:PutObject",
-            "Z3:GetObject"
-          ],
+          "action": ["Z3:PutObject", "Z3:GetObject"],
           "effect": "Allow"
         },
         {
-          "action": [
-            "Messaging:SendTransactionalSMS"
-          ],
+          "action": ["Messaging:SendTransactionalSMS"],
           "effect": "Allow",
-          "resource": [
-            "*"
-          ]
+          "resource": ["*"]
         },
         {
-          "action": [
-            "RCM:CheckInsuranceEligibility"
-          ],
+          "action": ["RCM:CheckInsuranceEligibility"],
           "effect": "Allow",
-          "resource": [
-            "RCM:InsuranceEligibility"
-          ]
+          "resource": ["RCM:InsuranceEligibility"]
         }
       ]
     },
@@ -5798,15 +5701,12 @@
       "description": "This M2M Client is used to drive and clean up E2E tests",
       "accessPolicy": [
         {
-          "resource": [
-            "*"
-          ],
-          "action": [
-            "*"
-          ],
+          "resource": ["*"],
+          "action": ["*"],
           "effect": "Allow"
         }
-      ]
+      ],
+      "roles": ["#{ref/roles/PROVIDER/id}"]
     }
   },
   "roles": {
@@ -5856,28 +5756,23 @@
             "Zambda:Function:ai-interview-handle-answer",
             "Zambda:Function:ai-interview-persist-consent"
           ],
-          "action": [
-            "Zambda:InvokeFunction"
-          ],
+          "action": ["Zambda:InvokeFunction"],
           "effect": "Allow"
         },
         {
-          "action": [
-            "Telemed:JoinMeeting"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "Telemed:Meeting"
-          ]
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
         },
         {
-          "action": [
-            "FHIR:Read"
-          ],
+          "action": ["Telemed:JoinMeeting"],
           "effect": "Allow",
-          "resource": [
-            "FHIR:Encounter"
-          ]
+          "resource": ["Telemed:Meeting"]
+        },
+        {
+          "action": ["FHIR:Read"],
+          "effect": "Allow",
+          "resource": ["FHIR:Encounter"]
         }
       ]
     },
@@ -5885,172 +5780,14 @@
       "name": "Inactive",
       "accessPolicy": [
         {
-          "resource": [
-            "*"
-          ],
-          "action": [
-            "*"
-          ],
+          "resource": ["*"],
+          "action": ["*"],
           "effect": "Deny"
         }
       ]
     },
     "ADMINISTRATOR": {
       "name": "Administrator",
-      "accessPolicy": [
-        {
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "FHIR:Consent",
-            "FHIR:Coverage",
-            "FHIR:RelatedPerson",
-            "FHIR:Organization",
-            "FHIR:QuestionnaireResponse",
-            "FHIR:Questionnaire",
-            "FHIR:DocumentReference",
-            "FHIR:Person",
-            "FHIR:Medication",
-            "FHIR:List",
-            "FHIR:Schedule"
-          ]
-        },
-        {
-          "action": [
-            "App:ListAllUsers",
-            "App:GetUser"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "App:User"
-          ]
-        },
-        {
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read",
-            "FHIR:Update"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "FHIR:Patient",
-            "FHIR:Appointment",
-            "FHIR:Encounter",
-            "FHIR:Location",
-            "FHIR:HealthcareService",
-            "FHIR:Communication",
-            "FHIR:Flag",
-            "FHIR:QuestionnaireResponse"
-          ]
-        },
-        {
-          "action": [
-            "Z3:GetObject"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "Z3:*"
-          ]
-        },
-        {
-          "action": [
-            "Zambda:InvokeFunction"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "Zambda:Function:*"
-          ]
-        },
-        {
-          "action": [
-            "FHIR:Create"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "FHIR:Location",
-            "FHIR:Practitioner",
-            "FHIR:HealthcareService"
-          ]
-        },
-        {
-          "action": [
-            "FHIR:Read",
-            "FHIR:Update",
-            "FHIR:Search"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "FHIR:Practitioner"
-          ]
-        },
-        {
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read",
-            "FHIR:Create"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "FHIR:Communication"
-          ]
-        },
-        {
-          "action": [
-            "Messaging:SendTransactionalSMS"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "*"
-          ]
-        },
-        {
-          "action": [
-            "Messaging:GetConfiguration"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "Messaging:Messaging:*"
-          ]
-        },
-        {
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read",
-            "FHIR:Update",
-            "FHIR:Create"
-          ],
-          "resource": [
-            "FHIR:Organization:*",
-            "FHIR:PractitionerRole"
-          ],
-          "effect": "Allow"
-        },
-        {
-          "action": [
-            "FHIR:History"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "FHIR:Patient",
-            "FHIR:Appointment"
-          ]
-        },
-        {
-          "resource": [
-            "Zambda:Function:*"
-          ],
-          "action": [
-            "Zambda:InvokeFunction"
-          ],
-          "effect": "Allow"
-        }
-      ]
-    },
-    "CUSTOMER_SUPPORT": {
-      "name": "CustomerSupport",
       "accessPolicy": [
         {
           "action": ["FHIR:Search", "FHIR:Read"],
@@ -6137,6 +5874,85 @@
           "resource": ["Zambda:Function:*"],
           "action": ["Zambda:InvokeFunction"],
           "effect": "Allow"
+        }
+      ]
+    },
+    "CUSTOMER_SUPPORT": {
+      "name": "Customer Support",
+      "accessPolicy": [
+        {
+          "action": ["App:ListAllUsers", "App:GetUser"],
+          "effect": "Allow",
+          "resource": ["App:User"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update"],
+          "effect": "Allow",
+          "resource": [
+            "FHIR:Patient",
+            "FHIR:Appointment",
+            "FHIR:Encounter",
+            "FHIR:Location",
+            "FHIR:HealthcareService",
+            "FHIR:Communication",
+            "FHIR:Flag",
+            "FHIR:QuestionnaireResponse"
+          ]
+        },
+        {
+          "action": ["Z3:GetObject"],
+          "effect": "Allow",
+          "resource": ["Z3:*"]
+        },
+        {
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Allow",
+          "resource": ["Zambda:Function:*"]
+        },
+        {
+          "action": ["FHIR:Create"],
+          "effect": "Allow",
+          "resource": ["FHIR:Location", "FHIR:Practitioner", "FHIR:HealthcareService"]
+        },
+        {
+          "action": ["FHIR:Read", "FHIR:Update", "FHIR:Search"],
+          "effect": "Allow",
+          "resource": ["FHIR:Practitioner"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Create"],
+          "effect": "Allow",
+          "resource": ["FHIR:Communication"]
+        },
+        {
+          "action": ["Messaging:SendTransactionalSMS"],
+          "effect": "Allow",
+          "resource": ["*"]
+        },
+        {
+          "action": ["Messaging:GetConfiguration"],
+          "effect": "Allow",
+          "resource": ["Messaging:Messaging:*"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update", "FHIR:Create"],
+          "resource": ["FHIR:Organization:*", "FHIR:PractitionerRole"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["FHIR:History"],
+          "effect": "Allow",
+          "resource": ["FHIR:Patient", "FHIR:Appointment"]
+        },
+        {
+          "resource": ["Zambda:Function:*"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
         },
         {
           "resource": [
@@ -6175,11 +5991,6 @@
           "resource": ["Z3:*"],
           "action": ["Z3:GetObject"],
           "effect": "Allow"
-        },
-        {
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Allow",
-          "resource": ["Zambda:Function:*"]
         },
         {
           "action": ["FHIR:Read", "FHIR:Update"],
@@ -6229,11 +6040,6 @@
             "FHIR:Patient",
             "FHIR:RelatedPerson"
           ]
-        },
-        {
-          "resource": ["Zambda:Function:*"],
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Allow"
         }
       ]
     },
@@ -6241,10 +6047,7 @@
       "name": "Manager",
       "accessPolicy": [
         {
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read"
-          ],
+          "action": ["FHIR:Search", "FHIR:Read"],
           "effect": "Allow",
           "resource": [
             "FHIR:Consent",
@@ -6261,39 +6064,22 @@
           ]
         },
         {
-          "action": [
-            "App:ListAllUsers",
-            "App:GetUser"
-          ],
+          "action": ["App:ListAllUsers", "App:GetUser"],
           "effect": "Allow",
-          "resource": [
-            "App:User"
-          ]
+          "resource": ["App:User"]
         },
         {
-          "action": [
-            "Telemed:GetRoomToken"
-          ],
+          "action": ["Telemed:GetRoomToken"],
           "effect": "Allow",
-          "resource": [
-            "Telemed:Room"
-          ]
+          "resource": ["Telemed:Room"]
         },
         {
-          "action": [
-            "Telemed:JoinMeeting"
-          ],
+          "action": ["Telemed:JoinMeeting"],
           "effect": "Allow",
-          "resource": [
-            "Telemed:Meeting:*"
-          ]
+          "resource": ["Telemed:Meeting:*"]
         },
         {
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read",
-            "FHIR:Update"
-          ],
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update"],
           "effect": "Allow",
           "resource": [
             "FHIR:Patient",
@@ -6307,120 +6093,63 @@
           ]
         },
         {
-          "action": [
-            "Z3:GetObject"
-          ],
+          "action": ["Z3:GetObject"],
           "effect": "Allow",
-          "resource": [
-            "Z3:*"
-          ]
+          "resource": ["Z3:*"]
         },
         {
-          "action": [
-            "Zambda:InvokeFunction"
-          ],
+          "action": ["Zambda:InvokeFunction"],
           "effect": "Allow",
-          "resource": [
-            "Zambda:Function:*"
-          ]
+          "resource": ["Zambda:Function:*"]
         },
         {
-          "action": [
-            "FHIR:Read",
-            "FHIR:Update"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "FHIR:Practitioner"
-          ]
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
         },
         {
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read",
-            "FHIR:Update",
-            "FHIR:Create"
-          ],
+          "action": ["FHIR:Read", "FHIR:Update"],
           "effect": "Allow",
-          "resource": [
-            "FHIR:Communication"
-          ]
+          "resource": ["FHIR:Practitioner"]
         },
         {
-          "action": [
-            "Messaging:SendTransactionalSMS"
-          ],
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update", "FHIR:Create"],
           "effect": "Allow",
-          "resource": [
-            "*"
-          ]
+          "resource": ["FHIR:Communication"]
         },
         {
-          "action": [
-            "Messaging:GetConfiguration"
-          ],
+          "action": ["Messaging:SendTransactionalSMS"],
           "effect": "Allow",
-          "resource": [
-            "Messaging:Messaging:*"
-          ]
+          "resource": ["*"]
         },
         {
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read",
-            "FHIR:Update",
-            "FHIR:Create"
-          ],
-          "resource": [
-            "FHIR:Organization:*"
-          ],
+          "action": ["Messaging:GetConfiguration"],
+          "effect": "Allow",
+          "resource": ["Messaging:Messaging:*"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update", "FHIR:Create"],
+          "resource": ["FHIR:Organization:*"],
           "effect": "Allow"
         },
         {
-          "action": [
-            "FHIR:History"
-          ],
+          "action": ["FHIR:History"],
           "effect": "Allow",
-          "resource": [
-            "FHIR:Patient",
-            "FHIR:Appointment"
-          ]
+          "resource": ["FHIR:Patient", "FHIR:Appointment"]
         },
         {
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read"
-          ],
+          "action": ["FHIR:Search", "FHIR:Read"],
           "effect": "Allow",
-          "resource": [
-            "FHIR:List"
-          ]
+          "resource": ["FHIR:List"]
         },
         {
-          "resource": [
-            "Zambda:Function:*"
-          ],
-          "action": [
-            "Zambda:InvokeFunction"
-          ],
+          "action": ["eRx:SearchAllergen"],
+          "resource": ["eRx:Allergen"],
           "effect": "Allow"
         },
         {
-          "action": [
-            "eRx:SearchAllergen"
-          ],
-          "resource": [
-            "eRx:Allergen"
-          ],
-          "effect": "Allow"
-        },
-        {
-          "action": [
-            "eRx:SearchMedication"
-          ],
-          "resource": [
-            "eRx:Medication"
-          ],
+          "action": ["eRx:SearchMedication"],
+          "resource": ["eRx:Medication"],
           "effect": "Allow"
         }
       ]
@@ -6444,102 +6173,53 @@
             "FHIR:ValueSet",
             "FHIR:List"
           ],
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read"
-          ],
+          "action": ["FHIR:Search", "FHIR:Read"],
           "effect": "Allow"
         },
         {
-          "resource": [
-            "FHIR:Appointment",
-            "FHIR:Encounter",
-            "FHIR:Patient",
-            "FHIR:Flag"
-          ],
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read",
-            "FHIR:Update"
-          ],
+          "resource": ["FHIR:Appointment", "FHIR:Encounter", "FHIR:Patient", "FHIR:Flag", "FHIR:Task"],
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update"],
           "effect": "Allow"
         },
         {
-          "resource": [
-            "Z3:*"
-          ],
-          "action": [
-            "Z3:GetObject"
-          ],
+          "resource": ["Z3:*"],
+          "action": ["Z3:GetObject"],
           "effect": "Allow"
         },
         {
-          "action": [
-            "Zambda:InvokeFunction"
-          ],
+          "action": ["Zambda:InvokeFunction"],
           "effect": "Allow",
-          "resource": [
-            "Zambda:Function:*"
-          ]
+          "resource": ["Zambda:Function:*"]
         },
         {
-          "action": [
-            "FHIR:Read",
-            "FHIR:Update"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "FHIR:Practitioner"
-          ]
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
         },
         {
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read",
-            "FHIR:Update",
-            "FHIR:Create"
-          ],
+          "action": ["FHIR:Read", "FHIR:Update"],
           "effect": "Allow",
-          "resource": [
-            "FHIR:Communication"
-          ]
+          "resource": ["FHIR:Practitioner"]
         },
         {
-          "action": [
-            "Messaging:SendTransactionalSMS"
-          ],
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update", "FHIR:Create"],
           "effect": "Allow",
-          "resource": [
-            "*"
-          ]
+          "resource": ["FHIR:Communication"]
         },
         {
-          "action": [
-            "Messaging:GetConfiguration"
-          ],
+          "action": ["Messaging:SendTransactionalSMS"],
           "effect": "Allow",
-          "resource": [
-            "Messaging:Messaging:*"
-          ]
+          "resource": ["*"]
         },
         {
-          "action": [
-            "FHIR:History"
-          ],
+          "action": ["Messaging:GetConfiguration"],
           "effect": "Allow",
-          "resource": [
-            "FHIR:Patient",
-            "FHIR:Appointment"
-          ]
+          "resource": ["Messaging:Messaging:*"]
         },
         {
-          "resource": [
-            "Zambda:Function:*"
-          ],
-          "action": [
-            "Zambda:InvokeFunction"
-          ],
-          "effect": "Allow"
+          "action": ["FHIR:History"],
+          "effect": "Allow",
+          "resource": ["FHIR:Patient", "FHIR:Appointment"]
         }
       ]
     },
@@ -6566,10 +6246,7 @@
             "FHIR:Medication",
             "FHIR:MedicationRequest"
           ],
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read"
-          ],
+          "action": ["FHIR:Search", "FHIR:Read"],
           "effect": "Allow"
         },
         {
@@ -6578,119 +6255,69 @@
             "FHIR:Encounter",
             "FHIR:Patient",
             "FHIR:Flag",
-            "FHIR:QuestionnaireResponse"
+            "FHIR:QuestionnaireResponse",
+            "FHIR:Task"
           ],
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read",
-            "FHIR:Update"
-          ],
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update"],
           "effect": "Allow"
         },
         {
-          "action": [
-            "Telemed:JoinMeeting"
-          ],
+          "action": ["Telemed:JoinMeeting"],
           "effect": "Allow",
-          "resource": [
-            "Telemed:Meeting:*"
-          ]
+          "resource": ["Telemed:Meeting:*"]
         },
         {
-          "resource": [
-            "Z3:*"
-          ],
-          "action": [
-            "Z3:GetObject"
-          ],
+          "resource": ["Z3:*"],
+          "action": ["Z3:GetObject"],
           "effect": "Allow"
         },
         {
-          "action": [
-            "Zambda:InvokeFunction"
-          ],
+          "action": ["Zambda:InvokeFunction"],
           "effect": "Allow",
-          "resource": [
-            "Zambda:Function:*"
-          ]
+          "resource": ["Zambda:Function:*"]
         },
         {
-          "action": [
-            "FHIR:Read",
-            "FHIR:Update"
-          ],
-          "effect": "Allow",
-          "resource": [
-            "FHIR:Practitioner"
-          ]
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
         },
         {
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read",
-            "FHIR:Update",
-            "FHIR:Create"
-          ],
+          "action": ["FHIR:Read", "FHIR:Update"],
           "effect": "Allow",
-          "resource": [
-            "FHIR:Communication"
-          ]
+          "resource": ["FHIR:Practitioner"]
         },
         {
-          "action": [
-            "Messaging:SendTransactionalSMS"
-          ],
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update", "FHIR:Create"],
           "effect": "Allow",
-          "resource": [
-            "*"
-          ]
+          "resource": ["FHIR:Communication"]
         },
         {
-          "action": [
-            "Messaging:GetConfiguration"
-          ],
+          "action": ["Messaging:SendTransactionalSMS"],
           "effect": "Allow",
-          "resource": [
-            "Messaging:Messaging:*"
-          ]
+          "resource": ["*"]
         },
         {
-          "action": [
-            "*"
-          ],
+          "action": ["Messaging:GetConfiguration"],
           "effect": "Allow",
-          "resource": [
-            "eRx:*"
-          ]
+          "resource": ["Messaging:Messaging:*"]
         },
         {
-          "resource": [
-            "FHIR:AllergyIntolerance:*",
-            "FHIR:MedicationStatement:*"
-          ],
-          "action": [
-            "FHIR:Read",
-            "FHIR:Search"
-          ],
+          "action": ["*"],
+          "effect": "Allow",
+          "resource": ["eRx:*"]
+        },
+        {
+          "resource": ["FHIR:AllergyIntolerance:*", "FHIR:MedicationStatement:*"],
+          "action": ["FHIR:Read", "FHIR:Search"],
           "effect": "Allow"
         },
         {
-          "action": [
-            "FHIR:History"
-          ],
+          "action": ["FHIR:History"],
           "effect": "Allow",
-          "resource": [
-            "FHIR:Patient",
-            "FHIR:Appointment"
-          ]
+          "resource": ["FHIR:Patient", "FHIR:Appointment"]
         },
         {
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read",
-            "FHIR:Update",
-            "FHIR:Create"
-          ],
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update", "FHIR:Create"],
           "effect": "Allow",
           "resource": [
             "FHIR:Claim",
@@ -6702,15 +6329,6 @@
             "FHIR:Patient",
             "FHIR:RelatedPerson"
           ]
-        },
-        {
-          "resource": [
-            "Zambda:Function:*"
-          ],
-          "action": [
-            "Zambda:InvokeFunction"
-          ],
-          "effect": "Allow"
         }
       ]
     },
@@ -6718,104 +6336,95 @@
       "name": "Prescriber",
       "accessPolicy": [
         {
-          "action": [
-            "FHIR:Search",
-            "FHIR:Read"
-          ],
+          "action": ["FHIR:Search", "FHIR:Read"],
           "effect": "Allow",
-          "resource": [
-            "FHIR:AllergyIntolerance",
-            "FHIR:MedicationStatement"
-          ]
+          "resource": ["FHIR:AllergyIntolerance", "FHIR:MedicationStatement"]
         },
         {
-          "action": [
-            "eRx:SearchMedication"
-          ],
+          "action": ["eRx:SearchMedication"],
           "effect": "Allow",
-          "resource": [
-            "eRx:Medication"
-          ]
+          "resource": ["eRx:Medication"]
         },
         {
-          "action": [
-            "eRx:SearchAllergy"
-          ],
+          "action": ["eRx:SearchAllergy"],
           "effect": "Allow",
-          "resource": [
-            "eRx:Allergy"
-          ]
+          "resource": ["eRx:Allergy"]
         },
         {
-          "action": [
-            "eRx:SyncPatient"
-          ],
+          "action": ["eRx:SyncPatient"],
           "effect": "Allow",
-          "resource": [
-            "eRx:Patient"
-          ]
+          "resource": ["eRx:Patient"]
         },
         {
-          "action": [
-            "eRx:Create",
-            "eRx:Read"
-          ],
+          "action": ["eRx:Create", "eRx:Read"],
           "effect": "Allow",
-          "resource": [
-            "eRx:Enrollment"
-          ]
+          "resource": ["eRx:Enrollment"]
         },
         {
-          "resource": [
-            "Zambda:Function:*"
-          ],
-          "action": [
-            "Zambda:InvokeFunction"
-          ],
+          "resource": ["Zambda:Function:*"],
+          "action": ["Zambda:InvokeFunction"],
           "effect": "Allow"
+        },
+        {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
         }
       ]
     }
   },
   "buckets": {
     "VISIT_NOTES": {
-      "name": "#{var/PROJECT_ID}-visit-notes"
+      "name": "#{var/PROJECT_ID}-visit-notes",
+      "removalPolicy": "retain"
     },
     "CONSENT_FORMS": {
-      "name": "#{var/PROJECT_ID}-consent-forms"
+      "name": "#{var/PROJECT_ID}-consent-forms",
+      "removalPolicy": "retain"
     },
     "PRIVACY_POLICY": {
-      "name": "#{var/PROJECT_ID}-privacy-policy"
+      "name": "#{var/PROJECT_ID}-privacy-policy",
+      "removalPolicy": "retain"
     },
     "INSURANCE_CARDS": {
-      "name": "#{var/PROJECT_ID}-insurance-cards"
+      "name": "#{var/PROJECT_ID}-insurance-cards",
+      "removalPolicy": "retain"
     },
     "PHOTO_ID_CARDS": {
-      "name": "#{var/PROJECT_ID}-photo-id-cards"
+      "name": "#{var/PROJECT_ID}-photo-id-cards",
+      "removalPolicy": "retain"
     },
     "PATIENT_PHOTOS": {
-      "name": "#{var/PROJECT_ID}-patient-photos"
+      "name": "#{var/PROJECT_ID}-patient-photos",
+      "removalPolicy": "retain"
     },
     "SCHOOL_WORK_NOTES": {
-      "name": "#{var/PROJECT_ID}-school-work-notes"
+      "name": "#{var/PROJECT_ID}-school-work-notes",
+      "removalPolicy": "retain"
     },
     "SCHOOL_WORK_NOTE_TEMPLATES": {
-      "name": "#{var/PROJECT_ID}-school-work-note-templates"
+      "name": "#{var/PROJECT_ID}-school-work-note-templates",
+      "removalPolicy": "retain"
     },
     "AUDIO-RECORDINGS": {
-      "name": "#{var/PROJECT_ID}-audio-recordings"
+      "name": "#{var/PROJECT_ID}-audio-recordings",
+      "removalPolicy": "retain"
     },
     "LABS": {
-      "name": "#{var/PROJECT_ID}-labs"
+      "name": "#{var/PROJECT_ID}-labs",
+      "removalPolicy": "retain"
     },
     "RECEIPTS": {
-      "name": "#{var/PROJECT_ID}-receipts"
+      "name": "#{var/PROJECT_ID}-receipts",
+      "removalPolicy": "retain"
     },
     "PAPERWORK": {
-      "name": "#{var/PROJECT_ID}-exported-questionnaires"
+      "name": "#{var/PROJECT_ID}-exported-questionnaires",
+      "removalPolicy": "retain"
     },
     "DISCHARGE_SUMMARIES": {
-      "name": "#{var/PROJECT_ID}-discharge-summaries"
+      "name": "#{var/PROJECT_ID}-discharge-summaries",
+      "removalPolicy": "retain"
     }
   },
   "labRoutes": {

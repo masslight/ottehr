@@ -7,7 +7,7 @@ import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { intakeFlowPageRoute } from '../../App';
 import { CustomDialog } from '../../components/CustomDialog';
 import PageForm from '../../components/PageForm';
-import { useCancelAppointmentMutation } from '../features/appointments';
+import { useCancelTelemedAppointmentMutation } from '../features/appointments';
 import { useOystehrAPIClient } from '../utils';
 
 type CancelVisitDialogProps = { onClose: (canceled: boolean) => void; appointmentID?: string };
@@ -15,7 +15,7 @@ type CancelVisitDialogProps = { onClose: (canceled: boolean) => void; appointmen
 export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appointmentID }) => {
   const apiClient = useOystehrAPIClient();
   const navigate = useNavigate();
-  const cancelAppointment = useCancelAppointmentMutation();
+  const cancelAppointment = useCancelTelemedAppointmentMutation();
 
   const onSubmit = async (data: FieldValues): Promise<void> => {
     if (!appointmentID) {

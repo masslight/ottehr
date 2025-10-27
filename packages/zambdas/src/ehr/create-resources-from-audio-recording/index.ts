@@ -62,10 +62,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('create-resources-from-audio-recording', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: `Error creating resources from recording, ${JSON.stringify(error)}` }),
-    };
+    return topLevelCatch('create-resources-from-audio-recording', error, ENVIRONMENT);
   }
 });

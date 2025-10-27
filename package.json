@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.19.11",
+  "version": "1.20.4",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -14,6 +14,7 @@
     "lint:eslint:fix": "turbo lint:fix",
     "lint:fix": "npm run lint:eslint:fix",
     "intake:start": "turbo start --filter=intake-ui",
+    "intake:start:iac": "turbo start:iac --filter=intake-ui",
     "intake:e2e:local": "tsx scripts/run-e2e.ts --app=intake",
     "intake:e2e:local:ui": "tsx scripts/run-e2e.ts --app=intake --ui",
     "intake:e2e:local:login": "tsx scripts/run-e2e.ts --app=intake --login-only",
@@ -38,6 +39,7 @@
     "intake:lint": "turbo lint --filter=intake-ui...",
     "intake:start:ui": "turbo start --filter=intake-ui",
     "ehr:start": "turbo start --filter=ehr-ui",
+    "ehr:start:iac": "turbo start:iac --filter=ehr-ui",
     "ehr:e2e:local": "tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:local:integration": "INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:local:ui": "tsx scripts/run-e2e.ts --app=ehr --ui",
@@ -54,14 +56,16 @@
     "ehr:lint": "turbo lint --filter=ehr-ui...",
     "ehr:start:ui": "turbo start --filter=ehr-ui",
     "zambdas:start": "turbo start --filter=zambdas",
-    "apps:start": "turbo start --filter=intake-ui --filter=ehr-ui --filter=zambdas",
+    "zambdas:start:iac": "turbo start:iac --filter=zambdas",
+    "apps:start": "npm run apps:start:iac",
     "apps:start:iac": "npm run apply-local --workspace deploy && turbo start:iac --filter=intake-ui --filter=ehr-ui --filter=zambdas",
     "apps:start:labcorp": "ENV=labcorp-local turbo start --filter=intake-ui --filter=ehr-ui --filter=zambdas",
     "integration:zambdas": "npm run build && ENV=local && cd packages/zambdas && DEBUG=start-server-and-test && npm run test:integration:ci",
     "test": "turbo test",
     "prepare": "husky",
     "spellcheck": "cspell .",
-    "merge-payer-addresses": "tsx scripts/merge-payer-addresses.ts config/payers.json scripts/data/payers-addresses.csv config/payers-with-addresses.json scripts/data/payers-addresses-unmatched.csv"
+    "merge-payer-addresses": "tsx scripts/merge-payer-addresses.ts config/payers.json scripts/data/payers-addresses.csv config/payers-with-addresses.json scripts/data/payers-addresses-unmatched.csv",
+    "bump-canonical-version": "tsx scripts/config/bump-canonical-version.ts"
   },
   "workspaces": [
     "packages/**/*",
@@ -77,8 +81,8 @@
     "@emotion/styled": "^11.10.5",
     "@hookform/resolvers": "^2.9.10",
     "@inquirer/prompts": "^7.2.4",
-    "@langchain/anthropic": "^0.3.15",
-    "@langchain/core": "^0.3.42",
+    "@langchain/anthropic": "^0.3.32",
+    "@langchain/core": "^0.3.78",
     "@langchain/langgraph": "^0.2.56",
     "@mui/lab": "^5.0.0-alpha.115",
     "@mui/material": "^5.14.18",

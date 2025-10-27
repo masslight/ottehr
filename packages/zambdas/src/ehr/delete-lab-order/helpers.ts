@@ -18,7 +18,7 @@ export const getLabOrderRelatedResources = async (
 ): Promise<{
   serviceRequest: ServiceRequest | null;
   questionnaireResponse: QuestionnaireResponse | null;
-  task: Task | null;
+  tasks: Task[];
   labConditions: Condition[];
 }> => {
   try {
@@ -72,7 +72,6 @@ export const getLabOrderRelatedResources = async (
     );
 
     const serviceRequest = serviceRequests[0];
-    const task = tasks[0];
 
     if (!canDeleteLabOrder(serviceRequest)) {
       const errorMessage = `Cannot delete lab order; ServiceRequest has status: ${serviceRequest.status}. Only pending orders can be deleted.`;
@@ -82,7 +81,7 @@ export const getLabOrderRelatedResources = async (
 
     if (!serviceRequest?.id) {
       console.error('Lab order not found or invalid response', serviceRequestResponse);
-      return { serviceRequest: null, questionnaireResponse: null, task: null, labConditions: [] };
+      return { serviceRequest: null, questionnaireResponse: null, tasks: [], labConditions: [] };
     }
 
     const encounter = encounters.find(
@@ -129,7 +128,7 @@ export const getLabOrderRelatedResources = async (
     return {
       serviceRequest,
       questionnaireResponse,
-      task,
+      tasks,
       labConditions,
     };
   } catch (error) {

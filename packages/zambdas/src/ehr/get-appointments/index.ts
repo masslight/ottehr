@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -513,11 +514,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-get-appointments', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error getting patient appointments' }),
-    };
+    return topLevelCatch('admin-get-appointments', error, ENVIRONMENT);
   }
 });
 
@@ -601,6 +598,7 @@ const makeAppointmentInformation = (
     } catch (e) {
       console.log('error building sms model: ', e);
       console.log('related persons value prior to error: ', rps);
+      captureException(e);
     }
   } else {
     console.log(`no patient ref found for appointment ${appointment.id}`);

@@ -18,7 +18,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
+import { DataGridPro, GridColDef, GridToolbarContainer, GridToolbarExport } from '@mui/x-data-grid-pro';
+import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -29,16 +30,46 @@ import PageContainer from '../../layout/PageContainer';
 
 export default function DailyPayments(): React.ReactElement {
   const navigate = useNavigate();
-  const { oystehrZambda } = useApiClients();
+  const { oystehrZambda, oystehr } = useApiClients();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [reportData, setReportData] = useState<DailyPaymentsReportZambdaOutput | null>(null);
   const [dateFilter, setDateFilter] = useState<string>('today');
   const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState<boolean>(true);
+  const [selectedLocationId, setSelectedLocationId] = useState<string>('all');
 
   const handleBack = (): void => {
     navigate('/reports');
   };
+
+  // Fetch locations on component mount
+  useEffect(() => {
+    const fetchLocations = async (): Promise<void> => {
+      if (!oystehr) return;
+
+      try {
+        setLoadingLocations(true);
+        const locationResults = await oystehr.fhir.search<Location>({
+          resourceType: 'Location',
+          params: [
+            { name: '_count', value: '1000' },
+            { name: '_sort', value: 'name' },
+          ],
+        });
+
+        const locationsList = locationResults.unbundle();
+        setLocations(locationsList);
+      } catch (err) {
+        console.error('Error fetching locations:', err);
+      } finally {
+        setLoadingLocations(false);
+      }
+    };
+
+    void fetchLocations();
+  }, [oystehr]);
 
   const getDateRange = useCallback((filter: string, selectedDate?: string): { start: string; end: string } => {
     const now = DateTime.now().setZone('America/New_York');
@@ -95,6 +126,7 @@ export default function DailyPayments(): React.ReactElement {
 
         const response = await getDailyPaymentsReport(oystehrZambda, {
           dateRange: { start, end },
+          ...(selectedLocationId !== 'all' && { locationId: selectedLocationId }),
         });
 
         setReportData(response);
@@ -105,12 +137,12 @@ export default function DailyPayments(): React.ReactElement {
         setLoading(false);
       }
     },
-    [getDateRange, oystehrZambda, customDate]
+    [getDateRange, oystehrZambda, customDate, selectedLocationId]
   );
 
   useEffect(() => {
     void fetchReport(dateFilter);
-  }, [dateFilter, fetchReport, customDate]);
+  }, [dateFilter, fetchReport, customDate, selectedLocationId]);
 
   const handleDateFilterChange = (event: SelectChangeEvent<string>): void => {
     const newFilter = event.target.value;
@@ -124,6 +156,11 @@ export default function DailyPayments(): React.ReactElement {
     if (dateFilter === 'custom') {
       void fetchReport('custom');
     }
+  };
+
+  const handleLocationFilterChange = (event: SelectChangeEvent<string>): void => {
+    const newLocationId = event.target.value;
+    setSelectedLocationId(newLocationId);
   };
 
   const formatCurrency = (amount: number): string => {
@@ -163,6 +200,15 @@ export default function DailyPayments(): React.ReactElement {
 
     return payments;
   }, [reportData]);
+
+  // Custom toolbar component with export functionality
+  const CustomToolbar = (): React.ReactElement => {
+    return (
+      <GridToolbarContainer>
+        <GridToolbarExport csvOptions={{ fileName: 'daily-payments-report' }} />
+      </GridToolbarContainer>
+    );
+  };
 
   // DataGrid column definitions
   const paymentColumns: GridColDef[] = [
@@ -237,6 +283,25 @@ export default function DailyPayments(): React.ReactElement {
               }}
             />
           )}
+
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Location</InputLabel>
+            <Select
+              value={selectedLocationId}
+              label="Location"
+              onChange={handleLocationFilterChange}
+              disabled={loadingLocations}
+            >
+              <MenuItem value="all">All Locations</MenuItem>
+              {locations
+                .filter((loc) => loc.name)
+                .map((location) => (
+                  <MenuItem key={location.id} value={location.id}>
+                    {location.name}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
 
           <Button variant="outlined" onClick={() => void fetchReport(dateFilter)} disabled={loading}>
             Refresh
@@ -335,6 +400,9 @@ export default function DailyPayments(): React.ReactElement {
                     sorting: {
                       sortModel: [{ field: 'createdDate', sort: 'desc' }],
                     },
+                  }}
+                  slots={{
+                    toolbar: CustomToolbar,
                   }}
                   disableRowSelectionOnClick
                   sx={{

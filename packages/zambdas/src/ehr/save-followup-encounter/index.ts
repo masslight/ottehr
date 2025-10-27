@@ -78,10 +78,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-save-followup-encounter', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error saving followup encounter' }),
-    };
+    return topLevelCatch('admin-save-followup-encounter', error, ENVIRONMENT);
   }
 });

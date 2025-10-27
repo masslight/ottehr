@@ -1,10 +1,10 @@
 {
   "name": "intake-ui",
-  "version": "1.19.11",
+  "version": "1.20.4",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "vite --mode ${ENV:-default}",
+    "start": "npm run start:iac",
     "start:local": "ENV=default npm run start",
     "start:demo": "ENV=demo npm run start",
     "start:labcorp": "ENV=labcorp-local npm run start",

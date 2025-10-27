@@ -1,12 +1,14 @@
 import { ChatAnthropic } from '@langchain/anthropic';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Condition, DocumentReference, Encounter, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
   AI_OBSERVATION_META_SYSTEM,
   AiObservationField,
+  fixAndParseJsonObjectFromString,
   getFormatDuration,
   getSecret,
   MIME_TYPES,
@@ -74,7 +76,7 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
   process.env.ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
   if (chatbot == null) {
     chatbot = new ChatAnthropic({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-haiku-4-5-20251001',
       temperature: 0,
     });
   }
@@ -102,7 +104,13 @@ export async function createResourcesFromAiInterview(
     await invokeChatbot([{ role: 'user', content: getPrompt(fields) + '\n' + chatTranscript }], secrets)
   ).content.toString();
   console.log(`AI response: "${aiResponseString}"`);
-  const aiResponse = JSON.parse(aiResponseString);
+  let aiResponse;
+  try {
+    aiResponse = JSON.parse(aiResponseString);
+  } catch (error) {
+    console.warn('Failed to parse AI response, attempting to fix JSON format:', error);
+    aiResponse = fixAndParseJsonObjectFromString(aiResponseString);
+  }
   const encounter = await oystehr.fhir.get<Encounter>({
     resourceType: 'Encounter',
     id: encounterID,
@@ -273,11 +281,18 @@ export async function generateIcdTenCodesFromNotes(
     const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
 
     console.log(`AI ICD-10 codes response: "${aiResponseString}"`);
-    const aiResponse = JSON.parse(aiResponseString);
+    let aiResponse;
+    try {
+      aiResponse = JSON.parse(aiResponseString);
+    } catch (parseError) {
+      console.warn('Failed to parse AI ICD-10 response, attempting to fix JSON format:', parseError);
+      aiResponse = fixAndParseJsonObjectFromString(aiResponseString);
+    }
 
     return aiResponse.potentialDiagnoses || [];
   } catch (error) {
     console.error('Error generating ICD-10 codes:', error);
-    return [];
+    captureException(error);
+    throw error;
   }
 }

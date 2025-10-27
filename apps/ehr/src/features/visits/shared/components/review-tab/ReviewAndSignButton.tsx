@@ -42,6 +42,9 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       medicalDecision: {
         _tag: 'medical-decision',
       },
+      chiefComplaint: {
+        _tag: 'chief-complaint',
+      },
       inHouseLabResults: {},
       patientInfoConfirmed: {},
     },
@@ -68,6 +71,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
   const medicalDecision = chartFields?.medicalDecision?.text;
+  const hpi = chartFields?.chiefComplaint?.text;
   const emCode = chartData?.emCode;
   const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
   const inHouseLabResultsPending = chartFields?.inHouseLabResults?.resultsPending;
@@ -108,7 +112,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       }
     }
 
-    if (!primaryDiagnosis || !medicalDecision || !emCode) {
+    if (!primaryDiagnosis || !medicalDecision || !emCode || !hpi) {
       messages.push('You need to fill in the missing data');
     }
 
@@ -127,6 +131,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     inPersonStatus,
     primaryDiagnosis,
     medicalDecision,
+    hpi,
     emCode,
     patientInfoConfirmed,
     appointmentAccessibility.status,
@@ -182,8 +187,8 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     const providerType = getProviderType(practitioner);
     const isPhysician = isPhysicianProviderType(providerType);
 
-    return !isPhysician;
-  }, [practitioner]);
+    return !isPhysician && isInPerson;
+  }, [practitioner, isInPerson]);
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>

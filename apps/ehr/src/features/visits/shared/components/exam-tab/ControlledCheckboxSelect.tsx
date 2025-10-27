@@ -7,11 +7,12 @@ export type ControlledCheckboxSelectOptionType = { label: string; name: string; 
 
 type ControlledCheckboxSelectProps = {
   label: string;
+  name: string;
   options: ControlledCheckboxSelectOptionType[];
 };
 
 export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (props) => {
-  const { label, options } = props;
+  const { label, options, name } = props;
 
   const { value: fields, update, isLoading } = useExamObservations(options.map((option) => option.name));
 
@@ -52,7 +53,7 @@ export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (prop
             onChange={(event) => {
               const selectedFields = event.target.value as string[];
               const fieldsToUpdate = fields.filter((field) => {
-                const fieldValues = fields.find((f) => f.field === field.field)?.value;
+                const fieldValues = fields.find((f) => f.field !== name && f.field === field.field)?.value;
                 return selectedFields.includes(field.field) ? !fieldValues : fieldValues;
               });
               update(fieldsToUpdate.map((field) => ({ ...field, value: !field.value })));

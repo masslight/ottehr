@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
@@ -137,23 +138,26 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
 
-  console.time('patching patient resource');
   if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
+    console.time('patching patient resource');
     try {
       patientResource = await oystehr.fhir.patch<Patient>({
         resourceType: 'Patient',
         id: patientResource.id!,
         operations: patientPatchOps.patient.patchOpsForDirectUpdate,
       });
+      console.timeEnd('patching patient resource');
       console.log('Patient update successful');
     } catch (error: unknown) {
       tasksFailed.push('patch patient');
       console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
+      captureException(error);
     }
   }
   // combining these patch ops with patientPatchOps caused a bug so keeping separate for now
   const pharmacyPatchOps = createUpdatePharmacyPatchOps(patientResource, flattenQuestionnaireAnswers(qr.item ?? []));
   if (pharmacyPatchOps.length > 0) {
+    console.log('Applying pharmacy patch operations: ', JSON.stringify(pharmacyPatchOps, null, 2));
     patientResource = await oystehr.fhir.patch<Patient>({
       resourceType: 'Patient',
       id: patientResource.id!,
@@ -161,7 +165,6 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     });
   }
 
-  console.timeEnd('patching patient resource');
   if (patientResource === undefined || patientResource.id === undefined) {
     throw new Error('Patient resource not found');
   }
@@ -174,6 +177,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   } catch (error: unknown) {
     tasksFailed.push(`Failed to update Account: ${JSON.stringify(error)}`);
     console.log(`Failed to update Account: ${JSON.stringify(error)}`);
+    captureException(error);
   }
   // fetch the latest account resources and update the stripe customer
   try {
@@ -198,6 +202,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   } catch (error: unknown) {
     tasksFailed.push('update stripe customer');
     console.log(`Failed to update stripe customer: ${JSON.stringify(error)}`);
+    captureException(error);
   }
 
   const paperwork = qr.item ?? [];
@@ -231,6 +236,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     } catch (error: unknown) {
       tasksFailed.push('create consent resources');
       console.log(`Failed to create consent resources: ${error}`);
+      captureException(error);
     }
     console.timeEnd('creating consent resources');
   }
@@ -248,6 +254,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   } catch (error: unknown) {
     tasksFailed.push('create insurances cards, condition photo, work school notes resources');
     console.log(`Failed to create insurances cards, condition photo, work school notes resources: ${error}`);
+    captureException(error);
   }
   console.timeEnd('creating insurances cards, condition photo, work school notes resources');
 
@@ -262,6 +269,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     } catch (error: unknown) {
       tasksFailed.push('flag paperwork edit');
       console.log(`Failed to update flag paperwork edit: ${error}`);
+      captureException(error);
     }
   }
 
@@ -291,6 +299,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     } catch (error: unknown) {
       tasksFailed.push('add payment variant extension to encounter');
       console.log(`Failed to add payment variant extension to encounter: ${error}`);
+      captureException(error);
     }
   }
 
@@ -325,6 +334,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     } catch (error: unknown) {
       tasksFailed.push(JSON.stringify(error));
       console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
+      captureException(error);
     }
   }
 
@@ -354,6 +364,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   } catch (error: unknown) {
     tasksFailed.push('create additional questions chart data resource', JSON.stringify(error));
     console.log(`Failed to create additional questions chart data resource: ${error}`);
+    captureException(error);
   }
 
   try {
@@ -367,6 +378,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   } catch (error: unknown) {
     tasksFailed.push('patch appointment resource tag failed', JSON.stringify(error));
     console.log(`Failed to patch appointment resource tag: ${JSON.stringify(error)}`);
+    captureException(error);
   }
 
   const response = tasksFailed.length

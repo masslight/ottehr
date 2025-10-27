@@ -4,7 +4,15 @@ import fs from 'node:fs/promises';
 import path, { resolve } from 'node:path';
 import Oystehr from '@oystehr/sdk';
 import type { Options } from 'execa';
-import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  HealthcareService,
+  Location,
+  Practitioner,
+  PractitionerRole,
+  Questionnaire,
+  Schedule,
+} from 'fhir/r4b';
 import { SpecFile } from '../../packages/spec/src/schema';
 import { Schema20250925, Spec20250925 } from '../../packages/spec/src/schema-20250925';
 
@@ -129,13 +137,18 @@ async function generateOystehrResourceImports(input: {
       throw new Error(`Error fetching resources from Oystehr: ${err}`);
     }
     for (const [resourceType, resources] of Object.entries(schema.resources)) {
-      if (['project', 'outputs', 'zambdas'].includes(resourceType)) {
+      if (['project', 'outputs'].includes(resourceType)) {
         continue;
       }
       for (const [key, resource] of Object.entries(resources)) {
         try {
           let tfValue: any;
-          if (resourceType !== 'fhirResources' || ['Location'].includes(resource.resource.resourceType)) {
+          if (
+            resourceType !== 'fhirResources' ||
+            ['Location', 'Schedule', 'HealthcareService', 'Questionnaire', 'ActivityDefinition'].includes(
+              resource.resource.resourceType
+            )
+          ) {
             const tfResourceRef = schema.getTerraformResourceReference(
               schema.resources,
               resourceType as keyof Spec20250925,
@@ -168,6 +181,42 @@ async function generateOystehrResourceImports(input: {
             let match: any;
             if (resourceType === 'fhirResources') {
               switch (resource.resource.resourceType) {
+                case 'ActivityDefinition': {
+                  const importCmd = await getImportForCanonicalResource(
+                    oystehr,
+                    schema,
+                    key,
+                    resourceType as keyof Spec20250925,
+                    'ActivityDefinition',
+                    resource as { resource: Questionnaire | ActivityDefinition }
+                  );
+                  if (importCmd) {
+                    imports.push(importCmd);
+                  } else {
+                    console.log(
+                      `No existing resource found in Oystehr for FHIR ${resource.resource.resourceType}.${key}, skipping import.`
+                    );
+                  }
+                  break;
+                }
+                case 'Questionnaire': {
+                  const importCmd = await getImportForCanonicalResource(
+                    oystehr,
+                    schema,
+                    key,
+                    resourceType as keyof Spec20250925,
+                    'Questionnaire',
+                    resource as { resource: Questionnaire | ActivityDefinition }
+                  );
+                  if (importCmd) {
+                    imports.push(importCmd);
+                  } else {
+                    console.log(
+                      `No existing resource found in Oystehr for FHIR ${resource.resource.resourceType}.${key}, skipping import.`
+                    );
+                  }
+                  break;
+                }
                 case 'Location': {
                   // Locations and their schedules
                   const slugIdentifier = resource.resource.identifier?.find(
@@ -199,9 +248,9 @@ async function generateOystehrResourceImports(input: {
                     }
                     console.log(`Found existing resource in Oystehr for FHIR Location.${key}: ${loc.id} (${loc.id})`);
                     imports.push(
-                      `terraform import ${schema.oystehrResourceFromResourceType(
+                      `terraform import -var-file="\${ENV}.tfvars" module.oystehr.${schema.oystehrResourceFromResourceType(
                         resourceType as keyof Spec20250925
-                      )}.${key} ${loc.id}`
+                      )}.${key} Location/${loc.id}`
                     );
                     const scheds = existingLocation.filter((res) => res.resourceType === 'Schedule') as Schedule[];
                     if (scheds.length > 0) {
@@ -211,9 +260,9 @@ async function generateOystehrResourceImports(input: {
                             `Found existing resource in Oystehr for FHIR Schedule associated with Location.${key}: ${sched.id} (${sched.id})`
                           );
                           imports.push(
-                            `terraform import ${schema.oystehrResourceFromResourceType(
+                            `terraform import -var-file="\${ENV}.tfvars" module.oystehr.${schema.oystehrResourceFromResourceType(
                               resourceType as keyof Spec20250925
-                            )}.${key.replace('LOCATION', 'SCHEDULE')} ${sched.id}` // brittle convention-based replacement
+                            )}.${key.replace('LOCATION', 'SCHEDULE')} Schedule/${sched.id}` // brittle convention-based replacement
                           );
                         }
                       });
@@ -258,9 +307,9 @@ async function generateOystehrResourceImports(input: {
                       `Found existing resource in Oystehr for FHIR HealthcareService.${key}: ${hcs.id} (${hcs.id})`
                     );
                     imports.push(
-                      `terraform import ${schema.oystehrResourceFromResourceType(
+                      `terraform import -var-file="\${ENV}.tfvars" module.oystehr.${schema.oystehrResourceFromResourceType(
                         resourceType as keyof Spec20250925
-                      )}.${key} ${hcs.id}`
+                      )}.${key} HealthcareService/${hcs.id}`
                     );
                     const pracs = existingHCS.filter((res) => res.resourceType === 'Practitioner') as Practitioner[];
                     const pracIds: Record<string, string> = {};
@@ -282,9 +331,9 @@ async function generateOystehrResourceImports(input: {
                           if (pracMatch) {
                             pracIds[pracMatch[0]] = prac.id;
                             imports.push(
-                              `terraform import ${schema.oystehrResourceFromResourceType(
+                              `terraform import -var-file="\${ENV}.tfvars" module.oystehr.${schema.oystehrResourceFromResourceType(
                                 resourceType as keyof Spec20250925
-                              )}.${pracMatch[0]} ${prac.id}` // brittle convention-based replacement
+                              )}.${pracMatch[0]} Practitioner/${prac.id}` // brittle convention-based replacement
                             );
                           }
                         }
@@ -307,9 +356,9 @@ async function generateOystehrResourceImports(input: {
                                 ? 'PRACTITIONER_ROLE_VISIT_FOLLOWUP_GROUP_1'
                                 : 'PRACTITIONER_ROLE_VISIT_FOLLOWUP_GROUP_2';
                               imports.push(
-                                `terraform import ${schema.oystehrResourceFromResourceType(
+                                `terraform import -var-file="\${ENV}.tfvars" module.oystehr.${schema.oystehrResourceFromResourceType(
                                   resourceType as keyof Spec20250925
-                                )}.${prKey} ${pracRole.id}` // brittle convention-based replacement
+                                )}.${prKey} PractitionerRole/${pracRole.id}` // brittle convention-based replacement
                               );
                             }
                           }
@@ -331,9 +380,9 @@ async function generateOystehrResourceImports(input: {
                                 ? 'SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_1'
                                 : 'SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_2';
                               imports.push(
-                                `terraform import ${schema.oystehrResourceFromResourceType(
+                                `terraform import -var-file="\${ENV}.tfvars" module.oystehr.${schema.oystehrResourceFromResourceType(
                                   resourceType as keyof Spec20250925
-                                )}.${schKey} ${sched.id}` // brittle convention-based replacement
+                                )}.${schKey} Schedule/${sched.id}` // brittle convention-based replacement
                               );
                             }
                           }
@@ -363,9 +412,9 @@ async function generateOystehrResourceImports(input: {
                   }`
                 );
                 imports.push(
-                  `terraform import ${schema.oystehrResourceFromResourceType(
+                  `terraform import -var-file="\${ENV}.tfvars" module.oystehr.${schema.oystehrResourceFromResourceType(
                     resourceType as keyof Spec20250925
-                  )}.${key} ${match[schema.getIdentifierForResourceType(resourceType as keyof Spec20250925)]}`
+                  )}.${key} ${match[getPrimaryIdentifierForResourceType(schema, resourceType as keyof Spec20250925)]}`
                 );
               } else {
                 console.log(`No existing resource found in Oystehr for ${resourceType}.${key}, skipping import.`);
@@ -391,6 +440,13 @@ async function generateOystehrResourceImports(input: {
   }
 }
 
+function getPrimaryIdentifierForResourceType(schema: Schema20250925, resourceType: keyof Spec20250925): string {
+  if (resourceType === 'labRoutes') {
+    return 'routeGuid';
+  }
+  return schema.getIdentifierForResourceType(resourceType);
+}
+
 function getSecondaryIdentifierForResourceType(resourceType: keyof Spec20250925): string {
   switch (resourceType) {
     case 'apps':
@@ -407,6 +463,47 @@ function getSecondaryIdentifierForResourceType(resourceType: keyof Spec20250925)
       return 'accountNumber';
   }
   throw new Error(`No secondary identifier defined for resource type ${resourceType}`);
+}
+
+async function getImportForCanonicalResource(
+  oystehr: Oystehr,
+  schema: Schema20250925,
+  key: string,
+  resourceType: keyof Spec20250925,
+  fhirResourceType: 'Questionnaire' | 'ActivityDefinition',
+  resource: { resource: Questionnaire | ActivityDefinition }
+): Promise<string | null> {
+  const existingCanonical = (
+    await oystehr.fhir.search<Questionnaire | ActivityDefinition>({
+      resourceType: fhirResourceType,
+      params: [
+        {
+          name: 'url',
+          value: schema.replaceVariableWithValue(resource.resource.url!),
+        },
+        {
+          name: 'version',
+          value: schema.replaceVariableWithValue(resource.resource.version!),
+        },
+      ],
+    })
+  ).unbundle();
+  if (existingCanonical.length > 0) {
+    const canon = existingCanonical[0];
+    if (!canon.id) {
+      console.log(
+        `No ID found for matching FHIR ${resource.resource.resourceType} ${key}, cannot import, skipping import.`
+      );
+      return null;
+    }
+    console.log(
+      `Found existing resource in Oystehr for FHIR ${resource.resource.resourceType}.${key}: ${canon.id} (${canon.id})`
+    );
+    return `terraform import -var-file="\${ENV}.tfvars" module.oystehr.${schema.oystehrResourceFromResourceType(
+      resourceType
+    )}.${key} ${fhirResourceType}/${canon.id}`;
+  }
+  return null;
 }
 
 function isObject(spec: any): spec is { [key: string]: unknown } {

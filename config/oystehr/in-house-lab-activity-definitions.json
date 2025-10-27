@@ -1,7 +1,7 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "activity-definition-flu-b": {
+    "activity-definition-flu-b-13_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -140,7 +140,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/FluB",
-        "version": "1",
+        "version": "13.0.0",
         "meta": {
           "tag": [
             {
@@ -151,7 +151,7 @@
         }
       }
     },
-    "activity-definition-glucose-finger-heel-stick": {
+    "activity-definition-glucose-finger-heel-stick-14_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -238,7 +238,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/GlucoseFinger/HeelStick",
-        "version": "1",
+        "version": "14.0.0",
         "meta": {
           "tag": [
             {
@@ -255,7 +255,7 @@
         ]
       }
     },
-    "activity-definition-flu-vid": {
+    "activity-definition-flu-vid-13_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -398,7 +398,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/Flu-Vid",
-        "version": "1",
+        "version": "13.0.0",
         "meta": {
           "tag": [
             {
@@ -409,7 +409,7 @@
         }
       }
     },
-    "activity-definition-rapid-strep-a": {
+    "activity-definition-rapid-strep-a-9_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -548,6 +548,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidStrepA",
+        "version": "9.0.0",
         "meta": {
           "tag": [
             {
@@ -558,7 +559,7 @@
         }
       }
     },
-    "activity-definition-rapid-influenza-b": {
+    "activity-definition-rapid-influenza-b-13_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -702,7 +703,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidInfluenzaB",
-        "version": "1",
+        "version": "13.0.0",
         "meta": {
           "tag": [
             {
@@ -713,7 +714,7 @@
         }
       }
     },
-    "activity-definition-urinalysis": {
+    "activity-definition-urinalysis-14_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -1739,7 +1740,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/Urinalysis(UA)",
-        "version": "1",
+        "version": "14.0.0",
         "meta": {
           "tag": [
             {
@@ -1756,7 +1757,7 @@
         ]
       }
     },
-    "activity-definition-urine-pregnancy-test": {
+    "activity-definition-urine-pregnancy-test-13_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -1893,7 +1894,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/UrinePregnancyTest(HCG)",
-        "version": "1",
+        "version": "13.0.0",
         "meta": {
           "tag": [
             {
@@ -1904,7 +1905,7 @@
         }
       }
     },
-    "activity-definition-rapid-rsv": {
+    "activity-definition-rapid-rsv-13_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2048,7 +2049,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidRSV",
-        "version": "1",
+        "version": "13.0.0",
         "meta": {
           "tag": [
             {
@@ -2059,7 +2060,7 @@
         }
       }
     },
-    "activity-definition-id-now-strep": {
+    "activity-definition-id-now-strep-5_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2198,7 +2199,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/IDNowStrep",
-        "version": "1",
+        "version": "5.0.0",
         "meta": {
           "tag": [
             {
@@ -2209,7 +2210,7 @@
         }
       }
     },
-    "activity-definition-covid-19-antigen": {
+    "activity-definition-covid-19-antigen-13_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2348,7 +2349,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/COVID-19Antigen",
-        "version": "1",
+        "version": "13.0.0",
         "meta": {
           "tag": [
             {
@@ -2359,7 +2360,7 @@
         }
       }
     },
-    "activity-definition-flu-a": {
+    "activity-definition-flu-a-14_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2498,7 +2499,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/FluA",
-        "version": "1",
+        "version": "14.0.0",
         "meta": {
           "tag": [
             {
@@ -2509,7 +2510,7 @@
         }
       }
     },
-    "activity-definition-monospot-test": {
+    "activity-definition-monospot-test-13_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2648,7 +2649,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/Monospottest",
-        "version": "1",
+        "version": "13.0.0",
         "meta": {
           "tag": [
             {
@@ -2659,7 +2660,7 @@
         }
       }
     },
-    "activity-definition-rapid-covid-19-antigen": {
+    "activity-definition-rapid-covid-19-antigen-13_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2803,7 +2804,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidCOVID-19Antigen",
-        "version": "1",
+        "version": "13.0.0",
         "meta": {
           "tag": [
             {
@@ -2814,7 +2815,7 @@
         }
       }
     },
-    "activity-definition-stool-guaiac": {
+    "activity-definition-stool-guaiac-13_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -2953,7 +2954,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/StoolGuaiac",
-        "version": "1",
+        "version": "13.0.0",
         "meta": {
           "tag": [
             {
@@ -2970,7 +2971,7 @@
         ]
       }
     },
-    "activity-definition-rsv": {
+    "activity-definition-rsv-13_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -3113,7 +3114,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RSV",
-        "version": "1",
+        "version": "13.0.0",
         "meta": {
           "tag": [
             {
@@ -3124,7 +3125,7 @@
         }
       }
     },
-    "activity-definition-rapid-influenza-a": {
+    "activity-definition-rapid-influenza-a-13_0_0": {
       "resource": {
         "resourceType": "ActivityDefinition",
         "status": "active",
@@ -3268,7 +3269,7 @@
           }
         ],
         "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidInfluenzaA",
-        "version": "1",
+        "version": "13.0.0",
         "meta": {
           "tag": [
             {

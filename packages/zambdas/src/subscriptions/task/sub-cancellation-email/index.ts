@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -7,9 +8,11 @@ import {
   getNameFromScheduleResource,
   getPatientContactEmail,
   getSecret,
+  isTelemedAppointment,
   Secrets,
   SecretsKeys,
   TaskStatus,
+  TelemedCancelationTemplateData,
 } from 'utils';
 import {
   createOystehrClient,
@@ -124,14 +127,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           throw new Error('Location is required to send reminder email');
         }
 
-        const templateData = {
-          time: readableTime,
-          location,
-          address,
-          'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
-          'book-again-url': `${WEBSITE_URL}/home`,
-        };
-        await emailClient.sendInPersonCancelationEmail(email, templateData);
+        const isVirtual = isTelemedAppointment(fhirAppointment);
+
+        if (isVirtual) {
+          const locationName = fhirLocation?.name as string;
+          const templateData: TelemedCancelationTemplateData = {
+            'book-again-url': `${WEBSITE_URL}/welcome`,
+            location: locationName!,
+          };
+          await emailClient.sendVirtualCancelationEmail(email, templateData);
+        } else {
+          const templateData = {
+            time: readableTime,
+            location,
+            address,
+            'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
+            'book-again-url': `${WEBSITE_URL}/home`,
+          };
+          await emailClient.sendInPersonCancelationEmail(email, templateData);
+        }
         taskStatusToUpdate = 'completed';
         statusReasonToUpdate = 'email sent successfully';
         console.groupEnd();
@@ -140,6 +154,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         statusReasonToUpdate = error.message ? `error received: ${error.message}` : 'unknown error';
         console.error('error sending email', error);
         console.groupEnd();
+        captureException(error);
       }
     } else {
       taskStatusToUpdate = 'failed';

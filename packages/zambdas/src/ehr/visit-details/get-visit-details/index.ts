@@ -19,6 +19,7 @@ import {
   EHRVisitDetails,
   FHIR_RESOURCE_NOT_FOUND,
   flattenQuestionnaireAnswers,
+  getAttestedConsentFromEncounter,
   getConsentAndRelatedDocRefsForAppointment,
   getEmailForIndividual,
   getFullestAvailableName,
@@ -33,6 +34,7 @@ import {
   ScheduleOwnerFhirResource,
   Secrets,
   SecretsKeys,
+  selectIntakeQuestionnaireResponse,
   Timezone,
   TIMEZONES,
 } from 'utils';
@@ -96,6 +98,8 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     responsiblePartyEmail = getEmailForIndividual(guarantorResource) || null;
   }
 
+  const consentIsAttested = getAttestedConsentFromEncounter(encounter) ? true : false;
+
   const output: EHRVisitDetails = {
     appointment,
     patient,
@@ -108,6 +112,7 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     visitLocationId: location?.id,
     responsiblePartyName,
     responsiblePartyEmail,
+    consentIsAttested,
   };
 
   if (schedule) {
@@ -177,9 +182,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
   const encounter = searchResults.find((resource) => resource.resourceType === 'Encounter') as Encounter;
   const location = searchResults.find((resource) => resource.resourceType === 'Location') as Location | undefined;
   const flags = searchResults.filter((resource) => resource.resourceType === 'Flag') as Flag[];
-  const qr = searchResults.find(
-    (resource) => resource.resourceType === 'QuestionnaireResponse'
-  ) as PersistedFhirResource<QuestionnaireResponse>;
+  const qr = selectIntakeQuestionnaireResponse(searchResults) as PersistedFhirResource<QuestionnaireResponse>;
   const schedule = searchResults.find((resource) => resource.resourceType === 'Schedule') as Schedule | undefined;
 
   if (!appointment) {
