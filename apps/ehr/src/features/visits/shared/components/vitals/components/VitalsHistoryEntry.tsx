@@ -110,7 +110,7 @@ const getObservationMethod = (historyEntry: VitalsObservationDTO): string | unde
   return undefined;
 };
 
-const getObservationValueElements = (
+export const getObservationValueElements = (
   historyEntry: VitalsObservationDTO,
   lineColor: string
 ): (string | JSX.Element)[] => {

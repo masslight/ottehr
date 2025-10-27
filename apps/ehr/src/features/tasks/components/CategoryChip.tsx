@@ -3,8 +3,8 @@ import React from 'react';
 import { IN_HOUSE_LAB_TASK, LAB_ORDER_TASK } from 'utils';
 
 export const TASK_CATEGORY_LABEL: Record<string, string> = {};
-TASK_CATEGORY_LABEL[LAB_ORDER_TASK.category] = 'External Labs';
-TASK_CATEGORY_LABEL[IN_HOUSE_LAB_TASK.category] = 'In-house Labs';
+TASK_CATEGORY_LABEL[LAB_ORDER_TASK.category] = 'External Lab';
+TASK_CATEGORY_LABEL[IN_HOUSE_LAB_TASK.category] = 'In-house Lab';
 
 interface Props {
   category: string;
