@@ -25,3 +25,11 @@ export type GetVitalsRequestPayload = {
   encounterId: string;
   mode: 'current' | 'historical';
 };
+
+export type GetVitalsForListOfEncountersRequestPayload = {
+  encounterIds: string[];
+};
+
+export type GetVitalsForListOfEncountersResponseData = {
+  [encounterId: string]: GetVitalsResponseData;
+};
