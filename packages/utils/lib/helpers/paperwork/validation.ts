@@ -815,6 +815,7 @@ const recursivePathEval = (context: any, question: string, value?: any): any | u
   if (value) {
     return value;
   }
+
   try {
     const itemDict = Array.isArray(context) ? makeItemDict(context) : context;
     const questionValue = (itemDict ?? {})[question];
@@ -824,7 +825,7 @@ const recursivePathEval = (context: any, question: string, value?: any): any | u
       const questionSplit = question.split('.');
       if (questionSplit.length > 1) {
         const newQuestion = questionSplit.slice(1).join('.');
-        return recursivePathEval(context, newQuestion);
+        return recursivePathEval(context[questionSplit[0]]?.item ?? context, newQuestion);
       }
     }
   } catch (e) {
