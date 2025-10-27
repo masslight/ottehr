@@ -81,6 +81,10 @@ export const useGetTasks = ({
           value: '-authored-on',
         },
         {
+          name: '_total',
+          value: 'accurate',
+        },
+        {
           name: '_count',
           value: TASKS_PAGE_SIZE,
         },
