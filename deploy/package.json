@@ -1,6 +1,6 @@
 {
   "name": "deploy",
-  "version": "1.20.2",
+  "version": "1.20.4",
   "description": "Scripts for generating HCL and interacting with Terraform",
   "scripts": {
     "build": "tsc --noEmit",
@@ -9,10 +9,12 @@
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
     "generate": "tsx generate-oystehr-resources.ts ../config ${ENV:-local} ./oystehr/",
     "apply-local": "./apply.sh local",
+    "apply-development": "./apply.sh development",
+    "apply-testing": "./apply.sh testing",
     "apply-staging": "./apply.sh staging",
-    "apply-production": "./apply.sh production",
+    "apply-demo": "./apply.sh demo",
     "terraform-init": "terraform init --backend-config=./backend.config",
-    "terraform-setup": "npm run terraform-init && terraform workspace new local && terraform workspace new staging && terraform workspace new production && terraform workspace select local"
+    "terraform-setup": "npm run terraform-init && terraform workspace new local && terraform workspace new development && terraform workspace new testing && terraform workspace new staging && terraform workspace new demo && terraform workspace select local"
   },
   "devDependencies": {
     "@types/node": "^24.2.1"

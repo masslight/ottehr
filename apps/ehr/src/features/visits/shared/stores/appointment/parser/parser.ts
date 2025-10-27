@@ -1,17 +1,10 @@
 import { FhirResource } from 'fhir/r4b';
 import { getPatientName } from 'src/shared/utils/getPatientName';
-import {
-  formatDOB,
-  getInsuranceNameFromCoverage,
-  getQuestionnaireResponseByLinkId,
-  PATIENT_PHOTO_CODE,
-  SCHOOL_WORK_NOTE_TEMPLATE_CODE,
-} from 'utils';
+import { formatDOB, getQuestionnaireResponseByLinkId, PATIENT_PHOTO_CODE, SCHOOL_WORK_NOTE_TEMPLATE_CODE } from 'utils';
 import { getPatientInfoWithFallback, getPronouns, getWeight } from './business-logic';
 import { Gender } from './constants';
 import {
   extractUrlsFromAppointmentData,
-  getActiveCoveragesFromBundle,
   getAllergies,
   getAppointmentValues,
   getEncounterValues,
@@ -27,8 +20,6 @@ export const getVisitMappedData = (resourceBundle: FhirResource[]): Partial<Visi
   const { patient, questionnaireResponse } = getResources(resourceBundle);
   const { fullDisplayName } = getPatientName(patient?.name);
 
-  const { primary, secondary } = getActiveCoveragesFromBundle(resourceBundle);
-
   return {
     patientName: fullDisplayName,
     patientAvatarPhotoUrl: patient?.photo?.at(0)?.url,
@@ -42,8 +33,6 @@ export const getVisitMappedData = (resourceBundle: FhirResource[]): Partial<Visi
     allergies: getAllergies(questionnaireResponse),
     hospitalizations: getHospitalizations(questionnaireResponse),
     weight: getWeight(getPatientValues(patient)),
-    activeInsurance:
-      (primary && getInsuranceNameFromCoverage(primary)) ?? (secondary && getInsuranceNameFromCoverage(secondary)),
   };
 };
 
