@@ -373,7 +373,7 @@ test.describe('Tests interacting with appointment state', () => {
       // TODO: uncomment when erx is enabled
       // await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergyPattern);
 
-      await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput, surgicalHistoryPattern);
+      await fillWaitAndSelectDropdown(page, dataTestIds.surgicalHistory.surgicalHistoryInput, surgicalHistoryPattern);
 
       await page
         .getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote)
