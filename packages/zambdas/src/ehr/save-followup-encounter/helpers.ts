@@ -6,6 +6,7 @@ import {
   FollowupReason,
   formatFhirEncounterToPatientFollowupDetails,
   PatientFollowupDetails,
+  PRACTITIONER_CODINGS,
 } from 'utils';
 
 export async function createEncounterResource(
@@ -65,7 +66,7 @@ export async function createEncounterResource(
   }
   if (encounterDetails.provider) {
     encounterParticipant.push(
-      createEncounterParticipant(FOLLOWUP_SYSTEMS.providerUrl, encounterDetails.provider.name, {
+      createEncounterParticipantIndividual(PRACTITIONER_CODINGS.Attender, {
         type: 'Practitioner',
         reference: `Practitioner/${encounterDetails.provider.practitionerId}`,
       })
@@ -270,14 +271,10 @@ export async function updateEncounterResource(
     }
     // provider is being added
     if (encounterDetails?.provider?.practitionerId && !curEncounterDetails?.provider?.practitionerId) {
-      const providerParticipant = createEncounterParticipant(
-        FOLLOWUP_SYSTEMS.providerUrl,
-        encounterDetails.provider.name,
-        {
-          type: 'Practitioner',
-          reference: `Practitioner/${encounterDetails.provider.practitionerId}`,
-        }
-      );
+      const providerParticipant = createEncounterParticipantIndividual(PRACTITIONER_CODINGS.Attender, {
+        type: 'Practitioner',
+        reference: `Practitioner/${encounterDetails.provider.practitionerId}`,
+      });
       // either being added to an exiting participant array
       if (curFhirEncounter.participant) {
         participantOp = 'replace';
@@ -354,7 +351,7 @@ const createEncounterReasonCode = (reason: FollowupReason, otherReason?: string)
   ];
 };
 
-const createEncounterParticipant = (system: string, display: string, individual?: Reference): EncounterParticipant => {
+const createEncounterParticipant = (system: string, display: string): EncounterParticipant => {
   const participant: EncounterParticipant = {
     type: [
       {
@@ -367,7 +364,18 @@ const createEncounterParticipant = (system: string, display: string, individual?
       },
     ],
   };
-  if (individual) participant['individual'] = individual;
+  return participant;
+};
+
+const createEncounterParticipantIndividual = (coding: Coding[], individual: Reference): EncounterParticipant => {
+  const participant: EncounterParticipant = {
+    type: [
+      {
+        coding,
+      },
+    ],
+    individual,
+  };
   return participant;
 };
 

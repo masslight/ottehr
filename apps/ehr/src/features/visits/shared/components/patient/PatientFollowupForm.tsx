@@ -58,6 +58,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   const [previousEncounters, setPreviousEncounters] = useState<EncounterRow[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
+  const selectedLocation = localStorage.getItem('selectedLocation');
 
   const [formData, setFormData] = useState<FormData>({
     provider: followupDetails?.provider || undefined,
@@ -66,7 +67,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
     initialVisit: undefined,
     followupDate: followupDetails?.start ? DateTime.fromISO(followupDetails.start) : DateTime.now(),
     followupTime: followupDetails?.start ? DateTime.fromISO(followupDetails.start) : DateTime.now(),
-    location: followupDetails?.location || JSON.parse(localStorage?.getItem('selectedLocation') || ''),
+    location: followupDetails?.location || (selectedLocation && JSON.parse(selectedLocation)),
   });
 
   const validateForm = (): boolean => {
@@ -227,7 +228,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
 
       const encounterDetails: PatientFollowupDetails = {
         encounterId: followupDetails?.encounterId,
-        followupType: 'Telephone Encounter',
+        followupType: 'Follow-up Encounter',
         patientId,
         reason: formData.reason || undefined,
         otherReason: formData.reason === 'Other' ? formData.otherReason : undefined,
@@ -242,9 +243,11 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
         provider: formData.provider || undefined,
       };
 
-      await saveFollowup(oystehrZambda, { encounterDetails });
+      const followup = await saveFollowup(oystehrZambda, { encounterDetails });
 
-      navigate(`/patient/${patientId}`, { state: { defaultTab: 'encounters' } });
+      navigate(`/in-person/${formData.initialVisit?.appointment?.id}/follow-up-note`, {
+        state: { encounterId: followup.encounterId },
+      });
     } catch (error) {
       console.error(`Failed to add patient followup: ${error}`);
       if (!errorMessage) errorMessage = `Failed to add patient followup: ${error}`;
@@ -263,6 +266,26 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
       navigate(`/patient/${patientId}`, { state: { defaultTab: 'encounters' } });
     } else {
       navigate('/visits');
+    }
+  };
+
+  const handleDateChange = (date: DateTime): void => {
+    if (!date || !formData.followupTime) return;
+
+    updateFormData('followupDate', date);
+    const isToday = date.hasSame(DateTime.now(), 'day');
+
+    const combinedDateTime = date.set({
+      hour: formData.followupTime.hour,
+      minute: formData.followupTime.minute,
+      second: formData.followupTime.second,
+    });
+
+    if (isToday && combinedDateTime < DateTime.now()) {
+      const currentTime = DateTime.now();
+      if (!formData.followupTime.hasSame(currentTime, 'minute')) {
+        updateFormData('followupTime', currentTime);
+      }
     }
   };
 
@@ -373,10 +396,11 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
           <Grid item xs={5}>
             <LocalizationProvider dateAdapter={AdapterLuxon}>
               <DatePicker
-                onChange={(val) => val && updateFormData('followupDate', val)}
+                onChange={(val) => val && handleDateChange(val)}
                 label="Follow-up date"
                 format="MM/dd/yyyy"
                 value={formData.followupDate}
+                minDate={DateTime.now().startOf('day')}
                 slotProps={{
                   textField: {
                     id: 'followup-date',
@@ -397,6 +421,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
                 onChange={(val) => val && updateFormData('followupTime', val)}
                 value={formData.followupTime}
                 label="Follow-up time *"
+                minTime={formData.followupDate.hasSame(DateTime.now(), 'day') ? DateTime.now() : undefined}
                 slotProps={{
                   textField: {
                     fullWidth: true,

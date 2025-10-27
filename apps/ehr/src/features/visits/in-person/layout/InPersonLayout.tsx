@@ -53,36 +53,38 @@ export const InPersonLayout: React.FC = () => {
       <div style={mainBlocksStyle}>
         <Sidebar />
         <div style={contentWrapperStyle}>
-          <Container>
-            <Fab
-              color="primary"
-              aria-label=""
-              aria-describedby={recordingElementID}
-              sx={{ position: 'fixed', right: 8, bottom: 8 }}
-              onClick={(event) =>
-                recordingOpen ? setRecordingAnchorElement(null) : setRecordingAnchorElement(event.currentTarget)
-              }
-            >
-              <Mic />
-            </Fab>
-            {encounter.id && (
-              <Paper
-                sx={{
-                  position: 'fixed',
-                  right: '15px',
-                  bottom: '75px',
-                  zIndex: '10',
-                  ...(!recordingOpen && { display: 'none' }),
-                }}
+          {!isFollowup && (
+            <Container>
+              <Fab
+                color="primary"
+                aria-label=""
+                aria-describedby={recordingElementID}
+                sx={{ position: 'fixed', right: 8, bottom: 8 }}
+                onClick={(event) =>
+                  recordingOpen ? setRecordingAnchorElement(null) : setRecordingAnchorElement(event.currentTarget)
+                }
               >
-                <RecordAudioContainer
-                  visitID={encounter.id}
-                  aiChat={chartData?.aiChat}
-                  setRecordingAnchorElement={setRecordingAnchorElement}
-                />
-              </Paper>
-            )}
-          </Container>
+                <Mic />
+              </Fab>
+              {encounter.id && (
+                <Paper
+                  sx={{
+                    position: 'fixed',
+                    right: '15px',
+                    bottom: '75px',
+                    zIndex: '10',
+                    ...(!recordingOpen && { display: 'none' }),
+                  }}
+                >
+                  <RecordAudioContainer
+                    visitID={encounter.id}
+                    aiChat={chartData?.aiChat}
+                    setRecordingAnchorElement={setRecordingAnchorElement}
+                  />
+                </Paper>
+              )}
+            </Container>
+          )}
           <div
             style={{
               flex: 1,

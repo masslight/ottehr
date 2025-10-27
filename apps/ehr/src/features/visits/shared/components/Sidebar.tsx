@@ -14,6 +14,7 @@ import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeB
 import { EncounterSwitcher } from '../../in-person/components/EncounterSwitcher';
 import { RouteInPerson, useInPersonNavigationContext } from '../../in-person/context/InPersonNavigationContext';
 import { ROUTER_PATH, routesInPerson } from '../../in-person/routing/routesInPerson';
+import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
 import { usePractitionerActions } from '../hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 
@@ -259,6 +260,8 @@ export const Sidebar = (): JSX.Element => {
   const { chartData } = useChartData();
   const { appointment, encounter } = visitState;
   const status = appointment && encounter ? getInPersonVisitStatus(appointment, encounter) : undefined;
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
 
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
@@ -391,11 +394,13 @@ export const Sidebar = (): JSX.Element => {
         })}
       </List>
       <br />
-      <CompleteIntakeButton
-        isDisabled={!appointmentID || isEncounterUpdatePending || status !== 'intake'}
-        handleCompleteIntake={handleCompleteIntake}
-        status={status}
-      />
+      {!isFollowup && (
+        <CompleteIntakeButton
+          isDisabled={!appointmentID || isEncounterUpdatePending || status !== 'intake'}
+          handleCompleteIntake={handleCompleteIntake}
+          status={status}
+        />
+      )}
     </Drawer>
   );
 };

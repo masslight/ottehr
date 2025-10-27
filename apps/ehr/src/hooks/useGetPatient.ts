@@ -181,7 +181,9 @@ export const useGetPatient = (
           ?.actor?.reference?.replace('Location/', '');
         const location = locations.find((location) => location.id === appointmentLocationID);
         const encounter = appointment.id
-          ? encounters.find((encounter) => encounter.appointment?.[0]?.reference?.endsWith(appointment.id!))
+          ? encounters.find(
+              (encounter) => encounter.appointment?.[0]?.reference?.endsWith(appointment.id!) && !encounter.partOf
+            )
           : undefined;
         const typeLabel = getVisitTypeLabelForAppointment(appointment);
 
