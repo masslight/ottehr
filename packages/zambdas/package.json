@@ -13,6 +13,8 @@
     "cancel-telemed-appointments": "tsx src/scripts/cancel-telemed-appointments.ts",
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
     "report-daily-payments": "tsx src/scripts/report-daily-payments.ts",
+    "report-duplicate-payments": "tsx src/scripts/report-duplicate-payments.ts",
+    "report-past-due-invoices": "tsx src/scripts/report-past-due-invoices.ts",
     "get-coverage-eligibility-responses": "tsx src/scripts/get-coverage-eligibility-responses.ts",
     "get-rcm-tasks": "tsx src/scripts/get-rcm-tasks.ts",
     "send-invoices-to-patients-by-sms": "tsx src/scripts/send-invoices-to-patients-by-sms.ts",

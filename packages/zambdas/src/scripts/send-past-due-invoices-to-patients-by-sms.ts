@@ -20,7 +20,10 @@ async function sendSMSMessage(oystehr: Oystehr, patientId: string, message: stri
       resource: resource,
       message: message,
     });
-    console.log(`✅ SMS details are in `, response);
+    console.log(
+      `✅ SMS details are in sent to ${patientId} (RelatedPerson/${relatedPerson.id}), response in `,
+      response
+    );
   } catch (error) {
     console.error(`❌ Failed to send SMS to ${patientId}:`, error);
     throw error;
@@ -498,6 +501,14 @@ async function main(): Promise<void> {
       // Send SMS with the invoice information
       await sendPastDueInvoiceBySMS(oystehr, patientId, invoiceInfo.amountDue, invoiceInfo.invoiceLink);
 
+      // Re-send invoice by email via Stripe to ensure they have the latest link
+      await stripe.invoices.sendInvoice(invoiceInfo.invoiceId);
+      console.log(
+        `📧 Re-sent invoice with id ${invoiceInfo.invoiceId} email via Stripe to ${
+          invoiceInfo.customerEmail || 'unknown email'
+        }`
+      );
+
       successCount++;
       totalAmountProcessed += invoiceInfo.amountDue;
 
@@ -595,6 +606,14 @@ async function main(): Promise<void> {
 
       // Send delinquent SMS reminder
       await sendDelinquentPastDueInvoiceBySMS(oystehr, patientId, invoiceInfo.invoiceLink);
+
+      // Re-send invoice by email via Stripe to ensure they have the latest link
+      await stripe.invoices.sendInvoice(invoiceInfo.invoiceId);
+      console.log(
+        `📧 Re-sent very late invoice with id ${invoiceInfo.invoiceId} email via Stripe to ${
+          invoiceInfo.customerEmail || 'unknown email'
+        }`
+      );
 
       // Add data to CSV report
       csvReportData.push({

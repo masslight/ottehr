@@ -24,7 +24,7 @@ export const SurgicalHistoryContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) =
   return (
     <Box
       sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
-      data-testid={dataTestIds.telemedEhrFlow.reviewTabSurgicalHistoryContainer}
+      data-testid={dataTestIds.progressNotePage.surgicalHistoryContainer}
     >
       <Typography variant="h5" color="primary.dark">
         Surgical history
