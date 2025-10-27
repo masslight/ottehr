@@ -1963,7 +1963,12 @@
             ]
           }
         ]
-      }
+      },
+      "managedFields": [
+        "name",
+        "active",
+        "identifier"
+      ]
     },
     "PRACTITIONER_EXAMPLE_1": {
       "resource": {
