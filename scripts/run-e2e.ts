@@ -84,7 +84,7 @@ const waitForApp = async (app: (typeof supportedApps)[number]): Promise<void> =>
 };
 
 const startZambdas = (): void => {
-  spawn('cross-env', [`ENV=${envMapping['ehr'][ENV]}`, 'npm', 'run', `zambdas:start`], {
+  spawn('cross-env', [`ENV=${envMapping['ehr'][ENV]}`, 'npm', 'run', `zambdas:start:iac`], {
     shell: true,
     stdio: 'inherit',
     env: { ...process.env, ENV: envMapping['ehr'][ENV] },
@@ -95,7 +95,7 @@ const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
   return new Promise((resolve, reject) => {
     const childProcess = spawn(
       'cross-env',
-      [`ENV=${envMapping[app][ENV]}`, 'VITE_NO_OPEN=true', 'npm', 'run', `${app}:start`, '--', '--verbosity=2'],
+      [`ENV=${envMapping[app][ENV]}`, 'VITE_NO_OPEN=true', 'npm', 'run', `${app}:start:iac`, '--', '--verbosity=2'],
       {
         shell: true,
         stdio: 'inherit',
