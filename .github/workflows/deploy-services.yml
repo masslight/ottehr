@@ -1,4 +1,4 @@
-name: Deploy Services
+name: Deploy Services - DEPRECATED
 run-name: Deploy ${{ github.ref_name }} to ${{ inputs.environment }}
 
 env:
@@ -13,10 +13,7 @@ on:
         type: choice
         default: 'development'
         options:
-          - development
-          - testing
-          - staging
-          - demo
+          - do not use
       incrementVersion:
         description: 'Bump Version?'
         type: boolean

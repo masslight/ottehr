@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.20.1",
+  "version": "1.20.4",
   "private": true,
   "type": "module",
   "engines": {
@@ -20,8 +20,8 @@
     ]
   },
   "scripts": {
-    "start": "vite --mode $([ \"$ENV\" = \"local\" ] && echo default || echo ${ENV:-default})",
-    "start:iac": "vite --mode default",
+    "start": "npm run start:iac",
+    "start:iac": "vite --mode $([ \"$ENV\" = \"local\" ] && echo default || echo ${ENV:-default})",
     "preview": "vite preview --port 4002",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 .",
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
