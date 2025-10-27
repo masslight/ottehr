@@ -33,13 +33,21 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, 
 
   const errorMessage = useMemo(() => {
     if (
-      (inPerson && inPersonStatus && !['intake', 'completed'].includes(inPersonStatus)) ||
-      appointmentAccessibility.status !== TelemedAppointmentStatusEnum.complete
+      appointmentAccessibility.visitType === 'follow-up'
+        ? encounter?.status === 'in-progress'
+        : (inPerson && inPersonStatus && !['intake', 'completed'].includes(inPersonStatus)) ||
+          appointmentAccessibility.status !== TelemedAppointmentStatusEnum.complete
     ) {
       return "Once the visit note has been signed, you will have the option to fax a copy to the patient's Primary Care Physician.";
     }
     return null;
-  }, [inPerson, inPersonStatus, appointmentAccessibility.status]);
+  }, [
+    appointmentAccessibility.visitType,
+    appointmentAccessibility.status,
+    encounter?.status,
+    inPerson,
+    inPersonStatus,
+  ]);
 
   const handleSendFax = async (): Promise<void> => {
     if (faxError) {

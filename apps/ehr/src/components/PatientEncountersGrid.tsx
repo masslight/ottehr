@@ -23,7 +23,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { Encounter, Patient } from 'fhir/r4b';
+import { Encounter, Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -156,6 +156,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [followupEncounters, setFollowupEncounters] = useState<Encounter[]>([]);
+  const [followupLocations, setFollowupLocations] = useState<Map<string, Location>>(new Map());
 
   const { oystehrZambda, oystehr } = useApiClients();
   const navigate = useNavigate();
@@ -185,32 +186,51 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     queryKey: ['followupEncounters', patient?.id],
     queryFn: async () => {
       if (!oystehr || !patient?.id) {
-        return [];
+        return { encounters: [], locations: new Map<string, Location>() };
       }
       try {
-        const fhirEncounters = (
-          await oystehr.fhir.search<Encounter>({
-            resourceType: 'Encounter',
-            params: [
-              {
-                name: '_sort',
-                value: '-date',
-              },
-              {
-                name: 'subject',
-                value: `Patient/${patient.id}`,
-              },
-              {
-                name: 'type',
-                value: FOLLOWUP_SYSTEMS.type.code,
-              },
-            ],
-          })
-        ).unbundle();
-        return fhirEncounters;
+        const fhirResources = await oystehr.fhir.search({
+          resourceType: 'Encounter',
+          params: [
+            {
+              name: '_sort',
+              value: '-date',
+            },
+            {
+              name: 'subject',
+              value: `Patient/${patient.id}`,
+            },
+            {
+              name: 'type',
+              value: FOLLOWUP_SYSTEMS.type.code,
+            },
+            {
+              name: 'part-of:missing',
+              value: 'false',
+            },
+            {
+              name: '_include',
+              value: 'Encounter:location',
+            },
+          ],
+        });
+
+        const bundle = fhirResources.unbundle();
+
+        const encounters = bundle.filter((resource) => resource.resourceType === 'Encounter') as Encounter[];
+        const locations = bundle.filter((resource) => resource.resourceType === 'Location') as Location[];
+
+        const locationMap = new Map<string, Location>();
+        locations.forEach((location) => {
+          if (location.id) {
+            locationMap.set(location.id, location);
+          }
+        });
+
+        return { encounters, locations: locationMap };
       } catch (e) {
         console.error('error loading follow-up encounters', e);
-        return [];
+        return { encounters: [], locations: new Map<string, Location>() };
       }
     },
     enabled: !!oystehr && !!patient?.id,
@@ -219,7 +239,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   // Update follow-up encounters when data changes
   React.useEffect(() => {
     if (followupData) {
-      setFollowupEncounters(followupData);
+      setFollowupEncounters(followupData.encounters);
+      setFollowupLocations(followupData.locations);
     }
   }, [followupData]);
 
@@ -301,6 +322,10 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   };
 
   const renderFollowupCellContent = (encounter: Encounter, columnId: string): React.ReactNode => {
+    const locationReference = encounter.location?.[0]?.location?.reference;
+    const locationId = locationReference?.replace('Location/', '');
+    const location = locationId ? followupLocations.get(locationId) : undefined;
+
     switch (columnId) {
       case 'dateTime':
         return encounter.period?.start ? formatISOStringToDateAndTime(encounter.period.start) : '-';
@@ -317,18 +342,12 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       case 'reason':
         if (!encounter.reasonCode) return '-';
         return <Typography variant="body2">{encounter.reasonCode[0].text}</Typography>;
-      case 'answered': {
-        const answered = encounter.participant?.find(
-          (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.answeredUrl))
-        )?.type?.[0].coding?.[0].display;
-        return <Typography variant="body2">{answered || '-'}</Typography>;
-      }
-      case 'caller': {
-        const caller = encounter.participant?.find(
-          (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.callerUrl))
-        )?.type?.[0].coding?.[0].display;
-        return <Typography variant="body2">{caller || '-'}</Typography>;
-      }
+      case 'provider':
+        return <ProviderCell encounter={encounter} />;
+      case 'office':
+        return location?.address?.state && location?.name
+          ? `${location.address.state.toUpperCase()} - ${location.name}`
+          : '-';
       case 'status': {
         if (!encounter.status) return null;
         const statusVal = encounter.status === 'in-progress' ? 'OPEN' : 'RESOLVED';
@@ -387,7 +406,10 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         if (!row.id) return null;
         const isInPerson = isInPersonAppointment(row.appointment);
         return (
-          <RoundedButton to={isInPerson ? `/visit/${row.id}` : getTelemedVisitDetailsUrl(row.id)}>
+          <RoundedButton
+            to={isInPerson ? `/visit/${row.id}` : getTelemedVisitDetailsUrl(row.id)}
+            state={{ encounterId: row.encounter?.id }}
+          >
             Visit Info
           </RoundedButton>
         );

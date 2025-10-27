@@ -217,6 +217,9 @@ export const useAppointmentData = (
   );
 
   useEffect(() => {
+    if (isLoading || isPending) {
+      return;
+    }
     const encounterIdFromLocation = (
       location.state as {
         encounterId?: string;

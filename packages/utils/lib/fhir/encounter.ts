@@ -14,7 +14,7 @@ import {
 import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL, FHIR_EXTENSION } from './constants';
 
 // follow up encounter consts
-export const FOLLOWUP_TYPES = ['Telephone Encounter', 'Non-Billable'] as const;
+export const FOLLOWUP_TYPES = ['Follow-up Encounter'] as const;
 export type FollowupType = (typeof FOLLOWUP_TYPES)[number];
 
 export const FOLLOWUP_REASONS = [
