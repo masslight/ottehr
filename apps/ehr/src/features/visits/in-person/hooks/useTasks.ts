@@ -259,7 +259,7 @@ function fhirTaskToTask(task: FhirTask): Task {
     }
     if (
       diagnosticReportId &&
-      labTypeString === LabType.unsolicited &&
+      (labTypeString === LabType.unsolicited || labTypeString === LabType.pdfAttachment) &&
       (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
     ) {
       const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
