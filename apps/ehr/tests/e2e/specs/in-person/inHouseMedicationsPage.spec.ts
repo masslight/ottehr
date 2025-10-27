@@ -32,6 +32,9 @@ const NEW_INSTRUCTIONS = 'Edited instructions';
 const STATUS = 'pending';
 const CANCELLED = 'Cancelled';
 const ADMINISTERED = 'Administered';
+const PATIENT_REFUSED = 'Patient refused';
+const PARTLY_ADMINISTERED = 'Partly Administered';
+const NOT_ADMINISTERED = 'Not Administered';
 
 test.beforeEach(async () => {
   if (process.env.INTEGRATION_TEST === 'true') {
@@ -225,7 +228,7 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
   });
 });
 
-test('Administering in-house medication order happy path', async ({ page }) => {
+test('Masking in-house medication order Administered happy path', async ({ page }) => {
   await test.step('Administer order and verify', async () => {
     const createOrderPage = await prepareAndOpenOrderMedicationPage(page);
     await createOrderPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
@@ -267,6 +270,13 @@ test('Administering in-house medication order happy path', async ({ page }) => {
       instructions: INSTRUCTIONS,
       status: ADMINISTERED,
     });
+    await inHouseMedicationsPage.verifyMedicationInMedicationHistoryTable({
+      medication: MEDICATION,
+      dose: DOSE,
+      units: UNITS,
+      type: 'In-house medication',
+      whoAdded: await getCurrentPractitionerName(),
+    });
     const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
     await progressNotePage.verifyInHouseMedication({
       medication: MEDICATION,
@@ -277,6 +287,116 @@ test('Administering in-house medication order happy path', async ({ page }) => {
       instructions: INSTRUCTIONS,
       status: ADMINISTERED,
     });
+  });
+});
+
+test('Making in-house medication order Partly Administered happy path', async ({ page }) => {
+  const createOrderPage = await prepareAndOpenOrderMedicationPage(page);
+  await createOrderPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
+  await createOrderPage.editMedicationCard.selectMedication(MEDICATION);
+  await createOrderPage.editMedicationCard.enterDose(DOSE);
+  await createOrderPage.editMedicationCard.selectUnits(UNITS);
+  await createOrderPage.editMedicationCard.enterManufacturer(MANUFACTURER);
+  await createOrderPage.editMedicationCard.selectRoute(ROUTE);
+  await createOrderPage.editMedicationCard.enterInstructions(INSTRUCTIONS);
+  await createOrderPage.editMedicationCard.waitForLoadOrderedBy();
+  await createOrderPage.clickOrderMedicationButton();
+  const editOrderPage = await expectEditOrderPage(page);
+  const medicationsPage = await editOrderPage.clickBackButton();
+  await medicationsPage.clickMedicationDetailsTab();
+  await medicationsPage.medicationDetails().enterLotNumber('1234567');
+  await medicationsPage.medicationDetails().enterExpiratrionDate('2027-10-10');
+
+  const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickPartlyAdministeredButton();
+  await administrationConfirmationDialog.verifyTitle('Medication Partly Administered');
+  await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
+  await administrationConfirmationDialog.verifyMedication({
+    medication: MEDICATION,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+  });
+  await administrationConfirmationDialog.verifyMessage(
+    'Please confirm that you want to mark this medication order as Partly Administered and select the reason.'
+  );
+  await administrationConfirmationDialog.selectReason(PATIENT_REFUSED);
+  await administrationConfirmationDialog.clickMarkAsAdministeredButton();
+  const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
+  await inHouseMedicationsPage.verifyMedicationPresent({
+    medicationName: MEDICATION,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+    orderedBy: await getCurrentPractitionerName(),
+    givenBy: await getCurrentPractitionerName(),
+    instructions: INSTRUCTIONS,
+    status: PARTLY_ADMINISTERED,
+    reason: PATIENT_REFUSED,
+  });
+  const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+  await progressNotePage.verifyInHouseMedication({
+    medication: MEDICATION,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+    givenBy: await getCurrentPractitionerName(),
+    instructions: INSTRUCTIONS,
+    status: PARTLY_ADMINISTERED,
+  });
+});
+
+test('Making in-house medication order Not Administered happy path', async ({ page }) => {
+  const createOrderPage = await prepareAndOpenOrderMedicationPage(page);
+  await createOrderPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
+  await createOrderPage.editMedicationCard.selectMedication(MEDICATION);
+  await createOrderPage.editMedicationCard.enterDose(DOSE);
+  await createOrderPage.editMedicationCard.selectUnits(UNITS);
+  await createOrderPage.editMedicationCard.enterManufacturer(MANUFACTURER);
+  await createOrderPage.editMedicationCard.selectRoute(ROUTE);
+  await createOrderPage.editMedicationCard.enterInstructions(INSTRUCTIONS);
+  await createOrderPage.editMedicationCard.waitForLoadOrderedBy();
+  await createOrderPage.clickOrderMedicationButton();
+  const editOrderPage = await expectEditOrderPage(page);
+  const medicationsPage = await editOrderPage.clickBackButton();
+  await medicationsPage.clickMedicationDetailsTab();
+  await medicationsPage.medicationDetails().enterLotNumber('1234567');
+  await medicationsPage.medicationDetails().enterExpiratrionDate('2027-10-10');
+
+  const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickPartlyAdministeredButton();
+  await administrationConfirmationDialog.verifyTitle('Medication Not Administered');
+  await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
+  await administrationConfirmationDialog.verifyMedication({
+    medication: MEDICATION,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+  });
+  await administrationConfirmationDialog.verifyMessage(
+    'Please confirm that you want to mark this medication order as Not Administered and select the reason.'
+  );
+  await administrationConfirmationDialog.selectReason(PATIENT_REFUSED);
+  await administrationConfirmationDialog.clickMarkAsAdministeredButton();
+  const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
+  await inHouseMedicationsPage.verifyMedicationPresent({
+    medicationName: MEDICATION,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+    orderedBy: await getCurrentPractitionerName(),
+    givenBy: await getCurrentPractitionerName(),
+    instructions: INSTRUCTIONS,
+    status: NOT_ADMINISTERED,
+    reason: PATIENT_REFUSED,
+  });
+  const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+  await progressNotePage.verifyInHouseMedication({
+    medication: MEDICATION,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+    givenBy: await getCurrentPractitionerName(),
+    instructions: INSTRUCTIONS,
+    status: NOT_ADMINISTERED,
   });
 });
 

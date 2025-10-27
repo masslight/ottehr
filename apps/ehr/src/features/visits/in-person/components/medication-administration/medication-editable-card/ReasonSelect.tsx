@@ -6,7 +6,8 @@ import { ReasonListCodes, reasonListValues } from '../medicationTypes';
 export const ReasonSelect: React.FC<{
   updateRequestInputRef: MutableRefObject<UpdateMedicationOrderInput | null>;
   setIsReasonSelected: React.Dispatch<React.SetStateAction<boolean>>;
-}> = ({ updateRequestInputRef, setIsReasonSelected }) => {
+  dti: string;
+}> = ({ updateRequestInputRef, setIsReasonSelected, dti }) => {
   const [selectedReason, setSelectedReason] = useState<ReasonListCodes | ''>('');
   const [otherReason, setOtherReason] = useState('');
 
@@ -40,6 +41,7 @@ export const ReasonSelect: React.FC<{
           value={selectedReason}
           onChange={(e) => handleReasonChange(e.target.value as ReasonListCodes)}
           label="Reason"
+          data-testid={dti}
         >
           {Object.entries(reasonListValues).map(([code, label]) => (
             <MenuItem key={code} value={code}>

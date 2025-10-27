@@ -39,6 +39,7 @@ export class InHouseMedicationsPage {
     givenBy?: string;
     instructions: string;
     status: string;
+    reason?: string;
   }): Promise<void> {
     const testIdToTextArray: { testId: string; text: string | undefined }[] = [
       {
@@ -69,6 +70,10 @@ export class InHouseMedicationsPage {
         testId: dataTestIds.inHouseMedicationsPage.marTableStatusCell,
         text: input.status,
       },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTableReasonCell,
+        text: input.reason,
+      },
     ];
     let matchedLocator = this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.marTableRow);
     for (const testIdToText of testIdToTextArray) {
@@ -98,6 +103,38 @@ export class InHouseMedicationsPage {
       .getByTestId(dataTestIds.inHouseMedicationsPage.deleteButton)
       .click();
     return expectDialog(this.#page);
+  }
+
+  async verifyMedicationInMedicationHistoryTable(input: {
+    medication: string;
+    dose: string;
+    units: string;
+    type: string;
+    whoAdded: string;
+  }): Promise<void> {
+    const testIdToTextArray: { testId: string; text: string | undefined }[] = [
+      {
+        testId: dataTestIds.inHouseMedicationsPage.medicationHistoryTableMedication,
+        text: input.medication + '(' + input.dose + ' ' + input.units + ')',
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTableDoseCell,
+        text: input.type,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTableRouteCell,
+        text: input.whoAdded,
+      },
+    ];
+    let matchedLocator = this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.medicationHistoryTableRow);
+    for (const testIdToText of testIdToTextArray) {
+      if (testIdToText.text) {
+        matchedLocator = matchedLocator.filter({
+          has: this.#page.getByTestId(testIdToText.testId).filter({ hasText: testIdToText.text }),
+        });
+        await expect(matchedLocator.first()).toBeVisible();
+      }
+    }
   }
 }
 

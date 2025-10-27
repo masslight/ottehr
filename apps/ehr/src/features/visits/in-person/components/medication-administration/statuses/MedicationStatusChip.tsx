@@ -1,6 +1,7 @@
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { Box, Chip, MenuItem, Popover, Stack, Typography } from '@mui/material';
 import React, { useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import styled from 'styled-components';
 import { MedicationOrderStatusesType, medicationStatusDisplayLabelMap } from 'utils';
 import { ExtendedMedicationDataForResponse } from 'utils';
@@ -111,6 +112,7 @@ export const MedicationStatusChip: React.FC<MedicationStatusChipProps> = ({
         />
         {medication?.reason && (
           <Typography
+            data-testid={dataTestIds.inHouseMedicationsPage.marTableReasonCell}
             variant="caption"
             sx={{
               mt: 0.5,
