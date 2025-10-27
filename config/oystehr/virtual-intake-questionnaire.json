@@ -1,12 +1,12 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-virtual-previsit-1_0_10": {
+    "questionnaire-virtual-previsit-1_0_11": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
         "version": "1.0.11",
-        "name": "virtual_pre-visit_paperwork (please_do_not_delete)",
+        "name": "virtual_pre-visit_paperwork",
         "title": "virtual pre-visit paperwork",
         "status": "active",
         "item": [
