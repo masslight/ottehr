@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, SecretsKeys } from 'utils';
+import { fixAndParseJsonObjectFromString, getSecret, SecretsKeys } from 'utils';
 import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { invokeChatbot } from '../../shared/ai';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -57,11 +57,17 @@ export const index = wrapHandler(
       if (timeSpent) {
         prompt += ` The total time spent on the procedure was: ${timeSpent}.`;
       }
-      console.log(prompt);
 
       const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
       console.log(aiResponseString);
-      const aiResponseObject = JSON.parse(aiResponseString);
+
+      let aiResponseObject;
+      try {
+        aiResponseObject = JSON.parse(aiResponseString);
+      } catch (parseError) {
+        console.warn('Failed to parse AI CPT codes response, attempting to fix JSON format:', parseError);
+        aiResponseObject = fixAndParseJsonObjectFromString(aiResponseString);
+      }
 
       return {
         statusCode: 200,
