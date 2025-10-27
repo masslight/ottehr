@@ -55,7 +55,10 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
           value={value}
           onChange={(e) => {
             onChange(e);
-            onValueChange(e.target.value);
+            onValueChange(e.target.value, {
+              refetchChartDataOnSave: true,
+              additionalRequestOptions: { createICDRecommendations: true },
+            });
           }}
           size="small"
           label="Medical Decision Making *"

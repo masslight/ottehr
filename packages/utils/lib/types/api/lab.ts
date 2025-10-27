@@ -27,8 +27,15 @@ interface LabOrderPDFDetail {
   name: string;
   url: string;
 }
+
+export enum NonNormalResult {
+  Abnormal = 'abnormal',
+  Inconclusive = 'inconclusive',
+  Neutral = 'neutral',
+}
+export type NonNormalResultContained = NonNormalResult[] | undefined;
 export interface ExternalLabOrderResultConfig extends LabOrderPDFDetail {
-  containsAbnormalResult: boolean;
+  nonNormalResultContained: NonNormalResultContained;
   orderNumber?: string;
 }
 
@@ -42,7 +49,7 @@ export interface EncounterExternalLabResult {
 }
 
 export interface InHouseLabResult extends LabOrderPDFDetail {
-  containsAbnormalResult: boolean;
+  nonNormalResultContained: NonNormalResultContained;
   // if the test has one result, we can display what was recorded
   // if more than one result (like Urinalysis) no result value will be displayed
   // todo not implemented, displaying this is a post mvp feature

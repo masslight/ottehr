@@ -73,7 +73,7 @@
     },
     "PROJECT_ID": {
       "name": "PROJECT_ID",
-      "value": "#{ref/project/PROJECT/id}",
+      "value": "#{var/PROJECT_ID}",
       "legacyValue": "#{var/PROJECT_ID}"
     },
     "SENTRY_AUTH_TOKEN": {
@@ -835,8 +835,7 @@
       "zip": ".dist/zips/sub-send-claim.zip",
       "subscription": {
         "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/claim-sync|send-claim&status=requested",
-        "reason": "in person communication",
-        "event": "create"
+        "reason": "send claim"
       }
     },
     "SUB-VISIT-NOTE-PDF-AND-EMAIL": {
@@ -976,6 +975,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/schedules/create-schedule/index",
       "zip": ".dist/zips/create-schedule.zip"
+    },
+    "RECOMMEND-BILLING-CODES": {
+      "name": "recommend-billing-codes",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/recommend-billing-codes/index",
+      "zip": ".dist/zips/recommend-billing-codes.zip"
     },
     "AI-INTERVIEW-SUMMARY": {
       "name": "ai-interview-summary",
@@ -1185,6 +1191,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/visit-details/update-visit-details/index",
       "zip": ".dist/zips/ehr-update-visit-details.zip"
+    },
+    "INVOICEABLE_PATIENTS_REPORT": {
+      "name": "invoiceable-patients-report",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/invoiceable-patients-report/index",
+      "zip": ".dist/zips/invoiceable-patients-report.zip"
     }
   },
   "faxNumbers": {
@@ -1347,6 +1360,18 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-CLAIM/id}"
+        }
+      }
+    },
+    "SUB_VISIT_NOTE_PDF_AND_EMAIL_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "send visit note PDF and email",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email|visit-note-pdf-and-email&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-VISIT-NOTE-PDF-AND-EMAIL/id}"
         },
         "extension": [
           {
@@ -1355,22 +1380,6 @@
           }
         ]
       }
-    },
-    "SUB_VISIT_NOTE_PDF_AND_EMAIL_SUBSCRIPTION": {
-      "resourceType": "Subscription",
-      "status": "active",
-      "reason": "send visit note PDF and email",
-      "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email|visit-note-pdf-and-email&status=requested",
-      "channel": {
-        "type": "rest-hook",
-        "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-VISIT-NOTE-PDF-AND-EMAIL/id}"
-      },
-      "extension": [
-        {
-          "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
-          "valueString": "create"
-        }
-      ]
     },
     "SUB_CHECK_IN_TEXT_SUBSCRIPTION": {
       "resource": {
@@ -1511,6 +1520,9 @@
       }
     },
     "SCHEDULE_TELEMED_NJ": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1562,6 +1574,9 @@
       }
     },
     "SCHEDULE_TELEMED_OH": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1703,6 +1718,9 @@
       }
     },
     "SCHEDULE_PHYSICAL_NY": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1854,6 +1872,9 @@
       }
     },
     "SCHEDULE_PHYSICAL_CA": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1915,7 +1936,12 @@
             ]
           }
         ]
-      }
+      },
+      "managedFields": [
+        "name",
+        "active",
+        "identifier"
+      ]
     },
     "PRACTITIONER_EXAMPLE_1": {
       "resource": {
@@ -5448,6 +5474,9 @@
       }
     },
     "SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_1": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -5469,6 +5498,9 @@
       }
     },
     "SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_2": {
+      "managedFields": [
+        "actor"
+      ],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -5506,7 +5538,8 @@
         "name": "Issue Report Recipients",
         "member": [],
         "actual": true
-      }
+      },
+      "managedFields": ["name"]
     },
     "DEFAULT_BILLING_RESOURCE": {
       "resource": {
@@ -5555,14 +5588,12 @@
     "PATIENT_PORTAL": {
       "name": "#{var/PATIENT_APP_NAME}",
       "description": "Patient Portal application with sms authentication",
-      "loginRedirectUri": "https://intake-local.ottehr.com/patients",
+      "loginRedirectUri": "#{var/PATIENT_LOGIN_REDIRECT_URL}",
       "allowedCallbackUrls": [
         "#{var/PATIENT_ALLOWED_URL_1}",
         "#{var/PATIENT_ALLOWED_URL_2}",
         "#{var/PATIENT_ALLOWED_URL_3}",
-        "#{var/PATIENT_ALLOWED_URL_4}",
-        "#{var/PATIENT_ALLOWED_URL_5}",
-        "#{var/PATIENT_ALLOWED_URL_6}"
+        "#{var/PATIENT_ALLOWED_URL_4}"
       ],
       "allowedLogoutUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
       "allowedWebOriginsUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
@@ -5577,17 +5608,16 @@
     "OTTEHR_EHR": {
       "name": "#{var/EHR_APP_NAME}",
       "description": "EHR application with email authentication",
-      "loginRedirectUri": "https://ehr-local.ottehr.com/dashboard",
+      "loginRedirectUri": "#{var/PROVIDER_LOGIN_REDIRECT_URL}",
       "allowedCallbackUrls": [
         "#{var/PROVIDER_ALLOWED_URL_1}",
-        "#{var/PROVIDER_ALLOWED_URL_2}",
-        "#{var/PROVIDER_ALLOWED_URL_3}",
-        "#{var/PROVIDER_ALLOWED_URL_4}"
+        "#{var/PROVIDER_ALLOWED_URL_2}"
       ],
-      "allowedLogoutUrls": ["#{var/PROVIDER_ALLOWED_URL_1}", "#{var/PROVIDER_ALLOWED_URL_3}"],
-      "allowedWebOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}", "#{var/PROVIDER_ALLOWED_URL_3}"],
-      "allowedCORSOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}", "#{var/PROVIDER_ALLOWED_URL_3}"],
-      "shouldSendInviteEmail": true
+      "allowedLogoutUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
+      "allowedWebOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
+      "allowedCORSOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
+      "shouldSendInviteEmail": true,
+      "logoUri": "#{var/PROVIDER_APP_LOGO_URI}"
     }
   },
   "m2ms": {
@@ -5637,19 +5667,19 @@
         },
         {
           "resource": [
-            "Z3:#{ref/project/PROJECT/id}-photo-id-cards/*",
-            "Z3:#{ref/project/PROJECT/id}-insurance-cards/*",
-            "Z3:#{ref/project/PROJECT/id}-school-work-note-templates/*",
-            "Z3:#{ref/project/PROJECT/id}-patient-photos/*",
-            "Z3:#{ref/project/PROJECT/id}-consent-forms/*",
-            "Z3:#{ref/project/PROJECT/id}-visit-notes/*",
-            "Z3:#{ref/project/PROJECT/id}-receipts/*",
-            "Z3:#{ref/project/PROJECT/id}-school-work-notes/*",
-            "Z3:#{ref/project/PROJECT/id}-privacy-policy/*",
-            "Z3:#{ref/project/PROJECT/id}-audio-recordings/*",
-            "Z3:#{ref/project/PROJECT/id}-exported-questionnaires/*",
-            "Z3:#{ref/project/PROJECT/id}-discharge-summaries/*",
-            "Z3:#{ref/project/PROJECT/id}-labs/*"
+            "Z3:#{var/PROJECT_ID}-photo-id-cards/*",
+            "Z3:#{var/PROJECT_ID}-insurance-cards/*",
+            "Z3:#{var/PROJECT_ID}-school-work-note-templates/*",
+            "Z3:#{var/PROJECT_ID}-patient-photos/*",
+            "Z3:#{var/PROJECT_ID}-consent-forms/*",
+            "Z3:#{var/PROJECT_ID}-visit-notes/*",
+            "Z3:#{var/PROJECT_ID}-receipts/*",
+            "Z3:#{var/PROJECT_ID}-school-work-notes/*",
+            "Z3:#{var/PROJECT_ID}-privacy-policy/*",
+            "Z3:#{var/PROJECT_ID}-audio-recordings/*",
+            "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
+            "Z3:#{var/PROJECT_ID}-discharge-summaries/*",
+            "Z3:#{var/PROJECT_ID}-labs/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject"],
           "effect": "Allow"
@@ -5675,7 +5705,8 @@
           "action": ["*"],
           "effect": "Allow"
         }
-      ]
+      ],
+      "roles": ["#{ref/roles/PROVIDER/id}"]
     }
   },
   "roles": {
@@ -5727,6 +5758,11 @@
           ],
           "action": ["Zambda:InvokeFunction"],
           "effect": "Allow"
+        },
+        {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
         },
         {
           "action": ["Telemed:JoinMeeting"],
@@ -5845,23 +5881,6 @@
       "name": "Customer Support",
       "accessPolicy": [
         {
-          "action": ["FHIR:Search", "FHIR:Read"],
-          "effect": "Allow",
-          "resource": [
-            "FHIR:Consent",
-            "FHIR:Coverage",
-            "FHIR:RelatedPerson",
-            "FHIR:Organization",
-            "FHIR:QuestionnaireResponse",
-            "FHIR:Questionnaire",
-            "FHIR:DocumentReference",
-            "FHIR:Person",
-            "FHIR:Medication",
-            "FHIR:List",
-            "FHIR:Schedule"
-          ]
-        },
-        {
           "action": ["App:ListAllUsers", "App:GetUser"],
           "effect": "Allow",
           "resource": ["App:User"]
@@ -5931,6 +5950,11 @@
           "effect": "Allow"
         },
         {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
+        },
+        {
           "resource": [
             "FHIR:Consent",
             "FHIR:Coverage",
@@ -5967,11 +5991,6 @@
           "resource": ["Z3:*"],
           "action": ["Z3:GetObject"],
           "effect": "Allow"
-        },
-        {
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Allow",
-          "resource": ["Zambda:Function:*"]
         },
         {
           "action": ["FHIR:Read", "FHIR:Update"],
@@ -6021,11 +6040,6 @@
             "FHIR:Patient",
             "FHIR:RelatedPerson"
           ]
-        },
-        {
-          "resource": ["Zambda:Function:*"],
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Allow"
         }
       ]
     },
@@ -6089,6 +6103,11 @@
           "resource": ["Zambda:Function:*"]
         },
         {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
+        },
+        {
           "action": ["FHIR:Read", "FHIR:Update"],
           "effect": "Allow",
           "resource": ["FHIR:Practitioner"]
@@ -6122,11 +6141,6 @@
           "action": ["FHIR:Search", "FHIR:Read"],
           "effect": "Allow",
           "resource": ["FHIR:List"]
-        },
-        {
-          "resource": ["Zambda:Function:*"],
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Allow"
         },
         {
           "action": ["eRx:SearchAllergen"],
@@ -6163,7 +6177,7 @@
           "effect": "Allow"
         },
         {
-          "resource": ["FHIR:Appointment", "FHIR:Encounter", "FHIR:Patient", "FHIR:Flag"],
+          "resource": ["FHIR:Appointment", "FHIR:Encounter", "FHIR:Patient", "FHIR:Flag", "FHIR:Task"],
           "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update"],
           "effect": "Allow"
         },
@@ -6176,6 +6190,11 @@
           "action": ["Zambda:InvokeFunction"],
           "effect": "Allow",
           "resource": ["Zambda:Function:*"]
+        },
+        {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
         },
         {
           "action": ["FHIR:Read", "FHIR:Update"],
@@ -6201,11 +6220,6 @@
           "action": ["FHIR:History"],
           "effect": "Allow",
           "resource": ["FHIR:Patient", "FHIR:Appointment"]
-        },
-        {
-          "resource": ["Zambda:Function:*"],
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Allow"
         }
       ]
     },
@@ -6236,7 +6250,14 @@
           "effect": "Allow"
         },
         {
-          "resource": ["FHIR:Appointment", "FHIR:Encounter", "FHIR:Patient", "FHIR:Flag", "FHIR:QuestionnaireResponse"],
+          "resource": [
+            "FHIR:Appointment",
+            "FHIR:Encounter",
+            "FHIR:Patient",
+            "FHIR:Flag",
+            "FHIR:QuestionnaireResponse",
+            "FHIR:Task"
+          ],
           "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update"],
           "effect": "Allow"
         },
@@ -6254,6 +6275,11 @@
           "action": ["Zambda:InvokeFunction"],
           "effect": "Allow",
           "resource": ["Zambda:Function:*"]
+        },
+        {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
         },
         {
           "action": ["FHIR:Read", "FHIR:Update"],
@@ -6303,11 +6329,6 @@
             "FHIR:Patient",
             "FHIR:RelatedPerson"
           ]
-        },
-        {
-          "resource": ["Zambda:Function:*"],
-          "action": ["Zambda:InvokeFunction"],
-          "effect": "Allow"
         }
       ]
     },
@@ -6343,49 +6364,67 @@
           "resource": ["Zambda:Function:*"],
           "action": ["Zambda:InvokeFunction"],
           "effect": "Allow"
+        },
+        {
+          "resource": ["Zambda:Function:invoiceable-patients-report"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Deny"
         }
       ]
     }
   },
   "buckets": {
     "VISIT_NOTES": {
-      "name": "#{ref/project/PROJECT/id}-visit-notes"
+      "name": "#{var/PROJECT_ID}-visit-notes",
+      "removalPolicy": "retain"
     },
     "CONSENT_FORMS": {
-      "name": "#{ref/project/PROJECT/id}-consent-forms"
+      "name": "#{var/PROJECT_ID}-consent-forms",
+      "removalPolicy": "retain"
     },
     "PRIVACY_POLICY": {
-      "name": "#{ref/project/PROJECT/id}-privacy-policy"
+      "name": "#{var/PROJECT_ID}-privacy-policy",
+      "removalPolicy": "retain"
     },
     "INSURANCE_CARDS": {
-      "name": "#{ref/project/PROJECT/id}-insurance-cards"
+      "name": "#{var/PROJECT_ID}-insurance-cards",
+      "removalPolicy": "retain"
     },
     "PHOTO_ID_CARDS": {
-      "name": "#{ref/project/PROJECT/id}-photo-id-cards"
+      "name": "#{var/PROJECT_ID}-photo-id-cards",
+      "removalPolicy": "retain"
     },
     "PATIENT_PHOTOS": {
-      "name": "#{ref/project/PROJECT/id}-patient-photos"
+      "name": "#{var/PROJECT_ID}-patient-photos",
+      "removalPolicy": "retain"
     },
     "SCHOOL_WORK_NOTES": {
-      "name": "#{ref/project/PROJECT/id}-school-work-notes"
+      "name": "#{var/PROJECT_ID}-school-work-notes",
+      "removalPolicy": "retain"
     },
     "SCHOOL_WORK_NOTE_TEMPLATES": {
-      "name": "#{ref/project/PROJECT/id}-school-work-note-templates"
+      "name": "#{var/PROJECT_ID}-school-work-note-templates",
+      "removalPolicy": "retain"
     },
     "AUDIO-RECORDINGS": {
-      "name": "#{ref/project/PROJECT/id}-audio-recordings"
+      "name": "#{var/PROJECT_ID}-audio-recordings",
+      "removalPolicy": "retain"
     },
     "LABS": {
-      "name": "#{ref/project/PROJECT/id}-labs"
+      "name": "#{var/PROJECT_ID}-labs",
+      "removalPolicy": "retain"
     },
     "RECEIPTS": {
-      "name": "#{ref/project/PROJECT/id}-receipts"
+      "name": "#{var/PROJECT_ID}-receipts",
+      "removalPolicy": "retain"
     },
     "PAPERWORK": {
-      "name": "#{ref/project/PROJECT/id}-exported-questionnaires"
+      "name": "#{var/PROJECT_ID}-exported-questionnaires",
+      "removalPolicy": "retain"
     },
     "DISCHARGE_SUMMARIES": {
-      "name": "#{ref/project/PROJECT/id}-discharge-summaries"
+      "name": "#{var/PROJECT_ID}-discharge-summaries",
+      "removalPolicy": "retain"
     }
   },
   "labRoutes": {

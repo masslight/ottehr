@@ -396,24 +396,29 @@ export const useGetPatientDetailsUpdateForm = (
 ): UseQueryResult<Questionnaire, Error> => {
   const { oystehr } = useApiClients();
 
-  const { url, version } = ehrInsuranceUpdateFormJson.fhirResources['questionnaire-ehr-insurance-update'].resource;
+  const questionnaire = Object.values(ehrInsuranceUpdateFormJson.fhirResources).find(
+    (q) =>
+      q.resource.resourceType === 'Questionnaire' &&
+      q.resource.status === 'active' &&
+      q.resource.url.includes('ehr-insurance-update-questionnaire')
+  );
 
   const queryResult = useQuery({
     queryKey: ['patient-update-form'],
 
     queryFn: async () => {
-      if (oystehr) {
+      if (oystehr && questionnaire) {
         const searchResults = (
           await oystehr.fhir.search<Questionnaire>({
             resourceType: 'Questionnaire',
             params: [
               {
                 name: 'url',
-                value: url,
+                value: questionnaire.resource.url,
               },
               {
                 name: 'version',
-                value: version,
+                value: questionnaire.resource.version,
               },
             ],
           })
@@ -428,8 +433,7 @@ export const useGetPatientDetailsUpdateForm = (
       }
     },
 
-    enabled:
-      Boolean(oystehr) && Boolean(ehrInsuranceUpdateFormJson.fhirResources['questionnaire-ehr-insurance-update']),
+    enabled: Boolean(oystehr) && Boolean(questionnaire),
   });
 
   useSuccessQuery(queryResult.data, onSuccess);

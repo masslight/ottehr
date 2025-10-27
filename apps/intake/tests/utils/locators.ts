@@ -318,7 +318,7 @@ export class Locators {
     // Payment, insurance locators
     this.selfPayOption = page.getByLabel('I will pay without insurance');
     this.insuranceOption = page.getByLabel('I have insurance');
-    this.insuranceHeading = page.getByText('Insurance details');
+    this.insuranceHeading = page.getByText('We use this information to help determine your coverage and costs.');
     this.insuranceCarrier = page.locator("[id='insurance-carrier']");
     this.insuranceCarrierFirstOption = page.locator("[id='insurance-carrier-option-0']");
     this.insuranceMemberID = page.locator("[id='insurance-member-id']");

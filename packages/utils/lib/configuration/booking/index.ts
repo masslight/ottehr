@@ -27,8 +27,18 @@ const REASON_FOR_VISIT_OPTIONS = Object.freeze([
 ]);
 
 export const intakeQuestionnaireUrls: Readonly<Array<string>> = (() => {
-  const inPersonUrl = inPersonIntakeQuestionnaireJson.fhirResources['questionnaire-in-person-previsit'].resource.url;
-  const virtualUrl = virtualIntakeQuestionnaireJson.fhirResources['questionnaire-virtual-previsit'].resource.url;
+  const inPersonUrl = Object.values(inPersonIntakeQuestionnaireJson.fhirResources).find(
+    (q) =>
+      q.resource.resourceType === 'Questionnaire' &&
+      q.resource.status === 'active' &&
+      q.resource.url.includes('intake-paperwork-inperson')
+  )?.resource.url;
+  const virtualUrl = Object.values(virtualIntakeQuestionnaireJson.fhirResources).find(
+    (q) =>
+      q.resource.resourceType === 'Questionnaire' &&
+      q.resource.status === 'active' &&
+      q.resource.url.includes('intake-paperwork-virtual')
+  )?.resource.url;
   const urls = new Array<string>();
   if (inPersonUrl) {
     urls.push(inPersonUrl);
@@ -38,9 +48,19 @@ export const intakeQuestionnaireUrls: Readonly<Array<string>> = (() => {
   }
   return urls;
 })();
+const CANCEL_REASON_OPTIONS = Object.freeze([
+  'Patient improved',
+  'Wait time too long',
+  'Prefer another provider',
+  'Changing location',
+  'Changing to telemedicine',
+  'Financial responsibility concern',
+  'Insurance issue',
+]);
 
 const BOOKING_DEFAULTS = Object.freeze({
   reasonForVisitOptions: REASON_FOR_VISIT_OPTIONS,
+  cancelReasonOptions: CANCEL_REASON_OPTIONS,
   intakeQuestionnaireUrls,
 });
 

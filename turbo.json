@@ -5,6 +5,10 @@
       "cache": false,
       "persistent": true
     },
+    "start:iac": {
+      "cache": false,
+      "persistent": true
+    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "build/**", ".dist/**"]

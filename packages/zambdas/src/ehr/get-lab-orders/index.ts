@@ -97,10 +97,6 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('get-lab-orders', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: `Error fetching external lab orders: ${error}` }),
-    };
+    return topLevelCatch('get-lab-orders', error, ENVIRONMENT);
   }
 });

@@ -19,6 +19,7 @@ import {
   EHRVisitDetails,
   FHIR_RESOURCE_NOT_FOUND,
   flattenQuestionnaireAnswers,
+  getAttestedConsentFromEncounter,
   getConsentAndRelatedDocRefsForAppointment,
   getEmailForIndividual,
   getFullestAvailableName,
@@ -97,6 +98,8 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     responsiblePartyEmail = getEmailForIndividual(guarantorResource) || null;
   }
 
+  const consentIsAttested = getAttestedConsentFromEncounter(encounter) ? true : false;
+
   const output: EHRVisitDetails = {
     appointment,
     patient,
@@ -109,6 +112,7 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     visitLocationId: location?.id,
     responsiblePartyName,
     responsiblePartyEmail,
+    consentIsAttested,
   };
 
   if (schedule) {

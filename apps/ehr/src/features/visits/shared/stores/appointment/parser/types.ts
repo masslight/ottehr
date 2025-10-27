@@ -1,4 +1,5 @@
 import { Appointment, Encounter, Location, Patient } from 'fhir/r4b';
+import { PaymentVariant } from 'utils';
 import { FillingOutAs, Gender } from './constants';
 
 export type VisitDataAndMappedData = {
@@ -66,7 +67,11 @@ export type LocationValues = Partial<
   }
 >;
 
-export type EncounterValues = Partial<Pick<Encounter, 'id' | 'status'>>;
+export type EncounterValues = Partial<
+  Pick<Encounter, 'id' | 'status'> & {
+    payment: PaymentVariant;
+  }
+>;
 
 export type QuestionnaireResponseValues = Partial<{
   willBe18: boolean;

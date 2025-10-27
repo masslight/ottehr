@@ -512,16 +512,26 @@ function parseExamFieldsFromExamObservations(
 
         case 'multi-select': {
           if (isMultiSelectComponent(component)) {
+            const selectedOptions: { field: string; label: string; abnormal: boolean }[] = [];
             Object.entries(component.options).forEach(([optionName, option]) => {
               const observation = examObservations[optionName];
               if (observation && typeof observation.value === 'boolean' && observation.value === true) {
-                items.push({
+                selectedOptions.push({
                   field: optionName,
                   label: `${component.label}: ${option.label}`,
                   abnormal: section === 'abnormal',
                 });
               }
             });
+            const observation = examObservations[fieldName];
+            if (observation && observation.value === true && selectedOptions.length === 0) {
+              items.push({
+                field: fieldName,
+                label: component.label,
+                abnormal: section === 'abnormal',
+              });
+            }
+            items.push(...selectedOptions);
           }
           break;
         }

@@ -908,6 +908,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       if (linkId === 'insurance-card-back-2' && secondaryInsuranceCardBackDocumentReference) {
         answer = makeAnswer(secondaryInsuranceCardBack, 'Attachment');
       }
+      if (linkId === 'display-secondary-insurance') {
+        answer = secondary ? makeAnswer(true, 'Boolean') : makeAnswer(false, 'Boolean');
+      }
 
       return {
         linkId,

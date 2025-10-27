@@ -191,22 +191,14 @@ export const usePatientsSearch = (): {
   // run search on url params change
   useEffect(() => {
     const hasSearchParams = [...searchParams.entries()].length > 0;
-    const hasFilters = Object.values(searchOptions.filters).some(
-      (value) => value && value !== 'All' && value.toString().trim() !== ''
-    );
 
-    if (hasSearchParams || hasFilters) {
+    if (hasSearchParams) {
       const loadPatients = async (): Promise<void> => {
         setArePatientsLoading(true);
         try {
-          // Use current searchOptions state if URL params are empty but filters exist
-          const filter: Partial<SearchOptionsFilters> = hasSearchParams
-            ? getFiltersFromUrl(searchParams)
-            : searchOptions.filters;
-          const sort: SearchOptionsSort = hasSearchParams ? getSortFromUrl(searchParams) : searchOptions.sort;
-          const pagination: SearchOptionsPagination = hasSearchParams
-            ? getPaginationFromUrl(searchParams)
-            : searchOptions.pagination;
+          const filter: Partial<SearchOptionsFilters> = getFiltersFromUrl(searchParams);
+          const sort: SearchOptionsSort = getSortFromUrl(searchParams);
+          const pagination: SearchOptionsPagination = getPaginationFromUrl(searchParams);
 
           let url = buildSearchQuery(filter);
           url = addSearchSort(url, sort);
@@ -214,17 +206,15 @@ export const usePatientsSearch = (): {
           url = `${import.meta.env.VITE_APP_FHIR_API_URL}/${url}`;
 
           await fetchPatients({ searchUrl: url, setSearchResult, setArePatientsLoading, getAccessTokenSilently });
-        } catch (error) {
+        } catch {
           setSearchResult(emptySearchResult);
-          const message = error instanceof Error ? error.message : 'An error occurred while searching';
-          enqueueSnackbar(message, { variant: 'error' });
         } finally {
           setArePatientsLoading(false);
         }
       };
       void loadPatients();
     }
-  }, [getAccessTokenSilently, searchParams, searchOptions]);
+  }, [getAccessTokenSilently, searchParams]);
 
   return {
     searchResult,

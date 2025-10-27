@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import {
   Coverage,
   CoverageEligibilityRequest,
@@ -118,6 +119,7 @@ export const parseEligibilityCheckResponsePromiseResult = async (
     return parseCoverageEligibilityResponse(coverageResponse);
   } catch (error: any) {
     console.error('API response included an error', error);
+    captureException(error);
     return { status: InsuranceEligibilityCheckStatus.eligibilityNotChecked, dateISO: now };
   }
 };

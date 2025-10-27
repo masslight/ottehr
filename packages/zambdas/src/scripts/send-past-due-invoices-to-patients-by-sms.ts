@@ -45,6 +45,18 @@ ${shortInvoiceLink}`;
   // console.log('💬 SMS Message:\n', invoiceMessage);
 }
 
+async function sendDelinquentPastDueInvoiceBySMS(
+  oystehr: Oystehr,
+  resourceId: string,
+  invoiceLink: string
+): Promise<void> {
+  const shortInvoiceLink = invoiceLink; //await shortenURL(invoiceLink);
+  const invoiceMessage = `Friendly reminder: your UrgiKids balance is still outstanding. Please submit payment using the link below to keep your account in good standing:\n
+${shortInvoiceLink}`;
+  await sendSMSMessage(oystehr, resourceId, invoiceMessage);
+  // console.log('💬 SMS Message:\n', invoiceMessage);
+}
+
 interface StripeInvoice {
   invoiceId: string;
   customerId: string;
@@ -528,7 +540,7 @@ async function main(): Promise<void> {
     }
   }
 
-  // Process Collections invoices (no SMS, just report)
+  // Process Collections invoices (send delinquent SMS and report)
   console.log(`\n🏢 Processing ${collectionsPatientIds.length} patients for collections referral...`);
 
   for (let i = 0; i < collectionsPatientIds.length; i++) {
@@ -581,6 +593,9 @@ async function main(): Promise<void> {
         cardOnFile = `${pm.brand?.toUpperCase()} ****${pm.last4}`;
       }
 
+      // Send delinquent SMS reminder
+      await sendDelinquentPastDueInvoiceBySMS(oystehr, patientId, invoiceInfo.invoiceLink);
+
       // Add data to CSV report
       csvReportData.push({
         firstName: firstName,
@@ -593,8 +608,14 @@ async function main(): Promise<void> {
           : 'No appointments',
         cardOnFile: cardOnFile,
         invoiceLink: invoiceInfo.invoiceLink,
-        collectionsStatus: 'Refer to Collections', // Mark for collections
+        collectionsStatus: 'Delinquent SMS Sent', // Mark as delinquent SMS sent
       });
+
+      // Add delay between SMS sends to avoid rate limiting
+      if (i < collectionsPatientIds.length - 1) {
+        console.log('⏳ Waiting 2 seconds before next SMS...');
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
     } catch (error) {
       console.error(`❌ Failed to process collections patient ${patientId}:`, error);
 
@@ -608,7 +629,7 @@ async function main(): Promise<void> {
         appointmentDate: 'Error',
         cardOnFile: 'Error',
         invoiceLink: invoiceInfo.invoiceLink,
-        collectionsStatus: 'Collections Error', // Mark as error
+        collectionsStatus: 'Delinquent SMS Failed', // Mark as SMS failed
       });
     }
   }
