@@ -41,17 +41,18 @@ export const MOBILE_MODAL_STYLE = {
   p: 4,
 };
 
-export const TYPE_WIDTH_MIN = '120px';
-export const TIME_WIDTH_MIN = '96px';
-export const PATIENT_AND_REASON_WIDTH_MIN = '180px';
-export const ROOM_WIDTH_MIN = '42px';
-export const PROVIDER_WIDTH_MIN = '120px';
-export const VISIT_ICONS_WIDTH_MIN = '150px';
-export const NOTES_WIDTH_MIN = '150px';
-export const CHAT_WIDTH_MIN = '42px';
-export const GO_TO_ONE_BUTTON_WIDTH_MIN = '90px';
-export const GO_TO_MANY_BUTTONS_WIDTH_MIN = '270px';
-export const ACTION_WIDTH_MIN = '110px';
+export const TYPE_WIDTH_MIN = '160px';
+export const TIME_WIDTH_MIN = '140px';
+export const PATIENT_AND_REASON_WIDTH_MIN = '300px';
+export const ROOM_WIDTH_MIN = '120px';
+export const PROVIDER_WIDTH_MIN = '140px';
+export const VISIT_ICONS_WIDTH_MIN = '160px';
+export const VITALS_ICON_WIDTH_MIN = '90px';
+export const NOTES_WIDTH_MIN = '220px';
+export const CHAT_WIDTH_MIN = '80px';
+export const GO_TO_ONE_BUTTON_WIDTH_MIN = '160px';
+export const GO_TO_MANY_BUTTONS_WIDTH_MIN = '400px';
+export const ACTION_WIDTH_MIN = '130px';
 
 // Constants for default page sizes. Could also consider adding constants for the page size options
 export const LOCATION_ROWS_PER_PAGE = 25;
