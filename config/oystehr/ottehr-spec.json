@@ -1225,10 +1225,6 @@
           {
             "system": "https://identifiers.fhir.oystehr.com/lab-guid",
             "value": "#{var/lab-autolab-lab-id}"
-          },
-          {
-            "system": "https://identifiers.fhir.oystehr.com/lab-account-number",
-            "value": "#{var/lab-autolab-account-number}"
           }
         ],
         "type": [
@@ -1615,6 +1611,14 @@
           {
             "system": "https://fhir.ottehr.com/r4/slug",
             "value": "NewYork-NY"
+          },
+          {
+            "system": "https://identifiers.fhir.oystehr.com/lab-account-number",
+            "value": "#{var/lab-autolab-account-number}",
+            "assigner": {
+              "type": "Organization",
+              "reference": "#{ref/fhirResources/AUTOLAB_ORGANIZATION/type}/#{ref/fhirResources/AUTOLAB_ORGANIZATION/id}"
+            }
           }
         ],
         "telecom": [
@@ -1769,6 +1773,14 @@
           {
             "system": "https://fhir.ottehr.com/r4/slug",
             "value": "LosAngeles-CA"
+          },
+          {
+            "system": "https://identifiers.fhir.oystehr.com/lab-account-number",
+            "value": "#{var/lab-autolab-account-number}",
+            "assigner": {
+              "type": "Organization",
+              "reference": "#{ref/fhirResources/AUTOLAB_ORGANIZATION/type}/#{ref/fhirResources/AUTOLAB_ORGANIZATION/id}"
+            }
           }
         ],
         "telecom": [

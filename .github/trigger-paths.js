@@ -34,6 +34,8 @@ const PATHS = {
 
   intakeAppDir: 'apps/intake/',
   ehrAppDir: 'apps/ehr/',
+
+  iacConfigDir: 'config/oystehr/',
 };
 
 const intakeTriggers = [
@@ -53,6 +55,7 @@ const e2eCommonTriggers = [
   PATHS.zambdasSharedDir,
   PATHS.zambdasScriptsDir,
   PATHS.zambdaSubscriptionsDir,
+  PATHS.iacConfigDir,
 ];
 
 const e2eIntakeTriggers = [
