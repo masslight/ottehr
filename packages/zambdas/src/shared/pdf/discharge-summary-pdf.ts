@@ -328,8 +328,9 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
   const callIcon = await pdfClient.embedImage(fs.readFileSync('./assets/call.png'));
 
   // result flag icons
-  const inconclusive = await pdfClient.embedImage(fs.readFileSync('./assets/inconclusive.png'));
-  const abnormal = await pdfClient.embedImage(fs.readFileSync('./assets/abnormal.png'));
+  const inconclusiveIcon = await pdfClient.embedImage(fs.readFileSync('./assets/inconclusive.png'));
+  const abnormalIcon = await pdfClient.embedImage(fs.readFileSync('./assets/abnormal.png'));
+  const normalIcon = await pdfClient.embedImage(fs.readFileSync('./assets/normal.png'));
 
   const textStyles: Record<string, TextStyle> = {
     header: {
@@ -542,19 +543,19 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     nonNormalResultContained: NonNormalResultContained,
     labType: 'inhouse' | 'external'
   ): void => {
+    const resultFlagIconStyle = { ...ICON_STYLE, margin: { left: 5, right: 5 } };
     if (nonNormalResultContained && nonNormalResultContained.length > 0) {
       const flagsExcludingNeutral = getFlagsExcludingNeutral(nonNormalResultContained);
       if (flagsExcludingNeutral?.length) {
         flagsExcludingNeutral.forEach((flag, idx) => {
           const lastFlag = flagsExcludingNeutral?.length === idx + 1;
           const style = lastFlag ? textStyles.regular : regularTextNoLineAfter;
-          const resultFlagIconStyle = { ...ICON_STYLE, margin: { left: 5, right: 5 } };
 
           if (flag === NonNormalResult.Abnormal) {
-            pdfClient.drawImage(abnormal, resultFlagIconStyle, regularTextNoLineAfter);
+            pdfClient.drawImage(abnormalIcon, resultFlagIconStyle, regularTextNoLineAfter);
             pdfClient.drawTextSequential('Abnormal', { ...style, color: rgbNormalized(237, 108, 2) }, getCurBounds());
           } else if (flag === NonNormalResult.Inconclusive) {
-            pdfClient.drawImage(inconclusive, resultFlagIconStyle, regularTextNoLineAfter);
+            pdfClient.drawImage(inconclusiveIcon, resultFlagIconStyle, regularTextNoLineAfter);
             pdfClient.drawTextSequential(
               'Inconclusive',
               { ...style, color: rgbNormalized(117, 117, 117) },
@@ -564,8 +565,8 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
         });
       }
     } else if (labType === 'inhouse') {
-      // todo sarah we need a file for the green check mark
       // too hairy to assume normal results for external labs so we will only do this for inhouse
+      pdfClient.drawImage(normalIcon, resultFlagIconStyle, regularTextNoLineAfter);
       pdfClient.drawTextSequential(
         'Normal',
         { ...textStyles.regular, color: rgbNormalized(46, 125, 50) },
