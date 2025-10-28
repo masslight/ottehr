@@ -50,8 +50,8 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
   // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
-  const RETRY_COUNT = 5;
-  const FIRST_DELAY_MS = 1000;
+  const RETRY_COUNT = 3;
+  const FIRST_DELAY_MS = 3000;
   const JITTER_PERCENT = 0.01;
 
   const backoffTimes = Array.from({ length: RETRY_COUNT }, (_, i) =>
