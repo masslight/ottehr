@@ -28,6 +28,7 @@ export const LAB_ORDER_TASK = {
   },
   input: {
     testName: 'test-name',
+    labName: 'lab-name',
     patientName: 'patient-name',
     providerName: 'provider-name',
     orderDate: 'order-date',

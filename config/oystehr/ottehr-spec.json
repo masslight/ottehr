@@ -1122,6 +1122,13 @@
       "src": "src/ehr/chart-data/vitals/get/index",
       "zip": ".dist/zips/get-vitals.zip"
     },
+    "GET-VITALS-FOR-LIST-OF-ENCOUNTERS": {
+      "name": "get-vitals-for-list-of-encounters",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/chart-data/vitals/get-for-list-of-encounters/index",
+      "zip": ".dist/zips/get-vitals-for-list-of-encounters.zip"
+    },
     "CREATE-UPDATE-IMMUNIZATION_ORDER": {
       "name": "create-update-immunization-order",
       "type": "http_auth",
@@ -1225,10 +1232,6 @@
           {
             "system": "https://identifiers.fhir.oystehr.com/lab-guid",
             "value": "#{var/lab-autolab-lab-id}"
-          },
-          {
-            "system": "https://identifiers.fhir.oystehr.com/lab-account-number",
-            "value": "#{var/lab-autolab-account-number}"
           }
         ],
         "type": [
@@ -1615,6 +1618,14 @@
           {
             "system": "https://fhir.ottehr.com/r4/slug",
             "value": "NewYork-NY"
+          },
+          {
+            "system": "https://identifiers.fhir.oystehr.com/lab-account-number",
+            "value": "#{var/lab-autolab-account-number}",
+            "assigner": {
+              "type": "Organization",
+              "reference": "#{ref/fhirResources/AUTOLAB_ORGANIZATION/type}/#{ref/fhirResources/AUTOLAB_ORGANIZATION/id}"
+            }
           }
         ],
         "telecom": [
@@ -1769,6 +1780,14 @@
           {
             "system": "https://fhir.ottehr.com/r4/slug",
             "value": "LosAngeles-CA"
+          },
+          {
+            "system": "https://identifiers.fhir.oystehr.com/lab-account-number",
+            "value": "#{var/lab-autolab-account-number}",
+            "assigner": {
+              "type": "Organization",
+              "reference": "#{ref/fhirResources/AUTOLAB_ORGANIZATION/type}/#{ref/fhirResources/AUTOLAB_ORGANIZATION/id}"
+            }
           }
         ],
         "telecom": [
