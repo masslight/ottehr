@@ -54,9 +54,8 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
   const FIRST_DELAY_MS = 1000;
   const JITTER_PERCENT = 0.01;
 
-  const backoffTimes = Array.from(
-    { length: RETRY_COUNT },
-    (_, i) => 2 ** i * FIRST_DELAY_MS * (1 - JITTER_PERCENT + Math.random() * JITTER_PERCENT * 2)
+  const backoffTimes = Array.from({ length: RETRY_COUNT }, (_, i) =>
+    i === 0 ? 0 : 2 ** (i - 1) * FIRST_DELAY_MS * (1 - JITTER_PERCENT + Math.random() * JITTER_PERCENT * 2)
   );
   const requests = backoffTimes.map(async (backoffTime) => {
     try {
