@@ -50,23 +50,36 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
   // call the vertex ai with fetch
   const GOOGLE_CLOUD_PROJECT_ID = getSecret(SecretsKeys.GOOGLE_CLOUD_PROJECT_ID, secrets);
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
-  const request = await fetch(
-    `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-2.5-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
-    {
-      method: 'POST',
-      // headers: {
-      //   Authorization: `Bearer ${GOOGLE_CLOUD_API_KEY}`,
-      //   // 'Content-Type': 'application/json',
-      // },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [input] }],
-        generationConfig: {
-          temperature: 0,
-        },
-      }),
-    }
+  const RETRY_COUNT = 5;
+  const FIRST_DELAY_MS = 1000;
+  const JITTER_PERCENT = 0.01;
+
+  const backoffTimes = Array.from(
+    { length: RETRY_COUNT },
+    (_, i) => 2 ** i * FIRST_DELAY_MS * (1 - JITTER_PERCENT + Math.random() * JITTER_PERCENT * 2)
   );
-  const response = await request.json();
+  const requests = backoffTimes.map(async (backoffTime) => {
+    try {
+      await new Promise((resolve) => setTimeout(resolve, backoffTime));
+      return fetch(
+        `https://aiplatform.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/locations/global/publishers/google/models/gemini-2.5-flash-lite:generateContent?key=${GOOGLE_CLOUD_API_KEY}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [input] }],
+            generationConfig: {
+              temperature: 0,
+            },
+          }),
+        }
+      );
+    } catch (error) {
+      console.error('Error invoking Vertex AI:', error);
+      captureException(error);
+      throw error;
+    }
+  });
+  const response = await (await Promise.any(requests)).json();
 
   console.log(JSON.stringify(response));
   return response.candidates[0].content.parts[0].text;
@@ -78,6 +91,10 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
     chatbot = new ChatAnthropic({
       model: 'claude-haiku-4-5-20251001',
       temperature: 0,
+      clientOptions: {
+        timeout: 10000, // 10 seconds (in milliseconds)
+        maxRetries: 5, // Number of retries on failure
+      },
     });
   }
   return chatbot.invoke(input);
