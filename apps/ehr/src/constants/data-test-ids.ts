@@ -342,6 +342,7 @@ export const dataTestIds = {
     secondaryDiagnosisLink: 'secondary-diagnosis-link',
     medicalDecisionLink: 'medical-decision-link',
     emCodeLink: 'em-code-link',
+    hpiLink: 'hpi-link',
     visitNoteCard: 'visit-note-card',
     procedureItem: 'procedure-item',
     vaccineItem: 'vaccine-item',

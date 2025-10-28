@@ -40,7 +40,6 @@ export type VisitMappedData = Partial<{
   hospitalizations: string[];
   allergies: string;
   weight: string;
-  activeInsurance: string;
 }>;
 
 export type AppointmentValues = Partial<Pick<Appointment, 'id' | 'start' | 'end' | 'status' | 'description'>> & {
