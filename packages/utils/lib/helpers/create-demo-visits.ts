@@ -478,7 +478,7 @@ const generateRandomPatientInfo = async (
   // create slot
   const createSlotInput: CreateSlotParams = {
     scheduleId: matchingSchedule.id,
-    startISO: serviceMode === ServiceMode['in-person'] ? now.startOf('hour').plus({ hours: 2 }).toISO() : now.toISO(),
+    startISO: serviceMode === ServiceMode['in-person'] ? now.startOf('hour').toISO() : now.toISO(),
     lengthInMinutes: 15,
     serviceModality: serviceMode,
     walkin: serviceMode === ServiceMode.virtual ? true : false,
