@@ -6,24 +6,19 @@ import {
   FormControlLabel,
   Radio,
   RadioGroup,
-  Skeleton,
   Snackbar,
   Typography,
   useTheme,
 } from '@mui/material';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { AddCreditCardForm } from 'ui-components';
 import { CreditCardInfo } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
 import { dataTestIds } from '../../../helpers/data-test-ids';
 import { otherColors } from '../../../IntakeThemeProvider';
-import {
-  useGetPaymentMethods,
-  useSetDefaultPaymentMethod,
-  useSetupPaymentMethod,
-} from '../../../telemed/features/paperwork/paperwork.queries';
+import { useSetDefaultPaymentMethod } from '../../../telemed/features/paperwork/paperwork.queries';
 import { usePaperworkContext } from '../context';
 
 const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
@@ -39,24 +34,26 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
   required,
   onChange,
 }) => {
-  const [cards, setCards] = useState<CreditCardInfo[]>([]);
-  const [selectedOption, setSelectedOption] = useState<string | undefined>(cards.find((card) => card.default)?.id);
-  const { patient } = usePaperworkContext();
+  const {
+    patient,
+    paymentMethods: cards,
+    refetchPaymentMethods,
+    stripeSetupData: setupData,
+    paymentMethodStateInitializing,
+    cardsAreLoading,
+  } = usePaperworkContext();
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
 
   const [pendingSelection, setPendingSelection] = useState<string | undefined>(undefined);
 
-  const { data: setupData, isFetching: isSetupDataLoading } = useSetupPaymentMethod(patient?.id);
+  const defaultCard = useMemo(() => cards.find((card) => card.default), [cards]);
+  const [selectedOption, setSelectedOption] = useState<string | undefined>(defaultCard?.id);
 
-  const { isFetching: cardsAreLoading, refetch: refetchPaymentMethods } = useGetPaymentMethods({
-    beneficiaryPatientId: patient?.id,
-    setupCompleted: Boolean(setupData),
-    onSuccess: (data: any) => {
-      setCards(data.cards);
-      const defaultCard = data.cards.find((card: any) => card.default);
+  useEffect(() => {
+    if (selectedOption !== defaultCard?.id) {
       setSelectedOption(defaultCard?.id);
-    },
-  });
+    }
+  }, [cards, defaultCard?.id, selectedOption]);
 
   const { mutate: setDefault, isPending: isSetDefaultLoading } = useSetDefaultPaymentMethod(patient?.id);
 
@@ -68,7 +65,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
     }
   }, [onChange, selectedOption, validCreditCardOnFile]);
 
-  const disabled = cardsAreLoading || isSetDefaultLoading || isSetupDataLoading;
+  const disabled = cardsAreLoading || isSetDefaultLoading || paymentMethodStateInitializing;
 
   const onMakePrimary = (id: string, refreshOnSuccess?: boolean): void => {
     setPendingSelection(id);
@@ -96,7 +93,6 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
     onMakePrimary(id, true);
   };
 
-  const isInitialLoad = (setupData === undefined && isSetupDataLoading) || (cards.length === 0 && cardsAreLoading);
   return (
     <Box
       sx={{
@@ -111,22 +107,18 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
           provider. If you are self-paying, the selected card will be charged for the total amount due.
         </Typography>
       </Card>
-      {isInitialLoad ? (
-        <Skeleton variant="rounded" height={250} />
-      ) : (
-        <CreditCardContent
-          setupData={setupData as any}
-          pendingSelection={pendingSelection}
-          selectedOption={selectedOption}
-          cards={cards}
-          disabled={disabled}
-          required={required}
-          errorMessage={errorMessage}
-          setErrorMessage={setErrorMessage}
-          onMakePrimary={onMakePrimary}
-          handleNewPaymentMethod={handleNewPaymentMethod}
-        />
-      )}
+      <CreditCardContent
+        setupData={setupData as any}
+        pendingSelection={pendingSelection}
+        selectedOption={selectedOption}
+        cards={cards}
+        disabled={disabled}
+        required={required}
+        errorMessage={errorMessage}
+        setErrorMessage={setErrorMessage}
+        onMakePrimary={onMakePrimary}
+        handleNewPaymentMethod={handleNewPaymentMethod}
+      />
     </Box>
   );
 };
