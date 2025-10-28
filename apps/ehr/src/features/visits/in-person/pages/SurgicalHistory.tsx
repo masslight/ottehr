@@ -1,5 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
+import { dataTestIds } from '../../../../constants/data-test-ids';
 import { Loader } from '../../shared/components/Loader';
 import { MedicalHistoryDoubleCard } from '../../shared/components/medical-history-tab';
 import { SurgicalHistoryPatientColumn } from '../../shared/components/medical-history-tab/SurgicalHistory/SurgicalHistoryPatientColumn';
@@ -31,7 +32,11 @@ export const SurgicalHistory: React.FC<SurgicalHistoryProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Surgical History" showIntakeNotesButton={interactionMode === 'intake'} />
+      <PageTitle
+        label="Surgical History"
+        showIntakeNotesButton={interactionMode === 'intake'}
+        dataTestId={dataTestIds.surgicalHistory.surgicalHistoryTitle}
+      />
       <InfoAlert text="Ask: Has the patient ever had surgery? If yes, what was the surgery?" />
       <MedicalHistoryDoubleCard
         patientSide={<SurgicalHistoryPatientColumn />}
