@@ -71,7 +71,7 @@ export const FollowUpSummaryCard: React.FC = () => {
       try {
         const encounterDetails: PatientFollowupDetails = {
           encounterId: encounter.id,
-          followupType: 'Telephone Encounter',
+          followupType: 'Follow-up Encounter',
           patientId: patient.id,
           reason: data.reason || undefined,
           otherReason: data.reason === 'Other' ? data.otherReason : undefined,
