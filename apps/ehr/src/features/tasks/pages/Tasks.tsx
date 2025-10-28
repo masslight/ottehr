@@ -45,6 +45,7 @@ import PageContainer from 'src/layout/PageContainer';
 import { formatDate } from '../common';
 import { AssignTaskDialog } from '../components/AssignTaskDialog';
 import { CategoryChip, TASK_CATEGORY_LABEL } from '../components/CategoryChip';
+import { CreateTaskDialog } from '../components/CreateTaskDialog';
 
 const LOCAL_STORAGE_FILTERS_KEY = 'tasks.filters';
 const UNKNOWN = 'Unknown';
@@ -403,6 +404,7 @@ export const Tasks: React.FC = () => {
           </Popover>
         ) : null}
         {taskToAssign ? <AssignTaskDialog task={taskToAssign} handleClose={() => setTaskToAssign(null)} /> : null}
+        <CreateTaskDialog handleClose={() => {}} />
       </Stack>
     </PageContainer>
   );
