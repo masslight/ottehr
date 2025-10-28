@@ -97,12 +97,12 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
       {
         // Photo IDs
         method: 'GET',
-        url: `/DocumentReference?status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}%7C${PHOTO_ID_CARD_CODE}`,
+        url: `/DocumentReference?status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}|${PHOTO_ID_CARD_CODE}`,
       },
       {
         // Insurance Cards
         method: 'GET',
-        url: `/DocumentReference?status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}%7C${INSURANCE_CARD_CODE}`,
+        url: `/DocumentReference?status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}|${INSURANCE_CARD_CODE}`,
       },
     ],
   });
