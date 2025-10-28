@@ -674,7 +674,6 @@ export const evalEnableWhen = (
   }
 
   const evaluate = (ew: QuestionnaireItemEnableWhen): boolean => {
-    console.log(ew.question);
     if (ew.question === '$status') {
       return evalStatusCondition(ew, questionnaireResponse);
     }
