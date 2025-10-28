@@ -722,7 +722,7 @@ export const getAbbreviationFromLocation = (location: Location): string | undefi
   return location.address?.state;
 };
 
-export function getTaskResource(coding: TaskCoding, appointmentID: string): Task {
+export function getTaskResource(coding: TaskCoding, appointmentID: string, encounterId?: string): Task {
   return {
     resourceType: 'Task',
     status: 'requested',
@@ -731,6 +731,7 @@ export function getTaskResource(coding: TaskCoding, appointmentID: string): Task
       type: 'Appointment',
       reference: appointmentID.startsWith('urn:uuid:') ? appointmentID : `Appointment/${appointmentID}`,
     },
+    encounter: encounterId ? { type: 'Encounter', reference: `Encounter/${encounterId}` } : undefined,
     code: {
       coding: [coding],
     },
