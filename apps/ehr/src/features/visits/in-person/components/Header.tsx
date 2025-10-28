@@ -7,9 +7,12 @@ import { useQuery } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
+import { formatLabelValue } from 'src/shared/utils';
 import {
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
+  getInsuranceNameFromCoverage,
   PaymentVariant,
   PRACTITIONER_CODINGS,
   ProviderDetails,
@@ -20,6 +23,7 @@ import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { ProfileAvatar } from '../../shared/components/ProfileAvatar';
 import { useChartFields } from '../../shared/hooks/useChartFields';
+import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
@@ -55,16 +59,6 @@ const PatientInfoWrapper = styled(Box)({
   gap: '8px',
 });
 
-const format = (
-  value: string | undefined,
-  placeholder = '',
-  keepPlaceholderIfValueFulfilled = false,
-  emptyValuePlaceholder = 'N/A'
-): string => {
-  const prefix = !value || (keepPlaceholderIfValueFulfilled && value) ? `${placeholder}: ` : '';
-  return prefix + (value || emptyValuePlaceholder);
-};
-
 export const Header = (): JSX.Element => {
   const { id: appointmentID } = useParams();
   const navigate = useNavigate();
@@ -76,21 +70,31 @@ export const Header = (): JSX.Element => {
     appointmentRefetch,
   } = useAppointmentData();
 
+  const apiClient = useOystehrAPIClient();
+
+  const { data: insuranceData } = useGetPatientCoverages({
+    apiClient,
+    patientId: patient?.id ?? null,
+  });
+
   const { chartData } = useChartData();
   const { encounter } = visitState;
   const encounterId = encounter?.id;
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
-  const paymentVariant = format(
-    encounterValues?.payment === PaymentVariant.selfPay ? 'Self-pay' : mappedData?.activeInsurance
+  const paymentVariant = formatLabelValue(
+    encounterValues?.payment === PaymentVariant.selfPay
+      ? 'Self-pay'
+      : (insuranceData?.coverages.primary && getInsuranceNameFromCoverage(insuranceData?.coverages.primary)) ??
+          (insuranceData?.coverages.secondary && getInsuranceNameFromCoverage(insuranceData?.coverages.secondary))
   );
-  const patientName = format(mappedData?.patientName, 'Name');
-  const pronouns = format(mappedData?.pronouns, 'Pronouns');
-  const gender = format(mappedData?.gender, 'Gender');
-  const language = format(mappedData?.preferredLanguage, 'Lang');
-  const dob = format(mappedData?.DOB, 'DOB', true);
+  const patientName = formatLabelValue(mappedData?.patientName, 'Name');
+  const pronouns = formatLabelValue(mappedData?.pronouns, 'Pronouns');
+  const gender = formatLabelValue(mappedData?.gender, 'Gender');
+  const language = formatLabelValue(mappedData?.preferredLanguage, 'Lang');
+  const dob = formatLabelValue(mappedData?.DOB, 'DOB', true);
 
-  const allergies = format(
+  const allergies = formatLabelValue(
     chartData?.allergies
       ?.filter((allergy) => allergy.current === true)
       ?.map((allergy) => allergy.name)
@@ -125,8 +129,8 @@ export const Header = (): JSX.Element => {
     }
   }, [shouldRefetchPractitioners, refetch]);
 
-  const reasonForVisit = format(appointment?.description, 'Reason for Visit');
-  const userId = format(patient?.id);
+  const reasonForVisit = formatLabelValue(appointment?.description, 'Reason for Visit');
+  const userId = formatLabelValue(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const { interactionMode, setInteractionMode } = useInPersonNavigationContext();
   const nextMode = interactionMode === 'intake' ? 'provider' : 'intake';
