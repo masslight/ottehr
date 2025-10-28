@@ -157,6 +157,11 @@ export const getCommunicationsAndSenders = async (
   oystehr: Oystehr,
   uniqueNumbers: string[]
 ): Promise<(Communication | RelatedPerson)[]> => {
+  // // If there are no phone numbers, return empty array to avoid FHIR error
+  if (uniqueNumbers.length === 0) {
+    return [];
+  }
+
   return (
     await oystehr.fhir.search<Communication | RelatedPerson>({
       resourceType: 'Communication',
