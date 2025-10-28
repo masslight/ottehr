@@ -15,7 +15,7 @@ import {
   TASK_LOCATION_SYSTEM,
 } from 'utils';
 
-const GET_TASKS_KEY = 'get-tasks';
+export const GET_TASKS_KEY = 'get-tasks';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 
 export const TASKS_PAGE_SIZE = 20;
@@ -87,6 +87,10 @@ export const useGetTasks = ({
         {
           name: '_count',
           value: TASKS_PAGE_SIZE,
+        },
+        {
+          name: 'status:not',
+          value: 'cancelled',
         },
       ];
       if (page) {
