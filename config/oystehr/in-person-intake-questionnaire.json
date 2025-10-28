@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-in-person-previsit-1_0_12": {
+    "questionnaire-in-person-previsit-1_0_13": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-        "version": "1.0.12",
+        "version": "1.0.13",
         "name": "in-person_pre-visit_paperwork",
         "title": "in-person pre-visit paperwork",
         "status": "active",
@@ -3084,6 +3084,19 @@
                 "valueString": "Consent forms"
               }
             ],
+            "enableWhen": [
+              {
+                "question": "$status",
+                "operator": "!=",
+                "answerString": "completed"
+              },
+              {
+                "question": "$status",
+                "operator": "!=",
+                "answerString": "amended"
+              }
+            ],
+            "enableBehavior": "all",
             "item": [
               {
                 "linkId": "hipaa-acknowledgement",
