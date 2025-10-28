@@ -92,7 +92,7 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
       {
         // Consent
         method: 'GET',
-        url: `/DocumentReference?_sort=-_lastUpdated&subject=Patient/${patientId}&related=Appointment/${appointmentId}&type=${PAPERWORK_CONSENT_CODE_UNIQUE.system}%7C${PAPERWORK_CONSENT_CODE_UNIQUE.code}`,
+        url: `/DocumentReference?_sort=-_lastUpdated&subject=Patient/${patientId}&related=Appointment/${appointmentId}&type=${PAPERWORK_CONSENT_CODE_UNIQUE.system}|${PAPERWORK_CONSENT_CODE_UNIQUE.code}`,
       },
       {
         // Photo IDs
