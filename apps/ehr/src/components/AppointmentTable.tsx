@@ -72,6 +72,7 @@ export default function AppointmentTable({
   });
 
   const vitalsForAppointment = (appointment: InPersonAppointmentInformation): GetVitalsResponseData | undefined => {
+    console.log(appointment, vitals);
     return vitals?.[appointment.encounterId];
   };
 
@@ -148,6 +149,7 @@ export default function AppointmentTable({
                       updateAppointments={updateAppointments}
                       setEditingComment={setEditingComment}
                       tab={tab}
+                      vitals={vitalsForAppointment(appointment)}
                       orders={ordersForAppointment(appointment.id, appointment.encounterId)}
                     ></AppointmentTableRow>
                   );

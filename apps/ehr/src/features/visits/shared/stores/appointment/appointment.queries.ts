@@ -498,12 +498,14 @@ export function useFinalizeUnsolicitedResultMatch(): UseMutationResult<void, Err
   return useMutation({
     mutationFn: async (input: FinalizeUnsolicitedResultMatch) => {
       const data = await apiClient?.updateLabOrderResources(input);
-
       if (data && 'possibleRelatedSRsWithVisitDate' in data) {
         return data;
       }
-
       return;
+    },
+    onSuccess: async () => {
+      // slight delay so that the subscription zambda has time to run and when the tasks are reloaded the new ones will be there
+      await new Promise((res) => setTimeout(res, 800));
     },
   });
 }
