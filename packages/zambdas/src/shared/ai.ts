@@ -92,7 +92,7 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
       model: 'claude-haiku-4-5-20251001',
       temperature: 0,
       clientOptions: {
-        timeout: 10000, // 10 seconds (in milliseconds)
+        timeout: 5000, // 5 seconds (in milliseconds)
         maxRetries: 5, // Number of retries on failure
       },
     });
