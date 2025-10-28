@@ -1,10 +1,18 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { MedicationAdministration } from 'fhir/r4b';
-import { CancelImmunizationOrderRequest, mapFhirToOrderStatus, mapOrderStatusToFhir, replaceOperation } from 'utils';
+import {
+  CancelImmunizationOrderRequest,
+  getSecret,
+  mapFhirToOrderStatus,
+  mapOrderStatusToFhir,
+  replaceOperation,
+  SecretsKeys,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  topLevelCatch,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
@@ -26,10 +34,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: `Error cancelling order: ${JSON.stringify(error.message)}` }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

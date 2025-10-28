@@ -30,11 +30,7 @@ export const index = wrapHandler('assign-practitioner', async (input: ZambdaInpu
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('assign-practitioner', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error assigning encounter participant' }),
-    };
+    return topLevelCatch('assign-practitioner', error, ENVIRONMENT);
   }
 });
 

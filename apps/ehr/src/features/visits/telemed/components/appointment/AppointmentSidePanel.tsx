@@ -29,6 +29,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import ChatModal from 'src/features/chat/ChatModal';
 import { getInPersonVisitDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetTelemedAppointmentWithSMSModel } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import {
   useAppointmentData,
@@ -38,13 +39,16 @@ import {
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
 import { addSpacesAfterCommas } from 'src/helpers/formatString';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
-import { getPatientName } from 'src/shared/utils';
+import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
+import { formatLabelValue, getPatientName } from 'src/shared/utils';
 import {
   calculatePatientAge,
+  getInsuranceNameFromCoverage,
   getQuestionnaireResponseByLinkId,
   getTelemedVisitStatus,
   INTERPRETER_PHONE_NUMBER,
   isInPersonAppointment,
+  PaymentVariant,
   TelemedAppointmentStatusEnum,
   TelemedAppointmentVisitTabs,
 } from 'utils';
@@ -63,9 +67,31 @@ enum Gender {
 export const AppointmentSidePanel: FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { appointment, encounter, patient, location, locationVirtual, questionnaireResponse } = useAppointmentData();
+  const {
+    resources: { encounter: encounterValues },
+    appointment,
+    encounter,
+    patient,
+    location,
+    locationVirtual,
+    questionnaireResponse,
+  } = useAppointmentData();
   const isInPerson = isInPersonAppointment(appointment);
   const { isChartDataLoading, chartData } = useChartData();
+  const apiClient = useOystehrAPIClient();
+
+  const { data: insuranceData } = useGetPatientCoverages({
+    apiClient,
+    patientId: patient?.id ?? null,
+  });
+
+  const paymentVariant = formatLabelValue(
+    encounterValues?.payment === PaymentVariant.selfPay
+      ? 'Self-pay'
+      : (insuranceData?.coverages.primary && getInsuranceNameFromCoverage(insuranceData?.coverages.primary)) ??
+          (insuranceData?.coverages.secondary && getInsuranceNameFromCoverage(insuranceData?.coverages.secondary))
+  );
+
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
@@ -163,7 +189,7 @@ export const AppointmentSidePanel: FC = () => {
       <Toolbar />
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'auto', height: '100%' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start' }}>
             {!!telemedStatus && <TelemedAppointmentStatusChip status={telemedStatus} />}
 
             {appointment?.id && (
@@ -180,6 +206,19 @@ export const AppointmentSidePanel: FC = () => {
                 </Typography>
               </Tooltip>
             )}
+
+            <Tooltip title={paymentVariant}>
+              <Typography
+                sx={{
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                }}
+                variant="body2"
+              >
+                Payment: {paymentVariant}
+              </Typography>
+            </Tooltip>
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center' }}>

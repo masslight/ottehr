@@ -440,6 +440,11 @@
               "system": "http://loinc.org",
               "code": "59284-0",
               "display": "Consent Documents"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/consent-source",
+              "code": "patient-registration",
+              "display": "Patient Registration Consent"
             }
           ],
           "text": "Consent forms"

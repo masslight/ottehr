@@ -27,6 +27,7 @@ import {
   createFilesDocumentReferences,
   EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
   formatPhoneNumberDisplay,
+  formatZipcodeForDisplay,
   getFullestAvailableName,
   getOrderNumber,
   getOrderNumberFromDr,
@@ -675,7 +676,7 @@ async function getResultsDetailsForPDF(
         },
         {
           name: 'status',
-          value: 'completed,ready',
+          value: 'completed,ready,in-progress',
         },
         {
           name: 'code',
@@ -1708,7 +1709,7 @@ const parseObservationForPDF = (
 
   const formatResultCodeAndDisplay = (coding: Coding): string => {
     if (!coding.code) return '';
-    return `${coding.code}${coding.display ? `(${coding.display})` : ''}`;
+    return `${coding.code}${coding.display ? ` (${coding.display})` : ''}`;
   };
 
   const resultCodesAndDisplays = resultCodeCodings?.map((coding) => formatResultCodeAndDisplay(coding)).join(', ');
@@ -1747,7 +1748,7 @@ const getPerformingLabAddressFromObs = (obs: Observation, oystehr: Oystehr): str
   if (siteExt) {
     const address = siteExt.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.address)
       ?.valueAddress;
-    if (address) return oystehr.fhir.formatAddress(address);
+    if (address) return formatZipcodeForDisplay(oystehr.fhir.formatAddress(address));
   }
   return;
 };
@@ -1757,7 +1758,7 @@ const getPerformingLabPhoneFromObs = (obs: Observation): string | undefined => {
   if (siteExt) {
     const phone = siteExt.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.phone)
       ?.valueContactPoint?.value;
-    return phone;
+    return formatPhoneNumberDisplay(phone || '');
   }
   return;
 };

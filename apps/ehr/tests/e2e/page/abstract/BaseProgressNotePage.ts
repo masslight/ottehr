@@ -8,6 +8,12 @@ export abstract class BaseProgressNotePage {
     this.#page = page;
   }
 
+  async fillHPI(): Promise<void> {
+    const hpiTextField = this.#page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes);
+    await expect(hpiTextField).toBeVisible();
+    await hpiTextField.locator('textarea').first().fill('The patient reports having a cough for 3 days.');
+  }
+
   async clickDischargeButton(): Promise<void> {
     const dischargeButton = this.#page.getByTestId(dataTestIds.progressNotePage.dischargeButton);
     await expect(dischargeButton).toBeVisible();
@@ -100,6 +106,16 @@ export abstract class BaseProgressNotePage {
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.medicalConditionsContainer)).toBeVisible();
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.medicalConditionsContainer)).not.toContainText(
       medicalCondition
+    );
+  }
+  async verifyAddedSurgeryIsShown(surgery: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).toBeVisible();
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).toContainText(surgery);
+  }
+  async verifyRemovedSurgeryIsNotShown(surgery: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).toBeVisible();
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).not.toContainText(
+      surgery
     );
   }
   abstract expectLoaded(): Promise<void>;

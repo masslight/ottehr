@@ -39,6 +39,9 @@ export function useApiClients(): ApiClientsState {
           fhirApiUrl: import.meta.env.VITE_APP_FHIR_API_URL,
           projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL,
           projectId: import.meta.env.VITE_APP_PROJECT_ID,
+          retry: {
+            retries: 0,
+          },
         }),
       });
     }

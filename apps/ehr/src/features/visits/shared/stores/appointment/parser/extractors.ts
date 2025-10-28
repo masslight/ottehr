@@ -9,7 +9,7 @@ import {
   Patient,
   QuestionnaireResponse,
 } from 'fhir/r4b';
-import { getQuestionnaireResponseByLinkId, isLocationVirtual } from 'utils';
+import { getPaymentVariantFromEncounter, getQuestionnaireResponseByLinkId, isLocationVirtual } from 'utils';
 import { WEIGHT_EXTENSION_URL, WEIGHT_LAST_UPDATED_EXTENSION_URL } from './constants';
 import {
   AppointmentValues,
@@ -124,8 +124,15 @@ export const getLocationValues = (location: Location | undefined): LocationValue
   };
 };
 
-export const getEncounterValues = (encounter: Encounter | undefined): EncounterValues =>
-  extractResourceValues(encounter, ['id', 'status']);
+export const getEncounterValues = (encounter: Encounter | undefined): EncounterValues => {
+  const values = extractResourceValues(encounter, ['id', 'status']);
+  if (!encounter) return values;
+
+  return {
+    ...values,
+    payment: encounter ? getPaymentVariantFromEncounter(encounter) : undefined,
+  };
+};
 
 export const getQuestionnaireResponseValues = (
   questionnaireResponse: QuestionnaireResponse | undefined
