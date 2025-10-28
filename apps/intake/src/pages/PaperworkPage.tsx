@@ -335,13 +335,13 @@ export const PaperworkPage: FC = () => {
       const paperworkValues = convertQRItemToLinkIdMap(qr.item);
       let idx = 1;
       let nextPage = paperworkPages[currentIndex + idx];
-      while (nextPage && !evalEnableWhen(nextPage, allItems, paperworkValues)) {
+      while (nextPage && !evalEnableWhen(nextPage, allItems, paperworkValues, questionnaireResponse)) {
         idx += 1;
         nextPage = paperworkPages[currentIndex + idx];
       }
       return nextPage;
     },
-    [allItems, currentIndex, paperworkPages]
+    [allItems, currentIndex, paperworkPages, questionnaireResponse]
   );
 
   useEffect(() => {
