@@ -44,6 +44,7 @@ export const palette = {
 export const otherColors = {
   apptHover: '#F4F6F8',
   blackTransparent: 'rgba(0, 0, 0, 0.5)',
+  cardBackground: '#F7F8F9',
   cardChip: '#7CB342',
   closeCross: '#773602CC',
   consentBorder: 'rgba(77, 21, 183, 0.5)',

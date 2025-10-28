@@ -56,6 +56,7 @@ import {
   GetLabOrdersParameters,
   GetNursingOrdersInput,
   GetOrUploadPatientProfilePhotoZambdaResponse,
+  GetPresignedFileURLInput,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
   GetScheduleParams,
@@ -80,6 +81,7 @@ import {
   PaginatedResponse,
   PaperworkToPDFInput,
   PendingSupervisorApprovalInput,
+  PresignUploadUrlResponse,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
   SaveFollowupEncounterZambdaInput,
@@ -1280,5 +1282,64 @@ export const invoiceablePatientsReport = async (oystehr: Oystehr): Promise<void>
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+const getPresignedFileURL = async (
+  params: GetPresignedFileURLInput,
+  oystehr: Oystehr
+): Promise<PresignUploadUrlResponse> => {
+  try {
+    const { appointmentID, fileType, fileFormat } = params;
+
+    const response = await oystehr.zambda.execute({
+      id: 'get-presigned-file-url',
+      appointmentID,
+      fileType,
+      fileFormat,
+    });
+    const jsonToUse = chooseJson(response);
+    return jsonToUse;
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
+interface CreateZ3ObjectParams {
+  appointmentID: string;
+  fileType: GetPresignedFileURLInput['fileType'];
+  fileFormat: GetPresignedFileURLInput['fileFormat'];
+  file: File;
+}
+
+export const createZ3Object = async (input: CreateZ3ObjectParams, oystehr: Oystehr): Promise<string> => {
+  const { appointmentID, fileType, fileFormat, file } = input;
+  try {
+    const presignedURLRequest = await getPresignedFileURL(
+      {
+        appointmentID,
+        fileType,
+        fileFormat,
+      },
+      oystehr
+    );
+
+    // const presignedURLResponse = await presignedURLRequest.json();
+    // Upload the file to S3
+    const uploadResponse = await fetch(presignedURLRequest.presignedURL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': file.type,
+      },
+      body: file,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error('Failed to upload file');
+    }
+
+    return presignedURLRequest.z3URL;
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
   }
 };
