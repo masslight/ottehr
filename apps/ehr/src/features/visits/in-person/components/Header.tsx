@@ -8,6 +8,7 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
+import { formatLabelValue } from 'src/shared/utils';
 import {
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
@@ -58,16 +59,6 @@ const PatientInfoWrapper = styled(Box)({
   alignItems: 'baseline',
   gap: '8px',
 });
-
-const format = (
-  value: string | undefined,
-  placeholder = '',
-  keepPlaceholderIfValueFulfilled = false,
-  emptyValuePlaceholder = 'N/A'
-): string => {
-  const prefix = !value || (keepPlaceholderIfValueFulfilled && value) ? `${placeholder}: ` : '';
-  return prefix + (value || emptyValuePlaceholder);
-};
 
 const getFollowupStatusChip = (status: 'OPEN' | 'RESOLVED'): ReactElement => {
   interface ColorScheme {
@@ -143,19 +134,19 @@ export const Header = (): JSX.Element => {
   const isFollowup = visitType === 'follow-up';
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
-  const paymentVariant = format(
+  const paymentVariant = formatLabelValue(
     encounterValues?.payment === PaymentVariant.selfPay
       ? 'Self-pay'
       : (insuranceData?.coverages.primary && getInsuranceNameFromCoverage(insuranceData?.coverages.primary)) ??
           (insuranceData?.coverages.secondary && getInsuranceNameFromCoverage(insuranceData?.coverages.secondary))
   );
-  const patientName = format(mappedData?.patientName, 'Name');
-  const pronouns = format(mappedData?.pronouns, 'Pronouns');
-  const gender = format(mappedData?.gender, 'Gender');
-  const language = format(mappedData?.preferredLanguage, 'Lang');
-  const dob = format(mappedData?.DOB, 'DOB', true);
+  const patientName = formatLabelValue(mappedData?.patientName, 'Name');
+  const pronouns = formatLabelValue(mappedData?.pronouns, 'Pronouns');
+  const gender = formatLabelValue(mappedData?.gender, 'Gender');
+  const language = formatLabelValue(mappedData?.preferredLanguage, 'Lang');
+  const dob = formatLabelValue(mappedData?.DOB, 'DOB', true);
 
-  const allergies = format(
+  const allergies = formatLabelValue(
     chartData?.allergies
       ?.filter((allergy) => allergy.current === true)
       ?.map((allergy) => allergy.name)
@@ -190,8 +181,8 @@ export const Header = (): JSX.Element => {
     }
   }, [shouldRefetchPractitioners, refetch]);
 
-  const reasonForVisit = format(appointment?.description, 'Reason for Visit');
-  const userId = format(patient?.id);
+  const reasonForVisit = formatLabelValue(appointment?.description, 'Reason for Visit');
+  const userId = formatLabelValue(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const { interactionMode, setInteractionMode } = useInPersonNavigationContext();
   const nextMode = interactionMode === 'intake' ? 'provider' : 'intake';
