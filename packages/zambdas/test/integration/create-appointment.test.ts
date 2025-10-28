@@ -431,9 +431,12 @@ describe('prebook integration - from getting list of slots to booking with selec
       console.log('appointment ', appointment);
 
       expect(appointment).toBeDefined();
-      const appointmentDateTime = DateTime.fromISO(appointment.start!).setZone(timezone);
+      expect(appointment.start?.charAt(appointment.start.length - 1)).toEqual('Z'); // should be in UTC
+      const appointmentDateTime = DateTime.fromISO(appointment.start!);
+      const slotDateTime = DateTime.fromISO(createdSlotResponse.start!);
+      expect(slotDateTime.toISO()).toEqual(appointmentDateTime.toISO()); // Appointment should have the same time as the Slot
       expect(appointmentDateTime.hour).toEqual(23);
-      expect(appointmentDateTime.day).toEqual(DateTime.now().day); // Today, not tomorrow!
+      expect(appointmentDateTime.day).toEqual(DateTime.now().day); // Appointment should be for today, not tomorrow.
     }
   );
 });
