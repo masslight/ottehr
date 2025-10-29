@@ -277,8 +277,6 @@ describe('prebook integration - from getting list of slots to booking with selec
       return slotStartTime.hour === 23;
     });
 
-    expect(elevenPMSlot).toBeDefined();
-
     assert(elevenPMSlot);
     console.log('selectedSlot ', elevenPMSlot);
     const createSlotParams = createSlotParamsFromSlotAndOptions(elevenPMSlot.slot, {
