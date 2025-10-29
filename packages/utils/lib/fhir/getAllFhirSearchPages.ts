@@ -17,10 +17,15 @@ export async function getAllFhirSearchPages<T extends FhirResource>(
     { name: '_total', value: 'accurate' },
   ];
   while (currentIndex < total) {
+    console.log(
+      `Fetching FHIR resources: currentIndex=${currentIndex}, total=${total}, params=${JSON.stringify(params, null, 2)}`
+    );
+
     const bundledResponse = await oystehr.fhir.search<T>({
       resourceType: fhirSearchParams.resourceType,
       params: [...params, { name: '_offset', value: `${currentIndex}` }],
     });
+
     const matchedCount = bundledResponse.entry?.filter((entry) => entry.search?.mode === 'match').length || 0;
     total = bundledResponse.total || 0;
     const unbundled = bundledResponse.unbundle();
@@ -30,13 +35,6 @@ export async function getAllFhirSearchPages<T extends FhirResource>(
 
   // Deduplicate to ensure idempotency - same params should return same results regardless of batch size
   const deduplicated = deduplicateUnbundledResources(result as Resource[]);
-  const duplicateCount = result.length - deduplicated.length;
 
-  console.log(
-    'Found',
-    currentIndex,
-    `${fhirSearchParams.resourceType} resources and ${result.length - currentIndex} included resources`,
-    duplicateCount > 0 ? `(removed ${duplicateCount} duplicates)` : ''
-  );
   return deduplicated as T[];
 }
