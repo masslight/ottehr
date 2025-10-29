@@ -233,17 +233,13 @@ describe('prebook integration - from getting list of slots to booking with selec
       { scheduleExtension: adjustedScheduleJSON, processId, scheduleOwner: ownerLocation },
       oystehr
     );
-    expect(schedule.id).toBeDefined();
     assert(schedule.id);
     const scheduleExtension = getScheduleExtension(schedule);
-    expect(scheduleExtension).toBeDefined();
     assert(scheduleExtension);
     const timezone = getTimezone(schedule);
 
-    expect(owner).toBeDefined();
     assert(owner);
     const slug = getSlugForBookableResource(owner);
-    expect(slug).toBeDefined();
     assert(slug);
 
     return {
