@@ -33,10 +33,10 @@ export const INTEGRATION_TEST_PROCESS_ID_SYSTEM = 'INTEGRATION_TEST_PROCESS_ID_S
  */
 export interface InsertFullAppointmentDataBaseResult {
   patient: Patient;
-  relatedPerson: { id: string; resourceType: 'RelatedPerson' };
+  relatedPerson: RelatedPerson;
   appointment: Appointment;
   encounter: Encounter;
-  questionnaire: QuestionnaireResponse;
+  questionnaireResponse: QuestionnaireResponse;
 }
 
 /**
@@ -181,13 +181,10 @@ export const insertFullAppointmentBase = async (
 
   return {
     patient: createdResources.find((resource) => resource!.resourceType === 'Patient') as Patient,
-    relatedPerson: {
-      id: (createdResources.find((resource) => resource!.resourceType === 'RelatedPerson') as RelatedPerson).id!,
-      resourceType: 'RelatedPerson',
-    },
+    relatedPerson: createdResources.find((resource) => resource!.resourceType === 'RelatedPerson') as RelatedPerson,
     appointment: createdResources.find((resource) => resource!.resourceType === 'Appointment') as Appointment,
     encounter: createdResources.find((resource) => resource!.resourceType === 'Encounter') as Encounter,
-    questionnaire: createdResources.find(
+    questionnaireResponse: createdResources.find(
       (resource) => resource!.resourceType === 'QuestionnaireResponse'
     ) as QuestionnaireResponse,
   };
