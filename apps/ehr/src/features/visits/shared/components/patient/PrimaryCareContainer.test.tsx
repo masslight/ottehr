@@ -62,7 +62,7 @@ describe('PrimaryCareContainer', () => {
   it('should display correct checkbox label', () => {
     render(
       <TestWrapper>
-        <PrimaryCareContainer />
+        <PrimaryCareContainer isLoading={false} />
       </TestWrapper>
     );
 
@@ -72,7 +72,7 @@ describe('PrimaryCareContainer', () => {
   it('should show and hide PCP form fields based on checkbox state', async () => {
     render(
       <TestWrapper>
-        <PrimaryCareContainer />
+        <PrimaryCareContainer isLoading={false} />
       </TestWrapper>
     );
 
@@ -98,7 +98,7 @@ describe('PrimaryCareContainer', () => {
   it('should preserve field values when checkbox is checked and unchecked', async () => {
     render(
       <TestWrapper defaultValues={filledFieldValues}>
-        <PrimaryCareContainer />
+        <PrimaryCareContainer isLoading={false} />
       </TestWrapper>
     );
 
