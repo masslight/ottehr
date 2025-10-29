@@ -93,10 +93,10 @@ export const ProceduresForm: FC = () => {
           {isChartDataLoading ? (
             <ProviderSideListSkeleton />
           ) : (
-            <Box data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList}>
+            <Box data-testid={dataTestIds.surgicalHistory.surgicalHistoryList}>
               <ActionsList
                 data={procedures}
-                itemDataTestId={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryListItem}
+                itemDataTestId={dataTestIds.surgicalHistory.surgicalHistoryListItem}
                 getKey={(value) => value.resourceId!}
                 renderItem={(value) => (
                   <Typography>
@@ -145,7 +145,7 @@ export const ProceduresForm: FC = () => {
                 noOptionsText="Nothing found for this search criteria"
                 getOptionLabel={(option) => `${option.code} ${option.display}`}
                 renderOption={(props, option) => (
-                  <li {...props}>
+                  <li data-testid={dataTestIds.surgicalHistory.surgicalHistoryOption} {...props}>
                     <Typography component="span">
                       {option.code} {option.display}
                     </Typography>
@@ -158,7 +158,7 @@ export const ProceduresForm: FC = () => {
                     label="Surgery"
                     placeholder="Search"
                     InputLabelProps={{ shrink: true }}
-                    data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput}
+                    data-testid={dataTestIds.surgicalHistory.surgicalHistoryInput}
                     sx={{
                       '& .MuiInputLabel-root': {
                         fontWeight: 'bold',

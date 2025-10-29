@@ -30,13 +30,16 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
   formatMinutes,
+  getAbnormalVitals,
   getDurationOfStatus,
   getPatchBinary,
   getVisitTotalTime,
+  GetVitalsResponseData,
   InPersonAppointmentInformation,
   mdyStringFromISOString,
   OrdersForTrackingBoardRow,
@@ -77,6 +80,8 @@ interface AppointmentTableRowProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   orders: OrdersForTrackingBoardRow;
+  vitals?: GetVitalsResponseData;
+  table?: 'waiting-room' | 'in-exam';
 }
 
 const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
@@ -144,6 +149,8 @@ export default function AppointmentTableRow({
   updateAppointments,
   setEditingComment,
   orders,
+  vitals,
+  table,
 }: AppointmentTableRowProps): ReactElement | null {
   const { oystehr, oystehrZambda } = useApiClients();
   const apiClient = useOystehrAPIClient();
@@ -313,9 +320,11 @@ export default function AppointmentTableRow({
     ? appointment.unconfirmedDOB
     : appointment.patient?.dateOfBirth;
 
-  const isLongWaitingTime = useMemo(() => {
-    return longWaitTimeFlag(appointment, parseInt(statusTime) || 0);
-  }, [appointment, statusTime]);
+  const isLongWaitingTime = (() => {
+    if (!recentStatus) return false;
+    const currentStatusDuration = getDurationOfStatus(recentStatus, now);
+    return longWaitTimeFlag(appointment, currentStatusDuration);
+  })();
 
   const formattedPriorityHighIcon = (
     <PriorityHighRoundedIcon
@@ -350,60 +359,72 @@ export default function AppointmentTableRow({
     </Box>
   );
 
-  const timeToolTip = (
-    <Grid container sx={{ width: '100%' }}>
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2,
-          maxHeight: 'calc(100vh - 200px)',
-          overflowY: 'scroll',
-          paddingRight: 1,
-        }}
-      >
-        {isLongWaitingTime && longWaitFlag}
-        {appointment?.visitStatusHistory?.map((statusTemp, index) => {
-          return (
-            <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography
-                variant="body2"
-                color={theme.palette.getContrastText(theme.palette.background.default)}
-                style={{ display: 'inline', marginTop: 1 }}
-              >
-                {!STATUSES_WITHOUT_TIME_TRACKER.includes(statusTemp.status)
-                  ? `${formatMinutes(getDurationOfStatus(statusTemp, now))} mins`
-                  : ''}
-              </Typography>
-              <InPersonAppointmentStatusChip status={statusTemp.status} />
-            </Box>
-          );
-        })}
+  const tooltipScrollRef = React.useRef<HTMLDivElement>(null);
 
-        <Typography
-          variant="body2"
-          color={theme.palette.getContrastText(theme.palette.background.default)}
-          style={{ display: 'inline', fontWeight: 500 }}
-        >
-          Total LOS: {formatMinutes(totalMinutes)} mins
-        </Typography>
-        <Typography
-          variant="body2"
-          color={theme.palette.getContrastText(theme.palette.background.default)}
-          style={{ display: 'inline', fontWeight: 500 }}
-          sx={{ whiteSpace: { md: 'nowrap', sm: 'normal' } }}
-        >
-          Estimated wait time at check-in:
-          {waitingMinutesEstimate !== undefined
-            ? ` ${formatMinutes(Math.floor(waitingMinutesEstimate / 5) * 5)} mins`
-            : ''}
-          {/* previous waiting minutes logic
+  const scrollTooltipToBottom = useCallback(() => {
+    // Use setTimeout to ensure the tooltip is fully rendered before scrolling
+    setTimeout(() => {
+      if (tooltipScrollRef.current) {
+        tooltipScrollRef.current.scrollTop = tooltipScrollRef.current.scrollHeight;
+      }
+    }, 0);
+  }, []);
+
+  const timeToolTip = (
+    <Box
+      ref={tooltipScrollRef}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        maxHeight: 'calc(100vh - 200px)',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        width: '100%',
+      }}
+    >
+      {isLongWaitingTime && longWaitFlag}
+      {appointment?.visitStatusHistory?.map((statusTemp, index) => {
+        const statusDuration = getDurationOfStatus(statusTemp, now);
+
+        return (
+          <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography
+              variant="body2"
+              color={theme.palette.getContrastText(theme.palette.background.default)}
+              style={{ display: 'inline', marginTop: 1 }}
+            >
+              {!STATUSES_WITHOUT_TIME_TRACKER.includes(statusTemp.status)
+                ? `${formatMinutes(statusDuration)} mins`
+                : ''}
+            </Typography>
+            <InPersonAppointmentStatusChip status={statusTemp.status} />
+          </Box>
+        );
+      })}
+
+      <Typography
+        variant="body2"
+        color={theme.palette.getContrastText(theme.palette.background.default)}
+        style={{ display: 'inline', fontWeight: 500 }}
+      >
+        Total LOS: {formatMinutes(totalMinutes)} mins
+      </Typography>
+      <Typography
+        variant="body2"
+        color={theme.palette.getContrastText(theme.palette.background.default)}
+        style={{ display: 'inline', fontWeight: 500 }}
+      >
+        Estimated wait time at check-in:
+        {waitingMinutesEstimate !== undefined
+          ? ` ${formatMinutes(Math.floor(waitingMinutesEstimate / 5) * 5)} mins`
+          : ''}
+        {/* previous waiting minutes logic
           {waitingMinutesEstimate
             ? ` ${formatMinutes(waitingMinutesEstimate)} - ${formatMinutes(waitingMinutesEstimate + 15)} mins`
             : ''} */}
-        </Typography>
-      </Box>
-    </Grid>
+      </Typography>
+    </Box>
   );
 
   const statusTimeEl = (
@@ -616,7 +637,6 @@ export default function AppointmentTableRow({
     if (
       appointment.status === 'awaiting supervisor approval' &&
       user?.profileResource &&
-      location &&
       isEligibleSupervisor(user.profileResource!, appointment.attenderProviderType)
     ) {
       return (
@@ -701,7 +721,10 @@ export default function AppointmentTableRow({
       data-testid={dataTestIds.dashboard.tableRowWrapper(appointment.id)}
       sx={{
         '&:last-child td, &:last-child th': { border: 0 },
-        '& .MuiTableCell-root': { p: '8px' },
+        '& .MuiTableCell-root': {
+          px: 1.5,
+          py: 1,
+        },
         position: 'relative',
         ...(appointment.next && {
           // borderTop: '2px solid #43A047',
@@ -709,13 +732,13 @@ export default function AppointmentTableRow({
         }),
       }}
     >
-      <TableCell sx={{ verticalAlign: 'center', position: 'relative' }}>
+      <TableCell sx={{ verticalAlign: 'center', position: 'relative', p: 0, width: '40px' }}>
         {appointment.next && (
           <Box
             sx={{
               backgroundColor: IN_PERSON_CHIP_STATUS_MAP[appointment.status].background.secondary,
               position: 'absolute',
-              width: '22px',
+              width: '28px',
               bottom: 0,
               left: '0',
               height: '100%',
@@ -726,11 +749,12 @@ export default function AppointmentTableRow({
           >
             <Typography
               variant="body1"
-              fontSize={14}
+              fontSize={12}
               sx={{
                 writingMode: 'vertical-lr',
                 transform: 'scale(-1)',
                 color: theme.palette.background.paper,
+                fontWeight: 700,
               }}
             >
               NEXT
@@ -738,10 +762,7 @@ export default function AppointmentTableRow({
           </Box>
         )}
       </TableCell>
-      <TableCell
-        sx={{ padding: '8px 8px 8px 23px !important' }}
-        data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}
-      >
+      <TableCell sx={{ verticalAlign: 'center' }} data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}>
         <Typography variant="body1">
           {capitalize?.(
             appointment.appointmentType === 'post-telemed'
@@ -782,6 +803,7 @@ export default function AppointmentTableRow({
             title={timeToolTip}
             placement="top"
             arrow
+            onOpen={scrollTooltipToBottom}
           >
             <Grid sx={{ display: 'flex', alignItems: 'center', marginTop: '8px' }} gap={1}>
               {statusTimeEl}
@@ -864,6 +886,13 @@ export default function AppointmentTableRow({
       <TableCell sx={{ verticalAlign: 'center' }}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
       </TableCell>
+      {((tab === ApptTab['in-office'] && table === 'in-exam') || tab === ApptTab.completed) && (
+        <TableCell sx={{ verticalAlign: 'center' }}>
+          <Typography sx={{ fontSize: 14, display: 'inline' }}>
+            <VitalsIconTooltip appointment={appointment} abnormalVitals={getAbnormalVitals(vitals)} />
+          </Typography>
+        </TableCell>
+      )}
       <TableCell
         sx={{
           verticalAlign: 'center',

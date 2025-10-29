@@ -4,11 +4,14 @@ import { Appointment, Encounter } from 'fhir/r4b';
 import {
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
+  getSecret,
   Secrets,
+  SecretsKeys,
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler } from '../../shared';
+import { completeInProgressAiQuestionnaireResponseIfPossible } from '../../shared/ai-complete-questionnaire-response';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
 import { ZambdaInput } from '../../shared/types';
@@ -43,10 +46,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('Stringified error: ' + JSON.stringify(error));
     console.error('Error: ' + error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error updating in person visit status' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
@@ -92,6 +92,11 @@ export const performEffect = async (
   const { encounter, appointment, user, updatedStatus } = validatedData;
 
   await changeInPersonVisitStatusIfPossible(oystehr, { encounter, appointment }, user, updatedStatus);
+
+  // handle not completed AI interview to give provider required data, completed AI Interview triggers resource creation via subscription
+  if (updatedStatus === 'ready for provider' && encounter.id) {
+    await completeInProgressAiQuestionnaireResponseIfPossible(oystehr, encounter.id);
+  }
 
   return {};
 };

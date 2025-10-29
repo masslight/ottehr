@@ -34,6 +34,7 @@ import {
   ScheduleOwnerFhirResource,
   Secrets,
   SecretsKeys,
+  selectIntakeQuestionnaireResponse,
   Timezone,
   TIMEZONES,
 } from 'utils';
@@ -181,9 +182,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
   const encounter = searchResults.find((resource) => resource.resourceType === 'Encounter') as Encounter;
   const location = searchResults.find((resource) => resource.resourceType === 'Location') as Location | undefined;
   const flags = searchResults.filter((resource) => resource.resourceType === 'Flag') as Flag[];
-  const qr = searchResults.find(
-    (resource) => resource.resourceType === 'QuestionnaireResponse'
-  ) as PersistedFhirResource<QuestionnaireResponse>;
+  const qr = selectIntakeQuestionnaireResponse(searchResults) as PersistedFhirResource<QuestionnaireResponse>;
   const schedule = searchResults.find((resource) => resource.resourceType === 'Schedule') as Schedule | undefined;
 
   if (!appointment) {

@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Encounter, EncounterStatusHistory, Location, Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
@@ -298,6 +299,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         }
       } catch (error) {
         console.error(`Error trying to process notifications for appointment ${appointmentId}`, error);
+        captureException(error);
       }
     });
 
@@ -416,6 +418,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           `Error trying to send SMS notifications for practitioner ${sendSMSPractitionerCommunications[id].practitioner.id}`,
           error
         );
+        captureException(error);
       }
     });
 
@@ -453,12 +456,8 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('Notification-updater', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify(error.message),
-    };
+    return topLevelCatch('Notification-updater', error, ENVIRONMENT);
   }
 });
 

@@ -9,9 +9,9 @@ import {
   ServiceMode,
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
-import ehrInsuranceUpdateQuestionnaireJson from '../../../../../config/oystehr/ehr-insurance-update-questionnaire.json';
-import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json';
-import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json';
+import ehrInsuranceUpdateQuestionnaireJson from '../../../../../config/oystehr/ehr-insurance-update-questionnaire.json' assert { type: 'json' };
+import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
+import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,
@@ -26,11 +26,23 @@ export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode
   let url = '';
   let version = '';
   if (serviceMode === 'in-person') {
-    url = inPersonIntakeQuestionnaireJson.fhirResources['questionnaire-in-person-previsit'].resource.url;
-    version = inPersonIntakeQuestionnaireJson.fhirResources['questionnaire-in-person-previsit'].resource.version;
+    const questionnaire = Object.values(inPersonIntakeQuestionnaireJson.fhirResources).find(
+      (q) =>
+        q.resource.resourceType === 'Questionnaire' &&
+        q.resource.status === 'active' &&
+        q.resource.url.includes('intake-paperwork-inperson')
+    );
+    url = questionnaire?.resource.url || '';
+    version = questionnaire?.resource.version || '';
   } else if (serviceMode === 'virtual') {
-    url = virtualIntakeQuestionnaireJson.fhirResources['questionnaire-virtual-previsit'].resource.url;
-    version = virtualIntakeQuestionnaireJson.fhirResources['questionnaire-virtual-previsit'].resource.version;
+    const questionnaire = Object.values(virtualIntakeQuestionnaireJson.fhirResources).find(
+      (q) =>
+        q.resource.resourceType === 'Questionnaire' &&
+        q.resource.status === 'active' &&
+        q.resource.url.includes('intake-paperwork-virtual')
+    );
+    url = questionnaire?.resource.url || '';
+    version = questionnaire?.resource.version || '';
   }
   if (!url || !version) {
     throw new Error('Questionnaire url missing or malformed');
@@ -42,8 +54,13 @@ export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode
 };
 
 export const getCanonicalUrlForInsuranceUpdateQuestionnaire = (): CanonicalUrl => {
-  const { url, version } =
-    ehrInsuranceUpdateQuestionnaireJson.fhirResources['questionnaire-ehr-insurance-update'].resource;
+  const questionnaire = Object.values(ehrInsuranceUpdateQuestionnaireJson.fhirResources).find(
+    (q) =>
+      q.resource.resourceType === 'Questionnaire' &&
+      q.resource.status === 'active' &&
+      q.resource.url.includes('ehr-insurance-update-questionnaire')
+  );
+  const { url, version } = questionnaire?.resource || {};
   if (!url || !version) {
     throw new Error('Questionnaire url missing or malformed');
   }

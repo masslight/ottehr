@@ -5,11 +5,13 @@ import { DocumentReference, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { AiObservationField, ObservationTextFieldDTO, PUBLIC_EXTENSION_BASE_URL } from 'utils';
 import AiSuggestion from '../../in-person/components/AiSuggestion';
 import { PlayRecord } from '../../in-person/components/progress-note/PlayRecord';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 import { Loader } from './Loader';
+import { useAiResourcesPolling } from './useAiResourcesPolling';
 
 const AI_OBSERVATION_FIELDS = {
   [AiObservationField.HistoryOfPresentIllness]: 'History of Present Illness (HPI)',
@@ -65,18 +67,35 @@ export function getSourceFormat(providerName: string | undefined, date: DateTime
 
 export const OttehrAi: React.FC<OttehrAiProps> = () => {
   const {
-    resources: { appointment },
+    visitState: { appointment },
     isAppointmentLoading,
     appointmentError,
+    encounter,
   } = useAppointmentData();
 
-  const { isChartDataLoading, chartDataError, chartData } = useChartData();
+  const { isChartDataLoading, chartDataError, chartData, refetch: refetchChartData } = useChartData();
+  const { oystehr } = useApiClients();
+
+  const chartDataHasResources = (chartData?.aiChat?.documents?.length ?? 0) > 0;
+
+  const { isPolling, pollingExhausted, hasInterviewWithoutResources } = useAiResourcesPolling({
+    appointment,
+    encounter,
+    oystehr,
+    chartDataHasResources,
+    onRefetch: refetchChartData,
+  });
+
   const isLoading = isAppointmentLoading || isChartDataLoading;
   const error = chartDataError || appointmentError;
 
-  if (isLoading || isChartDataLoading) return <Loader />;
   if (error?.message) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
+
+  // Show "no data" message if polling exhausted without getting resources
+  if (pollingExhausted) {
+    return <Typography>No AI data available</Typography>;
+  }
 
   const aiPotentialDiagnoses = chartData?.aiPotentialDiagnosis ?? [];
 
@@ -93,14 +112,21 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
     observations[resourceID].push(observation);
   });
 
+  const aiDocuments = chartData?.aiChat?.documents;
+  const shouldShowLoader = hasInterviewWithoutResources && (isLoading || isPolling);
+
   return (
     <Stack spacing={1}>
       <>
         <AccordionCard>
           <Box style={{ padding: '16px', height: '350px', overflowY: 'auto' }}>
-            {chartData?.aiChat?.documents.map((aiChat) => {
-              return <PlayRecord documentReference={aiChat} providers={chartData?.aiChat?.providers} />;
-            })}
+            {aiDocuments?.length ? (
+              aiDocuments?.map((aiChat) => {
+                return <PlayRecord documentReference={aiChat} providers={chartData?.aiChat?.providers} />;
+              })
+            ) : shouldShowLoader ? (
+              <Loader />
+            ) : null}
           </Box>
         </AccordionCard>
         <AccordionCard>
@@ -145,46 +171,6 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
                 </Container>
               );
             })}
-            {/* {Object.entries(observations)?.map(([observationDocumentRefence, observationItems]) => {
-              // let date = undefined;
-              // if (aiChat?.resourceType === 'DocumentReference') {
-              //   date = DateTime.fromISO(aiChat?.date ?? '').toFormat('MM/dd/yyyy hh:mm a');
-              // }
-              // observation = observation as ObservationTextFieldDTO;
-
-              // if (observation == null) {
-              //   return undefined;
-              // }
-              const documentReference = chartData?.aiChat?.documents.find(
-                (resource) => resource.id === observationDocumentRefence
-              );
-
-              if (!documentReference) {
-                return;
-              }
-
-              return (
-                <>
-                  <Typography variant="body1">Source: {getSource(documentReference, oystehr, providers)}</Typography>
-                  <Box sx={{ paddingLeft: '15px' }}>
-                    {observationItems.map((observationItem) => {
-                      const title = AI_OBSERVATION_FIELDS.find(([field]) => field === observationItem.field)?.[1];
-
-                      return (
-                        <AiSuggestion
-                          key={observationItem.resourceId}
-                          title={title || 'Unknown'}
-                          // source={documentReference ? getSource(documentReference) : 'unknown'}
-                          chartData={chartData}
-                          content={[observationItem]}
-                          hideHeader={true}
-                        />
-                      );
-                    })}
-                  </Box>
-                </>
-              );
-            })} */}
             {aiPotentialDiagnoses.length > 0 ? (
               <Box
                 style={{

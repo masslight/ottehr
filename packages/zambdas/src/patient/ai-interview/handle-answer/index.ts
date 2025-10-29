@@ -62,11 +62,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(await oystehr.fhir.update(questionnaireResponse)),
     };
   } catch (error: any) {
-    await topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

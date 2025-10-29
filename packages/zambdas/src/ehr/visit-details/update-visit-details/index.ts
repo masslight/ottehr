@@ -97,7 +97,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     const appointmentExt = appointment?.extension;
     const dobNotConfirmedIdx = getUnconfirmedDOBIdx(appointment);
 
-    if (dobNotConfirmedIdx && dobNotConfirmedIdx >= 0) {
+    if (dobNotConfirmedIdx !== undefined && dobNotConfirmedIdx >= 0) {
       appointmentExt?.splice(dobNotConfirmedIdx, 1);
 
       const appointmentPatch: BatchInputJSONPatchRequest = {
@@ -105,7 +105,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
         method: 'PATCH',
         operations: [
           {
-            op: 'replace',
+            op: appointment?.extension ? 'replace' : 'add',
             path: '/extension',
             value: appointmentExt,
           },

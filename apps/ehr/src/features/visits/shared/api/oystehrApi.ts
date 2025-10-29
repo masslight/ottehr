@@ -30,6 +30,8 @@ import {
   NotFoundAppointmentErrorHandler,
   OrderedCoveragesWithSubscribers,
   PatientAccountResponse,
+  ProcedureDetail,
+  ProcedureSuggestion,
   RemoveCoverageResponse,
   RemoveCoverageZambdaInput,
   SaveChartDataRequest,
@@ -68,6 +70,7 @@ enum ZambdaNames {
   'save patient instruction' = 'save patient instruction',
   'delete patient instruction' = 'delete patient instruction',
   'icd search' = 'icd search',
+  'recommend billing codes' = 'recommend billing codes',
   'create update medication order' = 'create update medication order',
   'get medication orders' = 'get medication orders',
   'create update patient followup' = 'create update patient followup',
@@ -97,6 +100,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'save patient instruction': false,
   'delete patient instruction': false,
   'icd search': false,
+  'recommend billing codes': false,
   'create update medication order': false,
   'get medication orders': false,
   'create update patient followup': false,
@@ -131,6 +135,7 @@ export const getOystehrTelemedAPI = (
   savePatientInstruction: typeof savePatientInstruction;
   deletePatientInstruction: typeof deletePatientInstruction;
   icdSearch: typeof icdSearch;
+  recommendBillingCodes: typeof recommendBillingCodes;
   createUpdateMedicationOrder: typeof createUpdateMedicationOrder;
   getMedicationOrders: typeof getMedicationOrders;
   savePatientFollowup: typeof savePatientFollowup;
@@ -160,6 +165,7 @@ export const getOystehrTelemedAPI = (
     savePatientInstructionZambdaID,
     deletePatientInstructionZambdaID,
     icdSearchZambdaId,
+    recommendBillingCodesZambdaID,
     createUpdateMedicationOrderZambdaID,
     getMedicationOrdersZambdaID,
     savePatientFollowupZambdaID,
@@ -189,6 +195,7 @@ export const getOystehrTelemedAPI = (
     'save patient instruction': savePatientInstructionZambdaID,
     'delete patient instruction': deletePatientInstructionZambdaID,
     'icd search': icdSearchZambdaId,
+    'recommend billing codes': recommendBillingCodesZambdaID,
     'create update medication order': createUpdateMedicationOrderZambdaID,
     'get medication orders': getMedicationOrdersZambdaID,
     'create update patient followup': savePatientFollowupZambdaID,
@@ -292,6 +299,10 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('icd search', parameters);
   };
 
+  const recommendBillingCodes = async (parameters: ProcedureDetail): Promise<ProcedureSuggestion[]> => {
+    return await makeZapRequest('recommend billing codes', parameters);
+  };
+
   const createUpdateMedicationOrder = async (
     parameters: UpdateMedicationOrderInput
   ): Promise<{ id: string; message: string }> => {
@@ -370,6 +381,7 @@ export const getOystehrTelemedAPI = (
     savePatientInstruction,
     deletePatientInstruction,
     icdSearch,
+    recommendBillingCodes,
     getMedicationOrders,
     createUpdateMedicationOrder,
     savePatientFollowup,
