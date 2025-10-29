@@ -52,10 +52,12 @@ export async function invokeChatbotVertexAI(input: MessageContentComplex[], secr
   const GOOGLE_CLOUD_API_KEY = getSecret(SecretsKeys.GOOGLE_CLOUD_API_KEY, secrets);
   const RETRY_COUNT = 3;
   const FIRST_DELAY_MS = 3000;
-  const JITTER_PERCENT = 0.01;
+  const JITTER = 0.01;
 
   const backoffTimes = Array.from({ length: RETRY_COUNT }, (_, i) =>
-    i === 0 ? 0 : 2 ** (i - 1) * FIRST_DELAY_MS * (1 - JITTER_PERCENT + Math.random() * JITTER_PERCENT * 2)
+    // This ends up with an array of exponential backoff times with small perturbations like [ 0, 3002, 5964, 12077, 24109 ]
+    // for more information about this approach see https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
+    i === 0 ? 0 : 2 ** (i - 1) * FIRST_DELAY_MS * (1 - JITTER + Math.random() * JITTER * 2)
   );
   const requests = backoffTimes.map(async (backoffTime) => {
     try {
