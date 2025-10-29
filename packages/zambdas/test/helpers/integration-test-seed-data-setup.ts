@@ -128,12 +128,16 @@ export const insertFullAppointmentBase = async (
   );
   const schedule = await oystehr.fhir.create(scheduleSpec);
 
+  // Assumes there is only a single Q resource in this file!
+  const questionnaireKey = Object.keys(inPersonIntakeQuestionnaire.fhirResources)[0] as any;
+  const fhirResourcesAny = inPersonIntakeQuestionnaire.fhirResources as any;
+
   let seedDataString = JSON.stringify(fastSeedData);
   seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, location.id!);
   seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
   seedDataString = seedDataString.replace(
     /\{\{questionnaireUrl\}\}/g,
-    `${inPersonIntakeQuestionnaire.fhirResources['questionnaire-in-person-previsit-1_0_12'].resource.url}|${inPersonIntakeQuestionnaire.fhirResources['questionnaire-in-person-previsit-1_0_12'].resource.version}`
+    `${fhirResourcesAny[questionnaireKey].resource.url}|${fhirResourcesAny[questionnaireKey].resource.version}`
   );
   seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
 
