@@ -201,6 +201,7 @@ export type ResultSpecimenInfo = {
   quantityString?: string;
   unit?: string;
   bodySite?: string;
+  collectedDateTime?: string;
 };
 
 export interface LabResultsData
@@ -246,12 +247,9 @@ export interface ExternalLabResultsData extends LabResultsData {
   testItemCode: string;
 }
 
-export type ReflexExternalLabResultsData = Omit<ExternalLabResultsData, 'orderSubmitDate' | 'collectionDate'>;
+export type ReflexExternalLabResultsData = Omit<ExternalLabResultsData, 'orderSubmitDate'>;
 
-export type UnsolicitedExternalLabResultsData = Omit<
-  ExternalLabResultsData,
-  'orderNumber' | 'orderSubmitDate' | 'collectionDate'
->;
+export type UnsolicitedExternalLabResultsData = Omit<ExternalLabResultsData, 'orderNumber' | 'orderSubmitDate'>;
 
 export interface InHouseLabResultsData
   extends Omit<
