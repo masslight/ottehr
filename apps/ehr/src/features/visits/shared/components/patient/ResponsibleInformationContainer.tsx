@@ -18,7 +18,7 @@ import {
 
 const { responsibleParty, patientSummary, patientContactInformation } = FormFields;
 
-export const ResponsibleInformationContainer: FC = () => {
+export const ResponsibleInformationContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { control, watch, getValues, setValue } = useFormContext();
 
   const selfSelected = watch(responsibleParty.relationship.key) === 'Self';
@@ -78,6 +78,7 @@ export const ResponsibleInformationContainer: FC = () => {
         <FormSelect
           name={responsibleParty.relationship.key}
           control={control}
+          disabled={isLoading}
           options={RELATIONSHIP_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
@@ -92,7 +93,7 @@ export const ResponsibleInformationContainer: FC = () => {
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id={responsibleParty.firstName.key}
-          disabled={selfSelected}
+          disabled={selfSelected || isLoading}
         />
       </Row>
       <Row label={responsibleParty.lastName.label} required inputId={responsibleParty.lastName.key}>
@@ -102,7 +103,7 @@ export const ResponsibleInformationContainer: FC = () => {
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id={responsibleParty.lastName.key}
-          disabled={selfSelected}
+          disabled={selfSelected || isLoading}
         />
       </Row>
       <Row label={responsibleParty.birthDate.label} required>
@@ -118,7 +119,7 @@ export const ResponsibleInformationContainer: FC = () => {
             },
           }}
           defaultValue={''}
-          disabled={selfSelected}
+          disabled={selfSelected || isLoading}
           dataTestId={dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown}
           component="Field"
         />
@@ -136,7 +137,7 @@ export const ResponsibleInformationContainer: FC = () => {
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
           required={true}
-          disabled={selfSelected}
+          disabled={selfSelected || isLoading}
         />
       </Row>
       <Row label={responsibleParty.phone.label} inputId={responsibleParty.phone.key}>
@@ -158,7 +159,7 @@ export const ResponsibleInformationContainer: FC = () => {
               );
             },
           }}
-          disabled={selfSelected}
+          disabled={selfSelected || isLoading}
         />
       </Row>
       <Row label={responsibleParty.email.label} inputId={responsibleParty.email.key} required>
@@ -175,7 +176,7 @@ export const ResponsibleInformationContainer: FC = () => {
             },
           }}
           required={true}
-          disabled={selfSelected}
+          disabled={selfSelected || isLoading}
         />
       </Row>
       <Row label={responsibleParty.addressLine1.label} required inputId={responsibleParty.addressLine1.key}>
@@ -185,7 +186,7 @@ export const ResponsibleInformationContainer: FC = () => {
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id={responsibleParty.addressLine1.key}
-          disabled={selfSelected}
+          disabled={selfSelected || isLoading}
         />
       </Row>
       <Row label={responsibleParty.addressLine2.label} inputId={responsibleParty.addressLine2.key}>
@@ -194,7 +195,7 @@ export const ResponsibleInformationContainer: FC = () => {
           name={responsibleParty.addressLine2.key}
           control={control}
           id={responsibleParty.addressLine2.key}
-          disabled={selfSelected}
+          disabled={selfSelected || isLoading}
         />
       </Row>
       <Row label="City, State, ZIP" required>
@@ -206,7 +207,7 @@ export const ResponsibleInformationContainer: FC = () => {
               required: REQUIRED_FIELD_ERROR_MESSAGE,
             }}
             data-testid={dataTestIds.responsiblePartyInformationContainer.city}
-            disabled={selfSelected}
+            disabled={selfSelected || isLoading}
           />
           <Controller
             name={responsibleParty.state.key}
@@ -232,7 +233,7 @@ export const ResponsibleInformationContainer: FC = () => {
                   renderInput={(params) => (
                     <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
                   )}
-                  disabled={selfSelected}
+                  disabled={selfSelected || isLoading}
                 />
               );
             }}
@@ -245,7 +246,7 @@ export const ResponsibleInformationContainer: FC = () => {
               validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
             }}
             data-testid={dataTestIds.responsiblePartyInformationContainer.zip}
-            disabled={selfSelected}
+            disabled={selfSelected || isLoading}
           />
         </Box>
       </Row>
