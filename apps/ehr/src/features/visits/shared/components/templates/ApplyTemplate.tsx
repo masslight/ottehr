@@ -76,10 +76,11 @@ export const ApplyTemplate: React.FC = () => {
           examType: ExamType.IN_PERSON,
         });
 
-        // TODO: use window.location.reload() if there are issues with queryClient.invalidateQueries
+        // Invalidate React Query caches to trigger refetch
+        // Using exact: false to match all query key variants (with different requestedFields/isReadOnly params)
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id] }),
-          queryClient.invalidateQueries({ queryKey: [CHART_FIELDS_QUERY_KEY, encounter.id] }),
+          queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id], exact: false }),
+          queryClient.invalidateQueries({ queryKey: [CHART_FIELDS_QUERY_KEY, encounter.id], exact: false }),
         ]);
 
         enqueueSnackbar('Template applied successfully!', { variant: 'success' });
