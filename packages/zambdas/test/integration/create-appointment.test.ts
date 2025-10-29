@@ -96,25 +96,18 @@ const validateCreateAppointmentResponse = (
   input: ValidateCreateAppointmentResponseInput
 ): ValidatedCreateAppointmentResponseOutput => {
   const { createAppointmentResponse, timezone, patient, slot } = input;
-  expect(createAppointmentResponse).toBeDefined();
   assert(createAppointmentResponse);
   const { appointmentId, fhirPatientId, questionnaireResponseId, encounterId, resources } = createAppointmentResponse;
-  expect(appointmentId).toBeDefined();
   assert(appointmentId);
-  expect(fhirPatientId).toBeDefined();
   assert(fhirPatientId);
-  expect(questionnaireResponseId).toBeDefined();
   assert(questionnaireResponseId);
-  expect(encounterId).toBeDefined();
   assert(encounterId);
-  expect(resources).toBeDefined();
   assert(resources);
 
   const { appointment, encounter, questionnaire, patient: fhirPatient } = resources;
-  expect(appointment).toBeDefined();
   assert(appointment);
-  expect(appointment.id).toEqual(appointmentId);
   assert(appointment.id);
+  expect(appointment.id).toEqual(appointmentId);
   const isWalkin = getSlotIsWalkin(slot);
   const isPostTelemed = getSlotIsPostTelemed(slot);
   const isVirtual = checkEncounterIsVirtual(encounter);
