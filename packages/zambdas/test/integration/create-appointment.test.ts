@@ -138,9 +138,7 @@ const validateCreateAppointmentResponse = (
     expect(encounter.status).toEqual('planned');
   }
   expect(checkEncounterIsVirtual(encounter)).toEqual(isVirtual);
-  expect(questionnaire).toBeDefined();
   assert(questionnaire);
-  expect(fhirPatient).toBeDefined();
   assert(fhirPatient);
   if (patient) {
     expect(fhirPatient.id).toEqual(patient.id);
