@@ -5698,7 +5698,8 @@
             "Z3:#{var/PROJECT_ID}-audio-recordings/*",
             "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
             "Z3:#{var/PROJECT_ID}-discharge-summaries/*",
-            "Z3:#{var/PROJECT_ID}-labs/*"
+            "Z3:#{var/PROJECT_ID}-labs/*",
+            "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject"],
           "effect": "Allow"
@@ -6443,6 +6444,10 @@
     },
     "DISCHARGE_SUMMARIES": {
       "name": "#{var/PROJECT_ID}-discharge-summaries",
+      "removalPolicy": "retain"
+    },
+    "INVOICEABLE_PATIENTS_REPORTS": {
+      "name": "#{var/PROJECT_ID}-invoiceable-patients-reports",
       "removalPolicy": "retain"
     }
   },
