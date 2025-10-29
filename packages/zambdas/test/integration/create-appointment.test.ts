@@ -265,7 +265,6 @@ describe('prebook integration - from getting list of slots to booking with selec
     } catch (e) {
       console.error('Error executing get-schedule zambda', e);
     }
-    expect(getScheduleResponse).toBeDefined();
     assert(getScheduleResponse);
 
     const { available } = getScheduleResponse;
