@@ -13,7 +13,14 @@ import { getEmployees, saveFollowup } from 'src/api/api';
 import LocationSelect from 'src/components/LocationSelect';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { FOLLOWUP_REASONS, FOLLOWUP_SYSTEMS, FollowupReason, PatientFollowupDetails, ProviderDetails } from 'utils';
+import {
+  FOLLOWUP_REASONS,
+  FOLLOWUP_SYSTEMS,
+  FollowupReason,
+  PatientFollowupDetails,
+  PRACTITIONER_CODINGS,
+  ProviderDetails,
+} from 'utils';
 
 interface PatientFollowupFormProps {
   patient: Patient | undefined;
@@ -29,7 +36,7 @@ interface EncounterRow {
 }
 
 interface FormData {
-  provider: ProviderDetails | undefined;
+  provider: ProviderDetails | null;
   reason: FollowupReason | undefined;
   otherReason: string;
   initialVisit: EncounterRow | undefined;
@@ -58,16 +65,16 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
   const [providers, setProviders] = useState<ProviderDetails[]>([]);
   const [previousEncounters, setPreviousEncounters] = useState<EncounterRow[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
-  const selectedLocation = localStorage.getItem('selectedLocation');
+  const [locations, setLocations] = useState<LocationWithWalkinSchedule[]>([]);
 
   const [formData, setFormData] = useState<FormData>({
-    provider: followupDetails?.provider || undefined,
+    provider: followupDetails?.provider || null,
     reason: followupDetails?.reason || undefined,
     otherReason: followupDetails?.otherReason || '',
     initialVisit: undefined,
     followupDate: followupDetails?.start ? DateTime.fromISO(followupDetails.start) : DateTime.now(),
     followupTime: followupDetails?.start ? DateTime.fromISO(followupDetails.start) : DateTime.now(),
-    location: followupDetails?.location || (selectedLocation && JSON.parse(selectedLocation)),
+    location: followupDetails?.location as LocationWithWalkinSchedule | undefined,
   });
 
   const validateForm = (): boolean => {
@@ -201,6 +208,48 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
     }
   }, [oystehrZambda, patientId, followupDetails?.initialEncounterID]);
 
+  useEffect(() => {
+    if (previousEncounters.length > 0 && providers.length > 0) {
+      const latestInitialVisit = previousEncounters[0];
+      const provider = providers.find(
+        (provider) =>
+          latestInitialVisit.encounter.participant?.find(
+            (participant) =>
+              participant.individual?.reference?.split('/')[1] === provider.practitionerId &&
+              participant.type?.find(
+                (type) =>
+                  type.coding?.some(
+                    (coding) =>
+                      coding.system === PRACTITIONER_CODINGS.Attender[0].system &&
+                      coding.code === PRACTITIONER_CODINGS.Attender[0].code
+                  )
+              )
+          )
+      );
+      if (provider) {
+        setFormData((prev) => ({ ...prev, provider: provider }));
+      }
+    }
+  }, [previousEncounters, providers]);
+
+  useEffect(() => {
+    if (previousEncounters.length > 0 && locations.length > 0) {
+      const latestInitialVisit = previousEncounters[0];
+      const location = locations.find(
+        (location) =>
+          latestInitialVisit.encounter.location?.find(
+            (latestLocation) => location.id === latestLocation.location?.reference?.split('/')[1]
+          )
+      );
+      const selectedLocation = localStorage.getItem('selectedLocation');
+      if (location) {
+        setFormData((prev) => ({ ...prev, location: location }));
+      } else if (selectedLocation) {
+        setFormData((prev) => ({ ...prev, location: JSON.parse(selectedLocation) }));
+      }
+    }
+  }, [previousEncounters, locations]);
+
   const handleFormSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
 
@@ -301,7 +350,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
               getOptionLabel={(option) => `${option.name}`}
               isOptionEqualToValue={(option, value) => option.practitionerId === value.practitionerId}
               value={formData.provider}
-              onChange={(_, newVal) => updateFormData('provider', newVal || undefined)}
+              onChange={(_, newVal) => updateFormData('provider', newVal || null)}
               renderOption={(props, option) => {
                 return (
                   <li {...props} key={option.practitionerId}>
@@ -438,6 +487,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
             <LocationSelect
               location={formData.location}
               setLocation={(location) => updateFormData('location', location)}
+              setLocations={setLocations}
               updateURL={false}
               renderInputProps={{ size: 'small' }}
             />
