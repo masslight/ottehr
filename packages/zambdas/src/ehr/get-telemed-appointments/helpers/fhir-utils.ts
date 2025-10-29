@@ -68,10 +68,6 @@ export const getAllResourcesFromFhir = async (
         name: '_revinclude:iterate',
         value: 'DocumentReference:patient',
       },
-      {
-        name: '_revinclude:iterate',
-        value: 'QuestionnaireResponse:encounter',
-      },
       ...(searchDate
         ? [
             {
@@ -96,6 +92,27 @@ export const getAllResourcesFromFhir = async (
   };
 
   const allResources = await getAllFhirSearchPages<FhirResource>(fhirSearchParams, oystehr, 100);
+
+  // Fetch QuestionnaireResponse resources separately to avoid bundle size limits
+  const encounterIds = allResources
+    .filter((resource) => resource.resourceType === 'Encounter')
+    .map((resource) => resource.id)
+    .filter((id): id is string => !!id);
+
+  if (encounterIds.length > 0) {
+    const questionnaireResponseParams: FhirSearchParams<FhirResource> = {
+      resourceType: 'QuestionnaireResponse',
+      params: [
+        {
+          name: 'encounter',
+          value: encounterIds.join(','),
+        },
+      ],
+    };
+
+    const questionnaireResponses = await getAllFhirSearchPages<FhirResource>(questionnaireResponseParams, oystehr, 100);
+    allResources.push(...questionnaireResponses);
+  }
 
   const filtered = allResources.filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 
