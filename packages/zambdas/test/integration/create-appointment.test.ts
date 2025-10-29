@@ -128,9 +128,8 @@ const validateCreateAppointmentResponse = (
   }
   expect(appointment.slot?.[0]?.reference).toEqual(`Slot/${slot.id}`);
 
-  expect(encounter).toBeDefined();
   assert(encounter);
-  expect(encounter.id);
+  assert(encounter.id);
   // todo: should encounter status be 'arrived' for walkin virtual appointments to match the appointment status?
   // i think this is intended and helps with some intake logic particular to the virtual walkin flow
   if (isWalkin && !isVirtual) {
