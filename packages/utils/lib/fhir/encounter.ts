@@ -22,6 +22,7 @@ export const FOLLOWUP_REASONS = [
   'Result - Radiology',
   'Order - Lab',
   'Order - Radiology',
+  'Order - eRX',
   'Clinical Follow-up',
   'Splint or DME',
   'Other',
