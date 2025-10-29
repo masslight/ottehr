@@ -335,7 +335,6 @@ describe('prebook integration - from getting list of slots to booking with selec
       resourceType: 'Slot',
       id: slotId,
     });
-    expect(fetchedSlot).toBeDefined();
     assert(fetchedSlot);
     expect(fetchedSlot.status).toEqual('busy');
 
