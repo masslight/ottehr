@@ -1,5 +1,5 @@
 import { Box, ListItemText, MenuItem, Select } from '@mui/material';
-import { FC, useState } from 'react';
+import { FC, useEffect, useMemo, useRef, useState } from 'react';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
@@ -18,24 +18,58 @@ export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (prop
   const { value, update, isLoading } = useExamObservations(params);
   // appointments made before https://github.com/masslight/ottehr/issues/4055 is ready might have some undefined fields
   const fields = value.filter((field) => field !== undefined);
-  const [booleanValue, setBooleanValue] = useState(fields.some((field) => field.value === true));
 
-  const onCheckboxChange = (value: boolean): void => {
-    setBooleanValue(!booleanValue);
-    // if the checkbox is unchecked, update options
-    if (value === false) {
-      // get fields that are checked and update them to be unchecked
+  // Create a stable serialized representation of field states to detect actual data changes
+  const fieldsState = useMemo(
+    () =>
+      fields
+        .map((f) => `${f.field}:${f.value}`)
+        .sort()
+        .join('|'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [value] // Depend on value from useExamObservations hook
+  );
+
+  const [booleanValue, setBooleanValue] = useState(() => fields.some((field) => field.value === true));
+
+  // Track if user is actively interacting to prevent sync conflicts
+  const isUserInteractingRef = useRef(false);
+
+  // Sync local state when server data changes (e.g., after applying template)
+  useEffect(() => {
+    // Don't sync if user is actively clicking
+    if (!isUserInteractingRef.current) {
+      const hasCheckedFields = fields.some((field) => field.value === true);
+      setBooleanValue(hasCheckedFields);
+    }
+  }, [fieldsState, fields]); // Depend on both to ensure updates
+
+  const onCheckboxChange = (newValue: boolean): void => {
+    // Mark that user is interacting
+    isUserInteractingRef.current = true;
+
+    // Immediately update local state to reflect user action
+    setBooleanValue(newValue);
+
+    // Then update server data
+    if (newValue === false) {
+      // User unchecked - clear all selected options
       const fieldsToUpdate = fields.filter((field) => field.value === true);
       if (fieldsToUpdate.length > 0) {
         update(fieldsToUpdate.map((field) => ({ ...field, value: false })));
       }
     } else {
-      // if the checkbox is checked, update only the checkbox
-      const field = fields.filter((field) => field.field === name)?.[0];
+      // User checked - update the main checkbox field
+      const field = fields.find((f) => f.field === name);
       if (field) {
-        update({ ...field, value });
+        update({ ...field, value: newValue });
       }
     }
+
+    // Reset interaction flag after update completes
+    setTimeout(() => {
+      isUserInteractingRef.current = false;
+    }, 100);
   };
 
   const selectedFields = fields.filter((field) => field.value === true).map((field) => field.field);
