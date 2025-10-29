@@ -21,15 +21,15 @@ const GO_TO_LAB_TEST = 'Go to Lab Test';
 export const TASKS_PAGE_SIZE = 20;
 export const MANUAL_TASKS_CATEGORIES = {
   externalLab: 'manual-external-lab',
-  internalLab: 'internal-lab',
-  medications: 'medications',
-  nursingOrders: 'nursing-orders',
-  patientFollowUp: 'patient-follow-up',
-  procedures: 'procedures',
-  radiology: 'radiology',
-  charting: 'charting',
-  coding: 'coding',
-  other: 'other',
+  inHouseLab: 'manual-in-house-lab',
+  medications: 'manual-medications',
+  nursingOrders: 'manual-nursing-orders',
+  patientFollowUp: 'manual-patient-follow-up',
+  procedures: 'manual-procedures',
+  radiology: 'manual-radiology',
+  charting: 'manual-charting',
+  coding: 'manual-coding',
+  other: 'manual-other',
 } as const;
 
 export interface Task {
