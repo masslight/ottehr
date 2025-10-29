@@ -56,9 +56,7 @@ const createSlotAndValidate = async (
     console.error('Error executing get-schedule zambda', e);
     expect(false).toBeTruthy(); // fail the test if we can't create the slot
   }
-  expect(createdSlotResponse).toBeDefined();
   assert(createdSlotResponse);
-  expect(createdSlotResponse.id).toBeDefined();
   assert(createdSlotResponse.id);
   expect(createdSlotResponse.resourceType).toEqual('Slot');
   expect(createdSlotResponse.status).toEqual('busy-tentative');
