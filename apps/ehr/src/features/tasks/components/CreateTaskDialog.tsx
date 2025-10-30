@@ -14,6 +14,7 @@ import {
   useExternalLabOrdersOptions,
   useInHouseLabOrdersOptions,
   useNursingOrdersOptions,
+  useProceduresOptions,
   useRadiologyOrdersOptions,
 } from '../common';
 
@@ -60,6 +61,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ handleClose }) => {
   const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId);
   const { nursingOrdersLoading, nursingOrdersOptions } = useNursingOrdersOptions(encounterId);
   const { radiologyOrdersLoading, radiologyOrdersOptions } = useRadiologyOrdersOptions(encounterId);
+  const { proceduresLoading, proceduresOptions } = useProceduresOptions(encounterId);
 
   const ordersLoading =
     formValue.category === MANUAL_TASKS_CATEGORIES.inHouseLab
@@ -70,6 +72,8 @@ export const CreateTaskDialog: React.FC<Props> = ({ handleClose }) => {
       ? nursingOrdersLoading
       : formValue.category === MANUAL_TASKS_CATEGORIES.radiology
       ? radiologyOrdersLoading
+      : formValue.category === MANUAL_TASKS_CATEGORIES.procedures
+      ? proceduresLoading
       : false;
 
   const orderOptions =
@@ -81,6 +85,8 @@ export const CreateTaskDialog: React.FC<Props> = ({ handleClose }) => {
       ? nursingOrdersOptions
       : formValue.category === MANUAL_TASKS_CATEGORIES.radiology
       ? radiologyOrdersOptions
+      : formValue.category === MANUAL_TASKS_CATEGORIES.procedures
+      ? proceduresOptions
       : [];
 
   useEffect(() => {

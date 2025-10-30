@@ -4,6 +4,7 @@ import { usePatientLabOrders } from '../external-labs/components/labs-orders/use
 import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from '../nursing-orders/components/orders/useNursingOrders';
 import { usePatientRadiologyOrders } from '../radiology/components/usePatientRadiologyOrders';
+import { useChartData } from '../visits/shared/stores/appointment/appointment.store';
 
 export function formatDate(dateIso: string): string {
   return DateTime.fromISO(dateIso).toFormat('MM/dd/yyyy h:mm a');
@@ -90,6 +91,22 @@ export function useRadiologyOrdersOptions(encounterId: string): {
       return {
         label: order.studyType,
         value: 'ServiceRequest/' + order.serviceRequestId,
+      };
+    }),
+  };
+}
+
+export function useProceduresOptions(encounterId: string): {
+  proceduresLoading: boolean;
+  proceduresOptions: Option[];
+} {
+  const { chartData, isLoading } = useChartData({ encounterId });
+  return {
+    proceduresLoading: isLoading,
+    proceduresOptions: (chartData?.procedures ?? []).map((procedure) => {
+      return {
+        label: procedure.procedureType ?? '',
+        value: 'Procedure/' + procedure.resourceId,
       };
     }),
   };
