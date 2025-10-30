@@ -27,6 +27,7 @@ export const MANUAL_TASKS_CATEGORIES = {
   patientFollowUp: 'manual-patient-follow-up',
   procedures: 'manual-procedures',
   radiology: 'manual-radiology',
+  erx: 'manual-erx',
   charting: 'manual-charting',
   coding: 'manual-coding',
   other: 'manual-other',

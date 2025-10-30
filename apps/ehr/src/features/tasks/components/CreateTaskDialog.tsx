@@ -10,6 +10,7 @@ import { InPersonModal } from 'src/features/visits/in-person/components/InPerson
 import { MANUAL_TASKS_CATEGORIES } from 'src/features/visits/in-person/hooks/useTasks';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useGetPatient } from 'src/hooks/useGetPatient';
+import { useExternalLabOrdersOptions, useInHouseLabOrdersOptions } from '../common';
 
 export const CATEGORY_OPTIONS = [
   { value: MANUAL_TASKS_CATEGORIES.externalLab, label: 'External Labs' },
@@ -19,6 +20,7 @@ export const CATEGORY_OPTIONS = [
   { value: MANUAL_TASKS_CATEGORIES.patientFollowUp, label: 'Patient Follow-up' },
   { value: MANUAL_TASKS_CATEGORIES.procedures, label: 'Procedures' },
   { value: MANUAL_TASKS_CATEGORIES.radiology, label: 'Radiology' },
+  { value: MANUAL_TASKS_CATEGORIES.erx, label: 'eRx' },
   { value: MANUAL_TASKS_CATEGORIES.charting, label: 'Charting' },
   { value: MANUAL_TASKS_CATEGORIES.coding, label: 'Coding' },
   { value: MANUAL_TASKS_CATEGORIES.other, label: 'Other' },
@@ -47,6 +49,25 @@ export const CreateTaskDialog: React.FC<Props> = ({ handleClose }) => {
     };
   });
 
+  const encounterId = appointments?.find((appointment) => appointment.id === formValue.visit)?.encounter?.id ?? '';
+
+  const { inHouseLabOrdersLoading, inHouseLabOrdersOptions } = useInHouseLabOrdersOptions(encounterId);
+  const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId);
+
+  const ordersLoading =
+    formValue.category === MANUAL_TASKS_CATEGORIES.inHouseLab
+      ? inHouseLabOrdersLoading
+      : formValue.category === MANUAL_TASKS_CATEGORIES.externalLab
+      ? externalLabOrdersLoading
+      : false;
+
+  const orderOptions =
+    formValue.category === MANUAL_TASKS_CATEGORIES.inHouseLab
+      ? inHouseLabOrdersOptions
+      : formValue.category === MANUAL_TASKS_CATEGORIES.externalLab
+      ? externalLabOrdersOptions
+      : [];
+
   useEffect(() => {
     if (!formValue.patient) {
       methods.resetField('visit');
@@ -66,7 +87,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ handleClose }) => {
       open={true}
       handleClose={handleClose}
       handleConfirm={handleConfirm}
-      disabled={!formValue.category || !formValue.task}
+      disabled={!formValue.category || !formValue.task || !formValue.location}
       description={''}
       title={'New Task'}
       confirmText={'Create new task'}
@@ -82,8 +103,14 @@ export const CreateTaskDialog: React.FC<Props> = ({ handleClose }) => {
               loading={appointmentsLoading}
               disabled={!formValue.patient}
             />
-            <SelectInput name="category" label="Category" options={CATEGORY_OPTIONS} />
-            <SelectInput name="order" label="Order" options={[]} disabled={!formValue.visit || !formValue.category} />
+            <SelectInput name="category" label="Category" options={CATEGORY_OPTIONS} required />
+            <SelectInput
+              name="order"
+              label="Order"
+              options={orderOptions}
+              loading={ordersLoading}
+              disabled={!formValue.visit || !formValue.category}
+            />
             <TextInput name="task" label="Task" required />
             <TextInput name="taskDetails" label="Task details" />
             <Stack direction="row" spacing={1}>
