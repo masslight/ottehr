@@ -2,6 +2,7 @@ import { DateTime } from 'luxon';
 import { Option } from 'src/components/input/Option';
 import { usePatientLabOrders } from '../external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHouseLabOrders';
+import { useGetNursingOrders } from '../nursing-orders/components/orders/useNursingOrders';
 
 export function formatDate(dateIso: string): string {
   return DateTime.fromISO(dateIso).toFormat('MM/dd/yyyy h:mm a');
@@ -54,5 +55,23 @@ export function useExternalLabOrdersOptions(encounterId: string): {
               : 'ServiceRequest/' + order.serviceRequestId,
         };
       }),
+  };
+}
+
+export function useNursingOrdersOptions(encounterId: string): {
+  nursingOrdersLoading: boolean;
+  nursingOrdersOptions: Option[];
+} {
+  const { nursingOrders, loading } = useGetNursingOrders({
+    searchBy: { field: 'encounterId', value: encounterId },
+  });
+  return {
+    nursingOrdersLoading: loading,
+    nursingOrdersOptions: nursingOrders.map((order) => {
+      return {
+        label: order.note,
+        value: 'ServiceRequest/' + order.serviceRequestId,
+      };
+    }),
   };
 }
