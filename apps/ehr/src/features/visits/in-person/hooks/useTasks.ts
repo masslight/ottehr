@@ -293,7 +293,6 @@ function fhirTaskToTask(task: FhirTask): Task {
         };
       }
     }
-    // if (!title || title === '') console.log('im an issue!', diagnosticReportId, serviceRequestId);
   }
   if (category === IN_HOUSE_LAB_TASK.category) {
     const code = getCoding(task.code, IN_HOUSE_LAB_TASK.system)?.code ?? '';
