@@ -1,9 +1,10 @@
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
-import { Box, Container, Typography, useTheme } from '@mui/material';
+import { Box, CircularProgress, Container, Typography, useMediaQuery, useTheme } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import imageCompression from 'browser-image-compression';
 import { Attachment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { ChangeEvent, FC, ReactElement, useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import { createZ3Object } from 'src/api/api';
@@ -15,6 +16,8 @@ interface UploadComponentProps {
   fileName: GetPresignedFileURLInput['fileType'];
   appointmentId: string | undefined;
   aspectRatio: number;
+  saveAttachmentPending: boolean;
+  disabled?: boolean;
   submitAttachment: (attachment: Attachment) => Promise<void>;
 }
 
@@ -28,13 +31,14 @@ enum UploadState {
   initial,
   pending,
   complete,
-  failed,
 }
 
 const UploadComponent: FC<UploadComponentProps> = ({
   fileName,
   appointmentId,
   aspectRatio,
+  saveAttachmentPending,
+  disabled,
   submitAttachment,
 }): JSX.Element => {
   const theme = useTheme();
@@ -46,6 +50,9 @@ const UploadComponent: FC<UploadComponentProps> = ({
   const { oystehrZambda } = useApiClients();
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
+  const textSX = isSmallScreen ? { display: 'none' } : {};
 
   const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>): Promise<string | null> => {
     try {
@@ -110,9 +117,9 @@ const UploadComponent: FC<UploadComponentProps> = ({
         setPendingZ3Upload(undefined);
       } catch (e) {
         console.error(e);
-        setZ3UploadState(UploadState.failed);
-      } finally {
         setPendingZ3Upload(undefined);
+        setZ3UploadState(UploadState.initial);
+        enqueueSnackbar('Error uploading file.', { variant: 'error' });
       }
     };
     if (pendingZ3Upload && appointmentId && z3UploadState === UploadState.initial && oystehrZambda) {
@@ -120,20 +127,20 @@ const UploadComponent: FC<UploadComponentProps> = ({
     }
   }, [pendingZ3Upload, z3UploadState, fileName, appointmentId, oystehrZambda, submitAttachment]);
 
+  const isLoading = z3UploadState === UploadState.pending || saveAttachmentPending;
+
   return (
     <Box
       sx={{
-        border: `1px dashed ${theme.palette.primary.main}`,
+        border: `1px dashed ${disabled ? otherColors.disabled : theme.palette.primary.main}`,
         borderRadius: 2,
-        // display: 'flex',
-        background: otherColors.cardBackground,
+        background: disabled ? otherColors.disabledBackground : otherColors.cardBackground,
         flexDirection: 'column',
         alignItems: 'center',
         textAlign: 'center',
         justifyContent: 'center',
         px: 4,
         cursor: 'pointer',
-        height: '156px',
         aspectRatio,
       }}
       onClick={() => {
@@ -144,24 +151,25 @@ const UploadComponent: FC<UploadComponentProps> = ({
         style={{
           margin: 0,
           padding: 0,
-          minHeight: '100%',
+          height: '100%',
           width: 'auto',
-          aspectRatio,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
         {compressingImage ? (
-          <Typography id={`${name}-description`}>
+          <Typography id={`${fileName}-description`}>
             <Markdown components={{ p: DescriptionRenderer }}>
               {"Hold tight!  \nThis image is a little too big, we're compressing it for you..."}
             </Markdown>
           </Typography>
+        ) : isLoading ? (
+          <CircularProgress size={24} />
         ) : (
           <Box height="100%" display={'flex'} gap={1} flexDirection="row" alignItems="center" justifyContent="center">
-            <AddPhotoAlternateIcon fontSize="small" color="primary" />
-            <Typography variant="body2" color="primary">
+            <AddPhotoAlternateIcon fontSize="small" color={disabled ? 'disabled' : 'primary'} />
+            <Typography variant="body2" color={disabled ? 'disabled' : 'primary'} sx={textSX}>
               Add Image
             </Typography>
           </Box>

@@ -76,7 +76,6 @@ import {
   EditPatientInfoDialog,
   ReportIssueDialog,
 } from '../components/dialogs';
-// import ImageCarousel, { ImageCarouselObject } from '../components/ImageCarousel';
 import { InPersonAppointmentStatusChip } from '../components/InPersonAppointmentStatusChip';
 import PaperworkFlagIndicator from '../components/PaperworkFlagIndicator';
 import PatientInformation, { IconProps } from '../components/PatientInformation';
@@ -173,8 +172,7 @@ export default function VisitDetailsPage(): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('lg'));
-
-  const cardSectionHeight = isSmallScreen ? '170px' : '210px';
+  const cardSectionHeight = isSmallScreen ? '120px' : '180px';
 
   const queryClient = useQueryClient();
 
@@ -842,30 +840,11 @@ export default function VisitDetailsPage(): ReactElement {
             )}
 
             {/* new insurance card and photo id */}
-            <Grid container direction="row" marginTop={2} sx={{ backgroundColor: 'green' }}>
-              <Paper sx={{ width: '100%', backgroundColor: 'yellow' }}>
-                <Box padding={3}>
-                  {imagesLoading ? (
-                    <Grid
-                      container
-                      direction="row"
-                      maxHeight={cardSectionHeight}
-                      height={cardSectionHeight}
-                      spacing={2}
-                    >
-                      <Grid item xs={12} display="flex" alignItems="center" justifyContent="center">
-                        <CircularProgress sx={{ justifySelf: 'center' }} />
-                      </Grid>
-                    </Grid>
-                  ) : (
-                    <Grid
-                      container
-                      item
-                      direction="row"
-                      alignItems="center"
-                      sx={{ backgroundColor: 'pink' }}
-                      minHeight={cardSectionHeight}
-                    >
+            <Grid container direction="row" marginTop={2}>
+              <Grid item container sx={{ padding: '10px' }}>
+                <Paper sx={{ width: '100%' }}>
+                  <Box padding={2}>
+                    <Grid container item direction="row" alignItems="center" minHeight={cardSectionHeight}>
                       <>
                         {!selfPay && (
                           <CardCategoryGridItem
@@ -875,6 +854,7 @@ export default function VisitDetailsPage(): ReactElement {
                             filesMutator={filesMutation}
                             fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsurance)}
                             handleImageClick={handleCardImageClick}
+                            imagesLoading={imagesLoading}
                           />
                         )}
                         {!selfPay && (
@@ -885,6 +865,7 @@ export default function VisitDetailsPage(): ReactElement {
                             filesMutator={filesMutation}
                             fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsuranceSecondary)}
                             handleImageClick={handleCardImageClick}
+                            imagesLoading={imagesLoading}
                           />
                         )}
                         {
@@ -895,13 +876,14 @@ export default function VisitDetailsPage(): ReactElement {
                             filesMutator={filesMutation}
                             fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullPhotoId)}
                             handleImageClick={handleCardImageClick}
+                            imagesLoading={imagesLoading}
                           />
                         }
                       </>
                     </Grid>
-                  )}
-                </Box>
-              </Paper>
+                  </Box>
+                </Paper>
+              </Grid>
             </Grid>
 
             <Grid container item direction="column">
@@ -1292,8 +1274,9 @@ interface CardCategoryGridItemInput {
   item: SavedCardItem;
   category: SavedCardCategory;
   appointmentID: string | undefined;
-  fullCardPdf?: DocumentInfo | undefined;
   filesMutator: UseMutationResult<void, Error, UpdateVisitFilesInput, unknown>;
+  imagesLoading?: boolean;
+  fullCardPdf?: DocumentInfo | undefined;
   handleImageClick: (imageType: string) => void;
 }
 
@@ -1312,6 +1295,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
   appointmentID,
   fullCardPdf,
   filesMutator,
+  imagesLoading,
   handleImageClick,
 }) => {
   const title = (() => {
@@ -1324,7 +1308,10 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
     }
   })();
 
+  const theme = useTheme();
   const ASPECT_RATIO = 1.57; // Standard aspect ratio for ID and insurance cards
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
+  const downloadDisabled = imagesLoading || (!item.front && !item.back);
 
   const itemIdentifier = (side: 'front' | 'back'): UpdateVisitFilesInput['fileType'] => {
     if (category === 'primary-ins') {
@@ -1380,7 +1367,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
           },
         }}
       >
-        {fullCardPdf?.presignedUrl ? (
+        {fullCardPdf?.presignedUrl && !downloadDisabled ? (
           <MUILink
             href={fullCardPdf.presignedUrl}
             target="_blank"
@@ -1388,7 +1375,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'flex-start',
-              paddingLeft: 3,
+              paddingLeft: isSmallScreen ? 2 : 3,
               cursor: 'pointer',
               textDecoration: 'none',
             }}
@@ -1403,18 +1390,19 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
             sx={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'flex-start',
-              paddingLeft: 3,
-              cursor: 'pointer',
+              justifyContent: isSmallScreen ? 'center' : 'flex-start',
+              paddingLeft: isSmallScreen ? 1 : 3,
+              cursor: downloadDisabled ? 'default' : 'pointer',
             }}
             onClick={async () => {
+              if (downloadDisabled) return;
               await handleDownload();
             }}
           >
             <Typography color="primary.dark" variant="body2" marginRight={1}>
               {title}
             </Typography>
-            <DownloadIcon fontSize="small" color="primary" />
+            <DownloadIcon fontSize="small" color="primary" sx={{ display: downloadDisabled ? 'none' : 'initial' }} />
           </Box>
         )}
       </Grid>
@@ -1435,6 +1423,9 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
               <ImageUploader
                 fileName={itemIdentifier(key as 'front' | 'back')}
                 appointmentId={appointmentID}
+                saveAttachmentPending={
+                  filesMutator.variables?.fileType === itemIdentifier(key as 'front' | 'back') && filesMutator.isPending
+                }
                 submitAttachment={async (attachment: Attachment) => {
                   await filesMutator.mutateAsync({
                     appointmentId: appointmentID,
@@ -1443,6 +1434,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                   });
                 }}
                 aspectRatio={ASPECT_RATIO}
+                disabled={imagesLoading}
               />
             </Grid>
           )
