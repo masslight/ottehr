@@ -74,6 +74,36 @@ const getStatusColor = (
   }
 };
 
+/**
+ * Splits a date range into batches of maximum 5 days each
+ */
+const splitDateRangeIntoBatches = (
+  start: string,
+  end: string,
+  maxDays: number = 5
+): Array<{ start: string; end: string }> => {
+  const startDate = DateTime.fromISO(start);
+  const endDate = DateTime.fromISO(end);
+
+  const batches: Array<{ start: string; end: string }> = [];
+  let currentStart = startDate;
+
+  while (currentStart < endDate) {
+    // Calculate the end of the current batch (5 days from start, or the final end date)
+    const currentEnd = DateTime.min(currentStart.plus({ days: maxDays }).minus({ milliseconds: 1 }), endDate);
+
+    batches.push({
+      start: currentStart.toISO() ?? '',
+      end: currentEnd.toISO() ?? '',
+    });
+
+    // Move to the next batch
+    currentStart = currentEnd.plus({ milliseconds: 1 });
+  }
+
+  return batches;
+};
+
 const useAiAssistedEncounters = (
   dateRange: DateRangeFilter,
   start: string,
@@ -92,14 +122,76 @@ const useAiAssistedEncounters = (
       // Build location filter if a location is selected
       const locationIds = selectedLocationId !== 'all' ? [selectedLocationId] : undefined;
 
-      // Call the Zambda function to get AI-assisted encounters
-      const response = await getAiAssistedEncountersReport(oystehrZambda, {
-        dateRange: { start, end },
-        locationIds,
+      // Calculate the date range in days
+      const startDate = DateTime.fromISO(start);
+      const endDate = DateTime.fromISO(end);
+      const daysDifference = endDate.diff(startDate, 'days').days;
+
+      console.log(`Date range is ${daysDifference.toFixed(2)} days`);
+
+      // If the date range is <= 5 days, make a single request
+      if (daysDifference <= 5) {
+        console.log('Making single request for date range');
+        const response = await getAiAssistedEncountersReport(oystehrZambda, {
+          dateRange: { start, end },
+          locationIds,
+        });
+
+        // Transform the response to match our display requirements
+        const processedEncounters: AiAssistedEncounterRow[] = response.encounters.map((encounter) => {
+          const appointmentTime = encounter.appointmentStart
+            ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
+            : 'Unknown';
+
+          return {
+            id: encounter.appointmentId,
+            appointmentId: encounter.appointmentId,
+            patientId: encounter.patientId,
+            patientName: encounter.patientName,
+            dateOfBirth: encounter.dateOfBirth,
+            visitStatus: encounter.visitStatus as VisitStatusLabel,
+            appointmentTime,
+            appointmentStart: encounter.appointmentStart,
+            location: encounter.location,
+            locationId: encounter.locationId,
+            attendingProvider: encounter.attendingProvider,
+            visitType: encounter.visitType,
+            reason: encounter.reason,
+            aiType: encounter.aiType,
+          };
+        });
+
+        return processedEncounters.sort((a, b) => {
+          const aTime = a.appointmentStart;
+          const bTime = b.appointmentStart;
+          return DateTime.fromISO(bTime).toMillis() - DateTime.fromISO(aTime).toMillis();
+        });
+      }
+
+      // Split the date range into 5-day batches
+      const batches = splitDateRangeIntoBatches(start, end, 5);
+      console.log(`Splitting date range into ${batches.length} batches of up to 5 days each`);
+
+      // Fetch data for each batch in parallel
+      const batchPromises = batches.map(async (batch, index) => {
+        console.log(`Fetching batch ${index + 1}/${batches.length}: ${batch.start} to ${batch.end}`);
+        const response = await getAiAssistedEncountersReport(oystehrZambda, {
+          dateRange: batch,
+          locationIds,
+        });
+        console.log(`Batch ${index + 1} returned ${response.encounters.length} encounters`);
+        return response.encounters;
       });
 
-      // Transform the response to match our display requirements
-      const processedEncounters: AiAssistedEncounterRow[] = response.encounters.map((encounter) => {
+      // Wait for all batches to complete
+      const batchResults = await Promise.all(batchPromises);
+
+      // Combine all encounters from all batches
+      const allEncounters = batchResults.flat();
+      console.log(`Total encounters across all batches: ${allEncounters.length}`);
+
+      // Transform the combined response to match our display requirements
+      const processedEncounters: AiAssistedEncounterRow[] = allEncounters.map((encounter) => {
         const appointmentTime = encounter.appointmentStart
           ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
           : 'Unknown';
@@ -122,7 +214,10 @@ const useAiAssistedEncounters = (
         };
       });
 
-      return processedEncounters.sort((a, b) => {
+      // Deduplicate by appointmentId (in case there are overlaps at batch boundaries)
+      const uniqueEncounters = Array.from(new Map(processedEncounters.map((enc) => [enc.appointmentId, enc])).values());
+
+      return uniqueEncounters.sort((a, b) => {
         const aTime = a.appointmentStart;
         const bTime = b.appointmentStart;
         return DateTime.fromISO(bTime).toMillis() - DateTime.fromISO(aTime).toMillis();
