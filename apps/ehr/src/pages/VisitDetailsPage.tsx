@@ -1,5 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import CircleIcon from '@mui/icons-material/Circle';
+import DownloadIcon from '@mui/icons-material/Download';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -1309,14 +1310,6 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
       return 'ID Card';
     }
   })();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const downloadCTAText = (() => {
-    if (category === 'primary-ins' || category === 'secondary-ins') {
-      return 'Download Insurance Card';
-    } else {
-      return 'Download ID Card';
-    }
-  })();
 
   const itemIdentifier = (side: 'front' | 'back'): UpdateVisitFilesInput['fileType'] => {
     if (category === 'primary-ins') {
@@ -1330,10 +1323,24 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
 
   return (
     <Grid container item direction="column" justifyContent="center" columnSpacing={1} xs={4} sm={4}>
-      <Grid item>
-        <Typography color="primary.dark" variant="body2" textAlign="center">
-          {title}
-        </Typography>
+      <Grid item sx={{ paddingBottom: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            paddingLeft: 3,
+            cursor: 'pointer',
+          }}
+          onClick={() => {
+            // download full card pdf
+          }}
+        >
+          <Typography color="text.primary.light" variant="body1" textAlign="right" marginRight={1}>
+            {title}
+          </Typography>
+          <DownloadIcon fontSize="small" color="primary" />
+        </Box>
       </Grid>
       <Grid item container direction="row" justifyContent={'center'} spacing={1}>
         {Object.entries(item).map(([key, card], index) =>
