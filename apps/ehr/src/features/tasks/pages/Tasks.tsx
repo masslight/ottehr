@@ -322,7 +322,7 @@ export const Tasks: React.FC = () => {
                             </Typography>
                           </>
                         ) : (
-                          'Not Assigned'
+                          'Unassigned'
                         )}
                       </TableCell>
                       <TableCell>
