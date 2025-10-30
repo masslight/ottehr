@@ -1,6 +1,7 @@
 import {
   QuestionnaireItem,
   QuestionnaireItemEnableWhen,
+  QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
@@ -295,7 +296,7 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
 export const makeValidationSchema = (
   items: IntakeQuestionnaireItem[],
   pageId?: string,
-  externalContext?: { values: any; items: any }
+  externalContext?: { values: any; items: any; questionnaireResponse?: QuestionnaireResponse }
 ): any => {
   if (pageId !== undefined) {
     // we are validating one page of the questionnaire
@@ -623,33 +624,68 @@ const evalEnableWhenItem = (
   }
 };
 
+const evalStatusCondition = (questionVal: any, questionnaireResponse?: QuestionnaireResponse): boolean => {
+  const { operator, answerString, answerCoding } = questionVal;
+  const currentStatus = questionnaireResponse?.status;
+
+  switch (operator) {
+    case 'exists':
+      return !!currentStatus;
+
+    case '=':
+      if (answerString) {
+        return currentStatus === answerString;
+      }
+      if (answerCoding) {
+        return currentStatus === answerCoding.code;
+      }
+      return false;
+
+    case '!=':
+      if (answerString) {
+        return currentStatus !== answerString;
+      }
+      if (answerCoding) {
+        return currentStatus !== answerCoding.code;
+      }
+      return false;
+
+    case 'in':
+      if (answerString && currentStatus) {
+        const allowedStatuses = answerString.split(',').map((s: string) => s.trim());
+        return allowedStatuses.includes(currentStatus);
+      }
+      return false;
+
+    default:
+      return false;
+  }
+};
+
 export const evalEnableWhen = (
   item: IntakeQuestionnaireItem,
   items: IntakeQuestionnaireItem[],
-  values: { [itemLinkId: string]: QuestionnaireResponseItem }
+  values: { [itemLinkId: string]: QuestionnaireResponseItem },
+  questionnaireResponse?: QuestionnaireResponse
 ): boolean => {
   const { enableWhen, enableBehavior = 'all' } = item;
   if (enableWhen === undefined || enableWhen.length === 0) {
     return true;
   }
 
+  const evaluate = (ew: QuestionnaireItemEnableWhen): boolean => {
+    if (ew.question === '$status') {
+      return evalStatusCondition(ew, questionnaireResponse);
+    }
+    return evalEnableWhenItem(ew, values, items);
+  };
+
   if (enableBehavior === 'any') {
-    const verdict = enableWhen.some((ew) => {
-      const enabled = evalEnableWhenItem(ew, values, items);
-      return enabled;
-    });
-    return verdict;
+    return enableWhen.some(evaluate);
   } else if (enableBehavior === 'all') {
-    const verdict = enableWhen.every((ew) => {
-      const enabled = evalEnableWhenItem(ew, values, items);
-      return enabled;
-    });
-    return verdict;
+    return enableWhen.every(evaluate);
   } else {
-    const verdict = enableWhen.every((ew) => {
-      return evalEnableWhenItem(ew, values, items);
-    });
-    return verdict;
+    return enableWhen.every(evaluate);
   }
 };
 

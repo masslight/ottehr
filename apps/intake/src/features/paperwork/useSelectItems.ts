@@ -1,6 +1,6 @@
 import { GridSize } from '@mui/system';
 import { _objectKeys } from 'fast-json-patch/module/helpers';
-import { QuestionnaireItem, QuestionnaireResponseItem } from 'fhir/r4b';
+import { QuestionnaireItem, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { evalEnableWhen, IntakeQuestionnaireItem } from 'utils';
 
 export interface StyledQuestionnaireItem extends QuestionnaireItem {
@@ -14,11 +14,12 @@ type DisplayStrategy = 'enabled' | 'hidden' | 'protected';
 export const getItemDisplayStrategy = (
   item: IntakeQuestionnaireItem,
   items: IntakeQuestionnaireItem[],
-  values: { [itemLinkId: string]: QuestionnaireResponseItem }
+  values: { [itemLinkId: string]: QuestionnaireResponseItem },
+  questionnaireResponse?: QuestionnaireResponse
 ): DisplayStrategy => {
   if (item.readOnly) {
     return item.disabledDisplay ?? 'hidden';
   }
-  const enabled = evalEnableWhen(item, items, values);
+  const enabled = evalEnableWhen(item, items, values, questionnaireResponse);
   return enabled ? 'enabled' : item.disabledDisplay ?? 'hidden';
 };

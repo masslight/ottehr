@@ -183,7 +183,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   onSubmit,
   saveProgress,
 }) => {
-  const { paperwork, allItems } = usePaperworkContext();
+  const { paperwork, allItems, questionnaireResponse: questionnaireResponseResource } = usePaperworkContext();
 
   const [cache, setCache] = useState({
     pageId,
@@ -193,6 +193,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   const validationSchema = makeValidationSchema(items, pageId, {
     values: paperwork,
     items: allItems,
+    questionnaireResponse: questionnaireResponseResource,
   }) as AnyObjectSchema;
 
   const methods = useForm({

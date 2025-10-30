@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-in-person-previsit-1_0_12": {
+    "questionnaire-in-person-previsit-1_0_14": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-        "version": "1.0.12",
+        "version": "1.0.14",
         "name": "in-person_pre-visit_paperwork",
         "title": "in-person pre-visit paperwork",
         "status": "active",
@@ -3084,16 +3084,46 @@
                 "valueString": "Consent forms"
               }
             ],
+            "enableWhen": [
+              {
+                "question": "$status",
+                "operator": "!=",
+                "answerString": "completed"
+              },
+              {
+                "question": "$status",
+                "operator": "!=",
+                "answerString": "amended"
+              }
+            ],
+            "enableBehavior": "all",
             "item": [
               {
                 "linkId": "hipaa-acknowledgement",
                 "text": "I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)",
                 "type": "boolean",
                 "required": true,
+                "enableWhen": [
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "completed"
+                  },
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "amended"
+                  }
+                ],
+                "enableBehavior": "all",
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
                     "valueBoolean": true
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
                   }
                 ]
               },
@@ -3102,10 +3132,27 @@
                 "text": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)",
                 "type": "boolean",
                 "required": true,
+                "enableWhen": [
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "completed"
+                  },
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "amended"
+                  }
+                ],
+                "enableBehavior": "all",
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
                     "valueBoolean": true
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
                   }
                 ]
               },
@@ -3114,10 +3161,27 @@
                 "text": "Signature",
                 "type": "string",
                 "required": true,
+                "enableWhen": [
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "completed"
+                  },
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "amended"
+                  }
+                ],
+                "enableBehavior": "all",
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                     "valueString": "Signature"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
                   }
                 ]
               },
@@ -3126,10 +3190,27 @@
                 "text": "Full name",
                 "type": "string",
                 "required": true,
+                "enableWhen": [
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "completed"
+                  },
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "amended"
+                  }
+                ],
+                "enableBehavior": "all",
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
                     "valueString": "section-consent-forms shipping name"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
                   }
                 ]
               },
@@ -3138,6 +3219,25 @@
                 "text": "Relationship to the patient",
                 "type": "choice",
                 "required": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
+                  }
+                ],
+                "enableWhen": [
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "completed"
+                  },
+                  {
+                    "question": "$status",
+                    "operator": "!=",
+                    "answerString": "amended"
+                  }
+                ],
+                "enableBehavior": "all",
                 "answerOption": [
                   {
                     "valueString": "Self"
