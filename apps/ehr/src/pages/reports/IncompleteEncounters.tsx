@@ -72,13 +72,15 @@ const getStatusColor = (
   }
 };
 
+const BATCH_DAYS = 5;
+
 /**
- * Splits a date range into batches of maximum 5 days each
+ * Splits a date range into batches of maximum BATCH_DAYS days each
  */
 const splitDateRangeIntoBatches = (
   start: string,
   end: string,
-  maxDays: number = 5
+  maxDays: number = BATCH_DAYS
 ): Array<{ start: string; end: string }> => {
   const startDate = DateTime.fromISO(start);
   const endDate = DateTime.fromISO(end);
@@ -123,8 +125,8 @@ const useIncompleteEncounters = (
 
       console.log(`Date range is ${daysDifference.toFixed(2)} days`);
 
-      // If the date range is <= 5 days, make a single request
-      if (daysDifference <= 5) {
+      // If the date range is <= BATCH_DAYS days, make a single request
+      if (daysDifference <= BATCH_DAYS) {
         console.log('Making single request for date range');
         const response = await getIncompleteEncountersReport(oystehrZambda, {
           dateRange: { start, end },
@@ -160,9 +162,9 @@ const useIncompleteEncounters = (
         });
       }
 
-      // Split the date range into 5-day batches
-      const batches = splitDateRangeIntoBatches(start, end, 5);
-      console.log(`Splitting date range into ${batches.length} batches of up to 5 days each`);
+      // Split the date range into BATCH_DAYS-day batches
+      const batches = splitDateRangeIntoBatches(start, end, BATCH_DAYS);
+      console.log(`Splitting date range into ${batches.length} batches of up to ${BATCH_DAYS} days each`);
 
       // Fetch data for each batch in parallel
       const batchPromises = batches.map(async (batch, index) => {
