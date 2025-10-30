@@ -72,9 +72,9 @@ const PHOTO_ID_CARD_TYPE_CODING = {
       system: 'http://loinc.org',
       code: PHOTO_ID_CARD_CODE,
       display: 'Patient data Document',
-      text: 'Photo ID cards',
     },
   ],
+  text: 'Photo ID cards',
 };
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void> => {
@@ -106,32 +106,6 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     },
     listResources,
   };
-
-  if (fileType === 'insurance-card-front') {
-    // do thing
-    createDRInput.type = {
-      coding: [
-        {
-          system: 'http://loinc.org',
-          code: INSURANCE_CARD_CODE,
-          display: 'Insurance card front',
-        },
-      ],
-      text: 'Insurance card front',
-    };
-  } else if (fileType === 'insurance-card-back') {
-    // do other thing
-  } else if (fileType === 'insurance-card-front-2') {
-    // do another thing
-  } else if (fileType === 'insurance-card-back-2') {
-    // do yet another thing
-  } else if (fileType === 'photo-id-front') {
-    // do different thing altogether
-  } else if (fileType === 'photo-id-back') {
-    // do something else
-  } else {
-    throw new Error('unhandled fileType in performEffect');
-  }
 
   const { docRefs } = await createFilesDocumentReferences(createDRInput);
 
@@ -177,8 +151,8 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
   // todo: should be able to narrow the search based on the the document type being requested
   // notes to a potential future brave refactorer:
   // the shared abstraction for creating document references is a bit funny and says I need to include the existing list
-  // of List resources, so I'm including it. it has the necessary input to go get those resources and also already does additional querying
-  // to get the analogous document references using passed in params, so it's straddling a couple of different possible api designs here.
+  // of List resources, so I'm including it. it has the necessary input to go get those resources however and also already does additional querying
+  // to get the DocumentReference resources using passed in params, so it's straddling a couple of different possible api designs here.
   // it looks like it is just being pulled too many different ways in service to different use cases. strong "wrong abstraction" smells.
   const listResources = (
     await oystehr.fhir.search<List>({

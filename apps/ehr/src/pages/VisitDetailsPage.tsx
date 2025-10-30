@@ -10,6 +10,7 @@ import {
   CircularProgress,
   FormControl,
   Grid,
+  Link as MUILink,
   MenuItem,
   Paper,
   Select,
@@ -226,6 +227,8 @@ export default function VisitDetailsPage(): ReactElement {
     fullCardPdfs: [],
     consentPdfUrls: [],
   };
+
+  console.log('fullCardPdfs, consentPdfUrls', fullCardPdfs, consentPdfUrls);
 
   const { idCards, primaryInsuranceCards, secondaryInsuranceCards } = (() => {
     const { photoIdCards, insuranceCards, insuranceCardsSecondary } = imageFileData || {
@@ -1292,6 +1295,15 @@ interface CardCategoryGridItemInput {
   setPhotoZoom: (value: SetStateAction<boolean>) => void;
 }
 
+function parseFiletype(fileUrl: string): string {
+  const filetype = fileUrl.match(/\w+$/)?.[0];
+  if (filetype) {
+    return filetype;
+  } else {
+    throw new Error('Failed to parse filetype from url');
+  }
+}
+
 const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
   item,
   category,
@@ -1321,26 +1333,78 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
     }
   };
 
+  const handleDownload = async (): Promise<void> => {
+    try {
+      for (const [key, card] of Array.from(Object.entries(item))) {
+        if (card?.presignedUrl) {
+          const fileType = parseFiletype(card.z3Url);
+
+          fetch(card.presignedUrl, { method: 'GET', headers: { 'Cache-Control': 'no-cache' } })
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error('failed to fetch image from presigned url');
+              }
+              return response.blob();
+            })
+            .then((blob) => {
+              const url = window.URL.createObjectURL(new Blob([blob]));
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `${appointmentID}-${category}_${key}.${fileType}`;
+              link.style.display = 'none';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            })
+            .catch((error) => {
+              throw new Error(error);
+            });
+        }
+      }
+    } catch (error) {
+      console.error('Error downloading image:', error);
+    }
+  };
+
   return (
     <Grid container item direction="column" justifyContent="center" columnSpacing={1} xs={4} sm={4}>
       <Grid item sx={{ paddingBottom: 1 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            paddingLeft: 3,
-            cursor: 'pointer',
-          }}
-          onClick={() => {
-            // download full card pdf
-          }}
-        >
-          <Typography color="text.primary.light" variant="body1" textAlign="right" marginRight={1}>
-            {title}
-          </Typography>
-          <DownloadIcon fontSize="small" color="primary" />
-        </Box>
+        {fullCardPdf ? (
+          <MUILink
+            href={fullCardPdf?.presignedUrl ?? ''}
+            target="_blank"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              paddingLeft: 3,
+              cursor: 'pointer',
+            }}
+          >
+            <Typography color="text.primary.light" variant="body1" textAlign="right" marginRight={1}>
+              {title}
+            </Typography>
+            <DownloadIcon fontSize="small" color="primary" />
+          </MUILink>
+        ) : (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              paddingLeft: 3,
+              cursor: 'pointer',
+            }}
+            onClick={async () => {
+              await handleDownload();
+            }}
+          >
+            <Typography color="text.primary.light" variant="body1" textAlign="right" marginRight={1}>
+              {title}
+            </Typography>
+            <DownloadIcon fontSize="small" color="primary" />
+          </Box>
+        )}
       </Grid>
       <Grid item container direction="row" justifyContent={'center'} spacing={1}>
         {Object.entries(item).map(([key, card], index) =>
