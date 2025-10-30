@@ -14,27 +14,21 @@ import {
 import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL, FHIR_EXTENSION } from './constants';
 
 // follow up encounter consts
-export const FOLLOWUP_TYPES = ['Telephone Encounter', 'Non-Billable'] as const;
+export const FOLLOWUP_TYPES = ['Follow-up Encounter'] as const;
 export type FollowupType = (typeof FOLLOWUP_TYPES)[number];
 
-export const TELEPHONE_REASONS = [
-  'Culture Positive; Group A Strep',
-  'Culture Positive; Other',
-  'Culture Positive; Urine',
-  'Culture Positive; Wound',
-  'Lab Call Back; Change of Antibiotics',
-  'Lab Call Back; Needs Prescription',
-  'Medication Change or Resend',
-  'Medication Refill Request Spilled, ran out too early, etc.',
+export const FOLLOWUP_REASONS = [
+  'Result - Lab',
+  'Result - Radiology',
+  'Order - Lab',
+  'Order - Radiology',
+  'Order - eRX',
+  'Clinical Follow-up',
+  'Splint or DME',
+  'Other',
 ] as const;
-export const NON_BILLABLE_REASONS = [
-  'Presents for Splints/Crutches',
-  'Presents with Specimen',
-  'Adolescent/Adult Discussion',
-] as const;
-type TelephoneReasons = (typeof TELEPHONE_REASONS)[number];
-type NonBillableReasons = (typeof NON_BILLABLE_REASONS)[number];
-export type FollowupReason = TelephoneReasons | NonBillableReasons;
+type FollowupReasons = (typeof FOLLOWUP_REASONS)[number];
+export type FollowupReason = FollowupReasons;
 
 export const FOLLOWUP_SYSTEMS = {
   callerUrl: `${FHIR_BASE_URL}/followup-caller`,
@@ -48,6 +42,26 @@ export const FOLLOWUP_SYSTEMS = {
   },
 };
 
+export const isFollowupEncounter = (encounter: Encounter): boolean => {
+  return (
+    encounter.type?.some(
+      (type) =>
+        type.coding?.some(
+          (coding) => coding.system === FOLLOWUP_SYSTEMS.type.url && coding.code === FOLLOWUP_SYSTEMS.type.code
+        )
+    ) ?? false
+  );
+};
+
+export type EncounterVisitType = 'main' | 'follow-up';
+
+export const getEncounterVisitType = (encounter?: Encounter): EncounterVisitType => {
+  if (encounter && isFollowupEncounter(encounter)) {
+    return 'follow-up';
+  }
+  return 'main';
+};
+
 export const formatFhirEncounterToPatientFollowupDetails = (
   encounter: Encounter,
   patientId: string,
@@ -57,7 +71,8 @@ export const formatFhirEncounterToPatientFollowupDetails = (
     encounter.type?.find(
       (t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
     )?.text || '';
-  const reason = encounter?.reasonCode?.[0].text || '';
+  const reason = encounter?.reasonCode?.[0].coding?.[0].display || '';
+  const otherReason = encounter?.reasonCode?.[0].text;
   const answered =
     encounter?.participant?.find(
       (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.answeredUrl))
@@ -87,6 +102,7 @@ export const formatFhirEncounterToPatientFollowupDetails = (
     patientId,
     followupType: followupType as FollowupType,
     reason: (reason as FollowupReason) || undefined,
+    otherReason,
     answered,
     caller,
     start,

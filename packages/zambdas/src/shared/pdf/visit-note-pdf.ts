@@ -4,6 +4,8 @@ import { PageSizes, PDFImage } from 'pdf-lib';
 import {
   BUCKET_NAMES,
   followUpInOptions,
+  formatFhirEncounterToPatientFollowupDetails,
+  isFollowupEncounter,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
   renderScreeningQuestionsForPDF,
@@ -15,7 +17,11 @@ import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { createPdfClient, getPdfLogo, PdfInfo, rgbNormalized } from './pdf-utils';
 import { ImageStyle, LineStyle, PageStyles, PdfClientStyles, TextStyle, VisitNoteData } from './types';
 
-async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointment: boolean): Promise<Uint8Array> {
+async function createVisitNotePdfBytes(
+  data: VisitNoteData,
+  isInPersonAppointment: boolean,
+  encounter?: any
+): Promise<Uint8Array> {
   const pdfClientStyles: PdfClientStyles = {
     initialPage: {
       width: PageSizes.A4[0],
@@ -233,6 +239,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     });
   };
 
+  const isFollowup = encounter ? isFollowupEncounter(encounter) : false;
+
   // This is headline of each line
   const drawHeadline = (): void => {
     const imgStyles: ImageStyle = {
@@ -240,7 +248,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       height: 28,
     };
     if (logo) pdfClient.drawImage(logo, imgStyles);
-    pdfClient.drawText('Visit Note', textStyles.header);
+    const title = isFollowup ? 'Follow-up Visit Note' : 'Visit Note';
+    pdfClient.drawText(title, textStyles.header);
   };
   // We can't set this headline in initial styles, so we gonna draw it and add
   // it as headline for all next pages to set automatically
@@ -265,46 +274,76 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   separateLine();
 
   drawBlockHeader('Visit Details');
-  drawFieldLine('Date of Service', data.dateOfService);
-  drawFieldLine('Reason for Visit', data.reasonForVisit);
-  drawFieldLine('Provider', data.provider);
-  if (data.intakePerson) {
-    drawFieldLine('Intake completed by', data.intakePerson);
+
+  if (isFollowup && encounter) {
+    const followupDetails = formatFhirEncounterToPatientFollowupDetails(encounter, data.patientName);
+
+    const followupDateTime = encounter.period?.start
+      ? new Date(encounter.period.start).toLocaleString()
+      : data.dateOfService;
+
+    drawFieldLine('Initial visit date', data.dateOfService);
+    drawFieldLine('Follow-up date and time', followupDateTime);
+
+    if (followupDetails.reason) {
+      drawFieldLine('Reason', followupDetails.reason);
+    }
+    if (followupDetails.reason === 'Other' && followupDetails.otherReason) {
+      drawFieldLine('Other reason', followupDetails.otherReason);
+    }
+    if (followupDetails.provider?.name) {
+      drawFieldLine('Follow-up provider', followupDetails.provider.name);
+    }
+    if (followupDetails.location) {
+      drawFieldLine('Location', followupDetails.location.name || '');
+    }
+    if (followupDetails.message) {
+      drawFieldLine('Comment', followupDetails.message);
+    }
+  } else {
+    drawFieldLine('Date of Service', data.dateOfService);
+    drawFieldLine('Reason for Visit', data.reasonForVisit);
+    drawFieldLine('Provider', data.provider);
+    if (data.intakePerson) {
+      drawFieldLine('Intake completed by', data.intakePerson);
+    }
+    drawFieldLine('Signed On', data.signedOn);
+    drawFieldLine('Visit ID', data.visitID);
+    drawFieldLine('Visit State', data.visitState);
+    if (data.insuranceCompany) {
+      drawFieldLine('Insurance Company', data.insuranceCompany);
+    }
+    if (data.insuranceSubscriberId) {
+      drawFieldLine('Subscriber ID', data.insuranceSubscriberId);
+    }
+    drawFieldLine('Address', data.address);
   }
-  drawFieldLine('Signed On', data.signedOn);
-  drawFieldLine('Visit ID', data.visitID);
-  drawFieldLine('Visit State', data.visitState);
-  if (data.insuranceCompany) {
-    drawFieldLine('Insurance Company', data.insuranceCompany);
-  }
-  if (data.insuranceSubscriberId) {
-    drawFieldLine('Subscriber ID', data.insuranceSubscriberId);
-  }
-  drawFieldLine('Address', data.address);
   regularText(
     // Related to a node bug, a second space(good space) was added between the words gave, their to handle a bad space(no space) occurance
     'Provider confirmed patient’s name, DOB, introduced themselves, and gave  their licensure and credentials.'
   );
   separateLine();
 
-  if (data.chiefComplaint || data.providerTimeSpan) {
-    drawBlockHeader('Chief complaint & History of Present Illness');
-    if (data.chiefComplaint && data.chiefComplaint.length > 0) {
-      regularText(data.chiefComplaint);
+  if (!isFollowup) {
+    if (data.chiefComplaint || data.providerTimeSpan) {
+      drawBlockHeader('Chief complaint & History of Present Illness');
+      if (data.chiefComplaint && data.chiefComplaint.length > 0) {
+        regularText(data.chiefComplaint);
+      }
+      if (data.providerTimeSpan && !isInPersonAppointment) {
+        pdfClient.drawText(
+          `Provider spent ${data.providerTimeSpan} minutes on real-time audio & video with this patient`,
+          textStyles.smallGreyText
+        );
+      }
+      separateLine();
     }
-    if (data.providerTimeSpan && !isInPersonAppointment) {
-      pdfClient.drawText(
-        `Provider spent ${data.providerTimeSpan} minutes on real-time audio & video with this patient`,
-        textStyles.smallGreyText
-      );
-    }
-    separateLine();
-  }
 
-  if (data.reviewOfSystems) {
-    drawBlockHeader('Review of Systems');
-    regularText(data.reviewOfSystems);
-    separateLine();
+    if (data.reviewOfSystems) {
+      drawBlockHeader('Review of Systems');
+      regularText(data.reviewOfSystems);
+      separateLine();
+    }
   }
 
   if (data.medications || (data.medicationsNotes && data.medicationsNotes.length > 0)) {
@@ -438,117 +477,121 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  if (
-    (data.screening?.additionalQuestions && Object.keys(data.screening.additionalQuestions).length > 0) ||
-    data.screening?.currentASQ ||
-    (data.screening?.notes && data.screening.notes.length > 0)
-  ) {
-    drawBlockHeader('Additional questions');
+  if (!isFollowup) {
+    if (
+      (data.screening?.additionalQuestions && Object.keys(data.screening.additionalQuestions).length > 0) ||
+      data.screening?.currentASQ ||
+      (data.screening?.notes && data.screening.notes.length > 0)
+    ) {
+      drawBlockHeader('Additional questions');
 
-    if (data.screening?.additionalQuestions) {
-      renderScreeningQuestionsForPDF(data.screening.additionalQuestions, (question, formattedValue) => {
-        regularText(`${question} - ${formattedValue}`);
-      });
-    }
+      if (data.screening?.additionalQuestions) {
+        renderScreeningQuestionsForPDF(data.screening.additionalQuestions, (question, formattedValue) => {
+          regularText(`${question} - ${formattedValue}`);
+        });
+      }
 
-    if (data.screening?.currentASQ) {
-      regularText(`ASQ - ${data.screening.currentASQ}`);
-    }
+      if (data.screening?.currentASQ) {
+        regularText(`ASQ - ${data.screening.currentASQ}`);
+      }
 
-    if (data.screening?.notes && data.screening.notes.length > 0) {
-      drawBlockHeader('Screening notes', textStyles.blockSubHeader);
-      data.screening.notes.forEach((record) => {
-        regularText(record);
-      });
-    }
-    separateLine();
-  }
-
-  if (data.intakeNotes && data.intakeNotes.length > 0) {
-    drawBlockHeader('Intake notes');
-    data.intakeNotes.forEach((record) => {
-      regularText(record);
-    });
-    separateLine();
-  }
-
-  if (data.vitals && (Object.values(data.vitals).filter((arr) => arr && arr.length > 0) ?? []).length > 0) {
-    drawBlockHeader('Vitals');
-
-    const vitalLabelMapper: { [value in VitalFieldNames]: string } & { notes: string } = {
-      [VitalFieldNames.VitalTemperature]: 'Temperature',
-      [VitalFieldNames.VitalHeartbeat]: 'Heartbeat',
-      [VitalFieldNames.VitalRespirationRate]: 'Respiration rate',
-      [VitalFieldNames.VitalBloodPressure]: 'Blood pressure',
-      [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen saturation',
-      [VitalFieldNames.VitalWeight]: 'Weight',
-      [VitalFieldNames.VitalHeight]: 'Height',
-      [VitalFieldNames.VitalVision]: 'Vision',
-      notes: 'Vitals notes',
-    };
-
-    Object.keys(vitalLabelMapper)
-      .filter((name) => data.vitals?.[name as VitalFieldNames] && data.vitals?.[name as VitalFieldNames]!.length > 0)
-      .forEach((vitalName) => {
-        drawBlockHeader(vitalLabelMapper[vitalName as VitalFieldNames], textStyles.blockSubHeader);
-        data.vitals?.[vitalName as VitalFieldNames]?.forEach((record) => {
+      if (data.screening?.notes && data.screening.notes.length > 0) {
+        drawBlockHeader('Screening notes', textStyles.blockSubHeader);
+        data.screening.notes.forEach((record) => {
           regularText(record);
         });
-      });
-
-    separateLine();
-  }
-
-  drawBlockHeader('Examination');
-
-  // Process examination data using the new structure
-  const examination = data.examination;
-
-  if (examination && Object.keys(examination).length > 0) {
-    Object.entries(examination).forEach(([sectionKey, section]) => {
-      if (section.items && section.items.length > 0) {
-        const sectionLabel = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
-        drawExaminationCard(`${sectionLabel}:   `, section.items, undefined, section.comment);
-      } else if (section.comment) {
-        // If there are no items but there's a comment, still show the section
-        const sectionLabel = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
-        drawExaminationCard(`${sectionLabel}:   `, [], undefined, section.comment);
       }
-    });
-  }
-  separateLine();
+      separateLine();
+    }
 
-  if (data.assessment?.primary) {
-    drawBlockHeader('Assessment');
-    drawBlockHeader('Primary:', textStyles.blockSubHeader);
-    regularText(data.assessment?.primary);
-    if (data.assessment?.secondary.length > 0) {
-      drawBlockHeader('Secondary:', textStyles.blockSubHeader);
-      data.assessment?.secondary.forEach((assessment) => {
-        regularText(assessment);
+    if (data.intakeNotes && data.intakeNotes.length > 0) {
+      drawBlockHeader('Intake notes');
+      data.intakeNotes.forEach((record) => {
+        regularText(record);
+      });
+      separateLine();
+    }
+
+    if (data.vitals && (Object.values(data.vitals).filter((arr) => arr && arr.length > 0) ?? []).length > 0) {
+      drawBlockHeader('Vitals');
+
+      const vitalLabelMapper: { [value in VitalFieldNames]: string } & { notes: string } = {
+        [VitalFieldNames.VitalTemperature]: 'Temperature',
+        [VitalFieldNames.VitalHeartbeat]: 'Heartbeat',
+        [VitalFieldNames.VitalRespirationRate]: 'Respiration rate',
+        [VitalFieldNames.VitalBloodPressure]: 'Blood pressure',
+        [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen saturation',
+        [VitalFieldNames.VitalWeight]: 'Weight',
+        [VitalFieldNames.VitalHeight]: 'Height',
+        [VitalFieldNames.VitalVision]: 'Vision',
+        notes: 'Vitals notes',
+      };
+
+      Object.keys(vitalLabelMapper)
+        .filter((name) => data.vitals?.[name as VitalFieldNames] && data.vitals?.[name as VitalFieldNames]!.length > 0)
+        .forEach((vitalName) => {
+          drawBlockHeader(vitalLabelMapper[vitalName as VitalFieldNames], textStyles.blockSubHeader);
+          data.vitals?.[vitalName as VitalFieldNames]?.forEach((record) => {
+            regularText(record);
+          });
+        });
+
+      separateLine();
+    }
+  }
+
+  if (!isFollowup) {
+    drawBlockHeader('Examination');
+
+    // Process examination data using the new structure
+    const examination = data.examination;
+
+    if (examination && Object.keys(examination).length > 0) {
+      Object.entries(examination).forEach(([sectionKey, section]) => {
+        if (section.items && section.items.length > 0) {
+          const sectionLabel = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
+          drawExaminationCard(`${sectionLabel}:   `, section.items, undefined, section.comment);
+        } else if (section.comment) {
+          // If there are no items but there's a comment, still show the section
+          const sectionLabel = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
+          drawExaminationCard(`${sectionLabel}:   `, [], undefined, section.comment);
+        }
       });
     }
     separateLine();
-  }
 
-  if (data.medicalDecision) {
-    drawBlockHeader('Medical Decision Making');
-    regularText(data.medicalDecision);
-    separateLine();
-  }
+    if (data.assessment?.primary) {
+      drawBlockHeader('Assessment');
+      drawBlockHeader('Primary:', textStyles.blockSubHeader);
+      regularText(data.assessment?.primary);
+      if (data.assessment?.secondary.length > 0) {
+        drawBlockHeader('Secondary:', textStyles.blockSubHeader);
+        data.assessment?.secondary.forEach((assessment) => {
+          regularText(assessment);
+        });
+      }
+      separateLine();
+    }
 
-  if (data.emCode) {
-    drawBlockHeader('E&M code');
-    regularText(data.emCode, 'No E&M code provided.');
-    separateLine();
-  }
+    if (data.medicalDecision) {
+      drawBlockHeader('Medical Decision Making');
+      regularText(data.medicalDecision);
+      separateLine();
+    }
 
-  if (data.cptCodes && data.cptCodes.length > 0) {
-    drawBlockHeader('CPT codes');
-    data.cptCodes.forEach((cptCode) => {
-      regularText(cptCode);
-    });
-    separateLine();
+    if (data.emCode) {
+      drawBlockHeader('E&M code');
+      regularText(data.emCode, 'No E&M code provided.');
+      separateLine();
+    }
+
+    if (data.cptCodes && data.cptCodes.length > 0) {
+      drawBlockHeader('CPT codes');
+      data.cptCodes.forEach((cptCode) => {
+        regularText(cptCode);
+      });
+      separateLine();
+    }
   }
 
   if (data.procedures && data.procedures.length > 0) {
@@ -683,6 +726,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     }
   }
 
+  if (isFollowup && encounter) {
+    const completedDateTime = encounter.period?.end
+      ? new Date(encounter.period.end).toLocaleString()
+      : new Date().toLocaleString();
+    drawFieldLine('Follow-up completed', completedDateTime);
+  }
+
   return await pdfClient.save();
 }
 
@@ -696,14 +746,15 @@ export async function createVisitNotePDF(
   patient: Patient,
   secrets: Secrets | null,
   token: string,
-  isInPersonAppointment: boolean
+  isInPersonAppointment: boolean,
+  encounter?: any
 ): Promise<PdfInfo> {
   if (!patient.id) {
     throw new Error('No patient id found for consent items');
   }
 
   console.log('Creating pdf bytes');
-  const pdfBytes = await createVisitNotePdfBytes(input, isInPersonAppointment).catch((error) => {
+  const pdfBytes = await createVisitNotePdfBytes(input, isInPersonAppointment, encounter).catch((error) => {
     throw new Error('failed creating pdfBytes: ' + error.message);
   });
 

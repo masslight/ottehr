@@ -21,13 +21,21 @@ export function validateRequestParameters(input: ZambdaInput): SignAppointmentIn
 
   const body = parsedBody as Record<string, unknown>;
 
-  const { appointmentId, timezone } = body;
+  const { appointmentId, encounterId, timezone } = body;
 
   if (appointmentId === undefined) {
     throw MISSING_REQUIRED_PARAMETERS(['appointmentId']);
   } else if (typeof appointmentId !== 'string') {
     throw INVALID_INPUT_ERROR(
       `Invalid "appointmentId" parameter provided: ${JSON.stringify(appointmentId)}. It must be a string.`
+    );
+  }
+
+  if (encounterId === undefined) {
+    throw MISSING_REQUIRED_PARAMETERS(['encounterId']);
+  } else if (typeof encounterId !== 'string') {
+    throw INVALID_INPUT_ERROR(
+      `Invalid "encounterId" parameter provided: ${JSON.stringify(encounterId)}. It must be a string.`
     );
   }
 
@@ -59,6 +67,7 @@ export function validateRequestParameters(input: ZambdaInput): SignAppointmentIn
 
   return {
     appointmentId,
+    encounterId,
     secrets: input.secrets,
     timezone: timezone ?? null,
     userToken,
