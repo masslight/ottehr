@@ -24,11 +24,10 @@ import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { DailyPaymentsReportZambdaOutput, PaymentItem, PaymentMethodSummary } from 'utils';
+import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
 import { getDailyPaymentsReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
-
-const BATCH_DAYS = 5;
 
 export default function DailyPayments(): React.ReactElement {
   const navigate = useNavigate();
@@ -115,35 +114,6 @@ export default function DailyPayments(): React.ReactElement {
     }
   }, []);
 
-  /**
-   * Splits a date range into batches of maximum BATCH_DAYS days each
-   */
-  const splitDateRangeIntoBatches = useCallback(
-    (start: string, end: string, maxDays: number = BATCH_DAYS): Array<{ start: string; end: string }> => {
-      const startDate = DateTime.fromISO(start);
-      const endDate = DateTime.fromISO(end);
-
-      const batches: Array<{ start: string; end: string }> = [];
-      let currentStart = startDate;
-
-      while (currentStart < endDate) {
-        // Calculate the end of the current batch (5 days from start, or the final end date)
-        const currentEnd = DateTime.min(currentStart.plus({ days: maxDays }).minus({ milliseconds: 1 }), endDate);
-
-        batches.push({
-          start: currentStart.toISO() ?? '',
-          end: currentEnd.toISO() ?? '',
-        });
-
-        // Move to the next batch
-        currentStart = currentEnd.plus({ milliseconds: 1 });
-      }
-
-      return batches;
-    },
-    []
-  );
-
   const fetchReport = useCallback(
     async (filter: string): Promise<void> => {
       setLoading(true);
@@ -162,8 +132,8 @@ export default function DailyPayments(): React.ReactElement {
 
         console.log(`Date range is ${daysDifference.toFixed(2)} days`);
 
-        // If the date range is <= BATCH_DAYS days, make a single request
-        if (daysDifference <= BATCH_DAYS) {
+        // If the date range is <= DEFAULT_BATCH_DAYS days, make a single request
+        if (daysDifference <= DEFAULT_BATCH_DAYS) {
           console.log('Making single request for date range');
           const response = await getDailyPaymentsReport(oystehrZambda, {
             dateRange: { start, end },
@@ -172,9 +142,9 @@ export default function DailyPayments(): React.ReactElement {
 
           setReportData(response);
         } else {
-          // Split the date range into BATCH_DAYS-day batches
-          const batches = splitDateRangeIntoBatches(start, end, BATCH_DAYS);
-          console.log(`Splitting date range into ${batches.length} batches of up to ${BATCH_DAYS} days each`);
+          // Split the date range into DEFAULT_BATCH_DAYS-day batches
+          const batches = splitDateRangeIntoBatches(start, end, DEFAULT_BATCH_DAYS);
+          console.log(`Splitting date range into ${batches.length} batches of up to ${DEFAULT_BATCH_DAYS} days each`);
 
           // Fetch data for each batch in parallel
           const batchPromises = batches.map(async (batch, index) => {
@@ -241,7 +211,7 @@ export default function DailyPayments(): React.ReactElement {
         setLoading(false);
       }
     },
-    [getDateRange, oystehrZambda, customDate, selectedLocationId, splitDateRangeIntoBatches]
+    [getDateRange, oystehrZambda, customDate, selectedLocationId]
   );
 
   useEffect(() => {
