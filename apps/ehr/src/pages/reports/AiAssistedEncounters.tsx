@@ -46,7 +46,7 @@ interface AiAssistedEncounterRow {
   attendingProvider?: string;
   visitType?: string;
   reason?: string;
-  documentReferenceCount?: number;
+  aiType?: string;
 }
 
 type DateRangeFilter = 'today' | 'yesterday' | 'last-7-days' | 'last-7-days-excluding-today' | 'last-30-days';
@@ -119,7 +119,7 @@ const useAiAssistedEncounters = (
           attendingProvider: encounter.attendingProvider,
           visitType: encounter.visitType,
           reason: encounter.reason,
-          documentReferenceCount: encounter.documentReferenceCount,
+          aiType: encounter.aiType,
         };
       });
 
@@ -247,6 +247,26 @@ export default function AiAssistedEncounters(): React.ReactElement {
         },
       },
       {
+        field: 'aiType',
+        headerName: 'AI Type',
+        width: 250,
+        sortable: true,
+        renderCell: (params: GridRenderCellParams) => {
+          const aiType = params.value as string;
+          if (!aiType) return <span>-</span>;
+
+          // Determine chip color based on AI type
+          let color: 'primary' | 'secondary' | 'success' = 'primary';
+          if (aiType === 'ambient scribe') {
+            color = 'secondary';
+          } else if (aiType === 'patient HPI chatbot & ambient scribe') {
+            color = 'success';
+          }
+
+          return <Chip label={aiType} color={color} size="small" variant="outlined" />;
+        },
+      },
+      {
         field: 'visitStatus',
         headerName: 'Status',
         width: 160,
@@ -344,17 +364,6 @@ export default function AiAssistedEncounters(): React.ReactElement {
         headerName: 'Reason',
         width: 200,
         sortable: true,
-      },
-      {
-        field: 'documentReferenceCount',
-        headerName: 'AI Documents',
-        width: 130,
-        sortable: true,
-        align: 'center',
-        headerAlign: 'center',
-        renderCell: (params: GridRenderCellParams) => (
-          <Chip label={params.value || 0} color="primary" size="small" variant="filled" />
-        ),
       },
     ],
     []

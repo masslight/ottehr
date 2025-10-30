@@ -19,7 +19,7 @@ export interface AiAssistedEncounterItem {
   attendingProvider?: string;
   visitType?: string;
   reason?: string;
-  documentReferenceCount?: number; // Number of matching DocumentReferences
+  aiType?: string; // AI type: 'patient HPI chatbot', 'ambient scribe', or 'patient HPI chatbot & ambient scribe'
 }
 
 export interface AiAssistedEncountersReportZambdaOutput {

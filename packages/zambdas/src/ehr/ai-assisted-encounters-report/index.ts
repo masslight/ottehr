@@ -287,9 +287,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       const visitStatus = appointment ? getInPersonVisitStatus(appointment, encounter, true) : 'unknown';
 
-      // Get document reference count
+      // Determine AI type based on DocumentReference.description
       const encounterRef = encounter.id ? `Encounter/${encounter.id}` : '';
-      const documentReferenceCount = encounterRef ? encounterDocumentMap.get(encounterRef)?.length || 0 : 0;
+      const encounterDocRefs = encounterRef ? encounterDocumentMap.get(encounterRef) || [] : [];
+
+      const hasAmbientScribe = encounterDocRefs.some(
+        (docRef) => docRef.description === 'Summary of visit from audio recording'
+      );
+      const hasPatientChatbot = encounterDocRefs.some((docRef) => docRef.description === 'Summary of visit from chat');
+
+      let aiType = '';
+      if (hasAmbientScribe && hasPatientChatbot) {
+        aiType = 'patient HPI chatbot & ambient scribe';
+      } else if (hasAmbientScribe) {
+        aiType = 'ambient scribe';
+      } else if (hasPatientChatbot) {
+        aiType = 'patient HPI chatbot';
+      }
 
       return {
         appointmentId: appointment?.id || '',
@@ -304,7 +318,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         attendingProvider: attendingProviderName,
         visitType,
         reason: encounter.reasonCode?.[0]?.text || appointment?.appointmentType?.text || '',
-        documentReferenceCount,
+        aiType,
       };
     });
 
