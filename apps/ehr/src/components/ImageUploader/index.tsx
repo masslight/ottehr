@@ -1,9 +1,10 @@
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import { Box, Container, Typography, useTheme } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import imageCompression from 'browser-image-compression';
 import { Attachment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ChangeEvent, FC, ReactElement, useEffect, useState } from 'react';
+import { ChangeEvent, FC, ReactElement, useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import { createZ3Object } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -13,7 +14,7 @@ import { GetPresignedFileURLInput, MIME_TYPES } from 'utils';
 interface UploadComponentProps {
   fileName: GetPresignedFileURLInput['fileType'];
   appointmentId: string | undefined;
-  uploadDescription: string | JSX.Element;
+  submitAttachment: (attachment: Attachment) => Promise<void>;
 }
 
 const FILE_TYPES_ACCEPTED = [MIME_TYPES.PNG, MIME_TYPES.JPEG, MIME_TYPES.JPG, MIME_TYPES.PDF].join(', ');
@@ -29,14 +30,16 @@ enum UploadState {
   failed,
 }
 
-const UploadComponent: FC<UploadComponentProps> = ({ fileName, appointmentId, uploadDescription }): JSX.Element => {
+const UploadComponent: FC<UploadComponentProps> = ({ fileName, appointmentId, submitAttachment }): JSX.Element => {
   const theme = useTheme();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pendingZ3Upload, setPendingZ3Upload] = useState<File | undefined>();
   const [z3UploadState, setZ3UploadState] = useState(UploadState.initial);
   const [compressingImage, setCompressingImage] = useState(false);
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
+
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>): Promise<string | null> => {
     try {
@@ -97,55 +100,75 @@ const UploadComponent: FC<UploadComponentProps> = ({ fileName, appointmentId, up
         };
         console.log('z3 upload complete, attachment:', attachment);
         setZ3UploadState(UploadState.complete);
+        await submitAttachment(attachment);
         setPendingZ3Upload(undefined);
       } catch (e) {
         console.error(e);
         setZ3UploadState(UploadState.failed);
+      } finally {
+        setPendingZ3Upload(undefined);
       }
     };
-    if (pendingZ3Upload && appointmentId && z3UploadState === UploadState.initial && oystehr) {
-      void saveObjectToZ3(pendingZ3Upload, appointmentId, oystehr);
+    if (pendingZ3Upload && appointmentId && z3UploadState === UploadState.initial && oystehrZambda) {
+      void saveObjectToZ3(pendingZ3Upload, appointmentId, oystehrZambda);
     }
-  }, [pendingZ3Upload, z3UploadState, fileName, appointmentId, oystehr]);
+  }, [pendingZ3Upload, z3UploadState, fileName, appointmentId, oystehrZambda, submitAttachment]);
 
   return (
-    <Box>
-      <Box
-        sx={{
-          border: `1px dashed ${theme.palette.primary.main}`,
-          borderRadius: 2,
+    <Box
+      sx={{
+        border: `1px dashed ${theme.palette.primary.main}`,
+        borderRadius: 2,
+        // display: 'flex',
+        background: otherColors.cardBackground,
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+        justifyContent: 'center',
+        px: 4,
+        cursor: 'pointer',
+        height: '156px',
+      }}
+      onClick={() => {
+        inputRef.current?.click();
+      }}
+    >
+      <Container
+        style={{
+          margin: 0,
+          padding: 0,
+          minHeight: '100%',
+          width: '100%',
           display: 'flex',
-          background: otherColors.cardBackground,
-          flexDirection: 'column',
           alignItems: 'center',
-          textAlign: 'center',
           justifyContent: 'center',
-          px: 4,
         }}
       >
-        <Container style={{ margin: 0, padding: 0 }}>
+        {compressingImage ? (
           <Typography id={`${name}-description`}>
-            {compressingImage ? (
-              <Markdown components={{ p: DescriptionRenderer }}>
-                {"Hold tight!  \nThis image is a little too big, we're compressing it for you..."}
-              </Markdown>
-            ) : typeof uploadDescription === 'string' ? (
-              <Markdown components={{ p: DescriptionRenderer }}>{uploadDescription}</Markdown>
-            ) : (
-              uploadDescription
-            )}
+            <Markdown components={{ p: DescriptionRenderer }}>
+              {"Hold tight!  \nThis image is a little too big, we're compressing it for you..."}
+            </Markdown>
           </Typography>
-        </Container>
-        <input
-          type="file"
-          accept={FILE_TYPES_ACCEPTED}
-          hidden
-          onChange={async (e) => {
-            e.preventDefault();
-            await handleFileUpload(e);
-          }}
-        />
-      </Box>
+        ) : (
+          <Box height="100%" display={'flex'} gap={1} flexDirection="row" alignItems="center" justifyContent="center">
+            <AddPhotoAlternateIcon fontSize="small" color="primary" />
+            <Typography variant="body2" color="primary">
+              Add Image
+            </Typography>
+          </Box>
+        )}
+      </Container>
+      <input
+        type="file"
+        accept={FILE_TYPES_ACCEPTED}
+        hidden
+        ref={inputRef}
+        onChange={async (e) => {
+          e.preventDefault();
+          await handleFileUpload(e);
+        }}
+      />
     </Box>
   );
 };

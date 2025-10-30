@@ -99,6 +99,7 @@ import {
   UpdateUserParams,
   UpdateUserZambdaOutput,
   UpdateVisitDetailsInput,
+  UpdateVisitFilesInput,
   UploadPatientProfilePhotoInput,
   UserActivationZambdaInput,
   UserActivationZambdaOutput,
@@ -1273,6 +1274,18 @@ export const updatePatientVisitDetails = async (
   }
 };
 
+export const updateVisitFiles = async (oystehr: Oystehr, parameters: UpdateVisitFilesInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'update-visit-files',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const invoiceablePatientsReport = async (oystehr: Oystehr): Promise<void> => {
   try {
     const response = await oystehr.zambda.execute({
@@ -1292,7 +1305,7 @@ const getPresignedFileURL = async (
   try {
     const { appointmentID, fileType, fileFormat } = params;
 
-    const response = await oystehr.zambda.execute({
+    const response = await oystehr.zambda.executePublic({
       id: 'get-presigned-file-url',
       appointmentID,
       fileType,

@@ -19,8 +19,8 @@ import {
 } from '@mui/material';
 import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Appointment, Flag, Patient } from 'fhir/r4b';
+import { useMutation, UseMutationResult, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Appointment, Attachment, Flag, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, SetStateAction, useCallback, useEffect, useMemo, useState } from 'react';
@@ -30,6 +30,7 @@ import {
   getPatientVisitDetails,
   getPatientVisitFiles,
   updatePatientVisitDetails,
+  updateVisitFiles,
 } from 'src/api/api';
 import ImageUploader from 'src/components/ImageUploader';
 import { RoundedButton } from 'src/components/RoundedButton';
@@ -56,6 +57,7 @@ import {
   isInPersonAppointment,
   TelemedAppointmentStatus,
   UpdateVisitDetailsInput,
+  UpdateVisitFilesInput,
   VisitDocuments,
   VisitStatusLabel,
 } from 'utils';
@@ -202,7 +204,11 @@ export default function VisitDetailsPage(): ReactElement {
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
 
-  const { data: imageFileData, isLoading: imagesLoading } = useQuery({
+  const {
+    data: imageFileData,
+    isLoading: imagesLoading,
+    refetch: refetchFileData,
+  } = useQuery({
     queryKey: ['get-visit-files', appointmentID],
 
     queryFn: async (): Promise<VisitDocuments> => {
@@ -317,6 +323,16 @@ export default function VisitDetailsPage(): ReactElement {
 
   const selfPay = isEncounterSelfPay(visitDetailsData?.encounter);
   const isInPerson = isInPersonAppointment(appointment);
+
+  const filesMutation = useMutation({
+    mutationFn: async (input: UpdateVisitFilesInput) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      await updateVisitFiles(oystehrZambda, input);
+    },
+    onSuccess: async () => {
+      await refetchFileData();
+    },
+  });
 
   const bookingDetailsMutation = useMutation({
     mutationFn: async (input: UpdateVisitDetailsInput) => {
@@ -834,6 +850,7 @@ export default function VisitDetailsPage(): ReactElement {
                       container
                       item
                       direction="row"
+                      alignItems="center"
                       // rowGap={2}
                       // columnSpacing={2}
                       sx={{ backgroundColor: 'pink' }}
@@ -847,6 +864,7 @@ export default function VisitDetailsPage(): ReactElement {
                             appointmentID={appointmentID}
                             setZoomedIdx={setZoomedIdx}
                             setPhotoZoom={setPhotoZoom}
+                            filesMutator={filesMutation}
                             fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsurance)}
                           />
                         )}
@@ -857,6 +875,7 @@ export default function VisitDetailsPage(): ReactElement {
                             appointmentID={appointmentID}
                             setZoomedIdx={setZoomedIdx}
                             setPhotoZoom={setPhotoZoom}
+                            filesMutator={filesMutation}
                             fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsuranceSecondary)}
                           />
                         )}
@@ -867,6 +886,7 @@ export default function VisitDetailsPage(): ReactElement {
                             appointmentID={appointmentID}
                             setZoomedIdx={setZoomedIdx}
                             setPhotoZoom={setPhotoZoom}
+                            filesMutator={filesMutation}
                             fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullPhotoId)}
                           />
                         }
@@ -1266,6 +1286,7 @@ interface CardCategoryGridItemInput {
   category: SavedCardCategory;
   appointmentID: string | undefined;
   fullCardPdf?: DocumentInfo | undefined;
+  filesMutator: UseMutationResult<void, Error, UpdateVisitFilesInput, unknown>;
   setZoomedIdx: (value: SetStateAction<number>) => void;
   setPhotoZoom: (value: SetStateAction<boolean>) => void;
 }
@@ -1275,6 +1296,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
   category,
   appointmentID,
   fullCardPdf,
+  filesMutator,
   setZoomedIdx,
   setPhotoZoom,
 }) => {
@@ -1287,6 +1309,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
       return 'ID Card';
     }
   })();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const downloadCTAText = (() => {
     if (category === 'primary-ins' || category === 'secondary-ins') {
       return 'Download Insurance Card';
@@ -1294,35 +1317,50 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
       return 'Download ID Card';
     }
   })();
+
+  const itemIdentifier = (side: 'front' | 'back'): UpdateVisitFilesInput['fileType'] => {
+    if (category === 'primary-ins') {
+      return side === 'front' ? 'insurance-card-front' : 'insurance-card-back';
+    } else if (category === 'secondary-ins') {
+      return side === 'front' ? 'insurance-card-front-2' : 'insurance-card-back-2';
+    } else {
+      return side === 'front' ? 'photo-id-front' : 'photo-id-back';
+    }
+  };
+
   return (
-    <Grid container item direction="column" columnSpacing={1} xs={4} sm={4}>
+    <Grid container item direction="column" justifyContent="center" columnSpacing={1} xs={4} sm={4}>
       <Grid item>
-        <Typography color="primary.dark" variant="body2">
+        <Typography color="primary.dark" variant="body2" textAlign="center">
           {title}
         </Typography>
       </Grid>
-      <Grid item container direction="row">
-        {Object.values(item).map((card, index) =>
+      <Grid item container direction="row" justifyContent={'center'} spacing={1}>
+        {Object.entries(item).map(([key, card], index) =>
           card ? (
             <Grid item key={card.type} xs={5.5}>
               <CardGridItem
                 card={card}
                 index={index}
                 appointmentID={appointmentID}
-                cards={[]}
                 fullCardPdf={fullCardPdf}
                 setZoomedIdx={setZoomedIdx}
                 setPhotoZoom={setPhotoZoom}
-                title={downloadCTAText}
               />
             </Grid>
           ) : (
             <Grid item key={index} xs={5.5}>
               <ImageUploader
-                key={index === 0 ? 'insurance-card-front' : 'insurance-card-back'}
-                fileName={index === 0 ? 'insurance-card-front' : 'insurance-card-back'}
+                key={itemIdentifier(key as 'front' | 'back')}
+                fileName={itemIdentifier(key as 'front' | 'back')}
                 appointmentId={appointmentID}
-                uploadDescription="Here's an upload component for something"
+                submitAttachment={async (attachment: Attachment) => {
+                  await filesMutator.mutateAsync({
+                    appointmentId: appointmentID,
+                    attachment,
+                    fileType: itemIdentifier(key as 'front' | 'back'),
+                  });
+                }}
               />
             </Grid>
           )
