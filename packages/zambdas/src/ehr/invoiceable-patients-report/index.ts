@@ -202,6 +202,7 @@ async function getInvoiceablePatientsReport(input: {
         appointmentToIdMap,
         itemizationMap,
         claim,
+        allFhirResources: allFhirResourcesResponse,
       });
       if (report && 'error' in report) resultReportsErrors.push(report);
       else if (report) resultReports.push(report);
