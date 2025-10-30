@@ -36,10 +36,11 @@ interface Props {
   appointmentId?: string;
   category?: string;
   order?: string;
+  open: boolean;
   handleClose: () => void;
 }
 
-export const CreateTaskDialog: React.FC<Props> = ({ handleClose }) => {
+export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   const methods = useForm();
   const formValue = methods.watch();
   const handleConfirm = async (): Promise<void> => {};
@@ -105,7 +106,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ handleClose }) => {
       color="primary.main"
       icon={null}
       showEntityPreview={false}
-      open={true}
+      open={open}
       handleClose={handleClose}
       handleConfirm={handleConfirm}
       disabled={!formValue.category || !formValue.task || !formValue.location}

@@ -1,4 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
+import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PersonAddIcon from '@mui/icons-material/PersonAddOutlined';
 import PriorityHighOutlinedIcon from '@mui/icons-material/PriorityHighOutlined';
@@ -194,7 +195,7 @@ export const Tasks: React.FC = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  const [pageNumber, setPageNumber] = React.useState(0);
+  const [pageNumber, setPageNumber] = useState(0);
 
   const { data: tasksData, isLoading: isTasksLoading } = useGetTasks({
     assignedTo: searchParams.get('assignedTo'),
@@ -203,6 +204,11 @@ export const Tasks: React.FC = () => {
     status: searchParams.get('status'),
     page: pageNumber,
   });
+
+  const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
+  const onNewTaskClick = (): void => {
+    setShowCreateTaskDialog(true);
+  };
 
   return (
     <PageContainer>
@@ -214,6 +220,9 @@ export const Tasks: React.FC = () => {
               <SelectInput name="category" label="Category" options={CATEGORY_OPTIONS} />
               <ProviderSelectInput name="assignedTo" label="Asigned to" />
               <SelectInput name="status" label="Status" options={STATUS_OPTIONS} />
+              <RoundedButton variant="contained" onClick={onNewTaskClick} startIcon={<AddIcon />}>
+                New Task
+              </RoundedButton>
             </Stack>
           </Paper>
         </FormProvider>
@@ -404,7 +413,12 @@ export const Tasks: React.FC = () => {
           </Popover>
         ) : null}
         {taskToAssign ? <AssignTaskDialog task={taskToAssign} handleClose={() => setTaskToAssign(null)} /> : null}
-        <CreateTaskDialog handleClose={() => {}} />
+        <CreateTaskDialog
+          open={showCreateTaskDialog}
+          handleClose={(): void => {
+            setShowCreateTaskDialog(false);
+          }}
+        />
       </Stack>
     </PageContainer>
   );
