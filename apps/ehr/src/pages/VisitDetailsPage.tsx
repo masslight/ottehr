@@ -1,4 +1,3 @@
-/* eslint-disable no-constant-condition */
 import { otherColors } from '@ehrTheme/colors';
 import CircleIcon from '@mui/icons-material/Circle';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -18,6 +17,7 @@ import {
   Skeleton,
   TextField,
   Typography,
+  useMediaQuery,
   useTheme,
 } from '@mui/material';
 import Alert, { AlertColor } from '@mui/material/Alert';
@@ -171,6 +171,9 @@ export default function VisitDetailsPage(): ReactElement {
   const { id: appointmentID } = useParams();
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('lg'));
+
+  const cardSectionHeight = isSmallScreen ? '170px' : '210px';
 
   const queryClient = useQueryClient();
 
@@ -845,7 +848,13 @@ export default function VisitDetailsPage(): ReactElement {
               <Paper sx={{ width: '100%', backgroundColor: 'yellow' }}>
                 <Box padding={3}>
                   {imagesLoading ? (
-                    <Grid container direction="row" maxHeight="210px" height="210px" spacing={2}>
+                    <Grid
+                      container
+                      direction="row"
+                      maxHeight={cardSectionHeight}
+                      height={cardSectionHeight}
+                      spacing={2}
+                    >
                       <Grid item xs={12} display="flex" alignItems="center" justifyContent="center">
                         <CircularProgress sx={{ justifySelf: 'center' }} />
                       </Grid>
@@ -856,10 +865,8 @@ export default function VisitDetailsPage(): ReactElement {
                       item
                       direction="row"
                       alignItems="center"
-                      // rowGap={2}
-                      // columnSpacing={2}
                       sx={{ backgroundColor: 'pink' }}
-                      minHeight="210px"
+                      minHeight={cardSectionHeight}
                     >
                       <>
                         {!selfPay && (
@@ -1324,6 +1331,8 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
     }
   })();
 
+  const ASPECT_RATIO = 1.57; // Standard aspect ratio for ID and insurance cards
+
   const itemIdentifier = (side: 'front' | 'back'): UpdateVisitFilesInput['fileType'] => {
     if (category === 'primary-ins') {
       return side === 'front' ? 'insurance-card-front' : 'insurance-card-back';
@@ -1378,9 +1387,9 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
           },
         }}
       >
-        {2 % 2 === 0 ? (
+        {fullCardPdf?.presignedUrl ? (
           <MUILink
-            href={fullCardPdf?.presignedUrl ?? ''}
+            href={fullCardPdf.presignedUrl}
             target="_blank"
             sx={{
               display: 'flex',
@@ -1389,12 +1398,9 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
               paddingLeft: 3,
               cursor: 'pointer',
               textDecoration: 'none',
-              '& .MuiTypography-root .MuiLink-root': {
-                color: 'text.primary.light',
-              },
             }}
           >
-            <Typography color="text.primary.light" variant="body1" textAlign="right" marginRight={1}>
+            <Typography color="primary.dark" variant="body2" textAlign="right" marginRight={1}>
               {title}
             </Typography>
             <DownloadIcon fontSize="small" color="primary" />
@@ -1412,7 +1418,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
               await handleDownload();
             }}
           >
-            <Typography color="text.primary.light" variant="body1" textAlign="right" marginRight={1}>
+            <Typography color="primary.dark" variant="body2" marginRight={1}>
               {title}
             </Typography>
             <DownloadIcon fontSize="small" color="primary" />
@@ -1428,6 +1434,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                 index={index}
                 appointmentID={appointmentID}
                 fullCardPdf={fullCardPdf}
+                aspectRatio={ASPECT_RATIO}
                 setZoomedIdx={setZoomedIdx}
                 setPhotoZoom={setPhotoZoom}
               />
@@ -1445,6 +1452,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                     fileType: itemIdentifier(key as 'front' | 'back'),
                   });
                 }}
+                aspectRatio={1.57}
               />
             </Grid>
           )

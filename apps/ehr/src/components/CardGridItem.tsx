@@ -8,6 +8,7 @@ interface CardGridItemProps {
   index: number;
   appointmentID: string | undefined;
   fullCardPdf: DocumentInfo | undefined;
+  aspectRatio: number;
   setZoomedIdx: (value: React.SetStateAction<number>) => void;
   setPhotoZoom: (value: React.SetStateAction<boolean>) => void;
   offset?: number;
@@ -16,6 +17,7 @@ interface CardGridItemProps {
 export default function CardGridItem({
   card,
   index,
+  aspectRatio,
   setZoomedIdx,
   setPhotoZoom,
   offset = 0,
@@ -26,15 +28,19 @@ export default function CardGridItem({
         setZoomedIdx(index + offset);
         setPhotoZoom(true);
       }}
-      sx={{ cursor: 'pointer' }}
+      sx={{ cursor: 'pointer', aspectRatio, overflow: 'hidden' }}
       display="flex"
       justifyContent="center"
       alignItems="center"
-      height="156px"
+      maxHeight="156px"
       border={`1px solid ${otherColors.dottedLine}`}
       borderRadius={2}
     >
-      <img src={card.presignedUrl} alt={card.type} style={{ maxWidth: '100%', maxHeight: '100%' }} />
+      <img
+        src={card.presignedUrl}
+        alt={card.type}
+        style={{ maxWidth: '100%', height: 'auto', objectFit: 'contain', aspectRatio }}
+      />
     </Box>
   );
 }

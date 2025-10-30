@@ -14,6 +14,7 @@ import { GetPresignedFileURLInput, MIME_TYPES } from 'utils';
 interface UploadComponentProps {
   fileName: GetPresignedFileURLInput['fileType'];
   appointmentId: string | undefined;
+  aspectRatio: number;
   submitAttachment: (attachment: Attachment) => Promise<void>;
 }
 
@@ -30,7 +31,12 @@ enum UploadState {
   failed,
 }
 
-const UploadComponent: FC<UploadComponentProps> = ({ fileName, appointmentId, submitAttachment }): JSX.Element => {
+const UploadComponent: FC<UploadComponentProps> = ({
+  fileName,
+  appointmentId,
+  aspectRatio,
+  submitAttachment,
+}): JSX.Element => {
   const theme = useTheme();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -128,6 +134,7 @@ const UploadComponent: FC<UploadComponentProps> = ({ fileName, appointmentId, su
         px: 4,
         cursor: 'pointer',
         height: '156px',
+        aspectRatio,
       }}
       onClick={() => {
         inputRef.current?.click();
@@ -138,7 +145,8 @@ const UploadComponent: FC<UploadComponentProps> = ({ fileName, appointmentId, su
           margin: 0,
           padding: 0,
           minHeight: '100%',
-          width: '100%',
+          width: 'auto',
+          aspectRatio,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
