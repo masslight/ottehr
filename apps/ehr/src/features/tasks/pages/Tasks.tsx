@@ -211,7 +211,7 @@ export const Tasks: React.FC = () => {
             <Stack direction="row" spacing={2} padding="8px">
               <LocationSelectInput name="location" label="Location" />
               <SelectInput name="category" label="Category" options={CATEGORY_OPTIONS} />
-              <ProviderSelectInput name="assignedTo" label="Asigned to" />
+              <ProviderSelectInput name="assignedTo" label="Assigned to" />
               <SelectInput name="status" label="Status" options={STATUS_OPTIONS} />
             </Stack>
           </Paper>
@@ -322,7 +322,7 @@ export const Tasks: React.FC = () => {
                             </Typography>
                           </>
                         ) : (
-                          'Not Assigned'
+                          'Unassigned'
                         )}
                       </TableCell>
                       <TableCell>

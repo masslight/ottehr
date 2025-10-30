@@ -1,6 +1,8 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Schedule, Slot } from 'fhir/r4b';
 import {
+  AiAssistedEncountersReportZambdaInput,
+  AiAssistedEncountersReportZambdaOutput,
   apiErrorToThrow,
   ApplyTemplateZambdaInput,
   ApplyTemplateZambdaOutput,
@@ -116,6 +118,7 @@ const VITE_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
 const SUBMIT_LAB_ORDER_ZAMBDA_ID = 'submit-lab-order';
 const GET_APPOINTMENTS_ZAMBDA_ID = 'get-appointments';
 const INCOMPLETE_ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
+const AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID = 'ai-assisted-encounters-report';
 const DAILY_PAYMENTS_REPORT_ZAMBDA_ID = 'daily-payments-report';
 const VISITS_OVERVIEW_REPORT_ZAMBDA_ID = 'visits-overview-report';
 const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
@@ -300,6 +303,26 @@ export const getIncompleteEncountersReport = async (
 
     const response = await oystehr.zambda.execute({
       id: INCOMPLETE_ENCOUNTERS_REPORT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getAiAssistedEncountersReport = async (
+  oystehr: Oystehr,
+  parameters: AiAssistedEncountersReportZambdaInput
+): Promise<AiAssistedEncountersReportZambdaOutput> => {
+  try {
+    if (AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID == null) {
+      throw new Error('ai-assisted encounters report environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

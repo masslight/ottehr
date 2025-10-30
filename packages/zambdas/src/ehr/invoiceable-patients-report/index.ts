@@ -149,7 +149,7 @@ async function getInvoiceablePatientsReport(input: {
           oystehr,
           invoiceableClaims.map(
             (claim) =>
-              `https://fhir-api.zapehr.com/r4/Encounter?identifier=${CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM}%7C${claim.encounterId}&_include=Encounter:appointment`
+              `https://fhir-api.zapehr.com/r4/Encounter?identifier=${CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM}|${claim.encounterId}&_include=Encounter:appointment`
           )
         )
       );

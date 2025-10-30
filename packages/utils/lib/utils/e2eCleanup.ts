@@ -1,7 +1,8 @@
 import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, FhirResource, Observation, Patient, Person } from 'fhir/r4b';
-import { chunkThings, getAllFhirSearchPages } from '../fhir';
+import { chunkThings } from '../fhir';
+import { getAllFhirSearchPages } from '../fhir/getAllFhirSearchPages';
 import { sleep } from '../helpers';
 
 export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
