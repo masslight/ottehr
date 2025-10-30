@@ -383,9 +383,7 @@ export interface GetLabelPdfParameters {
   contextRelatedReference: Reference;
   searchParams: { name: string; value: string }[];
 }
-
-// todo labs team absorb LabelPdf into LabPdf
-export interface LabPdf {
+export interface LabDocument {
   type: 'abn' | 'lab-generated-result';
   documentReference: DocumentReference;
   presignedURL: string;

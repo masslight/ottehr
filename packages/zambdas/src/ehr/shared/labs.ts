@@ -46,11 +46,11 @@ import {
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
+  LabDocument,
   LabDrTypeTagCode,
   LabelPdf,
   LabOrderPDF,
   LabOrderResultDetails,
-  LabPdf,
   LabResultPDF,
   LabType,
   nameLabTest,
@@ -656,17 +656,17 @@ const getDocRefRelatedId = (
   return reference?.split('/')[1];
 };
 
-type FetchLabOrderPDFRes = {
+type FetchLabDocumentsRes = {
   resultPDFs: LabResultPDF[];
   labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
-  abnPDFs: LabPdf[];
-  labGeneratedResults: LabPdf[];
+  abnPDFs: LabDocument[];
+  labGeneratedResults: LabDocument[];
 };
-export const fetchLabOrderPDFsPresignedUrls = async (
+export const fetchLabDocumentPresignedUrls = async (
   documentReferences: DocumentReference[],
   m2mToken: string
-): Promise<FetchLabOrderPDFRes | undefined> => {
+): Promise<FetchLabDocumentsRes | undefined> => {
   if (!documentReferences.length) {
     return;
   }
@@ -702,7 +702,7 @@ export const fetchLabOrderPDFsPresignedUrls = async (
             .then((presignedURL) => {
               if (diagnosticReportId) {
                 if (isLabGeneratedResultDoc) {
-                  return { presignedURL, documentReference: docRef, type: 'lab-generated-result' } as LabPdf;
+                  return { presignedURL, documentReference: docRef, type: 'lab-generated-result' } as LabDocument;
                 } else {
                   return { presignedURL, diagnosticReportId } as LabResultPDF;
                 }
@@ -710,7 +710,7 @@ export const fetchLabOrderPDFsPresignedUrls = async (
                 if (isLabOrderDoc) {
                   return { presignedURL, serviceRequestId, docRefId } as LabOrderPDF;
                 } else if (isAbnDoc) {
-                  return { presignedURL, documentReference: docRef, type: 'abn' } as LabPdf;
+                  return { presignedURL, documentReference: docRef, type: 'abn' } as LabDocument;
                 } else if (isLabelDoc) {
                   return { presignedURL, documentReference: docRef } as LabelPdf;
                 }
@@ -731,11 +731,11 @@ export const fetchLabOrderPDFsPresignedUrls = async (
 
   const { resultPDFs, labelPDF, orderPDF, abnPDFs, labGeneratedResults } = pdfs
     .filter(
-      (result): result is PromiseFulfilledResult<LabResultPDF | LabelPdf | LabOrderPDF | LabPdf> =>
+      (result): result is PromiseFulfilledResult<LabResultPDF | LabelPdf | LabOrderPDF | LabDocument> =>
         result.status === 'fulfilled' && result.value !== null
     )
     .reduce(
-      (acc: FetchLabOrderPDFRes, result) => {
+      (acc: FetchLabDocumentsRes, result) => {
         if ('diagnosticReportId' in result.value) {
           acc.resultPDFs.push(result.value);
         } else if ('serviceRequestId' in result.value) {
@@ -1168,8 +1168,8 @@ const getResultDetailsBasedOnDr = async (
 };
 
 const getResultPDFUrlBasedOnDr = async (docRef: DocumentReference, m2mToken: string): Promise<string> => {
-  const pdfs = await fetchLabOrderPDFsPresignedUrls([docRef], m2mToken);
-  const resultPDFs = pdfs?.resultPDFs;
+  const documents = await fetchLabDocumentPresignedUrls([docRef], m2mToken);
+  const resultPDFs = documents?.resultPDFs;
   if (resultPDFs?.length !== 1) {
     console.log('Unexpected number of resultPDFs returned: ', resultPDFs?.length);
     return '';
