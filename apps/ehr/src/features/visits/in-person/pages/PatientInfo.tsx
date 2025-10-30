@@ -17,7 +17,8 @@ interface PatientInfoProps {
 
 export const PatientInfo: React.FC<PatientInfoProps> = () => {
   const {
-    resources: { appointment, encounter },
+    resources: { appointment },
+    encounter,
     isAppointmentLoading,
     appointmentError,
   } = useAppointmentData();
