@@ -10,7 +10,12 @@ import { InPersonModal } from 'src/features/visits/in-person/components/InPerson
 import { MANUAL_TASKS_CATEGORIES } from 'src/features/visits/in-person/hooks/useTasks';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useGetPatient } from 'src/hooks/useGetPatient';
-import { useExternalLabOrdersOptions, useInHouseLabOrdersOptions, useNursingOrdersOptions } from '../common';
+import {
+  useExternalLabOrdersOptions,
+  useInHouseLabOrdersOptions,
+  useNursingOrdersOptions,
+  useRadiologyOrdersOptions,
+} from '../common';
 
 export const CATEGORY_OPTIONS = [
   { value: MANUAL_TASKS_CATEGORIES.externalLab, label: 'External Labs' },
@@ -54,6 +59,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ handleClose }) => {
   const { inHouseLabOrdersLoading, inHouseLabOrdersOptions } = useInHouseLabOrdersOptions(encounterId);
   const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId);
   const { nursingOrdersLoading, nursingOrdersOptions } = useNursingOrdersOptions(encounterId);
+  const { radiologyOrdersLoading, radiologyOrdersOptions } = useRadiologyOrdersOptions(encounterId);
 
   const ordersLoading =
     formValue.category === MANUAL_TASKS_CATEGORIES.inHouseLab
@@ -62,6 +68,8 @@ export const CreateTaskDialog: React.FC<Props> = ({ handleClose }) => {
       ? externalLabOrdersLoading
       : formValue.category === MANUAL_TASKS_CATEGORIES.nursingOrders
       ? nursingOrdersLoading
+      : formValue.category === MANUAL_TASKS_CATEGORIES.radiology
+      ? radiologyOrdersLoading
       : false;
 
   const orderOptions =
@@ -71,6 +79,8 @@ export const CreateTaskDialog: React.FC<Props> = ({ handleClose }) => {
       ? externalLabOrdersOptions
       : formValue.category === MANUAL_TASKS_CATEGORIES.nursingOrders
       ? nursingOrdersOptions
+      : formValue.category === MANUAL_TASKS_CATEGORIES.radiology
+      ? radiologyOrdersOptions
       : [];
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import { Option } from 'src/components/input/Option';
 import { usePatientLabOrders } from '../external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from '../nursing-orders/components/orders/useNursingOrders';
+import { usePatientRadiologyOrders } from '../radiology/components/usePatientRadiologyOrders';
 
 export function formatDate(dateIso: string): string {
   return DateTime.fromISO(dateIso).toFormat('MM/dd/yyyy h:mm a');
@@ -70,6 +71,24 @@ export function useNursingOrdersOptions(encounterId: string): {
     nursingOrdersOptions: nursingOrders.map((order) => {
       return {
         label: order.note,
+        value: 'ServiceRequest/' + order.serviceRequestId,
+      };
+    }),
+  };
+}
+
+export function useRadiologyOrdersOptions(encounterId: string): {
+  radiologyOrdersLoading: boolean;
+  radiologyOrdersOptions: Option[];
+} {
+  const { orders, loading } = usePatientRadiologyOrders({
+    encounterIds: encounterId,
+  });
+  return {
+    radiologyOrdersLoading: loading,
+    radiologyOrdersOptions: orders.map((order) => {
+      return {
+        label: order.studyType,
         value: 'ServiceRequest/' + order.serviceRequestId,
       };
     }),
