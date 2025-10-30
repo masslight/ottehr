@@ -3,9 +3,11 @@ import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
 import InfoIcon from '@mui/icons-material/InfoOutlined';
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, Divider, Stack, Typography } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { GET_TASKS_KEY } from 'src/features/visits/in-person/hooks/useTasks';
 import { useCancelMatchUnsolicitedResultTask } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { ExternalLabsStatus, LAB_ORDER_UPDATE_RESOURCES_EVENTS } from 'utils';
 
@@ -27,6 +29,7 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
   taskId,
 }) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const openPdf = (): void => {
     if (resultPdfUrl) {
       window.open(resultPdfUrl, '_blank');
@@ -44,8 +47,12 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
           event: LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask,
         },
         {
-          onSuccess: () => {
-            navigate('/unsolicited-results');
+          onSuccess: async () => {
+            await queryClient.invalidateQueries({
+              queryKey: [GET_TASKS_KEY],
+              exact: false,
+            });
+            navigate('/tasks');
           },
           onError: (error) => {
             console.error('Cancel task failed:', error);

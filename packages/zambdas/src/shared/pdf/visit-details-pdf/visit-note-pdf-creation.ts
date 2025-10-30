@@ -55,7 +55,14 @@ export async function composeAndCreateVisitNotePdf(
   console.log('Start composing data for pdf');
   const data = composeDataForPdf(allChartData, appointmentPackage, isInPerson);
   console.log('Start creating pdf');
-  return await createVisitNotePDF(data, appointmentPackage.patient!, secrets, token, isInPerson);
+  return await createVisitNotePDF(
+    data,
+    appointmentPackage.patient!,
+    secrets,
+    token,
+    isInPerson,
+    appointmentPackage.encounter
+  );
 }
 
 function composeDataForPdf(
@@ -65,7 +72,7 @@ function composeDataForPdf(
 ): VisitNoteData {
   const { chartData, additionalChartData, medicationOrders, immunizationOrders } = allChartData;
 
-  const { patient, encounter, appointment, location, questionnaireResponse, practitioners, timezone } =
+  const { patient, encounter, mainEncounter, appointment, location, questionnaireResponse, practitioners, timezone } =
     appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');
   // if (!practitioner) throw new Error('No practitioner found for this encounter'); // TODO: fix that
@@ -78,7 +85,7 @@ function composeDataForPdf(
     .valueString;
 
   // --- Visit details ---
-  const { dateOfService, signedOnDate } = getStatusRelatedDates(encounter, appointment, timezone);
+  const { dateOfService, signedOnDate } = getStatusRelatedDates(mainEncounter ?? encounter, appointment, timezone);
   const reasonForVisit = appointment?.description;
   let providerName: string;
   let intakePersonName: string | undefined = undefined;
@@ -505,16 +512,26 @@ function parseExamFieldsFromExamObservations(
 
         case 'multi-select': {
           if (isMultiSelectComponent(component)) {
+            const selectedOptions: { field: string; label: string; abnormal: boolean }[] = [];
             Object.entries(component.options).forEach(([optionName, option]) => {
               const observation = examObservations[optionName];
               if (observation && typeof observation.value === 'boolean' && observation.value === true) {
-                items.push({
+                selectedOptions.push({
                   field: optionName,
                   label: `${component.label}: ${option.label}`,
                   abnormal: section === 'abnormal',
                 });
               }
             });
+            const observation = examObservations[fieldName];
+            if (observation && observation.value === true && selectedOptions.length === 0) {
+              items.push({
+                field: fieldName,
+                label: component.label,
+                abnormal: section === 'abnormal',
+              });
+            }
+            items.push(...selectedOptions);
           }
           break;
         }

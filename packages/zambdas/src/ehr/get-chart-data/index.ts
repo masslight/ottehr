@@ -1,8 +1,20 @@
 import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Practitioner, Resource } from 'fhir/r4b';
-import { ChartDataRequestedFields, GetChartDataResponse, PUBLIC_EXTENSION_BASE_URL } from 'utils';
-import { checkOrCreateM2MClientToken, getPatientEncounter, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  ChartDataRequestedFields,
+  GetChartDataResponse,
+  getSecret,
+  PUBLIC_EXTENSION_BASE_URL,
+  SecretsKeys,
+} from 'utils';
+import {
+  checkOrCreateM2MClientToken,
+  getPatientEncounter,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { configLabRequestsForGetChartData } from '../shared/labs';
 import {
@@ -18,8 +30,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
-
-export const index = wrapHandler('get-chart-data', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'get-chart-data';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
@@ -35,10 +47,7 @@ export const index = wrapHandler('get-chart-data', async (input: ZambdaInput): P
     };
   } catch (error) {
     console.log(error);
-    return {
-      body: JSON.stringify({ message: 'Error saving encounter data...' }),
-      statusCode: 500,
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
@@ -243,6 +252,16 @@ export async function getChartData(
     chartDataRequests.push(configProceduresRequestsForGetChartData(encounter.id));
   }
 
+  if (requestedFields?.preferredPharmacies) {
+    const pharmacies = patient.contained?.filter((r) => r.resourceType === 'Organization') ?? [];
+
+    if (pharmacies.length > 0 && encounter.id) {
+      chartDataRequests.push(
+        createFindResourceRequest(patient, encounter, 'QuestionnaireResponse', { _search_by: 'encounter' })
+      );
+    }
+  }
+
   console.timeLog('check', 'before resources fetch');
   console.log('Starting a transaction to retrieve chart data...');
   let result: Bundle<FhirResource> | undefined;
@@ -263,7 +282,8 @@ export async function getChartData(
     m2mToken,
     patient.id!,
     encounterId,
-    requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataRequestedFields)[]) : undefined
+    requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataRequestedFields)[]) : undefined,
+    patient
   );
   console.timeLog('check', 'after converting to response');
   if (chartDataResult.chartData.aiChat) {

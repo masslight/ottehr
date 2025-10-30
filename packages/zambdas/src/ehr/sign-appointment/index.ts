@@ -10,14 +10,17 @@ import {
   getEncounterStatusHistoryUpdateOp,
   getInPersonVisitStatus,
   getPatchBinary,
+  getSecret,
   getTaskResource,
+  isFollowupEncounter,
+  SecretsKeys,
   SignAppointmentInput,
   SignAppointmentResponse,
   TaskIndicator,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
@@ -47,10 +50,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('Stringified error: ' + JSON.stringify(error));
     console.error('Error: ' + error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error changing appointment status and creating a charge.' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
@@ -59,9 +59,9 @@ export const performEffect = async (
   oystehrCurrentUser: Oystehr,
   params: SignAppointmentInput
 ): Promise<SignAppointmentResponse> => {
-  const { appointmentId, timezone, supervisorApprovalEnabled } = params;
+  const { appointmentId, encounterId, timezone, supervisorApprovalEnabled } = params;
 
-  const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
+  const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true, encounterId);
   if (!visitResources) {
     {
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
@@ -73,6 +73,7 @@ export const performEffect = async (
     visitResources.timezone = timezone;
   }
   const { encounter, patient, appointment } = visitResources;
+  const isFollowup = isFollowupEncounter(encounter);
 
   if (encounter?.subject?.reference === undefined) {
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
@@ -83,29 +84,129 @@ export const performEffect = async (
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getInPersonVisitStatus(appointment, encounter);
-  if (currentStatus) {
-    await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, supervisorApprovalEnabled);
+
+  if (isFollowup) {
+    // For follow-up encounters: only update encounter status and create PDF (no appointment updates, no email)
+    if (currentStatus) {
+      await changeFollowupEncounterStatusToCompleted(
+        oystehr,
+        oystehrCurrentUser,
+        visitResources,
+        supervisorApprovalEnabled
+      );
+    }
+    console.debug(`Follow-up encounter status has been changed.`);
+
+    if (appointment.id === undefined) {
+      throw new Error('Appointment ID is not defined');
+    }
+
+    const followupPDFTaskResource = getTaskResource(TaskIndicator.visitNotePDFAndEmail, appointment.id, encounterId);
+    const visitNoteTaskPromise = oystehr.fhir.create(followupPDFTaskResource);
+
+    const taskCreationResults = await Promise.all([visitNoteTaskPromise]);
+    console.log('Follow-up task creation results ', taskCreationResults);
+  } else {
+    // For regular encounters: keep existing behavior
+    if (currentStatus) {
+      await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, supervisorApprovalEnabled);
+    }
+    console.debug(`Status has been changed.`);
+
+    if (appointment.id === undefined) {
+      throw new Error('Appointment ID is not defined');
+    }
+
+    // Create Task that will kick off subscription to send the claim
+    const sendClaimTaskResource = getTaskResource(TaskIndicator.sendClaim, appointment.id);
+    const sendClaimTaskPromise = oystehr.fhir.create(sendClaimTaskResource);
+
+    // Create Task that will kick off subscription to create visit-note PDF and send an email to the patient
+    const visitNoteAndEmailTaskResource = getTaskResource(TaskIndicator.visitNotePDFAndEmail, appointment.id);
+    const visitNoteTaskPromise = oystehr.fhir.create(visitNoteAndEmailTaskResource);
+
+    const taskCreationResults = await Promise.all([sendClaimTaskPromise, visitNoteTaskPromise]);
+    console.log('Task creation results ', taskCreationResults);
   }
-  console.debug(`Status has been changed.`);
-
-  if (appointment.id === undefined) {
-    throw new Error('Appointment ID is not defined');
-  }
-
-  // Create Task that will kick off subscription to send the claim
-  const sendClaimTaskResource = getTaskResource(TaskIndicator.sendClaim, appointment.id);
-  const sendClaimTaskPromise = oystehr.fhir.create(sendClaimTaskResource);
-
-  // Create Task that will kick off subscription to create visit-note PDF and send an email to the patient
-  const visitNoteAndEmailTaskResource = getTaskResource(TaskIndicator.visitNotePDFAndEmail, appointment.id);
-  const visitNoteTaskPromise = oystehr.fhir.create(visitNoteAndEmailTaskResource);
-
-  const taskCreationResults = await Promise.all([sendClaimTaskPromise, visitNoteTaskPromise]);
-  console.log('Task creation results ', taskCreationResults);
 
   return {
     message: 'Appointment status successfully changed.',
   };
+};
+
+const changeFollowupEncounterStatusToCompleted = async (
+  oystehr: Oystehr,
+  oystehrCurrentUser: Oystehr,
+  resourcesToUpdate: FullAppointmentResourcePackage,
+  supervisorApprovalEnabled?: boolean
+): Promise<void> => {
+  if (!resourcesToUpdate.encounter || !resourcesToUpdate.encounter.id) {
+    throw new Error('Encounter is not defined');
+  }
+
+  const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
+
+  const encounterPatchOps: Operation[] = [
+    {
+      op: 'replace',
+      path: '/status',
+      value: encounterStatus,
+    },
+  ];
+
+  const user = await oystehrCurrentUser.user.me();
+
+  const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
+    resourcesToUpdate.encounter,
+    encounterStatus,
+    'completed'
+  );
+  encounterPatchOps.push(encounterStatusHistoryUpdate);
+
+  let provenanceCreate: BatchInputRequest<Provenance> | undefined;
+
+  if (supervisorApprovalEnabled) {
+    const extensionIndex = findExtensionIndex(
+      resourcesToUpdate.encounter.extension || [],
+      'awaiting-supervisor-approval'
+    );
+
+    if (extensionIndex != null && extensionIndex >= 0) {
+      const awaitingSupervisorApproval = extractExtensionValue(resourcesToUpdate.encounter.extension?.[extensionIndex]);
+      if (awaitingSupervisorApproval) {
+        encounterPatchOps.push({
+          op: 'replace',
+          path: `/extension/${extensionIndex}/valueBoolean`,
+          value: false,
+        });
+        provenanceCreate = {
+          method: 'POST',
+          url: '/Provenance',
+          resource: createProvenanceForEncounter(
+            resourcesToUpdate.encounter.id,
+            user.profile.split('/')[1],
+            'verifier'
+          ),
+        };
+      }
+    }
+  }
+
+  const documentPatch = createPublishExcuseNotesOps(resourcesToUpdate?.documentReferences ?? []);
+
+  const encounterPatch = getPatchBinary({
+    resourceType: 'Encounter',
+    resourceId: resourcesToUpdate.encounter.id,
+    patchOperations: encounterPatchOps,
+  });
+
+  await oystehr.fhir.transaction({
+    requests: [
+      encounterPatch,
+      ...(provenanceCreate ? [provenanceCreate] : []),
+      ...documentPatch,
+    ] as BatchInputRequest<FhirResource>[],
+  });
 };
 
 const changeStatusToCompleted = async (

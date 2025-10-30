@@ -120,7 +120,7 @@ const transformInsurancePlans = (bundleEntries: BundleEntry[]): InsurancePlanDTO
         return createInsurancePlanDto(organization);
       } catch (err) {
         console.error(err);
-        console.log('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
+        console.error('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
         return {} as InsurancePlanDTO;
       }
     })
@@ -375,7 +375,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     }
   };
 
-  const handleSaveForm = async (values: Record<string, any>): Promise<void> => {
+  const handleSaveForm = async (values: any): Promise<void> => {
     if (!questionnaire || !patient?.id) {
       enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
       return;

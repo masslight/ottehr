@@ -85,7 +85,8 @@ export type RequestedFields =
   | 'addendumNote'
   | 'medications'
   | 'inhouseMedications'
-  | 'observations';
+  | 'observations'
+  | 'preferredPharmacies';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 
@@ -109,6 +110,7 @@ export interface ChartDataWithResources {
 export interface SaveableDTO {
   resourceId?: string;
   derivedFrom?: string;
+  createICDRecommendations?: boolean;
 }
 
 export interface FreeTextNoteDTO extends SaveableDTO {
@@ -358,6 +360,13 @@ export interface SchoolWorkNoteExcuseDocFileDTO {
   name?: string;
   url?: string;
   type: SchoolWorkNoteType;
+}
+
+export interface PharmacyDTO {
+  name: string;
+  address: string;
+  phone?: string;
+  primary?: true;
 }
 
 export interface PdfBulletPointItem {

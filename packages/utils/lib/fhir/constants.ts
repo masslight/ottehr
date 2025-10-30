@@ -1,15 +1,24 @@
 // cSpell:ignore videoconference
-import { Account, CodeableConcept, HealthcareService, Identifier, Location, Practitioner, Schedule } from 'fhir/r4b';
+import {
+  Account,
+  CodeableConcept,
+  Coding,
+  HealthcareService,
+  Identifier,
+  Location,
+  Practitioner,
+  Schedule,
+} from 'fhir/r4b';
 import {
   AppointmentType,
-  CONSENT_CODE,
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   INSURANCE_CARD_CODE,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_RESULT_DOC_REF_CODING_CODE,
-  OYSTEHR_ABN_DOC_REF_CODING_CODE,
+  OYSTEHR_ABN_DOC_REF_CODING_UNIQUE,
+  PAPERWORK_CONSENT_CODE_UNIQUE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -18,7 +27,7 @@ import {
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   VISIT_NOTE_SUMMARY_CODE,
 } from '../types';
-import { ottehrExtensionUrl } from './helpers';
+import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
 
 // nota bene: some legacy resources could be using 'http' instead of 'https' here, and there are still some string vals out there with http
 export const PRIVATE_EXTENSION_BASE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions';
@@ -40,6 +49,7 @@ export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
+export const FHIR_HL7_ORG_BASE_URL = 'http://hl7.org/fhir/ValueSet';
 
 export const FHIR_EXTENSION = {
   Appointment: {
@@ -61,6 +71,9 @@ export const FHIR_EXTENSION = {
           url: `${PUBLIC_EXTENSION_BASE_URL}/encounter-other-participant`,
         },
       },
+    },
+    attestedConsent: {
+      url: `${PUBLIC_EXTENSION_BASE_URL}/encounter-attested-consent`,
     },
   },
   EncounterStatusHistory: {
@@ -205,6 +218,11 @@ export const FHIR_EXTENSION = {
     },
     consentObtained: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/consent-obtained`,
+    },
+  },
+  RelatedPerson: {
+    responsiblePartyRelationship: {
+      url: `${FHIR_HL7_ORG_BASE_URL}/relatedperson-relationshiptype`,
     },
   },
 } as const;
@@ -380,7 +398,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   {
     title: BUCKET_NAMES.CONSENT_FORMS,
     display: 'Consent Forms',
-    documentTypeCode: CONSENT_CODE,
+    documentTypeCode: PAPERWORK_CONSENT_CODE_UNIQUE.code!,
   },
   {
     title: BUCKET_NAMES.PRIVACY_POLICY,
@@ -419,7 +437,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
       LAB_ORDER_DOC_REF_CODING_CODE.code,
       LAB_RESULT_DOC_REF_CODING_CODE.code,
       EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code,
-      OYSTEHR_ABN_DOC_REF_CODING_CODE.code,
+      OYSTEHR_ABN_DOC_REF_CODING_UNIQUE.code!,
     ],
   },
   {
@@ -603,3 +621,13 @@ export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/paymen
 export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
 
 export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
+
+export const CONSENT_ATTESTATION_SIG_TYPE: Coding = Object.freeze({
+  system: 'http://uri.etsi.org/01903/v1.2.2',
+  code: 'ProofOfReceipt',
+});
+
+export const TASK_CATEGORY_IDENTIFIER = ottehrIdentifierSystem('task-category');
+export const TASK_INPUT_SYSTEM = ottehrCodeSystemUrl('task-input');
+export const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
+export const TASK_ASSIGNED_DATE_TIME_EXTENSION_URL = ottehrExtensionUrl('task-assigned-date-time');

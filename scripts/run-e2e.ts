@@ -8,6 +8,8 @@ const isUI = process.argv.includes('--ui');
 const isLoginOnly = process.argv.includes('--login-only');
 const isSpecsOnly = process.argv.includes('--specs-only');
 const isLocal = ENV === 'local';
+const testFileArg = process.argv.find((arg) => arg.startsWith('--test-file='));
+const testFile = testFileArg ? testFileArg.split('=')[1] : undefined;
 const isCI = Boolean(process.env.CI);
 const supportedApps = ['ehr', 'intake'] as const;
 
@@ -172,6 +174,27 @@ const startApps = async (): Promise<void> => {
 };
 
 function createTestProcess(testType: 'login' | 'specs', appName: string): any {
+  // If a specific test file is provided, run it directly with Playwright
+  if (testFile && testType === 'specs') {
+    const playwrightArgs = ['test', testFile];
+    if (isUI) {
+      playwrightArgs.push('--ui');
+    } else {
+      playwrightArgs.push('--headed=false');
+    }
+
+    return spawn('env-cmd', ['-f', `./env/tests.${ENV}.json`, 'npx', 'playwright', ...playwrightArgs], {
+      shell: true,
+      stdio: 'inherit',
+      cwd: path.join(process.cwd(), `apps/${appName}`),
+      env: {
+        ...process.env,
+        ENV,
+        INTEGRATION_TEST,
+      },
+    });
+  }
+
   const commands = {
     login: ['run', 'e2e:login', `--filter=${appName}-ui`, '--verbosity=2'],
     specs: ['run', isUI ? 'e2e:specs:ui' : 'e2e:specs', `--filter=${appName}-ui`, '--verbosity=2'],
@@ -216,9 +239,22 @@ function runTests(): void {
 
   console.log(`Running full test suite for ${appName}...`);
   const loginTest = createTestProcess('login', appName);
+  // let additionalLoginProcess: any | undefined = undefined;
 
   loginTest.on('close', (loginCode) => {
     if (loginCode === 0) {
+      // code to run intake login on EHR tests startup
+      // if (appName === 'ehr') {
+      //   additionalLoginProcess = createTestProcess('login', 'intake');
+      // }
+      // additionalLoginProcess?.on('close', (additionalLoginCode) => {
+      //   if (additionalLoginCode === 0) {
+      //     return;
+      //   } else {
+      //     clearPorts();
+      //     process.exit(additionalLoginCode ?? 1);
+      //   }
+      // });
       const specs = createTestProcess('specs', appName);
       specs.on('close', (specsCode) => {
         clearPorts();

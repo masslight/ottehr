@@ -56,6 +56,7 @@ import {
   LabOrderResourcesRes,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MeetingData,
+  ProcedureDetail,
   PromiseReturnType,
   relatedPersonAndCommunicationMaps,
   ReviewAndSignData,
@@ -497,12 +498,14 @@ export function useFinalizeUnsolicitedResultMatch(): UseMutationResult<void, Err
   return useMutation({
     mutationFn: async (input: FinalizeUnsolicitedResultMatch) => {
       const data = await apiClient?.updateLabOrderResources(input);
-
       if (data && 'possibleRelatedSRsWithVisitDate' in data) {
         return data;
       }
-
       return;
+    },
+    onSuccess: async () => {
+      // slight delay so that the subscription zambda has time to run and when the tasks are reloaded the new ones will be there
+      await new Promise((res) => setTimeout(res, 800));
     },
   });
 }
@@ -535,6 +538,20 @@ export const useGetIcd10Search = ({
   }, [queryResult.error]);
 
   return queryResult;
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useRecommendBillingCodes = () => {
+  const apiClient = useOystehrAPIClient();
+  return useMutation({
+    mutationFn: (props: ProcedureDetail) => {
+      if (!apiClient) {
+        throw new Error('api client is not defined');
+      }
+      return apiClient.recommendBillingCodes(props);
+    },
+    retry: 2,
+  });
 };
 
 export const useICD10SearchNew = ({

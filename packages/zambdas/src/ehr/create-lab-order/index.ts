@@ -1,7 +1,6 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { getRandomValues } from 'crypto';
 import {
   Account,
   ActivityDefinition,
@@ -12,29 +11,31 @@ import {
   Location,
   Organization,
   Patient,
+  Practitioner,
   Provenance,
   QuestionnaireResponse,
   Reference,
   ServiceRequest,
   Specimen,
   SpecimenDefinition,
-  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  APIError,
   CreateLabOrderZambdaOutput,
+  CreateLabPaymentMethod,
+  createOrderNumber,
   EXTERNAL_LAB_ERROR,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
   getAttendingPractitionerId,
+  getFullestAvailableName,
   getOrderNumber,
   getSecret,
-  isApiError,
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORDER_TASK,
   LAB_ORG_TYPE_CODING,
+  LabPaymentMethod,
   ModifiedOrderingLocation,
   ORDER_NUMBER_LEN,
   OrderableItemSearchResult,
@@ -50,6 +51,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { createTask } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types';
 import { sortCoveragesByPriority } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -67,6 +69,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       psc,
       secrets,
       orderingLocation: modifiedOrderingLocation,
+      selectedPaymentMethod,
     } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -84,6 +87,11 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         'Resource configuration error - user creating this external lab order must have a Practitioner resource linked'
       );
     }
+    const currentUserPractitioner = await oystehrCurrentUser.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: curUserPractitionerId,
+    });
+
     console.log('>>> this is the encounter, ', JSON.stringify(encounter, undefined, 2));
     const attendingPractitionerId = getAttendingPractitionerId(encounter);
 
@@ -95,8 +103,14 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     }
 
     console.log('encounter id', encounter.id);
-    const { labOrganization, coverages, patientId, existingOrderNumber, orderingLocation } =
-      await getAdditionalResources(orderableItem, encounter, psc, oystehr, modifiedOrderingLocation);
+    const { labOrganization, coverages, patient, existingOrderNumber, orderingLocation } = await getAdditionalResources(
+      orderableItem,
+      encounter,
+      psc,
+      selectedPaymentMethod,
+      oystehr,
+      modifiedOrderingLocation
+    );
 
     validateLabOrgAndOrderingLocationAndGetAccountNumber(labOrganization, orderingLocation);
 
@@ -112,7 +126,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     if (createSpecimenResources) {
       const { specimenDefinitionConfigs, specimenConfigs } = formatSpecimenResources(
         orderableItem,
-        patientId,
+        patient.id ?? '',
         serviceRequestFullUrl
       );
       activityDefinitionToContain.specimenRequirement = specimenDefinitionConfigs.map((sd) => ({
@@ -151,7 +165,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       status: 'draft',
       intent: 'order',
       subject: {
-        reference: `Patient/${patientId}`,
+        reference: `Patient/${patient.id}`,
       },
       encounter: {
         reference: `Encounter/${encounter.id}`,
@@ -188,14 +202,19 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       },
     ];
 
-    if (coverages) {
-      const coverageRefs: Reference[] = coverages.map((coverage) => {
-        return {
-          reference: `Coverage/${coverage.id}`,
-        };
-      });
-
-      serviceRequestConfig.insurance = coverageRefs;
+    console.log('selected payment method', selectedPaymentMethod);
+    if (selectedPaymentMethod === 'insurance') {
+      if (coverages) {
+        console.log('assigning serviceRequestConfig.insurance');
+        const coverageRefs: Reference[] = coverages.map((coverage) => {
+          return {
+            reference: `Coverage/${coverage.id}`,
+          };
+        });
+        serviceRequestConfig.insurance = coverageRefs;
+      } else {
+        console.log('insurance payment method was selected but no coverages were returned from the search');
+      }
     }
     if (psc) {
       serviceRequestConfig.orderDetail = [
@@ -218,33 +237,42 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       }));
     }
 
-    const preSubmissionTaskConfig: Task = {
-      resourceType: 'Task',
-      intent: 'order',
-      encounter: {
-        reference: `Encounter/${encounter.id}`,
+    const preSubmissionTaskConfig = createTask({
+      category: LAB_ORDER_TASK.category,
+      code: {
+        system: LAB_ORDER_TASK.system,
+        code: LAB_ORDER_TASK.code.preSubmission,
       },
-      basedOn: [
+      encounterId: encounter.id ?? '',
+      locationId: orderingLocation.id,
+      basedOn: [serviceRequestFullUrl],
+      input: [
         {
-          type: 'ServiceRequest',
-          reference: serviceRequestFullUrl,
+          type: LAB_ORDER_TASK.input.testName,
+          value: activityDefinitionToContain.name,
+        },
+        {
+          type: LAB_ORDER_TASK.input.labName,
+          value: labOrganization.name,
+        },
+        {
+          type: LAB_ORDER_TASK.input.patientName,
+          value: getFullestAvailableName(patient),
+        },
+        {
+          type: LAB_ORDER_TASK.input.providerName,
+          value: getFullestAvailableName(currentUserPractitioner),
+        },
+        {
+          type: LAB_ORDER_TASK.input.orderDate,
+          value: serviceRequestConfig.authoredOn,
+        },
+        {
+          type: LAB_ORDER_TASK.input.appointmentId,
+          value: encounter.appointment?.[0]?.reference?.split('/')?.[1],
         },
       ],
-      status: 'ready',
-      authoredOn: DateTime.now().toISO() || undefined,
-      code: {
-        coding: [
-          {
-            system: LAB_ORDER_TASK.system,
-            code: LAB_ORDER_TASK.code.preSubmission,
-          },
-        ],
-      },
-    };
-
-    preSubmissionTaskConfig.location = {
-      reference: `Location/${orderingLocation.id}`,
-    };
+    });
 
     const aoeQRConfig = formatAoeQR(serviceRequestFullUrl, encounter.id || '', orderableItem);
     if (aoeQRConfig) {
@@ -306,16 +334,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-create-lab-order', error, ENVIRONMENT);
-    let body = JSON.stringify({ message: `Error creating external lab order: ${error}` });
-    if (isApiError(error)) {
-      const { code, message } = error as APIError;
-      body = JSON.stringify({ message, code });
-    }
-    return {
-      statusCode: 500,
-      body,
-    };
+    return topLevelCatch('admin-create-lab-order', error, ENVIRONMENT);
   }
 });
 
@@ -453,11 +472,12 @@ const getAdditionalResources = async (
   orderableItem: OrderableItemSearchResult,
   encounter: Encounter,
   psc: boolean,
+  selectedPaymentMethod: CreateLabPaymentMethod,
   oystehr: Oystehr,
   modifiedOrderingLocation: ModifiedOrderingLocation
 ): Promise<{
   labOrganization: Organization;
-  patientId: string;
+  patient: Patient;
   coverages?: Coverage[];
   existingOrderNumber?: string;
   orderingLocation: Location;
@@ -487,7 +507,7 @@ const getAdditionalResources = async (
   const coverageSearchResults: Coverage[] = [];
   const accountSearchResults: Account[] = [];
   const serviceRequestsForBundle: ServiceRequest[] = [];
-  let patientId: string | undefined;
+  const patientSearchResults: Patient[] = [];
   let orderingLocation: Location | undefined = undefined;
 
   const resources = flattenBundleResources<Organization | Coverage | Patient | Account | ServiceRequest | Location>(
@@ -497,7 +517,7 @@ const getAdditionalResources = async (
   resources.forEach((resource) => {
     if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource);
     if (resource.resourceType === 'Coverage' && resource.status === 'active') coverageSearchResults.push(resource);
-    if (resource.resourceType === 'Patient') patientId = resource.id;
+    if (resource.resourceType === 'Patient') patientSearchResults.push(resource);
     if (resource.resourceType === 'Account' && resource.status === 'active') accountSearchResults.push(resource);
     if (resource.resourceType === 'Location') {
       if (
@@ -515,11 +535,23 @@ const getAdditionalResources = async (
         labGuid &&
       resource.status === 'draft'
     ) {
-      const curSrIsPsc = isPSCOrder(resource);
-      if (curSrIsPsc === psc) {
-        // we bundled psc orders separately, so if the current test being submitted is psc
-        // it should only be bundled under the same requsition number if there are other psc orders for this lab
-        serviceRequestsForBundle.push(resource);
+      const resourceHasInsurance = resource.insurance?.some(
+        (insurance) => insurance.reference?.startsWith('Coverage/')
+      );
+      const resourcePaymentMethod: CreateLabPaymentMethod = resourceHasInsurance
+        ? LabPaymentMethod.Insurance
+        : LabPaymentMethod.SelfPay;
+      const paymentMethodMatches = selectedPaymentMethod === resourcePaymentMethod;
+
+      // different payment method selection means the order must be in a different bundle,
+      // IN1 (insurance) is shared across all order segments
+      if (paymentMethodMatches) {
+        const curSrIsPsc = isPSCOrder(resource);
+        if (curSrIsPsc === psc) {
+          // we bundled psc orders separately, so if the current test being submitted is psc
+          // it should only be bundled under the same requsition number if there are other psc orders for this lab
+          serviceRequestsForBundle.push(resource);
+        }
       }
     }
   });
@@ -535,8 +567,9 @@ const getAdditionalResources = async (
   const coveragesSortedByPriority = sortCoveragesByPriority(patientAccount, coverageSearchResults);
 
   const missingRequiredResources: string[] = [];
-  if (!patientId) missingRequiredResources.push('patient');
-  if (!patientId) {
+  const patient = patientSearchResults?.[0];
+  if (!patient) missingRequiredResources.push('patient');
+  if (!patient) {
     throw EXTERNAL_LAB_ERROR(
       `The following resources could not be found for this encounter: ${missingRequiredResources.join(', ')}`
     );
@@ -559,7 +592,7 @@ const getAdditionalResources = async (
   }
   return {
     labOrganization,
-    patientId,
+    patient,
     coverages: coveragesSortedByPriority,
     existingOrderNumber,
     orderingLocation,
@@ -641,18 +674,6 @@ const getSpecimenAndSpecimenDefConfig = (
   };
   return { specimenDefinitionConfig, specimenConfig };
 };
-
-function createOrderNumber(length: number): string {
-  // https://sentry.io/answers/generate-random-string-characters-in-javascript/
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  const randomArray = new Uint8Array(length);
-  getRandomValues(randomArray);
-  randomArray.forEach((number) => {
-    result += chars[number % chars.length];
-  });
-  return result;
-}
 
 /**
  * Ensures the ordering location is configured to order labs from the Lab Organization determined from the orderable item.

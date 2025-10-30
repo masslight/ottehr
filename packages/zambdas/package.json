@@ -1,9 +1,9 @@
 {
   "name": "zambdas",
-  "version": "1.19.23",
+  "version": "1.20.10",
   "private": true,
   "scripts": {
-    "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
+    "start": "npm run start:iac",
     "start:local": "ENV=local npm run start",
     "start:demo": "ENV=demo npm run start",
     "start:iac": "tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json iac=true",
@@ -14,9 +14,10 @@
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
     "report-daily-payments": "tsx src/scripts/report-daily-payments.ts",
     "get-coverage-eligibility-responses": "tsx src/scripts/get-coverage-eligibility-responses.ts",
+    "get-rcm-tasks": "tsx src/scripts/get-rcm-tasks.ts",
     "send-invoices-to-patients-by-sms": "tsx src/scripts/send-invoices-to-patients-by-sms.ts",
     "send-past-due-invoices-to-patients-by-sms": "tsx src/scripts/send-past-due-invoices-to-patients-by-sms.ts",
-    "get-invoiceable-claims": "tsx src/scripts/get-invoiceable-claims.ts",
+    "get-invoiceable-claims": "tsx src/scripts/get-invoiceable-claims.ts staging",
     "fix-duplicate-payers": "tsx src/scripts/fix-duplicate-payers.ts",
     "fix-payer-ids-in-orgs": "tsx src/scripts/fix-payer-ids-in-orgs.ts",
     "update-insurances-and-payer-orgs": "tsx src/scripts/update-insurances-and-payer-orgs.ts",
@@ -59,7 +60,9 @@
     "get-lab-sr-dr-docref": "tsx src/scripts/labs/get-external-lab-sr-dr-docref.ts",
     "test-emails": "tsx src/scripts/test-emails.ts",
     "remove-payor-orgs": "tsx src/scripts/remove-payor-orgs.ts",
-    "update-locations-for-lab-accounts": "tsx src/scripts/labs/update-locations-for-lab-accounts.ts"
+    "update-locations-for-lab-accounts": "tsx src/scripts/labs/update-locations-for-lab-accounts.ts",
+    "sync-lab-specimen-dates": "tsx src/scripts/labs/sync-specimen-dates.ts",
+    "reset-lab-order": "tsx src/scripts/labs/reset-lab-order.ts"
   },
   "engines": {
     "node": ">=20.0.0",

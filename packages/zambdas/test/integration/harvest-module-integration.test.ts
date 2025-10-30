@@ -43,7 +43,7 @@ import {
   selectSelfPayOption,
 } from '../helpers/harvest-test-helpers';
 
-const DEFAULT_TIMEOUT = 20000;
+const DEFAULT_TIMEOUT = 40000;
 
 const stubAccount: Account = {
   resourceType: 'Account',

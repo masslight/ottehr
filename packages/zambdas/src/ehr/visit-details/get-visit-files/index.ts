@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Bundle, BundleEntry, DocumentReference, Encounter, Patient } from 'fhir/r4b';
 import {
-  CONSENT_CODE,
   DocumentInfo,
   DocumentType,
   FHIR_RESOURCE_NOT_FOUND,
@@ -12,8 +11,11 @@ import {
   INSURANCE_CARD_CODE,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
+  LOINC_SYSTEM,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
+  PAPERWORK_CONSENT_CODE_UNIQUE,
+  PAPERWORK_CONSENT_CODING_LOINC,
   PaymentVariant,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -90,12 +92,17 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
       {
         // Consent
         method: 'GET',
-        url: `/DocumentReference?_sort=-_lastUpdated&subject=Patient/${patientId}&related=Appointment/${appointmentId}`,
+        url: `/DocumentReference?_sort=-_lastUpdated&subject=Patient/${patientId}&related=Appointment/${appointmentId}&type=${PAPERWORK_CONSENT_CODE_UNIQUE.system}|${PAPERWORK_CONSENT_CODE_UNIQUE.code},${LOINC_SYSTEM}|${PRIVACY_POLICY_CODE}`,
       },
       {
-        // Photo ID & Insurance Cards
+        // Photo IDs
         method: 'GET',
-        url: `/DocumentReference?status=current&related=Patient/${patientId}`,
+        url: `/DocumentReference?status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}|${PHOTO_ID_CARD_CODE}`,
+      },
+      {
+        // Insurance Cards
+        method: 'GET',
+        url: `/DocumentReference?status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}|${INSURANCE_CARD_CODE}`,
       },
     ],
   });
@@ -119,7 +126,12 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
 
     if (
       docRefCode &&
-      ([PHOTO_ID_CARD_CODE, CONSENT_CODE, PRIVACY_POLICY_CODE].includes(docRefCode) ||
+      ([
+        PHOTO_ID_CARD_CODE,
+        PAPERWORK_CONSENT_CODE_UNIQUE.code,
+        PAPERWORK_CONSENT_CODING_LOINC.code,
+        PRIVACY_POLICY_CODE,
+      ].includes(docRefCode) ||
         (docRefCode === INSURANCE_CARD_CODE && !selfPay))
     ) {
       for (const content of docRef.content) {
@@ -167,7 +179,12 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
       [DocumentType.FullInsurance, DocumentType.FullInsuranceSecondary, DocumentType.FullPhotoId].includes(doc.type)
     );
     documents.consentPdfUrls = z3Documents
-      .filter((doc) => doc.code === CONSENT_CODE || doc.code === PRIVACY_POLICY_CODE)
+      .filter(
+        (doc) =>
+          doc.code === PAPERWORK_CONSENT_CODING_LOINC.code ||
+          doc.code === PAPERWORK_CONSENT_CODE_UNIQUE.code ||
+          doc.code === PRIVACY_POLICY_CODE
+      )
       .flatMap((doc) => (doc.presignedUrl ? [doc.presignedUrl] : []));
   }
   return documents;
