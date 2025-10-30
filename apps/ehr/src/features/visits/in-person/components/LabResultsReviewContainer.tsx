@@ -1,6 +1,6 @@
 import { WarningAmberOutlined } from '@mui/icons-material';
 import CheckIcon from '@mui/icons-material/Check';
-import QuestionMarkIcon from '@mui/icons-material/QuestionMark';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { Box, Typography } from '@mui/material';
 import { FC, Fragment, ReactElement } from 'react';
 import { Link } from 'react-router-dom';
@@ -40,7 +40,7 @@ export const LabResultsReviewContainer: FC<LabResultsReviewContainerProps> = ({ 
         case NonNormalResult.Inconclusive:
           return (
             <>
-              <QuestionMarkIcon sx={{ ml: '8px' }} color="disabled" />
+              <HelpOutlineIcon sx={{ ml: '8px' }} color="disabled" />
               <Typography color="text.disabled" sx={{ ml: '4px' }}>
                 Inconclusive Result
               </Typography>
