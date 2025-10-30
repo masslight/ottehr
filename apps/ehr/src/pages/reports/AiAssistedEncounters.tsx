@@ -22,15 +22,14 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid-pro';
 import { useQuery } from '@tanstack/react-query';
+import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { VisitStatusLabel } from 'utils';
 import { getAiAssistedEncountersReport } from '../../api/api';
-import LocationSelect from '../../components/LocationSelect';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
-import { LocationWithWalkinSchedule } from '../AddPatient';
 
 interface AiAssistedEncounterRow {
   id: string;
@@ -79,19 +78,19 @@ const useAiAssistedEncounters = (
   dateRange: DateRangeFilter,
   start: string,
   end: string,
-  locationSelected: LocationWithWalkinSchedule | undefined
+  selectedLocationId: string
 ): ReturnType<typeof useQuery<AiAssistedEncounterRow[], Error>> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
-    queryKey: ['ai-assisted-encounters', dateRange, start, end, locationSelected?.id],
+    queryKey: ['ai-assisted-encounters', dateRange, start, end, selectedLocationId],
     queryFn: async (): Promise<AiAssistedEncounterRow[]> => {
       if (!oystehrZambda) {
         throw new Error('Oystehr client not available');
       }
 
       // Build location filter if a location is selected
-      const locationIds = locationSelected?.id ? [locationSelected.id] : undefined;
+      const locationIds = selectedLocationId !== 'all' ? [selectedLocationId] : undefined;
 
       // Call the Zambda function to get AI-assisted encounters
       const response = await getAiAssistedEncountersReport(oystehrZambda, {
@@ -137,8 +136,38 @@ const useAiAssistedEncounters = (
 
 export default function AiAssistedEncounters(): React.ReactElement {
   const navigate = useNavigate();
+  const { oystehr } = useApiClients();
   const [dateRange, setDateRange] = useState<DateRangeFilter>('today');
-  const [locationSelected, setLocationSelected] = useState<LocationWithWalkinSchedule | undefined>(undefined);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState<boolean>(true);
+  const [selectedLocationId, setSelectedLocationId] = useState<string>('all');
+
+  // Fetch locations on component mount
+  useEffect(() => {
+    const fetchLocations = async (): Promise<void> => {
+      if (!oystehr) return;
+
+      try {
+        setLoadingLocations(true);
+        const locationResults = await oystehr.fhir.search<Location>({
+          resourceType: 'Location',
+          params: [
+            { name: '_count', value: '1000' },
+            { name: '_sort', value: 'name' },
+          ],
+        });
+
+        const locationsList = locationResults.unbundle();
+        setLocations(locationsList);
+      } catch (err) {
+        console.error('Error fetching locations:', err);
+      } finally {
+        setLoadingLocations(false);
+      }
+    };
+
+    void fetchLocations();
+  }, [oystehr]);
 
   const getDateRange = useCallback((filter: DateRangeFilter): { start: string; end: string } => {
     const now = DateTime.now().setZone('America/New_York');
@@ -191,7 +220,7 @@ export default function AiAssistedEncounters(): React.ReactElement {
     isLoading,
     error,
     refetch,
-  } = useAiAssistedEncounters(dateRange, start, end, locationSelected);
+  } = useAiAssistedEncounters(dateRange, start, end, selectedLocationId);
 
   const handleBack = (): void => {
     navigate('/reports');
@@ -199,6 +228,11 @@ export default function AiAssistedEncounters(): React.ReactElement {
 
   const handleDateRangeChange = (event: SelectChangeEvent<DateRangeFilter>): void => {
     setDateRange(event.target.value as DateRangeFilter);
+  };
+
+  const handleLocationFilterChange = (event: SelectChangeEvent<string>): void => {
+    const newLocationId = event.target.value;
+    setSelectedLocationId(newLocationId);
   };
 
   const handleRefresh = (): void => {
@@ -403,9 +437,24 @@ export default function AiAssistedEncounters(): React.ReactElement {
             </Select>
           </FormControl>
 
-          <Box sx={{ minWidth: 200 }}>
-            <LocationSelect location={locationSelected} setLocation={setLocationSelected} />
-          </Box>
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Location</InputLabel>
+            <Select
+              value={selectedLocationId}
+              label="Location"
+              onChange={handleLocationFilterChange}
+              disabled={loadingLocations}
+            >
+              <MenuItem value="all">All Locations</MenuItem>
+              {locations
+                .filter((loc) => loc.name)
+                .map((location) => (
+                  <MenuItem key={location.id} value={location.id}>
+                    {location.name}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
 
           <Button variant="outlined" onClick={handleRefresh} disabled={isLoading} startIcon={<RefreshIcon />}>
             Refresh
