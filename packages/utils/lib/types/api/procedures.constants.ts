@@ -1,4 +1,4 @@
-import { ottehrExtensionUrl, ottehrValueSetUrl } from '../../fhir/helpers';
+import { ottehrExtensionUrl, ottehrValueSetUrl } from '../../fhir/systemUrls';
 
 export const PROCEDURE_TYPES_VALUE_SET_URL = ottehrValueSetUrl('procedure-type');
 export const MEDICATIONS_USED_VALUE_SET_URL = ottehrValueSetUrl('procedure-medications-used');

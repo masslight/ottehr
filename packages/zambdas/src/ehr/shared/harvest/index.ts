@@ -52,7 +52,6 @@ import {
   deduplicateContactPoints,
   deduplicateIdentifiers,
   deduplicateObjectsByStrictKeyValEquality,
-  deduplicateUnbundledResources,
   extractResourceTypeAndPath,
   FHIR_BASE_URL,
   FHIR_EXTENSION,
@@ -116,6 +115,7 @@ import {
   takeContainedOrFind,
   uploadPDF,
 } from 'utils';
+import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { createPdfBytes, ensureStripeCustomerId } from '../../../shared';
 
