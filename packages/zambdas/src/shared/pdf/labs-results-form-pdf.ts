@@ -131,7 +131,7 @@ type LabTypeSpecificResources =
   | { type: LabType.inHouse; specificResources: { inHouseLabResults: InHouseLabResultConfig[] } }
   | {
       type: LabDrTypeTagCode;
-      specificResources: Omit<ExternalLabSpecificResources, 'collectionDate' | 'orderSubmitDate'> & {
+      specificResources: Omit<ExternalLabSpecificResources, 'orderSubmitDate'> & {
         testName: string | undefined;
         patient: Patient;
         diagnosticReport: DiagnosticReport;
@@ -160,6 +160,7 @@ const getResultDataConfigForDrResources = (
     resultsReceivedDate,
     resultInterpretations,
     attachments,
+    collectionDate,
   } = specificResources;
 
   const baseData: LabResultsData = {
@@ -212,6 +213,7 @@ const getResultDataConfigForDrResources = (
       diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
       '',
     resultsReceivedDate,
+    collectionDate,
   };
 
   if (type === LabType.reflex || type === LabType.pdfAttachment) {
@@ -411,7 +413,7 @@ export async function createExternalLabResultPDFBasedOnDr(
   secrets: Secrets | null,
   token: string
 ): Promise<void> {
-  const { patient, diagnosticReport, observations } = await getExternalLabOrderResourcesViaDiagnosticReport(
+  const { patient, diagnosticReport, observations, schedule } = await getExternalLabOrderResourcesViaDiagnosticReport(
     oystehr,
     diagnosticReportID
   );
@@ -427,6 +429,16 @@ export async function createExternalLabResultPDFBasedOnDr(
     obsAttachments,
   } = await getResultsDetailsForPDF(oystehr, diagnosticReport, observations);
 
+  let timezone;
+  if (schedule) {
+    timezone = getTimezone(schedule);
+  }
+
+  const collectionTimeFromDr = getResultSpecimenFromDr(diagnosticReport)?.collectedDateTime;
+  const collectionDate = collectionTimeFromDr
+    ? DateTime.fromISO(collectionTimeFromDr).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
+    : '';
+
   const externalSpecificResources: LabTypeSpecificResources = {
     type,
     specificResources: {
@@ -440,6 +452,7 @@ export async function createExternalLabResultPDFBasedOnDr(
       resultsReceivedDate,
       resultInterpretations: resultInterpretationDisplays,
       attachments: obsAttachments,
+      collectionDate,
     },
   };
 
@@ -1073,7 +1086,7 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
 
     drawRowHelper({
       col1: `Sex: ${data.patientSex}`,
-      col2: `Collected Date & Time: ${type === LabType.external ? data.collectionDate : ''}`,
+      col2: `Collected Date & Time: ${data.collectionDate ? data.collectionDate : ''}`,
     });
 
     drawRowHelper({
@@ -1131,15 +1144,6 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
   // );
   // pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting Physician:', data.providerName);
   // pdfClient.newLine(STANDARD_NEW_LINE);
-
-  console.log(
-    `Drawing results date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Reported Date & Time:', data.resultsReceivedDate);
-  pdfClient.newLine(STANDARD_FONT_SIZE);
-  pdfClient.newLine(STANDARD_FONT_SIZE);
-
-  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
   drawTestNameHeader(data.testName, data.testItemCode, pdfClient, textStyles);
 
@@ -2025,6 +2029,8 @@ const getResultSpecimenFromDr = (diagnosticReport: DiagnosticReport): ResultSpec
       (coding) => coding.system === OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM
     )?.display;
   }
+
+  collectionInfo.collectedDateTime = specimen.collection.collectedDateTime;
 
   return Object.keys(collectionInfo).length ? collectionInfo : undefined;
 };

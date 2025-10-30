@@ -191,10 +191,30 @@ export async function createAppointment(
   const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
     await generatePatientRelatedRequests(user, patient, oystehr);
 
-  let startTime = visitType === VisitType.WalkIn ? DateTime.now().setZone('UTC').toISO() || '' : slot?.start ?? '';
-  startTime = DateTime.fromISO(startTime).setZone('UTC').toISO() || '';
-  const originalDate = DateTime.fromISO(startTime).setZone('UTC');
-  const endTime = originalDate.plus({ minutes: getAppointmentDurationFromSlot(slot) }).toISO() || '';
+  let startTime: string | null; // iso string in UTC
+  if (visitType === VisitType.WalkIn) {
+    startTime = DateTime.now().setZone('UTC').toISO();
+  } else {
+    if (slot?.start) {
+      startTime = DateTime.fromISO(slot.start).setZone('UTC').toISO();
+    } else {
+      throw new Error('Slot start time is required for pre-book appointments');
+    }
+  }
+
+  if (!startTime) {
+    throw new Error('startTime must be set by this point');
+  }
+
+  const endTime = DateTime.fromISO(startTime)
+    .plus({ minutes: getAppointmentDurationFromSlot(slot) })
+    .setZone('UTC')
+    .toISO();
+
+  if (!endTime) {
+    throw new Error('endTime could not be calculated');
+  }
+
   const formattedUserNumber = formatPhoneNumberDisplay(user.name.replace('+1', ''));
   const createdBy = isEHRUser
     ? `Staff ${user?.email}`

@@ -20,6 +20,7 @@ import {
   QuestionnaireResponseItemAnswer,
   Schedule,
   ServiceRequest,
+  Slot,
   Specimen,
   Task,
 } from 'fhir/r4b';
@@ -86,6 +87,7 @@ type DrLabResultResources = {
   labOrganization: Organization;
   diagnosticReport: DiagnosticReport;
   observations: Observation[];
+  schedule: Schedule | undefined;
 };
 
 const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): SearchParam[] => {
@@ -106,6 +108,18 @@ const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): Se
       name: '_include:iterate',
       value: 'DiagnosticReport:result', // observations
     },
+    {
+      name: '_include:iterate',
+      value: 'Encounter:appointment',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Slot:schedule',
+    },
   ];
 };
 
@@ -115,7 +129,9 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
 ): Promise<DrLabResultResources> {
   const searchParams = makeSearchParamsBasedOnDiagnosticReport(diagnosticReportID);
   const resourceSearch = (
-    await oystehr.fhir.search<Patient | Organization | DiagnosticReport | Observation>({
+    await oystehr.fhir.search<
+      Patient | Organization | DiagnosticReport | Observation | Encounter | Appointment | Slot | Schedule
+    >({
       resourceType: 'DiagnosticReport',
       params: searchParams,
     })
@@ -125,6 +141,7 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   const organizations: Organization[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const observations: Observation[] = [];
+  const schedules: Schedule[] = [];
 
   resourceSearch.forEach((resource) => {
     if (resource.resourceType === 'Patient') patients.push(resource);
@@ -138,21 +155,25 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
       );
       if (isCorrectCategory) diagnosticReports.push(resource);
     }
+    if (resource.resourceType === 'Schedule') schedules.push(resource);
   });
 
   if (patients?.length !== 1) throw new Error('patient is not found');
   if (organizations?.length !== 1) throw new Error('performing lab Org not found');
   if (diagnosticReports?.length !== 1) throw new Error('diagnosticReport is not found');
+  if (schedules.length > 1) throw new Error('found multiple schedules for DR appointment');
 
   const patient = patients[0];
   const labOrganization = organizations[0];
   const diagnosticReport = diagnosticReports[0];
+  const schedule = schedules.length ? schedules[0] : undefined;
 
   return {
     patient,
     labOrganization,
     diagnosticReport,
     observations,
+    schedule,
   };
 }
 

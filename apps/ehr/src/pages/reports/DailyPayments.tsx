@@ -24,6 +24,7 @@ import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { DailyPaymentsReportZambdaOutput, PaymentItem, PaymentMethodSummary } from 'utils';
+import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
 import { getDailyPaymentsReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
@@ -124,12 +125,85 @@ export default function DailyPayments(): React.ReactElement {
           throw new Error('Oystehr client not available');
         }
 
-        const response = await getDailyPaymentsReport(oystehrZambda, {
-          dateRange: { start, end },
-          ...(selectedLocationId !== 'all' && { locationId: selectedLocationId }),
-        });
+        // Calculate the date range in days
+        const startDate = DateTime.fromISO(start);
+        const endDate = DateTime.fromISO(end);
+        const daysDifference = endDate.diff(startDate, 'days').days;
 
-        setReportData(response);
+        console.log(`Date range is ${daysDifference.toFixed(2)} days`);
+
+        // If the date range is <= DEFAULT_BATCH_DAYS days, make a single request
+        if (daysDifference <= DEFAULT_BATCH_DAYS) {
+          console.log('Making single request for date range');
+          const response = await getDailyPaymentsReport(oystehrZambda, {
+            dateRange: { start, end },
+            ...(selectedLocationId !== 'all' && { locationId: selectedLocationId }),
+          });
+
+          setReportData(response);
+        } else {
+          // Split the date range into DEFAULT_BATCH_DAYS-day batches
+          const batches = splitDateRangeIntoBatches(start, end, DEFAULT_BATCH_DAYS);
+          console.log(`Splitting date range into ${batches.length} batches of up to ${DEFAULT_BATCH_DAYS} days each`);
+
+          // Fetch data for each batch in parallel
+          const batchPromises = batches.map(async (batch, index) => {
+            console.log(`Fetching batch ${index + 1}/${batches.length}: ${batch.start} to ${batch.end}`);
+            const response = await getDailyPaymentsReport(oystehrZambda, {
+              dateRange: batch,
+              ...(selectedLocationId !== 'all' && { locationId: selectedLocationId }),
+            });
+            console.log(`Batch ${index + 1} returned ${response.paymentMethods.length} payment methods`);
+            return response;
+          });
+
+          // Wait for all batches to complete
+          const batchResults = await Promise.all(batchPromises);
+
+          // Combine all payment methods and payments from all batches
+          const allPaymentMethods = new Map<string, PaymentMethodSummary>();
+          const currenciesSet = new Set<string>();
+          let totalAmount = 0;
+          let totalTransactions = 0;
+
+          batchResults.forEach((batchResult) => {
+            totalAmount += batchResult.totalAmount;
+            totalTransactions += batchResult.totalTransactions;
+
+            // Collect currencies
+            batchResult.currencies.forEach((currency) => currenciesSet.add(currency));
+
+            // Merge payment methods
+            batchResult.paymentMethods.forEach((method) => {
+              const existingMethod = allPaymentMethods.get(method.paymentMethod);
+
+              if (existingMethod) {
+                // Combine with existing
+                existingMethod.totalAmount += method.totalAmount;
+                existingMethod.transactionCount += method.transactionCount;
+                if (method.payments && existingMethod.payments) {
+                  existingMethod.payments.push(...method.payments);
+                }
+              } else {
+                // Add new method
+                allPaymentMethods.set(method.paymentMethod, { ...method });
+              }
+            });
+          });
+
+          console.log(`Total combined: ${totalTransactions} transactions, ${totalAmount} amount`);
+
+          // Build combined response
+          const combinedResponse: DailyPaymentsReportZambdaOutput = {
+            message: `Found ${totalTransactions} payments across ${batches.length} batches`,
+            totalAmount,
+            totalTransactions,
+            currencies: Array.from(currenciesSet),
+            paymentMethods: Array.from(allPaymentMethods.values()),
+          };
+
+          setReportData(combinedResponse);
+        }
       } catch (err) {
         console.error('Error fetching daily payments report:', err);
         setError('Failed to load daily payments report. Please try again.');
