@@ -195,7 +195,7 @@ export const createSmsModel = (patientId: string, allRelatedPersonMaps: RelatedP
   return undefined;
 };
 
-function filterValidRecipients(relatedPersons: RelatedPerson[]): SMSRecipient[] {
+function filterValidRecipients(relatedPersons: RelatedPerson[] = []): SMSRecipient[] {
   // some slack alerts suggest this could be undefined, but that would mean there are patients with no RP
   // or some bug preventing rp from being returned with the query
   return relatedPersons
