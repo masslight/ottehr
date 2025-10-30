@@ -511,7 +511,7 @@ export default function AiAssistedEncounters(): React.ReactElement {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <PsychologyIcon sx={{ fontSize: 32, color: 'primary.main' }} />
             <Typography variant="h4" component="h1" color="primary.dark" fontWeight={600}>
-              AI-assisted Encounters
+              AI-Assisted Encounters
             </Typography>
           </Box>
         </Box>

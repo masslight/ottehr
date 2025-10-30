@@ -93,7 +93,7 @@ export default function Reports(): React.ReactElement {
       path: '/reports/incomplete-encounters',
     },
     {
-      title: 'AI-assisted Encounters',
+      title: 'AI-Assisted Encounters',
       description: 'View encounters with AI-generated documentation and assistant interactions',
       icon: <PsychologyIcon />,
       path: '/reports/ai-assisted-encounters',
