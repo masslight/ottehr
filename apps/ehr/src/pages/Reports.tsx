@@ -2,6 +2,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
+import PsychologyIcon from '@mui/icons-material/Psychology';
 import SummarizeIcon from '@mui/icons-material/Summarize';
 import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
@@ -90,6 +91,12 @@ export default function Reports(): React.ReactElement {
       description: 'View and manage encounters that are missing required information or documentation',
       icon: <AssignmentLateIcon />,
       path: '/reports/incomplete-encounters',
+    },
+    {
+      title: 'AI-assisted Encounters',
+      description: 'View encounters with AI-generated documentation and assistant interactions',
+      icon: <PsychologyIcon />,
+      path: '/reports/ai-assisted-encounters',
     },
     {
       title: 'Daily Payments',
