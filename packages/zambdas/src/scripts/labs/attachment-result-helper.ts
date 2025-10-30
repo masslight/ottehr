@@ -1,15 +1,9 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
-import { randomUUID } from 'crypto';
-import { DiagnosticReport, Observation, ServiceRequest } from 'fhir/r4b';
+import { DiagnosticReport, DocumentReference, ServiceRequest } from 'fhir/r4b';
 import fs from 'fs';
-import { LAB_DR_TYPE_TAG } from 'utils';
+import { DateTime } from 'luxon';
 import { createOystehrClient, getAuth0Token } from '../../shared';
-import { EXAMPLE_ENVS, LAB_PDF_ATTACHMENT_DR_TAG, PDF_ATTACHMENT_CODE } from './lab-script-consts';
-import { createPdfAttachmentObs } from './lab-script-helpers';
-
-// we are updating the logic for handling attachments in on the oystehr side
-// they are no longer going to get their own DR
-// once that is live we can kill this script
+import { EXAMPLE_ENVS } from './lab-script-consts';
 
 // Creates a DiagnosticReport and an Observation to mock a pdf attachment
 // npm run mock-pdf-result ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
@@ -52,8 +46,11 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
 
+  const encounterRef = serviceRequest.encounter;
+  const patientRef = serviceRequest.subject.reference?.startsWith('Patient/') ? serviceRequest.subject : undefined;
+
   const resultResources = (
-    await oystehr.fhir.search({
+    await oystehr.fhir.search<DiagnosticReport>({
       resourceType: 'DiagnosticReport',
       params: [
         {
@@ -68,44 +65,56 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
 
-  const requests: BatchInputPostRequest<DiagnosticReport | Observation>[] = [];
+  const requests: BatchInputPostRequest<DocumentReference>[] = [];
 
-  // grab first related diagnostic report thats not a reflex nor pdf attachment
-  const drToDuplicate = resultResources.find(
-    (resource) =>
-      resource.resourceType === 'DiagnosticReport' &&
-      !resource.meta?.tag?.some(
-        (tag) =>
-          tag.system === LAB_DR_TYPE_TAG.system &&
-          (tag.display === LAB_DR_TYPE_TAG.display.reflex || tag.display === LAB_DR_TYPE_TAG.display.attachment)
-      )
-  ) as DiagnosticReport;
-  console.log('DiagnosticReport that will be used to make the pdf attachment result DR - ', drToDuplicate.id);
+  const diagnosticReports = resultResources.filter((resource) => resource.resourceType === 'DiagnosticReport');
 
-  const obsFullUrl = `urn:uuid:${randomUUID()}`;
-  const resultRefs = [{ reference: obsFullUrl }];
-  const newObsResource: Observation = createPdfAttachmentObs();
-  requests.push({
-    method: 'POST',
-    url: '/Observation',
-    resource: newObsResource,
-    fullUrl: obsFullUrl,
-  });
-
-  const pdfAttachmentDR: DiagnosticReport = { ...drToDuplicate, code: PDF_ATTACHMENT_CODE };
-  pdfAttachmentDR.meta = {
-    tag: [LAB_PDF_ATTACHMENT_DR_TAG],
+  const docRef: DocumentReference = {
+    resourceType: 'DocumentReference',
+    status: 'current',
+    docStatus: 'final',
+    type: {
+      coding: [
+        {
+          system: 'http://loinc.org',
+          code: '11502-2',
+          display: 'Laboratory report',
+        },
+      ],
+      text: 'Lab result document',
+    },
+    category: [
+      {
+        coding: [
+          {
+            system: 'https://terminology.fhir.oystehr.com/CodeSystem/lab-documents',
+            code: 'lab-generated-result-document',
+            display: 'Lab Generated Result Document',
+          },
+        ],
+      },
+    ],
+    date: DateTime.now().toISO(),
+    content: [
+      {
+        attachment: {
+          url: 'https://project-api.zapehr.com/v1/z3/0ba6d7a5-a5a6-4c16-a6d9-ce91f300acb4-labs/ec2712c1-a080-4aa8-981c-de2b5128cf69/2025-10-11-1760211958816-onion_lab_result.pdf',
+          contentType: 'application/pdf',
+          title: 'onion_lab_result.pdf',
+        },
+      },
+    ],
+    subject: patientRef ? patientRef : undefined,
+    context: {
+      related: diagnosticReports.map((dr) => ({ reference: `DiagnosticReport/${dr.id}` })),
+      encounter: encounterRef ? [encounterRef] : undefined,
+    },
   };
-  pdfAttachmentDR.result = resultRefs;
-
-  // remove existing id and basedOn
-  delete pdfAttachmentDR.id;
-  delete pdfAttachmentDR.basedOn;
 
   requests.push({
     method: 'POST',
-    url: '/DiagnosticReport',
-    resource: pdfAttachmentDR,
+    url: '/DocumentReference',
+    resource: docRef,
   });
 
   console.log('making transaction request');

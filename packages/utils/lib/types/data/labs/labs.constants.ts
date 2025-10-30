@@ -166,6 +166,12 @@ export const OYSTEHR_LAB_DOC_CATEGORY_CODING = {
   display: 'Lab ABN Document',
 };
 
+export const OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING = {
+  system: OYSTEHR_LAB_DOC_CATEGORY_SYSTEM,
+  code: 'lab-generated-result-document',
+  display: 'Lab Generated Result Document',
+};
+
 export const OYSTEHR_ABN_DOC_REF_CODING_UNIQUE: Coding = {
   system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
   code: 'external-lab-abn',

@@ -103,6 +103,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   provenances: Provenance[],
   organizations: Organization[],
   questionnaires: QuestionnaireData[],
+  labGeneratedResults: LabPdf[],
   resultPDFs: LabResultPDF[],
   labelPDF: LabelPdf | undefined,
   orderPDF: LabOrderPDF | undefined,
@@ -138,6 +139,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
           provenances,
           organizations,
           questionnaires,
+          labGeneratedResults,
           resultPDFs,
           labelPDF,
           orderPDF,
@@ -199,6 +201,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   provenances,
   organizations,
   questionnaires,
+  labGeneratedResults,
   resultPDFs,
   labelPDF,
   orderPDF,
@@ -218,6 +221,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   provenances: Provenance[];
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
+  labGeneratedResults: LabPdf[];
   resultPDFs: LabResultPDF[];
   labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
@@ -287,6 +291,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
         tasks,
         practitioners,
         provenances,
+        labGeneratedResults,
         resultPDFs,
         cache
       ),
@@ -515,6 +520,7 @@ export const getLabResources = async (
   provenances: Provenance[];
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
+  labGeneratedResults: LabPdf[];
   resultPDFs: LabResultPDF[];
   labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
@@ -628,6 +634,7 @@ export const getLabResources = async (
 
   const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
 
+  let labGeneratedResults: LabPdf[] = [];
   let resultPDFs: LabResultPDF[] = [];
   let labelPDF: LabelPdf | undefined;
   let orderPDF: LabOrderPDF | undefined;
@@ -640,6 +647,7 @@ export const getLabResources = async (
       resultPDFs = pdfs.resultPDFs;
       labelPDF = pdfs.labelPDF;
       orderPDF = pdfs.orderPDF;
+      labGeneratedResults = pdfs.labGeneratedResults;
     }
   } else {
     const abnDocRefs = documentReferences.filter((docRef) => {
@@ -674,6 +682,7 @@ export const getLabResources = async (
     organizations,
     questionnaires,
     resultPDFs,
+    labGeneratedResults,
     labelPDF,
     orderPDF,
     abnPDFsByRequisitionNumber,
@@ -1966,6 +1975,7 @@ export const parseLResultsDetails = (
   tasks: Task[],
   practitioners: Practitioner[],
   provenances: Provenance[],
+  labGeneratedResults: LabPdf[],
   resultPDFs: LabResultPDF[],
   cache?: Cache
 ): LabOrderResultDetails[] => {
@@ -2047,8 +2057,13 @@ export const parseLResultsDetails = (
         compareDates(a.authoredOn, b.authoredOn)
       )[0];
       const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances)?.date || null;
+      const labGeneratedResultUrl = labGeneratedResults.find(
+        (doc) => doc.documentReference.context?.related?.some((ref) => result.id && ref.reference?.includes(result.id))
+      )?.presignedURL;
       const resultPdfUrl = resultPDFs.find((pdf) => pdf.diagnosticReportId === result.id)?.presignedURL || null;
-      if (details) resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl });
+      if (details) {
+        resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl, labGeneratedResultUrl });
+      }
     });
   });
 

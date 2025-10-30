@@ -16,6 +16,7 @@ interface FinalCardViewProps {
   onMarkAsReviewed: () => void;
   loading: boolean;
   taskId?: string; // only for unsolicited
+  labGeneratedResultUrl?: string;
 }
 
 export const FinalCardView: FC<FinalCardViewProps> = ({
@@ -25,11 +26,12 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
   onMarkAsReviewed,
   loading,
   taskId,
+  labGeneratedResultUrl,
 }) => {
   const navigate = useNavigate();
-  const openPdf = (): void => {
-    if (resultPdfUrl) {
-      window.open(resultPdfUrl, '_blank');
+  const openPdf = (url: string | null | undefined): void => {
+    if (url) {
+      window.open(url, '_blank');
     }
   };
   const { mutate: cancelTask, isPending: isCancelling } = useCancelMatchUnsolicitedResultTask();
@@ -93,12 +95,22 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
         <Button
           variant="outlined"
           startIcon={<BiotechOutlinedIcon />}
-          onClick={openPdf}
+          onClick={() => openPdf(resultPdfUrl)}
           sx={{ borderRadius: '50px', textTransform: 'none' }}
           disabled={!resultPdfUrl}
         >
           View Results
         </Button>
+        {labGeneratedResultUrl && (
+          <Button
+            variant="outlined"
+            startIcon={<BiotechOutlinedIcon />}
+            onClick={() => openPdf(labGeneratedResultUrl)}
+            sx={{ borderRadius: '50px', textTransform: 'none', ml: '8px' }}
+          >
+            View Lab Generated Results
+          </Button>
+        )}
       </Box>
 
       {/* while toggle is hidden, the bottom panel is visible only when the button is visible */}
