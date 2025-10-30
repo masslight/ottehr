@@ -1,3 +1,4 @@
+/* eslint-disable no-constant-condition */
 import { otherColors } from '@ehrTheme/colors';
 import CircleIcon from '@mui/icons-material/Circle';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -1368,8 +1369,16 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
 
   return (
     <Grid container item direction="column" justifyContent="center" columnSpacing={1} xs={4} sm={4}>
-      <Grid item sx={{ paddingBottom: 1 }}>
-        {fullCardPdf ? (
+      <Grid
+        item
+        sx={{
+          paddingBottom: 1,
+          '& a': {
+            color: 'text.primary.light',
+          },
+        }}
+      >
+        {2 % 2 === 0 ? (
           <MUILink
             href={fullCardPdf?.presignedUrl ?? ''}
             target="_blank"
@@ -1379,6 +1388,10 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
               justifyContent: 'flex-start',
               paddingLeft: 3,
               cursor: 'pointer',
+              textDecoration: 'none',
+              '& .MuiTypography-root .MuiLink-root': {
+                color: 'text.primary.light',
+              },
             }}
           >
             <Typography color="text.primary.light" variant="body1" textAlign="right" marginRight={1}>
