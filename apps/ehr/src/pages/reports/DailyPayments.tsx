@@ -113,6 +113,35 @@ export default function DailyPayments(): React.ReactElement {
     }
   }, []);
 
+  /**
+   * Splits a date range into batches of maximum 5 days each
+   */
+  const splitDateRangeIntoBatches = useCallback(
+    (start: string, end: string, maxDays: number = 5): Array<{ start: string; end: string }> => {
+      const startDate = DateTime.fromISO(start);
+      const endDate = DateTime.fromISO(end);
+
+      const batches: Array<{ start: string; end: string }> = [];
+      let currentStart = startDate;
+
+      while (currentStart < endDate) {
+        // Calculate the end of the current batch (5 days from start, or the final end date)
+        const currentEnd = DateTime.min(currentStart.plus({ days: maxDays }).minus({ milliseconds: 1 }), endDate);
+
+        batches.push({
+          start: currentStart.toISO() ?? '',
+          end: currentEnd.toISO() ?? '',
+        });
+
+        // Move to the next batch
+        currentStart = currentEnd.plus({ milliseconds: 1 });
+      }
+
+      return batches;
+    },
+    []
+  );
+
   const fetchReport = useCallback(
     async (filter: string): Promise<void> => {
       setLoading(true);
@@ -124,12 +153,85 @@ export default function DailyPayments(): React.ReactElement {
           throw new Error('Oystehr client not available');
         }
 
-        const response = await getDailyPaymentsReport(oystehrZambda, {
-          dateRange: { start, end },
-          ...(selectedLocationId !== 'all' && { locationId: selectedLocationId }),
-        });
+        // Calculate the date range in days
+        const startDate = DateTime.fromISO(start);
+        const endDate = DateTime.fromISO(end);
+        const daysDifference = endDate.diff(startDate, 'days').days;
 
-        setReportData(response);
+        console.log(`Date range is ${daysDifference.toFixed(2)} days`);
+
+        // If the date range is <= 5 days, make a single request
+        if (daysDifference <= 5) {
+          console.log('Making single request for date range');
+          const response = await getDailyPaymentsReport(oystehrZambda, {
+            dateRange: { start, end },
+            ...(selectedLocationId !== 'all' && { locationId: selectedLocationId }),
+          });
+
+          setReportData(response);
+        } else {
+          // Split the date range into 5-day batches
+          const batches = splitDateRangeIntoBatches(start, end, 5);
+          console.log(`Splitting date range into ${batches.length} batches of up to 5 days each`);
+
+          // Fetch data for each batch in parallel
+          const batchPromises = batches.map(async (batch, index) => {
+            console.log(`Fetching batch ${index + 1}/${batches.length}: ${batch.start} to ${batch.end}`);
+            const response = await getDailyPaymentsReport(oystehrZambda, {
+              dateRange: batch,
+              ...(selectedLocationId !== 'all' && { locationId: selectedLocationId }),
+            });
+            console.log(`Batch ${index + 1} returned ${response.paymentMethods.length} payment methods`);
+            return response;
+          });
+
+          // Wait for all batches to complete
+          const batchResults = await Promise.all(batchPromises);
+
+          // Combine all payment methods and payments from all batches
+          const allPaymentMethods = new Map<string, PaymentMethodSummary>();
+          const currenciesSet = new Set<string>();
+          let totalAmount = 0;
+          let totalTransactions = 0;
+
+          batchResults.forEach((batchResult) => {
+            totalAmount += batchResult.totalAmount;
+            totalTransactions += batchResult.totalTransactions;
+
+            // Collect currencies
+            batchResult.currencies.forEach((currency) => currenciesSet.add(currency));
+
+            // Merge payment methods
+            batchResult.paymentMethods.forEach((method) => {
+              const existingMethod = allPaymentMethods.get(method.paymentMethod);
+
+              if (existingMethod) {
+                // Combine with existing
+                existingMethod.totalAmount += method.totalAmount;
+                existingMethod.transactionCount += method.transactionCount;
+                if (method.payments && existingMethod.payments) {
+                  existingMethod.payments.push(...method.payments);
+                }
+              } else {
+                // Add new method
+                allPaymentMethods.set(method.paymentMethod, { ...method });
+              }
+            });
+          });
+
+          console.log(`Total combined: ${totalTransactions} transactions, ${totalAmount} amount`);
+
+          // Build combined response
+          const combinedResponse: DailyPaymentsReportZambdaOutput = {
+            message: `Found ${totalTransactions} payments across ${batches.length} batches`,
+            totalAmount,
+            totalTransactions,
+            currencies: Array.from(currenciesSet),
+            paymentMethods: Array.from(allPaymentMethods.values()),
+          };
+
+          setReportData(combinedResponse);
+        }
       } catch (err) {
         console.error('Error fetching daily payments report:', err);
         setError('Failed to load daily payments report. Please try again.');
@@ -137,7 +239,7 @@ export default function DailyPayments(): React.ReactElement {
         setLoading(false);
       }
     },
-    [getDateRange, oystehrZambda, customDate, selectedLocationId]
+    [getDateRange, oystehrZambda, customDate, selectedLocationId, splitDateRangeIntoBatches]
   );
 
   useEffect(() => {
