@@ -117,7 +117,7 @@ export default function PatientInformation({
                           {loading ? (
                             <Skeleton aria-busy="true" width={200} />
                           ) : (
-                            <Box sx={{ display: 'flex', gap: 2, wordBreak: 'break-word' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, wordBreak: 'break-word' }}>
                               {editValue && patientDetails[patientDetailsKey] && editValue[patientDetailsKey]}
                               {patientDetails[patientDetailsKey] || '-'}
                               {typeof patientDetails[patientDetailsKey] === 'string' &&
