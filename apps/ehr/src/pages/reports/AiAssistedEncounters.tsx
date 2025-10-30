@@ -388,9 +388,9 @@ export default function AiAssistedEncounters(): React.ReactElement {
           if (!aiType) return <span>-</span>;
 
           // Determine chip color based on AI type
-          let color: 'primary' | 'secondary' | 'success' = 'primary';
+          let color: 'primary' | 'warning' | 'success' = 'primary';
           if (aiType === 'ambient scribe') {
-            color = 'secondary';
+            color = 'warning';
           } else if (aiType === 'patient HPI chatbot & ambient scribe') {
             color = 'success';
           }
