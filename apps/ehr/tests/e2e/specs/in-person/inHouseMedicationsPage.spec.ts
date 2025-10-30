@@ -127,6 +127,7 @@ test('Order medication, order is submitted successfully and entered data are dis
     instructions: INSTRUCTIONS,
     status: STATUS,
   });
+
   await medicationsPage.clickMedicationDetailsTab();
   await medicationsPage.medicationDetails().verifyAssociatedDx(DIAGNOSIS);
   await medicationsPage.medicationDetails().verifyMedication(MEDICATION);
@@ -135,6 +136,16 @@ test('Order medication, order is submitted successfully and entered data are dis
   await medicationsPage.medicationDetails().verifyManufacturer(MANUFACTURER);
   await medicationsPage.medicationDetails().verifyRoute(ROUTE);
   await medicationsPage.medicationDetails().verifyInstructions(INSTRUCTIONS);
+
+  const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+  await progressNotePage.verifyInHouseMedication({
+    medication: MEDICATION,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+    instructions: INSTRUCTIONS,
+    status: 'Pending',
+  });
 
   const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
   const deleteDialog = await inHouseMedicationsPage.clickDeleteButton(MEDICATION);
@@ -225,26 +236,22 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
       instructions: NEW_INSTRUCTIONS,
       status: STATUS,
     });
+
+    const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+    await progressNotePage.verifyInHouseMedication({
+      medication: NEW_MEDICATION,
+      dose: NEW_DOSE,
+      units: NEW_UNITS,
+      route: NEW_ROUTE,
+      instructions: NEW_INSTRUCTIONS,
+      status: 'Pending',
+    });
   });
 });
 
 test('Masking in-house medication order Administered happy path', async ({ page }) => {
   await test.step('Administer order and verify', async () => {
-    const createOrderPage = await prepareAndOpenOrderMedicationPage(page);
-    await createOrderPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
-    await createOrderPage.editMedicationCard.selectMedication(MEDICATION);
-    await createOrderPage.editMedicationCard.enterDose(DOSE);
-    await createOrderPage.editMedicationCard.selectUnits(UNITS);
-    await createOrderPage.editMedicationCard.enterManufacturer(MANUFACTURER);
-    await createOrderPage.editMedicationCard.selectRoute(ROUTE);
-    await createOrderPage.editMedicationCard.enterInstructions(INSTRUCTIONS);
-    await createOrderPage.editMedicationCard.waitForLoadOrderedBy();
-    await createOrderPage.clickOrderMedicationButton();
-    const editOrderPage = await expectEditOrderPage(page);
-    const medicationsPage = await editOrderPage.clickBackButton();
-    await medicationsPage.clickMedicationDetailsTab();
-    await medicationsPage.medicationDetails().enterLotNumber('1234567');
-    await medicationsPage.medicationDetails().enterExpiratrionDate('2027-10-10');
+    const medicationsPage = await createOrderForAdministration(page);
 
     const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickAdministeredButton();
     await administrationConfirmationDialog.verifyTitle('Medication Administered');
@@ -270,12 +277,13 @@ test('Masking in-house medication order Administered happy path', async ({ page 
       instructions: INSTRUCTIONS,
       status: ADMINISTERED,
     });
+    const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
     await inHouseMedicationsPage.verifyMedicationInMedicationHistoryTable({
       medication: MEDICATION,
       dose: DOSE,
       units: UNITS,
       type: 'In-house medication',
-      whoAdded: await getCurrentPractitionerName(),
+      whoAdded: getLastName(testUserPractitioner) + ', ' + getFirstName(testUserPractitioner),
     });
     const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
     await progressNotePage.verifyInHouseMedication({
@@ -291,21 +299,7 @@ test('Masking in-house medication order Administered happy path', async ({ page 
 });
 
 test('Making in-house medication order Partly Administered happy path', async ({ page }) => {
-  const createOrderPage = await prepareAndOpenOrderMedicationPage(page);
-  await createOrderPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
-  await createOrderPage.editMedicationCard.selectMedication(MEDICATION);
-  await createOrderPage.editMedicationCard.enterDose(DOSE);
-  await createOrderPage.editMedicationCard.selectUnits(UNITS);
-  await createOrderPage.editMedicationCard.enterManufacturer(MANUFACTURER);
-  await createOrderPage.editMedicationCard.selectRoute(ROUTE);
-  await createOrderPage.editMedicationCard.enterInstructions(INSTRUCTIONS);
-  await createOrderPage.editMedicationCard.waitForLoadOrderedBy();
-  await createOrderPage.clickOrderMedicationButton();
-  const editOrderPage = await expectEditOrderPage(page);
-  const medicationsPage = await editOrderPage.clickBackButton();
-  await medicationsPage.clickMedicationDetailsTab();
-  await medicationsPage.medicationDetails().enterLotNumber('1234567');
-  await medicationsPage.medicationDetails().enterExpiratrionDate('2027-10-10');
+  const medicationsPage = await createOrderForAdministration(page);
 
   const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickPartlyAdministeredButton();
   await administrationConfirmationDialog.verifyTitle('Medication Partly Administered');
@@ -346,23 +340,9 @@ test('Making in-house medication order Partly Administered happy path', async ({
 });
 
 test('Making in-house medication order Not Administered happy path', async ({ page }) => {
-  const createOrderPage = await prepareAndOpenOrderMedicationPage(page);
-  await createOrderPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
-  await createOrderPage.editMedicationCard.selectMedication(MEDICATION);
-  await createOrderPage.editMedicationCard.enterDose(DOSE);
-  await createOrderPage.editMedicationCard.selectUnits(UNITS);
-  await createOrderPage.editMedicationCard.enterManufacturer(MANUFACTURER);
-  await createOrderPage.editMedicationCard.selectRoute(ROUTE);
-  await createOrderPage.editMedicationCard.enterInstructions(INSTRUCTIONS);
-  await createOrderPage.editMedicationCard.waitForLoadOrderedBy();
-  await createOrderPage.clickOrderMedicationButton();
-  const editOrderPage = await expectEditOrderPage(page);
-  const medicationsPage = await editOrderPage.clickBackButton();
-  await medicationsPage.clickMedicationDetailsTab();
-  await medicationsPage.medicationDetails().enterLotNumber('1234567');
-  await medicationsPage.medicationDetails().enterExpiratrionDate('2027-10-10');
+  const medicationsPage = await createOrderForAdministration(page);
 
-  const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickPartlyAdministeredButton();
+  const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickNotAdministeredButton();
   await administrationConfirmationDialog.verifyTitle('Medication Not Administered');
   await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
   await administrationConfirmationDialog.verifyMedication({
@@ -418,4 +398,23 @@ async function prepareAndOpenOrderMedicationPage(page: Page): Promise<OrderMedic
   await assessmentPage.selectDiagnosis({ diagnosisNamePart: NEW_DIAGNOSIS });
   const inHouseMedicationsPage = await sideMenu.clickInHouseMedications();
   return await inHouseMedicationsPage.clickOrderButton();
+}
+
+async function createOrderForAdministration(page: Page): Promise<InHouseMedicationsPage> {
+  const createOrderPage = await prepareAndOpenOrderMedicationPage(page);
+  await createOrderPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
+  await createOrderPage.editMedicationCard.selectMedication(MEDICATION);
+  await createOrderPage.editMedicationCard.enterDose(DOSE);
+  await createOrderPage.editMedicationCard.selectUnits(UNITS);
+  await createOrderPage.editMedicationCard.enterManufacturer(MANUFACTURER);
+  await createOrderPage.editMedicationCard.selectRoute(ROUTE);
+  await createOrderPage.editMedicationCard.enterInstructions(INSTRUCTIONS);
+  await createOrderPage.editMedicationCard.waitForLoadOrderedBy();
+  await createOrderPage.clickOrderMedicationButton();
+  const editOrderPage = await expectEditOrderPage(page);
+  const medicationsPage = await editOrderPage.clickBackButton();
+  await medicationsPage.clickMedicationDetailsTab();
+  await medicationsPage.medicationDetails().enterLotNumber('1234567');
+  await medicationsPage.medicationDetails().enterExpiratrionDate('2027-10-10');
+  return medicationsPage;
 }

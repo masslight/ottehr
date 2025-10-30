@@ -40,18 +40,18 @@ export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = (
   };
 
   return (
-    <TableRow data-tesid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableRow}>
+    <TableRow data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableRow}>
       <TableCell>
         <Typography
           variant="body2"
           sx={{ fontWeight: 500 }}
-          data-tesid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableMedication}
+          data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableMedication}
         >
           {item.name} ({item.intakeInfo.dose})
         </Typography>
       </TableCell>
       <TableCell>
-        <Typography variant="body2" data-tesid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableType}>
+        <Typography variant="body2" data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableType}>
           {getTypeLabel()}
         </Typography>
       </TableCell>
@@ -59,7 +59,7 @@ export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = (
         <Typography
           variant="body2"
           sx={{ color: 'text.secondary' }}
-          data-tesid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableWhoAdded}
+          data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableWhoAdded}
         >
           {practitioner ? getProviderNameWithProfession(practitioner) : ''}
         </Typography>

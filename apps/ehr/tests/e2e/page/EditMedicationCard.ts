@@ -202,4 +202,9 @@ export class EditMedicationCard {
     await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.partlyAdministeredButton).click();
     return expectAdministrationConfirmationDialogue(this.#page);
   }
+
+  async clickNotAdministeredButton(): Promise<AdministeredDialogue> {
+    await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.notAdministeredButton).click();
+    return expectAdministrationConfirmationDialogue(this.#page);
+  }
 }

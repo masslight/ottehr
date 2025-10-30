@@ -115,14 +115,14 @@ export class InHouseMedicationsPage {
     const testIdToTextArray: { testId: string; text: string | undefined }[] = [
       {
         testId: dataTestIds.inHouseMedicationsPage.medicationHistoryTableMedication,
-        text: input.medication + '(' + input.dose + ' ' + input.units + ')',
+        text: input.medication + ' ' + '(' + input.dose + ' ' + input.units + ')',
       },
       {
-        testId: dataTestIds.inHouseMedicationsPage.marTableDoseCell,
+        testId: dataTestIds.inHouseMedicationsPage.medicationHistoryTableType,
         text: input.type,
       },
       {
-        testId: dataTestIds.inHouseMedicationsPage.marTableRouteCell,
+        testId: dataTestIds.inHouseMedicationsPage.medicationHistoryTableWhoAdded,
         text: input.whoAdded,
       },
     ];

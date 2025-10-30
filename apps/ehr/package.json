@@ -37,7 +37,7 @@
     "component-tests": "vitest --config ./vitest.config.component-tests.ts",
     "test": "npm run unit-tests -- --watch=false && npm run component-tests -- --watch=false",
     "e2e:login": "npm run e2e-skeleton ./tests/e2e/login",
-    "e2e:specs": "npm run e2e-skeleton ./tests/e2e/specs/in-person/inHouseMedicationsPage.spec.ts",
+    "e2e:specs": "npm run e2e-skeleton ./tests/e2e/specs",
     "e2e:specs:ui": "npm run e2e-skeleton ./tests/e2e/specs -- --ui",
     "e2e:manual-login": "node ./auth.setup.js",
     "e2e-skeleton": "env-cmd -f ./env/tests.${ENV}.json playwright test",

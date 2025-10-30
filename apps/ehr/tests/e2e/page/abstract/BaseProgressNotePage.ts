@@ -123,7 +123,6 @@ export abstract class BaseProgressNotePage {
     dose: string;
     units: string;
     route: string;
-    orderedBy?: string;
     givenBy?: string;
     instructions: string;
     status: string;
@@ -139,9 +138,7 @@ export abstract class BaseProgressNotePage {
           ', ' +
           medication.route +
           ', ' +
-          'given by ' +
-          medication.givenBy +
-          ', ' +
+          (medication.givenBy ? 'given by ' + medication.givenBy + ', ' : '') +
           'instructions: ' +
           medication.instructions +
           ', ' +
