@@ -7,6 +7,7 @@ import {
   getInPersonVisitStatus,
   getPatientFirstName,
   getPatientLastName,
+  getProviderNameWithProfession,
   getSecret,
   isInPersonAppointment,
   isTelemedAppointment,
@@ -275,9 +276,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const attendingPractitionerId = getAttendingPractitionerId(encounter);
       const attendingPractitioner = attendingPractitionerId ? practitionerMap.get(attendingPractitionerId) : undefined;
       const attendingProviderName = attendingPractitioner
-        ? `${attendingPractitioner.name?.[0]?.given?.[0] || ''} ${attendingPractitioner.name?.[0]?.family || ''}`.trim()
+        ? getProviderNameWithProfession(attendingPractitioner)
         : 'Unknown';
-
       // Determine visit type based on appointment meta tags
       const visitType = isTelemedAppointment(appointment)
         ? 'Telemed'
@@ -288,7 +288,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const visitStatus = appointment ? getInPersonVisitStatus(appointment, encounter, true) : 'unknown';
 
       // Determine AI type based on DocumentReference.description
-      const encounterRef = encounter.id ? `Encounter/${encounter.id}` : '';
+      const encounterRef = `Encounter/${encounter.id}`;
       const encounterDocRefs = encounterRef ? encounterDocumentMap.get(encounterRef) || [] : [];
 
       const hasAmbientScribe = encounterDocRefs.some(

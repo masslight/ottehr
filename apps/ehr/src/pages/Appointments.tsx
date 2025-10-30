@@ -191,7 +191,9 @@ export default function Appointments(): ReactElement {
     radiologyOrdersByAppointmentId,
   };
 
-  const { data: vitals } = useGetVitalsForEncounters({ encounterIds: inOfficeEncounterIds });
+  const { data: vitals } = useGetVitalsForEncounters({
+    encounterIds: [...inOfficeEncounterIds, ...completedEncounterIds],
+  });
 
   useEffect(() => {
     const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');

@@ -1,5 +1,5 @@
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
-import { Box, Stack, useTheme } from '@mui/material';
+import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { GetVitalsResponseData, InPersonAppointmentInformation, VitalFieldNames, VitalsObservationDTO } from 'utils';
@@ -67,7 +67,13 @@ export const VitalsIconTooltip: React.FC<VitalsIconTooltipProps> = ({ appointmen
                     {abnormal.data.length > 0 &&
                       abnormal.data.map((item) => (
                         <Box key={item.resourceId || item.lastUpdated} sx={{ display: 'flex', alignItems: 'center' }}>
-                          {abnormal.label} - {getObservationValueElements(item, theme.palette.text.primary)}
+                          {abnormal.label} -&nbsp;
+                          <Typography
+                            component="span"
+                            sx={{ fontSize: '14px', fontWeight: 'bold', color: theme.palette.warning.light }}
+                          >
+                            {getObservationValueElements(item, theme.palette.warning.light)}
+                          </Typography>
                           {item.alertCriticality === 'abnormal' && (
                             <WarningAmberOutlinedIcon
                               fontSize="small"
