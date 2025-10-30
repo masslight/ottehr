@@ -140,10 +140,7 @@ async function getInvoiceablePatientsReport(input: {
       promises.push(
         getResourcesFromBatchInlineRequests(
           oystehr,
-          invoiceableClaims.map(
-            (claim) =>
-              `https://fhir-api.zapehr.com/r4/Patient?_id=${claim.patientExternalId}&_revinclude=Account:patient`
-          )
+          invoiceableClaims.map((claim) => `Patient?_id=${claim.patientExternalId}&_revinclude=Account:patient`)
         )
       );
       promises.push(
@@ -151,7 +148,7 @@ async function getInvoiceablePatientsReport(input: {
           oystehr,
           invoiceableClaims.map(
             (claim) =>
-              `https://fhir-api.zapehr.com/r4/Encounter?identifier=${CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM}|${claim.encounterId}&_include=Encounter:appointment`
+              `Encounter?identifier=${CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM}|${claim.encounterId}&_include=Encounter:appointment`
           )
         )
       );
