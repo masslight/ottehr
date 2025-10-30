@@ -26,7 +26,7 @@ import { useMutation, UseMutationResult, useQuery, useQueryClient } from '@tanst
 import { Appointment, Attachment, Flag, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, SetStateAction, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   generatePaperworkPdf,
@@ -35,6 +35,7 @@ import {
   updatePatientVisitDetails,
   updateVisitFiles,
 } from 'src/api/api';
+import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
 import ImageUploader from 'src/components/ImageUploader';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { TelemedAppointmentStatusChip } from 'src/components/TelemedAppointmentStatusChip';
@@ -197,9 +198,7 @@ export default function VisitDetailsPage(): ReactElement {
   const [cancelDialogOpen, setCancelDialogOpen] = useState<boolean>(false);
   const [hopQueueDialogOpen, setHopQueueDialogOpen] = useState<boolean>(false);
   const [hopLoading, setHopLoading] = useState<boolean>(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [photoZoom, setPhotoZoom] = useState<boolean>(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [zoomedIdx, setZoomedIdx] = useState<number>(0);
   const [issueDialogOpen, setIssueDialogOpen] = useState<boolean>(false);
   const [activityLogDialogOpen, setActivityLogDialogOpen] = useState<boolean>(false);
@@ -234,13 +233,14 @@ export default function VisitDetailsPage(): ReactElement {
 
   console.log('fullCardPdfs, consentPdfUrls', fullCardPdfs, consentPdfUrls);
 
-  const { idCards, primaryInsuranceCards, secondaryInsuranceCards } = (() => {
+  const { idCards, primaryInsuranceCards, secondaryInsuranceCards, imageCarouselObjs } = (() => {
     const { photoIdCards, insuranceCards, insuranceCardsSecondary } = imageFileData || {
       photoIdCards: [],
       insuranceCards: [],
       insuranceCardsSecondary: [],
     };
     const idCards: SavedCardItem = { front: null, back: null };
+    const imageCarouselObjs: ImageCarouselObject[] = [];
     const primaryInsuranceCards: SavedCardItem = {
       front: null,
       back: null,
@@ -250,6 +250,7 @@ export default function VisitDetailsPage(): ReactElement {
       back: null,
     };
     insuranceCards.forEach((card) => {
+      imageCarouselObjs.push({ alt: card.type, url: card.presignedUrl || '' });
       if (card.type === DocumentType.InsuranceFront) {
         primaryInsuranceCards.front = card;
       } else if (card.type === DocumentType.InsuranceBack) {
@@ -257,6 +258,7 @@ export default function VisitDetailsPage(): ReactElement {
       }
     });
     insuranceCardsSecondary.forEach((card) => {
+      imageCarouselObjs.push({ alt: card.type, url: card.presignedUrl || '' });
       if (card.type === DocumentType.InsuranceFrontSecondary) {
         secondaryInsuranceCards.front = card;
       } else if (card.type === DocumentType.InsuranceBackSecondary) {
@@ -264,6 +266,7 @@ export default function VisitDetailsPage(): ReactElement {
       }
     });
     photoIdCards.forEach((card) => {
+      imageCarouselObjs.push({ alt: card.type, url: card.presignedUrl || '' });
       if (card.type === DocumentType.PhotoIdFront) {
         idCards.front = card;
       } else if (card.type === DocumentType.PhotoIdBack) {
@@ -274,8 +277,17 @@ export default function VisitDetailsPage(): ReactElement {
       idCards,
       primaryInsuranceCards,
       secondaryInsuranceCards,
+      imageCarouselObjs,
     };
   })();
+
+  const handleCardImageClick = (imageType: string): void => {
+    const index = imageCarouselObjs.findIndex((obj) => obj.alt === imageType);
+    if (index > -1) {
+      setZoomedIdx(index);
+      setPhotoZoom(true);
+    }
+  };
 
   const {
     data: visitDetailsData,
@@ -606,19 +618,6 @@ export default function VisitDetailsPage(): ReactElement {
     signedConsentForm[consentToTreatPatientDetailsKey] = imagesLoading ? 'Loading...' : 'Not signed';
   }
 
-  // const suffixOptions = ['II', 'III', 'IV', 'Jr', 'Sr'];
-
-  /*
-  const imageCarouselObjs = useMemo(
-    () => [
-      ...insuranceCards.map<ImageCarouselObject>((card) => ({ alt: card.type, url: card.presignedUrl || '' })),
-      ...insuranceCardsSecondary.map<ImageCarouselObject>((card) => ({ alt: card.type, url: card.presignedUrl || '' })),
-      ...photoIdCards.map<ImageCarouselObject>((card) => ({ alt: card.type, url: card.presignedUrl || '' })),
-    ],
-    [insuranceCards, insuranceCardsSecondary, photoIdCards]
-  );
-  */
-
   const reasonForVisit = getReasonForVisitFromAppointment(appointment);
 
   const authorizedGuardians =
@@ -644,15 +643,14 @@ export default function VisitDetailsPage(): ReactElement {
     <PageContainer>
       <>
         {/* Card image zoom dialog */}
-        {/* <ImageCarousel
+        <ImageCarousel
           imagesObj={imageCarouselObjs}
           imageIndex={zoomedIdx}
           setImageIndex={setZoomedIdx}
           open={photoZoom}
           setOpen={setPhotoZoom}
         />
-
-        {/* page */}
+        {/* /* page */}
         <Grid container direction="row">
           <Grid item xs={0.25}></Grid>
           <Grid item xs={11.5}>
@@ -874,10 +872,9 @@ export default function VisitDetailsPage(): ReactElement {
                             category="primary-ins"
                             item={primaryInsuranceCards}
                             appointmentID={appointmentID}
-                            setZoomedIdx={setZoomedIdx}
-                            setPhotoZoom={setPhotoZoom}
                             filesMutator={filesMutation}
                             fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsurance)}
+                            handleImageClick={handleCardImageClick}
                           />
                         )}
                         {!selfPay && (
@@ -885,10 +882,9 @@ export default function VisitDetailsPage(): ReactElement {
                             category="secondary-ins"
                             item={secondaryInsuranceCards}
                             appointmentID={appointmentID}
-                            setZoomedIdx={setZoomedIdx}
-                            setPhotoZoom={setPhotoZoom}
                             filesMutator={filesMutation}
                             fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsuranceSecondary)}
+                            handleImageClick={handleCardImageClick}
                           />
                         )}
                         {
@@ -896,10 +892,9 @@ export default function VisitDetailsPage(): ReactElement {
                             category="id"
                             item={idCards}
                             appointmentID={appointmentID}
-                            setZoomedIdx={setZoomedIdx}
-                            setPhotoZoom={setPhotoZoom}
                             filesMutator={filesMutation}
                             fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullPhotoId)}
+                            handleImageClick={handleCardImageClick}
                           />
                         }
                       </>
@@ -1299,8 +1294,7 @@ interface CardCategoryGridItemInput {
   appointmentID: string | undefined;
   fullCardPdf?: DocumentInfo | undefined;
   filesMutator: UseMutationResult<void, Error, UpdateVisitFilesInput, unknown>;
-  setZoomedIdx: (value: SetStateAction<number>) => void;
-  setPhotoZoom: (value: SetStateAction<boolean>) => void;
+  handleImageClick: (imageType: string) => void;
 }
 
 function parseFiletype(fileUrl: string): string {
@@ -1318,8 +1312,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
   appointmentID,
   fullCardPdf,
   filesMutator,
-  setZoomedIdx,
-  setPhotoZoom,
+  handleImageClick,
 }) => {
   const title = (() => {
     if (category === 'primary-ins') {
@@ -1426,23 +1419,20 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
         )}
       </Grid>
       <Grid item container direction="row" justifyContent={'center'} spacing={1}>
-        {Object.entries(item).map(([key, card], index) =>
+        {Object.entries(item).map(([key, card]) =>
           card ? (
             <Grid item key={card.type} xs={5.5}>
               <CardGridItem
                 card={card}
-                index={index}
                 appointmentID={appointmentID}
                 fullCardPdf={fullCardPdf}
                 aspectRatio={ASPECT_RATIO}
-                setZoomedIdx={setZoomedIdx}
-                setPhotoZoom={setPhotoZoom}
+                handleClick={() => handleImageClick(card.type)}
               />
             </Grid>
           ) : (
-            <Grid item key={index} xs={5.5}>
+            <Grid item key={itemIdentifier(key as 'front' | 'back')} xs={5.5}>
               <ImageUploader
-                key={itemIdentifier(key as 'front' | 'back')}
                 fileName={itemIdentifier(key as 'front' | 'back')}
                 appointmentId={appointmentID}
                 submitAttachment={async (attachment: Attachment) => {
@@ -1452,7 +1442,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                     fileType: itemIdentifier(key as 'front' | 'back'),
                   });
                 }}
-                aspectRatio={1.57}
+                aspectRatio={ASPECT_RATIO}
               />
             </Grid>
           )

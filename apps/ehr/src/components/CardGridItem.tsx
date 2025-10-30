@@ -5,28 +5,17 @@ import { DocumentInfo } from 'utils';
 
 interface CardGridItemProps {
   card: DocumentInfo;
-  index: number;
   appointmentID: string | undefined;
   fullCardPdf: DocumentInfo | undefined;
   aspectRatio: number;
-  setZoomedIdx: (value: React.SetStateAction<number>) => void;
-  setPhotoZoom: (value: React.SetStateAction<boolean>) => void;
-  offset?: number;
+  handleClick: () => void;
 }
 
-export default function CardGridItem({
-  card,
-  index,
-  aspectRatio,
-  setZoomedIdx,
-  setPhotoZoom,
-  offset = 0,
-}: CardGridItemProps): ReactElement {
+export default function CardGridItem({ card, aspectRatio, handleClick }: CardGridItemProps): ReactElement {
   return (
     <Box
       onClick={() => {
-        setZoomedIdx(index + offset);
-        setPhotoZoom(true);
+        handleClick();
       }}
       sx={{ cursor: 'pointer', aspectRatio, overflow: 'hidden' }}
       display="flex"
