@@ -524,6 +524,15 @@ export const dataTestIds = {
     medicalConditionsInput: 'medical-condition-input',
     medicalConditionListItem: 'medical-condition-list-item',
   },
+  surgicalHistory: {
+    surgicalHistoryTitle: 'surgical-history-title',
+    surgicalHistoryOption: 'surgical-history-option',
+    surgicalHistoryColumn: 'surgical-history-column',
+    surgicalHistoryList: 'surgical-history-list',
+    surgicalHistoryPatientProvidedList: 'surgical-history-patient-provided-list',
+    surgicalHistoryInput: 'surgical-history-input',
+    surgicalHistoryListItem: 'surgical-history-list-item',
+  },
   orderVaccinePage: {
     title: 'order-vaccine-title',
     vaccine: 'order-vaccine-vaccine',
