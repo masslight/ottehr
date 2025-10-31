@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import ScannerIcon from '@mui/icons-material/Scanner';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import { Box, debounce, Grid, IconButton, Paper, Stack, TextField, Typography, useTheme } from '@mui/material';
 import { styled } from '@mui/material';
@@ -20,6 +21,7 @@ import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch, { CustomFormEventHandler } from '../components/DateSearch';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { RoundedButton } from '../components/RoundedButton';
+import { ScannerModal } from '../components/ScannerModal';
 import { useGetPatient } from '../hooks/useGetPatient';
 import { PatientDocumentsFilters, PatientDocumentsFolder, useGetPatientDocs } from '../hooks/useGetPatientDocs';
 import { usePatientStore } from '../state/patient.store';
@@ -64,6 +66,7 @@ const PatientDocumentsExplorerPage: FC = () => {
   const [docNameTextDebounced, setDocNameTextDebounced] = useState<string>('');
   const [searchDocAddedDate, setSearchDocAddedDate] = useState<DateTime | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>(undefined);
+  const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
 
   const shouldShowClearFilters = searchDocNameFieldValue.trim().length > 0 || searchDocAddedDate || selectedFolder;
 
@@ -138,6 +141,14 @@ const PatientDocumentsExplorerPage: FC = () => {
     setSearchDocNameFieldValue('');
     searchDocuments({});
   }, [searchDocuments]);
+
+  const handleOpenScanModal = useCallback(() => {
+    setIsScanModalOpen(true);
+  }, []);
+
+  const handleCloseScanModal = useCallback(() => {
+    setIsScanModalOpen(false);
+  }, []);
 
   const handleDocumentUploadInputChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
@@ -335,6 +346,15 @@ const PatientDocumentsExplorerPage: FC = () => {
                       capture="environment"
                     />
                   </RoundedButton>
+
+                  <RoundedButton
+                    disabled={!selectedFolder}
+                    variant="outlined"
+                    startIcon={<ScannerIcon fontSize="small" />}
+                    onClick={handleOpenScanModal}
+                  >
+                    Scan
+                  </RoundedButton>
                 </Box>
 
                 <PatientDocumentsExplorerTable
@@ -347,6 +367,8 @@ const PatientDocumentsExplorerPage: FC = () => {
           </Paper>
         </Box>
       </Box>
+
+      <ScannerModal open={isScanModalOpen} onClose={handleCloseScanModal} />
     </Box>
   );
 };
