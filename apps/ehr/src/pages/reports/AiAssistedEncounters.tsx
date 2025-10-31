@@ -1,5 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
+import PsychologyIcon from '@mui/icons-material/Psychology';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   Box,
@@ -22,15 +22,16 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid-pro';
 import { useQuery } from '@tanstack/react-query';
+import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches, VisitStatusLabel } from 'utils';
-import { getIncompleteEncountersReport } from '../../api/api';
+import { getAiAssistedEncountersReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
-interface IncompleteEncounterRow {
+interface AiAssistedEncounterRow {
   id: string;
   appointmentId: string;
   patientId: string;
@@ -44,6 +45,7 @@ interface IncompleteEncounterRow {
   attendingProvider?: string;
   visitType?: string;
   reason?: string;
+  aiType?: string;
 }
 
 type DateRangeFilter = 'today' | 'yesterday' | 'last-7-days' | 'last-7-days-excluding-today' | 'last-30-days';
@@ -72,19 +74,23 @@ const getStatusColor = (
   }
 };
 
-const useIncompleteEncounters = (
+const useAiAssistedEncounters = (
   dateRange: DateRangeFilter,
   start: string,
-  end: string
-): ReturnType<typeof useQuery<IncompleteEncounterRow[], Error>> => {
+  end: string,
+  selectedLocationId: string
+): ReturnType<typeof useQuery<AiAssistedEncounterRow[], Error>> => {
   const { oystehrZambda } = useApiClients();
 
   return useQuery({
-    queryKey: ['incomplete-encounters', dateRange, start, end],
-    queryFn: async (): Promise<IncompleteEncounterRow[]> => {
+    queryKey: ['ai-assisted-encounters', dateRange, start, end, selectedLocationId],
+    queryFn: async (): Promise<AiAssistedEncounterRow[]> => {
       if (!oystehrZambda) {
         throw new Error('Oystehr client not available');
       }
+
+      // Build location filter if a location is selected
+      const locationIds = selectedLocationId !== 'all' ? [selectedLocationId] : undefined;
 
       // Calculate the date range in days
       const startDate = DateTime.fromISO(start);
@@ -96,12 +102,13 @@ const useIncompleteEncounters = (
       // If the date range is <= DEFAULT_BATCH_DAYS days, make a single request
       if (daysDifference <= DEFAULT_BATCH_DAYS) {
         console.log('Making single request for date range');
-        const response = await getIncompleteEncountersReport(oystehrZambda, {
+        const response = await getAiAssistedEncountersReport(oystehrZambda, {
           dateRange: { start, end },
+          locationIds,
         });
 
         // Transform the response to match our display requirements
-        const processedEncounters: IncompleteEncounterRow[] = response.encounters.map((encounter) => {
+        const processedEncounters: AiAssistedEncounterRow[] = response.encounters.map((encounter) => {
           const appointmentTime = encounter.appointmentStart
             ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
             : 'Unknown';
@@ -120,13 +127,14 @@ const useIncompleteEncounters = (
             attendingProvider: encounter.attendingProvider,
             visitType: encounter.visitType,
             reason: encounter.reason,
+            aiType: encounter.aiType,
           };
         });
 
         return processedEncounters.sort((a, b) => {
           const aTime = a.appointmentStart;
           const bTime = b.appointmentStart;
-          return DateTime.fromISO(aTime).toMillis() - DateTime.fromISO(bTime).toMillis();
+          return DateTime.fromISO(bTime).toMillis() - DateTime.fromISO(aTime).toMillis();
         });
       }
 
@@ -137,8 +145,9 @@ const useIncompleteEncounters = (
       // Fetch data for each batch in parallel
       const batchPromises = batches.map(async (batch, index) => {
         console.log(`Fetching batch ${index + 1}/${batches.length}: ${batch.start} to ${batch.end}`);
-        const response = await getIncompleteEncountersReport(oystehrZambda, {
+        const response = await getAiAssistedEncountersReport(oystehrZambda, {
           dateRange: batch,
+          locationIds,
         });
         console.log(`Batch ${index + 1} returned ${response.encounters.length} encounters`);
         return response.encounters;
@@ -152,7 +161,7 @@ const useIncompleteEncounters = (
       console.log(`Total encounters across all batches: ${allEncounters.length}`);
 
       // Transform the combined response to match our display requirements
-      const processedEncounters: IncompleteEncounterRow[] = allEncounters.map((encounter) => {
+      const processedEncounters: AiAssistedEncounterRow[] = allEncounters.map((encounter) => {
         const appointmentTime = encounter.appointmentStart
           ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
           : 'Unknown';
@@ -171,6 +180,7 @@ const useIncompleteEncounters = (
           attendingProvider: encounter.attendingProvider,
           visitType: encounter.visitType,
           reason: encounter.reason,
+          aiType: encounter.aiType,
         };
       });
 
@@ -180,7 +190,7 @@ const useIncompleteEncounters = (
       return uniqueEncounters.sort((a, b) => {
         const aTime = a.appointmentStart;
         const bTime = b.appointmentStart;
-        return DateTime.fromISO(aTime).toMillis() - DateTime.fromISO(bTime).toMillis();
+        return DateTime.fromISO(bTime).toMillis() - DateTime.fromISO(aTime).toMillis();
       });
     },
     enabled: Boolean(oystehrZambda),
@@ -189,9 +199,40 @@ const useIncompleteEncounters = (
   });
 };
 
-export default function IncompleteEncounters(): React.ReactElement {
+export default function AiAssistedEncounters(): React.ReactElement {
   const navigate = useNavigate();
+  const { oystehr } = useApiClients();
   const [dateRange, setDateRange] = useState<DateRangeFilter>('today');
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState<boolean>(true);
+  const [selectedLocationId, setSelectedLocationId] = useState<string>('all');
+
+  // Fetch locations on component mount
+  useEffect(() => {
+    const fetchLocations = async (): Promise<void> => {
+      if (!oystehr) return;
+
+      try {
+        setLoadingLocations(true);
+        const locationResults = await oystehr.fhir.search<Location>({
+          resourceType: 'Location',
+          params: [
+            { name: '_count', value: '1000' },
+            { name: '_sort', value: 'name' },
+          ],
+        });
+
+        const locationsList = locationResults.unbundle();
+        setLocations(locationsList);
+      } catch (err) {
+        console.error('Error fetching locations:', err);
+      } finally {
+        setLoadingLocations(false);
+      }
+    };
+
+    void fetchLocations();
+  }, [oystehr]);
 
   const getDateRange = useCallback((filter: DateRangeFilter): { start: string; end: string } => {
     const now = DateTime.now().setZone('America/New_York');
@@ -239,7 +280,12 @@ export default function IncompleteEncounters(): React.ReactElement {
   }, []);
 
   const { start, end } = getDateRange(dateRange);
-  const { data: encounters = [], isLoading, error, refetch } = useIncompleteEncounters(dateRange, start, end);
+  const {
+    data: encounters = [],
+    isLoading,
+    error,
+    refetch,
+  } = useAiAssistedEncounters(dateRange, start, end, selectedLocationId);
 
   const handleBack = (): void => {
     navigate('/reports');
@@ -247,6 +293,11 @@ export default function IncompleteEncounters(): React.ReactElement {
 
   const handleDateRangeChange = (event: SelectChangeEvent<DateRangeFilter>): void => {
     setDateRange(event.target.value as DateRangeFilter);
+  };
+
+  const handleLocationFilterChange = (event: SelectChangeEvent<string>): void => {
+    const newLocationId = event.target.value;
+    setSelectedLocationId(newLocationId);
   };
 
   const handleRefresh = (): void => {
@@ -257,7 +308,7 @@ export default function IncompleteEncounters(): React.ReactElement {
   const CustomToolbar = (): React.ReactElement => {
     return (
       <GridToolbarContainer>
-        <GridToolbarExport csvOptions={{ fileName: 'incomplete-encounters-report' }} />
+        <GridToolbarExport csvOptions={{ fileName: 'ai-assisted-encounters-report' }} />
       </GridToolbarContainer>
     );
   };
@@ -292,6 +343,26 @@ export default function IncompleteEncounters(): React.ReactElement {
               {appointmentId}
             </Link>
           );
+        },
+      },
+      {
+        field: 'aiType',
+        headerName: 'AI Type',
+        width: 250,
+        sortable: true,
+        renderCell: (params: GridRenderCellParams) => {
+          const aiType = params.value as string;
+          if (!aiType) return <span>-</span>;
+
+          // Determine chip color based on AI type
+          let color: 'primary' | 'warning' | 'success' = 'primary';
+          if (aiType === 'ambient scribe') {
+            color = 'warning';
+          } else if (aiType === 'patient HPI chatbot & ambient scribe') {
+            color = 'success';
+          }
+
+          return <Chip label={aiType} color={color} size="small" variant="outlined" />;
         },
       },
       {
@@ -405,20 +476,20 @@ export default function IncompleteEncounters(): React.ReactElement {
             <ArrowBackIcon />
           </IconButton>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <AssignmentLateIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <PsychologyIcon sx={{ fontSize: 32, color: 'primary.main' }} />
             <Typography variant="h4" component="h1" color="primary.dark" fontWeight={600}>
-              Incomplete Encounters
+              AI-Assisted Encounters
             </Typography>
           </Box>
         </Box>
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          This report shows encounters that are not in a terminal state (completed, cancelled, or no show). Click an
-          appointment ID to navigate to the specific appointment chart. Click an appointment time to navigate to the
-          appropriate tracking board.
+          This report shows encounters that have associated DocumentReference resources with AI-related types. Filter by
+          date range and location to view appointments with AI-assisted documentation. Click an appointment ID to
+          navigate to the specific appointment chart.
         </Typography>
 
-        {/* Date Filter */}
+        {/* Date and Location Filters */}
         <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           <FormControl size="small" sx={{ minWidth: 200 }}>
             <InputLabel>Date Range</InputLabel>
@@ -428,6 +499,25 @@ export default function IncompleteEncounters(): React.ReactElement {
               <MenuItem value="last-7-days">Last 7 Days</MenuItem>
               <MenuItem value="last-7-days-excluding-today">Last 7 Days (Excluding Today)</MenuItem>
               <MenuItem value="last-30-days">Last 30 Days</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Location</InputLabel>
+            <Select
+              value={selectedLocationId}
+              label="Location"
+              onChange={handleLocationFilterChange}
+              disabled={loadingLocations}
+            >
+              <MenuItem value="all">All Locations</MenuItem>
+              {locations
+                .filter((loc) => loc.name)
+                .map((location) => (
+                  <MenuItem key={location.id} value={location.id}>
+                    {location.name}
+                  </MenuItem>
+                ))}
             </Select>
           </FormControl>
 
@@ -477,10 +567,11 @@ export default function IncompleteEncounters(): React.ReactElement {
         {!isLoading && encounters.length === 0 && !error && (
           <Box sx={{ mt: 2, p: 4, textAlign: 'center' }}>
             <Typography variant="h6" color="text.secondary">
-              No incomplete encounters found for the selected date range
+              No AI-assisted encounters found for the selected filters
             </Typography>
             <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
-              Try selecting a different date range or check if there are any active encounters
+              Try selecting a different date range or location, or check if there are any encounters with AI-generated
+              documents
             </Typography>
           </Box>
         )}

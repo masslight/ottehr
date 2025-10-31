@@ -91,8 +91,6 @@ export const getAllResourcesFromFhir = async (
     ],
   };
 
-  console.log('Fhir search params: ' + JSON.stringify(fhirSearchParams, null, 2));
-
   const allResources = await getAllFhirSearchPages<FhirResource>(fhirSearchParams, oystehr, 100);
 
   // Fetch QuestionnaireResponse resources separately to avoid bundle size limits
