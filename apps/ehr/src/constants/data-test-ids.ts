@@ -342,6 +342,7 @@ export const dataTestIds = {
     secondaryDiagnosisLink: 'secondary-diagnosis-link',
     medicalDecisionLink: 'medical-decision-link',
     emCodeLink: 'em-code-link',
+    hpiLink: 'hpi-link',
     visitNoteCard: 'visit-note-card',
     procedureItem: 'procedure-item',
     vaccineItem: 'vaccine-item',
@@ -349,6 +350,7 @@ export const dataTestIds = {
     labsTitle: (labType: string) => `title-${labType.toLowerCase().replace(/\s+/g, '-')}`,
     knownAllergiesContainer: 'known-allergies-container',
     medicalConditionsContainer: 'medical-conditions-container',
+    surgicalHistoryContainer: 'surgical-history-container',
   },
   assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
