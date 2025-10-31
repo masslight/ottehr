@@ -77,6 +77,7 @@ export default function InvoiceablePatients(): React.ReactElement {
       enqueueSnackbar('Error occurred while updating invoiceable patients report. Please try again.', {
         variant: 'error',
       });
+    } finally {
       setLoading(false);
     }
   };
