@@ -45,7 +45,7 @@ import {
   getUrlAndVersionForADFromServiceRequest,
   taskIsBasedOnServiceRequest,
 } from '../shared/in-house-labs';
-import { fetchLabOrderPDFsPresignedUrls, parseTimezoneForAppointmentSchedule } from '../shared/labs';
+import { fetchLabDocumentPresignedUrls, parseTimezoneForAppointmentSchedule } from '../shared/labs';
 import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
 
 // cache for the service request context
@@ -323,8 +323,8 @@ export const getInHouseResources = async (
 
     if (diagnosticReports.length > 0) {
       const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports); // todo i think we can get this from the big query
-      const pdfs = await fetchLabOrderPDFsPresignedUrls(resultsDocumentReferences, m2mToken);
-      if (pdfs) resultsPDFs = pdfs.resultPDFs;
+      const documents = await fetchLabDocumentPresignedUrls(resultsDocumentReferences, m2mToken);
+      if (documents) resultsPDFs = documents.resultPDFs;
     }
   }
 

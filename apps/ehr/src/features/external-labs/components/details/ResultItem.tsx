@@ -71,6 +71,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
           onMarkAsReviewed={onMarkAsReviewed}
           loading={loading}
           taskId={resultDetails.taskId}
+          labGeneratedResultUrl={resultDetails.labGeneratedResultUrl}
         />
       )}
 

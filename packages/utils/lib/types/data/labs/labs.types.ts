@@ -101,6 +101,7 @@ export type LabOrderResultDetails = {
   receivedDate: string;
   reviewedDate: string | null;
   resultPdfUrl: string | null;
+  labGeneratedResultUrl?: string;
 };
 
 export type QuestionnaireData = {
@@ -382,10 +383,8 @@ export interface GetLabelPdfParameters {
   contextRelatedReference: Reference;
   searchParams: { name: string; value: string }[];
 }
-
-// todo labs team absorb LabelPdf in LabPdf
-export interface LabPdf {
-  type: 'abn';
+export interface LabDocument {
+  type: 'abn' | 'lab-generated-result';
   documentReference: DocumentReference;
   presignedURL: string;
 }
