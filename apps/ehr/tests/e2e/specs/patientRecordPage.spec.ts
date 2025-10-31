@@ -127,37 +127,43 @@ const populateAllRequiredFields = async (patientInformationPage: PatientInformat
 test.describe('Patient Record Page non-mutating tests', () => {
   const PROCESS_ID = `patientRecordPage-non-mutating-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID);
+  test.describe.configure({ mode: 'serial' });
 
-  test.beforeAll(async () => {
+  let context: BrowserContext;
+  let page: Page;
+
+  test.beforeAll(async ({ browser }) => {
     if (process.env.INTEGRATION_TEST === 'true') {
       await resourceHandler.setResourcesFast();
     } else {
       await resourceHandler.setResources();
       await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
     }
+    context = await browser.newContext();
+    page = await context.newPage();
   });
 
   test.afterAll(async () => {
     await resourceHandler.cleanupResources();
   });
 
-  test('Click on "See all patient info button", Patient Info Page is opened', async ({ page }) => {
+  let patientInformationPage: PatientInformationPage;
+
+  test('Click on "See all patient info button", Patient Info Page is opened', async () => {
     await page.goto('/patient/' + resourceHandler.patient.id);
     const patientRecordPage = await expectPatientRecordPage(resourceHandler.patient.id!, page);
     await patientRecordPage.clickSeeAllPatientInfoButton();
-    await expectPatientInformationPage(page, resourceHandler.patient.id!);
+    patientInformationPage = await expectPatientInformationPage(page, resourceHandler.patient.id!);
   });
 
-  test('Verify required data from Patient info block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+  test('Verify required data from Patient info block is displayed correctly', async () => {
     await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
     await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
     await patientInformationPage.verifyPatientDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await patientInformationPage.verifyPatientBirthSex(PATIENT_GENDER);
   });
 
-  test('Verify required data from Contact info block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+  test('Verify required data from Contact info block is displayed correctly', async () => {
     await patientInformationPage.verifyStreetAddress(DEMO_VISIT_STREET_ADDRESS);
     await patientInformationPage.verifyAddressLineOptional(DEMO_VISIT_STREET_ADDRESS_OPTIONAL);
     await patientInformationPage.verifyCity(DEMO_VISIT_CITY);
@@ -167,8 +173,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyPatientMobile(PATIENT_PHONE_NUMBER);
   });
 
-  test('Verify data from Responsible party information block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+  test('Verify data from Responsible party information block is displayed correctly', async () => {
     await patientInformationPage.verifyRelationshipFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
     await patientInformationPage.verifyFirstNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_FIRST_NAME);
     await patientInformationPage.verifyLastNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_LAST_NAME);
@@ -184,8 +189,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyEmailFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_EMAIL);
   });
 
-  test('Verify entered by patient data from Patient details block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+  test('Verify entered by patient data from Patient details block is displayed correctly', async () => {
     await patientInformationPage.verifyPatientEthnicity(DEMO_VISIT_PATIENT_ETHNICITY);
     await patientInformationPage.verifyPatientRace(DEMO_VISIT_PATIENT_RACE);
     await patientInformationPage.verifyHowDidYouHear(DEMO_VISIT_POINT_OF_DISCOVERY);
@@ -193,8 +197,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyPreferredLanguage(DEMO_VISIT_PREFERRED_LANGUAGE);
   });
 
-  test('Verify data from Primary Care Physician block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+  test('Verify data from Primary Care Physician block is displayed correctly', async () => {
     await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
     await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
     await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
@@ -202,8 +205,14 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
   });
 
-  test('Check all fields from Primary Care Physician block are hidden when checkbox is checked', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+  test('Check validation error is displayed for invalid phone number from Primary Care Physician block', async () => {
+    await patientInformationPage.clearMobileFromPcp();
+    await patientInformationPage.enterMobileFromPcp('2222245');
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyValidationErrorInvalidPhoneFromPcp();
+  });
+
+  test('Check all fields from Primary Care Physician block are hidden when checkbox is checked', async () => {
     await patientInformationPage.setCheckboxOn();
     await patientInformationPage.verifyFirstNameFromPcpIsNotVisible();
     await patientInformationPage.verifyLastNameFromPcpIsNotVisible();
@@ -212,12 +221,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyMobileFromPcpIsNotVisible();
   });
 
-  test.skip('Check all fields from Primary Care Physician block after toggling the checkbox on and off', async ({
-    page,
-  }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-
-    await patientInformationPage.setCheckboxOn();
+  test.skip('Check all fields from Primary Care Physician block after toggling the checkbox on and off', async () => {
     await patientInformationPage.setCheckboxOff();
 
     await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
@@ -225,16 +229,6 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
     await patientInformationPage.verifyAddressFromPcp(DEMO_VISIT_PHYSICIAN_ADDRESS);
     await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
-  });
-
-  test('Check validation error is displayed for invalid phone number from Primary Care Physician block', async ({
-    page,
-  }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.clearMobileFromPcp();
-    await patientInformationPage.enterMobileFromPcp('2222245');
-    await patientInformationPage.clickSaveChangesButton();
-    await patientInformationPage.verifyValidationErrorInvalidPhoneFromPcp();
   });
 
   //to do: uncomment when https://github.com/masslight/ottehr/issues/2200 will be fixed
@@ -255,6 +249,21 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.clickCloseButton();
     await expectPatientRecordPage(resourceHandler.patient.id!, page);
   });*/
+
+  test('Click on [Cancel] button, user stays on Patient Profile page', async () => {
+    await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
+    await patientInformationPage.clickCloseButton();
+    const discardChangesDialog = await expectDialog(page);
+    await discardChangesDialog.clickCancelButton();
+    await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
+  });
+
+  test('Click on [x] icon, user stays on Patient Profile page', async () => {
+    await patientInformationPage.clickCloseButton();
+    const discardChangesDialog = await expectDialog(page);
+    await discardChangesDialog.clickCloseButton();
+    await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
+  });
 
   test('Click on Patients Name breadcrumb, Patient Record page is opened', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
@@ -280,26 +289,6 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await expectPatientRecordPage(resourceHandler.patient.id!, page);
     patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
-  });
-
-  test('Click on [Cancel] button, user stays on Patient Profile page', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
-    await patientInformationPage.clickCloseButton();
-    const discardChangesDialog = await expectDialog(page);
-    await discardChangesDialog.clickCancelButton();
-    await expectPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
-  });
-
-  test('Click on [x] icon, user stays on Patient Profile page', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
-    await patientInformationPage.clickCloseButton();
-    const discardChangesDialog = await expectDialog(page);
-    await discardChangesDialog.clickCloseButton();
-    await expectPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
   });
 });
 
