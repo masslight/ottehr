@@ -136,6 +136,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
         {isEditable && (
           <Box display="flex" flexDirection="row" gap={2}>
             <ButtonRounded
+              data-testid={dataTestIds.inHouseMedicationsPage.notAdministeredButton}
               disabled={isSaveButtonDisabled}
               onClick={() =>
                 onSave(
@@ -153,6 +154,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
               Not Administered
             </ButtonRounded>
             <ButtonRounded
+              data-testid={dataTestIds.inHouseMedicationsPage.partlyAdministeredButton}
               disabled={isSaveButtonDisabled}
               onClick={() =>
                 onSave(
@@ -170,6 +172,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
               Partly Administered
             </ButtonRounded>
             <ButtonRounded
+              data-testid={dataTestIds.inHouseMedicationsPage.administeredButton}
               disabled={isSaveButtonDisabled}
               onClick={() =>
                 onSave(
