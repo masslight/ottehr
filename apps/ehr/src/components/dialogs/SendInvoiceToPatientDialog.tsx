@@ -107,6 +107,7 @@ export default function SendInvoiceToPatientDialog({
             <Controller
               name="recipientName"
               control={control}
+              disabled
               rules={{
                 required: REQUIRED_FIELD_ERROR_MESSAGE,
               }}
@@ -126,6 +127,7 @@ export default function SendInvoiceToPatientDialog({
             <Controller
               name="recipientEmail"
               control={control}
+              disabled
               rules={{
                 required: REQUIRED_FIELD_ERROR_MESSAGE,
                 validate: (value) => {
@@ -150,6 +152,7 @@ export default function SendInvoiceToPatientDialog({
             <Controller
               name="recipientPhoneNumber"
               control={control}
+              disabled
               rules={{
                 validate: (value: string) => {
                   if (!value) return true;

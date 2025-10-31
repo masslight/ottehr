@@ -10,6 +10,7 @@ import {
   getPatientReferenceFromAccount,
   getSecret,
   getStripeCustomerIdFromAccount,
+  replaceTemplateVariablesDollar,
   SecretsKeys,
   SendInvoiceToPatientZambdaInput,
 } from 'utils';
@@ -18,6 +19,7 @@ import {
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
   getStripeClient,
+  sendSmsForPatient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -31,30 +33,50 @@ const ZAMBDA_NAME = 'send-invoice-to-patient';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParams = validateRequestParameters(input);
-    const { secrets, oystPatientId, oystEncounterId } = validatedParams;
+    const { secrets, oystPatientId, oystEncounterId, prefilledInfo } = validatedParams;
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
     const candid = createCandidApiClient(secrets);
     const stripe = getStripeClient(secrets);
 
+    console.log('Fetching fhir resources');
     const fhirResources = await getFhirResources(oystehr, oystPatientId, oystEncounterId);
     if (!fhirResources) throw new Error('Failed to fetch all needed FHIR resources');
-    const stripeCustomerId = getStripeCustomerIdFromAccount(fhirResources.account);
+    const { patient, encounter, account } = fhirResources;
+    console.log('Fhir resources fetched');
+
+    console.log('Getting stripe and candid ids');
+    const stripeCustomerId = getStripeCustomerIdFromAccount(account);
     if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
-    const candidEncounterId = getCandidEncounterIdFromEncounter(fhirResources.encounter);
+    const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
     if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
     const candidClaimId = await getCandidClaimIdFromCandidEncounterId(candid, candidEncounterId);
     if (!candidClaimId) throw new Error('CandidClaimId is not found');
+    console.log('Stripe and candid ids retrieved');
 
+    console.log('Getting patient balance');
     const patientBalance = await getPatientBalanceInCentsForClaim({ candid, claimId: candidClaimId });
     if (patientBalance === undefined)
       throw new Error('Patient balance is undefined for this claim, claim id: ' + candidClaimId);
-    const response = await createInvoice(stripe, stripeCustomerId, patientBalance, validatedParams);
-    if (!response || !response.id) throw new Error('Failed to create invoice');
-    console.log('Invoice created: ', response.id);
-    const sendInvoiceResponse = await stripe.invoices.sendInvoice(response.id);
+    console.log('Patient balance retrieved');
+
+    console.log('Creating invoice and invoice item');
+    const invoiceResponse = await createInvoice(stripe, stripeCustomerId, validatedParams);
+    await createInvoiceItem(stripe, stripeCustomerId, invoiceResponse, patientBalance, validatedParams);
+    console.log('Invoice and invoice item created');
+
+    console.log('Sending invoice to patient (with email)');
+    const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id);
     console.log('Invoice sent: ', sendInvoiceResponse.status);
+
+    console.log('Sending sms to patient');
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    const smsMessage = replaceTemplateVariablesDollar(prefilledInfo.smsTextMessage, {
+      invoiceLink: 'link will be here', // todo place link here
+    });
+    await sendSmsForPatient(smsMessage, oystehr, patient, ENVIRONMENT);
+    console.log('Sms sent to patient');
 
     return {
       statusCode: 200,
@@ -71,43 +93,65 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
+async function createInvoiceItem(
+  stripe: Stripe,
+  stripeCustomerId: string,
+  invoice: Stripe.Invoice,
+  amount: number,
+  params: SendInvoiceToPatientZambdaInput
+): Promise<Stripe.InvoiceItem> {
+  try {
+    const { prefilledInfo } = params;
+    const { memo } = prefilledInfo;
+
+    const invoiceItemParams: Stripe.InvoiceItemCreateParams = {
+      customer: stripeCustomerId,
+      // amount, // cents
+      amount: 100, // todo remove this it's for testing needs
+      currency: 'usd',
+      description: memo, // ??
+      invoice: invoice.id, // force add current invoiceItem to previously created invoice
+    };
+    const invoiceItemResponse = await stripe.invoiceItems.create(invoiceItemParams);
+    if (!invoiceItemResponse || !invoiceItemResponse.id) throw new Error('Failed to create invoiceItem');
+
+    return invoiceItemResponse;
+  } catch (error) {
+    console.error('Error creating invoice item:', error);
+    throw error;
+  }
+}
+
 async function createInvoice(
   stripe: Stripe,
   stripeCustomerId: string,
-  amount: number,
   params: SendInvoiceToPatientZambdaInput
 ): Promise<Stripe.Invoice> {
-  const { oystPatientId, oystEncounterId, prefilledInfo } = params;
-  const { memo, dueDate } = prefilledInfo;
+  try {
+    const { oystPatientId, oystEncounterId, prefilledInfo } = params;
+    const { memo, dueDate } = prefilledInfo;
 
-  const invoiceParams: Stripe.InvoiceCreateParams = {
-    customer: stripeCustomerId,
-    collection_method: 'send_invoice',
-    description: memo,
-    metadata: {
-      oystehr_patient_id: oystPatientId,
-      oystehr_encounter_id: oystEncounterId,
-    },
-    currency: 'USD',
-    due_date: DateTime.fromISO(dueDate).toUnixInteger(), // ???
-    pending_invoice_items_behavior: 'exclude', // Start with a blank invoice
-    auto_advance: false, // Ensure it stays a draft
-  };
-  const invoiceResponse = await stripe.invoices.create(invoiceParams);
-  console.log('Invoice created: ', invoiceResponse.id);
+    const invoiceParams: Stripe.InvoiceCreateParams = {
+      customer: stripeCustomerId,
+      collection_method: 'send_invoice',
+      description: memo,
+      metadata: {
+        oystehr_patient_id: oystPatientId,
+        oystehr_encounter_id: oystEncounterId,
+      },
+      currency: 'USD',
+      due_date: DateTime.fromISO(dueDate).toUnixInteger(), // ???
+      pending_invoice_items_behavior: 'exclude', // Start with a blank invoice
+      auto_advance: false, // Ensure it stays a draft
+    };
+    const invoiceResponse = await stripe.invoices.create(invoiceParams);
+    if (!invoiceResponse || !invoiceResponse.id) throw new Error('Failed to create invoice');
 
-  const invoiceItemParams: Stripe.InvoiceItemCreateParams = {
-    customer: stripeCustomerId,
-    // amount, // cents
-    amount: 100,
-    currency: 'usd',
-    description: memo, // ??
-    invoice: invoiceResponse.id, // force add current invoiceItem to previously created invoice
-  };
-  const invoiceItemResponse = await stripe.invoiceItems.create(invoiceItemParams);
-  console.log('Invoice item created: ', invoiceItemResponse.id);
-
-  return invoiceResponse;
+    return invoiceResponse;
+  } catch (error) {
+    console.error('Error creating invoice:', error);
+    throw error;
+  }
 }
 
 async function getCandidClaimIdFromCandidEncounterId(

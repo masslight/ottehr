@@ -35,7 +35,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const fhirResources = await getFhirPatientAndResponsibleParty({ oystehr, patientId });
     const smsMessageFromSecret = getSecret(SecretsKeys.INVOICING_DEFAULT_SMS_MESSAGE, secrets);
-    const smsMessage = replaceTemplateVariablesDollar(smsMessageFromSecret, { invoiceLink: 'placeholder' });
     const memoFromSecret = getSecret(SecretsKeys.INVOICING_DEFAULT_MEMO_MESSAGE, secrets);
     const dueDateFromSecret = getSecret(SecretsKeys.INVOICING_DEFAULT_DUE_DATE_IN_DAYS, secrets);
 
@@ -45,7 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         recipientName: getFullName(responsibleParty),
         recipientEmail: getEmailForIndividual(responsibleParty),
         recipientPhoneNumber: getPhoneNumberForIndividual(responsibleParty),
-        smsTextMessage: smsMessage,
+        smsTextMessage: smsMessageFromSecret,
         memo: memoFromSecret,
         dueDate: DateTime.now()
           .plus({ days: parseInt(dueDateFromSecret) })
@@ -115,15 +114,4 @@ async function getFhirPatientAndResponsibleParty(input: {
     console.error('Error fetching fhir resources: ', error);
     throw new Error('Error fetching fhir resources: ' + error);
   }
-}
-
-export interface TemplateVariables {
-  [key: string]: string | number;
-}
-
-// ${} syntax
-export function replaceTemplateVariablesDollar(template: string, variables: TemplateVariables): string {
-  return template.replace(/\$\{(\w+)\}/g, (match, key) => {
-    return variables[key]?.toString() || match;
-  });
 }
