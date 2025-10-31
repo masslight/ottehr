@@ -112,7 +112,7 @@ export const MedicationStatusChip: React.FC<MedicationStatusChipProps> = ({
         />
         {medication?.reason && (
           <Typography
-            data-testid={dataTestIds.inHouseMedicationsPage.marTableReasonCell}
+            data-testid={dataTestIds.inHouseMedicationsPage.marTable.reasonCell}
             variant="caption"
             sx={{
               mt: 0.5,

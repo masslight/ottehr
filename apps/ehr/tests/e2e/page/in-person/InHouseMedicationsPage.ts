@@ -43,39 +43,39 @@ export class InHouseMedicationsPage {
   }): Promise<void> {
     const testIdToTextArray: { testId: string; text: string | undefined }[] = [
       {
-        testId: dataTestIds.inHouseMedicationsPage.marTableMedicationCell,
+        testId: dataTestIds.inHouseMedicationsPage.marTable.medicationCell,
         text: input.medicationName,
       },
       {
-        testId: dataTestIds.inHouseMedicationsPage.marTableDoseCell,
+        testId: dataTestIds.inHouseMedicationsPage.marTable.doseCell,
         text: input.dose + ' ' + input.units,
       },
       {
-        testId: dataTestIds.inHouseMedicationsPage.marTableRouteCell,
+        testId: dataTestIds.inHouseMedicationsPage.marTable.routeCell,
         text: input.route,
       },
       {
-        testId: dataTestIds.inHouseMedicationsPage.marTableOrderedByCell,
+        testId: dataTestIds.inHouseMedicationsPage.marTable.orderedByCell,
         text: input.orderedBy,
       },
       {
-        testId: dataTestIds.inHouseMedicationsPage.marTableGivenByCell,
+        testId: dataTestIds.inHouseMedicationsPage.marTable.givenByCell,
         text: input.givenBy,
       },
       {
-        testId: dataTestIds.inHouseMedicationsPage.marTableInstructionsCell,
+        testId: dataTestIds.inHouseMedicationsPage.marTable.instructionsCell,
         text: input.instructions,
       },
       {
-        testId: dataTestIds.inHouseMedicationsPage.marTableStatusCell,
+        testId: dataTestIds.inHouseMedicationsPage.marTable.statusCell,
         text: input.status,
       },
       {
-        testId: dataTestIds.inHouseMedicationsPage.marTableReasonCell,
+        testId: dataTestIds.inHouseMedicationsPage.marTable.reasonCell,
         text: input.reason,
       },
     ];
-    let matchedLocator = this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.marTableRow);
+    let matchedLocator = this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.marTable.row);
     for (const testIdToText of testIdToTextArray) {
       if (testIdToText.text) {
         matchedLocator = matchedLocator.filter({
@@ -96,7 +96,7 @@ export class InHouseMedicationsPage {
 
   async clickDeleteButton(medicationName: string): Promise<Dialog> {
     await this.#page
-      .getByTestId(dataTestIds.inHouseMedicationsPage.marTableRow)
+      .getByTestId(dataTestIds.inHouseMedicationsPage.marTable.row)
       .filter({
         hasText: medicationName,
       })
