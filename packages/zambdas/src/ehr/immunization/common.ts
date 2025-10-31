@@ -7,11 +7,11 @@ import {
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
-  ottehrExtensionUrl,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
   searchMedicationLocation,
   searchRouteByCode,
 } from 'utils';
+import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { createMedicationCopy } from '../create-update-medication-order/helpers';
 
 export const CONTAINED_MEDICATION_ID = 'medication';
