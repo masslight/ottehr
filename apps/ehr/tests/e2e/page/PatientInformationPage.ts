@@ -661,10 +661,6 @@ export class PatientInformationPage {
     //await this.#page.waitForSelector('text=State was updated successfully');
   }
 
-  async waitForSaveChangeButtonToBeEnabled(): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.patientInformationPage.saveChangesButton)).toBeEnabled();
-  }
-
   async verifyUpdatedSuccessfullyMessageShown(): Promise<void> {
     await expect(this.#page.getByText('Patient information updated successfully')).toBeVisible();
   }

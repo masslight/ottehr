@@ -1,8 +1,6 @@
 import {
-  Account,
   Appointment,
   ContactPoint,
-  Coverage,
   DocumentReference,
   Encounter,
   Extension,
@@ -11,13 +9,7 @@ import {
   Patient,
   QuestionnaireResponse,
 } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import {
-  getPaymentVariantFromEncounter,
-  getQuestionnaireResponseByLinkId,
-  isLocationVirtual,
-  OrderedCoverages,
-} from 'utils';
+import { getPaymentVariantFromEncounter, getQuestionnaireResponseByLinkId, isLocationVirtual } from 'utils';
 import { WEIGHT_EXTENSION_URL, WEIGHT_LAST_UPDATED_EXTENSION_URL } from './constants';
 import {
   AppointmentValues,
@@ -240,70 +232,4 @@ export const getHospitalizations = (questionnaireResponse: QuestionnaireResponse
   const knownHospitalizations = getQuestionnaireResponseByLinkId('hospitalization', questionnaireResponse)?.answer?.[0]
     ?.valueArray;
   return knownHospitalizations ? knownHospitalizations.map((item) => item.display) : undefined;
-};
-
-export const getActiveCoveragesFromBundle = (resourceBundle: FhirResource[]): OrderedCoverages => {
-  const accountResources = resourceBundle.filter(
-    (res): res is Account => res.resourceType === 'Account' && res.status === 'active'
-  );
-
-  const coverageResources = resourceBundle.filter(
-    (res): res is Coverage => res.resourceType === 'Coverage' && res.status === 'active'
-  );
-
-  const existingCoverages: {
-    primary?: Coverage;
-    secondary?: Coverage;
-  } = {};
-
-  const account = accountResources[0];
-
-  if (account) {
-    account.coverage?.forEach((cov) => {
-      const coverage = coverageResources.find((c) => `Coverage/${c.id}` === cov.coverage?.reference);
-      if (!coverage) return;
-
-      if (cov.priority === 1) existingCoverages.primary = coverage;
-      if (cov.priority === 2) existingCoverages.secondary = coverage;
-    });
-  } else {
-    const primaryCoverages = coverageResources
-      .filter((cov) => cov.order === 1 && cov.status === 'active')
-      .sort((covA, covB) => {
-        const covALastUpdate = covA.meta?.lastUpdated;
-        const covBLastUpdate = covB.meta?.lastUpdated;
-        if (covALastUpdate && covBLastUpdate) {
-          const covALastUpdateDate = DateTime.fromISO(covALastUpdate);
-          const covBLastUpdateDate = DateTime.fromISO(covBLastUpdate);
-          if (covALastUpdateDate.isValid && covBLastUpdateDate.isValid) {
-            return covALastUpdateDate.diff(covBLastUpdateDate).milliseconds;
-          }
-        }
-        return 0;
-      });
-
-    const secondaryCoverages = coverageResources
-      .filter((cov) => cov.order === 2 && cov.status === 'active')
-      .sort((covA, covB) => {
-        const covALastUpdate = covA.meta?.lastUpdated;
-        const covBLastUpdate = covB.meta?.lastUpdated;
-        if (covALastUpdate && covBLastUpdate) {
-          const covALastUpdateDate = DateTime.fromISO(covALastUpdate);
-          const covBLastUpdateDate = DateTime.fromISO(covBLastUpdate);
-          if (covALastUpdateDate.isValid && covBLastUpdateDate.isValid) {
-            return covALastUpdateDate.diff(covBLastUpdateDate).milliseconds;
-          }
-        }
-        return 0;
-      });
-
-    if (primaryCoverages.length) {
-      existingCoverages.primary = primaryCoverages[0];
-    }
-    if (secondaryCoverages.length) {
-      existingCoverages.secondary = secondaryCoverages[0];
-    }
-  }
-
-  return existingCoverages;
 };

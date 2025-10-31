@@ -36,11 +36,16 @@ type ReviewAndSignButtonProps = {
 export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) => {
   const { patient, appointment, encounter, appointmentRefetch, appointmentSetState } = useAppointmentData();
   const { chartData } = useChartData();
+  const appointmentAccessibility = useGetAppointmentAccessibility();
+  const isFollowup = appointmentAccessibility.visitType === 'follow-up';
 
   const { data: chartFields } = useChartFields({
     requestedFields: {
       medicalDecision: {
         _tag: 'medical-decision',
+      },
+      chiefComplaint: {
+        _tag: 'chief-complaint',
       },
       inHouseLabResults: {},
       patientInfoConfirmed: {},
@@ -64,10 +69,10 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       practitionerId: practitioner?.id ?? '',
     });
   const { isInPerson } = useAppFlags();
-  const appointmentAccessibility = useGetAppointmentAccessibility();
 
   const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
   const medicalDecision = chartFields?.medicalDecision?.text;
+  const hpi = chartFields?.chiefComplaint?.text;
   const emCode = chartData?.emCode;
   const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
   const inHouseLabResultsPending = chartFields?.inHouseLabResults?.resultsPending;
@@ -84,15 +89,24 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const approvalStatus = getSupervisorApprovalStatus(appointment, encounter);
   const completed = useMemo(() => {
     if (isInPerson) {
-      return appointmentAccessibility.isAppointmentLocked || approvalStatus === 'waiting-for-approval';
+      return isFollowup
+        ? encounter.status !== 'in-progress'
+        : appointmentAccessibility.isAppointmentLocked || approvalStatus === 'waiting-for-approval';
     }
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
-  }, [isInPerson, appointmentAccessibility.status, appointmentAccessibility.isAppointmentLocked, approvalStatus]);
+  }, [
+    isInPerson,
+    appointmentAccessibility.status,
+    appointmentAccessibility.isAppointmentLocked,
+    isFollowup,
+    encounter.status,
+    approvalStatus,
+  ]);
 
   const errorMessage = useMemo(() => {
     const messages: string[] = [];
 
-    if (completed) {
+    if (completed || isFollowup) {
       return messages;
     }
 
@@ -108,7 +122,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       }
     }
 
-    if (!primaryDiagnosis || !medicalDecision || !emCode) {
+    if (!primaryDiagnosis || !medicalDecision || !emCode || !hpi) {
       messages.push('You need to fill in the missing data');
     }
 
@@ -127,10 +141,12 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     inPersonStatus,
     primaryDiagnosis,
     medicalDecision,
+    hpi,
     emCode,
     patientInfoConfirmed,
     appointmentAccessibility.status,
     inHouseLabResultsPending,
+    isFollowup,
   ]);
 
   const handleCloseTooltip = (): void => {
@@ -154,6 +170,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
         await signAppointment({
           apiClient,
           appointmentId: appointment.id,
+          encounterId: encounter.id!,
           timezone: tz,
           supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
         });
@@ -207,7 +224,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
                   {!isInPerson && ' Once signed, notes will be locked and no changes can be made.'}
                 </DialogContentText>
 
-                {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && showSupervisorCheckbox && (
+                {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && showSupervisorCheckbox && !isFollowup && (
                   <FormControlLabel
                     control={
                       <Checkbox

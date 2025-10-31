@@ -106,7 +106,7 @@ test.describe('Check all hpi fields common functionality, without changing data'
   test('Surgical history. Should check not-in-list item search try', async ({ page }) => {
     await checkDropdownNoOptions(
       page,
-      dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput,
+      dataTestIds.surgicalHistory.surgicalHistoryInput,
       searchOptionThatNotInList,
       noOptionsMessage
     );
@@ -491,7 +491,7 @@ test.describe('Surgical history', () => {
   });
 
   test('Should search surgery and select it', async () => {
-    await checkDropdownHasOptionAndSelectIt(page, dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput, surgery);
+    await checkDropdownHasOptionAndSelectIt(page, dataTestIds.surgicalHistory.surgicalHistoryInput, surgery);
   });
 
   test('Should check surgical history are saved in HPI tab', async () => {
@@ -499,13 +499,11 @@ test.describe('Surgical history', () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryColumn)).toBeVisible();
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList)).toBeVisible();
+      await expect(page.getByTestId(dataTestIds.surgicalHistory.surgicalHistoryList)).toBeVisible();
     });
 
     await test.step('Should check surgical history saved', async () => {
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList)).toHaveText(
-        RegExp(surgery, 'i')
-      );
+      await expect(page.getByTestId(dataTestIds.surgicalHistory.surgicalHistoryList)).toHaveText(RegExp(surgery, 'i'));
     });
   });
 
@@ -517,20 +515,20 @@ test.describe('Surgical history', () => {
 
   test('Should check surgical history appear in Review&Sign tab', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabSurgicalHistoryContainer)).toHaveText(
+    await expect(page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).toHaveText(
       new RegExp(surgery, 'i')
     );
   });
 
   test('Should check provider note saved in Review&Sign tab', async () => {
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabSurgicalHistoryContainer)).toHaveText(
+    await expect(page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).toHaveText(
       new RegExp(providerNote, 'i')
     );
   });
 
   test('Should delete provider note', async () => {
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.surgicalHistory.surgicalHistoryList)).toBeVisible();
 
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote).locator('textarea').first().fill('');
     await waitForChartDataDeletion(page);
@@ -538,7 +536,7 @@ test.describe('Surgical history', () => {
 
   test('Should delete surgery record', async () => {
     const knownAllergyListItem = page
-      .getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryListItem)
+      .getByTestId(dataTestIds.surgicalHistory.surgicalHistoryListItem)
       .filter({ hasText: new RegExp(surgery, 'i') })
       .first();
     await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
@@ -563,7 +561,7 @@ test.describe('Surgical history', () => {
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
       await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
 
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabSurgicalHistoryContainer)).toBeVisible({
+      await expect(page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).toBeVisible({
         timeout: 30000,
       });
       await expect(page.getByText(new RegExp(surgery, 'i'))).not.toBeVisible();
@@ -571,7 +569,7 @@ test.describe('Surgical history', () => {
   });
 
   test('Should check provider note deleted on Review&Sign tab', async () => {
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabSurgicalHistoryContainer)).toBeVisible({
+    await expect(page.getByTestId(dataTestIds.progressNotePage.surgicalHistoryContainer)).toBeVisible({
       timeout: 30000,
     });
     await expect(page.getByText(new RegExp(providerNote, 'i'))).not.toBeVisible();

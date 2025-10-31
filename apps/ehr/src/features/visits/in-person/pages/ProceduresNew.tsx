@@ -218,7 +218,7 @@ export default function ProceduresNew(): ReactElement {
         bodySite: state.bodySite,
         bodySide: state.bodySide,
         technique: state.technique,
-        suppliesUsed: state.suppliesUsed,
+        suppliesUsed: combineMultipleValuesForSave(state.suppliesUsed, state.otherSuppliesUsed),
         procedureDetails: state.procedureDetails,
         timeSpent: state.timeSpent,
       });
@@ -286,8 +286,11 @@ export default function ProceduresNew(): ReactElement {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
   };
 
-  const combineMultipleValuesForSave = (values: string[] | undefined, otherValue: string | undefined): string => {
-    if (!values?.length && !otherValue) return '';
+  const combineMultipleValuesForSave = (
+    values: string[] | undefined,
+    otherValue: string | undefined
+  ): string | undefined => {
+    if (!values?.length && !otherValue) return undefined;
 
     const result: string[] = [];
 

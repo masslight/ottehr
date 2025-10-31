@@ -1029,7 +1029,6 @@ export default function VisitDetailsPage(): ReactElement {
                         patient={patient}
                         loading={loading}
                         encounterId={encounter?.id ?? ''}
-                        patientSelectSelfPay={selfPay}
                         responsibleParty={{
                           fullName: visitDetailsData?.responsiblePartyName || '',
                           email: visitDetailsData?.responsiblePartyEmail || '',
