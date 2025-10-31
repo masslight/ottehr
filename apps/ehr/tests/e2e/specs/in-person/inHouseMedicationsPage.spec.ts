@@ -123,7 +123,7 @@ test('Order medication, order is submitted successfully and entered data are dis
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
-    orderedBy: await getCurrentPractitionerName(),
+    orderedBy: await getCurrentPractitionerFirstLastName(),
     instructions: INSTRUCTIONS,
     status: STATUS,
   });
@@ -157,7 +157,7 @@ test('Order medication, order is submitted successfully and entered data are dis
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
-    orderedBy: await getCurrentPractitionerName(),
+    orderedBy: await getCurrentPractitionerFirstLastName(),
     instructions: INSTRUCTIONS,
     status: CANCELLED,
   });
@@ -272,8 +272,8 @@ test('Masking in-house medication order Administered happy path', async ({ page 
       dose: DOSE,
       units: UNITS,
       route: ROUTE,
-      orderedBy: await getCurrentPractitionerName(),
-      givenBy: await getCurrentPractitionerName(),
+      orderedBy: await getCurrentPractitionerFirstLastName(),
+      givenBy: await getCurrentPractitionerFirstLastName(),
       instructions: INSTRUCTIONS,
       status: ADMINISTERED,
     });
@@ -291,7 +291,7 @@ test('Masking in-house medication order Administered happy path', async ({ page 
       dose: DOSE,
       units: UNITS,
       route: ROUTE,
-      givenBy: await getCurrentPractitionerName(),
+      givenBy: await getCurrentPractitionerFirstLastName(),
       instructions: INSTRUCTIONS,
       status: ADMINISTERED,
     });
@@ -321,8 +321,8 @@ test('Making in-house medication order Partly Administered happy path', async ({
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
-    orderedBy: await getCurrentPractitionerName(),
-    givenBy: await getCurrentPractitionerName(),
+    orderedBy: await getCurrentPractitionerFirstLastName(),
+    givenBy: await getCurrentPractitionerFirstLastName(),
     instructions: INSTRUCTIONS,
     status: PARTLY_ADMINISTERED,
     reason: PATIENT_REFUSED,
@@ -333,7 +333,7 @@ test('Making in-house medication order Partly Administered happy path', async ({
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
-    givenBy: await getCurrentPractitionerName(),
+    givenBy: await getCurrentPractitionerFirstLastName(),
     instructions: INSTRUCTIONS,
     status: PARTLY_ADMINISTERED,
   });
@@ -362,8 +362,8 @@ test('Making in-house medication order Not Administered happy path', async ({ pa
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
-    orderedBy: await getCurrentPractitionerName(),
-    givenBy: await getCurrentPractitionerName(),
+    orderedBy: await getCurrentPractitionerFirstLastName(),
+    givenBy: await getCurrentPractitionerFirstLastName(),
     instructions: INSTRUCTIONS,
     status: NOT_ADMINISTERED,
     reason: PATIENT_REFUSED,
@@ -374,13 +374,13 @@ test('Making in-house medication order Not Administered happy path', async ({ pa
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
-    givenBy: await getCurrentPractitionerName(),
+    givenBy: await getCurrentPractitionerFirstLastName(),
     instructions: INSTRUCTIONS,
     status: NOT_ADMINISTERED,
   });
 });
 
-async function getCurrentPractitionerName(): Promise<string> {
+async function getCurrentPractitionerFirstLastName(): Promise<string> {
   const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
   return getFirstName(testUserPractitioner) + ' ' + getLastName(testUserPractitioner);
 }
@@ -415,6 +415,6 @@ async function createOrderForAdministration(page: Page): Promise<InHouseMedicati
   const medicationsPage = await editOrderPage.clickBackButton();
   await medicationsPage.clickMedicationDetailsTab();
   await medicationsPage.medicationDetails().enterLotNumber('1234567');
-  await medicationsPage.medicationDetails().enterExpiratrionDate('2027-10-10');
+  await medicationsPage.medicationDetails().enterExpiratrionDate('2100-10-10');
   return medicationsPage;
 }

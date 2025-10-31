@@ -169,7 +169,7 @@ export const getConfirmSaveModalConfigs = ({
 
   const ReasonSelectField = (): React.ReactElement => (
     <ReasonSelect
-      dti={dataTestIds.inHouseMedicationAdministrationConfirmationDialog.reasonField}
+      dataTestId={dataTestIds.inHouseMedicationAdministrationConfirmationDialog.reasonField}
       updateRequestInputRef={updateRequestInputRef}
       setIsReasonSelected={setIsReasonSelected}
     />
