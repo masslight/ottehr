@@ -8,11 +8,21 @@ type Props = {
   options: Option[] | undefined;
   loading?: boolean;
   required?: boolean;
+  disabled?: boolean;
   validate?: (value: string | undefined) => boolean | string;
   dataTestId?: string;
 };
 
-export const SelectInput: React.FC<Props> = ({ name, label, options, loading, required, validate, dataTestId }) => {
+export const SelectInput: React.FC<Props> = ({
+  name,
+  label,
+  options,
+  loading,
+  required,
+  disabled,
+  validate,
+  dataTestId,
+}) => {
   return (
     <AutocompleteInput
       name={name}
@@ -20,6 +30,7 @@ export const SelectInput: React.FC<Props> = ({ name, label, options, loading, re
       options={options}
       loading={loading}
       required={required}
+      disabled={disabled}
       selectOnly={true}
       validate={validate}
       dataTestId={dataTestId}

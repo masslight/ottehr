@@ -19,6 +19,19 @@ export const GET_TASKS_KEY = 'get-tasks';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 
 export const TASKS_PAGE_SIZE = 20;
+export const MANUAL_TASKS_CATEGORIES = {
+  externalLab: 'manual-external-lab',
+  inHouseLab: 'manual-in-house-lab',
+  inHouseMedications: 'manual-in-house-medications',
+  nursingOrders: 'manual-nursing-orders',
+  patientFollowUp: 'manual-patient-follow-up',
+  procedures: 'manual-procedures',
+  radiology: 'manual-radiology',
+  erx: 'manual-erx',
+  charting: 'manual-charting',
+  coding: 'manual-coding',
+  other: 'manual-other',
+} as const;
 
 export interface Task {
   id: string;
