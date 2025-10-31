@@ -6,6 +6,7 @@ import {
   ORDER_NUMBER_LEN,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
 } from '../../types';
 
@@ -47,6 +48,10 @@ export function externalLabOrderIsManual(sr: ServiceRequest): boolean {
 
 export function getOrderNumber(sr: ServiceRequest): string | undefined {
   return sr.identifier?.find((id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
+}
+
+export function getAdditionalPlacerId(dr: DiagnosticReport): string | undefined {
+  return dr.identifier?.find((id) => id.system === OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM)?.value;
 }
 
 export function getOrderNumberFromDr(dr: DiagnosticReport): string | undefined {

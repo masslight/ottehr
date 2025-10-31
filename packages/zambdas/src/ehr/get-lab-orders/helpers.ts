@@ -34,6 +34,7 @@ import {
   externalLabOrderIsManual,
   ExternalLabsStatus,
   getAccountNumberFromLocationAndOrganization,
+  getAdditionalPlacerId,
   getFullestAvailableName,
   getOrderNumber,
   getOrderNumberFromDr,
@@ -2078,6 +2079,7 @@ export const parseResultDetails = (
     diagnosticReportId: result.id,
     taskId: task.id,
     receivedDate: task.authoredOn || '',
+    alternatePlacerId: getAdditionalPlacerId(result),
   };
 
   return details;
