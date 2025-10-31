@@ -1,4 +1,4 @@
-import { ottehrCodeSystemUrl } from '../../fhir/helpers';
+import { ottehrCodeSystemUrl } from '../../fhir/systemUrls';
 
 // todo review all this systems and codes
 export const MEDICATION_TYPE_SYSTEM = 'virtual-medication-type';

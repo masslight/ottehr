@@ -15,7 +15,7 @@ import {
   TASK_LOCATION_SYSTEM,
 } from 'utils';
 
-const GET_TASKS_KEY = 'get-tasks';
+export const GET_TASKS_KEY = 'get-tasks';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 
 export const TASKS_PAGE_SIZE = 20;
@@ -81,8 +81,16 @@ export const useGetTasks = ({
           value: '-authored-on',
         },
         {
+          name: '_total',
+          value: 'accurate',
+        },
+        {
           name: '_count',
           value: TASKS_PAGE_SIZE,
+        },
+        {
+          name: 'status:not',
+          value: 'cancelled',
         },
       ];
       if (page) {
@@ -119,7 +127,7 @@ export const useGetTasks = ({
         resourceType: 'Task',
         params,
       });
-      const tasks = bundle.unbundle().map(fhirTaskToTask);
+      const tasks = bundle.unbundle().filter(filterTasks).map(fhirTaskToTask);
       return {
         tasks,
         total: bundle.total ?? -1,
@@ -203,6 +211,15 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
   });
 };
 
+function filterTasks(task: FhirTask): boolean {
+  const category = task.groupIdentifier?.value ?? '';
+  if (category === LAB_ORDER_TASK.category) {
+    const labTypeString = getInput(LAB_ORDER_TASK.input.drTag, task);
+    if (labTypeString === LabType.pdfAttachment) return false;
+  }
+  return true;
+}
+
 function fhirTaskToTask(task: FhirTask): Task {
   const category = task.groupIdentifier?.value ?? '';
   let action: any = undefined;
@@ -211,6 +228,8 @@ function fhirTaskToTask(task: FhirTask): Task {
   if (category === LAB_ORDER_TASK.category) {
     const code = getCoding(task.code, LAB_ORDER_TASK.system)?.code ?? '';
     const testName = getInput(LAB_ORDER_TASK.input.testName, task);
+    const labName = getInput(LAB_ORDER_TASK.input.labName, task);
+    const fullTestName = testName + (labName ? ' / ' + labName : '');
     const patientName = getInput(LAB_ORDER_TASK.input.patientName, task);
     const appointmentId = getInput(LAB_ORDER_TASK.input.appointmentId, task);
     const serviceRequestId = task.basedOn
@@ -224,7 +243,7 @@ function fhirTaskToTask(task: FhirTask): Task {
     const labTypeString = getInput(LAB_ORDER_TASK.input.drTag, task);
 
     if (code === LAB_ORDER_TASK.code.preSubmission) {
-      title = `Collect sample for “${testName}” for ${patientName}`;
+      title = `Collect sample for “${fullTestName}” for ${patientName}`;
       subtitle = `Ordered by ${providerName} on ${
         orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
       }`;
@@ -237,7 +256,7 @@ function fhirTaskToTask(task: FhirTask): Task {
       serviceRequestId &&
       (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
     ) {
-      title = `Review results for “${testName}” for ${patientName}`;
+      title = `Review results for “${fullTestName}” for ${patientName}`;
       subtitle = `Ordered by ${providerName} on ${
         orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
       }`;
@@ -257,16 +276,26 @@ function fhirTaskToTask(task: FhirTask): Task {
     }
     if (
       diagnosticReportId &&
-      labTypeString === LabType.unsolicited &&
       (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
     ) {
-      const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
-      title = `Review unsolicited test results for “${testName}” for ${patientName}`;
-      subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
-      action = {
-        name: 'Go to Lab Test',
-        link: `/unsolicited-results/${diagnosticReportId}/review`,
-      };
+      if (labTypeString === LabType.unsolicited) {
+        const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
+        title = `Review unsolicited test results for “${fullTestName}” for ${patientName}`;
+        subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
+        action = {
+          name: 'Go to Lab Test',
+          link: `/unsolicited-results/${diagnosticReportId}/review`,
+        };
+      }
+      if (labTypeString === LabType.reflex) {
+        const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
+        title = `Review reflex results for “${fullTestName}” for ${patientName}`;
+        subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
+        action = {
+          name: 'Go to Lab Test',
+          link: `/in-person/${appointmentId}/external-lab-orders/report/${diagnosticReportId}/order-details`,
+        };
+      }
     }
   }
   if (category === IN_HOUSE_LAB_TASK.category) {

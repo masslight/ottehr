@@ -1,12 +1,12 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-virtual-previsit-1_0_10": {
+    "questionnaire-virtual-previsit-1_0_11": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-        "version": "1.0.10",
-        "name": "virtual_pre-visit_paperwork (please_do_not_delete)",
+        "version": "1.0.11",
+        "name": "virtual_pre-visit_paperwork",
         "title": "virtual pre-visit paperwork",
         "status": "active",
         "item": [
@@ -1020,6 +1020,23 @@
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/category-tag",
                         "valueString": "Medication"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                        "extension": [
+                          {
+                            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                            "valueString": "allergies.allergies-form-type"
+                          },
+                          {
+                            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                            "valueString": "="
+                          },
+                          {
+                            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                            "valueString": "Medications"
+                          }
+                        ]
                       }
                     ]
                   },
@@ -1127,6 +1144,23 @@
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/category-tag",
                         "valueString": "Other"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                        "extension": [
+                          {
+                            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                            "valueString": "allergies.allergies-form-type"
+                          },
+                          {
+                            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                            "valueString": "="
+                          },
+                          {
+                            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                            "valueString": "Other"
+                          }
+                        ]
                       }
                     ]
                   }

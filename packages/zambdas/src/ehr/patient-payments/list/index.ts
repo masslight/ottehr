@@ -6,6 +6,7 @@ import Stripe from 'stripe';
 import {
   CardPaymentDTO,
   CashPaymentDTO,
+  checkForStripeCustomerDeletedError,
   convertPaymentNoticeListToCashPaymentDTOs,
   FHIR_RESOURCE_NOT_FOUND,
   getSecret,
@@ -100,33 +101,43 @@ const performEffect = async (input: EffectInput): Promise<ListPatientPaymentResp
   const customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
   if (encounterId && customerId) {
     if (customerId) {
+      try {
+        const [paymentIntents, pms] = await Promise.all([
+          stripeClient.paymentIntents.search({
+            query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
+            limit: 20, // default is 10
+          }),
+          stripeClient.paymentMethods.list({
+            customer: customerId,
+            type: 'card',
+          }),
+        ]);
+
+        console.log('Payment Intent created:', JSON.stringify(paymentIntents, null, 2));
+        stripePayments.push(...paymentIntents.data);
+        paymentMethods.push(...pms.data);
+      } catch (error) {
+        console.error('Error fetching payment intents or payment methods for encounter:', error);
+        throw checkForStripeCustomerDeletedError(error);
+      }
+    }
+  } else if (customerId) {
+    try {
       const [paymentIntents, pms] = await Promise.all([
-        stripeClient.paymentIntents.search({
-          query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
-          limit: 20, // default is 10
+        stripeClient.paymentIntents.list({
+          customer: getStripeCustomerIdFromAccount(account),
         }),
         stripeClient.paymentMethods.list({
           customer: customerId,
           type: 'card',
         }),
       ]);
-
-      console.log('Payment Intent created:', JSON.stringify(paymentIntents, null, 2));
       stripePayments.push(...paymentIntents.data);
       paymentMethods.push(...pms.data);
+    } catch (error) {
+      console.error('Error fetching payment intents or payment methods:', error);
+      throw checkForStripeCustomerDeletedError(error);
     }
-  } else if (customerId) {
-    const [paymentIntents, pms] = await Promise.all([
-      stripeClient.paymentIntents.list({
-        customer: getStripeCustomerIdFromAccount(account),
-      }),
-      stripeClient.paymentMethods.list({
-        customer: customerId,
-        type: 'card',
-      }),
-    ]);
-    stripePayments.push(...paymentIntents.data);
-    paymentMethods.push(...pms.data);
   }
 
   const cardPayments: CardPaymentDTO[] = fhirPaymentNotices

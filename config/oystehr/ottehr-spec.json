@@ -191,6 +191,13 @@
       "src": "src/ehr/incomplete-encounters-report/index",
       "zip": ".dist/zips/incomplete-encounters-report.zip"
     },
+    "AI-ASSISTED-ENCOUNTERS-REPORT": {
+      "name": "ai-assisted-encounters-report",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/ai-assisted-encounters-report/index",
+      "zip": ".dist/zips/ai-assisted-encounters-report.zip"
+    },
     "DAILY-PAYMENTS-REPORT": {
       "name": "daily-payments-report",
       "type": "http_auth",
@@ -1122,6 +1129,13 @@
       "src": "src/ehr/chart-data/vitals/get/index",
       "zip": ".dist/zips/get-vitals.zip"
     },
+    "GET-VITALS-FOR-LIST-OF-ENCOUNTERS": {
+      "name": "get-vitals-for-list-of-encounters",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/chart-data/vitals/get-for-list-of-encounters/index",
+      "zip": ".dist/zips/get-vitals-for-list-of-encounters.zip"
+    },
     "CREATE-UPDATE-IMMUNIZATION_ORDER": {
       "name": "create-update-immunization-order",
       "type": "http_auth",
@@ -1225,10 +1239,6 @@
           {
             "system": "https://identifiers.fhir.oystehr.com/lab-guid",
             "value": "#{var/lab-autolab-lab-id}"
-          },
-          {
-            "system": "https://identifiers.fhir.oystehr.com/lab-account-number",
-            "value": "#{var/lab-autolab-account-number}"
           }
         ],
         "type": [
@@ -1520,9 +1530,7 @@
       }
     },
     "SCHEDULE_TELEMED_NJ": {
-      "managedFields": [
-        "actor"
-      ],
+      "managedFields": ["actor"],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1574,9 +1582,7 @@
       }
     },
     "SCHEDULE_TELEMED_OH": {
-      "managedFields": [
-        "actor"
-      ],
+      "managedFields": ["actor"],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1615,6 +1621,14 @@
           {
             "system": "https://fhir.ottehr.com/r4/slug",
             "value": "NewYork-NY"
+          },
+          {
+            "system": "https://identifiers.fhir.oystehr.com/lab-account-number",
+            "value": "#{var/lab-autolab-account-number}",
+            "assigner": {
+              "type": "Organization",
+              "reference": "#{ref/fhirResources/AUTOLAB_ORGANIZATION/type}/#{ref/fhirResources/AUTOLAB_ORGANIZATION/id}"
+            }
           }
         ],
         "telecom": [
@@ -1718,16 +1732,14 @@
       }
     },
     "SCHEDULE_PHYSICAL_NY": {
-      "managedFields": [
-        "actor"
-      ],
+      "managedFields": ["actor"],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/schedule",
-            "valueString": "{\"schedule\":{\"monday\":{\"open\":4,\"close\":20,\"openingBuffer\":90,\"closingBuffer\":60,\"workingDay\":true,\"hours\":[{\"hour\":4,\"capacity\":0},{\"hour\":5,\"capacity\":2},{\"hour\":6,\"capacity\":3},{\"hour\":7,\"capacity\":4},{\"hour\":8,\"capacity\":5},{\"hour\":9,\"capacity\":6},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":8},{\"hour\":12,\"capacity\":9},{\"hour\":13,\"capacity\":10},{\"hour\":14,\"capacity\":11},{\"hour\":15,\"capacity\":10},{\"hour\":16,\"capacity\":12},{\"hour\":17,\"capacity\":13},{\"hour\":18,\"capacity\":14},{\"hour\":19,\"capacity\":18}]},\"tuesday\":{\"open\":8,\"close\":21,\"openingBuffer\":0,\"closingBuffer\":30,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":10},{\"hour\":9,\"capacity\":5},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":4},{\"hour\":12,\"capacity\":8},{\"hour\":13,\"capacity\":11},{\"hour\":14,\"capacity\":1},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":1},{\"hour\":17,\"capacity\":1},{\"hour\":18,\"capacity\":2},{\"hour\":19,\"capacity\":2},{\"hour\":20,\"capacity\":6}]},\"wednesday\":{\"open\":8,\"close\":0,\"openingBuffer\":30,\"closingBuffer\":30,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":20},{\"hour\":9,\"capacity\":20},{\"hour\":10,\"capacity\":20},{\"hour\":11,\"capacity\":20},{\"hour\":12,\"capacity\":20},{\"hour\":13,\"capacity\":20},{\"hour\":14,\"capacity\":20},{\"hour\":15,\"capacity\":20},{\"hour\":16,\"capacity\":20},{\"hour\":17,\"capacity\":20},{\"hour\":18,\"capacity\":20},{\"hour\":19,\"capacity\":20},{\"hour\":20,\"capacity\":20},{\"hour\":21,\"capacity\":20},{\"hour\":22,\"capacity\":20},{\"hour\":23,\"capacity\":20}]},\"thursday\":{\"open\":18,\"close\":24,\"openingBuffer\":30,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":0,\"capacity\":0},{\"hour\":1,\"capacity\":0},{\"hour\":2,\"capacity\":0},{\"hour\":3,\"capacity\":0},{\"hour\":4,\"capacity\":0},{\"hour\":5,\"capacity\":0},{\"hour\":6,\"capacity\":0},{\"hour\":7,\"capacity\":0},{\"hour\":8,\"capacity\":0},{\"hour\":9,\"capacity\":6},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":8},{\"hour\":12,\"capacity\":9},{\"hour\":13,\"capacity\":10},{\"hour\":14,\"capacity\":11},{\"hour\":15,\"capacity\":0},{\"hour\":16,\"capacity\":12},{\"hour\":17,\"capacity\":12},{\"hour\":18,\"capacity\":10},{\"hour\":19,\"capacity\":10},{\"hour\":20,\"capacity\":10},{\"hour\":21,\"capacity\":0},{\"hour\":22,\"capacity\":10},{\"hour\":23,\"capacity\":10}]},\"friday\":{\"open\":14,\"close\":21,\"openingBuffer\":30,\"closingBuffer\":30,\"workingDay\":true,\"hours\":[{\"hour\":14,\"capacity\":5},{\"hour\":15,\"capacity\":6},{\"hour\":16,\"capacity\":6},{\"hour\":17,\"capacity\":5},{\"hour\":18,\"capacity\":5},{\"hour\":19,\"capacity\":5},{\"hour\":20,\"capacity\":5}]},\"saturday\":{\"open\":4,\"close\":20,\"openingBuffer\":90,\"closingBuffer\":60,\"workingDay\":true,\"hours\":[{\"hour\":4,\"capacity\":0},{\"hour\":5,\"capacity\":2},{\"hour\":6,\"capacity\":3},{\"hour\":7,\"capacity\":4},{\"hour\":8,\"capacity\":5},{\"hour\":9,\"capacity\":6},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":8},{\"hour\":12,\"capacity\":9},{\"hour\":13,\"capacity\":10},{\"hour\":14,\"capacity\":11},{\"hour\":15,\"capacity\":0},{\"hour\":16,\"capacity\":12},{\"hour\":17,\"capacity\":13},{\"hour\":18,\"capacity\":14},{\"hour\":19,\"capacity\":18}]},\"sunday\":{\"open\":4,\"close\":20,\"openingBuffer\":90,\"closingBuffer\":60,\"workingDay\":true,\"hours\":[{\"hour\":4,\"capacity\":0},{\"hour\":5,\"capacity\":2},{\"hour\":6,\"capacity\":3},{\"hour\":7,\"capacity\":4},{\"hour\":8,\"capacity\":5},{\"hour\":9,\"capacity\":6},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":8},{\"hour\":12,\"capacity\":9},{\"hour\":13,\"capacity\":10},{\"hour\":14,\"capacity\":11},{\"hour\":15,\"capacity\":0},{\"hour\":16,\"capacity\":12},{\"hour\":17,\"capacity\":13},{\"hour\":18,\"capacity\":14},{\"hour\":19,\"capacity\":18}]}},\"scheduleOverrides\":{\"12/21/2023\":{\"open\":8,\"close\":17,\"openingBuffer\":0,\"closingBuffer\":0,\"hours\":[]},\"12/9/2023\":{\"open\":8,\"close\":17,\"openingBuffer\":0,\"closingBuffer\":0,\"hours\":[]},\"05/01/2024\":{\"open\":8,\"close\":17,\"openingBuffer\":0,\"closingBuffer\":0,\"hours\":[]},\"1/19/2024\":{\"open\":7,\"close\":17,\"openingBuffer\":0,\"closingBuffer\":0,\"hours\":[]}}}"
+            "valueString": "{\n  \"schedule\": {\n    \"monday\": {\n      \"open\": 0,\n      \"close\": 23,\n      \"openingBuffer\": 0,\n      \"closingBuffer\": 0,\n      \"workingDay\": true,\n      \"hours\": [\n        { \"hour\": 0, \"capacity\": 200 },\n        { \"hour\": 1, \"capacity\": 200 },\n        { \"hour\": 2, \"capacity\": 200 },\n        { \"hour\": 3, \"capacity\": 200 },\n        { \"hour\": 4, \"capacity\": 200 },\n        { \"hour\": 5, \"capacity\": 200 },\n        { \"hour\": 6, \"capacity\": 200 },\n        { \"hour\": 7, \"capacity\": 200 },\n        { \"hour\": 8, \"capacity\": 200 },\n        { \"hour\": 9, \"capacity\": 200 },\n        { \"hour\": 10, \"capacity\": 200 },\n        { \"hour\": 11, \"capacity\": 200 },\n        { \"hour\": 12, \"capacity\": 200 },\n        { \"hour\": 13, \"capacity\": 200 },\n        { \"hour\": 14, \"capacity\": 200 },\n        { \"hour\": 15, \"capacity\": 200 },\n        { \"hour\": 16, \"capacity\": 200 },\n        { \"hour\": 17, \"capacity\": 200 },\n        { \"hour\": 18, \"capacity\": 200 },\n        { \"hour\": 19, \"capacity\": 200 },\n        { \"hour\": 20, \"capacity\": 200 },\n        { \"hour\": 21, \"capacity\": 200 },\n        { \"hour\": 22, \"capacity\": 200 },\n        { \"hour\": 23, \"capacity\": 200 }\n      ]\n    },\n    \"tuesday\": {\n      \"open\": 0,\n      \"close\": 23,\n      \"openingBuffer\": 0,\n      \"closingBuffer\": 0,\n      \"workingDay\": true,\n      \"hours\": [\n        { \"hour\": 0, \"capacity\": 200 },\n        { \"hour\": 1, \"capacity\": 200 },\n        { \"hour\": 2, \"capacity\": 200 },\n        { \"hour\": 3, \"capacity\": 200 },\n        { \"hour\": 4, \"capacity\": 200 },\n        { \"hour\": 5, \"capacity\": 200 },\n        { \"hour\": 6, \"capacity\": 200 },\n        { \"hour\": 7, \"capacity\": 200 },\n        { \"hour\": 8, \"capacity\": 200 },\n        { \"hour\": 9, \"capacity\": 200 },\n        { \"hour\": 10, \"capacity\": 200 },\n        { \"hour\": 11, \"capacity\": 200 },\n        { \"hour\": 12, \"capacity\": 200 },\n        { \"hour\": 13, \"capacity\": 200 },\n        { \"hour\": 14, \"capacity\": 200 },\n        { \"hour\": 15, \"capacity\": 200 },\n        { \"hour\": 16, \"capacity\": 200 },\n        { \"hour\": 17, \"capacity\": 200 },\n        { \"hour\": 18, \"capacity\": 200 },\n        { \"hour\": 19, \"capacity\": 200 },\n        { \"hour\": 20, \"capacity\": 200 },\n        { \"hour\": 21, \"capacity\": 200 },\n        { \"hour\": 22, \"capacity\": 200 },\n        { \"hour\": 23, \"capacity\": 200 }\n      ]\n    },\n    \"wednesday\": {\n      \"open\": 0,\n      \"close\": 23,\n      \"openingBuffer\": 0,\n      \"closingBuffer\": 0,\n      \"workingDay\": true,\n      \"hours\": [\n        \n        { \"hour\": 0, \"capacity\": 200 },\n        { \"hour\": 1, \"capacity\": 200 },\n        { \"hour\": 2, \"capacity\": 200 },\n        { \"hour\": 3, \"capacity\": 200 },\n        { \"hour\": 4, \"capacity\": 200 },\n        { \"hour\": 5, \"capacity\": 200 },\n        { \"hour\": 6, \"capacity\": 200 },\n        { \"hour\": 7, \"capacity\": 200 },\n        { \"hour\": 8, \"capacity\": 200 },\n        { \"hour\": 9, \"capacity\": 200 },\n        { \"hour\": 10, \"capacity\": 200 },\n        { \"hour\": 11, \"capacity\": 200 },\n        { \"hour\": 12, \"capacity\": 200 },\n        { \"hour\": 13, \"capacity\": 200 },\n        { \"hour\": 14, \"capacity\": 200 },\n        { \"hour\": 15, \"capacity\": 200 },\n        { \"hour\": 16, \"capacity\": 200 },\n        { \"hour\": 17, \"capacity\": 200 },\n        { \"hour\": 18, \"capacity\": 200 },\n        { \"hour\": 19, \"capacity\": 200 },\n        { \"hour\": 20, \"capacity\": 200 },\n        { \"hour\": 21, \"capacity\": 200 },\n        { \"hour\": 22, \"capacity\": 200 },\n        { \"hour\": 23, \"capacity\": 200 }\n      ]\n    },\n    \"thursday\": {\n      \"open\": 0,\n      \"close\": 23,\n      \"openingBuffer\": 0,\n      \"closingBuffer\": 0,\n      \"workingDay\": true,\n      \"hours\": [\n        { \"hour\": 0, \"capacity\": 200 },\n        { \"hour\": 1, \"capacity\": 200 },\n        { \"hour\": 2, \"capacity\": 200 },\n        { \"hour\": 3, \"capacity\": 200 },\n        { \"hour\": 4, \"capacity\": 200 },\n        { \"hour\": 5, \"capacity\": 200 },\n        { \"hour\": 6, \"capacity\": 200 },\n        { \"hour\": 7, \"capacity\": 200 },\n        { \"hour\": 8, \"capacity\": 200 },\n        { \"hour\": 9, \"capacity\": 200 },\n        { \"hour\": 10, \"capacity\": 200 },\n        { \"hour\": 11, \"capacity\": 200 },\n        { \"hour\": 12, \"capacity\": 200 },\n        { \"hour\": 13, \"capacity\": 200 },\n        { \"hour\": 14, \"capacity\": 200 },\n        { \"hour\": 15, \"capacity\": 200 },\n        { \"hour\": 16, \"capacity\": 200 },\n        { \"hour\": 17, \"capacity\": 200 },\n        { \"hour\": 18, \"capacity\": 200 },\n        { \"hour\": 19, \"capacity\": 200 },\n        { \"hour\": 20, \"capacity\": 200 },\n        { \"hour\": 21, \"capacity\": 200 },\n        { \"hour\": 22, \"capacity\": 200 },\n        { \"hour\": 23, \"capacity\": 200 }\n      ]\n    },\n    \"friday\": {\n      \"open\": 0,\n      \"close\": 23,\n      \"openingBuffer\": 0,\n      \"closingBuffer\": 0,\n      \"workingDay\": true,\n      \"hours\": [\n        { \"hour\": 0, \"capacity\": 200 },\n        { \"hour\": 1, \"capacity\": 200 },\n        { \"hour\": 2, \"capacity\": 200 },\n        { \"hour\": 3, \"capacity\": 200 },\n        { \"hour\": 4, \"capacity\": 200 },\n        { \"hour\": 5, \"capacity\": 200 },\n        { \"hour\": 6, \"capacity\": 200 },\n        { \"hour\": 7, \"capacity\": 200 },\n        { \"hour\": 8, \"capacity\": 200 },\n        { \"hour\": 9, \"capacity\": 200 },\n        { \"hour\": 10, \"capacity\": 200 },\n        { \"hour\": 11, \"capacity\": 200 },\n        { \"hour\": 12, \"capacity\": 200 },\n        { \"hour\": 13, \"capacity\": 200 },\n        { \"hour\": 14, \"capacity\": 200 },\n        { \"hour\": 15, \"capacity\": 200 },\n        { \"hour\": 16, \"capacity\": 200 },\n        { \"hour\": 17, \"capacity\": 200 },\n        { \"hour\": 18, \"capacity\": 200 },\n        { \"hour\": 19, \"capacity\": 200 },\n        { \"hour\": 20, \"capacity\": 200 },\n        { \"hour\": 21, \"capacity\": 200 },\n        { \"hour\": 22, \"capacity\": 200 },\n        { \"hour\": 23, \"capacity\": 200 }\n      ]\n    },\n    \"saturday\": {\n      \"open\": 0,\n      \"close\": 23,\n      \"openingBuffer\": 0,\n      \"closingBuffer\": 0,\n      \"workingDay\": true,\n      \"hours\": [\n        { \"hour\": 0, \"capacity\": 200 },\n        { \"hour\": 1, \"capacity\": 200 },\n        { \"hour\": 2, \"capacity\": 200 },\n        { \"hour\": 3, \"capacity\": 200 },\n        { \"hour\": 4, \"capacity\": 200 },\n        { \"hour\": 5, \"capacity\": 200 },\n        { \"hour\": 6, \"capacity\": 200 },\n        { \"hour\": 7, \"capacity\": 200 },\n        { \"hour\": 8, \"capacity\": 200 },\n        { \"hour\": 9, \"capacity\": 200 },\n        { \"hour\": 10, \"capacity\": 200 },\n        { \"hour\": 11, \"capacity\": 200 },\n        { \"hour\": 12, \"capacity\": 200 },\n        { \"hour\": 13, \"capacity\": 200 },\n        { \"hour\": 14, \"capacity\": 200 },\n        { \"hour\": 15, \"capacity\": 200 },\n        { \"hour\": 16, \"capacity\": 200 },\n        { \"hour\": 17, \"capacity\": 200 },\n        { \"hour\": 18, \"capacity\": 200 },\n        { \"hour\": 19, \"capacity\": 200 },\n        { \"hour\": 20, \"capacity\": 200 },\n        { \"hour\": 21, \"capacity\": 200 },\n        { \"hour\": 22, \"capacity\": 200 },\n        { \"hour\": 23, \"capacity\": 200 }\n      ]\n    },\n    \"sunday\": {\n      \"open\": 0,\n      \"close\": 23,\n      \"openingBuffer\": 0,\n      \"closingBuffer\": 0,\n      \"workingDay\": true,\n      \"hours\": [\n        { \"hour\": 0, \"capacity\": 200 },\n        { \"hour\": 1, \"capacity\": 200 },\n        { \"hour\": 2, \"capacity\": 200 },\n        { \"hour\": 3, \"capacity\": 200 },\n        { \"hour\": 4, \"capacity\": 200 },\n        { \"hour\": 5, \"capacity\": 200 },\n        { \"hour\": 6, \"capacity\": 200 },\n        { \"hour\": 7, \"capacity\": 200 },\n        { \"hour\": 8, \"capacity\": 200 },\n        { \"hour\": 9, \"capacity\": 200 },\n        { \"hour\": 10, \"capacity\": 200 },\n        { \"hour\": 11, \"capacity\": 200 },\n        { \"hour\": 12, \"capacity\": 200 },\n        { \"hour\": 13, \"capacity\": 200 },\n        { \"hour\": 14, \"capacity\": 200 },\n        { \"hour\": 15, \"capacity\": 200 },\n        { \"hour\": 16, \"capacity\": 200 },\n        { \"hour\": 17, \"capacity\": 200 },\n        { \"hour\": 18, \"capacity\": 200 },\n        { \"hour\": 19, \"capacity\": 200 },\n        { \"hour\": 20, \"capacity\": 200 },\n        { \"hour\": 21, \"capacity\": 200 },\n        { \"hour\": 22, \"capacity\": 200 },\n        { \"hour\": 23, \"capacity\": 200 }\n      ]\n    }\n  },\n  \"scheduleOverrides\": {}\n}"
           },
           {
             "url": "http://hl7.org/fhir/StructureDefinition/timezone",
@@ -1769,6 +1781,14 @@
           {
             "system": "https://fhir.ottehr.com/r4/slug",
             "value": "LosAngeles-CA"
+          },
+          {
+            "system": "https://identifiers.fhir.oystehr.com/lab-account-number",
+            "value": "#{var/lab-autolab-account-number}",
+            "assigner": {
+              "type": "Organization",
+              "reference": "#{ref/fhirResources/AUTOLAB_ORGANIZATION/type}/#{ref/fhirResources/AUTOLAB_ORGANIZATION/id}"
+            }
           }
         ],
         "telecom": [
@@ -1872,9 +1892,7 @@
       }
     },
     "SCHEDULE_PHYSICAL_CA": {
-      "managedFields": [
-        "actor"
-      ],
+      "managedFields": ["actor"],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1937,11 +1955,7 @@
           }
         ]
       },
-      "managedFields": [
-        "name",
-        "active",
-        "identifier"
-      ]
+      "managedFields": ["name", "active", "identifier"]
     },
     "PRACTITIONER_EXAMPLE_1": {
       "resource": {
@@ -5474,9 +5488,7 @@
       }
     },
     "SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_1": {
-      "managedFields": [
-        "actor"
-      ],
+      "managedFields": ["actor"],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -5498,9 +5510,7 @@
       }
     },
     "SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_2": {
-      "managedFields": [
-        "actor"
-      ],
+      "managedFields": ["actor"],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -5609,10 +5619,7 @@
       "name": "#{var/EHR_APP_NAME}",
       "description": "EHR application with email authentication",
       "loginRedirectUri": "#{var/PROVIDER_LOGIN_REDIRECT_URL}",
-      "allowedCallbackUrls": [
-        "#{var/PROVIDER_ALLOWED_URL_1}",
-        "#{var/PROVIDER_ALLOWED_URL_2}"
-      ],
+      "allowedCallbackUrls": ["#{var/PROVIDER_ALLOWED_URL_1}", "#{var/PROVIDER_ALLOWED_URL_2}"],
       "allowedLogoutUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
       "allowedWebOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
       "allowedCORSOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],

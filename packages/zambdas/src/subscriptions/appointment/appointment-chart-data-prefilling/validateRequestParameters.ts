@@ -10,7 +10,7 @@ export function validateRequestParameters(input: ZambdaInput): AppointmentSubscr
   const appointment = JSON.parse(input.body) as Appointment;
 
   if (appointment.resourceType !== 'Appointment') {
-    throw new Error(`resource parsed should be a communication but was a ${appointment.resourceType}`);
+    throw new Error(`resource parsed should be an appointment but was a ${appointment.resourceType}`);
   }
 
   return {

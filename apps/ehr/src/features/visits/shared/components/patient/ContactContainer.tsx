@@ -10,7 +10,7 @@ import { emailRegex, isPhoneNumberValid, isPostalCodeValid, REQUIRED_FIELD_ERROR
 
 const contact = FormFields.patientContactInformation;
 
-export const ContactContainer: FC = () => {
+export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { control, setValue } = useFormContext();
 
   return (
@@ -20,6 +20,7 @@ export const ContactContainer: FC = () => {
           name={contact.streetAddress.key}
           data-testid={dataTestIds.contactInformationContainer.streetAddress}
           control={control}
+          disabled={isLoading}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id={contact.streetAddress.key}
         />
@@ -29,6 +30,7 @@ export const ContactContainer: FC = () => {
           name={contact.addressLine2.key}
           control={control}
           id={contact.addressLine2.key}
+          disabled={isLoading}
           data-testid={dataTestIds.contactInformationContainer.addressLineOptional}
         />
       </Row>
@@ -37,6 +39,7 @@ export const ContactContainer: FC = () => {
           <FormTextField
             name={contact.city.key}
             control={control}
+            disabled={isLoading}
             rules={{
               required: REQUIRED_FIELD_ERROR_MESSAGE,
             }}
@@ -64,7 +67,14 @@ export const ContactContainer: FC = () => {
                   disableClearable
                   fullWidth
                   renderInput={(params) => (
-                    <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
+                    <TextField
+                      {...params}
+                      variant="standard"
+                      error={!!error}
+                      required
+                      helperText={error?.message}
+                      disabled={isLoading}
+                    />
                   )}
                 />
               );
@@ -73,6 +83,7 @@ export const ContactContainer: FC = () => {
           <FormTextField
             name={contact.zip.key}
             control={control}
+            disabled={isLoading}
             rules={{
               required: REQUIRED_FIELD_ERROR_MESSAGE,
               validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
@@ -87,6 +98,7 @@ export const ContactContainer: FC = () => {
           name={contact.email.key}
           data-testid={dataTestIds.contactInformationContainer.patientEmail}
           control={control}
+          disabled={isLoading}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             pattern: {
@@ -101,6 +113,7 @@ export const ContactContainer: FC = () => {
           id={contact.phone.key}
           name={contact.phone.key}
           control={control}
+          disabled={isLoading}
           inputProps={{ mask: '(000) 000-0000' }}
           InputProps={{
             inputComponent: InputMask as any,

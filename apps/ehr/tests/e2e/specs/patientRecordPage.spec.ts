@@ -556,7 +556,7 @@ test.describe('Patient Record Page mutating tests', () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await populateAllRequiredFields(patientInformationPage);
     await patientInformationPage.clickSaveChangesButton();
-    await patientInformationPage.waitForSaveChangeButtonToBeEnabled();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
     await patientInformationPage.verifyCheckboxOff();
     await patientInformationPage.verifyFirstNameFromPcpIsVisible();
     await patientInformationPage.verifyLastNameFromPcpIsVisible();
