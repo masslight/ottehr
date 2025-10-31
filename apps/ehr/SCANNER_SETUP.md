@@ -55,6 +55,11 @@ Located at `src/components/ScannerModal.tsx`, this component provides:
 
 - **Image Preview**: Real-time display of scanned images
 - **Image Count**: Shows number of scanned pages
+- **Image Editing Tools**:
+  - Rotate Left 90°, Right 90°, or 180°
+  - Flip Vertical and Mirror (Flip Horizontal)
+  - **Crop**: Click and drag on the image to select an area, then click the Crop button
+  - Delete Current Image
 - **Save Functionality**: Automatically saves scanned documents to the selected folder
 
 ### Custom Hook
@@ -65,6 +70,8 @@ Located at `src/components/ScannerModal.tsx`, this component provides:
 - Device detection and selection
 - Image acquisition with custom settings
 - Image buffer management
+- Zone selection tracking for crop operations
+- Image editing operations (rotate, flip, mirror, crop)
 - Blob conversion for upload
 
 ## Usage
@@ -76,7 +83,12 @@ The scanner is integrated into the `PatientDocumentsExplorerPage`:
 3. Configure scan settings in the modal
 4. Click "Scan" to acquire images from the scanner
 5. Review scanned images in the preview area
-6. Click "Save" to upload all scanned documents to the selected folder
+6. **Edit images as needed**:
+   - Use rotation buttons to adjust orientation
+   - Click and drag on the image to select a crop area
+   - Click the Crop button to crop to the selected area
+   - Use flip/mirror for additional transformations
+7. Click "Save" to upload all scanned documents to the selected folder
 
 Multiple pages can be scanned before saving. Each page is saved as a separate PDF file with a timestamp.
 

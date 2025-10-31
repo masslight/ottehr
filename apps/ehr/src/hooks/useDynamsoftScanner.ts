@@ -14,12 +14,20 @@ export interface ScanSettings {
   useDuplex: boolean;
 }
 
+export interface SelectedZone {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface UseDynamsoftScannerResult {
   isInitialized: boolean;
   isScanning: boolean;
   scanners: ScannerDevice[];
   currentScanner: string | null;
   imageCount: number;
+  selectedZone: SelectedZone | null;
   error: string | null;
   initializeScanner: () => Promise<void>;
   setCurrentScanner: (scannerName: string) => void;
@@ -32,6 +40,7 @@ export interface UseDynamsoftScannerResult {
   rotate180: () => void;
   flipVertical: () => void;
   mirror: () => void;
+  crop: () => void;
   cleanup: () => void;
 }
 
@@ -44,6 +53,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
   const [scanners, setScanners] = useState<ScannerDevice[]>([]);
   const [currentScanner, setCurrentScannerState] = useState<string | null>(null);
   const [imageCount, setImageCount] = useState(0);
+  const [selectedZone, setSelectedZone] = useState<SelectedZone | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const dwtObjectRef = useRef<any>(null);
@@ -118,6 +128,25 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
         const count = dwtObject.HowManyImagesInBuffer;
         console.log('OnPostLoad: Image count =', count);
         setImageCount(count);
+      });
+
+      // Register zone selection events for cropping
+      dwtObject.Viewer.on('pageAreaSelected', (imageIndex: number, rect: any[]) => {
+        console.log('Zone selected:', rect);
+        if (rect.length > 0) {
+          const currentRect = rect[rect.length - 1];
+          setSelectedZone({
+            x: currentRect.x,
+            y: currentRect.y,
+            width: currentRect.width,
+            height: currentRect.height,
+          });
+        }
+      });
+
+      dwtObject.Viewer.on('pageAreaUnselected', () => {
+        console.log('Zone unselected');
+        setSelectedZone(null);
       });
 
       // Get available scanners
@@ -270,6 +299,28 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     dwtObjectRef.current.Mirror(currentIndex);
   }, [imageCount]);
 
+  const crop = useCallback(() => {
+    if (!dwtObjectRef.current || imageCount === 0) {
+      console.log('Cannot crop: no DWT object or no images');
+      return;
+    }
+    if (!selectedZone) {
+      console.log('Cannot crop: no zone selected');
+      return;
+    }
+    const currentIndex = dwtObjectRef.current.CurrentImageIndexInBuffer;
+    console.log('Cropping image at index', currentIndex, 'with zone:', selectedZone);
+    dwtObjectRef.current.Crop(
+      currentIndex,
+      selectedZone.x,
+      selectedZone.y,
+      selectedZone.x + selectedZone.width,
+      selectedZone.y + selectedZone.height
+    );
+    // Clear selection after crop
+    setSelectedZone(null);
+  }, [imageCount, selectedZone]);
+
   const cleanup = useCallback(() => {
     if (dwtObjectRef.current) {
       try {
@@ -295,6 +346,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     scanners,
     currentScanner,
     imageCount,
+    selectedZone,
     error,
     initializeScanner,
     setCurrentScanner,
@@ -307,6 +359,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     rotate180,
     flipVertical,
     mirror,
+    crop,
     cleanup,
   };
 };
