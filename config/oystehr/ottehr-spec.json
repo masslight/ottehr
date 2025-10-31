@@ -1192,6 +1192,13 @@
       "src": "src/ehr/visit-details/get-visit-files/index",
       "zip": ".dist/zips/get-visit-files.zip"
     },
+    "UPDATE-VISIT-FILES": {
+      "name": "update-visit-files",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/visit-details/update-visit-files/index",
+      "zip": ".dist/zips/update-visit-files.zip"
+    },
     "EHR-GET-VISIT-DETAILS": {
       "name": "ehr-get-visit-details",
       "type": "http_auth",
