@@ -57,7 +57,6 @@ import {
   getTelemedVisitStatus,
   getUnconfirmedDOBForAppointment,
   isApiError,
-  isEncounterSelfPay,
   isInPersonAppointment,
   TelemedAppointmentStatus,
   UpdateVisitDetailsInput,
@@ -339,7 +338,6 @@ export default function VisitDetailsPage(): ReactElement {
     };
   }, [patient]);
 
-  const selfPay = isEncounterSelfPay(visitDetailsData?.encounter);
   const isInPerson = isInPersonAppointment(appointment);
 
   const filesMutation = useMutation({
@@ -845,41 +843,33 @@ export default function VisitDetailsPage(): ReactElement {
                 <Paper sx={{ width: '100%' }}>
                   <Box padding={2}>
                     <Grid container item direction="row" alignItems="center" minHeight={cardSectionHeight}>
-                      <>
-                        {!selfPay && (
-                          <CardCategoryGridItem
-                            category="primary-ins"
-                            item={primaryInsuranceCards}
-                            appointmentID={appointmentID}
-                            filesMutator={filesMutation}
-                            fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsurance)}
-                            handleImageClick={handleCardImageClick}
-                            imagesLoading={imagesLoading}
-                          />
-                        )}
-                        {!selfPay && (
-                          <CardCategoryGridItem
-                            category="secondary-ins"
-                            item={secondaryInsuranceCards}
-                            appointmentID={appointmentID}
-                            filesMutator={filesMutation}
-                            fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsuranceSecondary)}
-                            handleImageClick={handleCardImageClick}
-                            imagesLoading={imagesLoading}
-                          />
-                        )}
-                        {
-                          <CardCategoryGridItem
-                            category="id"
-                            item={idCards}
-                            appointmentID={appointmentID}
-                            filesMutator={filesMutation}
-                            fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullPhotoId)}
-                            handleImageClick={handleCardImageClick}
-                            imagesLoading={imagesLoading}
-                          />
-                        }
-                      </>
+                      <CardCategoryGridItem
+                        category="primary-ins"
+                        item={primaryInsuranceCards}
+                        appointmentID={appointmentID}
+                        filesMutator={filesMutation}
+                        fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsurance)}
+                        handleImageClick={handleCardImageClick}
+                        imagesLoading={imagesLoading}
+                      />
+                      <CardCategoryGridItem
+                        category="secondary-ins"
+                        item={secondaryInsuranceCards}
+                        appointmentID={appointmentID}
+                        filesMutator={filesMutation}
+                        fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsuranceSecondary)}
+                        handleImageClick={handleCardImageClick}
+                        imagesLoading={imagesLoading}
+                      />
+                      <CardCategoryGridItem
+                        category="id"
+                        item={idCards}
+                        appointmentID={appointmentID}
+                        filesMutator={filesMutation}
+                        fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullPhotoId)}
+                        handleImageClick={handleCardImageClick}
+                        imagesLoading={imagesLoading}
+                      />
                     </Grid>
                   </Box>
                 </Paper>
