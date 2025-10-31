@@ -45,8 +45,9 @@ export default function InvoiceablePatients(): React.ReactElement {
         throw new Error('Oystehr client not available');
       }
 
+      const fullBucketName = `${import.meta.env.VITE_APP_PROJECT_ID}-${INVOICEABLE_PATIENTS_REPORTS_BUCKET_NAME}`;
       const fileBuffer = await oystehr.z3.downloadFile({
-        bucketName: INVOICEABLE_PATIENTS_REPORTS_BUCKET_NAME,
+        bucketName: fullBucketName,
         'objectPath+': INVOICEABLE_PATIENTS_REPORTS_FILE_NAME,
       });
       const decoder = new TextDecoder('utf-8');
@@ -76,6 +77,8 @@ export default function InvoiceablePatients(): React.ReactElement {
       enqueueSnackbar('Error occurred while updating invoiceable patients report. Please try again.', {
         variant: 'error',
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -211,7 +214,7 @@ export default function InvoiceablePatients(): React.ReactElement {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <AssessmentIcon sx={{ fontSize: 32, color: 'primary.main' }} />
             <Typography variant="h4" component="h1" color="primary.dark" fontWeight={600}>
-              Visits Overview Report
+              Invoiceable Patients Report
             </Typography>
           </Box>
         </Box>
@@ -282,7 +285,7 @@ export default function InvoiceablePatients(): React.ReactElement {
 
         {!loading && reportData && (
           <Box>
-            {reportData && patientsRows.length > 0 && (
+            {reportData && failedReportsRows.length > 0 && (
               <Card sx={{ mb: 4 }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ mb: 3 }}>
