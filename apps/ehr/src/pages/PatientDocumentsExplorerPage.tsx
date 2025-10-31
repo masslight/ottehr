@@ -150,6 +150,36 @@ const PatientDocumentsExplorerPage: FC = () => {
     setIsScanModalOpen(false);
   }, []);
 
+  const handleScanComplete = useCallback(
+    async (images: Blob[]): Promise<void> => {
+      const folderId = selectedFolder?.id;
+      if (!folderId) {
+        enqueueSnackbar('No folder selected', { variant: 'error' });
+        return;
+      }
+
+      try {
+        for (let i = 0; i < images.length; i++) {
+          const timestamp = new Date().getTime();
+          const fileName = `scanned-document-${timestamp}-${i + 1}.pdf`;
+          const file = new File([images[i]], fileName, { type: 'application/pdf' });
+
+          await documentActions.uploadDocumentAction({
+            docFile: file,
+            fileName: fileName,
+            fileFolderId: folderId,
+          });
+        }
+
+        enqueueSnackbar(`Successfully uploaded ${images.length} scanned document(s)`, { variant: 'success' });
+      } catch (error) {
+        console.error('Error uploading scanned documents:', error);
+        enqueueSnackbar('Failed to upload scanned documents', { variant: 'error' });
+      }
+    },
+    [documentActions, selectedFolder?.id]
+  );
+
   const handleDocumentUploadInputChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
       const { files } = event.target;
@@ -368,7 +398,7 @@ const PatientDocumentsExplorerPage: FC = () => {
         </Box>
       </Box>
 
-      <ScannerModal open={isScanModalOpen} onClose={handleCloseScanModal} />
+      <ScannerModal open={isScanModalOpen} onClose={handleCloseScanModal} onScanComplete={handleScanComplete} />
     </Box>
   );
 };
