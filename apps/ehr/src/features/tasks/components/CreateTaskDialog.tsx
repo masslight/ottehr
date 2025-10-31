@@ -13,6 +13,7 @@ import { useGetPatient } from 'src/hooks/useGetPatient';
 import {
   useExternalLabOrdersOptions,
   useInHouseLabOrdersOptions,
+  useInHouseMedicationsOptions,
   useNursingOrdersOptions,
   useProceduresOptions,
   useRadiologyOrdersOptions,
@@ -21,7 +22,7 @@ import {
 export const CATEGORY_OPTIONS = [
   { value: MANUAL_TASKS_CATEGORIES.externalLab, label: 'External Labs' },
   { value: MANUAL_TASKS_CATEGORIES.inHouseLab, label: 'In-house Labs' },
-  { value: MANUAL_TASKS_CATEGORIES.medications, label: 'Medications' },
+  { value: MANUAL_TASKS_CATEGORIES.inHouseMedications, label: 'In-house Medications' },
   { value: MANUAL_TASKS_CATEGORIES.nursingOrders, label: 'Nursing Orders' },
   { value: MANUAL_TASKS_CATEGORIES.patientFollowUp, label: 'Patient Follow-up' },
   { value: MANUAL_TASKS_CATEGORIES.procedures, label: 'Procedures' },
@@ -63,6 +64,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   const { nursingOrdersLoading, nursingOrdersOptions } = useNursingOrdersOptions(encounterId);
   const { radiologyOrdersLoading, radiologyOrdersOptions } = useRadiologyOrdersOptions(encounterId);
   const { proceduresLoading, proceduresOptions } = useProceduresOptions(encounterId);
+  const { inHouseMedicationsLoading, inHouseMedicationsOptions } = useInHouseMedicationsOptions(encounterId);
 
   const ordersLoading =
     formValue.category === MANUAL_TASKS_CATEGORIES.inHouseLab
@@ -75,6 +77,8 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
       ? radiologyOrdersLoading
       : formValue.category === MANUAL_TASKS_CATEGORIES.procedures
       ? proceduresLoading
+      : formValue.category === MANUAL_TASKS_CATEGORIES.inHouseMedications
+      ? inHouseMedicationsLoading
       : false;
 
   const orderOptions =
@@ -88,6 +92,8 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
       ? radiologyOrdersOptions
       : formValue.category === MANUAL_TASKS_CATEGORIES.procedures
       ? proceduresOptions
+      : formValue.category === MANUAL_TASKS_CATEGORIES.inHouseMedications
+      ? inHouseMedicationsOptions
       : [];
 
   useEffect(() => {

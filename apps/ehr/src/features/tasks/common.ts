@@ -4,6 +4,7 @@ import { usePatientLabOrders } from '../external-labs/components/labs-orders/use
 import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from '../nursing-orders/components/orders/useNursingOrders';
 import { usePatientRadiologyOrders } from '../radiology/components/usePatientRadiologyOrders';
+import { useGetMedicationOrders } from '../visits/shared/stores/appointment/appointment.queries';
 import { useChartData } from '../visits/shared/stores/appointment/appointment.store';
 
 export function formatDate(dateIso: string): string {
@@ -107,6 +108,25 @@ export function useProceduresOptions(encounterId: string): {
       return {
         label: procedure.procedureType ?? '',
         value: 'Procedure/' + procedure.resourceId,
+      };
+    }),
+  };
+}
+
+export function useInHouseMedicationsOptions(encounterId: string): {
+  inHouseMedicationsLoading: boolean;
+  inHouseMedicationsOptions: Option[];
+} {
+  const { data, isLoading } = useGetMedicationOrders({
+    field: 'encounterId',
+    value: encounterId,
+  });
+  return {
+    inHouseMedicationsLoading: isLoading,
+    inHouseMedicationsOptions: (data?.orders ?? []).map((order) => {
+      return {
+        label: order.medicationName,
+        value: 'Medication/' + order.medicationId,
       };
     }),
   };

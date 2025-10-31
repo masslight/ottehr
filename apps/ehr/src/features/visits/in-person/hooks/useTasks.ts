@@ -22,7 +22,7 @@ export const TASKS_PAGE_SIZE = 20;
 export const MANUAL_TASKS_CATEGORIES = {
   externalLab: 'manual-external-lab',
   inHouseLab: 'manual-in-house-lab',
-  medications: 'manual-medications',
+  inHouseMedications: 'manual-in-house-medications',
   nursingOrders: 'manual-nursing-orders',
   patientFollowUp: 'manual-patient-follow-up',
   procedures: 'manual-procedures',
