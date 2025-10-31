@@ -10,8 +10,8 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
   addNoteButtonDataTestId,
   noteLoadingIndicatorDataTestId,
 }) => {
-  const { resources } = useAppointmentData();
-  const encounterId = resources.encounter?.id;
+  const { resources, encounter } = useAppointmentData();
+  const encounterId = encounter?.id;
   const appointmentId = resources.appointment?.id;
   const patientId = resources.patient?.id;
 

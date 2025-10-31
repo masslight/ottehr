@@ -63,7 +63,7 @@ export const EditableMedicationCard: React.FC<{
   const confirmedMedicationUpdateRequestRef = useRef<Partial<UpdateMedicationOrderInput>>({});
   const [confirmationModalConfig, setConfirmationModalConfig] = useState<ConfirmSaveModalConfig | null>(null);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
-  const { mappedData, resources } = useAppointmentData();
+  const { mappedData, resources, encounter } = useAppointmentData();
   const selectsOptions = useFieldsSelectsOptions();
   const [erxStatus, setERXStatus] = useState(ERXStatus.LOADING);
   const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'done' });
@@ -161,7 +161,7 @@ export const EditableMedicationCard: React.FC<{
         ...(medication ? medicationExtendedToMedicationData(medication) : {}),
         ...updatedRequestInput.orderData,
         patient: resources.patient?.id || '',
-        encounterId: resources.encounter?.id || '',
+        encounterId: encounter?.id || '',
       } as MedicationData,
       interactions: interactionsCheckState.interactions,
     };

@@ -56,9 +56,7 @@ export const useGetHistoricalVitals = (
 };
 
 export function useGetAbnormalVitals(): GetVitalsResponseData | undefined {
-  const {
-    resources: { encounter },
-  } = useAppointmentData();
+  const { encounter } = useAppointmentData();
 
   const { data: encounterVitals } = useGetVitals(encounter?.id);
 
