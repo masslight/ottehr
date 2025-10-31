@@ -55,8 +55,13 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
   // Initialize scanner when modal opens
   useEffect(() => {
     if (open && !isInitialized) {
-      void initializeScanner();
+      // Delay initialization to ensure DOM is ready and dialog animation completes
+      const timer = setTimeout(() => {
+        void initializeScanner();
+      }, 300);
+      return () => clearTimeout(timer);
     }
+    return undefined;
   }, [open, isInitialized, initializeScanner]);
 
   // Cleanup when modal closes
@@ -128,11 +133,15 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
             </Alert>
           )}
 
-          {!isInitialized ? (
+          {/* Loading state */}
+          {!isInitialized && (
             <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
               <CircularProgress />
             </Box>
-          ) : (
+          )}
+
+          {/* Scanner Settings - show after initialization */}
+          {isInitialized && (
             <>
               {/* Scanner Settings */}
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -226,37 +235,6 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
                 </Button>
               </Box>
 
-              {/* Image Viewer Container */}
-              <Box
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  minHeight: 400,
-                  position: 'relative',
-                  backgroundColor: '#f5f5f5',
-                }}
-              >
-                <div id={SCANNER_CONTAINER_ID} style={{ width: '100%', height: '400px' }} />
-                {imageCount > 0 && (
-                  <Typography
-                    sx={{
-                      position: 'absolute',
-                      top: 8,
-                      right: 8,
-                      backgroundColor: 'primary.main',
-                      color: 'white',
-                      padding: '4px 12px',
-                      borderRadius: 1,
-                      fontSize: '0.875rem',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {imageCount} {imageCount === 1 ? 'image' : 'images'}
-                  </Typography>
-                )}
-              </Box>
-
               {/* Action Buttons */}
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
                 <Button onClick={handleCancel} variant="outlined">
@@ -268,6 +246,39 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
               </Box>
             </>
           )}
+
+          {/* Viewer container - always rendered so Dynamsoft can bind to it */}
+          <Box
+            sx={{
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              minHeight: 400,
+              position: 'relative',
+              backgroundColor: '#f5f5f5',
+              overflow: 'hidden',
+              display: !isInitialized ? 'none' : 'block',
+            }}
+          >
+            <div id={SCANNER_CONTAINER_ID} style={{ width: '100%', height: '400px' }} />
+            {imageCount > 0 && (
+              <Typography
+                sx={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  backgroundColor: 'primary.main',
+                  color: 'white',
+                  padding: '4px 12px',
+                  borderRadius: 1,
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                }}
+              >
+                {imageCount} {imageCount === 1 ? 'image' : 'images'}
+              </Typography>
+            )}
+          </Box>
         </Stack>
       </DialogContent>
     </Dialog>

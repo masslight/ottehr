@@ -47,6 +47,8 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     try {
       setError(null);
 
+      console.log('Initializing Dynamsoft scanner...');
+
       // Configure Dynamsoft
       Dynamsoft.DWT.ResourcesPath = '/dwt-resources';
       Dynamsoft.DWT.ProductKey = DYNAMSOFT_LICENSE_KEY;
@@ -62,27 +64,55 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
       });
 
       dwtObjectRef.current = dwtObject;
+      console.log('DWT object created successfully');
 
       // Bind viewer to container
       const container = document.getElementById(containerId);
-      if (container && dwtObject.Viewer.bind(container)) {
-        dwtObject.Viewer.width = '100%';
+      if (!container) {
+        throw new Error(`Container element with id "${containerId}" not found in DOM`);
+      }
+
+      console.log('Container found:', container, 'Width:', container.clientWidth);
+
+      const bindResult = dwtObject.Viewer.bind(container);
+      if (bindResult) {
+        // Set viewer dimensions - use actual pixel values for better rendering
+        const containerWidth = container.clientWidth || 600;
+        console.log('Binding viewer to container, width:', containerWidth);
+        dwtObject.Viewer.width = containerWidth;
         dwtObject.Viewer.height = 400;
         dwtObject.Viewer.setViewMode(1, 1);
         dwtObject.Viewer.show();
+        console.log('Viewer initialized and shown');
+      } else {
+        throw new Error('Failed to bind viewer to container - Viewer.bind() returned false');
       }
 
       // Register events
       dwtObject.RegisterEvent('OnBitmapChanged', () => {
-        setImageCount(dwtObject.HowManyImagesInBuffer);
+        const count = dwtObject.HowManyImagesInBuffer;
+        console.log('OnBitmapChanged: Image count =', count);
+        setImageCount(count);
+        // Ensure viewer shows the latest image
+        if (count > 0) {
+          dwtObject.CurrentImageIndexInBuffer = count - 1;
+        }
       });
 
       dwtObject.RegisterEvent('OnPostTransfer', () => {
-        setImageCount(dwtObject.HowManyImagesInBuffer);
+        const count = dwtObject.HowManyImagesInBuffer;
+        console.log('OnPostTransfer: Image count =', count);
+        setImageCount(count);
+        // Refresh viewer after transfer
+        if (count > 0) {
+          dwtObject.CurrentImageIndexInBuffer = count - 1;
+        }
       });
 
       dwtObject.RegisterEvent('OnPostLoad', () => {
-        setImageCount(dwtObject.HowManyImagesInBuffer);
+        const count = dwtObject.HowManyImagesInBuffer;
+        console.log('OnPostLoad: Image count =', count);
+        setImageCount(count);
       });
 
       // Get available scanners
@@ -120,6 +150,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
         setIsScanning(true);
         setError(null);
 
+        console.log('Starting scan with settings:', settings);
         const dwtObject = dwtObjectRef.current;
 
         // Get available devices and select the current one
@@ -130,9 +161,11 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
           throw new Error('Selected scanner not found');
         }
 
+        console.log('Selecting device:', selectedDevice.displayName);
         // Select the device
         await dwtObject.SelectDeviceAsync(selectedDevice);
 
+        console.log('Acquiring image...');
         // Acquire image with settings
         await dwtObject.AcquireImageAsync({
           IfShowUI: settings.showUI,
@@ -144,7 +177,15 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
         });
 
         await dwtObject.CloseSourceAsync();
-        setImageCount(dwtObject.HowManyImagesInBuffer);
+
+        // Update image count and ensure viewer displays the latest image
+        const count = dwtObject.HowManyImagesInBuffer;
+        console.log('Scan complete. Total images:', count);
+        setImageCount(count);
+        if (count > 0) {
+          dwtObject.CurrentImageIndexInBuffer = count - 1;
+          console.log('Set current image to:', count - 1);
+        }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to acquire image';
         setError(errorMessage);
