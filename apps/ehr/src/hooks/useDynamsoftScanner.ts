@@ -44,9 +44,6 @@ export interface UseDynamsoftScannerResult {
   cleanup: () => void;
 }
 
-const DYNAMSOFT_LICENSE_KEY =
-  't01908AUAADbnthnd0J1oixI9EUXbr/xidYpvp5oBrtnDQ8uCCHXnAOYCQwKa7CtLPbAR4eGRmN0gH7gV7hO2kzUlilmNslPyeXNyB6e0dwq1d6KDk6ucRH4Lx+O2zTYvTeAITBsg53M4AeTAsZYbMNt99M1wAVgDRAFEWwM04HEX5eGnbnmmVReautzBKe2deYK0caKDk6ucIUHcSGYNu12PBEH+ci4Aa4A8Avh/ZEWC0B1gDZACcPCGBu9+qdY4og=='; // Replace with your actual license key
-
 export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerResult => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -66,7 +63,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
 
       // Configure Dynamsoft
       Dynamsoft.DWT.ResourcesPath = '/dwt-resources';
-      Dynamsoft.DWT.ProductKey = DYNAMSOFT_LICENSE_KEY;
+      Dynamsoft.DWT.ProductKey = import.meta.env.VITE_APP_DYNAMSOFT_LICENSE_KEY || '';
       Dynamsoft.DWT.UseLocalService = true;
 
       // Create DWT object
