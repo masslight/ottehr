@@ -472,13 +472,13 @@ const generateRandomPatientInfo = async (
     throw new Error(`No matching schedule found for location ID: ${locationId}`);
   }
   const now = DateTime.now();
-  // note this whole setup is fragile because it is assuming that slots are available.
-  // the busy slot logic looks like it was broken at some point, which makes this slightly safer to do right now;
-  // only the schedule not offering any slots at the chosen time (which is also a possibility) will cause it to fail
-  // create slot
+  // Round to the next 15-minute interval (0, 15, 30, 45)
+  const currentMinutes = now.minute;
+  const minutesToAdd = (15 - (currentMinutes % 15)) % 15 || 15;
+  const nextInPersonSlot = now.plus({ minutes: minutesToAdd }).startOf('minute');
   const createSlotInput: CreateSlotParams = {
     scheduleId: matchingSchedule.id,
-    startISO: serviceMode === ServiceMode['in-person'] ? now.startOf('hour').plus({ hours: 2 }).toISO() : now.toISO(),
+    startISO: serviceMode === ServiceMode['in-person'] ? nextInPersonSlot.toISO() : now.toISO(),
     lengthInMinutes: 15,
     serviceModality: serviceMode,
     walkin: serviceMode === ServiceMode.virtual ? true : false,
