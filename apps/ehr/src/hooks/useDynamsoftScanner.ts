@@ -27,6 +27,11 @@ export interface UseDynamsoftScannerResult {
   getImageAsBlob: (index: number) => Promise<Blob | null>;
   removeImage: (index: number) => void;
   removeAllImages: () => void;
+  rotateLeft: () => void;
+  rotateRight: () => void;
+  rotate180: () => void;
+  flipVertical: () => void;
+  mirror: () => void;
   cleanup: () => void;
 }
 
@@ -234,6 +239,37 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     }
   }, []);
 
+  // Image editing functions
+  const rotateLeft = useCallback(() => {
+    if (!dwtObjectRef.current || imageCount === 0) return;
+    const currentIndex = dwtObjectRef.current.CurrentImageIndexInBuffer;
+    dwtObjectRef.current.RotateLeft(currentIndex);
+  }, [imageCount]);
+
+  const rotateRight = useCallback(() => {
+    if (!dwtObjectRef.current || imageCount === 0) return;
+    const currentIndex = dwtObjectRef.current.CurrentImageIndexInBuffer;
+    dwtObjectRef.current.RotateRight(currentIndex);
+  }, [imageCount]);
+
+  const rotate180 = useCallback(() => {
+    if (!dwtObjectRef.current || imageCount === 0) return;
+    const currentIndex = dwtObjectRef.current.CurrentImageIndexInBuffer;
+    dwtObjectRef.current.Rotate(currentIndex, 180, true);
+  }, [imageCount]);
+
+  const flipVertical = useCallback(() => {
+    if (!dwtObjectRef.current || imageCount === 0) return;
+    const currentIndex = dwtObjectRef.current.CurrentImageIndexInBuffer;
+    dwtObjectRef.current.Flip(currentIndex);
+  }, [imageCount]);
+
+  const mirror = useCallback(() => {
+    if (!dwtObjectRef.current || imageCount === 0) return;
+    const currentIndex = dwtObjectRef.current.CurrentImageIndexInBuffer;
+    dwtObjectRef.current.Mirror(currentIndex);
+  }, [imageCount]);
+
   const cleanup = useCallback(() => {
     if (dwtObjectRef.current) {
       try {
@@ -266,6 +302,11 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     getImageAsBlob,
     removeImage,
     removeAllImages,
+    rotateLeft,
+    rotateRight,
+    rotate180,
+    flipVertical,
+    mirror,
     cleanup,
   };
 };

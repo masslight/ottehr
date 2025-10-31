@@ -1,5 +1,10 @@
 import CloseIcon from '@mui/icons-material/Close';
+import DeleteIcon from '@mui/icons-material/Delete';
+import FlipIcon from '@mui/icons-material/Flip';
+import Rotate90DegreesCcwIcon from '@mui/icons-material/Rotate90DegreesCcw';
+import Rotate90DegreesCwIcon from '@mui/icons-material/Rotate90DegreesCw';
 import ScannerIcon from '@mui/icons-material/Scanner';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import {
   Alert,
   Box,
@@ -16,6 +21,7 @@ import {
   MenuItem,
   Select,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
@@ -41,7 +47,13 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
     setCurrentScanner,
     acquireImage,
     getImageAsBlob,
+    removeImage,
     removeAllImages,
+    rotateLeft,
+    rotateRight,
+    rotate180,
+    flipVertical,
+    mirror,
     cleanup,
   } = useDynamsoftScanner(SCANNER_CONTAINER_ID);
 
@@ -234,6 +246,67 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
                   {isScanning ? 'Scanning...' : 'Scan'}
                 </Button>
               </Box>
+
+              {/* Image Editing Tools */}
+              {imageCount > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+                    Edit Current Image
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Tooltip title="Rotate Left 90°">
+                      <IconButton
+                        onClick={rotateLeft}
+                        size="small"
+                        sx={{ border: '1px solid', borderColor: 'divider' }}
+                      >
+                        <Rotate90DegreesCcwIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Rotate Right 90°">
+                      <IconButton
+                        onClick={rotateRight}
+                        size="small"
+                        sx={{ border: '1px solid', borderColor: 'divider' }}
+                      >
+                        <Rotate90DegreesCwIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Rotate 180°">
+                      <IconButton onClick={rotate180} size="small" sx={{ border: '1px solid', borderColor: 'divider' }}>
+                        <Rotate90DegreesCwIcon sx={{ transform: 'rotate(180deg)' }} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Flip Vertical">
+                      <IconButton
+                        onClick={flipVertical}
+                        size="small"
+                        sx={{ border: '1px solid', borderColor: 'divider' }}
+                      >
+                        <FlipIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Mirror (Flip Horizontal)">
+                      <IconButton onClick={mirror} size="small" sx={{ border: '1px solid', borderColor: 'divider' }}>
+                        <SwapHorizIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete Current Image">
+                      <IconButton
+                        onClick={() => {
+                          const currentIndex = imageCount > 0 ? 0 : -1;
+                          if (currentIndex >= 0) removeImage(currentIndex);
+                        }}
+                        size="small"
+                        color="error"
+                        sx={{ border: '1px solid', borderColor: 'error.main' }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Box>
+              )}
 
               {/* Action Buttons */}
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
