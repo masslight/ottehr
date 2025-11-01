@@ -140,7 +140,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
           </IconButton>
         </Box>
       </DialogTitle>
-      <DialogContent>
+      <DialogContent sx={{ pt: 3 }}>
         <Stack spacing={3}>
           {error && (
             <Alert severity="error" onClose={() => {}}>
@@ -159,7 +159,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
           {isInitialized && (
             <>
               {/* Scanner Settings */}
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', pt: 1 }}>
                 <FormControl sx={{ minWidth: 200 }}>
                   <InputLabel>Scanner</InputLabel>
                   <Select
