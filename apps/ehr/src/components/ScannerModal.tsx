@@ -129,14 +129,14 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
 
   return (
     <Dialog open={open} onClose={handleCancel} maxWidth="lg" fullWidth>
-      <DialogTitle>
+      <DialogTitle variant="h5" color="primary.dark">
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ScannerIcon />
-            <Typography variant="h6">Scan Document</Typography>
+            Scan Document
           </Box>
-          <IconButton onClick={handleCancel} size="small">
-            <CloseIcon />
+          <IconButton onClick={handleCancel} size="small" edge="end">
+            <CloseIcon fontSize="small" />
           </IconButton>
         </Box>
       </DialogTitle>
