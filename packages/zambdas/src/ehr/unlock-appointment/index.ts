@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment } from 'fhir/r4b';
+import { Appointment, Coding } from 'fhir/r4b';
 import {
+  createCriticalUpdateTag,
   getAppointmentLockMetaTagOperations,
-  getCriticalUpdateTagOp,
   getPatchBinary,
   getSecret,
   SecretsKeys,
@@ -59,18 +59,30 @@ export const performEffect = async (
   // Get the current user for tracking who unlocked the appointment
   const user = await oystehrCurrentUser.user.me();
 
-  // Generate patch operations to remove the locked meta tag
-  const unlockOperations = getAppointmentLockMetaTagOperations(appointment, false);
+  // Generate unlock operation (removes APPOINTMENT_LOCKED tag and replaces /meta/tag array)
+  const [unlockOp] = getAppointmentLockMetaTagOperations(appointment, false);
 
-  // Add critical update tag to track who made the change
-  const updateTag = getCriticalUpdateTagOp(appointment, `Staff ${user?.email || `(${user?.id})`}`);
-  unlockOperations.push(updateTag);
+  if (!('value' in unlockOp) || !Array.isArray(unlockOp.value)) {
+    throw new Error('Unexpected unlock operation structure');
+  }
 
-  // Create patch request
+  const tagsAfterUnlock = unlockOp.value as Coding[];
+
+  // Create and add/update critical update tag
+  const criticalUpdateTag = createCriticalUpdateTag(`Staff ${user?.email || `(${user?.id})`}`);
+  const criticalTagIndex = tagsAfterUnlock.findIndex((tag) => tag.system === criticalUpdateTag.system);
+
+  if (criticalTagIndex >= 0) {
+    tagsAfterUnlock[criticalTagIndex] = criticalUpdateTag;
+  } else {
+    tagsAfterUnlock.push(criticalUpdateTag);
+  }
+
+  // Execute patch with single operation that unlocks and updates critical tag
   const patchRequest = getPatchBinary({
     resourceType: 'Appointment',
     resourceId: appointmentId,
-    patchOperations: unlockOperations,
+    patchOperations: [unlockOp],
   });
 
   // Execute the patch

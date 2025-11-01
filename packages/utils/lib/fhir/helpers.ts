@@ -634,12 +634,16 @@ export async function getRecentQrsQuestionnaireResponse(
 export const CRITICAL_CHANGE_SYSTEM = 'critical-update-by'; // exists in ehr as well
 export const STATUS_UPDATE_TAG_SYSTEM = 'status-update';
 
-export const getCriticalUpdateTagOp = (resource: Resource, updateBy: string): Operation => {
-  const recordUpdateByTag = {
+export const createCriticalUpdateTag = (updateBy: string): Coding => {
+  return {
     system: CRITICAL_CHANGE_SYSTEM,
     display: updateBy,
     version: DateTime.now().toISO() || '',
   };
+};
+
+export const getCriticalUpdateTagOp = (resource: Resource, updateBy: string): Operation => {
+  const recordUpdateByTag = createCriticalUpdateTag(updateBy);
 
   if (!resource.meta?.tag) {
     return {
