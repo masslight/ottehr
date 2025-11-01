@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    silent: true,
+    silent: false,
     testTimeout: 180000, // 3 minutes
     hookTimeout: 30000, // 30 seconds
     include: ['*/integration/**/*.{test,spec}.?(c|m)[jt]s?(x)'],

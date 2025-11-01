@@ -42,8 +42,6 @@ const UploadComponent: FC<UploadComponentProps> = ({
   submitAttachment,
 }): JSX.Element => {
   const theme = useTheme();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pendingZ3Upload, setPendingZ3Upload] = useState<File | undefined>();
   const [z3UploadState, setZ3UploadState] = useState(UploadState.initial);
   const [compressingImage, setCompressingImage] = useState(false);
@@ -76,8 +74,6 @@ const UploadComponent: FC<UploadComponentProps> = ({
           }
         }
 
-        const tempURL = URL.createObjectURL(finalFile);
-        setPreviewUrl(tempURL); // Use this as a temporary image URL until the insurance info form is submitted
         setPendingZ3Upload(finalFile);
         setZ3UploadState(UploadState.initial);
         setCompressingImage(false);
@@ -112,6 +108,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
           creation: DateTime.now().toISO(),
         };
         console.log('z3 upload complete, attachment:', attachment);
+        throw new Error('Short circuit. delete me');
         setZ3UploadState(UploadState.complete);
         await submitAttachment(attachment);
         setPendingZ3Upload(undefined);

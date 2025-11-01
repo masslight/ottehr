@@ -7,6 +7,7 @@ import {
   createFilesDocumentReferences,
   EHRImageUploadType,
   FHIR_RESOURCE_NOT_FOUND,
+  FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getSecret,
   INSURANCE_CARD_CODE,
   INVALID_INPUT_ERROR,
@@ -139,13 +140,21 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     resourceType,
     params,
   });
+  const appointment = patient.entry?.find((entry) => entry.resource?.resourceType === 'Appointment')
+    ?.resource as Appointment;
   const patientResource = patient.entry?.find((entry) => entry.resource?.resourceType === 'Patient')
     ?.resource as Patient;
 
+  if (appointmentId && !appointment) {
+    throw FHIR_RESOURCE_NOT_FOUND('Appointment');
+  }
+
   const confirmedPatientId = patientResource?.id;
 
-  if (!confirmedPatientId) {
+  if (!confirmedPatientId && !appointmentId) {
     throw FHIR_RESOURCE_NOT_FOUND('Patient');
+  } else if (!confirmedPatientId) {
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Could not find Patient associated with provided Appointment id');
   }
 
   // todo: should be able to narrow the search based on the the document type being requested
