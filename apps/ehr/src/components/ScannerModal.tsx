@@ -161,9 +161,6 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
               display: 'flex',
               gap: 3,
               flexDirection: { xs: 'column', md: 'row' },
-              visibility: isInitialized ? 'visible' : 'hidden',
-              height: isInitialized ? 'auto' : 0,
-              overflow: 'hidden',
             }}
           >
             {/* Left Column: Scanner Settings and Controls */}
@@ -304,90 +301,114 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
               </Box>
 
               {/* Image Editing Tools */}
-              {imageCount > 0 && (
-                <Box>
-                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                    Edit Current Image
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                  Edit Current Image
+                </Typography>
+                <Alert severity="info" sx={{ mb: 2, py: 0.5 }}>
+                  <Typography variant="caption">
+                    Tip: Click and drag on the image to select an area for cropping
+                    {selectedZone && ' (Selection active - click Crop to apply)'}
                   </Typography>
-                  <Alert severity="info" sx={{ mb: 2, py: 0.5 }}>
-                    <Typography variant="caption">
-                      Tip: Click and drag on the image to select an area for cropping
-                      {selectedZone && ' (Selection active - click Crop to apply)'}
-                    </Typography>
-                  </Alert>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Tooltip title="Rotate Left 90°">
+                </Alert>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Tooltip title="Rotate Left 90°">
+                    <span>
                       <IconButton
                         onClick={rotateLeft}
                         size="small"
+                        disabled={imageCount === 0}
                         sx={{ border: '1px solid', borderColor: 'divider' }}
                       >
                         <Rotate90DegreesCcwIcon />
                       </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Rotate Right 90°">
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Rotate Right 90°">
+                    <span>
                       <IconButton
                         onClick={rotateRight}
                         size="small"
+                        disabled={imageCount === 0}
                         sx={{ border: '1px solid', borderColor: 'divider' }}
                       >
                         <Rotate90DegreesCwIcon />
                       </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Rotate 180°">
-                      <IconButton onClick={rotate180} size="small" sx={{ border: '1px solid', borderColor: 'divider' }}>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Rotate 180°">
+                    <span>
+                      <IconButton
+                        onClick={rotate180}
+                        size="small"
+                        disabled={imageCount === 0}
+                        sx={{ border: '1px solid', borderColor: 'divider' }}
+                      >
                         <Rotate90DegreesCwIcon sx={{ transform: 'rotate(180deg)' }} />
                       </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Flip Vertical">
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Flip Vertical">
+                    <span>
                       <IconButton
                         onClick={flipVertical}
                         size="small"
+                        disabled={imageCount === 0}
                         sx={{ border: '1px solid', borderColor: 'divider' }}
                       >
                         <FlipIcon />
                       </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Mirror (Flip Horizontal)">
-                      <IconButton onClick={mirror} size="small" sx={{ border: '1px solid', borderColor: 'divider' }}>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Mirror (Flip Horizontal)">
+                    <span>
+                      <IconButton
+                        onClick={mirror}
+                        size="small"
+                        disabled={imageCount === 0}
+                        sx={{ border: '1px solid', borderColor: 'divider' }}
+                      >
                         <SwapHorizIcon />
                       </IconButton>
-                    </Tooltip>
-                    <Tooltip
-                      title={
-                        selectedZone
-                          ? 'Crop to Selected Area'
-                          : 'Select area on image first (click and drag on the image to create a selection rectangle)'
-                      }
-                    >
-                      <span>
-                        <IconButton
-                          onClick={crop}
-                          size="small"
-                          disabled={!selectedZone}
-                          sx={{ border: '1px solid', borderColor: selectedZone ? 'primary.main' : 'divider' }}
-                          color={selectedZone ? 'primary' : 'default'}
-                        >
-                          <CropIcon />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    <Tooltip title="Delete Current Image">
+                    </span>
+                  </Tooltip>
+                  <Tooltip
+                    title={
+                      selectedZone
+                        ? 'Crop to Selected Area'
+                        : 'Select area on image first (click and drag on the image to create a selection rectangle)'
+                    }
+                  >
+                    <span>
+                      <IconButton
+                        onClick={crop}
+                        size="small"
+                        disabled={!selectedZone}
+                        sx={{ border: '1px solid', borderColor: selectedZone ? 'primary.main' : 'divider' }}
+                        color={selectedZone ? 'primary' : 'default'}
+                      >
+                        <CropIcon />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Delete Current Image">
+                    <span>
                       <IconButton
                         onClick={() => {
                           const currentIndex = imageCount > 0 ? 0 : -1;
                           if (currentIndex >= 0) removeImage(currentIndex);
                         }}
                         size="small"
+                        disabled={imageCount === 0}
                         color="error"
                         sx={{ border: '1px solid', borderColor: 'error.main' }}
                       >
                         <DeleteIcon />
                       </IconButton>
-                    </Tooltip>
-                  </Box>
+                    </span>
+                  </Tooltip>
                 </Box>
-              )}
+              </Box>
             </Box>
           </Box>
 
