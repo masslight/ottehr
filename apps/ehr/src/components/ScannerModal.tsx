@@ -318,15 +318,6 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
 
               {/* Image Editing Tools */}
               <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                  Edit Current Image
-                </Typography>
-                <Alert severity="info" sx={{ mb: 2, py: 0.5 }}>
-                  <Typography variant="caption">
-                    Tip: Click and drag on the image to select an area for cropping
-                    {selectedZone && ' (Selection active - click Crop to apply)'}
-                  </Typography>
-                </Alert>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   <Tooltip title="Rotate Left 90°">
                     <span>
@@ -416,8 +407,8 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
                         }}
                         size="small"
                         disabled={imageCount === 0}
-                        color="error"
-                        sx={{ border: '1px solid', borderColor: 'error.main' }}
+                        color={imageCount > 0 ? 'error' : 'default'}
+                        sx={{ border: '1px solid', borderColor: imageCount > 0 ? 'error.main' : 'divider' }}
                       >
                         <DeleteIcon />
                       </IconButton>
