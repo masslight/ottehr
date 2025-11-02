@@ -126,6 +126,17 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
   };
 
   const handleCancel = (): void => {
+    // If there are scanned images, confirm before closing
+    if (imageCount > 0) {
+      const confirmed = window.confirm(
+        `You have ${imageCount} scanned ${
+          imageCount === 1 ? 'image' : 'images'
+        }. Are you sure you want to close without saving?`
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
     removeAllImages();
     onClose();
   };
