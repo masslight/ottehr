@@ -24,6 +24,7 @@ export interface SelectedZone {
 export interface UseDynamsoftScannerResult {
   isInitialized: boolean;
   isScanning: boolean;
+  isRefreshingScanners: boolean;
   scanners: ScannerDevice[];
   currentScanner: string | null;
   imageCount: number;
@@ -31,6 +32,7 @@ export interface UseDynamsoftScannerResult {
   error: string | null;
   initializeScanner: () => Promise<void>;
   setCurrentScanner: (scannerName: string) => void;
+  refreshScanners: (silent?: boolean) => Promise<void>;
   acquireImage: (settings: ScanSettings) => Promise<void>;
   getImageAsBlob: (index: number) => Promise<Blob | null>;
   removeImage: (index: number) => void;
@@ -47,6 +49,7 @@ export interface UseDynamsoftScannerResult {
 export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerResult => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isRefreshingScanners, setIsRefreshingScanners] = useState(false);
   const [scanners, setScanners] = useState<ScannerDevice[]>([]);
   const [currentScanner, setCurrentScannerState] = useState<string | null>(null);
   const [imageCount, setImageCount] = useState(0);
@@ -169,6 +172,46 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
   const setCurrentScanner = useCallback((scannerName: string) => {
     setCurrentScannerState(scannerName);
   }, []);
+
+  const refreshScanners = useCallback(async () => {
+    if (!dwtObjectRef.current || !isInitialized) {
+      console.log('Refresh skipped - not initialized');
+      return;
+    }
+
+    try {
+      console.log('Setting isRefreshingScanners to TRUE');
+      setIsRefreshingScanners(true);
+      console.log('Refreshing scanner list...');
+      const dwtObject = dwtObjectRef.current;
+
+      // Add a minimum display time for the spinner so users can see it
+      const [devices] = await Promise.all([
+        dwtObject.GetDevicesAsync(),
+        new Promise((resolve) => setTimeout(resolve, 500)), // Minimum 500ms display
+      ]);
+
+      const scannerList: ScannerDevice[] = devices.map((device: any) => ({
+        displayName: device.displayName,
+        deviceId: device.deviceId,
+      }));
+
+      setScanners(scannerList);
+
+      // If we found scanners and none is currently selected, select the first one
+      if (scannerList.length > 0 && !currentScanner) {
+        setCurrentScannerState(scannerList[0].displayName);
+        console.log('Auto-selected scanner:', scannerList[0].displayName);
+      }
+
+      console.log('Scanner list refreshed:', scannerList.length, 'scanner(s) found');
+    } catch (err) {
+      console.error('Error refreshing scanners:', err);
+    } finally {
+      console.log('Setting isRefreshingScanners to FALSE');
+      setIsRefreshingScanners(false);
+    }
+  }, [isInitialized, currentScanner]);
 
   const acquireImage = useCallback(
     async (settings: ScanSettings) => {
@@ -340,6 +383,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
   return {
     isInitialized,
     isScanning,
+    isRefreshingScanners,
     scanners,
     currentScanner,
     imageCount,
@@ -347,6 +391,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     error,
     initializeScanner,
     setCurrentScanner,
+    refreshScanners,
     acquireImage,
     getImageAsBlob,
     removeImage,

@@ -2,6 +2,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import CropIcon from '@mui/icons-material/Crop';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FlipIcon from '@mui/icons-material/Flip';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import Rotate90DegreesCcwIcon from '@mui/icons-material/Rotate90DegreesCcw';
 import Rotate90DegreesCwIcon from '@mui/icons-material/Rotate90DegreesCw';
 import ScannerIcon from '@mui/icons-material/Scanner';
@@ -40,6 +41,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
   const {
     isInitialized,
     isScanning,
+    isRefreshingScanners,
     scanners,
     currentScanner,
     imageCount,
@@ -47,6 +49,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
     error,
     initializeScanner,
     setCurrentScanner,
+    refreshScanners,
     acquireImage,
     getImageAsBlob,
     removeImage,
@@ -148,13 +151,6 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
             </Alert>
           )}
 
-          {/* Loading state */}
-          {!isInitialized && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', padding: 4 }}>
-              <CircularProgress />
-            </Box>
-          )}
-
           {/* Main Content: Settings and Viewer Side by Side - Always render viewer container for Dynamsoft */}
           <Box
             sx={{
@@ -171,25 +167,45 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
                   Scanner Settings
                 </Typography>
                 <Stack spacing={2}>
-                  <FormControl fullWidth>
-                    <InputLabel>Scanner</InputLabel>
-                    <Select
-                      value={currentScanner || ''}
-                      onChange={(e) => setCurrentScanner(e.target.value)}
-                      label="Scanner"
-                      disabled={isScanning}
-                    >
-                      {scanners.length === 0 ? (
-                        <MenuItem value="">No scanners found</MenuItem>
-                      ) : (
-                        scanners.map((scanner) => (
-                          <MenuItem key={scanner.displayName} value={scanner.displayName}>
-                            {scanner.displayName}
-                          </MenuItem>
-                        ))
-                      )}
-                    </Select>
-                  </FormControl>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+                    <FormControl fullWidth>
+                      <InputLabel>Scanner</InputLabel>
+                      <Select
+                        value={currentScanner || ''}
+                        onChange={(e) => setCurrentScanner(e.target.value)}
+                        label="Scanner"
+                        disabled={isScanning}
+                        endAdornment={
+                          isRefreshingScanners ? (
+                            <CircularProgress
+                              size={20}
+                              sx={{ position: 'absolute', right: 32, pointerEvents: 'none' }}
+                            />
+                          ) : null
+                        }
+                      >
+                        {scanners.length === 0 ? (
+                          <MenuItem value="">No scanners found</MenuItem>
+                        ) : (
+                          scanners.map((scanner) => (
+                            <MenuItem key={scanner.displayName} value={scanner.displayName}>
+                              {scanner.displayName}
+                            </MenuItem>
+                          ))
+                        )}
+                      </Select>
+                    </FormControl>
+                    <Tooltip title="Refresh scanner list">
+                      <IconButton
+                        onClick={() => void refreshScanners()}
+                        disabled={isScanning || isRefreshingScanners}
+                        size="large"
+                        sx={{ mb: 0.5 }}
+                      >
+                        <RefreshIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
 
                   <FormControl fullWidth>
                     <InputLabel>Color Mode</InputLabel>
