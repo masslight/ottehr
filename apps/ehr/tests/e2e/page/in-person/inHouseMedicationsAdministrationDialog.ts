@@ -1,6 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { Patient } from 'fhir/r4b';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { getFirstName, getLastName } from 'utils';
 
 export class AdministeredDialogue {
   #page: Page;
@@ -15,7 +16,7 @@ export class AdministeredDialogue {
   async verifyPatientName(patient: Patient): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.inHouseMedicationAdministrationConfirmationDialog.patient)
-    ).toHaveText('Patient: ' + patient.name?.[0]?.family + ', ' + patient.name?.[0]?.given?.[0]);
+    ).toHaveText('Patient: ' + getLastName(patient) + ', ' + getFirstName(patient));
   }
 
   async verifyMedication(medicationInfo: {
