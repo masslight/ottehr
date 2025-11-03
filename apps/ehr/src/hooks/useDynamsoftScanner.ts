@@ -1,4 +1,7 @@
 import Dynamsoft from 'dwt';
+import { WebTwain } from 'dwt/dist/types/WebTwain';
+import { Device } from 'dwt/dist/types/WebTwain.Acquire';
+import { Area } from 'dwt/dist/types/WebTwain.Viewer';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface ScannerDevice {
@@ -56,7 +59,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
   const [selectedZone, setSelectedZone] = useState<SelectedZone | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const dwtObjectRef = useRef<any>(null);
+  const dwtObjectRef = useRef<WebTwain | null>(null);
 
   const initializeScanner = useCallback(async () => {
     try {
@@ -70,11 +73,11 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
       Dynamsoft.DWT.UseLocalService = true;
 
       // Create DWT object
-      const dwtObject = await new Promise<any>((resolve, reject) => {
+      const dwtObject = await new Promise<WebTwain>((resolve, reject) => {
         Dynamsoft.DWT.CreateDWTObjectEx(
           { WebTwainId: 'dwtObject' },
-          (obj: any) => resolve(obj),
-          (errorString: any) => reject(new Error(errorString))
+          (obj: WebTwain) => resolve(obj),
+          (error: { code: number; message: string }) => reject(new Error(error.message))
         );
       });
 
@@ -132,15 +135,15 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
       });
 
       // Register zone selection events for cropping
-      dwtObject.Viewer.on('pageAreaSelected', (imageIndex: number, rect: any[]) => {
+      dwtObject.Viewer.on('pageAreaSelected', (imageIndex: number, rect: Area[]) => {
         console.log('Zone selected:', rect);
         if (rect.length > 0) {
           const currentRect = rect[rect.length - 1];
           setSelectedZone({
-            x: currentRect.x,
-            y: currentRect.y,
-            width: currentRect.width,
-            height: currentRect.height,
+            x: currentRect.left,
+            y: currentRect.top,
+            width: currentRect.right - currentRect.left,
+            height: currentRect.bottom - currentRect.top,
           });
         }
       });
@@ -152,9 +155,9 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
 
       // Get available scanners
       const devices = await dwtObject.GetDevicesAsync();
-      const scannerList: ScannerDevice[] = devices.map((device: any) => ({
+      const scannerList: ScannerDevice[] = devices.map((device: Device) => ({
         displayName: device.displayName,
-        deviceId: device.deviceId,
+        deviceId: device.name,
       }));
 
       setScanners(scannerList);
@@ -192,9 +195,9 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
         new Promise((resolve) => setTimeout(resolve, 500)), // Minimum 500ms display
       ]);
 
-      const scannerList: ScannerDevice[] = devices.map((device: any) => ({
+      const scannerList: ScannerDevice[] = devices.map((device: Device) => ({
         displayName: device.displayName,
-        deviceId: device.deviceId,
+        deviceId: device.name,
       }));
 
       setScanners(scannerList);
@@ -230,7 +233,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
 
         // Get available devices and select the current one
         const devices = await dwtObject.GetDevicesAsync();
-        const selectedDevice = devices.find((device: any) => device.displayName === currentScanner);
+        const selectedDevice = devices.find((device: Device) => device.displayName === currentScanner);
 
         if (!selectedDevice) {
           throw new Error('Selected scanner not found');
