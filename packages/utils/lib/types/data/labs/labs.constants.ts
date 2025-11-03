@@ -199,6 +199,7 @@ export const PROVENANCE_ACTIVITY_CODES = {
   createOrder: 'CREATE ORDER',
   inputResults: 'INPUT RESULTS',
   completePstTask: 'COMPLETE PST TASK',
+  abnRejected: 'ABN REJECTED',
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
@@ -207,6 +208,7 @@ export const PROVENANCE_ACTIVITY_DISPLAY = {
   createOrder: 'create order',
   inputResults: 'input results',
   completePstTask: 'complete pst task',
+  abnRejected: 'ABN marked rejected',
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -234,6 +236,11 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
   completePstTask: {
     code: PROVENANCE_ACTIVITY_CODES.completePstTask,
     display: PROVENANCE_ACTIVITY_DISPLAY.completePstTask,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  abnRejected: {
+    code: PROVENANCE_ACTIVITY_CODES.abnRejected,
+    display: PROVENANCE_ACTIVITY_DISPLAY.abnRejected,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;
@@ -278,3 +285,8 @@ export const OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM =
 
 export const OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM =
   'https://identifiers.fhir.oystehr.com/lab-result-additional-placer-id';
+
+export const SR_REVOKED_REASON_EXT = {
+  url: 'https://extensions.fhir.oystehr.com/reason-sr-revoked',
+  valueCode: 'rejected-abn',
+};

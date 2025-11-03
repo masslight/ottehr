@@ -120,6 +120,14 @@ export function validateRequestParameters(
       secrets,
       userToken,
     };
+  } else if (params.event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn) {
+    const { event, serviceRequestId } = params;
+    return {
+      event,
+      serviceRequestId,
+      secrets,
+      userToken,
+    };
   }
 
   throw Error('event is not supported');

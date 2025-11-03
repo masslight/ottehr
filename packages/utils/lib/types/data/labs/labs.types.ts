@@ -73,11 +73,12 @@ export enum ExternalLabsStatus {
   corrected = 'corrected',
   'cancelled by lab' = 'cancelled by lab',
   'sent manually' = 'sent manually',
+  'rejected abn' = 'rejected abn',
   unknown = 'unknown', // for debugging purposes
 }
 
 export type LabOrderUnreceivedHistoryRow = {
-  action: 'created' | 'performed' | 'ready' | 'ordered' | 'cancelled by lab';
+  action: 'created' | 'performed' | 'ready' | 'ordered' | 'cancelled by lab' | 'rejected abn';
   performer: string;
   date: string;
 };
@@ -318,6 +319,7 @@ export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
   saveOrderCollectionData: 'saveOrderCollectionData',
   cancelUnsolicitedResultTask: 'cancelUnsolicitedResultTask', // match or review tasks
   matchUnsolicitedResult: 'matchUnsolicitedResult',
+  rejectedAbn: 'rejectedAbn',
 } as const;
 
 export type TaskReviewedParameters = {
@@ -362,7 +364,8 @@ export type UpdateLabOrderResourcesInput =
   | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged })
   | (SaveOrderCollectionData & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.saveOrderCollectionData })
   | CancelMatchUnsolicitedResultTask
-  | FinalizeUnsolicitedResultMatch;
+  | FinalizeUnsolicitedResultMatch
+  | { serviceRequestId: string; event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn };
 
 export type DeleteLabOrderZambdaInput = {
   serviceRequestId: string;
