@@ -151,7 +151,7 @@ const PatientDocumentsExplorerPage: FC = () => {
   }, []);
 
   const handleScanComplete = useCallback(
-    async (images: Blob[]): Promise<void> => {
+    async (pdfBlob: Blob): Promise<void> => {
       const folderId = selectedFolder?.id;
       if (!folderId) {
         enqueueSnackbar('No folder selected', { variant: 'error' });
@@ -159,22 +159,20 @@ const PatientDocumentsExplorerPage: FC = () => {
       }
 
       try {
-        for (let i = 0; i < images.length; i++) {
-          const timestamp = new Date().getTime();
-          const fileName = `scanned-document-${timestamp}-${i + 1}.pdf`;
-          const file = new File([images[i]], fileName, { type: 'application/pdf' });
+        const timestamp = new Date().getTime();
+        const fileName = `scanned-document-${timestamp}.pdf`;
+        const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-          await documentActions.uploadDocumentAction({
-            docFile: file,
-            fileName: fileName,
-            fileFolderId: folderId,
-          });
-        }
+        await documentActions.uploadDocumentAction({
+          docFile: file,
+          fileName: fileName,
+          fileFolderId: folderId,
+        });
 
-        enqueueSnackbar(`Successfully uploaded ${images.length} scanned document(s)`, { variant: 'success' });
+        enqueueSnackbar('Successfully uploaded scanned document', { variant: 'success' });
       } catch (error) {
-        console.error('Error uploading scanned documents:', error);
-        enqueueSnackbar('Failed to upload scanned documents', { variant: 'error' });
+        console.error('Error uploading scanned document:', error);
+        enqueueSnackbar('Failed to upload scanned document', { variant: 'error' });
       }
     },
     [documentActions, selectedFolder?.id]

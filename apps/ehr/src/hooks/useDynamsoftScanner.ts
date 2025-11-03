@@ -38,6 +38,7 @@ export interface UseDynamsoftScannerResult {
   refreshScanners: (silent?: boolean) => Promise<void>;
   acquireImage: (settings: ScanSettings) => Promise<void>;
   getImageAsBlob: (index: number) => Promise<Blob | null>;
+  getAllImagesAsPdf: () => Promise<Blob | null>;
   removeImage: (index: number) => void;
   removeAllImages: () => void;
   rotateLeft: () => void;
@@ -298,6 +299,42 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     }
   }, []);
 
+  const getAllImagesAsPdf = useCallback(async (): Promise<Blob | null> => {
+    if (!dwtObjectRef.current) return null;
+
+    try {
+      const dwtObject = dwtObjectRef.current;
+      const count = dwtObject.HowManyImagesInBuffer;
+
+      if (count === 0) {
+        console.log('No images to convert to PDF');
+        return null;
+      }
+
+      // Create array of all image indices
+      const indices = Array.from({ length: count }, (_, i) => i);
+      console.log(`Converting ${count} images to a single PDF...`);
+
+      return new Promise((resolve, reject) => {
+        dwtObject.ConvertToBlob(
+          indices,
+          Dynamsoft.DWT.EnumDWT_ImageType.IT_PDF,
+          (result: Blob) => {
+            console.log('Successfully converted all images to PDF');
+            resolve(result);
+          },
+          (errorCode: number, errorString: string) => {
+            console.error('Error converting images to PDF:', errorString);
+            reject(new Error(errorString));
+          }
+        );
+      });
+    } catch (err) {
+      console.error('Error getting all images as PDF:', err);
+      return null;
+    }
+  }, []);
+
   const removeImage = useCallback((index: number) => {
     if (dwtObjectRef.current) {
       dwtObjectRef.current.RemoveImage(index);
@@ -398,6 +435,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     refreshScanners,
     acquireImage,
     getImageAsBlob,
+    getAllImagesAsPdf,
     removeImage,
     removeAllImages,
     rotateLeft,

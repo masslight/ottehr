@@ -32,7 +32,7 @@ import { useDynamsoftScanner } from '../hooks/useDynamsoftScanner';
 interface ScannerModalProps {
   open: boolean;
   onClose: () => void;
-  onScanComplete?: (images: Blob[]) => void;
+  onScanComplete?: (pdfBlob: Blob) => void;
 }
 
 const SCANNER_CONTAINER_ID = 'dynamsoft-scanner-container';
@@ -51,7 +51,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
     setCurrentScanner,
     refreshScanners,
     acquireImage,
-    getImageAsBlob,
+    getAllImagesAsPdf,
     removeImage,
     removeAllImages,
     rotateLeft,
@@ -106,16 +106,17 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
     }
 
     try {
-      const images: Blob[] = [];
-      for (let i = 0; i < imageCount; i++) {
-        const blob = await getImageAsBlob(i);
-        if (blob) {
-          images.push(blob);
-        }
+      // Get all images as a single PDF
+      const pdfBlob = await getAllImagesAsPdf();
+
+      if (!pdfBlob) {
+        console.error('Failed to create PDF from scanned images');
+        return;
       }
 
       if (onScanComplete) {
-        onScanComplete(images);
+        // Pass the single combined PDF blob
+        onScanComplete(pdfBlob);
       }
 
       cleanup();
