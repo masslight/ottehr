@@ -1,6 +1,6 @@
-import AddIcon from '@mui/icons-material/Add';
 import ScannerIcon from '@mui/icons-material/Scanner';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { Box, debounce, Grid, IconButton, Paper, Stack, TextField, Typography, useTheme } from '@mui/material';
 import { styled } from '@mui/material';
 import { DateTime } from 'luxon';
@@ -367,9 +367,9 @@ const PatientDocumentsExplorerPage: FC = () => {
                     component="label"
                     target="_blank"
                     variant="outlined"
-                    startIcon={<AddIcon fontSize="small" />}
+                    startIcon={<UploadFileIcon fontSize="small" />}
                   >
-                    Upload New Doc
+                    Upload
                     <FileAttachmentHiddenInput
                       onChange={handleDocumentUploadInputChange}
                       type="file"
