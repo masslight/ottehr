@@ -109,7 +109,7 @@ export const InHouseMedication: React.FC = () => {
             }}
           >
             <Tabs value={tabName === 'mar' ? 0 : 1} onChange={handleChange} aria-label="medication tabs">
-              <Tab label="MAR" />
+              <Tab data-testid={dataTestIds.inHouseMedicationsPage.marTab} label="MAR" />
               <Tab data-testid={dataTestIds.inHouseMedicationsPage.medicationDetailsTab} label="Medication Details" />
             </Tabs>
           </Box>

@@ -385,6 +385,7 @@ export const dataTestIds = {
     marTableRouteCell: 'mar-table-route-cell',
     marTableInstructionsCell: 'mar-table-instructions-cell',
     medicationDetailsTab: 'medication-details-tab',
+    marTab: 'mar-tab',
     pencilIconButton: 'EditOutlinedIcon',
   },
   orderMedicationPage: {

@@ -26,7 +26,7 @@ import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { VisitStatusLabel } from 'utils';
+import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches, VisitStatusLabel } from 'utils';
 import { getAiAssistedEncountersReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
@@ -74,39 +74,6 @@ const getStatusColor = (
   }
 };
 
-const MAX_BATCHES = 5;
-const BATCH_DAYS = 5;
-
-/**
- * Splits a date range into batches of maximum 5 days each
- */
-const splitDateRangeIntoBatches = (
-  start: string,
-  end: string,
-  maxDays: number = MAX_BATCHES
-): Array<{ start: string; end: string }> => {
-  const startDate = DateTime.fromISO(start);
-  const endDate = DateTime.fromISO(end);
-
-  const batches: Array<{ start: string; end: string }> = [];
-  let currentStart = startDate;
-
-  while (currentStart < endDate) {
-    // Calculate the end of the current batch (5 days from start, or the final end date)
-    const currentEnd = DateTime.min(currentStart.plus({ days: maxDays }).minus({ milliseconds: 1 }), endDate);
-
-    batches.push({
-      start: currentStart.toISO() ?? '',
-      end: currentEnd.toISO() ?? '',
-    });
-
-    // Move to the next batch
-    currentStart = currentEnd.plus({ milliseconds: 1 });
-  }
-
-  return batches;
-};
-
 const useAiAssistedEncounters = (
   dateRange: DateRangeFilter,
   start: string,
@@ -132,8 +99,8 @@ const useAiAssistedEncounters = (
 
       console.log(`Date range is ${daysDifference.toFixed(2)} days`);
 
-      // If the date range is <= BATCH_DAYS days, make a single request
-      if (daysDifference <= BATCH_DAYS) {
+      // If the date range is <= DEFAULT_BATCH_DAYS days, make a single request
+      if (daysDifference <= DEFAULT_BATCH_DAYS) {
         console.log('Making single request for date range');
         const response = await getAiAssistedEncountersReport(oystehrZambda, {
           dateRange: { start, end },
@@ -171,9 +138,9 @@ const useAiAssistedEncounters = (
         });
       }
 
-      // Split the date range into BATCH_DAYS-day batches
-      const batches = splitDateRangeIntoBatches(start, end, BATCH_DAYS);
-      console.log(`Splitting date range into ${batches.length} batches of up to ${BATCH_DAYS} days each`);
+      // Split the date range into DEFAULT_BATCH_DAYS-day batches
+      const batches = splitDateRangeIntoBatches(start, end, DEFAULT_BATCH_DAYS);
+      console.log(`Splitting date range into ${batches.length} batches of up to ${DEFAULT_BATCH_DAYS} days each`);
 
       // Fetch data for each batch in parallel
       const batchPromises = batches.map(async (batch, index) => {
