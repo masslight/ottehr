@@ -1356,7 +1356,11 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
   // 6. AI potential diagnoses
   resources
     .filter(
-      (resource) => resource.resourceType === 'Condition' && resource.meta?.tag?.[0].code === 'ai-potential-diagnosis'
+      (resource) =>
+        resource.resourceType === 'Condition' &&
+        resource.meta?.tag?.[0].code === 'ai-potential-diagnosis' &&
+        encounterResource.id !== undefined &&
+        resourceReferencesEncounter(resource, encounterResource.id)
     )
     .forEach((condition) => {
       data.aiPotentialDiagnosis?.push(makeDiagnosisDTO(condition as Condition, false));
