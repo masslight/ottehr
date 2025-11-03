@@ -1,9 +1,26 @@
-import { Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  Appointment,
+  DiagnosticReport,
+  Encounter,
+  Location,
+  Observation,
+  Organization,
+  Patient,
+  Practitioner,
+  Provenance,
+  QuestionnaireResponse,
+  Schedule,
+  ServiceRequest,
+  Specimen,
+  Task,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   ASQ_FIELD,
   ASQKeys,
   asqLabels,
+  convertActivityDefinitionToTestItem,
   CPTCodeDTO,
   createMedicationString,
   dispositionCheckboxOptions,
@@ -24,17 +41,24 @@ import {
   isDropdownComponent,
   isInPersonAppointment,
   isMultiSelectComponent,
+  LabOrderPDF,
+  LabResultPDF,
   mapDispositionTypeToLabel,
   mapVitalsToDisplay,
   NOTE_TYPE,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
+  Pagination,
+  PatientLabItem,
   patientScreeningQuestionsConfig,
+  QuestionnaireData,
   searchRouteByCode,
   Secrets,
   Timezone,
 } from 'utils';
+import { findActivityDefinitionForServiceRequest } from '../../../ehr/get-in-house-orders/helpers';
+import { parseLabInfo } from '../../../ehr/get-lab-orders/helpers';
 import { PdfInfo } from '../pdf-utils';
-import { PdfExaminationBlockData, VisitNoteData } from '../types';
+import { LabOrder, PdfExaminationBlockData, VisitNoteData } from '../types';
 import { createVisitNotePDF } from '../visit-note-pdf';
 import { FullAppointmentResourcePackage } from './types';
 
@@ -43,6 +67,42 @@ type AllChartData = {
   additionalChartData?: GetChartDataResponse;
   medicationOrders?: GetMedicationOrdersResponse['orders'];
   immunizationOrders?: ImmunizationOrder[];
+  externalLabsData?: {
+    serviceRequests: ServiceRequest[];
+    tasks: Task[];
+    diagnosticReports: DiagnosticReport[];
+    practitioners: Practitioner[];
+    pagination: Pagination;
+    encounters: Encounter[];
+    locations: Location[];
+    observations: Observation[];
+    appointments: Appointment[];
+    provenances: Provenance[];
+    organizations: Organization[];
+    questionnaires: QuestionnaireData[];
+    resultPDFs: LabResultPDF[];
+    orderPDF: LabOrderPDF | undefined;
+    specimens: Specimen[];
+    patientLabItems: PatientLabItem[];
+    appointmentScheduleMap: Record<string, Schedule>;
+  };
+  inHouseOrdersData?: {
+    serviceRequests: ServiceRequest[];
+    tasks: Task[];
+    practitioners: Practitioner[];
+    encounters: Encounter[];
+    locations: Location[];
+    appointments: Appointment[];
+    provenances: Provenance[];
+    activityDefinitions: ActivityDefinition[];
+    specimens: Specimen[];
+    observations: Observation[];
+    pagination: Pagination;
+    diagnosticReports: DiagnosticReport[];
+    resultsPDFs: LabResultPDF[];
+    currentPractitioner?: Practitioner;
+    appointmentScheduleMap: Record<string, Schedule>;
+  };
 };
 
 export async function composeAndCreateVisitNotePdf(
@@ -70,7 +130,8 @@ function composeDataForPdf(
   appointmentPackage: FullAppointmentResourcePackage,
   isInPersonAppointment: boolean
 ): VisitNoteData {
-  const { chartData, additionalChartData, medicationOrders, immunizationOrders } = allChartData;
+  const { chartData, additionalChartData, medicationOrders, immunizationOrders, externalLabsData, inHouseOrdersData } =
+    allChartData;
 
   const { patient, encounter, mainEncounter, appointment, location, questionnaireResponse, practitioners, timezone } =
     appointmentPackage;
@@ -159,6 +220,23 @@ function composeDataForPdf(
   const immunizationOrdersToRender = (immunizationOrders ?? [])
     .filter((order) => ['administered', 'administered-partly'].includes(order.status))
     .map(immunizationOrderToString);
+
+  // --- In-House Labs ---
+  const inHouseLabResults = additionalChartData?.inHouseLabResults?.labOrderResults ?? [];
+  const inHouseLabOrders = inHouseOrdersData?.serviceRequests?.length
+    ? mapResourcesToInHouseLabOrders(
+        inHouseOrdersData?.serviceRequests,
+        inHouseOrdersData?.activityDefinitions,
+        inHouseOrdersData?.observations
+      )
+    : [];
+
+  // --- External Labs ---
+  const externalLabResults = additionalChartData?.externalLabResults?.labOrderResults ?? [];
+
+  const externalLabOrders = externalLabsData?.serviceRequests?.length
+    ? mapResourcesToExternalLabOrders(externalLabsData?.serviceRequests)
+    : [];
 
   // --- Addition questions ---
   const additionalQuestions: Record<string, any> = {};
@@ -317,6 +395,14 @@ function composeDataForPdf(
     inHouseMedications,
     inHouseMedicationsNotes,
     immunizationOrders: immunizationOrdersToRender,
+    inHouseLabs: {
+      orders: inHouseLabOrders,
+      results: inHouseLabResults,
+    },
+    externalLabs: {
+      orders: externalLabOrders,
+      results: externalLabResults,
+    },
     screening: {
       additionalQuestions,
       currentASQ,
@@ -591,3 +677,37 @@ function immunizationOrderToString(order: ImmunizationOrder): string {
     : '';
   return `${order.details.medication.name} - ${order.details.dose} ${order.details.units} / ${route} - ${location}\n${administratedDateTime}`;
 }
+
+const mapResourcesToInHouseLabOrders = (
+  serviceRequests: ServiceRequest[],
+  activityDefinitions: ActivityDefinition[],
+  observations: Observation[]
+): LabOrder[] => {
+  return serviceRequests
+    .filter((sr) => sr.id)
+    .map((serviceRequest) => {
+      const activityDefinition = findActivityDefinitionForServiceRequest(serviceRequest, activityDefinitions);
+      if (!activityDefinition) {
+        console.warn(`ActivityDefinition not found for ServiceRequest ${serviceRequest.id}`);
+        return null;
+      }
+
+      const testItem = convertActivityDefinitionToTestItem(activityDefinition, observations, serviceRequest);
+
+      return {
+        serviceRequestId: serviceRequest.id!,
+        testItemName: testItem.name,
+      };
+    })
+    .filter(Boolean) as { serviceRequestId: string; testItemName: string }[];
+};
+
+const mapResourcesToExternalLabOrders = (serviceRequests: ServiceRequest[]): LabOrder[] => {
+  return serviceRequests.map((serviceRequest) => {
+    const { testItem } = parseLabInfo(serviceRequest);
+    return {
+      serviceRequestId: serviceRequest.id ?? '',
+      testItemName: testItem,
+    };
+  });
+};

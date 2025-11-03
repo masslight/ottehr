@@ -293,6 +293,8 @@ export interface VisitNoteData extends PdfExaminationBlockData {
   allergiesNotes?: string[];
   medicalConditions?: string[];
   medicalConditionsNotes?: string[];
+  inHouseLabs?: { orders: LabOrder[]; results: IInHouseLabResult[] };
+  externalLabs?: { orders: LabOrder[]; results: ExternalLabOrderResult[] };
   surgicalHistory?: string[];
   surgicalHistoryNotes?: string[];
   inHouseMedications?: string[];
