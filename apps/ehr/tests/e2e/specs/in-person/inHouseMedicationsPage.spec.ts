@@ -8,7 +8,7 @@ import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { DIAGNOSIS_EMPTY_VALUE, Field, ORDERED_BY_EMPTY_VALUE } from '../../page/EditMedicationCard';
 import { InHouseMedicationsPage } from '../../page/in-person/InHouseMedicationsPage';
 import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
-import { expectEditOrderPage, OrderMedicationPage } from '../../page/OrderMedicationPage';
+import { expectEditOrderPage, openOrderMedicationPage, OrderMedicationPage } from '../../page/OrderMedicationPage';
 
 const PROCESS_ID = `inHouseMedicationsPage.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
@@ -22,7 +22,6 @@ const MANUFACTURER = 'Test';
 const ROUTE = 'Sublingual route';
 const INSTRUCTIONS = 'Instructions';
 
-const NEW_DIAGNOSIS = 'Situational type phobia';
 const NEW_MEDICATION = 'Acetaminophen (325mg Suppository)';
 const NEW_DOSE = '1';
 const NEW_UNITS = 'g';
@@ -39,9 +38,7 @@ const NOT_ADMINISTERED = 'Not Administered';
 let page: Page;
 let context: BrowserContext;
 
-let orderMedicationPage: OrderMedicationPage;
-
-test.beforeAll(async ({ browser }) => {
+test.beforeEach(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
   if (process.env.INTEGRATION_TEST === 'true') {
@@ -51,21 +48,10 @@ test.beforeAll(async ({ browser }) => {
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   }
 
-  await page.goto(`in-person/${resourceHandler.appointment.id}`);
-  const inPersonHeader = new InPersonHeader(page);
-  await inPersonHeader.selectIntakePractitioner();
-  await inPersonHeader.selectProviderPractitioner();
-  await inPersonHeader.clickSwitchModeButton('provider');
-  const sideMenu = new SideMenu(page);
-  await sideMenu.clickAssessment();
-  const assessmentPage = await expectAssessmentPage(page);
-  await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
-  await assessmentPage.selectDiagnosis({ diagnosisNamePart: NEW_DIAGNOSIS });
-  const inHouseMedicationsPage = await sideMenu.clickInHouseMedications();
-  orderMedicationPage = await inHouseMedicationsPage.clickOrderButton();
+  await prepareAppointment(page);
 });
 
-test.afterAll(async () => {
+test.afterEach(async () => {
   await resourceHandler.cleanupResources();
   await page.close();
   await context.close();
@@ -74,6 +60,7 @@ test.afterAll(async () => {
 test('In-house medications page', async () => {
   let editOrderPage: OrderMedicationPage;
   let medicationsPage: InHouseMedicationsPage;
+  const orderMedicationPage: OrderMedicationPage = await openOrderMedicationPage(resourceHandler.appointment.id!, page);
 
   await test.step('"Order" button is disabled when all fields are empty', async () => {
     await orderMedicationPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS_EMPTY_VALUE);
@@ -210,17 +197,17 @@ test('In-house medications page', async () => {
 
   await test.step('Delete the order', async () => {
     const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
-    const deleteDialog = await inHouseMedicationsPage.clickDeleteButton(MEDICATION);
+    const deleteDialog = await inHouseMedicationsPage.clickDeleteButton(NEW_MEDICATION);
     await deleteDialog.verifyTitle('Delete Medication');
-    await deleteDialog.verifyMessage('Are you sure you want to delete the medication ' + '"' + MEDICATION + '"?');
+    await deleteDialog.verifyMessage('Are you sure you want to delete the medication ' + '"' + NEW_MEDICATION + '"?');
     await deleteDialog.clickProceedButton();
     await inHouseMedicationsPage.verifyMedicationPresent({
-      medicationName: MEDICATION,
-      dose: DOSE,
-      units: UNITS,
-      route: ROUTE,
+      medicationName: NEW_MEDICATION,
+      dose: NEW_DOSE,
+      units: NEW_UNITS,
+      route: NEW_ROUTE,
       orderedBy: await getCurrentPractitionerFirstLastName(),
-      instructions: INSTRUCTIONS,
+      instructions: NEW_INSTRUCTIONS,
       status: CANCELLED,
     });
   });
@@ -357,7 +344,7 @@ test('Making in-house medication order Not Administered happy path', async ({ pa
   });
 });
 
-async function prepareAndOpenOrderMedicationPage(page: Page): Promise<OrderMedicationPage> {
+async function prepareAppointment(page: Page): Promise<void> {
   await page.goto(`in-person/${resourceHandler.appointment.id}`);
   const inPersonHeader = new InPersonHeader(page);
   await inPersonHeader.selectIntakePractitioner();
@@ -367,13 +354,10 @@ async function prepareAndOpenOrderMedicationPage(page: Page): Promise<OrderMedic
   await sideMenu.clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);
   await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
-  await assessmentPage.selectDiagnosis({ diagnosisNamePart: NEW_DIAGNOSIS });
-  const inHouseMedicationsPage = await sideMenu.clickInHouseMedications();
-  return await inHouseMedicationsPage.clickOrderButton();
 }
 
 async function createOrderForAdministration(page: Page): Promise<InHouseMedicationsPage> {
-  const createOrderPage = await prepareAndOpenOrderMedicationPage(page);
+  const createOrderPage = await openOrderMedicationPage(resourceHandler.appointment.id!, page);
   await createOrderPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
   await createOrderPage.editMedicationCard.selectMedication(MEDICATION);
   await createOrderPage.editMedicationCard.enterDose(DOSE);
