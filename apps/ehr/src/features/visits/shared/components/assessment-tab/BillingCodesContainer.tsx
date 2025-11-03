@@ -5,15 +5,13 @@ import { ActionsList } from 'src/components/ActionsList';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
-import { TooltipWrapper } from 'src/components/WithTooltip';
-import { CPT_TOOLTIP_PROPS } from 'src/components/WithTooltip';
+import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { APIErrorCode } from 'utils';
+import { APIErrorCode, CPTCodeOption, emCodeOptions } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useGetIcd10Search } from '../../stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
-import { CPTCodeOption, emCodeOptions } from './EMCodeField';
 
 export const BillingCodesContainer: FC = () => {
   const { chartData, setPartialChartData } = useChartData();
