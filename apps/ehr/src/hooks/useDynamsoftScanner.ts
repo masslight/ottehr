@@ -91,11 +91,12 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
 
       const bindResult = dwtObject.Viewer.bind(container);
       if (bindResult) {
-        // Set viewer dimensions - use actual pixel values for better rendering
+        // Set viewer dimensions to match container - use actual pixel values for better rendering
         const containerWidth = container.clientWidth || 600;
-        console.log('Binding viewer to container, width:', containerWidth);
+        const containerHeight = container.clientHeight || 500;
+        console.log('Binding viewer to container, width:', containerWidth, 'height:', containerHeight);
         dwtObject.Viewer.width = containerWidth;
-        dwtObject.Viewer.height = 400;
+        dwtObject.Viewer.height = containerHeight;
         dwtObject.Viewer.setViewMode(1, 1);
         dwtObject.Viewer.show();
         console.log('Viewer initialized and shown');
