@@ -1,5 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { Operation } from 'fast-json-patch';
 import { Extension, Location, Organization } from 'fhir/r4b';
+import { getPatchBinary } from 'src/helpers/fhir';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   FHIR_EXTENSION,
@@ -189,5 +191,38 @@ export const useInsuranceOrganizationsQuery = (): UseQueryResult<Organization[],
     },
 
     enabled: !!oystehr,
+  });
+};
+
+export interface BulkInsuranceStatusData {
+  insuranceIds: string[];
+  active: boolean;
+}
+
+export const useBulkInsuranceStatusMutation = (): UseMutationResult<void, Error, BulkInsuranceStatusData> => {
+  const { oystehr } = useApiClients();
+
+  return useMutation({
+    mutationKey: ['bulk-insurance-status'],
+
+    mutationFn: async (data: BulkInsuranceStatusData) => {
+      if (!oystehr) throw new Error('Oystehr is not defined');
+
+      const patchOp: Operation = {
+        op: 'replace',
+        path: '/active',
+        value: data.active,
+      };
+
+      await oystehr.fhir.batch({
+        requests: data.insuranceIds.map((insuranceId) =>
+          getPatchBinary({
+            resourceId: insuranceId,
+            resourceType: 'Organization',
+            patchOperations: [patchOp],
+          })
+        ),
+      });
+    },
   });
 };
