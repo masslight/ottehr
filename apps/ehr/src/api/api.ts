@@ -167,7 +167,6 @@ const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
-const GET_PREFILLED_INVOICE_INFO_ZAMBDA_ID = 'get-prefilled-invoice-info';
 const SEND_INVOICE_TO_PATIENT_ZAMBDA_ID = 'send-invoice-to-patient';
 const INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID = 'invoiceable-patients-report';
 

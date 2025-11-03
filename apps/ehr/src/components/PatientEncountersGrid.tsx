@@ -44,7 +44,7 @@ import {
   visitStatusArray,
 } from 'utils';
 import { create } from 'zustand';
-import { getEmployees, getPrefilledInvoiceInfo, sendInvoiceToPatient } from '../api/api';
+import { getEmployees, sendInvoiceToPatient } from '../api/api';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { AppointmentHistoryRow } from '../hooks/useGetPatient';
@@ -182,14 +182,14 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     enabled: !!oystehrZambda,
   });
 
-  const { data: prefilledInvoice } = useQuery({
-    queryKey: ['get-prefilled-invoice-info', patient?.id],
-    queryFn: () => {
-      if (oystehrZambda && patient?.id) return getPrefilledInvoiceInfo(oystehrZambda, { patientId: patient?.id });
-      return undefined;
-    },
-    enabled: !!oystehrZambda && !!patient?.id,
-  });
+  // const { data: prefilledInvoice } = useQuery({
+  //   queryKey: ['get-prefilled-invoice-info', patient?.id],
+  //   queryFn: () => {
+  //     if (oystehrZambda && patient?.id) return getPrefilledInvoiceInfo(oystehrZambda, { patientId: patient?.id });
+  //     return undefined;
+  //   },
+  //   enabled: !!oystehrZambda && !!patient?.id,
+  // });
 
   useSuccessQuery(employeesData, (data) => {
     const employees = data?.employees || [];

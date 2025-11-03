@@ -5,6 +5,7 @@ import { Account, Appointment, Encounter, Patient, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createCandidApiClient,
+  getCandidInventoryPagesRecursive,
   getPatientReferenceFromAccount,
   getResourcesFromBatchInlineRequests,
   getSecret,
@@ -27,12 +28,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import {
-  getCandidItemizationMap,
-  getCandidPagesRecursive,
-  InvoiceableClaim,
-  mapResourcesToInvoiceablePatient,
-} from './helpers';
+import { getCandidItemizationMap, InvoiceableClaim, mapResourcesToInvoiceablePatient } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -92,7 +88,7 @@ async function getInvoiceableClaims(input: InvoiceableClaimsInput): Promise<Invo
     const { candid, limitPerPage, onlyInvoiceable } = input;
 
     console.log('🔍 Fetching patient inventory from Candid...');
-    const inventoryPages = await getCandidPagesRecursive({
+    const inventoryPages = await getCandidInventoryPagesRecursive({
       candid,
       claims: [],
       limitPerPage,

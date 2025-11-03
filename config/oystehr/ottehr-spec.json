@@ -1225,13 +1225,6 @@
       "src": "src/ehr/invoiceable-patients-report/index",
       "zip": ".dist/zips/invoiceable-patients-report.zip"
     },
-    "GET-PREFILLED-INVOICE-INFO": {
-      "name": "get-prefilled-invoice-info",
-      "type": "http_auth",
-      "runtime": "nodejs20.x",
-      "src": "src/ehr/get-prefilled-invoice-info/index",
-      "zip": ".dist/zips/get-prefilled-invoice-info.zip"
-    },
     "SEND-INVOICE-TO-PATIENT": {
       "name": "send-invoice-to-patient",
       "type": "http_auth",
