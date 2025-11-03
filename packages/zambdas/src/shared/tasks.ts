@@ -14,7 +14,10 @@ export function createTask(data: {
       }
     | CodeableConcept;
   encounterId?: string;
-  locationId?: string;
+  location?: {
+    id: string;
+    name?: string;
+  };
   input?: { type: string; value?: string }[] | TaskInput[];
   basedOn?: string[];
 }): Task {
@@ -23,10 +26,11 @@ export function createTask(data: {
       code: 'task',
     },
   ];
-  if (data.locationId != null) {
+  if (data.location != null) {
     tag.push({
       system: TASK_LOCATION_SYSTEM,
-      code: data.locationId,
+      code: data.location.id,
+      display: data.location?.name,
     });
   }
   return {
@@ -78,14 +82,27 @@ export function createTask(data: {
         })
         .filter((input) => input.valueString != null)
     ),
+    location: data.location
+      ? {
+          reference: 'Location/' + data.location.id,
+          display: data.location.name,
+        }
+      : undefined,
     meta: {
       tag,
     },
   };
 }
 
-export function getTaskLocationId(task: Task): string | undefined {
-  return task.meta?.tag?.find((coding) => coding.system === TASK_LOCATION_SYSTEM)?.code;
+export function getTaskLocation(task: Task): { id: string; name?: string } | undefined {
+  const locationCoding = task.meta?.tag?.find((coding) => coding.system === TASK_LOCATION_SYSTEM);
+  if (locationCoding?.code) {
+    return {
+      id: locationCoding.code,
+      name: locationCoding.display,
+    };
+  }
+  return undefined;
 }
 
 function isTaskInput(input: { type: string; value?: string } | TaskInput): input is TaskInput {

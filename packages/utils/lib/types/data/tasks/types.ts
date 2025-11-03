@@ -8,7 +8,10 @@ export interface CreateManualTaskRequest {
     id: string;
     name: string;
   };
-  locationId: string;
+  location: {
+    id: string;
+    name: string;
+  };
 }
 
 export const MANUAL_TASK = {

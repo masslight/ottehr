@@ -52,7 +52,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
       category: formValue.category,
       taskTitle: formValue.task,
       taskDetails: formValue.taskDetails,
-      locationId: formValue.location.id,
+      location: formValue.location,
     });
   };
 

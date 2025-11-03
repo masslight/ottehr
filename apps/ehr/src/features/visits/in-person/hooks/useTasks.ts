@@ -327,7 +327,7 @@ function fhirTaskToTask(task: FhirTask): Task {
   if (category.startsWith('manual')) {
     const providerName = getInput(MANUAL_TASK.input.providerName, task);
     title = getInput(MANUAL_TASK.input.title, task) ?? '';
-    subtitle = `Manual task by ${providerName} / "todo location name"`;
+    subtitle = `Manual task by ${providerName} / ${task.location?.display ?? ''}`;
     details = getInput(MANUAL_TASK.input.details, task) ?? '';
     action = {
       name: 'Mark as Completed',

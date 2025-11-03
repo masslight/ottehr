@@ -31,7 +31,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const taskToCreate = createTask({
       category: params.category,
-      locationId: params.locationId,
+      location: {
+        id: params.location.id,
+        name: params.location.name,
+      },
       input: [
         {
           type: MANUAL_TASK.input.title,
@@ -77,12 +80,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export function validateRequestParameters(input: ZambdaInput): CreateManualTaskRequest & Pick<ZambdaInput, 'secrets'> {
-  const { category, appointmentId, orderId, taskTitle, taskDetails, assignee, locationId } = validateJsonBody(input);
+  const { category, appointmentId, orderId, taskTitle, taskDetails, assignee, location } = validateJsonBody(input);
 
   const missingFields: string[] = [];
   if (!category) missingFields.push('category');
   if (!taskTitle) missingFields.push('taskTitle');
-  if (!locationId) missingFields.push('locationId');
+  if (!location) missingFields.push('location');
+  if (location) {
+    if (!location.id) missingFields.push('location.id');
+    if (!location.name) missingFields.push('location.name');
+  }
   if (assignee) {
     if (!assignee.id) missingFields.push('assignee.id');
     if (!assignee.name) missingFields.push('assignee.name');
@@ -96,7 +103,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
     taskTitle,
     taskDetails,
     assignee,
-    locationId,
+    location,
     secrets: input.secrets,
   };
 }

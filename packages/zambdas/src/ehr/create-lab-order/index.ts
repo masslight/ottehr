@@ -244,7 +244,11 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         code: LAB_ORDER_TASK.code.preSubmission,
       },
       encounterId: encounter.id ?? '',
-      locationId: orderingLocation.id,
+      location: orderingLocation.id
+        ? {
+            id: orderingLocation.id,
+          }
+        : undefined,
       basedOn: [serviceRequestFullUrl],
       input: [
         {
