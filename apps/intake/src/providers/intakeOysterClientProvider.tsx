@@ -3,6 +3,7 @@ import Oystehr from '@oystehr/sdk';
 import { createContext, FC, PropsWithChildren, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { checkTokenIsValid } from 'src/api/tokenUtils';
+import { useAwaitAuth0 } from 'src/hooks/useAwaitAuth0';
 
 export const useClient = ({ tokenless }: { tokenless: boolean }): Oystehr | null => {
   const context = useContext(IntakeClientsContext);
@@ -37,6 +38,7 @@ export const IntakeClientsProvider: FC<PropsWithChildren> = ({ children }) => {
   );
 
   const { isAuthenticated, getAccessTokenSilently, logout } = useAuth0();
+  const auth0Loaded = useAwaitAuth0();
   const [searchParams, _] = useSearchParams();
   const urlTokenFromUrl = searchParams.get('token') ?? undefined;
   const refreshTokenPromiseRef = useRef<Promise<string | undefined> | null>(null);
@@ -46,6 +48,8 @@ export const IntakeClientsProvider: FC<PropsWithChildren> = ({ children }) => {
   // if not authenticated but URL token is present, URL token is used;
   // otherwise return undefined
   const tryGetToken = useCallback(async (): Promise<string | undefined> => {
+    await auth0Loaded; // we need to be synced with auth0 state before we try to get the token;
+
     const token = await (async () => {
       const shouldUseAuth0Token = Boolean(isAuthenticated);
       const shouldUseUrlToken = Boolean(!isAuthenticated && urlTokenFromUrl);
@@ -72,7 +76,7 @@ export const IntakeClientsProvider: FC<PropsWithChildren> = ({ children }) => {
 
     activeTokenRef.current = token;
     return token;
-  }, [getAccessTokenSilently, isAuthenticated, urlTokenFromUrl]);
+  }, [getAccessTokenSilently, auth0Loaded, isAuthenticated, urlTokenFromUrl]);
 
   const updateClient = useCallback(async (): Promise<void> => {
     setClientWithToken(
@@ -82,25 +86,16 @@ export const IntakeClientsProvider: FC<PropsWithChildren> = ({ children }) => {
         projectId: import.meta.env.VITE_APP_PROJECT_ID,
 
         // fetch interceptor responsible for:
-        // - Checks token validity before each request and refreshes token if it is close to expiration (30s buffer);
-        //   Oystehr returns 500 instead of 401 for invalid tokens, making status-based retry unreliable;
-        //   buffer ensures valid tokens while minimizing refresh requests
+        // - Checks token validity before each request and refreshes token if it is close to expiration (30s buffer)
         // - Logs out and redirects on token refresh failure
         fetch: async (req: Request) => {
-          if (activeTokenRef.current && checkTokenIsValid(activeTokenRef.current)) {
-            return fetch(req);
-          }
-
-          // 'client' will be updated as well since 'isAuthenticated' dep will be updated and 'updateClient' will be called inside the useEffect
+          await auth0Loaded; // we need to wait for Auth0 state to be loaded before we can get the token; if we don't, we'll get a false positive logout
           const newToken = await tryGetToken();
 
           if (!newToken || !checkTokenIsValid(newToken)) {
-            console.error('token is invalid, logging out');
-
             await logout({
               logoutParams: { returnTo: import.meta.env.VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL, federated: true },
             });
-
             throw new Error('token is invalid');
           }
 
@@ -115,7 +110,7 @@ export const IntakeClientsProvider: FC<PropsWithChildren> = ({ children }) => {
         },
       })
     );
-  }, [tryGetToken, logout]);
+  }, [tryGetToken, logout, auth0Loaded]);
 
   // Recreates client when auth state changes (isAuthenticated or URL token); fetch interceptor handles additional token validation during requests.
   useEffect(() => {
