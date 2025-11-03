@@ -26,6 +26,7 @@ interface LabsTableProps {
   }) => void;
   allowDelete?: boolean;
   bundleRow?: ReactElement;
+  handleRejectedAbn?: (serviceRequestId: string) => Promise<void>;
 }
 
 export const LabsTable = ({
@@ -34,6 +35,7 @@ export const LabsTable = ({
   allowDelete,
   showDeleteLabOrderDialog,
   bundleRow,
+  handleRejectedAbn,
 }: LabsTableProps): ReactElement => {
   const navigateTo = useNavigate();
 
@@ -94,6 +96,7 @@ export const LabsTable = ({
                   onRowClick={() => onRowClick(order)}
                   columns={columns}
                   allowDelete={allowDelete}
+                  handleRejectedAbn={handleRejectedAbn}
                 />
               );
             }

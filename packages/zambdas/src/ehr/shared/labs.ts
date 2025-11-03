@@ -64,6 +64,7 @@ import {
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PATIENT_BILLING_ACCOUNT_TYPE,
+  SR_REVOKED_REASON_EXT,
 } from 'utils';
 import { parseLabOrderStatusWithSpecificTask } from '../get-lab-orders/helpers';
 
@@ -875,6 +876,12 @@ export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
       )
   );
   return isCurrent && isAbn;
+};
+
+export const srHasRejectedAbnExt = (sr: ServiceRequest): boolean => {
+  return !!sr.extension?.some(
+    (ext) => ext.url === SR_REVOKED_REASON_EXT.url && ext.valueCode === SR_REVOKED_REASON_EXT.valueCode
+  );
 };
 
 export interface AOEDisplayForOrderForm {
