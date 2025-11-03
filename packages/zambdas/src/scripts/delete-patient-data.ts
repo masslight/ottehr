@@ -1,7 +1,8 @@
 import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
 import { Appointment, DocumentReference, Encounter, FhirResource, Patient, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { chunkThings, getAllFhirSearchPages, NEVER_DELETE } from 'utils';
+import { chunkThings, NEVER_DELETE } from 'utils';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 
 const CHUNK_SIZE = 50;
 // in this script, deleting RelatedPersons is expected

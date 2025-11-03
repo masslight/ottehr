@@ -160,7 +160,7 @@ export const useGetPatient = (
         (resource) => resource.resourceType === 'RelatedPerson'
       ) as RelatedPerson;
       const encounters: Encounter[] = patientResources.filter(
-        (resource) => resource.resourceType === 'Encounter'
+        (resource) => resource.resourceType === 'Encounter' && !resource.partOf
       ) as Encounter[];
 
       appointmentsTemp.sort((a, b) => {
@@ -181,7 +181,9 @@ export const useGetPatient = (
           ?.actor?.reference?.replace('Location/', '');
         const location = locations.find((location) => location.id === appointmentLocationID);
         const encounter = appointment.id
-          ? encounters.find((encounter) => encounter.appointment?.[0]?.reference?.endsWith(appointment.id!))
+          ? encounters.find(
+              (encounter) => encounter.appointment?.[0]?.reference?.endsWith(appointment.id!) && !encounter.partOf
+            )
           : undefined;
         const typeLabel = getVisitTypeLabelForAppointment(appointment);
 

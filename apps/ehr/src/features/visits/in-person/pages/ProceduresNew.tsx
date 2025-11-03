@@ -286,8 +286,11 @@ export default function ProceduresNew(): ReactElement {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
   };
 
-  const combineMultipleValuesForSave = (values: string[] | undefined, otherValue: string | undefined): string => {
-    if (!values?.length && !otherValue) return '';
+  const combineMultipleValuesForSave = (
+    values: string[] | undefined,
+    otherValue: string | undefined
+  ): string | undefined => {
+    if (!values?.length && !otherValue) return undefined;
 
     const result: string[] = [];
 

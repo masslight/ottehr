@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest, FhirSearchParams, SearchParam } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, SearchParam } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Account,
@@ -722,7 +722,7 @@ export const getAbbreviationFromLocation = (location: Location): string | undefi
   return location.address?.state;
 };
 
-export function getTaskResource(coding: TaskCoding, appointmentID: string): Task {
+export function getTaskResource(coding: TaskCoding, appointmentID: string, encounterId?: string): Task {
   return {
     resourceType: 'Task',
     status: 'requested',
@@ -731,6 +731,7 @@ export function getTaskResource(coding: TaskCoding, appointmentID: string): Task
       type: 'Appointment',
       reference: appointmentID.startsWith('urn:uuid:') ? appointmentID : `Appointment/${appointmentID}`,
     },
+    encounter: encounterId ? { type: 'Encounter', reference: `Encounter/${encounterId}` } : undefined,
     code: {
       coding: [coding],
     },
@@ -1317,14 +1318,6 @@ export function slashPathToLodashPath(slashPath: string): string {
     .replace(/\.\[/g, '[');
 }
 
-export const deduplicateUnbundledResources = <T extends Resource>(unbundledResources: T[]): T[] => {
-  const uniqueObjects: Record<string, T> = {};
-  unbundledResources.forEach((object) => {
-    uniqueObjects[`${object.resourceType}/${object.id}`] = object;
-  });
-  return Object.values(uniqueObjects);
-};
-
 export const takeContainedOrFind = <T extends Resource>(
   referenceString: string,
   resourceList: Resource[],
@@ -1384,55 +1377,6 @@ export const getSlugForBookableResource = (resource: BookableResource): string |
     return id.system === SLUG_SYSTEM;
   })?.value;
 };
-
-const OTTEHR_FHIR_URL = 'https://fhir.ottehr.com';
-
-export const ottehrCodeSystemUrl = (name: string): string => {
-  return OTTEHR_FHIR_URL + '/CodeSystem/' + name;
-};
-
-export const ottehrValueSetUrl = (name: string): string => {
-  return OTTEHR_FHIR_URL + '/ValueSet/' + name;
-};
-
-export const ottehrExtensionUrl = (name: string): string => {
-  return OTTEHR_FHIR_URL + '/Extension/' + name;
-};
-
-export const ottehrIdentifierSystem = (name: string): string => {
-  return OTTEHR_FHIR_URL + '/Identifier/' + name;
-};
-
-export async function getAllFhirSearchPages<T extends FhirResource>(
-  fhirSearchParams: FhirSearchParams<T>,
-  oystehr: Oystehr,
-  maxMatchPerBatch = 1000
-): Promise<T[]> {
-  let currentIndex = 0;
-  let total = 1;
-  const result: T[] = [];
-  const params = fhirSearchParams.params ?? [];
-  params.push({ name: '_count', value: `${maxMatchPerBatch}` }); // Set the count to 100 for each page
-  params.push({ name: '_total', value: 'accurate' });
-  while (currentIndex < total) {
-    const bundledResponse = await oystehr.fhir.search<T>({
-      resourceType: fhirSearchParams.resourceType,
-      params: [...params, { name: '_offset', value: `${currentIndex}` }],
-    });
-    const matchedCount = bundledResponse.entry?.filter((entry) => entry.search?.mode === 'match').length || 0;
-    total = bundledResponse.total || 0;
-    const unbundled = bundledResponse.unbundle();
-    result.push(...unbundled);
-    currentIndex += matchedCount;
-  }
-
-  console.log(
-    'Found',
-    currentIndex,
-    `${fhirSearchParams.resourceType} resources and ${result.length - currentIndex} included resources`
-  );
-  return result;
-}
 
 export function getCoding(
   codeableConcept: CodeableConcept | CodeableConcept[] | undefined,

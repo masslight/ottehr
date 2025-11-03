@@ -11,6 +11,7 @@ import {
   InvoiceablePatientReport,
   InvoiceablePatientReportFail,
   InvoiceablePatientsReport,
+  Secrets,
   SecretsKeys,
 } from 'utils';
 import {
@@ -41,12 +42,13 @@ const ZAMBDA_NAME = 'invoiceable-patients-report';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
+    const { secrets } = validatedParameters;
 
     // Get M2M token for FHIR access
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const candid = createCandidApiClient(validatedParameters.secrets);
+    const candid = createCandidApiClient(secrets);
 
     const invoiceableClaims = await getInvoiceableClaims({ candid, limitPerPage: 100, onlyInvoiceable: true });
     if (invoiceableClaims) {
@@ -56,7 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         invoiceableClaims: invoiceableClaims,
       });
       if (invoiceablePatientsReport) {
-        await saveReportToZ3(oystehr, invoiceablePatientsReport);
+        await saveReportToZ3(oystehr, invoiceablePatientsReport, secrets);
         return {
           statusCode: 200,
           body: JSON.stringify('Invoiceable patients report created and saved successfully'),
@@ -140,10 +142,7 @@ async function getInvoiceablePatientsReport(input: {
       promises.push(
         getResourcesFromBatchInlineRequests(
           oystehr,
-          invoiceableClaims.map(
-            (claim) =>
-              `https://fhir-api.zapehr.com/r4/Patient?_id=${claim.patientExternalId}&_revinclude=Account:patient`
-          )
+          invoiceableClaims.map((claim) => `Patient?_id=${claim.patientExternalId}&_revinclude=Account:patient`)
         )
       );
       promises.push(
@@ -151,7 +150,7 @@ async function getInvoiceablePatientsReport(input: {
           oystehr,
           invoiceableClaims.map(
             (claim) =>
-              `https://fhir-api.zapehr.com/r4/Encounter?identifier=${CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM}%7C${claim.encounterId}&_include=Encounter:appointment`
+              `Encounter?identifier=${CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM}|${claim.encounterId}&_include=Encounter:appointment`
           )
         )
       );
@@ -201,6 +200,7 @@ async function getInvoiceablePatientsReport(input: {
         appointmentToIdMap,
         itemizationMap,
         claim,
+        allFhirResources: allFhirResourcesResponse,
       });
       if (report && 'error' in report) resultReportsErrors.push(report);
       else if (report) resultReports.push(report);
@@ -217,19 +217,14 @@ async function getInvoiceablePatientsReport(input: {
   }
 }
 
-async function saveReportToZ3(oystehr: Oystehr, data: InvoiceablePatientsReport): Promise<void> {
+async function saveReportToZ3(oystehr: Oystehr, data: InvoiceablePatientsReport, secrets: Secrets): Promise<void> {
   try {
-    console.log('Uploading report to Z3');
+    const fullBucketName = `${getSecret(SecretsKeys.PROJECT_ID, secrets)}-${INVOICEABLE_PATIENTS_REPORTS_BUCKET_NAME}`;
 
-    const buckets = (await oystehr.z3.listBuckets()).map((bucket) => bucket.name);
-    if (!buckets.includes(INVOICEABLE_PATIENTS_REPORTS_BUCKET_NAME)) {
-      console.log(`Bucket ${INVOICEABLE_PATIENTS_REPORTS_BUCKET_NAME} does not exist, creating it...`);
-      const createdBucket = await oystehr.z3.createBucket({ bucketName: INVOICEABLE_PATIENTS_REPORTS_BUCKET_NAME });
-      console.log(`Created bucket id: ${createdBucket.id} and name: ${createdBucket.name}`);
-    } else console.log('Patients reports bucket already exists');
+    console.log('Uploading report to Z3 bucket: ', fullBucketName);
 
     await oystehr.z3.uploadFile({
-      bucketName: INVOICEABLE_PATIENTS_REPORTS_BUCKET_NAME,
+      bucketName: fullBucketName,
       'objectPath+': INVOICEABLE_PATIENTS_REPORTS_FILE_NAME,
       file: new Blob([JSON.stringify(data)], { type: 'application/json' }),
     });

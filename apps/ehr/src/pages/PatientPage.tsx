@@ -159,7 +159,7 @@ export default function PatientPage(): JSX.Element {
             </Box>
 
             <TabPanel value="encounters" sx={{ p: 0 }}>
-              <PatientEncountersGrid appointments={appointments} loading={loading} patientId={patient?.id} />
+              <PatientEncountersGrid appointments={appointments} loading={loading} patient={patient} />
             </TabPanel>
             <TabPanel value="followups" sx={{ p: 0 }}>
               <PatientFollowupEncountersGrid patient={patient} loading={loading}></PatientFollowupEncountersGrid>
