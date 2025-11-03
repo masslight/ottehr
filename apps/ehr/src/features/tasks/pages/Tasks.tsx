@@ -315,7 +315,8 @@ export const Tasks: React.FC = () => {
                             </GenericToolTip>
                           ) : null}
                         </Box>
-                        <Typography variant="body2" display="inline" style={{ color: '#00000099' }}>
+                        {task.details ? <Typography variant="body2">{task.details}</Typography> : null}
+                        <Typography variant="body2" style={{ color: '#00000099' }}>
                           {task.subtitle}
                         </Typography>
                       </TableCell>

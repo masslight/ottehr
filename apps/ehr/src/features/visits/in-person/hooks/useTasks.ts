@@ -4,11 +4,14 @@ import { Task as FhirTask } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  chooseJson,
+  CreateManualTaskRequest,
   getCoding,
   getExtension,
   IN_HOUSE_LAB_TASK,
   LAB_ORDER_TASK,
   LabType,
+  MANUAL_TASK,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TASK_CATEGORY_IDENTIFIER,
   TASK_INPUT_SYSTEM,
@@ -19,19 +22,6 @@ const GET_TASKS_KEY = 'get-tasks';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 
 export const TASKS_PAGE_SIZE = 20;
-export const MANUAL_TASKS_CATEGORIES = {
-  externalLab: 'manual-external-lab',
-  inHouseLab: 'manual-in-house-lab',
-  inHouseMedications: 'manual-in-house-medications',
-  nursingOrders: 'manual-nursing-orders',
-  patientFollowUp: 'manual-patient-follow-up',
-  procedures: 'manual-procedures',
-  radiology: 'manual-radiology',
-  erx: 'manual-erx',
-  charting: 'manual-charting',
-  coding: 'manual-coding',
-  other: 'manual-other',
-} as const;
 
 export interface Task {
   id: string;
@@ -39,6 +29,7 @@ export interface Task {
   createdDate: string;
   title: string;
   subtitle: string;
+  details?: string;
   status: string;
   action?: {
     name: string;
@@ -220,11 +211,33 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
   });
 };
 
+export const useCreateManualTask = (): UseMutationResult<void, Error, CreateManualTaskRequest> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateManualTaskRequest) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      const response = await oystehrZambda.zambda.execute({
+        ...input,
+        id: 'create-manual-task',
+      });
+      return chooseJson(response);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: [GET_TASKS_KEY],
+        exact: false,
+      });
+    },
+  });
+};
+
 function fhirTaskToTask(task: FhirTask): Task {
   const category = task.groupIdentifier?.value ?? '';
   let action: any = undefined;
-  let title = getInput('title', task) ?? '';
-  let subtitle = getInput('subtitle', task) ?? '';
+  let title = '';
+  let subtitle = '';
+  let details: string | undefined = undefined;
   if (category === LAB_ORDER_TASK.category) {
     const code = getCoding(task.code, LAB_ORDER_TASK.system)?.code ?? '';
     const testName = getInput(LAB_ORDER_TASK.input.testName, task);
@@ -311,12 +324,23 @@ function fhirTaskToTask(task: FhirTask): Task {
       )?.[1]}/order-details`,
     };
   }
+  if (category.startsWith('manual')) {
+    const providerName = getInput(MANUAL_TASK.input.providerName, task);
+    title = getInput(MANUAL_TASK.input.title, task) ?? '';
+    subtitle = `Manual task by ${providerName} / "todo location name"`;
+    details = getInput(MANUAL_TASK.input.details, task) ?? '';
+    action = {
+      name: 'Mark as Completed',
+      link: `/todo`,
+    };
+  }
   return {
     id: task.id ?? '',
     category: category,
     createdDate: task.authoredOn ?? '',
     title: title,
     subtitle: subtitle,
+    details: details,
     status: task.status,
     action: action,
     assignee: task.owner

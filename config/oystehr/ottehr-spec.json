@@ -1205,6 +1205,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/invoiceable-patients-report/index",
       "zip": ".dist/zips/invoiceable-patients-report.zip"
+    },
+    "CREATE-MANUAL-TASK": {
+      "name": "create-manual-task",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/tasks/create-manual-task/index",
+      "zip": ".dist/zips/create-manual-task.zip"
     }
   },
   "faxNumbers": {

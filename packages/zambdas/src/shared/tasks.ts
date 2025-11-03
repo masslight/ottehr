@@ -7,7 +7,7 @@ const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
 
 export function createTask(data: {
   category: string;
-  code:
+  code?:
     | {
         system: string;
         code: string;
@@ -36,16 +36,18 @@ export function createTask(data: {
       system: ottehrIdentifierSystem('task-category'),
       value: data.category,
     },
-    code: isCodeableConcept(data.code)
-      ? data.code
-      : {
-          coding: [
-            {
-              system: data.code.system,
-              code: data.code.code,
-            },
-          ],
-        },
+    code: data.code
+      ? isCodeableConcept(data.code)
+        ? data.code
+        : {
+            coding: [
+              {
+                system: data.code.system,
+                code: data.code.code,
+              },
+            ],
+          }
+      : undefined,
     encounter: data.encounterId ? { reference: `Encounter/${data.encounterId}` } : undefined,
     authoredOn: DateTime.now().toISO(),
     intent: 'order',

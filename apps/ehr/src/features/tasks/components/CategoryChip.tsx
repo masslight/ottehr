@@ -1,10 +1,21 @@
 import { Box, Typography } from '@mui/material';
 import React from 'react';
-import { IN_HOUSE_LAB_TASK, LAB_ORDER_TASK } from 'utils';
+import { IN_HOUSE_LAB_TASK, LAB_ORDER_TASK, MANUAL_TASK } from 'utils';
 
 export const TASK_CATEGORY_LABEL: Record<string, string> = {};
 TASK_CATEGORY_LABEL[LAB_ORDER_TASK.category] = 'External Lab';
 TASK_CATEGORY_LABEL[IN_HOUSE_LAB_TASK.category] = 'In-house Lab';
+TASK_CATEGORY_LABEL[MANUAL_TASK.category.externalLab] = 'External Lab';
+TASK_CATEGORY_LABEL[MANUAL_TASK.category.inHouseLab] = 'In-house Lab';
+TASK_CATEGORY_LABEL[MANUAL_TASK.category.inHouseMedications] = 'In-House Medications';
+TASK_CATEGORY_LABEL[MANUAL_TASK.category.nursingOrders] = 'Nursing Orders';
+TASK_CATEGORY_LABEL[MANUAL_TASK.category.patientFollowUp] = 'Patient Follow-up';
+TASK_CATEGORY_LABEL[MANUAL_TASK.category.procedures] = 'Procedures';
+TASK_CATEGORY_LABEL[MANUAL_TASK.category.radiology] = 'Radiology';
+TASK_CATEGORY_LABEL[MANUAL_TASK.category.erx] = 'eRX';
+TASK_CATEGORY_LABEL[MANUAL_TASK.category.charting] = 'Charting';
+TASK_CATEGORY_LABEL[MANUAL_TASK.category.coding] = 'Coding';
+TASK_CATEGORY_LABEL[MANUAL_TASK.category.other] = 'Other';
 
 interface Props {
   category: string;

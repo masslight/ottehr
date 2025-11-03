@@ -7,9 +7,10 @@ import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
-import { MANUAL_TASKS_CATEGORIES } from 'src/features/visits/in-person/hooks/useTasks';
+import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useGetPatient } from 'src/hooks/useGetPatient';
+import { MANUAL_TASK } from 'utils';
 import {
   useExternalLabOrdersOptions,
   useInHouseLabOrdersOptions,
@@ -20,17 +21,17 @@ import {
 } from '../common';
 
 export const CATEGORY_OPTIONS = [
-  { value: MANUAL_TASKS_CATEGORIES.externalLab, label: 'External Labs' },
-  { value: MANUAL_TASKS_CATEGORIES.inHouseLab, label: 'In-house Labs' },
-  { value: MANUAL_TASKS_CATEGORIES.inHouseMedications, label: 'In-house Medications' },
-  { value: MANUAL_TASKS_CATEGORIES.nursingOrders, label: 'Nursing Orders' },
-  { value: MANUAL_TASKS_CATEGORIES.patientFollowUp, label: 'Patient Follow-up' },
-  { value: MANUAL_TASKS_CATEGORIES.procedures, label: 'Procedures' },
-  { value: MANUAL_TASKS_CATEGORIES.radiology, label: 'Radiology' },
-  { value: MANUAL_TASKS_CATEGORIES.erx, label: 'eRx' },
-  { value: MANUAL_TASKS_CATEGORIES.charting, label: 'Charting' },
-  { value: MANUAL_TASKS_CATEGORIES.coding, label: 'Coding' },
-  { value: MANUAL_TASKS_CATEGORIES.other, label: 'Other' },
+  { value: MANUAL_TASK.category.externalLab, label: 'External Labs' },
+  { value: MANUAL_TASK.category.inHouseLab, label: 'In-house Labs' },
+  { value: MANUAL_TASK.category.inHouseMedications, label: 'In-house Medications' },
+  { value: MANUAL_TASK.category.nursingOrders, label: 'Nursing Orders' },
+  { value: MANUAL_TASK.category.patientFollowUp, label: 'Patient Follow-up' },
+  { value: MANUAL_TASK.category.procedures, label: 'Procedures' },
+  { value: MANUAL_TASK.category.radiology, label: 'Radiology' },
+  { value: MANUAL_TASK.category.erx, label: 'eRx' },
+  { value: MANUAL_TASK.category.charting, label: 'Charting' },
+  { value: MANUAL_TASK.category.coding, label: 'Coding' },
+  { value: MANUAL_TASK.category.other, label: 'Other' },
 ];
 
 interface Props {
@@ -44,7 +45,16 @@ interface Props {
 export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   const methods = useForm();
   const formValue = methods.watch();
-  const handleConfirm = async (): Promise<void> => {};
+
+  const { mutateAsync: createManualTask } = useCreateManualTask();
+  const handleConfirm = async (): Promise<void> => {
+    await createManualTask({
+      category: formValue.category,
+      taskTitle: formValue.task,
+      taskDetails: formValue.taskDetails,
+      locationId: formValue.location.id,
+    });
+  };
 
   const { appointments, loading: appointmentsLoading } = useGetPatient(formValue.patient?.id);
 
@@ -67,32 +77,32 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   const { inHouseMedicationsLoading, inHouseMedicationsOptions } = useInHouseMedicationsOptions(encounterId);
 
   const ordersLoading =
-    formValue.category === MANUAL_TASKS_CATEGORIES.inHouseLab
+    formValue.category === MANUAL_TASK.category.inHouseLab
       ? inHouseLabOrdersLoading
-      : formValue.category === MANUAL_TASKS_CATEGORIES.externalLab
+      : formValue.category === MANUAL_TASK.category.externalLab
       ? externalLabOrdersLoading
-      : formValue.category === MANUAL_TASKS_CATEGORIES.nursingOrders
+      : formValue.category === MANUAL_TASK.category.nursingOrders
       ? nursingOrdersLoading
-      : formValue.category === MANUAL_TASKS_CATEGORIES.radiology
+      : formValue.category === MANUAL_TASK.category.radiology
       ? radiologyOrdersLoading
-      : formValue.category === MANUAL_TASKS_CATEGORIES.procedures
+      : formValue.category === MANUAL_TASK.category.procedures
       ? proceduresLoading
-      : formValue.category === MANUAL_TASKS_CATEGORIES.inHouseMedications
+      : formValue.category === MANUAL_TASK.category.inHouseMedications
       ? inHouseMedicationsLoading
       : false;
 
   const orderOptions =
-    formValue.category === MANUAL_TASKS_CATEGORIES.inHouseLab
+    formValue.category === MANUAL_TASK.category.inHouseLab
       ? inHouseLabOrdersOptions
-      : formValue.category === MANUAL_TASKS_CATEGORIES.externalLab
+      : formValue.category === MANUAL_TASK.category.externalLab
       ? externalLabOrdersOptions
-      : formValue.category === MANUAL_TASKS_CATEGORIES.nursingOrders
+      : formValue.category === MANUAL_TASK.category.nursingOrders
       ? nursingOrdersOptions
-      : formValue.category === MANUAL_TASKS_CATEGORIES.radiology
+      : formValue.category === MANUAL_TASK.category.radiology
       ? radiologyOrdersOptions
-      : formValue.category === MANUAL_TASKS_CATEGORIES.procedures
+      : formValue.category === MANUAL_TASK.category.procedures
       ? proceduresOptions
-      : formValue.category === MANUAL_TASKS_CATEGORIES.inHouseMedications
+      : formValue.category === MANUAL_TASK.category.inHouseMedications
       ? inHouseMedicationsOptions
       : [];
 
