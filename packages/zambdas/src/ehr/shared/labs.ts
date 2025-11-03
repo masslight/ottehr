@@ -34,6 +34,7 @@ import {
   externalLabOrderIsManual,
   ExternalLabOrderResult,
   ExternalLabOrderResultConfig,
+  getAdditionalPlacerId,
   getCoding,
   getOrderNumber,
   getPresignedURL,
@@ -1183,6 +1184,7 @@ const getResultDetailsBasedOnDr = async (
     resultPdfUrl,
     diagnosticReportId: diagnosticReport.id || '',
     taskId: task.id || '',
+    alternatePlacerId: getAdditionalPlacerId(diagnosticReport),
   };
 
   return resultDetail;
