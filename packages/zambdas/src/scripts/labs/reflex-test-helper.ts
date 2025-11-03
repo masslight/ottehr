@@ -1,7 +1,8 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { CodeableConcept, DiagnosticReport, Observation, ServiceRequest } from 'fhir/r4b';
+import { CodeableConcept, DiagnosticReport, Observation, Reference, ServiceRequest, Specimen } from 'fhir/r4b';
 import fs from 'fs';
+import { DateTime } from 'luxon';
 import { LAB_DR_TYPE_TAG } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
 import { DR_REFLEX_TAG, LAB_PDF_ATTACHMENT_DR_TAG, PDF_ATTACHMENT_CODE } from './lab-script-consts';
@@ -90,6 +91,30 @@ const main = async (): Promise<void> => {
       )
   ) as DiagnosticReport;
   console.log('DiagnosticReport that will be used to make the reflex test DR - ', drToDuplicate.id);
+
+  const drContainedSpecimen: Specimen = {
+    resourceType: 'Specimen',
+    id: 'resultSpecimenId',
+    collection: {
+      quantity: {
+        system: 'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-collection-volume',
+        code: '2100',
+        unit: 'mL',
+      },
+      collectedDateTime: DateTime.now().toISO(),
+    },
+  };
+
+  const drContainedSpecimenRef: Reference = {
+    reference: '#resultSpecimenId',
+  };
+
+  // add specimen info if there isn't any
+  if (!drToDuplicate.specimen) {
+    drToDuplicate.specimen = [drContainedSpecimenRef];
+    if (drToDuplicate.contained?.length) drToDuplicate.contained.push(drContainedSpecimen);
+    else drToDuplicate.contained = [drContainedSpecimen];
+  }
 
   const relatedObservations: Observation[] = [];
   drToDuplicate.result?.forEach((result) => {
