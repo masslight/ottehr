@@ -23,16 +23,18 @@ import {
   MenuItem,
   Select,
   Stack,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
+import { DateTime } from 'luxon';
 import { FC, useEffect, useState } from 'react';
 import { useDynamsoftScanner } from '../hooks/useDynamsoftScanner';
 
 interface ScannerModalProps {
   open: boolean;
   onClose: () => void;
-  onScanComplete?: (pdfBlob: Blob) => void;
+  onScanComplete?: (pdfBlob: Blob, fileName: string) => void;
 }
 
 const SCANNER_CONTAINER_ID = 'dynamsoft-scanner-container';
@@ -70,6 +72,12 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
   const [useADF, setUseADF] = useState(false);
   const [useDuplex, setUseDuplex] = useState(false);
 
+  // File name state - initialize with timestamp-based default name
+  const [fileName, setFileName] = useState(() => {
+    const timestamp = new Date().getTime();
+    return `scanned-document-${timestamp}`;
+  });
+
   // Initialize scanner when modal opens
   useEffect(() => {
     if (open && !isInitialized) {
@@ -82,9 +90,13 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
     return undefined;
   }, [open, isInitialized, initializeScanner]);
 
-  // Cleanup when modal closes
+  // Reset fileName and cleanup when modal opens/closes
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      // Reset fileName with new timestamp when modal opens
+      const timestamp = DateTime.now().toFormat('yyyyLLdd-HHmmss');
+      setFileName(`scan-${timestamp}`);
+    } else {
       removeAllImages();
     }
   }, [open, removeAllImages]);
@@ -105,6 +117,12 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
       return;
     }
 
+    // Validate fileName
+    if (!fileName.trim()) {
+      console.error('File name is required');
+      return;
+    }
+
     try {
       // Get all images as a single PDF
       const pdfBlob = await getAllImagesAsPdf();
@@ -115,8 +133,8 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
       }
 
       if (onScanComplete) {
-        // Pass the single combined PDF blob
-        onScanComplete(pdfBlob);
+        // Pass the single combined PDF blob and fileName
+        onScanComplete(pdfBlob, fileName.trim());
       }
 
       cleanup();
@@ -281,6 +299,23 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
                 </Stack>
               </Box>
 
+              {/* File Name */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+                  File Name
+                </Typography>
+                <TextField
+                  fullWidth
+                  value={fileName}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFileName(e.target.value)}
+                  placeholder="Enter file name"
+                  required
+                  error={!fileName.trim()}
+                  helperText={!fileName.trim() ? 'File name is required' : 'Do not include .pdf extension'}
+                  disabled={isScanning}
+                />
+              </Box>
+
               {/* Scan Button */}
               <Button
                 variant="contained"
@@ -439,7 +474,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
             <Button
               onClick={handleSaveAndClose}
               variant="contained"
-              disabled={imageCount === 0 || isScanning}
+              disabled={imageCount === 0 || isScanning || !fileName.trim()}
               sx={{ borderRadius: '50px', textTransform: 'none' }}
             >
               Save {imageCount > 0 && `(${imageCount})`}

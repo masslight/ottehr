@@ -151,7 +151,7 @@ const PatientDocumentsExplorerPage: FC = () => {
   }, []);
 
   const handleScanComplete = useCallback(
-    async (pdfBlob: Blob): Promise<void> => {
+    async (pdfBlob: Blob, fileName: string): Promise<void> => {
       const folderId = selectedFolder?.id;
       if (!folderId) {
         enqueueSnackbar('No folder selected', { variant: 'error' });
@@ -159,13 +159,13 @@ const PatientDocumentsExplorerPage: FC = () => {
       }
 
       try {
-        const timestamp = new Date().getTime();
-        const fileName = `scanned-document-${timestamp}.pdf`;
-        const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+        // Ensure fileName ends with .pdf extension
+        const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+        const file = new File([pdfBlob], finalFileName, { type: 'application/pdf' });
 
         await documentActions.uploadDocumentAction({
           docFile: file,
-          fileName: fileName,
+          fileName: finalFileName,
           fileFolderId: folderId,
         });
 
