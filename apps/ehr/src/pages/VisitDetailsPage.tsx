@@ -47,7 +47,7 @@ import {
   getLastName,
   getMiddleName,
   getPatchOperationForNewMetaTag,
-  getReasonForVisitFromAppointment,
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
   getTelemedVisitStatus,
   getUnconfirmedDOBForAppointment,
   isApiError,
@@ -111,6 +111,7 @@ interface EditDOBParams {
 
 interface EditReasonForVisitParams {
   reasonForVisit?: string;
+  additionalDetails?: string;
 }
 interface EditNLGParams {
   guardians?: string;
@@ -133,7 +134,11 @@ type EditDialogConfig =
       };
     }
   | { type: 'dob'; values: EditDOBParams; keyTitleMap: { dob: 'DOB' } }
-  | { type: 'reason-for-visit'; values: EditReasonForVisitParams; keyTitleMap: { reasonForVisit: 'Reason for Visit' } }
+  | {
+      type: 'reason-for-visit';
+      values: EditReasonForVisitParams;
+      keyTitleMap: { reasonForVisit: 'Reason for Visit'; additionalDetails: 'Additional Details' };
+    }
   | { type: 'nlg'; values: EditNLGParams; keyTitleMap: { guardians: 'Guardians' } };
 
 const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
@@ -542,7 +547,7 @@ export default function VisitDetailsPage(): ReactElement {
     [insuranceCards, insuranceCardsSecondary, photoIdCards]
   );
 
-  const reasonForVisit = getReasonForVisitFromAppointment(appointment);
+  const { reasonForVisit, additionalDetails } = getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
 
   const authorizedGuardians =
     patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ??
@@ -905,7 +910,7 @@ export default function VisitDetailsPage(): ReactElement {
                                 "Patient's date of birth (Unmatched)": formatDateUsingSlashes(unconfirmedDOB),
                               }
                             : {}),
-                          'Reason for visit': reasonForVisit,
+                          'Reason for visit': `${reasonForVisit} ${additionalDetails ? `- ${additionalDetails}` : ''}`,
                           'Authorized non-legal guardian(s)':
                             patient?.extension?.find(
                               (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
@@ -942,8 +947,11 @@ export default function VisitDetailsPage(): ReactElement {
                               onClick={() =>
                                 setEditDialogConfig({
                                   type: 'reason-for-visit',
-                                  values: { reasonForVisit },
-                                  keyTitleMap: { reasonForVisit: 'Reason for Visit' },
+                                  values: { reasonForVisit, additionalDetails },
+                                  keyTitleMap: {
+                                    reasonForVisit: 'Reason for Visit',
+                                    additionalDetails: 'Additional Details',
+                                  },
                                 })
                               }
                               size="16px"
@@ -1203,7 +1211,6 @@ export default function VisitDetailsPage(): ReactElement {
                     <TextField
                       key={key}
                       label={editDialogConfig.keyTitleMap[key as keyof typeof editDialogConfig.keyTitleMap] || key}
-                      required
                       fullWidth
                       value={value}
                       onChange={(e) =>

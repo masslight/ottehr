@@ -9,6 +9,7 @@ import {
   FHIR_EXTENSION,
   FHIR_RESOURCE_NOT_FOUND,
   getCriticalUpdateTagOp,
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
   getSecret,
   getUnconfirmedDOBIdx,
   INVALID_INPUT_ERROR,
@@ -16,6 +17,7 @@ import {
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
+  REASON_ADDITIONAL_MAX_CHAR,
   Secrets,
   SecretsKeys,
   UpdateVisitDetailsInput,
@@ -188,13 +190,19 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     });
   }
 
-  if (bookingDetails.reasonForVisit) {
+  if (bookingDetails.reasonForVisit || bookingDetails.additionalDetails) {
     const op = appointment.description ? 'replace' : 'add';
+    const { reasonForVisit: existingReasonForVisit, additionalDetails: existingAdditionalDetails } =
+      getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+    const newAdditionalDetails = bookingDetails.additionalDetails ?? existingAdditionalDetails;
+    const value =
+      `${bookingDetails.reasonForVisit ?? (existingReasonForVisit || '')}` +
+      (newAdditionalDetails ? ` - ${newAdditionalDetails ?? existingAdditionalDetails ?? ''}` : '');
     const appointmentPatchOps: Operation[] = [
       {
         op,
         path: '/description',
-        value: bookingDetails.reasonForVisit,
+        value,
       },
     ];
     patchRequests.push({
@@ -383,6 +391,12 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     throw INVALID_INPUT_ERROR(`reasonForVisit, "${bookingDetails.reasonForVisit}", is not a valid option`);
   }
 
+  if (bookingDetails.additionalDetails && typeof bookingDetails.additionalDetails !== 'string') {
+    throw INVALID_INPUT_ERROR('additionalDetails must be a string');
+  } else if (bookingDetails.additionalDetails && bookingDetails.additionalDetails.length > REASON_ADDITIONAL_MAX_CHAR) {
+    throw INVALID_INPUT_ERROR(`additionalDetails must be at most ${REASON_ADDITIONAL_MAX_CHAR} characters`);
+  }
+
   if (bookingDetails.authorizedNonLegalGuardians && typeof bookingDetails.authorizedNonLegalGuardians !== 'string') {
     throw INVALID_INPUT_ERROR('authorizedNonLegalGuardians must be a string');
   }
@@ -430,6 +444,7 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
 
   if (
     !bookingDetails.reasonForVisit &&
+    !bookingDetails.additionalDetails &&
     !bookingDetails.authorizedNonLegalGuardians &&
     !bookingDetails.confirmedDob &&
     !bookingDetails.patientName &&

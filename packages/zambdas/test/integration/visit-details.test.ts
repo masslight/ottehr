@@ -9,9 +9,11 @@ import {
   EHRVisitDetails,
   FHIR_EXTENSION,
   getAttestedConsentFromEncounter,
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitFromAppointment,
   getUnconfirmedDOBIdx,
   isValidUUID,
+  REASON_ADDITIONAL_MAX_CHAR,
   UpdateVisitDetailsInput,
 } from 'utils';
 import { assert, inject } from 'vitest';
@@ -243,6 +245,100 @@ describe('saving and getting visit details', () => {
     const newReasonForVisit = getReasonForVisitFromAppointment(updatedVisitDetails.appointment);
     expect(newReasonForVisit).toBeDefined();
     expect(newReasonForVisit).toEqual(reasonText);
+  });
+  test.concurrent('can save and retrieve additionalDetails', async () => {
+    if (!oystehr || !processId) {
+      throw new Error('oystehr or processId is null! could not run test!');
+    }
+    const { encounter, appointment } = await makeTestResources({
+      processId,
+      oystehr,
+      patientAge: { units: 'years', value: 30 },
+      patientSex: 'male',
+    });
+    expect(encounter).toBeDefined();
+    expect(appointment).toBeDefined();
+
+    const visitDetails = await getVisitDetails(appointment.id!);
+    expect(visitDetails).toBeDefined();
+    expect(visitDetails.encounter).toBeDefined();
+    expect(visitDetails.appointment).toBeDefined();
+    const reasonForVisit = getReasonForVisitFromAppointment(appointment);
+    expect(reasonForVisit).toBeUndefined();
+
+    const randomIndex = Math.floor(Math.random() * BOOKING_CONFIG.reasonForVisitOptions.length);
+    const reasonText = BOOKING_CONFIG.reasonForVisitOptions[randomIndex];
+
+    await updateVisitDetails({
+      appointmentId: appointment.id!,
+      bookingDetails: {
+        reasonForVisit: reasonText,
+      },
+    });
+
+    let updatedVisitDetails = await getVisitDetails(appointment.id!);
+    expect(updatedVisitDetails).toBeDefined();
+    expect(updatedVisitDetails.appointment).toBeDefined();
+    const newReasonForVisit = getReasonForVisitFromAppointment(updatedVisitDetails.appointment);
+    expect(newReasonForVisit).toBeDefined();
+    expect(newReasonForVisit).toEqual(reasonText);
+
+    // main reason for visit stays the same when not included in update
+    await updateVisitDetails({
+      appointmentId: appointment.id!,
+      bookingDetails: {
+        additionalDetails: 'Mom says speech a bit slurred',
+      },
+    });
+    updatedVisitDetails = await getVisitDetails(appointment.id!);
+    expect(updatedVisitDetails).toBeDefined();
+    expect(updatedVisitDetails.appointment).toBeDefined();
+    const { reasonForVisit: newReasonForVisit2, additionalDetails: newAdditionalDetails } =
+      getReasonForVisitAndAdditionalDetailsFromAppointment(updatedVisitDetails.appointment);
+    expect(newReasonForVisit2).toBeDefined();
+    expect(newReasonForVisit2).toEqual(newReasonForVisit);
+    expect(newAdditionalDetails).toBeDefined();
+    expect(newAdditionalDetails).toEqual('Mom says speech a bit slurred');
+
+    const randomIndex2 = Math.floor(Math.random() * BOOKING_CONFIG.reasonForVisitOptions.length);
+    const reasonText2 = BOOKING_CONFIG.reasonForVisitOptions[randomIndex2];
+
+    // both main reason for visit and additional details updated when both included
+    await updateVisitDetails({
+      appointmentId: appointment.id!,
+      bookingDetails: {
+        additionalDetails: 'Mom says brother is very sorry',
+        reasonForVisit: reasonText2,
+      },
+    });
+    updatedVisitDetails = await getVisitDetails(appointment.id!);
+
+    expect(updatedVisitDetails).toBeDefined();
+    expect(updatedVisitDetails.appointment).toBeDefined();
+    const { reasonForVisit: newReasonForVisit3, additionalDetails: newAdditionalDetails2 } =
+      getReasonForVisitAndAdditionalDetailsFromAppointment(updatedVisitDetails.appointment);
+    expect(newReasonForVisit3).toBeDefined();
+    expect(newReasonForVisit3).toEqual(reasonText2);
+    expect(newAdditionalDetails2).toBeDefined();
+    expect(newAdditionalDetails2).toEqual('Mom says brother is very sorry');
+
+    // additional details removed when set to empty string
+    await updateVisitDetails({
+      appointmentId: appointment.id!,
+      bookingDetails: {
+        additionalDetails: '',
+        reasonForVisit: reasonText, // set back to original reason
+      },
+    });
+    updatedVisitDetails = await getVisitDetails(appointment.id!);
+
+    expect(updatedVisitDetails).toBeDefined();
+    expect(updatedVisitDetails.appointment).toBeDefined();
+    const { reasonForVisit: newReasonForVisit4, additionalDetails: newAdditionalDetails3 } =
+      getReasonForVisitAndAdditionalDetailsFromAppointment(updatedVisitDetails.appointment);
+    expect(newReasonForVisit4).toBeDefined();
+    expect(newReasonForVisit4).toEqual(reasonText);
+    expect(newAdditionalDetails3).toBeUndefined();
   });
   test.concurrent('can save and retrieve patient name', async () => {
     if (!oystehr || !processId) {
@@ -612,6 +708,51 @@ describe('saving and getting visit details', () => {
     } catch (error) {
       expect((error as Error).message).toBe('reasonForVisit, "gum in my hair", is not a valid option');
     }
+  });
+
+  test.concurrent('fails gracefully when given invalid additional details', async () => {
+    if (!oystehr || !processId) {
+      throw new Error('oystehr or processId is null! could not run test!');
+    }
+    const { appointment } = await makeTestResources({
+      processId,
+      oystehr,
+      patientAge: { units: 'years', value: 3 }, // so we can test DOB changes
+      patientSex: 'female',
+    });
+    expect(appointment).toBeDefined();
+    const randomIndex = Math.floor(Math.random() * BOOKING_CONFIG.reasonForVisitOptions.length);
+    const reasonText = BOOKING_CONFIG.reasonForVisitOptions[randomIndex];
+    let errorFound = false;
+    try {
+      await updateVisitDetails({
+        appointmentId: appointment.id!,
+        bookingDetails: {
+          reasonForVisit: reasonText,
+          additionalDetails: 7 as any,
+        },
+      });
+    } catch (error) {
+      errorFound = true;
+      expect((error as Error).message).toBe(`additionalDetails must be a string`);
+    }
+    expect(errorFound).toBe(true);
+    errorFound = false;
+    try {
+      await updateVisitDetails({
+        appointmentId: appointment.id!,
+        bookingDetails: {
+          reasonForVisit: reasonText,
+          additionalDetails: 'A'.repeat(REASON_ADDITIONAL_MAX_CHAR + 1),
+        },
+      });
+    } catch (error) {
+      errorFound = true;
+      expect((error as Error).message).toBe(
+        `additionalDetails must be at most ${REASON_ADDITIONAL_MAX_CHAR} characters`
+      );
+    }
+    expect(errorFound).toBe(true);
   });
 
   test.concurrent('fails gracefully when given invalid dob', async () => {
