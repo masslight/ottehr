@@ -638,7 +638,7 @@ describe('saving card files from EHR', () => {
     }
   });
 
-  test.only('update fails gracefully when attachment has missing fields', async () => {
+  test.concurrent('update fails gracefully when attachment has missing fields', async () => {
     if (!oystehr || !processId) {
       throw new Error('oystehr or processId is null! could not run test!');
     }
@@ -700,7 +700,7 @@ describe('saving card files from EHR', () => {
     }
   });
 
-  test.only('update fails gracefully when invalid attachment.url is provided', async () => {
+  test.concurrent('update fails gracefully when invalid attachment.url is provided', async () => {
     if (!oystehr || !processId) {
       throw new Error('oystehr or processId is null! could not run test!');
     }
@@ -727,7 +727,7 @@ describe('saving card files from EHR', () => {
     }
   });
 
-  test.only('update fails gracefully when invalid attachment.type is provided', async () => {
+  test.concurrent('update fails gracefully when invalid attachment.type is provided', async () => {
     if (!oystehr || !processId) {
       throw new Error('oystehr or processId is null! could not run test!');
     }
@@ -755,7 +755,7 @@ describe('saving card files from EHR', () => {
     }
   });
 
-  test.only('update fails gracefully when invalid attachment.creation is provided', async () => {
+  test.concurrent('update fails gracefully when invalid attachment.creation is provided', async () => {
     if (!oystehr || !processId) {
       throw new Error('oystehr or processId is null! could not run test!');
     }
@@ -796,7 +796,7 @@ describe('saving card files from EHR', () => {
     }
   });
 
-  test.only('get fails gracefully when invalid appointmentId is provided', async () => {
+  test.concurrent('get fails gracefully when invalid appointmentId is provided', async () => {
     if (!oystehr || !processId) {
       throw new Error('oystehr or processId is null! could not run test!');
     }
