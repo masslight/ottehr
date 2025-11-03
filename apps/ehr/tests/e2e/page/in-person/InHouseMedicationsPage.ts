@@ -90,6 +90,10 @@ export class InHouseMedicationsPage {
     await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.medicationDetailsTab).click();
   }
 
+  async clickMarTab(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.marTab).click();
+  }
+
   async clickPencilIcon(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.pencilIconButton).click();
   }

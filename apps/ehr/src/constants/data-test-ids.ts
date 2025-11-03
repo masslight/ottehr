@@ -391,6 +391,7 @@ export const dataTestIds = {
       instructionsCell: 'mar-table-instructions-cell',
     },
     medicationDetailsTab: 'medication-details-tab',
+    marTab: 'mar-tab',
     pencilIconButton: 'EditOutlinedIcon',
     deleteButton: 'DeleteOutlinedIcon',
     administeredButton: 'administered-button',

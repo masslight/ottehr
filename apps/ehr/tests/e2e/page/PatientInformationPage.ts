@@ -81,6 +81,12 @@ export class PatientInformationPage {
     return this.#insuranceCards[index];
   }
 
+  async verifyPatientFirstNameFieldEnabled(): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientFirstName).locator('input')
+    ).toBeEnabled();
+  }
+
   async enterPatientLastName(patientLastName: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.patientInformationContainer.patientLastName)
