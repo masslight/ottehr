@@ -28,6 +28,7 @@ import {
   EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
   formatPhoneNumberDisplay,
   formatZipcodeForDisplay,
+  getAdditionalPlacerId,
   getFullestAvailableName,
   getOrderNumber,
   getOrderNumberFromDr,
@@ -46,7 +47,6 @@ import {
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM,
-  OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM,
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
   OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
   OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL,
@@ -200,8 +200,7 @@ const getResultDataConfigForDrResources = (
 
   const unsolicitedResultData: Omit<UnsolicitedExternalLabResultsData, keyof LabResultsData> = {
     accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
-    alternatePlacerId: diagnosticReport.identifier?.find((id) => id.system === OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM)
-      ?.value,
+    alternatePlacerId: getAdditionalPlacerId(diagnosticReport),
     reviewed,
     reviewingProvider,
     reviewDate,
@@ -323,9 +322,7 @@ const getResultDataConfig = (
 
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
       orderNumber,
-      alternatePlacerId: diagnosticReport.identifier?.find(
-        (id) => id.system === OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM
-      )?.value,
+      alternatePlacerId: getAdditionalPlacerId(diagnosticReport),
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
       orderSubmitDate,
