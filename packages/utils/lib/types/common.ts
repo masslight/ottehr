@@ -733,3 +733,8 @@ export interface GetVisitLabelInput {
 export type PersistedFhirResource<T extends FhirResource> = T & {
   id: string;
 };
+
+export type CPTCodeOption = {
+  code: string;
+  display: string;
+};
