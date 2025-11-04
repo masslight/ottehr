@@ -20,7 +20,6 @@ import {
   ASQ_FIELD,
   ASQKeys,
   asqLabels,
-  convertActivityDefinitionToTestItem,
   CPTCodeDTO,
   createMedicationString,
   dispositionCheckboxOptions,
@@ -55,10 +54,9 @@ import {
   Secrets,
   Timezone,
 } from 'utils';
-import { findActivityDefinitionForServiceRequest } from '../../../ehr/get-in-house-orders/helpers';
-import { parseLabInfo } from '../../../ehr/get-lab-orders/helpers';
+import { mapResourcesToExternalLabOrders, mapResourcesToInHouseLabOrders } from '../helpers/mappers';
 import { PdfInfo } from '../pdf-utils';
-import { LabOrder, PdfExaminationBlockData, VisitNoteData } from '../types';
+import { PdfExaminationBlockData, VisitNoteData } from '../types';
 import { createVisitNotePDF } from '../visit-note-pdf';
 import { FullAppointmentResourcePackage } from './types';
 
@@ -677,37 +675,3 @@ function immunizationOrderToString(order: ImmunizationOrder): string {
     : '';
   return `${order.details.medication.name} - ${order.details.dose} ${order.details.units} / ${route} - ${location}\n${administratedDateTime}`;
 }
-
-const mapResourcesToInHouseLabOrders = (
-  serviceRequests: ServiceRequest[],
-  activityDefinitions: ActivityDefinition[],
-  observations: Observation[]
-): LabOrder[] => {
-  return serviceRequests
-    .filter((sr) => sr.id)
-    .map((serviceRequest) => {
-      const activityDefinition = findActivityDefinitionForServiceRequest(serviceRequest, activityDefinitions);
-      if (!activityDefinition) {
-        console.warn(`ActivityDefinition not found for ServiceRequest ${serviceRequest.id}`);
-        return null;
-      }
-
-      const testItem = convertActivityDefinitionToTestItem(activityDefinition, observations, serviceRequest);
-
-      return {
-        serviceRequestId: serviceRequest.id!,
-        testItemName: testItem.name,
-      };
-    })
-    .filter(Boolean) as { serviceRequestId: string; testItemName: string }[];
-};
-
-const mapResourcesToExternalLabOrders = (serviceRequests: ServiceRequest[]): LabOrder[] => {
-  return serviceRequests.map((serviceRequest) => {
-    const { testItem } = parseLabInfo(serviceRequest);
-    return {
-      serviceRequestId: serviceRequest.id ?? '',
-      testItemName: testItem,
-    };
-  });
-};

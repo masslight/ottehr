@@ -17,7 +17,6 @@ import {
 } from 'fhir/r4b';
 import {
   BUCKET_NAMES,
-  convertActivityDefinitionToTestItem,
   CPTCodeDTO,
   ExtendedMedicationDataForResponse,
   followUpInOptions,
@@ -45,12 +44,11 @@ import {
   standardizePhoneNumber,
   uploadPDF,
 } from 'utils';
-import { findActivityDefinitionForServiceRequest } from '../../ehr/get-in-house-orders/helpers';
-import { parseLabInfo } from '../../ehr/get-lab-orders/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
+import { mapResourcesToExternalLabOrders, mapResourcesToInHouseLabOrders } from './helpers/mappers';
 import { ICON_STYLE, PDF_CLIENT_STYLES, Y_POS_GAP } from './pdf-consts';
 import { createPdfClient, PdfInfo, rgbNormalized } from './pdf-utils';
-import { DischargeSummaryData, LabOrder, LineStyle, TextStyle } from './types';
+import { DischargeSummaryData, LineStyle, TextStyle } from './types';
 import { FullAppointmentResourcePackage } from './visit-details-pdf/types';
 import { getPatientLastFirstName } from './visit-details-pdf/visit-note-pdf-creation';
 
@@ -773,37 +771,3 @@ async function createDischargeSummaryPDF(
 
   return { title: fileName, uploadURL: baseFileUrl };
 }
-
-const mapResourcesToInHouseLabOrders = (
-  serviceRequests: ServiceRequest[],
-  activityDefinitions: ActivityDefinition[],
-  observations: Observation[]
-): LabOrder[] => {
-  return serviceRequests
-    .filter((sr) => sr.id)
-    .map((serviceRequest) => {
-      const activityDefinition = findActivityDefinitionForServiceRequest(serviceRequest, activityDefinitions);
-      if (!activityDefinition) {
-        console.warn(`ActivityDefinition not found for ServiceRequest ${serviceRequest.id}`);
-        return null;
-      }
-
-      const testItem = convertActivityDefinitionToTestItem(activityDefinition, observations, serviceRequest);
-
-      return {
-        serviceRequestId: serviceRequest.id!,
-        testItemName: testItem.name,
-      };
-    })
-    .filter(Boolean) as { serviceRequestId: string; testItemName: string }[];
-};
-
-const mapResourcesToExternalLabOrders = (serviceRequests: ServiceRequest[]): LabOrder[] => {
-  return serviceRequests.map((serviceRequest) => {
-    const { testItem } = parseLabInfo(serviceRequest);
-    return {
-      serviceRequestId: serviceRequest.id ?? '',
-      testItemName: testItem,
-    };
-  });
-};
