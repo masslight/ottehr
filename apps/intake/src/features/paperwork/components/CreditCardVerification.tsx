@@ -67,14 +67,12 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
 
   const disabled = cardsAreLoading || isSetDefaultLoading || paymentMethodStateInitializing;
 
-  const onMakePrimary = (id: string, refreshOnSuccess?: boolean): void => {
+  const onMakePrimary = (id: string): void => {
     setPendingSelection(id);
     setDefault({
       paymentMethodId: id,
       onSuccess: async () => {
-        if (refreshOnSuccess) {
-          await refetchPaymentMethods();
-        }
+        await refetchPaymentMethods();
         setSelectedOption(id);
         setPendingSelection(undefined);
         if (validCreditCardOnFile !== true) {
@@ -90,7 +88,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
   };
 
   const handleNewPaymentMethod = (id: string): void => {
-    onMakePrimary(id, true);
+    onMakePrimary(id);
   };
 
   return (
@@ -132,7 +130,7 @@ interface CreditCardContentProps {
   required: boolean;
   errorMessage: string | undefined;
   setErrorMessage: (message: string | undefined) => void;
-  onMakePrimary: (id: string, refreshOnSuccess?: boolean) => void;
+  onMakePrimary: (id: string) => void;
   handleNewPaymentMethod: (id: string) => void;
 }
 

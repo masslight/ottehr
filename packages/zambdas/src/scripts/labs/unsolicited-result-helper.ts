@@ -270,6 +270,12 @@ const createUnsolicitedResultDr = ({
               },
             ],
           },
+          quantity: {
+            system: 'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-collection-volume',
+            code: '2100',
+            unit: 'mL',
+          },
+          collectedDateTime: DateTime.now().toISO(),
         },
       },
     ],
