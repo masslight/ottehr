@@ -53,7 +53,7 @@ import {
   getLastName,
   getMiddleName,
   getPatchOperationForNewMetaTag,
-  getReasonForVisitFromAppointment,
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
   getTelemedVisitStatus,
   getUnconfirmedDOBForAppointment,
   isApiError,
@@ -116,6 +116,7 @@ interface EditDOBParams {
 
 interface EditReasonForVisitParams {
   reasonForVisit?: string;
+  additionalDetails?: string;
 }
 interface EditNLGParams {
   guardians?: string;
@@ -136,10 +137,16 @@ type EditDialogConfig =
         last: 'Last';
         suffix: 'Suffix';
       };
+      requiredKeys: string[];
     }
-  | { type: 'dob'; values: EditDOBParams; keyTitleMap: { dob: 'DOB' } }
-  | { type: 'reason-for-visit'; values: EditReasonForVisitParams; keyTitleMap: { reasonForVisit: 'Reason for Visit' } }
-  | { type: 'nlg'; values: EditNLGParams; keyTitleMap: { guardians: 'Guardians' } };
+  | { type: 'dob'; values: EditDOBParams; keyTitleMap: { dob: 'DOB' }; requiredKeys: string[] }
+  | {
+      type: 'reason-for-visit';
+      values: EditReasonForVisitParams;
+      keyTitleMap: { reasonForVisit: 'Reason for Visit'; additionalDetails: 'Additional Details' };
+      requiredKeys: string[];
+    }
+  | { type: 'nlg'; values: EditNLGParams; keyTitleMap: { guardians: 'Guardians' }; requiredKeys: string[] };
 
 const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
   switch (type) {
@@ -156,7 +163,11 @@ const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
   }
 };
 
-const CLOSED_EDIT_DIALOG: EditDialogConfig = Object.freeze({ type: 'closed', values: {}, keyTitleMap: {} });
+const CLOSED_EDIT_DIALOG: EditDialogConfig = Object.freeze({
+  type: 'closed',
+  values: {},
+  keyTitleMap: {},
+});
 
 interface SavedCardItem {
   front: DocumentInfo | null;
@@ -614,7 +625,7 @@ export default function VisitDetailsPage(): ReactElement {
     signedConsentForm[consentToTreatPatientDetailsKey] = imagesLoading ? 'Loading...' : 'Not signed';
   }
 
-  const reasonForVisit = getReasonForVisitFromAppointment(appointment);
+  const { reasonForVisit, additionalDetails } = getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
 
   const authorizedGuardians =
     patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ??
@@ -691,6 +702,7 @@ export default function VisitDetailsPage(): ReactElement {
                           last: patientLastName,
                         },
                         keyTitleMap: { first: 'First', middle: 'Middle', last: 'Last', suffix: 'Suffix' },
+                        requiredKeys: ['first', 'last'],
                       })
                     }
                     size="25px"
@@ -893,7 +905,7 @@ export default function VisitDetailsPage(): ReactElement {
                                 "Patient's date of birth (Unmatched)": formatDateUsingSlashes(unconfirmedDOB),
                               }
                             : {}),
-                          'Reason for visit': reasonForVisit,
+                          'Reason for visit': `${reasonForVisit} ${additionalDetails ? `- ${additionalDetails}` : ''}`,
                           'Authorized non-legal guardian(s)':
                             patient?.extension?.find(
                               (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
@@ -919,6 +931,7 @@ export default function VisitDetailsPage(): ReactElement {
                                   keyTitleMap: {
                                     dob: 'DOB',
                                   },
+                                  requiredKeys: ['dob'],
                                 })
                               }
                               size="16px"
@@ -930,8 +943,12 @@ export default function VisitDetailsPage(): ReactElement {
                               onClick={() =>
                                 setEditDialogConfig({
                                   type: 'reason-for-visit',
-                                  values: { reasonForVisit },
-                                  keyTitleMap: { reasonForVisit: 'Reason for Visit' },
+                                  values: { reasonForVisit, additionalDetails },
+                                  keyTitleMap: {
+                                    reasonForVisit: 'Reason for Visit',
+                                    additionalDetails: 'Additional Details',
+                                  },
+                                  requiredKeys: [],
                                 })
                               }
                               size="16px"
@@ -945,6 +962,7 @@ export default function VisitDetailsPage(): ReactElement {
                                   type: 'nlg',
                                   values: { guardians: authorizedGuardians },
                                   keyTitleMap: { guardians: 'Guardians' },
+                                  requiredKeys: [],
                                 })
                               }
                               size="16px"
@@ -1191,9 +1209,9 @@ export default function VisitDetailsPage(): ReactElement {
                     <TextField
                       key={key}
                       label={editDialogConfig.keyTitleMap[key as keyof typeof editDialogConfig.keyTitleMap] || key}
-                      required
                       fullWidth
                       value={value}
+                      required={editDialogConfig.requiredKeys.includes(key)}
                       onChange={(e) =>
                         setEditDialogConfig(
                           (prev) =>

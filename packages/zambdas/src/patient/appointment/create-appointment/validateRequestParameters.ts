@@ -18,6 +18,7 @@ import {
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   PatientInfo,
   PersonSex,
+  REASON_FOR_VISIT_SEPARATOR,
   REASON_MAXIMUM_CHAR_LIMIT,
   ScheduleOwnerFhirResource,
   Secrets,
@@ -97,7 +98,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   }
 
   patient.reasonForVisit = `${patient.reasonForVisit}${
-    patient?.reasonAdditional ? ` - ${patient?.reasonAdditional}` : ''
+    patient?.reasonAdditional ? `${REASON_FOR_VISIT_SEPARATOR}${patient?.reasonAdditional}` : ''
   }`;
 
   if (patient.reasonForVisit && patient.reasonForVisit.length > REASON_MAXIMUM_CHAR_LIMIT) {
