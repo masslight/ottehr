@@ -215,7 +215,7 @@ export async function createAppointment(
     throw new Error('endTime could not be calculated');
   }
 
-  const formattedUserNumber = formatPhoneNumberDisplay(user.name.replace('+1', ''));
+  const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
   const createdBy = isEHRUser
     ? `Staff ${user?.email}`
     : `${visitType === VisitType.WalkIn ? 'QR - ' : ''}Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
@@ -233,7 +233,7 @@ export async function createAppointment(
       verifiedFormattedPhoneNumber = formatPhoneNumber(patient.phoneNumber);
     } else {
       // User is patient and auth0 already appends a +1 to the phone number
-      verifiedFormattedPhoneNumber = formatPhoneNumber(user.name);
+      verifiedFormattedPhoneNumber = user?.name ? formatPhoneNumber(user.name) : undefined;
     }
   }
 

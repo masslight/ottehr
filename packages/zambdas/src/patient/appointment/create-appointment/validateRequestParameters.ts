@@ -39,7 +39,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (!input.body) {
     throw new Error('No request body provided');
   }
-  const isEHRUser = checkIsEHRUser(user);
+  const isEHRUser = user && checkIsEHRUser(user);
 
   const bodyJSON = JSON.parse(input.body);
   const { slotId, language, patient, unconfirmedDateOfBirth, locationState, appointmentMetadata } = bodyJSON;

@@ -88,8 +88,8 @@ export const isTestUser = (user: User): boolean => {
   return user && user.id === TEST_USER_ID;
 };
 
-export const checkIsEHRUser = (user: User): boolean => {
-  return !user?.name?.startsWith?.('+') && !isTestUser(user);
+export const checkIsEHRUser = (user: User | undefined): boolean => {
+  return !!user && !user?.name?.startsWith?.('+') && !isTestUser(user);
 };
 
 export async function userHasAccessToPatient(user: User, patientID: string, oystehr: Oystehr): Promise<boolean> {
