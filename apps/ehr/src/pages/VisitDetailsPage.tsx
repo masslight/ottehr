@@ -1582,9 +1582,9 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                 <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', width: '100%' }}>
                   <Button
                     variant="outlined"
-                    size="small"
+                    size="medium"
                     disabled={imagesLoading}
-                    startIcon={<UploadFileIcon fontSize="small" />}
+                    startIcon={<UploadFileIcon />}
                     onClick={() => {
                       const input = document.createElement('input');
                       input.type = 'file';
@@ -1597,17 +1597,23 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                       };
                       input.click();
                     }}
-                    sx={{ textTransform: 'none' }}
+                    sx={{
+                      borderRadius: '20px',
+                      textTransform: 'none',
+                    }}
                   >
                     Upload
                   </Button>
                   <Button
                     variant="outlined"
-                    size="small"
+                    size="medium"
                     disabled={imagesLoading}
-                    startIcon={<ScannerIcon fontSize="small" />}
+                    startIcon={<ScannerIcon />}
                     onClick={() => handleOpenScanner(itemIdentifier(key as 'front' | 'back'))}
-                    sx={{ textTransform: 'none' }}
+                    sx={{
+                      borderRadius: '20px',
+                      textTransform: 'none',
+                    }}
                   >
                     Scan
                   </Button>
