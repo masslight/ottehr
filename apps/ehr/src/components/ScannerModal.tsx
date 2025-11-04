@@ -54,7 +54,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
     refreshScanners,
     acquireImage,
     getAllImagesAsPdf,
-    removeImage,
+    removeCurrentImage,
     removeAllImages,
     rotateLeft,
     rotateRight,
@@ -448,10 +448,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
                   <Tooltip title="Delete Current Image">
                     <span>
                       <IconButton
-                        onClick={() => {
-                          const currentIndex = imageCount > 0 ? 0 : -1;
-                          if (currentIndex >= 0) removeImage(currentIndex);
-                        }}
+                        onClick={removeCurrentImage}
                         size="small"
                         disabled={imageCount === 0}
                         color={imageCount > 0 ? 'error' : 'default'}

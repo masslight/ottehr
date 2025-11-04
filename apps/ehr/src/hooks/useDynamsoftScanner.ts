@@ -41,6 +41,7 @@ export interface UseDynamsoftScannerResult {
   getImageAsBlob: (index: number) => Promise<Blob | null>;
   getAllImagesAsPdf: () => Promise<Blob | null>;
   removeImage: (index: number) => void;
+  removeCurrentImage: () => void;
   removeAllImages: () => void;
   rotateLeft: () => void;
   rotateRight: () => void;
@@ -343,6 +344,13 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     }
   }, []);
 
+  const removeCurrentImage = useCallback(() => {
+    if (!dwtObjectRef.current || imageCount === 0) return;
+    const currentIndex = dwtObjectRef.current.CurrentImageIndexInBuffer;
+    dwtObjectRef.current.RemoveImage(currentIndex);
+    setImageCount(dwtObjectRef.current.HowManyImagesInBuffer);
+  }, [imageCount]);
+
   const removeAllImages = useCallback(() => {
     if (dwtObjectRef.current) {
       dwtObjectRef.current.RemoveAllImages();
@@ -438,6 +446,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     getImageAsBlob,
     getAllImagesAsPdf,
     removeImage,
+    removeCurrentImage,
     removeAllImages,
     rotateLeft,
     rotateRight,
