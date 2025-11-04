@@ -1,6 +1,6 @@
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
-import { Account, Appointment, Encounter, Patient, RelatedPerson } from 'fhir/r4b';
+import { Account, Appointment, Encounter, Patient, RelatedPerson, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   FHIR_EXTENSION,
@@ -46,9 +46,17 @@ export function mapResourcesToInvoiceablePatient(input: {
   accountsToPatientIdMap: Record<string, Account>;
   appointmentToIdMap: Record<string, Appointment>;
   encounterToCandidIdMap: Record<string, Encounter>;
+  allFhirResources: Resource[];
 }): InvoiceablePatientReport | InvoiceablePatientReportFail | undefined {
-  const { itemizationMap, claim, patientToIdMap, accountsToPatientIdMap, encounterToCandidIdMap, appointmentToIdMap } =
-    input;
+  const {
+    itemizationMap,
+    claim,
+    patientToIdMap,
+    accountsToPatientIdMap,
+    encounterToCandidIdMap,
+    appointmentToIdMap,
+    allFhirResources,
+  } = input;
   const patient = patientToIdMap[claim.patientExternalId];
   if (patient?.id === undefined) return logErrorForClaimAndReturn('Patient', claim);
   const account = accountsToPatientIdMap[claim.patientExternalId];
@@ -56,7 +64,9 @@ export function mapResourcesToInvoiceablePatient(input: {
     return gRef.period?.end === undefined;
   })?.party?.reference;
   if (!responsiblePartyRef) return logErrorForClaimAndReturn('RelatedPerson reference', claim);
-  const responsibleParty = takeContainedOrFind(responsiblePartyRef, [], account) as RelatedPerson | undefined;
+  const responsibleParty = takeContainedOrFind(responsiblePartyRef, allFhirResources, account) as
+    | RelatedPerson
+    | undefined;
   if (!responsibleParty) return logErrorForClaimAndReturn('RelatedPerson', claim);
 
   const encounter = encounterToCandidIdMap[claim.encounterId];

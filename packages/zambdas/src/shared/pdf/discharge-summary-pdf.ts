@@ -34,6 +34,8 @@ import {
   mapErxMedicationsToDisplay,
   mapMedicationsToDisplay,
   mapVitalsToDisplay,
+  NonNormalResult,
+  NonNormalResultContained,
   NOTE_TYPE,
   Pagination,
   ParticipantInfo,
@@ -325,6 +327,11 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
   const boldFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Medium.ttf'));
   const callIcon = await pdfClient.embedImage(fs.readFileSync('./assets/call.png'));
 
+  // result flag icons
+  const inconclusiveIcon = await pdfClient.embedImage(fs.readFileSync('./assets/inconclusive.png'));
+  const abnormalIcon = await pdfClient.embedImage(fs.readFileSync('./assets/abnormal.png'));
+  const normalIcon = await pdfClient.embedImage(fs.readFileSync('./assets/normal.png'));
+
   const textStyles: Record<string, TextStyle> = {
     header: {
       fontSize: 16,
@@ -497,6 +504,77 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
 
+  const regularTextNoLineAfter = { ...textStyles.regular, newLineAfter: false };
+
+  const getFlagsExcludingNeutral = (flags: NonNormalResult[]): NonNormalResult[] =>
+    flags.filter((flag) => flag !== NonNormalResult.Neutral);
+
+  const getTestNameTextStyle = (
+    nonNormalResultContained: NonNormalResultContained,
+    labType: 'inhouse' | 'external'
+  ): TextStyle => {
+    // results are normal, no flags
+    if (!nonNormalResultContained) {
+      if (labType === 'inhouse') {
+        // there will be a normal flag therefore the test name should not have a new line after it is written
+        return regularTextNoLineAfter;
+      } else {
+        // no normal flag therefore the test name should have a new line after it is written
+        return textStyles.regular;
+      }
+    }
+
+    const flagsExcludingNeutral = getFlagsExcludingNeutral(nonNormalResultContained);
+    if (flagsExcludingNeutral.length > 0) {
+      // results have a flag to display therefore the test name should not have a new line after it is written
+      return regularTextNoLineAfter;
+    } else {
+      // no flags for neutral tests, new line after test name
+      return textStyles.regular;
+    }
+  };
+
+  const getCurBounds = (): { leftBound: number; rightBound: number } => ({
+    leftBound: pdfClient.getX(),
+    rightBound: pdfClient.getRightBound(),
+  });
+
+  const drawResultFlags = (
+    nonNormalResultContained: NonNormalResultContained,
+    labType: 'inhouse' | 'external'
+  ): void => {
+    const resultFlagIconStyle = { ...ICON_STYLE, margin: { left: 5, right: 5 } };
+    if (nonNormalResultContained && nonNormalResultContained.length > 0) {
+      const flagsExcludingNeutral = getFlagsExcludingNeutral(nonNormalResultContained);
+      if (flagsExcludingNeutral?.length) {
+        flagsExcludingNeutral.forEach((flag, idx) => {
+          const lastFlag = flagsExcludingNeutral?.length === idx + 1;
+          const style = lastFlag ? textStyles.regular : regularTextNoLineAfter;
+
+          if (flag === NonNormalResult.Abnormal) {
+            pdfClient.drawImage(abnormalIcon, resultFlagIconStyle, regularTextNoLineAfter);
+            pdfClient.drawTextSequential('Abnormal', { ...style, color: rgbNormalized(237, 108, 2) }, getCurBounds());
+          } else if (flag === NonNormalResult.Inconclusive) {
+            pdfClient.drawImage(inconclusiveIcon, resultFlagIconStyle, regularTextNoLineAfter);
+            pdfClient.drawTextSequential(
+              'Inconclusive',
+              { ...style, color: rgbNormalized(117, 117, 117) },
+              getCurBounds()
+            );
+          }
+        });
+      }
+    } else if (labType === 'inhouse') {
+      // too hairy to assume normal results for external labs so we will only do this for inhouse
+      pdfClient.drawImage(normalIcon, resultFlagIconStyle, regularTextNoLineAfter);
+      pdfClient.drawTextSequential(
+        'Normal',
+        { ...textStyles.regular, color: rgbNormalized(46, 125, 50) },
+        getCurBounds()
+      );
+    }
+  };
+
   const drawInHouseLabs = (): void => {
     pdfClient.drawText('In-House Labs', textStyles.subHeader);
     if (data.inHouseLabs?.orders.length) {
@@ -508,7 +586,12 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     if (data.inHouseLabs?.results.length) {
       pdfClient.drawText('Results:', textStyles.subHeader);
       data.inHouseLabs?.results.forEach((result) => {
-        pdfClient.drawText(result.name, textStyles.regular);
+        const testNameTextStyle = getTestNameTextStyle(result.nonNormalResultContained, 'inhouse');
+        pdfClient.drawTextSequential(result.name, testNameTextStyle, {
+          leftBound: pdfClient.getLeftBound(),
+          rightBound: pdfClient.getRightBound(),
+        });
+        drawResultFlags(result.nonNormalResultContained, 'inhouse');
       });
     }
     pdfClient.drawSeparatedLine(separatedLineStyle);
@@ -525,7 +608,12 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     if (data.externalLabs?.results.length) {
       pdfClient.drawText('Results:', textStyles.subHeader);
       data.externalLabs?.results.forEach((result) => {
-        pdfClient.drawText(result.name, textStyles.regular);
+        const testNameTextStyle = getTestNameTextStyle(result.nonNormalResultContained, 'external');
+        pdfClient.drawTextSequential(result.name, testNameTextStyle, {
+          leftBound: pdfClient.getLeftBound(),
+          rightBound: pdfClient.getRightBound(),
+        });
+        drawResultFlags(result.nonNormalResultContained, 'external');
       });
     }
     pdfClient.drawSeparatedLine(separatedLineStyle);

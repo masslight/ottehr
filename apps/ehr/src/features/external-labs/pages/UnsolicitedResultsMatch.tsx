@@ -16,11 +16,13 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { GET_TASKS_KEY } from 'src/features/visits/in-person/hooks/useTasks';
 import { SearchResultParsedPatient } from 'src/features/visits/shared/components/patients-search/types';
 import {
   useCancelMatchUnsolicitedResultTask,
@@ -34,6 +36,7 @@ import { UnsolicitedVisitMatchCard } from '../components/unsolicited-results/Uns
 
 export const UnsolicitedResultsMatch: React.FC = () => {
   const { diagnosticReportId } = useParams();
+  const queryClient = useQueryClient();
   const { mutate: cancelTask, isPending: isCancelling } = useCancelMatchUnsolicitedResultTask();
   const { mutate: matchResult, isPending: isMatching } = useFinalizeUnsolicitedResultMatch();
   const navigate = useNavigate();
@@ -117,8 +120,12 @@ export const UnsolicitedResultsMatch: React.FC = () => {
           event: LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask,
         },
         {
-          onSuccess: () => {
-            navigate('/unsolicited-results');
+          onSuccess: async () => {
+            await queryClient.invalidateQueries({
+              queryKey: [GET_TASKS_KEY],
+              exact: false,
+            });
+            navigate('/tasks');
           },
           onError: (error) => {
             console.error('Cancel task failed:', error);
@@ -143,8 +150,12 @@ export const UnsolicitedResultsMatch: React.FC = () => {
           srToMatchId: srIdForConfirmedMatchedVisit,
         },
         {
-          onSuccess: () => {
-            navigate('/unsolicited-results');
+          onSuccess: async () => {
+            await queryClient.invalidateQueries({
+              queryKey: [GET_TASKS_KEY],
+              exact: false,
+            });
+            navigate('/tasks');
           },
           onError: (error) => {
             console.error('Matching unsolicited result failed:', error);

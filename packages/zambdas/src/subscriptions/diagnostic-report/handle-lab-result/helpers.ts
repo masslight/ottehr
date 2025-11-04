@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { DiagnosticReport, Organization, Patient, Task } from 'fhir/r4b';
+import { DiagnosticReport, Encounter, Organization, Patient, Task } from 'fhir/r4b';
 import { LAB_DR_TYPE_TAG, LAB_ORDER_TASK, LabOrderTaskCode, LabType } from 'utils';
 import { getAllDrTags } from '../../../ehr/shared/labs';
 
@@ -42,15 +42,17 @@ export async function fetchRelatedResources(
   tasks: Task[];
   patient?: Patient;
   labOrg?: Organization;
+  encounter?: Encounter;
 }> {
   const resources = (
-    await oystehr.fhir.search<DiagnosticReport | Patient | Organization | Task>({
+    await oystehr.fhir.search<DiagnosticReport | Patient | Organization | Task | Encounter>({
       resourceType: 'DiagnosticReport',
       params: [
         { name: '_id', value: diagnosticReport.id ?? '' },
         { name: '_revinclude:iterate', value: 'Task:based-on' },
         { name: '_include', value: 'DiagnosticReport:subject' }, // patient
         { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
+        { name: '_include', value: 'DiagnosticReport:encounter' }, // to grab the appointment id
       ],
     })
   ).unbundle();
@@ -79,6 +81,7 @@ export async function fetchRelatedResources(
     tasks: Task[];
     patient?: Patient;
     labOrg?: Organization;
+    encounter?: Encounter; // unsolicited results will not have
   } = { tasks: [] };
 
   resources.forEach((resource) => {
@@ -90,6 +93,9 @@ export async function fetchRelatedResources(
     }
     if (resource.resourceType === 'Organization') {
       result.labOrg = resource;
+    }
+    if (resource.resourceType === 'Encounter') {
+      result.encounter = resource;
     }
   });
 
