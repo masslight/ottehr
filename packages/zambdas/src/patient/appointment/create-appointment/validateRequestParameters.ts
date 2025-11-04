@@ -39,7 +39,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (!input.body) {
     throw new Error('No request body provided');
   }
-  const isEHRUser = checkIsEHRUser(user);
+  const isEHRUser = user && checkIsEHRUser(user);
 
   const bodyJSON = JSON.parse(input.body);
   const { slotId, language, patient, unconfirmedDateOfBirth, locationState, appointmentMetadata } = bodyJSON;
@@ -169,7 +169,7 @@ export const createAppointmentComplexValidation = async (
   // patient input complex validation
   if (patient.id) {
     const userAccess = await userHasAccessToPatient(user, patient.id, oystehrClient);
-    if (!userAccess && !isEHRUser && !isTestUser(user)) {
+    if (!user || (!userAccess && !isEHRUser && !isTestUser(user))) {
       throw NO_READ_ACCESS_TO_PATIENT_ERROR;
     }
   }
