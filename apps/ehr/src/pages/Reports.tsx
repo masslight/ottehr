@@ -117,12 +117,6 @@ export default function Reports(): React.ReactElement {
       path: '/reports/workflow-efficiency',
     },
     {
-      title: 'Data Exports',
-      description: 'Export clinical and administrative data including appointments, encounters, and charts',
-      icon: <CloudDownloadIcon />,
-      path: '/reports/data-exports',
-    },
-    {
       title: 'Invoiceable patients',
       description: 'View invoiceable patients report',
       icon: <SummarizeIcon />,
