@@ -1,7 +1,6 @@
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SummarizeIcon from '@mui/icons-material/Summarize';
 import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
