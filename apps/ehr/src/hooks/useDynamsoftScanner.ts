@@ -3,6 +3,7 @@ import { WebTwain } from 'dwt/dist/types/WebTwain';
 import { Device } from 'dwt/dist/types/WebTwain.Acquire';
 import { Area } from 'dwt/dist/types/WebTwain.Viewer';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { DynamsoftEnumsDWT } from '../../public/dwt-resources/types/Dynamsoft.Enum';
 
 export interface ScannerDevice {
   displayName: string;
@@ -11,7 +12,7 @@ export interface ScannerDevice {
 
 export interface ScanSettings {
   resolution: number;
-  pixelType: number; // 0: B&W, 1: Gray, 2: Color
+  pixelType: DynamsoftEnumsDWT.EnumDWT_PixelType; // 0: B&W, 1: Gray, 2: Color
   showUI: boolean;
   useADF: boolean; // Auto Document Feeder
   useDuplex: boolean;
