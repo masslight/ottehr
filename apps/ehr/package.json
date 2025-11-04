@@ -22,6 +22,7 @@
   "scripts": {
     "start": "npm run start:iac",
     "start:iac": "vite --mode $([ \"$ENV\" = \"local\" ] && echo default || echo ${ENV:-default})",
+    "start:labcorp": "ENV=labcorp-local npm run start",
     "preview": "vite preview --port 4002",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 .",
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
@@ -64,6 +65,7 @@
     "amazon-chime-sdk-component-library-react": "^3.10.0",
     "amazon-chime-sdk-js": "^3.20.0",
     "chart.js": "^4.4.1",
+    "dwt": "^19.0.0",
     "fast-json-patch": "^3.1.1",
     "json-diff-ts": "^4.0.1",
     "node-fetch": "^2.6.1",
