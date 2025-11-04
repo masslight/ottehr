@@ -427,6 +427,12 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     if (bookingDetails.patientName.suffix && typeof bookingDetails.patientName.suffix !== 'string') {
       throw INVALID_INPUT_ERROR('"patientName.suffix" must be a string');
     }
+    if (bookingDetails.patientName.first !== undefined && bookingDetails.patientName.first.trim().length === 0) {
+      throw INVALID_INPUT_ERROR('patientName must have a non-empty first name');
+    }
+    if (bookingDetails.patientName.last !== undefined && bookingDetails.patientName.last.trim().length === 0) {
+      throw INVALID_INPUT_ERROR('patientName must have a non-empty last name');
+    }
   }
 
   if (bookingDetails.consentForms && typeof bookingDetails.consentForms !== 'object') {
