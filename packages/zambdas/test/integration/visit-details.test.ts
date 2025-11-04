@@ -626,6 +626,19 @@ describe('saving and getting visit details', () => {
     )?.valueString;
     expect(updatedAuthorizedGuardians).toBeDefined();
     expect(updatedAuthorizedGuardians).toEqual(guardiansText);
+
+    await updateVisitDetails({
+      appointmentId: appointment.id!,
+      bookingDetails: {
+        authorizedNonLegalGuardians: '',
+      },
+    });
+    const { patient: updatedPatient2 } = await getVisitDetails(appointment.id!);
+    expect(updatedPatient2).toBeDefined();
+    const updatedAuthorizedGuardians2 = updatedPatient2?.extension?.find(
+      (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+    )?.valueString;
+    expect(updatedAuthorizedGuardians2).toBeUndefined();
   });
   test.concurrent('can save and retrieve consent attestation', async () => {
     if (!oystehr || !processId) {
