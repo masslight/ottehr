@@ -16,6 +16,10 @@ const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 // cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
 const MEDICATION = 'Acetaminophen (80mg Suppository)';
+const MEDICATION_FOR_ADMINISTERED = 'Albuterol';
+const MEDICATION_FOR_PARTLY_ADMINISTERED = 'Amoxicillin';
+const MEDICATION_FOR_NOT_ADMINISTERED = 'Ventolin HFA';
+
 const DOSE = '2';
 const UNITS = 'mg';
 const MANUFACTURER = 'Test';
@@ -38,7 +42,7 @@ const NOT_ADMINISTERED = 'Not Administered';
 let page: Page;
 let context: BrowserContext;
 
-test.beforeEach(async ({ browser }) => {
+test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
   if (process.env.INTEGRATION_TEST === 'true') {
@@ -51,7 +55,7 @@ test.beforeEach(async ({ browser }) => {
   await prepareAppointment(page);
 });
 
-test.afterEach(async () => {
+test.afterAll(async () => {
   await resourceHandler.cleanupResources();
   await page.close();
   await context.close();
@@ -216,13 +220,13 @@ test('In-house medications page', async () => {
 
 test('Making in-house medication order Administered happy path', async ({ page }) => {
   await test.step('Administer order and verify', async () => {
-    const medicationsPage = await createOrderForAdministration(page);
+    const medicationsPage = await createOrderForAdministration(MEDICATION_FOR_ADMINISTERED, page);
 
     const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickAdministeredButton();
     await administrationConfirmationDialog.verifyTitle('Medication Administered');
     await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
     await administrationConfirmationDialog.verifyMedication({
-      medication: MEDICATION,
+      medication: MEDICATION_FOR_ADMINISTERED,
       dose: DOSE,
       units: UNITS,
       route: ROUTE,
@@ -233,7 +237,7 @@ test('Making in-house medication order Administered happy path', async ({ page }
     await administrationConfirmationDialog.clickMarkAsAdministeredButton();
     const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
     await inHouseMedicationsPage.verifyMedicationPresent({
-      medicationName: MEDICATION,
+      medicationName: MEDICATION_FOR_ADMINISTERED,
       dose: DOSE,
       units: UNITS,
       route: ROUTE,
@@ -244,7 +248,7 @@ test('Making in-house medication order Administered happy path', async ({ page }
     });
     const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
     await inHouseMedicationsPage.verifyMedicationInMedicationHistoryTable({
-      medication: MEDICATION,
+      medication: MEDICATION_FOR_ADMINISTERED,
       dose: DOSE,
       units: UNITS,
       type: 'In-house medication',
@@ -252,7 +256,7 @@ test('Making in-house medication order Administered happy path', async ({ page }
     });
     const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
     await progressNotePage.verifyInHouseMedication({
-      medication: MEDICATION,
+      medication: MEDICATION_FOR_ADMINISTERED,
       dose: DOSE,
       units: UNITS,
       route: ROUTE,
@@ -264,13 +268,13 @@ test('Making in-house medication order Administered happy path', async ({ page }
 });
 
 test('Making in-house medication order Partly Administered happy path', async ({ page }) => {
-  const medicationsPage = await createOrderForAdministration(page);
+  const medicationsPage = await createOrderForAdministration(MEDICATION_FOR_PARTLY_ADMINISTERED, page);
 
   const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickPartlyAdministeredButton();
   await administrationConfirmationDialog.verifyTitle('Medication Partly Administered');
   await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
   await administrationConfirmationDialog.verifyMedication({
-    medication: MEDICATION,
+    medication: MEDICATION_FOR_PARTLY_ADMINISTERED,
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
@@ -282,7 +286,7 @@ test('Making in-house medication order Partly Administered happy path', async ({
   await administrationConfirmationDialog.clickMarkAsAdministeredButton();
   const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
   await inHouseMedicationsPage.verifyMedicationPresent({
-    medicationName: MEDICATION,
+    medicationName: MEDICATION_FOR_PARTLY_ADMINISTERED,
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
@@ -294,7 +298,7 @@ test('Making in-house medication order Partly Administered happy path', async ({
   });
   const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
   await progressNotePage.verifyInHouseMedication({
-    medication: MEDICATION,
+    medication: MEDICATION_FOR_PARTLY_ADMINISTERED,
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
@@ -305,13 +309,13 @@ test('Making in-house medication order Partly Administered happy path', async ({
 });
 
 test('Making in-house medication order Not Administered happy path', async ({ page }) => {
-  const medicationsPage = await createOrderForAdministration(page);
+  const medicationsPage = await createOrderForAdministration(MEDICATION_FOR_NOT_ADMINISTERED, page);
 
   const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickNotAdministeredButton();
   await administrationConfirmationDialog.verifyTitle('Medication Not Administered');
   await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
   await administrationConfirmationDialog.verifyMedication({
-    medication: MEDICATION,
+    medication: MEDICATION_FOR_NOT_ADMINISTERED,
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
@@ -323,7 +327,7 @@ test('Making in-house medication order Not Administered happy path', async ({ pa
   await administrationConfirmationDialog.clickMarkAsAdministeredButton();
   const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
   await inHouseMedicationsPage.verifyMedicationPresent({
-    medicationName: MEDICATION,
+    medicationName: MEDICATION_FOR_NOT_ADMINISTERED,
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
@@ -335,7 +339,7 @@ test('Making in-house medication order Not Administered happy path', async ({ pa
   });
   const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
   await progressNotePage.verifyInHouseMedication({
-    medication: MEDICATION,
+    medication: MEDICATION_FOR_NOT_ADMINISTERED,
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
@@ -357,10 +361,10 @@ async function prepareAppointment(page: Page): Promise<void> {
   await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
 }
 
-async function createOrderForAdministration(page: Page): Promise<InHouseMedicationsPage> {
+async function createOrderForAdministration(medication: string, page: Page): Promise<InHouseMedicationsPage> {
   const createOrderPage = await openOrderMedicationPage(resourceHandler.appointment.id!, page);
   await createOrderPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
-  await createOrderPage.editMedicationCard.selectMedication(MEDICATION);
+  await createOrderPage.editMedicationCard.selectMedication(medication);
   await createOrderPage.editMedicationCard.enterDose(DOSE);
   await createOrderPage.editMedicationCard.selectUnits(UNITS);
   await createOrderPage.editMedicationCard.enterManufacturer(MANUFACTURER);
