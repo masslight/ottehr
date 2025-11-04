@@ -38,23 +38,32 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       input: [
         {
           type: MANUAL_TASK.input.title,
-          value: params.taskTitle,
+          valueString: params.taskTitle,
         },
         {
           type: MANUAL_TASK.input.details,
-          value: params.taskDetails,
+          valueString: params.taskDetails,
         },
         {
           type: MANUAL_TASK.input.providerName,
-          value: getFullName(currentUserPractitioner),
+          valueString: getFullName(currentUserPractitioner),
         },
         {
           type: MANUAL_TASK.input.appointmentId,
-          value: params.appointmentId,
+          valueString: params.appointmentId,
         },
         {
           type: MANUAL_TASK.input.orderId,
-          value: params.orderId,
+          valueString: params.orderId,
+        },
+        {
+          type: MANUAL_TASK.input.patient,
+          valueReference: params.patient
+            ? {
+                reference: 'Patient/' + params.patient.id,
+                display: params.patient.name,
+              }
+            : undefined,
         },
       ],
     });
@@ -80,7 +89,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export function validateRequestParameters(input: ZambdaInput): CreateManualTaskRequest & Pick<ZambdaInput, 'secrets'> {
-  const { category, appointmentId, orderId, taskTitle, taskDetails, assignee, location } = validateJsonBody(input);
+  const { category, appointmentId, orderId, taskTitle, taskDetails, assignee, location, patient } =
+    validateJsonBody(input);
 
   const missingFields: string[] = [];
   if (!category) missingFields.push('category');
@@ -94,6 +104,10 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
     if (!assignee.id) missingFields.push('assignee.id');
     if (!assignee.name) missingFields.push('assignee.name');
   }
+  if (patient) {
+    if (!patient.id) missingFields.push('patient.id');
+    if (!patient.name) missingFields.push('patient.name');
+  }
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
 
   return {
@@ -104,6 +118,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateManualTaskR
     taskDetails,
     assignee,
     location,
+    patient,
     secrets: input.secrets,
   };
 }

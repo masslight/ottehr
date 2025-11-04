@@ -50,15 +50,19 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   const handleConfirm = async (): Promise<void> => {
     await createManualTask({
       category: formValue.category,
+      appointmentId: formValue.appointment?.id,
+      orderId: formValue.order?.id,
       taskTitle: formValue.task,
       taskDetails: formValue.taskDetails,
+      assignee: formValue.assignee,
       location: formValue.location,
+      patient: formValue.patient,
     });
   };
 
   const { appointments, loading: appointmentsLoading } = useGetPatient(formValue.patient?.id);
 
-  const visitOptions = (appointments ?? []).map((appointment) => {
+  const appointmentOptions = (appointments ?? []).map((appointment) => {
     return {
       label: `${appointment.typeLabel} ${
         appointment.dateTime ? formatISOStringToDateAndTime(appointment.dateTime, appointment.officeTimeZone) : ''
@@ -67,7 +71,8 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
     };
   });
 
-  const encounterId = appointments?.find((appointment) => appointment.id === formValue.visit)?.encounter?.id ?? '';
+  const encounterId =
+    appointments?.find((appointment) => appointment.id === formValue.appointment)?.encounter?.id ?? '';
 
   const { inHouseLabOrdersLoading, inHouseLabOrdersOptions } = useInHouseLabOrdersOptions(encounterId);
   const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId);
@@ -108,15 +113,15 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
 
   useEffect(() => {
     if (!formValue.patient) {
-      methods.resetField('visit');
+      methods.resetField('appointment');
     }
   }, [formValue.patient, methods]);
 
   useEffect(() => {
-    if (!formValue.visit || !formValue.category) {
+    if (!formValue.appointment || !formValue.category) {
       methods.resetField('order');
     }
-  }, [formValue.visit, formValue.category, methods]);
+  }, [formValue.appointment, formValue.category, methods]);
   return (
     <InPersonModal
       color="primary.main"
@@ -135,9 +140,9 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
           <Stack minWidth="500px" spacing={1} paddingTop="8px">
             <PatientSelectInput name="patient" label="Patient" />
             <SelectInput
-              name="visit"
+              name="appointment"
               label="Visit"
-              options={appointmentsLoading ? [] : visitOptions}
+              options={appointmentsLoading ? [] : appointmentOptions}
               loading={appointmentsLoading}
               disabled={!formValue.patient}
             />
@@ -147,7 +152,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
               label="Order"
               options={orderOptions}
               loading={ordersLoading}
-              disabled={!formValue.visit || !formValue.category}
+              disabled={!formValue.appointment || !formValue.category}
             />
             <TextInput name="task" label="Task" required />
             <TextInput name="taskDetails" label="Task details" />

@@ -12,6 +12,10 @@ export interface CreateManualTaskRequest {
     id: string;
     name: string;
   };
+  patient?: {
+    id: string;
+    name: string;
+  };
 }
 
 export const MANUAL_TASK = {
@@ -34,5 +38,6 @@ export const MANUAL_TASK = {
     providerName: 'provider-name',
     appointmentId: 'appointment-id',
     orderId: 'order-id',
+    patient: 'patient',
   },
 } as const;

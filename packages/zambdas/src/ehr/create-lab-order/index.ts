@@ -253,27 +253,27 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       input: [
         {
           type: LAB_ORDER_TASK.input.testName,
-          value: activityDefinitionToContain.name,
+          valueString: activityDefinitionToContain.name,
         },
         {
           type: LAB_ORDER_TASK.input.labName,
-          value: labOrganization.name,
+          valueString: labOrganization.name,
         },
         {
           type: LAB_ORDER_TASK.input.patientName,
-          value: getFullestAvailableName(patient),
+          valueString: getFullestAvailableName(patient),
         },
         {
           type: LAB_ORDER_TASK.input.providerName,
-          value: getFullestAvailableName(currentUserPractitioner),
+          valueString: getFullestAvailableName(currentUserPractitioner),
         },
         {
           type: LAB_ORDER_TASK.input.orderDate,
-          value: serviceRequestConfig.authoredOn,
+          valueString: serviceRequestConfig.authoredOn,
         },
         {
           type: LAB_ORDER_TASK.input.appointmentId,
-          value: encounter.appointment?.[0]?.reference?.split('/')?.[1],
+          valueString: encounter.appointment?.[0]?.reference?.split('/')?.[1],
         },
       ],
     });

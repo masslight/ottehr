@@ -1,4 +1,4 @@
-import { CodeableConcept, Coding, Task, TaskInput } from 'fhir/r4b';
+import { CodeableConcept, Coding, Reference, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ottehrCodeSystemUrl, ottehrIdentifierSystem, undefinedIfEmptyArray } from 'utils';
 
@@ -18,7 +18,7 @@ export function createTask(data: {
     id: string;
     name?: string;
   };
-  input?: { type: string; value?: string }[] | TaskInput[];
+  input?: { type: string; valueString?: string; valueReference?: Reference }[] | TaskInput[];
   basedOn?: string[];
 }): Task {
   const tag: Coding[] = [
@@ -77,10 +77,11 @@ export function createTask(data: {
                 },
               ],
             },
-            valueString: input.value,
+            valueString: input.valueString,
+            valueReference: input.valueReference,
           };
         })
-        .filter((input) => input.valueString != null)
+        .filter((input) => input.valueString || input.valueReference)
     ),
     location: data.location
       ? {
