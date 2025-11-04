@@ -40,6 +40,7 @@ export interface UseDynamsoftScannerResult {
   acquireImage: (settings: ScanSettings) => Promise<void>;
   getImageAsBlob: (index: number) => Promise<Blob | null>;
   getAllImagesAsPdf: () => Promise<Blob | null>;
+  getAllImagesAsPng: () => Promise<Blob[]>;
   removeImage: (index: number) => void;
   removeCurrentImage: () => void;
   removeAllImages: () => void;
@@ -337,6 +338,49 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     }
   }, []);
 
+  const getAllImagesAsPng = useCallback(async (): Promise<Blob[]> => {
+    if (!dwtObjectRef.current) return [];
+
+    try {
+      const dwtObject = dwtObjectRef.current;
+      const count = dwtObject.HowManyImagesInBuffer;
+
+      if (count === 0) {
+        console.log('No images to convert to PNG');
+        return [];
+      }
+
+      console.log(`Converting ${count} images to PNG format...`);
+
+      const pngBlobs: Blob[] = [];
+
+      // Convert each image to PNG
+      for (let i = 0; i < count; i++) {
+        const blob = await new Promise<Blob>((resolve, reject) => {
+          dwtObject.ConvertToBlob(
+            [i],
+            Dynamsoft.DWT.EnumDWT_ImageType.IT_PNG,
+            (result: Blob) => {
+              console.log(`Successfully converted image ${i + 1} to PNG`);
+              resolve(result);
+            },
+            (errorCode: number, errorString: string) => {
+              console.error(`Error converting image ${i + 1} to PNG:`, errorString);
+              reject(new Error(errorString));
+            }
+          );
+        });
+        pngBlobs.push(blob);
+      }
+
+      console.log(`Successfully converted all ${count} images to PNG`);
+      return pngBlobs;
+    } catch (err) {
+      console.error('Error getting all images as PNG:', err);
+      return [];
+    }
+  }, []);
+
   const removeImage = useCallback((index: number) => {
     if (dwtObjectRef.current) {
       dwtObjectRef.current.RemoveImage(index);
@@ -445,6 +489,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     acquireImage,
     getImageAsBlob,
     getAllImagesAsPdf,
+    getAllImagesAsPng,
     removeImage,
     removeCurrentImage,
     removeAllImages,

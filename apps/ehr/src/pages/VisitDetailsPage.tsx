@@ -1,6 +1,8 @@
 import { otherColors } from '@ehrTheme/colors';
 import CircleIcon from '@mui/icons-material/Circle';
 import DownloadIcon from '@mui/icons-material/Download';
+import ScannerIcon from '@mui/icons-material/Scanner';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -29,6 +31,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
+  createZ3Object,
   generatePaperworkPdf,
   getPatientVisitDetails,
   getPatientVisitFiles,
@@ -36,8 +39,8 @@ import {
   updateVisitFiles,
 } from 'src/api/api';
 import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
-import ImageUploader from 'src/components/ImageUploader';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { ScannerModal } from 'src/components/ScannerModal';
 import { TelemedAppointmentStatusChip } from 'src/components/TelemedAppointmentStatusChip';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
@@ -53,6 +56,7 @@ import {
   getLastName,
   getMiddleName,
   getPatchOperationForNewMetaTag,
+  GetPresignedFileURLInput,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getTelemedVisitStatus,
   getUnconfirmedDOBForAppointment,
@@ -213,6 +217,8 @@ export default function VisitDetailsPage(): ReactElement {
   const [activityLogsLoading, setActivityLogsLoading] = useState<boolean>(true);
   const [activityLogs, setActivityLogs] = useState<ActivityLogData[] | undefined>(undefined);
   const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
+  const [scannerModalOpen, setScannerModalOpen] = useState<boolean>(false);
+  const [scannerFileType, setScannerFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
   const user = useEvolveUser();
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
@@ -294,6 +300,121 @@ export default function VisitDetailsPage(): ReactElement {
     if (index > -1) {
       setZoomedIdx(index);
       setPhotoZoom(true);
+    }
+  };
+
+  // Handler for uploading a file from the file system
+  const handleFileUpload = async (fileType: UpdateVisitFilesInput['fileType'], file: File): Promise<void> => {
+    if (!oystehrZambda || !appointmentID) return;
+
+    try {
+      const z3URL = await createZ3Object(
+        {
+          appointmentID,
+          fileType,
+          fileFormat: file.type.split('/')[1] as GetPresignedFileURLInput['fileFormat'],
+          file,
+        },
+        oystehrZambda
+      );
+
+      const attachment: Attachment = {
+        url: z3URL,
+        title: fileType,
+        creation: DateTime.now().toISO(),
+      };
+
+      await filesMutation.mutateAsync({
+        appointmentId: appointmentID,
+        attachment,
+        fileType,
+      });
+
+      enqueueSnackbar('File uploaded successfully', { variant: 'success' });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      enqueueSnackbar('Error uploading file', { variant: 'error' });
+    }
+  };
+
+  // Handler for opening the scanner modal
+  const handleOpenScanner = (fileType: UpdateVisitFilesInput['fileType']): void => {
+    setScannerFileType(fileType);
+    setScannerModalOpen(true);
+  };
+
+  // Handler for when scanning is complete
+  const handleScanComplete = async (fileBlob: Blob | Blob[], fileName: string): Promise<void> => {
+    if (!oystehrZambda || !appointmentID || !scannerFileType) return;
+
+    try {
+      // Handle PNG blobs (array of blobs)
+      if (Array.isArray(fileBlob)) {
+        // Upload each PNG file
+        for (let i = 0; i < fileBlob.length; i++) {
+          const blob = fileBlob[i];
+          const pngFileName = fileBlob.length > 1 ? `${fileName}-${i + 1}.png` : `${fileName}.png`;
+
+          const z3URL = await createZ3Object(
+            {
+              appointmentID,
+              fileType: scannerFileType,
+              fileFormat: 'png',
+              file: new File([blob], pngFileName, { type: 'image/png' }),
+            },
+            oystehrZambda
+          );
+
+          const attachment: Attachment = {
+            url: z3URL,
+            title: scannerFileType,
+            creation: DateTime.now().toISO(),
+          };
+
+          await filesMutation.mutateAsync({
+            appointmentId: appointmentID,
+            attachment,
+            fileType: scannerFileType,
+          });
+        }
+
+        setScannerModalOpen(false);
+        enqueueSnackbar(
+          `Successfully uploaded ${fileBlob.length} scanned ${fileBlob.length === 1 ? 'image' : 'images'}`,
+          { variant: 'success' }
+        );
+      } else {
+        // Handle single PDF blob (backward compatibility)
+        const pdfFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+
+        const z3URL = await createZ3Object(
+          {
+            appointmentID,
+            fileType: scannerFileType,
+            fileFormat: 'pdf',
+            file: new File([fileBlob], pdfFileName, { type: 'application/pdf' }),
+          },
+          oystehrZambda
+        );
+
+        const attachment: Attachment = {
+          url: z3URL,
+          title: scannerFileType,
+          creation: DateTime.now().toISO(),
+        };
+
+        await filesMutation.mutateAsync({
+          appointmentId: appointmentID,
+          attachment,
+          fileType: scannerFileType,
+        });
+
+        setScannerModalOpen(false);
+        enqueueSnackbar('Scanned document uploaded successfully', { variant: 'success' });
+      }
+    } catch (error) {
+      console.error('Error uploading scanned document:', error);
+      enqueueSnackbar('Error uploading scanned document', { variant: 'error' });
     }
   };
 
@@ -862,6 +983,8 @@ export default function VisitDetailsPage(): ReactElement {
                         filesMutator={filesMutation}
                         fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsurance)}
                         handleImageClick={handleCardImageClick}
+                        handleFileUpload={handleFileUpload}
+                        handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
                       />
                       <CardCategoryGridItem
@@ -871,6 +994,8 @@ export default function VisitDetailsPage(): ReactElement {
                         filesMutator={filesMutation}
                         fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsuranceSecondary)}
                         handleImageClick={handleCardImageClick}
+                        handleFileUpload={handleFileUpload}
+                        handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
                       />
                       <CardCategoryGridItem
@@ -880,6 +1005,8 @@ export default function VisitDetailsPage(): ReactElement {
                         filesMutator={filesMutation}
                         fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullPhotoId)}
                         handleImageClick={handleCardImageClick}
+                        handleFileUpload={handleFileUpload}
+                        handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
                       />
                     </Grid>
@@ -1273,6 +1400,12 @@ export default function VisitDetailsPage(): ReactElement {
             {toastMessage}
           </Alert>
         </Snackbar>
+        <ScannerModal
+          open={scannerModalOpen}
+          onClose={() => setScannerModalOpen(false)}
+          outputFormat="png"
+          onScanComplete={handleScanComplete}
+        />
       </>
     </PageContainer>
   );
@@ -1286,6 +1419,8 @@ interface CardCategoryGridItemInput {
   imagesLoading?: boolean;
   fullCardPdf?: DocumentInfo | undefined;
   handleImageClick: (imageType: string) => void;
+  handleFileUpload: (fileType: UpdateVisitFilesInput['fileType'], file: File) => Promise<void>;
+  handleOpenScanner: (fileType: UpdateVisitFilesInput['fileType']) => void;
 }
 
 function parseFiletype(fileUrl: string): string {
@@ -1302,9 +1437,11 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
   category,
   appointmentID,
   fullCardPdf,
-  filesMutator,
+  filesMutator: _filesMutator,
   imagesLoading,
   handleImageClick,
+  handleFileUpload,
+  handleOpenScanner,
 }) => {
   const title = (() => {
     if (category === 'primary-ins') {
@@ -1428,22 +1565,54 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
             </Grid>
           ) : (
             <Grid item key={itemIdentifier(key as 'front' | 'back')} xs={5.5}>
-              <ImageUploader
-                fileName={itemIdentifier(key as 'front' | 'back')}
-                appointmentId={appointmentID}
-                saveAttachmentPending={
-                  filesMutator.variables?.fileType === itemIdentifier(key as 'front' | 'back') && filesMutator.isPending
-                }
-                submitAttachment={async (attachment: Attachment) => {
-                  await filesMutator.mutateAsync({
-                    appointmentId: appointmentID,
-                    attachment,
-                    fileType: itemIdentifier(key as 'front' | 'back'),
-                  });
+              <Box
+                sx={{
+                  border: `1px dashed ${imagesLoading ? otherColors.disabled : theme.palette.primary.main}`,
+                  borderRadius: 2,
+                  background: imagesLoading ? otherColors.disabledBackground : otherColors.cardBackground,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 1,
+                  padding: 2,
+                  aspectRatio: ASPECT_RATIO,
                 }}
-                aspectRatio={ASPECT_RATIO}
-                disabled={imagesLoading}
-              />
+              >
+                <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', width: '100%' }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    disabled={imagesLoading}
+                    startIcon={<UploadFileIcon fontSize="small" />}
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/png, image/jpeg, image/jpg, application/pdf';
+                      input.onchange = async (e: Event) => {
+                        const target = e.target as HTMLInputElement;
+                        if (target.files && target.files[0]) {
+                          await handleFileUpload(itemIdentifier(key as 'front' | 'back'), target.files[0]);
+                        }
+                      };
+                      input.click();
+                    }}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Upload
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    disabled={imagesLoading}
+                    startIcon={<ScannerIcon fontSize="small" />}
+                    onClick={() => handleOpenScanner(itemIdentifier(key as 'front' | 'back'))}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Scan
+                  </Button>
+                </Box>
+              </Box>
             </Grid>
           )
         )}

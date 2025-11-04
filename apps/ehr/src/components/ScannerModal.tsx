@@ -31,15 +31,18 @@ import { DateTime } from 'luxon';
 import { FC, useEffect, useState } from 'react';
 import { useDynamsoftScanner } from '../hooks/useDynamsoftScanner';
 
+export type ScannerOutputFormat = 'pdf' | 'png';
+
 interface ScannerModalProps {
   open: boolean;
   onClose: () => void;
-  onScanComplete?: (pdfBlob: Blob, fileName: string) => void;
+  outputFormat?: ScannerOutputFormat; // 'pdf' for single PDF, 'png' for multiple PNGs
+  onScanComplete?: (fileBlob: Blob | Blob[], fileName: string) => void;
 }
 
 const SCANNER_CONTAINER_ID = 'dynamsoft-scanner-container';
 
-export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanComplete }) => {
+export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputFormat = 'pdf', onScanComplete }) => {
   const {
     isInitialized,
     isScanning,
@@ -54,6 +57,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
     refreshScanners,
     acquireImage,
     getAllImagesAsPdf,
+    getAllImagesAsPng,
     removeCurrentImage,
     removeAllImages,
     rotateLeft,
@@ -124,17 +128,32 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
     }
 
     try {
-      // Get all images as a single PDF
-      const pdfBlob = await getAllImagesAsPdf();
+      if (outputFormat === 'pdf') {
+        // Get all images as a single PDF
+        const pdfBlob = await getAllImagesAsPdf();
 
-      if (!pdfBlob) {
-        console.error('Failed to create PDF from scanned images');
-        return;
-      }
+        if (!pdfBlob) {
+          console.error('Failed to create PDF from scanned images');
+          return;
+        }
 
-      if (onScanComplete) {
-        // Pass the single combined PDF blob and fileName
-        onScanComplete(pdfBlob, fileName.trim());
+        if (onScanComplete) {
+          // Pass the single combined PDF blob and fileName
+          onScanComplete(pdfBlob, fileName.trim());
+        }
+      } else {
+        // Get all images as PNG files
+        const pngBlobs = await getAllImagesAsPng();
+
+        if (pngBlobs.length === 0) {
+          console.error('Failed to create PNG files from scanned images');
+          return;
+        }
+
+        if (onScanComplete) {
+          // Pass all PNG blobs and fileName
+          onScanComplete(pngBlobs, fileName.trim());
+        }
       }
 
       cleanup();
