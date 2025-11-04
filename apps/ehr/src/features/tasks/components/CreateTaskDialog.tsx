@@ -50,8 +50,8 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   const handleConfirm = async (): Promise<void> => {
     await createManualTask({
       category: formValue.category,
-      appointmentId: formValue.appointment?.id,
-      orderId: formValue.order?.id,
+      appointmentId: formValue.appointment,
+      orderId: formValue.order,
       taskTitle: formValue.task,
       taskDetails: formValue.taskDetails,
       assignee: formValue.assignee,

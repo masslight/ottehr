@@ -38,6 +38,7 @@ import {
   Task,
   TASKS_PAGE_SIZE,
   useAssignTask,
+  useCompleteTask,
   useGetTasks,
   useUnassignTask,
 } from 'src/features/visits/in-person/hooks/useTasks';
@@ -73,6 +74,7 @@ export const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const { mutateAsync: assignTask, isPending: isAssigning } = useAssignTask();
   const { mutateAsync: unassignTask } = useUnassignTask();
+  const { mutateAsync: completeTask } = useCompleteTask();
   const currentUser = useEvolveUser();
   const currentUserProviderId = currentUser?.profile?.split('/')[1];
 
@@ -82,7 +84,7 @@ export const Tasks: React.FC = () => {
   } | null>(null);
   const [taskToAssign, setTaskToAssign] = useState<Task | null>(null);
 
-  const renderActionButton = (task: Task): ReactElement | null => {
+  const renderActionButtons = (task: Task): ReactElement | null => {
     if (task.status === COMPLETED) {
       return null;
     }
@@ -109,13 +111,20 @@ export const Tasks: React.FC = () => {
     }
     if (task.action) {
       return (
-        <RoundedButton
-          variant="contained"
-          onClick={() => navigate(task.action?.link ?? '#')}
-          disabled={currentUserProviderId !== task.assignee?.id}
-        >
-          {task.action.name}
-        </RoundedButton>
+        <Stack direction="row" spacing={1}>
+          <RoundedButton
+            variant="contained"
+            disabled={currentUserProviderId !== task.assignee?.id}
+            onClick={() => window.open(task.action?.link, '_blank')}
+          >
+            {task.action.name}
+          </RoundedButton>
+          {task.completable ? (
+            <RoundedButton variant="contained" onClick={async () => await completeTask({ taskId: task.id })}>
+              Complete
+            </RoundedButton>
+          ) : null}
+        </Stack>
       );
     }
     return null;
@@ -347,7 +356,7 @@ export const Tasks: React.FC = () => {
                       <TableCell>
                         {task.status !== COMPLETED ? (
                           <Stack direction="row" justifyContent="space-between">
-                            {renderActionButton(task)}
+                            {renderActionButtons(task)}
                             {renderMoreButton(task)}
                           </Stack>
                         ) : null}

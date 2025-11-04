@@ -26,7 +26,7 @@ export function useInHouseLabOrdersOptions(encounterId: string): {
     inHouseLabOrdersOptions: labOrders.map((order) => {
       return {
         label: order.testItemName,
-        value: 'ServiceRequest/' + order.serviceRequestId,
+        value: order.serviceRequestId,
       };
     }),
   };
@@ -52,10 +52,7 @@ export function useExternalLabOrdersOptions(encounterId: string): {
       .map((order) => {
         return {
           label: order.testItem,
-          value:
-            'drCentricResultType' in order
-              ? 'DiagnosticReport/' + order.resultsDetails?.[0].diagnosticReportId
-              : 'ServiceRequest/' + order.serviceRequestId,
+          value: 'drCentricResultType' in order ? order.resultsDetails?.[0].diagnosticReportId : order.serviceRequestId,
         };
       }),
   };
@@ -73,7 +70,7 @@ export function useNursingOrdersOptions(encounterId: string): {
     nursingOrdersOptions: nursingOrders.map((order) => {
       return {
         label: order.note,
-        value: 'ServiceRequest/' + order.serviceRequestId,
+        value: order.serviceRequestId,
       };
     }),
   };
@@ -91,7 +88,7 @@ export function useRadiologyOrdersOptions(encounterId: string): {
     radiologyOrdersOptions: orders.map((order) => {
       return {
         label: order.studyType,
-        value: 'ServiceRequest/' + order.serviceRequestId,
+        value: order.serviceRequestId,
       };
     }),
   };
@@ -107,7 +104,7 @@ export function useProceduresOptions(encounterId: string): {
     proceduresOptions: (chartData?.procedures ?? []).map((procedure) => {
       return {
         label: procedure.procedureType ?? '',
-        value: 'Procedure/' + procedure.resourceId,
+        value: procedure.resourceId ?? '',
       };
     }),
   };
@@ -126,7 +123,7 @@ export function useInHouseMedicationsOptions(encounterId: string): {
     inHouseMedicationsOptions: (data?.orders ?? []).map((order) => {
       return {
         label: order.medicationName,
-        value: 'Medication/' + order.medicationId,
+        value: order.medicationId ?? '',
       };
     }),
   };

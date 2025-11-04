@@ -20,6 +20,7 @@ import {
 
 const GET_TASKS_KEY = 'get-tasks';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
+const GO_TO_TASK = 'Go to task';
 
 export const TASKS_PAGE_SIZE = 20;
 
@@ -41,6 +42,7 @@ export interface Task {
     date: string;
   };
   alert?: string;
+  completable: boolean;
 }
 
 export interface TasksSearchParams {
@@ -60,6 +62,10 @@ export interface AssignTaskRequest {
 }
 
 export interface UnassignTaskRequest {
+  taskId: string;
+}
+
+export interface CompleteTaskRequest {
   taskId: string;
 }
 
@@ -232,6 +238,33 @@ export const useCreateManualTask = (): UseMutationResult<void, Error, CreateManu
   });
 };
 
+export const useCompleteTask = (): UseMutationResult<void, Error, CompleteTaskRequest> => {
+  const { oystehr } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CompleteTaskRequest) => {
+      if (!oystehr) throw new Error('oystehr not defined');
+      await oystehr.fhir.patch<FhirTask>({
+        resourceType: 'Task',
+        id: input.taskId,
+        operations: [
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'completed',
+          },
+        ],
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: [GET_TASKS_KEY],
+        exact: false,
+      });
+    },
+  });
+};
+
 function fhirTaskToTask(task: FhirTask): Task {
   const category = task.groupIdentifier?.value ?? '';
   let action: any = undefined;
@@ -327,15 +360,55 @@ function fhirTaskToTask(task: FhirTask): Task {
   if (category.startsWith('manual')) {
     const providerName = getInputString(MANUAL_TASK.input.providerName, task);
     const patientReference = getInputReference(MANUAL_TASK.input.patient, task);
+    const appointmentId = getInputString(MANUAL_TASK.input.appointmentId, task);
+    const orderId = getInputString(MANUAL_TASK.input.orderId, task);
     title =
       getInputString(MANUAL_TASK.input.title, task) +
       (patientReference ? ' for ' + patientReference.display?.replaceAll(',', '') : '');
     subtitle = `Manual task by ${providerName} / ${task.location?.display ?? ''}`;
     details = getInputString(MANUAL_TASK.input.details, task) ?? '';
-    action = {
-      name: 'Complete',
-      link: `/todo`,
-    };
+    if (orderId) {
+      if (category === MANUAL_TASK.category.inHouseLab) {
+        action = {
+          name: GO_TO_TASK,
+          link: `/in-person/${appointmentId}/in-house-lab-orders/${orderId}/order-details`,
+        };
+      }
+      if (category === MANUAL_TASK.category.externalLab) {
+        action = {
+          name: GO_TO_TASK,
+          link: `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`,
+        };
+      }
+      if (category === MANUAL_TASK.category.nursingOrders) {
+        action = {
+          name: GO_TO_TASK,
+          link: `/in-person/${appointmentId}/nursing-orders/${orderId}/order-details`,
+        };
+      }
+      if (category === MANUAL_TASK.category.radiology) {
+        action = {
+          name: GO_TO_TASK,
+          link: `/in-person/${appointmentId}/radiology/${orderId}/order-details`,
+        };
+      }
+      if (category === MANUAL_TASK.category.procedures) {
+        action = {
+          name: GO_TO_TASK,
+          link: `/in-person/${appointmentId}/procedures/${orderId}`,
+        };
+      }
+    } else if (appointmentId) {
+      action = {
+        name: GO_TO_TASK,
+        link: `/in-person/${appointmentId}`,
+      };
+    } else if (patientReference) {
+      action = {
+        name: GO_TO_TASK,
+        link: `/patient/${patientReference.reference?.split('/')?.[1]}`,
+      };
+    }
   }
   return {
     id: task.id ?? '',
@@ -354,6 +427,7 @@ function fhirTaskToTask(task: FhirTask): Task {
         }
       : undefined,
     alert: getInputString('alert', task) ?? '',
+    completable: category.startsWith('manual'),
   };
 }
 
