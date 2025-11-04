@@ -107,8 +107,6 @@ const UploadComponent: FC<UploadComponentProps> = ({
           title: fileName,
           creation: DateTime.now().toISO(),
         };
-        console.log('z3 upload complete, attachment:', attachment);
-        throw new Error('Short circuit. delete me');
         setZ3UploadState(UploadState.complete);
         await submitAttachment(attachment);
         setPendingZ3Upload(undefined);
