@@ -60,6 +60,7 @@ test.afterEach(async () => {
 test('In-house medications page', async () => {
   let editOrderPage: OrderMedicationPage;
   let medicationsPage: InHouseMedicationsPage;
+  let orderBy: string | undefined = undefined;
   const orderMedicationPage: OrderMedicationPage = await openOrderMedicationPage(resourceHandler.appointment.id!, page);
 
   await test.step('"Order" button is disabled when all fields are empty', async () => {
@@ -90,7 +91,7 @@ test('In-house medications page', async () => {
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.ROUTE);
   await orderMedicationPage.editMedicationCard.selectRoute(ROUTE);
   await orderMedicationPage.editMedicationCard.waitForLoadOrderedBy();
-  await orderMedicationPage.editMedicationCard.selectFirstNonEmptyOrderedBy();
+  orderBy = await orderMedicationPage.editMedicationCard.selectFirstNonEmptyOrderedBy();
   await orderMedicationPage.clickOrderMedicationButton();
 
   await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.ASSOCIATED_DX);
@@ -206,7 +207,7 @@ test('In-house medications page', async () => {
       dose: NEW_DOSE,
       units: NEW_UNITS,
       route: NEW_ROUTE,
-      orderedBy: await getCurrentPractitionerFirstLastName(),
+      orderedBy: orderBy,
       instructions: NEW_INSTRUCTIONS,
       status: CANCELLED,
     });

@@ -87,7 +87,7 @@ export class EditMedicationCard {
     await this.chooseOption(orderedBy);
   }
 
-  async selectFirstNonEmptyOrderedBy(): Promise<void> {
+  async selectFirstNonEmptyOrderedBy(): Promise<string> {
     const dataTestId = this.getDataTestId(Field.ORDERED_BY);
 
     // mui set tabindex 0 to enabled element
@@ -103,10 +103,11 @@ export class EditMedicationCard {
         const dataValue = await option.getAttribute('data-value');
         if (dataValue && dataValue !== '') {
           await option.click();
-          break;
+          return text;
         }
       }
     }
+    throw new Error('Failed to select order by');
   }
 
   async verifyAssociatedDx(diagnosis: string): Promise<void> {
