@@ -23,7 +23,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { Encounter, Location, Patient } from 'fhir/r4b';
+import { Encounter, Location, Patient, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { FC, ReactElement, useMemo, useState } from 'react';
@@ -44,12 +44,11 @@ import {
   visitStatusArray,
 } from 'utils';
 import { create } from 'zustand';
-import { getEmployees, sendInvoiceToPatient } from '../api/api';
+import { getEmployees } from '../api/api';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { AppointmentHistoryRow } from '../hooks/useGetPatient';
 import { SendInvoiceToPatientDialog } from './dialogs';
-import { SendPatientInvoiceOnSubmitProps } from './dialogs/SendInvoiceToPatientDialog';
 import { RoundedButton } from './RoundedButton';
 import { TelemedAppointmentStatusChip } from './TelemedAppointmentStatusChip';
 
@@ -145,6 +144,7 @@ const columns: TableColumn[] = [
   { id: 'los', label: 'LOS', width: 100 },
   { id: 'info', label: 'Visit Info', width: 120, align: 'center' },
   { id: 'note', label: 'Progress Note', width: 150 },
+  { id: 'invoice', label: 'Invoice', width: 100, align: 'center' },
 ];
 
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
@@ -162,7 +162,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [followupEncounters, setFollowupEncounters] = useState<Encounter[]>([]);
   const [followupLocations, setFollowupLocations] = useState<Map<string, Location>>(new Map());
   const [sendInvoiceDialogOpen, setSendInvoiceDialogOpen] = useState(false);
-  const [selectedEncounterId] = useState<string | undefined>(undefined);
+  const [selectedInvoiceTask, setSelectedInvoiceTask] = useState<Task | undefined>(undefined);
 
   const { oystehrZambda, oystehr } = useApiClients();
   const navigate = useNavigate();
@@ -181,15 +181,6 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     },
     enabled: !!oystehrZambda,
   });
-
-  // const { data: prefilledInvoice } = useQuery({
-  //   queryKey: ['get-prefilled-invoice-info', patient?.id],
-  //   queryFn: () => {
-  //     if (oystehrZambda && patient?.id) return getPrefilledInvoiceInfo(oystehrZambda, { patientId: patient?.id });
-  //     return undefined;
-  //   },
-  //   enabled: !!oystehrZambda && !!patient?.id,
-  // });
 
   useSuccessQuery(employeesData, (data) => {
     const employees = data?.employees || [];
@@ -313,14 +304,24 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     return filterStatus === appointmentStatus;
   }
 
-  const sendInvoice = async (props: SendPatientInvoiceOnSubmitProps): Promise<void> => {
+  const sendInvoice = async (taskId: string, taskInput: TaskInput[]): Promise<void> => {
     try {
-      if (oystehrZambda) {
-        const { patientId, prefilledInfo, oystEncounterId } = props;
-        await sendInvoiceToPatient(oystehrZambda, {
-          oystPatientId: patientId,
-          oystEncounterId,
-          prefilledInfo,
+      if (oystehr) {
+        await oystehr.fhir.patch({
+          resourceType: 'Task',
+          id: taskId,
+          operations: [
+            {
+              op: 'replace',
+              path: '/status',
+              value: 'requested', // todo what to put here?
+            },
+            {
+              op: 'replace',
+              path: '/input',
+              value: taskInput,
+            },
+          ],
         });
         setSendInvoiceDialogOpen(false);
         enqueueSnackbar('Invoice created and sent successfully', { variant: 'success' });
@@ -458,6 +459,20 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
             Progress Note
           </RoundedButton>
         );
+      case 'invoice': {
+        const lastActiveEncounterTask = row.encounterTasks?.find((task) => task.status === 'ready'); // todo how to do this
+        return (
+          <RoundedButton
+            disabled={!lastActiveEncounterTask}
+            onClick={() => {
+              setSendInvoiceDialogOpen(true);
+              setSelectedInvoiceTask(lastActiveEncounterTask);
+            }}
+          >
+            Invoice
+          </RoundedButton>
+        );
+      }
       default:
         return '-';
     }
@@ -676,9 +691,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         handleClose={() => setSendInvoiceDialogOpen(false)}
         submitButtonName="Send"
         onSubmit={sendInvoice}
-        patientId={patient?.id}
-        encounterId={selectedEncounterId}
-        prefilledInvoice={prefilledInvoice}
+        invoiceTask={selectedInvoiceTask}
       />
     </Paper>
   );

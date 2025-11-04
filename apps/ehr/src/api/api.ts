@@ -58,8 +58,6 @@ import {
   GetLabOrdersParameters,
   GetNursingOrdersInput,
   GetOrUploadPatientProfilePhotoZambdaResponse,
-  GetPrefilledInvoiceInfoZambdaInput,
-  GetPrefilledInvoiceInfoZambdaOutput,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
   GetScheduleParams,
@@ -89,7 +87,6 @@ import {
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
   ScheduleDTO,
-  SendInvoiceToPatientZambdaInput,
   SendReceiptByEmailZambdaInput,
   SendReceiptByEmailZambdaOutput,
   SubmitLabOrderInput,
@@ -167,7 +164,6 @@ const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
-const SEND_INVOICE_TO_PATIENT_ZAMBDA_ID = 'send-invoice-to-patient';
 const INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID = 'invoiceable-patients-report';
 
 export const getUser = async (token: string): Promise<User> => {
@@ -1304,37 +1300,6 @@ export const invoiceablePatientsReport = async (oystehr: Oystehr): Promise<void>
       id: INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID,
     });
     return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const getPrefilledInvoiceInfo = async (
-  oystehr: Oystehr,
-  parameters: GetPrefilledInvoiceInfoZambdaInput
-): Promise<Partial<GetPrefilledInvoiceInfoZambdaOutput>> => {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: GET_PREFILLED_INVOICE_INFO_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const sendInvoiceToPatient = async (
-  oystehr: Oystehr,
-  parameters: SendInvoiceToPatientZambdaInput
-): Promise<void> => {
-  try {
-    await oystehr.zambda.execute({
-      id: SEND_INVOICE_TO_PATIENT_ZAMBDA_ID,
-      ...parameters,
-    });
   } catch (error: unknown) {
     console.log(error);
     throw error;

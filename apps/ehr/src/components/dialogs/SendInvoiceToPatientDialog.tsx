@@ -1,9 +1,10 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from '@mui/material';
+import { Task, TaskInput } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { GetPrefilledInvoiceInfoZambdaOutput, isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { createInvoiceTaskInput, isPhoneNumberValid, parseInvoiceTaskInput, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { z } from 'zod';
 import { BasicDatePicker } from '../form';
 import InputMask from '../InputMask';
@@ -17,21 +18,13 @@ export interface SendInvoiceFormData {
   smsTextMessage: string;
 }
 
-export interface SendPatientInvoiceOnSubmitProps {
-  prefilledInfo: GetPrefilledInvoiceInfoZambdaOutput;
-  oystEncounterId: string;
-  patientId: string;
-}
-
 interface SendInvoiceToPatientDialogProps {
   title: string;
   modalOpen: boolean;
   handleClose: () => void;
-  onSubmit: (props: SendPatientInvoiceOnSubmitProps) => Promise<void>;
+  onSubmit: (taskId: string, taskInput: TaskInput[]) => Promise<void>;
   submitButtonName: string;
-  patientId?: string;
-  encounterId?: string;
-  prefilledInvoice?: Partial<GetPrefilledInvoiceInfoZambdaOutput>;
+  invoiceTask?: Task;
 }
 
 export default function SendInvoiceToPatientDialog({
@@ -40,37 +33,31 @@ export default function SendInvoiceToPatientDialog({
   handleClose,
   onSubmit,
   submitButtonName,
-  patientId,
-  encounterId,
-  prefilledInvoice,
+  invoiceTask,
 }: SendInvoiceToPatientDialogProps): ReactElement {
   const emailValidator = z.string().email();
-  // const phoneNumberValidator = z.string().regex(/^[0-9]{10}$/);
-  // const [fieldsDisabled, setFieldsDisabled] = useState();
 
   const handleSubmitWrapped = (data: SendInvoiceFormData): void => {
-    console.log('submit here');
-    if (!patientId) {
-      enqueueSnackbar("Can't create invoice, patient id is required", { variant: 'error' });
-      return;
-    }
-    if (!encounterId) {
-      enqueueSnackbar("Can't create invoice, encounterId is required", { variant: 'error' });
-      return;
-    }
-    const { recipientName, recipientEmail, recipientPhoneNumber, dueDate, memo, smsTextMessage } = data;
-    void onSubmit({
-      patientId,
-      oystEncounterId: encounterId,
-      prefilledInfo: {
-        recipientName,
-        recipientEmail,
-        recipientPhoneNumber,
-        dueDate,
-        memo,
-        smsTextMessage,
-      },
-    });
+    if (invoiceTask) {
+      const originalTaskInput = parseInvoiceTaskInput(invoiceTask);
+      if (!originalTaskInput) {
+        enqueueSnackbar('Error sending invoice', { variant: 'error' });
+        return;
+      }
+      const taskInput = createInvoiceTaskInput({
+        encounterId: originalTaskInput?.encounterId,
+        patientId: originalTaskInput?.patientId,
+        recipientName: data.recipientName,
+        recipientEmail: data.recipientEmail,
+        recipientPhoneNumber: data.recipientPhoneNumber,
+        dueDate: data.dueDate,
+        memo: data.memo,
+        smsTextMessage: data.smsTextMessage,
+      });
+      if (invoiceTask?.id) {
+        void onSubmit(invoiceTask?.id, taskInput);
+      }
+    } else enqueueSnackbar('Error sending invoice', { variant: 'error' });
   };
 
   const {
@@ -83,17 +70,20 @@ export default function SendInvoiceToPatientDialog({
   });
 
   useEffect(() => {
-    if (prefilledInvoice) {
-      reset({
-        recipientName: prefilledInvoice.recipientName,
-        recipientEmail: prefilledInvoice.recipientEmail,
-        recipientPhoneNumber: prefilledInvoice.recipientPhoneNumber,
-        dueDate: prefilledInvoice.dueDate,
-        memo: prefilledInvoice.memo,
-        smsTextMessage: prefilledInvoice.smsTextMessage,
-      });
+    if (invoiceTask) {
+      const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
+      if (invoiceTaskInput) {
+        reset({
+          recipientName: invoiceTaskInput.recipientName,
+          recipientEmail: invoiceTaskInput.recipientEmail,
+          recipientPhoneNumber: invoiceTaskInput.recipientPhoneNumber,
+          dueDate: invoiceTaskInput.dueDate,
+          memo: invoiceTaskInput.memo,
+          smsTextMessage: invoiceTaskInput.smsTextMessage,
+        });
+      }
     }
-  }, [prefilledInvoice, reset]);
+  }, [invoiceTask, reset]);
 
   return (
     <Dialog open={modalOpen}>

@@ -12,6 +12,7 @@ import {
   Questionnaire,
   QuestionnaireResponse,
   RelatedPerson,
+  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -60,6 +61,7 @@ export type AppointmentHistoryRow = {
   length: number;
   appointment: Appointment;
   encounter?: Encounter;
+  encounterTasks?: Task[];
 };
 
 export const useGetPatient = (
@@ -104,6 +106,10 @@ export const useGetPatient = (
                 {
                   name: '_revinclude:iterate',
                   value: 'Encounter:appointment',
+                },
+                {
+                  name: '_revinclude:iterate',
+                  value: 'Task:encounter',
                 },
               ],
             })
@@ -162,6 +168,7 @@ export const useGetPatient = (
       const encounters: Encounter[] = patientResources.filter(
         (resource) => resource.resourceType === 'Encounter' && !resource.partOf
       ) as Encounter[];
+      const encountersTasks: Task[] = patientResources.filter((resource) => resource.resourceType === 'Task') as Task[];
 
       appointmentsTemp.sort((a, b) => {
         const createdA = DateTime.fromISO(a.start ?? '');
@@ -188,6 +195,10 @@ export const useGetPatient = (
         const typeLabel = getVisitTypeLabelForAppointment(appointment);
 
         const serviceMode = isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person'];
+        const encounterId = encounter?.id;
+        const encounterTasks = encounterId
+          ? encountersTasks.filter((task) => task.encounter?.reference?.includes(encounterId))
+          : undefined;
 
         return {
           id: appointment.id,
@@ -205,6 +216,7 @@ export const useGetPatient = (
               : (encounter && getVisitTotalTime(appointment, getVisitStatusHistory(encounter), DateTime.now())) || 0,
           appointment,
           encounter,
+          encounterTasks,
         };
       });
 

@@ -1,8 +1,10 @@
-import z from 'zod';
-
-export const SendInvoiceToPatientZambdaInputSchema = z.object({
-  oystPatientId: z.string().uuid(),
-  oystEncounterId: z.string().uuid(),
-  // prefilledInfo: GetPrefilledInvoiceInfoZambdaOutputSchema,
-});
-export type SendInvoiceToPatientZambdaInput = z.infer<typeof SendInvoiceToPatientZambdaInputSchema>;
+export interface PrefilledInvoiceInfo {
+  encounterId: string;
+  patientId: string;
+  recipientName: string;
+  recipientEmail: string;
+  recipientPhoneNumber: string;
+  dueDate: string;
+  memo: string;
+  smsTextMessage: string;
+}

@@ -15,11 +15,12 @@ import {
   getPhoneNumberForIndividual,
   getResourcesFromBatchInlineRequests,
   getSecret,
+  PrefilledInvoiceInfo,
   Secrets,
   SecretsKeys,
   takeContainedOrFind,
 } from 'utils';
-import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
+import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
@@ -64,18 +65,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-interface PrefilledInvoiceInfo {
-  recipientName: string;
-  recipientEmail: string;
-  recipientPhoneNumber: string;
-  dueDate: string;
-  memo: string;
-  smsTextMessage: string;
-}
-
 async function getPrefilledInvoiceInfo(
   oystehr: Oystehr,
   patientId: string,
+  encounterId: string,
   secrets: Secrets | null
 ): Promise<PrefilledInvoiceInfo> {
   try {
@@ -89,6 +82,8 @@ async function getPrefilledInvoiceInfo(
       const phoneNumber = getPhoneNumberForIndividual(responsibleParty);
       if (!email || !phoneNumber) throw new Error('Email or phone number not found for responsible party');
       return {
+        patientId,
+        encounterId,
         recipientName: getFullName(responsibleParty),
         recipientEmail: email,
         recipientPhoneNumber: phoneNumber,
@@ -109,26 +104,15 @@ async function getPrefilledInvoiceInfo(
 async function createTaskForEncounter(oystehr: Oystehr, encounter: Encounter, secrets: Secrets | null): Promise<void> {
   try {
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
-    if (!patientId) throw new Error('Not implemented');
-    const prefilledInvoiceInfo = await getPrefilledInvoiceInfo(oystehr, patientId, secrets);
+    if (!encounter.id) throw new Error('Encounter ID not found in encounter');
+    if (!patientId) throw new Error('Patient ID not found in encounter: ' + encounter.id);
+    const prefilledInvoiceInfo = await getPrefilledInvoiceInfo(oystehr, patientId, encounter.id, secrets);
 
     const task: Task = {
       resourceType: 'Task',
       status: 'ready',
       intent: 'order',
-      input: [
-        {
-          type: {
-            coding: [
-              {
-                system: ottehrCodeSystemUrl('task-input'),
-                code: 'input type', // todo ???
-              },
-            ],
-          },
-          valueString: prefilledInvoiceInfo.recipientName,
-        },
-      ],
+      input: createInvoiceTaskInput(prefilledInvoiceInfo),
     };
 
     const created = await oystehr.fhir.create(task);

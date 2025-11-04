@@ -10,9 +10,10 @@ import {
   getPatientReferenceFromAccount,
   getSecret,
   getStripeCustomerIdFromAccount,
+  parseInvoiceTaskInput,
+  PrefilledInvoiceInfo,
   replaceTemplateVariablesDollar,
   SecretsKeys,
-  SendInvoiceToPatientZambdaInput,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -33,7 +34,10 @@ const ZAMBDA_NAME = 'send-invoice-to-patient';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParams = validateRequestParameters(input);
-    const { secrets, oystPatientId, oystEncounterId, prefilledInfo } = validatedParams;
+    const { secrets, task } = validatedParams;
+    const prefilledInfo = parseInvoiceTaskInput(task);
+    if (!prefilledInfo) throw new Error('Prefilled info is not found');
+    const { encounterId, patientId } = prefilledInfo;
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
@@ -41,7 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const stripe = getStripeClient(secrets);
 
     console.log('Fetching fhir resources');
-    const fhirResources = await getFhirResources(oystehr, oystPatientId, oystEncounterId);
+    const fhirResources = await getFhirResources(oystehr, patientId, encounterId);
     if (!fhirResources) throw new Error('Failed to fetch all needed FHIR resources');
     const { patient, encounter, account } = fhirResources;
     console.log('Fhir resources fetched');
@@ -62,8 +66,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Patient balance retrieved');
 
     console.log('Creating invoice and invoice item');
-    const invoiceResponse = await createInvoice(stripe, stripeCustomerId, validatedParams);
-    await createInvoiceItem(stripe, stripeCustomerId, invoiceResponse, patientBalance, validatedParams);
+    const invoiceResponse = await createInvoice(stripe, stripeCustomerId, {
+      oystEncounterId: encounterId,
+      oystPatientId: patientId,
+      prefilledInfo,
+    });
+    await createInvoiceItem(stripe, stripeCustomerId, invoiceResponse, patientBalance, prefilledInfo);
     console.log('Invoice and invoice item created');
 
     console.log('Sending invoice to patient (with email)');
@@ -98,11 +106,10 @@ async function createInvoiceItem(
   stripeCustomerId: string,
   invoice: Stripe.Invoice,
   amount: number,
-  params: SendInvoiceToPatientZambdaInput
+  params: PrefilledInvoiceInfo
 ): Promise<Stripe.InvoiceItem> {
   try {
-    const { prefilledInfo } = params;
-    const { memo } = prefilledInfo;
+    const { memo } = params;
 
     const invoiceItemParams: Stripe.InvoiceItemCreateParams = {
       customer: stripeCustomerId,
@@ -125,10 +132,14 @@ async function createInvoiceItem(
 async function createInvoice(
   stripe: Stripe,
   stripeCustomerId: string,
-  params: SendInvoiceToPatientZambdaInput
+  params: {
+    oystEncounterId: string;
+    oystPatientId: string;
+    prefilledInfo: PrefilledInvoiceInfo;
+  }
 ): Promise<Stripe.Invoice> {
   try {
-    const { oystPatientId, oystEncounterId, prefilledInfo } = params;
+    const { oystEncounterId, oystPatientId, prefilledInfo } = params;
     const { memo, dueDate } = prefilledInfo;
 
     const invoiceParams: Stripe.InvoiceCreateParams = {

@@ -1227,10 +1227,25 @@
     },
     "SEND-INVOICE-TO-PATIENT": {
       "name": "send-invoice-to-patient",
-      "type": "http_auth",
+      "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/ehr/send-invoice-to-patient/index",
-      "zip": ".dist/zips/send-invoice-to-patient.zip"
+      "src": "src/subscriptions/send-invoice-to-patient/index",
+      "zip": ".dist/zips/send-invoice-to-patient.zip",
+      "subscription": {
+        "criteria": "Task?code=send-invoice-to-patient|&status=requested",
+        "reason": "Send invoice to patient",
+        "event": "create"
+      }
+    },
+    "CREATE-INVOICES-TASKS": {
+      "name": "create-invoices-tasks",
+      "type": "cron",
+      "runtime": "nodejs20.x",
+      "src": "src/cron/create-invoices-tasks/index",
+      "zip": ".dist/zips/create-invoices-tasks.zip",
+      "schedule": {
+        "expression": "cron(0 0 * * ? *)"
+      }
     }
   },
   "faxNumbers": {
@@ -1514,6 +1529,24 @@
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SEND_INVOICE_TO_PATIENT_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Send invoice to patient",
+        "criteria": "Task?code=send-invoice-to-patient|&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SEND-INVOICE-TO-PATIENT/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
           }
         ]
       }
