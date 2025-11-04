@@ -132,14 +132,16 @@ type EditDialogConfig =
         last: 'Last';
         suffix: 'Suffix';
       };
+      requiredKeys: string[];
     }
-  | { type: 'dob'; values: EditDOBParams; keyTitleMap: { dob: 'DOB' } }
+  | { type: 'dob'; values: EditDOBParams; keyTitleMap: { dob: 'DOB' }; requiredKeys: string[] }
   | {
       type: 'reason-for-visit';
       values: EditReasonForVisitParams;
       keyTitleMap: { reasonForVisit: 'Reason for Visit'; additionalDetails: 'Additional Details' };
+      requiredKeys: string[];
     }
-  | { type: 'nlg'; values: EditNLGParams; keyTitleMap: { guardians: 'Guardians' } };
+  | { type: 'nlg'; values: EditNLGParams; keyTitleMap: { guardians: 'Guardians' }; requiredKeys: string[] };
 
 const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
   switch (type) {
@@ -156,7 +158,11 @@ const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
   }
 };
 
-const CLOSED_EDIT_DIALOG: EditDialogConfig = Object.freeze({ type: 'closed', values: {}, keyTitleMap: {} });
+const CLOSED_EDIT_DIALOG: EditDialogConfig = Object.freeze({
+  type: 'closed',
+  values: {},
+  keyTitleMap: {},
+});
 
 export default function VisitDetailsPage(): ReactElement {
   // variables
@@ -625,6 +631,7 @@ export default function VisitDetailsPage(): ReactElement {
                           last: patientLastName,
                         },
                         keyTitleMap: { first: 'First', middle: 'Middle', last: 'Last', suffix: 'Suffix' },
+                        requiredKeys: ['first', 'last'],
                       })
                     }
                     size="25px"
@@ -936,6 +943,7 @@ export default function VisitDetailsPage(): ReactElement {
                                   keyTitleMap: {
                                     dob: 'DOB',
                                   },
+                                  requiredKeys: ['dob'],
                                 })
                               }
                               size="16px"
@@ -952,6 +960,7 @@ export default function VisitDetailsPage(): ReactElement {
                                     reasonForVisit: 'Reason for Visit',
                                     additionalDetails: 'Additional Details',
                                   },
+                                  requiredKeys: [],
                                 })
                               }
                               size="16px"
@@ -965,6 +974,7 @@ export default function VisitDetailsPage(): ReactElement {
                                   type: 'nlg',
                                   values: { guardians: authorizedGuardians },
                                   keyTitleMap: { guardians: 'Guardians' },
+                                  requiredKeys: [],
                                 })
                               }
                               size="16px"
@@ -1213,6 +1223,7 @@ export default function VisitDetailsPage(): ReactElement {
                       label={editDialogConfig.keyTitleMap[key as keyof typeof editDialogConfig.keyTitleMap] || key}
                       fullWidth
                       value={value}
+                      required={editDialogConfig.requiredKeys.includes(key)}
                       onChange={(e) =>
                         setEditDialogConfig(
                           (prev) =>
