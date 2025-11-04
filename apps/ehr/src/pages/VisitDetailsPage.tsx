@@ -1,8 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import CircleIcon from '@mui/icons-material/Circle';
 import DownloadIcon from '@mui/icons-material/Download';
-import ScannerIcon from '@mui/icons-material/Scanner';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -39,6 +37,7 @@ import {
   updateVisitFiles,
 } from 'src/api/api';
 import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
+import ImageUploader from 'src/components/ImageUploader';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { TelemedAppointmentStatusChip } from 'src/components/TelemedAppointmentStatusChip';
@@ -56,7 +55,6 @@ import {
   getLastName,
   getMiddleName,
   getPatchOperationForNewMetaTag,
-  GetPresignedFileURLInput,
   getReasonForVisitAndAdditionalDetailsFromAppointment,
   getTelemedVisitStatus,
   getUnconfirmedDOBForAppointment,
@@ -300,40 +298,6 @@ export default function VisitDetailsPage(): ReactElement {
     if (index > -1) {
       setZoomedIdx(index);
       setPhotoZoom(true);
-    }
-  };
-
-  // Handler for uploading a file from the file system
-  const handleFileUpload = async (fileType: UpdateVisitFilesInput['fileType'], file: File): Promise<void> => {
-    if (!oystehrZambda || !appointmentID) return;
-
-    try {
-      const z3URL = await createZ3Object(
-        {
-          appointmentID,
-          fileType,
-          fileFormat: file.type.split('/')[1] as GetPresignedFileURLInput['fileFormat'],
-          file,
-        },
-        oystehrZambda
-      );
-
-      const attachment: Attachment = {
-        url: z3URL,
-        title: fileType,
-        creation: DateTime.now().toISO(),
-      };
-
-      await filesMutation.mutateAsync({
-        appointmentId: appointmentID,
-        attachment,
-        fileType,
-      });
-
-      enqueueSnackbar('File uploaded successfully', { variant: 'success' });
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      enqueueSnackbar('Error uploading file', { variant: 'error' });
     }
   };
 
@@ -983,7 +947,6 @@ export default function VisitDetailsPage(): ReactElement {
                         filesMutator={filesMutation}
                         fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsurance)}
                         handleImageClick={handleCardImageClick}
-                        handleFileUpload={handleFileUpload}
                         handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
                       />
@@ -994,7 +957,6 @@ export default function VisitDetailsPage(): ReactElement {
                         filesMutator={filesMutation}
                         fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsuranceSecondary)}
                         handleImageClick={handleCardImageClick}
-                        handleFileUpload={handleFileUpload}
                         handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
                       />
@@ -1005,7 +967,6 @@ export default function VisitDetailsPage(): ReactElement {
                         filesMutator={filesMutation}
                         fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullPhotoId)}
                         handleImageClick={handleCardImageClick}
-                        handleFileUpload={handleFileUpload}
                         handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
                       />
@@ -1419,7 +1380,6 @@ interface CardCategoryGridItemInput {
   imagesLoading?: boolean;
   fullCardPdf?: DocumentInfo | undefined;
   handleImageClick: (imageType: string) => void;
-  handleFileUpload: (fileType: UpdateVisitFilesInput['fileType'], file: File) => Promise<void>;
   handleOpenScanner: (fileType: UpdateVisitFilesInput['fileType']) => void;
 }
 
@@ -1437,10 +1397,9 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
   category,
   appointmentID,
   fullCardPdf,
-  filesMutator: _filesMutator,
+  filesMutator,
   imagesLoading,
   handleImageClick,
-  handleFileUpload,
   handleOpenScanner,
 }) => {
   const title = (() => {
@@ -1565,60 +1524,21 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
             </Grid>
           ) : (
             <Grid item key={itemIdentifier(key as 'front' | 'back')} xs={5.5}>
-              <Box
-                sx={{
-                  border: `1px dashed ${imagesLoading ? otherColors.disabled : theme.palette.primary.main}`,
-                  borderRadius: 2,
-                  background: imagesLoading ? otherColors.disabledBackground : otherColors.cardBackground,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 1,
-                  padding: 2,
-                  aspectRatio: ASPECT_RATIO,
+              <ImageUploader
+                fileName={itemIdentifier(key as 'front' | 'back')}
+                appointmentId={appointmentID}
+                saveAttachmentPending={filesMutator.isPending}
+                aspectRatio={ASPECT_RATIO}
+                disabled={imagesLoading}
+                onScanClick={() => handleOpenScanner(itemIdentifier(key as 'front' | 'back'))}
+                submitAttachment={async (attachment: Attachment) => {
+                  await filesMutator.mutateAsync({
+                    appointmentId: appointmentID!,
+                    attachment,
+                    fileType: itemIdentifier(key as 'front' | 'back'),
+                  });
                 }}
-              >
-                <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', width: '100%' }}>
-                  <Button
-                    variant="outlined"
-                    size="medium"
-                    disabled={imagesLoading}
-                    startIcon={<UploadFileIcon />}
-                    onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.accept = 'image/png, image/jpeg, image/jpg, application/pdf';
-                      input.onchange = async (e: Event) => {
-                        const target = e.target as HTMLInputElement;
-                        if (target.files && target.files[0]) {
-                          await handleFileUpload(itemIdentifier(key as 'front' | 'back'), target.files[0]);
-                        }
-                      };
-                      input.click();
-                    }}
-                    sx={{
-                      borderRadius: '20px',
-                      textTransform: 'none',
-                    }}
-                  >
-                    Upload
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="medium"
-                    disabled={imagesLoading}
-                    startIcon={<ScannerIcon />}
-                    onClick={() => handleOpenScanner(itemIdentifier(key as 'front' | 'back'))}
-                    sx={{
-                      borderRadius: '20px',
-                      textTransform: 'none',
-                    }}
-                  >
-                    Scan
-                  </Button>
-                </Box>
-              </Box>
+              />
             </Grid>
           )
         )}
