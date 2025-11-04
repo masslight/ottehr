@@ -137,6 +137,7 @@ const GET_PATIENT_BASELINES_ZAMBDA_ID = 'get-patient-baselines';
 const GET_SUMMARY = 'get-summary';
 const UPDATE_PATIENT_BASELINES_ZAMBDA_ID = 'update-patient-baselines';
 const GET_CREATE_TIMER_ZAMBDA_ID = 'get-create-timer';
+const GET_PROVIDER_STAFF_PATIENT_ZAMBDA_ID = 'get-provider-staff-patient';
 const UPDATE_TIMER_ZAMBDA_ID = 'update-timer';
 
 export const getUser = async (token: string): Promise<User> => {
@@ -1082,6 +1083,7 @@ export const getCreateTimer = async (params: object, oystehr: Oystehr): Promise<
     throw error;
   }
 };
+
 export const updateTimer = async (params: object, oystehr: Oystehr): Promise<any> => {
   try {
     const response = await oystehr.zambda.execute({
@@ -1091,6 +1093,19 @@ export const updateTimer = async (params: object, oystehr: Oystehr): Promise<any
     return chooseJson(response);
   } catch (error: unknown) {
     console.error('Error updating timer:', error);
+    throw error;
+  }
+};
+
+export const getProviderStaffPatient = async (params: object, oystehr: Oystehr): Promise<any> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GET_PROVIDER_STAFF_PATIENT_ZAMBDA_ID,
+      ...params,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.error('Error fetching provider/staff/patient:', error);
     throw error;
   }
 };

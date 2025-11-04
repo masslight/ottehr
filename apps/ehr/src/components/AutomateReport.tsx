@@ -1,7 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import {
   Alert,
-  Backdrop,
   Box,
   CircularProgress,
   FormControl,
@@ -186,170 +185,165 @@ export const AutomateReport = (): JSX.Element => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Backdrop
-        sx={{
-          position: 'absolute',
-          color: '#fff',
-          zIndex: (theme) => theme.zIndex.drawer + 1,
-          backgroundColor: 'rgba(255, 255, 255, 0.7)',
-          borderRadius: 4,
-        }}
-        open={loading || false}
-      >
-        <CircularProgress color="primary" />
-      </Backdrop>
-
-      <Typography variant="h4" color="primary.dark">
-        Automate Reports
-      </Typography>
-
-      <FormControl error={!!errors.reportTemplate}>
-        <Typography variant="h6" gutterBottom>
-          Report Template
-        </Typography>
-        <RadioGroup row value={reportTemplate} onChange={(e) => setReportTemplate(e.target.value)}>
-          <FormControlLabel value="pdf" control={<Radio />} label="PDF" />
-          <FormControlLabel value="csv" control={<Radio />} label="CSV" />
-        </RadioGroup>
-        {errors.reportTemplate && <FormHelperText>{errors.reportTemplate}</FormHelperText>}
-      </FormControl>
-
-      <FormControl error={!!errors.frequency}>
-        <Typography variant="h6" gutterBottom>
-          Automation Frequency
-        </Typography>
-        <RadioGroup row value={frequency} onChange={(e) => setFrequency(e.target.value)}>
-          <FormControlLabel value="daily" control={<Radio />} label="Daily" />
-          <FormControlLabel value="weekly" control={<Radio />} label="Weekly" />
-          <FormControlLabel value="monthly" control={<Radio />} label="Monthly" />
-        </RadioGroup>
-        {errors.frequency && <FormHelperText>{errors.frequency}</FormHelperText>}
-      </FormControl>
-
-      {reportTemplate === 'pdf' && (
-        <>
+    <>
+      {loading ? (
+        <Box display="flex" justifyContent="center" py={4}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Typography variant="h4" color="primary.dark">
-            Branding Details
+            Automate Reports
           </Typography>
 
-          <TextField
-            label="Report Name / Title"
-            value={reportName}
-            onChange={(e) => setReportName(e.target.value)}
-            fullWidth
-            error={!!errors.reportName}
-            helperText={errors.reportName}
-          />
-
-          <Box>
+          <FormControl error={!!errors.reportTemplate}>
             <Typography variant="h6" gutterBottom>
-              Logo (Max 2MB)
+              Report Template
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-              <input
-                type="file"
-                accept=".png,.jpg,.jpeg,image/png,image/jpg,image/jpeg"
-                onChange={handleLogoUpload}
-                id="logo-upload"
-                style={{ display: 'none' }}
+            <RadioGroup row value={reportTemplate} onChange={(e) => setReportTemplate(e.target.value)}>
+              <FormControlLabel value="pdf" control={<Radio />} label="PDF" />
+              <FormControlLabel value="csv" control={<Radio />} label="CSV" />
+            </RadioGroup>
+            {errors.reportTemplate && <FormHelperText>{errors.reportTemplate}</FormHelperText>}
+          </FormControl>
+
+          <FormControl error={!!errors.frequency}>
+            <Typography variant="h6" gutterBottom>
+              Automation Frequency
+            </Typography>
+            <RadioGroup row value={frequency} onChange={(e) => setFrequency(e.target.value)}>
+              <FormControlLabel value="daily" control={<Radio />} label="Daily" />
+              <FormControlLabel value="weekly" control={<Radio />} label="Weekly" />
+              <FormControlLabel value="monthly" control={<Radio />} label="Monthly" />
+            </RadioGroup>
+            {errors.frequency && <FormHelperText>{errors.frequency}</FormHelperText>}
+          </FormControl>
+
+          {reportTemplate === 'pdf' && (
+            <>
+              <Typography variant="h4" color="primary.dark">
+                Branding Details
+              </Typography>
+
+              <TextField
+                label="Report Name / Title"
+                value={reportName}
+                onChange={(e) => setReportName(e.target.value)}
+                fullWidth
+                error={!!errors.reportName}
+                helperText={errors.reportName}
               />
-              <label htmlFor="logo-upload">
-                <RoundedButton variant="outlined" component="span">
-                  Choose Logo
-                </RoundedButton>
-              </label>
 
-              {logoFileName && (
-                <Typography variant="body2" color="text.secondary">
-                  {logoFileName}
+              <Box>
+                <Typography variant="h6" gutterBottom>
+                  Logo (Max 2MB)
                 </Typography>
-              )}
-            </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                  <input
+                    type="file"
+                    accept=".png,.jpg,.jpeg,image/png,image/jpg,image/jpeg"
+                    onChange={handleLogoUpload}
+                    id="logo-upload"
+                    style={{ display: 'none' }}
+                  />
+                  <label htmlFor="logo-upload">
+                    <RoundedButton variant="outlined" component="span">
+                      Choose Logo
+                    </RoundedButton>
+                  </label>
 
-            {errors.logoFile && <FormHelperText error>{errors.logoFile}</FormHelperText>}
+                  {logoFileName && (
+                    <Typography variant="body2" color="text.secondary">
+                      {logoFileName}
+                    </Typography>
+                  )}
+                </Box>
 
-            {logoPreview && (
-              <Box
-                sx={{
-                  mt: 2,
-                  display: 'inline-flex',
-                  position: 'relative',
-                }}
-              >
-                <img
-                  src={logoPreview}
-                  alt="Logo preview"
-                  style={{
-                    maxWidth: '100px',
-                    maxHeight: '50px',
-                    objectFit: 'contain',
-                  }}
-                />
-                <IconButton
-                  size="small"
-                  onClick={handleRemoveLogo}
-                  color="error"
-                  title="Remove logo"
-                  sx={{
-                    position: 'absolute',
-                    top: -4,
-                    right: -4,
-                    backgroundColor: 'rgba(255,255,255,0.9)',
-                    '&:hover': {
-                      backgroundColor: 'error.main',
-                      color: 'white',
-                    },
-                    width: 20,
-                    height: 20,
-                  }}
-                >
-                  <CloseIcon sx={{ fontSize: 16 }} />
-                </IconButton>
+                {errors.logoFile && <FormHelperText error>{errors.logoFile}</FormHelperText>}
+
+                {logoPreview && (
+                  <Box
+                    sx={{
+                      mt: 2,
+                      display: 'inline-flex',
+                      position: 'relative',
+                    }}
+                  >
+                    <img
+                      src={logoPreview}
+                      alt="Logo preview"
+                      style={{
+                        maxWidth: '100px',
+                        maxHeight: '50px',
+                        objectFit: 'contain',
+                      }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={handleRemoveLogo}
+                      color="error"
+                      title="Remove logo"
+                      sx={{
+                        position: 'absolute',
+                        top: -4,
+                        right: -4,
+                        backgroundColor: 'rgba(255,255,255,0.9)',
+                        '&:hover': {
+                          backgroundColor: 'error.main',
+                          color: 'white',
+                        },
+                        width: 20,
+                        height: 20,
+                      }}
+                    >
+                      <CloseIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Box>
+                )}
               </Box>
-            )}
+
+              <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+                <TextField
+                  label="Header Text"
+                  value={branding.header}
+                  onChange={(e) => setBranding({ ...branding, header: e.target.value })}
+                  fullWidth
+                  error={!!errors.header}
+                  helperText={errors.header}
+                />
+                <TextField
+                  label="Footer Text"
+                  value={branding.footer}
+                  onChange={(e) => setBranding({ ...branding, footer: e.target.value })}
+                  fullWidth
+                  error={!!errors.footer}
+                  helperText={errors.footer}
+                />
+              </Box>
+            </>
+          )}
+
+          <Box sx={{ display: 'flex', justifyContent: 'end', gap: 1, mt: 2 }}>
+            <RoundedButton variant="contained" onClick={handleSubmit} disabled={loading}>
+              {loading ? 'Saving...' : 'Save'}
+            </RoundedButton>
+            <RoundedButton onClick={() => navigate(-1)} variant="outlined" disabled={loading}>
+              Cancel
+            </RoundedButton>
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-            <TextField
-              label="Header Text"
-              value={branding.header}
-              onChange={(e) => setBranding({ ...branding, header: e.target.value })}
-              fullWidth
-              error={!!errors.header}
-              helperText={errors.header}
-            />
-            <TextField
-              label="Footer Text"
-              value={branding.footer}
-              onChange={(e) => setBranding({ ...branding, footer: e.target.value })}
-              fullWidth
-              error={!!errors.footer}
-              helperText={errors.footer}
-            />
-          </Box>
-        </>
+          <Snackbar
+            open={toastOpen}
+            autoHideDuration={6000}
+            onClose={handleCloseToast}
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <Alert onClose={handleCloseToast} severity={toastSeverity} sx={{ width: '100%' }}>
+              {toastMessage}
+            </Alert>
+          </Snackbar>
+        </Box>
       )}
-
-      <Box sx={{ display: 'flex', justifyContent: 'end', gap: 1, mt: 2 }}>
-        <RoundedButton variant="contained" onClick={handleSubmit} disabled={loading}>
-          {loading ? 'Saving...' : 'Save'}
-        </RoundedButton>
-        <RoundedButton onClick={() => navigate(-1)} variant="outlined" disabled={loading}>
-          Cancel
-        </RoundedButton>
-      </Box>
-
-      <Snackbar
-        open={toastOpen}
-        autoHideDuration={6000}
-        onClose={handleCloseToast}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        <Alert onClose={handleCloseToast} severity={toastSeverity} sx={{ width: '100%' }}>
-          {toastMessage}
-        </Alert>
-      </Snackbar>
-    </Box>
+    </>
   );
 };

@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DateTime } from 'luxon';
 import moment from 'moment';
 import { AppointmentProviderNotificationTypes, getSecret, PROVIDER_NOTIFICATION_TYPE_SYSTEM, SecretsKeys } from 'utils';
+import { fetchPatientSettingsById } from '../../services/patientSettings';
 import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
 
 // For local development it makes it easier to track performance
@@ -48,13 +49,14 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
       );
       console.log('PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID : ', PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID);
       const oystehr = createOystehrClient(oystehrToken, secrets);
-      const roles = (await oystehr.role.list()).filter((x: any) => ['Provider'].includes(x.name));
-      let usersList: any[] = [];
+
+      const roles = (await oystehr.role.list()).filter((x: any) => ['Provider', 'Staff'].includes(x.name));
+      let allUsersList: any[] = [];
       for (const role of roles) {
         const users = await fetchUsers(oystehrToken, PROJECT_ID, role.id);
-        usersList = [...usersList, ...users.data];
+        allUsersList = [...allUsersList, ...users.data];
       }
-      usersList = getUniqueById(usersList);
+      allUsersList = getUniqueById(allUsersList);
 
       const fhirDevice = await fetchFHIRDevice(oystehr, imei);
       if (fhirDevice) {
@@ -70,19 +72,50 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
         const patientId = fhirDevice?.patient?.reference || null;
         const patient = patientId ? await fetchFHIRPatient(oystehr, patientId) : null;
         const patientBaseline = patientId ? await fetchPatientBaseline(oystehr, patientId) : null;
+
+        // Fetch patient settings to get allocated providers and staff
+        let allocatedProviders: any[] = [];
+        let allocatedStaff: any[] = [];
+        if (patientId) {
+          try {
+            const patientSettings = await fetchPatientSettingsById(patientId);
+            if (patientSettings?.settings) {
+              const patientSpecificId = patientId.replace('Patient/', '');
+              const patientEntries = patientSettings.settings.filter(
+                (setting: any) => setting.patient_id === patientSpecificId && setting.is_notification_enabled
+              );
+
+              allocatedProviders = [...new Set(patientEntries.map((setting: any) => setting.provider_id))];
+              allocatedStaff = [...new Set(patientEntries.map((setting: any) => setting.staff_id))];
+
+              console.log('Allocated Providers:', allocatedProviders);
+              console.log('Allocated Staff:', allocatedStaff);
+            }
+          } catch (error) {
+            console.error('Error fetching patient settings:', error);
+          }
+        }
+
         let baseLineComponent = [];
         let componentNames: string[] = [];
         const upload_time = requestBody.upload_time || requestBody.uptime;
         const ts = requestBody.ts;
         const tz = requestBody.tz ?? 'UTC+0';
         if (isWS) {
-          componentNames = ['weight-threshold', 'weight-variance'];
+          componentNames = ['weight-threshold', 'weight-variance', 'weight-critical-variance'];
         }
         if (isBP) {
-          componentNames = ['systolic-threshold', 'systolic-variance', 'diastolic-threshold', 'diastolic-variance'];
+          componentNames = [
+            'systolic-threshold',
+            'systolic-variance',
+            'systolic-critical-variance',
+            'diastolic-threshold',
+            'diastolic-variance',
+            'diastolic-critical-variance',
+          ];
         }
         if (isBG) {
-          componentNames = ['glucose-threshold', 'glucose-variance'];
+          componentNames = ['glucose-threshold', 'glucose-variance', 'glucose-critical-variance'];
         }
         if (patientBaseline?.component) {
           baseLineComponent = patientBaseline.component.filter((c: any) => componentNames.includes(c.code.text));
@@ -145,7 +178,8 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
           ? [patient.name?.[0]?.family, patient.name?.[0]?.given?.[0]].filter(Boolean).join(' ')
           : '';
         const deviceName = fhirDevice?.identifier?.[0]?.value ?? fhirDevice.id;
-        let isExceeding = false;
+        let isWarning = false;
+        let isCritical = false;
         let message = '';
         const templateInformation = {
           patientName: patientName,
@@ -164,98 +198,230 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
           glucoseRange: '',
           glucose: '',
         };
+
         if (isWS) {
           const weightThreshold = getCmpVal(payload, 'weight-threshold');
           const weightVariance = getCmpVal(payload, 'weight-variance');
+          const weightCriticalVariance = getCmpVal(payload, 'weight-critical-variance');
           let weight = getCmpVal(payload, 'wt');
           weight = weight ? weight * 0.00220462 : null;
-          if (weightThreshold && weightVariance && weight) {
-            const range = getRange(weightThreshold, weightVariance);
-            isExceeding = range.length == 2 ? !(weight >= range[0] && weight <= range[1]) : false;
-            if (isExceeding) {
+
+          if (weightThreshold && weightVariance && weightCriticalVariance && weight) {
+            const normalRange = getRange(weightThreshold, weightVariance);
+            const criticalRange = getRange(weightThreshold, weightCriticalVariance);
+
+            // Check normal variance
+            isWarning = normalRange.length == 2 ? !(weight >= normalRange[0] && weight <= normalRange[1]) : false;
+
+            // Check critical variance
+            isCritical =
+              criticalRange.length == 2 ? !(weight >= criticalRange[0] && weight <= criticalRange[1]) : false;
+
+            if (isWarning) {
               templateInformation.weightDisplay = 'block';
-              templateInformation.weightRange = `${range[0]} – ${range[1]}`;
+              templateInformation.weightRange = `${normalRange[0]} – ${normalRange[1]}`;
               templateInformation.weight = weight.toFixed(2);
-              message = `A new weight measurement ${templateInformation.weight} lbs has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.weightRange} for the ${deviceName} device`;
+              const alertType = 'Warning';
+              message = `${alertType}: A new weight measurement ${templateInformation.weight} lbs has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.weightRange} for the ${deviceName} device`;
+            }
+
+            if (isCritical) {
+              templateInformation.weightDisplay = 'block';
+              templateInformation.weightRange = `${criticalRange[0]} – ${criticalRange[1]}`;
+              templateInformation.weight = weight.toFixed(2);
+              const alertType = 'CRITICAL';
+              message = `${alertType}: A new weight measurement ${templateInformation.weight} lbs has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.weightRange} for the ${deviceName} device`;
             }
           }
         }
+
         if (isBG) {
           const glucoseThreshold = getCmpVal(payload, 'glucose-threshold');
           const glucoseVariance = getCmpVal(payload, 'glucose-variance');
+          const glucoseCriticalVariance = getCmpVal(payload, 'glucose-critical-variance');
           const glucose = getCmpVal(payload, 'data');
-          if (glucoseThreshold && glucoseVariance && glucose) {
-            const range = getRange(glucoseThreshold, glucoseVariance);
-            isExceeding = range.length == 2 ? !(glucose >= range[0] && glucose <= range[1]) : false;
-            if (isExceeding) {
+
+          if (glucoseThreshold && glucoseVariance && glucoseCriticalVariance && glucose) {
+            const normalRange = getRange(glucoseThreshold, glucoseVariance);
+            const criticalRange = getRange(glucoseThreshold, glucoseCriticalVariance);
+
+            // Check normal variance
+            isWarning = normalRange.length == 2 ? !(glucose >= normalRange[0] && glucose <= normalRange[1]) : false;
+
+            // Check critical variance
+            isCritical =
+              criticalRange.length == 2 ? !(glucose >= criticalRange[0] && glucose <= criticalRange[1]) : false;
+
+            if (isWarning) {
               templateInformation.glucoseDisplay = 'block';
-              templateInformation.glucoseRange = `${range[0]} – ${range[1]}`;
+              templateInformation.glucoseRange = `${normalRange[0]} – ${normalRange[1]}`;
               templateInformation.glucose = glucose;
-              message = `A new glucose measurement ${templateInformation.glucose} mg/dL has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.glucoseRange} for the ${deviceName} device`;
+              const alertType = 'Warning';
+              message = `${alertType}: A new glucose measurement ${templateInformation.glucose} mg/dL has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.glucoseRange} for the ${deviceName} device`;
+            }
+
+            if (isCritical) {
+              templateInformation.glucoseDisplay = 'block';
+              templateInformation.glucoseRange = `${criticalRange[0]} – ${criticalRange[1]}`;
+              templateInformation.glucose = glucose;
+              const alertType = 'CRITICAL';
+              message = `${alertType}: A new glucose measurement ${templateInformation.glucose} mg/dL has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.glucoseRange} for the ${deviceName} device`;
             }
           }
         }
+
         if (isBP) {
           const systolicThreshold = getCmpVal(payload, 'systolic-threshold');
           const systolicVariance = getCmpVal(payload, 'systolic-variance');
+          const systolicCriticalVariance = getCmpVal(payload, 'systolic-critical-variance');
           const systolic = getCmpVal(payload, 'sys');
-          let systolicRange = [];
-          if (systolicThreshold && systolicVariance && systolic) {
-            systolicRange = getRange(systolicThreshold, systolicVariance);
-            isExceeding =
-              systolicRange.length == 2 ? !(systolic >= systolicRange[0] && systolic <= systolicRange[1]) : false;
-            if (isExceeding) {
-              templateInformation.systolicDisplay = 'block';
-              templateInformation.systolicRange = `${systolicRange[0]} – ${systolicRange[1]}`;
-              templateInformation.systolic = systolic;
-              message = `A new systolic ${templateInformation.systolic} mmHg has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.systolicRange} for the ${deviceName} device`;
-            }
-          }
 
           const diastolicThreshold = getCmpVal(payload, 'diastolic-threshold');
           const diastolicVariance = getCmpVal(payload, 'diastolic-variance');
+          const diastolicCriticalVariance = getCmpVal(payload, 'diastolic-critical-variance');
           const diastolic = getCmpVal(payload, 'dia');
-          if (diastolicThreshold && diastolicVariance && diastolic) {
-            const diastolicRange = getRange(diastolicThreshold, diastolicVariance);
-            isExceeding =
-              diastolicRange.length == 2 ? !(diastolic >= diastolicRange[0] && diastolic <= diastolicRange[1]) : false;
-            if (isExceeding) {
+
+          let systolicNormalRange: number[] = [];
+          let systolicCriticalRange: number[] = [];
+          let diastolicNormalRange: number[] = [];
+          let diastolicCriticalRange: number[] = [];
+
+          let systolicExceeding = false;
+          let systolicCritical = false;
+          let diastolicExceeding = false;
+          let diastolicCritical = false;
+
+          // Check systolic thresholds
+          if (systolicThreshold && systolicVariance && systolicCriticalVariance && systolic) {
+            systolicNormalRange = getRange(systolicThreshold, systolicVariance);
+            systolicCriticalRange = getRange(systolicThreshold, systolicCriticalVariance);
+
+            systolicExceeding =
+              systolicNormalRange.length == 2
+                ? !(systolic >= systolicNormalRange[0] && systolic <= systolicNormalRange[1])
+                : false;
+            systolicCritical =
+              systolicCriticalRange.length == 2
+                ? !(systolic >= systolicCriticalRange[0] && systolic <= systolicCriticalRange[1])
+                : false;
+
+            if (systolicExceeding) {
+              templateInformation.systolicDisplay = 'block';
+              templateInformation.systolicRange = `${systolicNormalRange[0]} – ${systolicNormalRange[1]}`;
+              templateInformation.systolic = systolic;
+              isWarning = true;
+            }
+
+            if (systolicCritical) {
+              templateInformation.systolicDisplay = 'block';
+              templateInformation.systolicRange = `${systolicCriticalRange[0]} – ${systolicCriticalRange[1]}`;
+              templateInformation.systolic = systolic;
+              isCritical = true;
+            }
+          }
+
+          // Check diastolic thresholds
+          if (diastolicThreshold && diastolicVariance && diastolicCriticalVariance && diastolic) {
+            diastolicNormalRange = getRange(diastolicThreshold, diastolicVariance);
+            diastolicCriticalRange = getRange(diastolicThreshold, diastolicCriticalVariance);
+
+            diastolicExceeding =
+              diastolicNormalRange.length == 2
+                ? !(diastolic >= diastolicNormalRange[0] && diastolic <= diastolicNormalRange[1])
+                : false;
+            diastolicCritical =
+              diastolicCriticalRange.length == 2
+                ? !(diastolic >= diastolicCriticalRange[0] && diastolic <= diastolicCriticalRange[1])
+                : false;
+
+            if (diastolicExceeding) {
               templateInformation.diastolicDisplay = 'block';
-              templateInformation.diastolicRange = `${diastolicRange[0]} – ${diastolicRange[1]}`;
+              templateInformation.diastolicRange = `${diastolicNormalRange[0]} – ${diastolicNormalRange[1]}`;
               templateInformation.diastolic = diastolic;
-              if (message.length > 0) {
-                message = `A new ${templateInformation.systolic}/${templateInformation.diastolic} mmHg out of range (Normal: ${templateInformation.systolicRange}/${templateInformation.diastolicRange}) for the ${deviceName} device`;
-              } else {
-                message = `A new diastolic ${templateInformation.diastolic} mmHg has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.diastolicRange} for the ${deviceName} device`;
-              }
+              isWarning = true;
+            }
+
+            if (diastolicCritical) {
+              templateInformation.diastolicDisplay = 'block';
+              templateInformation.diastolicRange = `${diastolicCriticalRange[0]} – ${diastolicCriticalRange[1]}`;
+              templateInformation.diastolic = diastolic;
+              isCritical = true;
+            }
+          }
+
+          // Build message for BP
+          if (isWarning || isCritical) {
+            const alertType = isCritical ? 'CRITICAL' : 'Warning';
+
+            if (systolicCritical && diastolicCritical) {
+              message = `${alertType}: A new ${templateInformation.systolic}/${templateInformation.diastolic} mmHg out of critical range (Critical: ${templateInformation.systolicRange}/${templateInformation.diastolicRange}) for the ${deviceName} device`;
+            } else if (systolicCritical && diastolicExceeding) {
+              message = `${alertType}: A new ${templateInformation.systolic}/${templateInformation.diastolic} mmHg out of range (Systolic Critical: ${templateInformation.systolicRange}, Diastolic Warning: ${templateInformation.diastolicRange}) for the ${deviceName} device`;
+            } else if (systolicExceeding && diastolicCritical) {
+              message = `${alertType}: A new ${templateInformation.systolic}/${templateInformation.diastolic} mmHg out of range (Systolic Warning: ${templateInformation.systolicRange}, Diastolic Critical: ${templateInformation.diastolicRange}) for the ${deviceName} device`;
+            } else if (systolicExceeding && diastolicExceeding) {
+              message = `${alertType}: A new ${templateInformation.systolic}/${templateInformation.diastolic} mmHg out of normal range (Normal: ${templateInformation.systolicRange}/${templateInformation.diastolicRange}) for the ${deviceName} device`;
+            } else if (systolicCritical) {
+              message = `${alertType}: A new systolic ${templateInformation.systolic} mmHg has been recorded for ${patientName}, which is outside the critical baseline range of ${templateInformation.systolicRange} for the ${deviceName} device`;
+            } else if (diastolicCritical) {
+              message = `${alertType}: A new diastolic ${templateInformation.diastolic} mmHg has been recorded for ${patientName}, which is outside the critical baseline range of ${templateInformation.diastolicRange} for the ${deviceName} device`;
+            } else if (systolicExceeding) {
+              message = `${alertType}: A new systolic ${templateInformation.systolic} mmHg has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.systolicRange} for the ${deviceName} device`;
+            } else if (diastolicExceeding) {
+              message = `${alertType}: A new diastolic ${templateInformation.diastolic} mmHg has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.diastolicRange} for the ${deviceName} device`;
             }
           }
         }
 
-        if (isExceeding && message?.length > 0) {
+        const getFilteredUsers = (isCriticalAlert: boolean): any => {
+          return allUsersList.filter((user) => {
+            // Extract the ID from the profile (profile is usually in format "Practitioner/{id}")
+            const userId = user.profile?.replace('Practitioner/', '');
+
+            if (!userId) return false;
+
+            // For critical alerts: send to both allocated providers and staff
+            if (isCriticalAlert) {
+              return allocatedProviders.includes(userId) || allocatedStaff.includes(userId);
+            }
+            // For normal alerts: send only to allocated staff
+            else {
+              return allocatedStaff.includes(userId);
+            }
+          });
+        };
+
+        // Send Warning notifications
+        if (isWarning && !isCritical && message?.length > 0) {
           const communicationAPICalls: any[] = [];
           const emailCalls: any[] = [];
           let topicText = '';
-          if (isWS) topicText = `Weight Baseline Alert for ${patientName}`;
-          if (isBG) topicText = `Glucose Baseline Alert for ${patientName}`;
-          if (isBP) topicText = `Blood Pressure Baseline Alert for ${patientName}`;
+          const alertType = 'Warning';
+
+          if (isWS) topicText = `${alertType}: Weight Baseline Alert for ${patientName}`;
+          if (isBG) topicText = `${alertType}: Glucose Baseline Alert for ${patientName}`;
+          if (isBP) topicText = `${alertType}: Blood Pressure Baseline Alert for ${patientName}`;
 
           let thresholdData: any = {};
 
           if (isWS) {
             const weightThreshold = getCmpVal(payload, 'weight-threshold');
             const weightVariance = getCmpVal(payload, 'weight-variance');
-            const weight = getCmpVal(payload, 'wt');
+            let weight = getCmpVal(payload, 'wt');
+            weight = weight ? weight * 0.00220462 : null;
+
             if (weightThreshold && weightVariance && weight) {
-              const range = getRange(weightThreshold, weightVariance);
+              const normalRange = getRange(weightThreshold, weightVariance);
+
               thresholdData = {
+                ...thresholdData,
                 deviceType: 'WS',
                 thresholds: {
                   weight: {
                     value: weight,
                     threshold: weightThreshold,
                     variance: weightVariance,
-                    range: range,
+                    range: normalRange,
                   },
                 },
               };
@@ -264,16 +430,19 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             const glucoseThreshold = getCmpVal(payload, 'glucose-threshold');
             const glucoseVariance = getCmpVal(payload, 'glucose-variance');
             const glucose = getCmpVal(payload, 'data');
+
             if (glucoseThreshold && glucoseVariance && glucose) {
-              const range = getRange(glucoseThreshold, glucoseVariance);
+              const normalRange = getRange(glucoseThreshold, glucoseVariance);
+
               thresholdData = {
+                ...thresholdData,
                 deviceType: 'BG',
                 thresholds: {
                   glucose: {
                     value: glucose,
                     threshold: glucoseThreshold,
                     variance: glucoseVariance,
-                    range: range,
+                    range: normalRange,
                   },
                 },
               };
@@ -287,32 +456,38 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             const diastolic = getCmpVal(payload, 'dia');
 
             thresholdData = {
+              ...thresholdData,
               deviceType: 'BP',
               thresholds: {},
             };
 
             if (systolicThreshold && systolicVariance && systolic) {
-              const range = getRange(systolicThreshold, systolicVariance);
+              const normalRange = getRange(systolicThreshold, systolicVariance);
+
               thresholdData.thresholds.systolic = {
                 value: systolic,
                 threshold: systolicThreshold,
                 variance: systolicVariance,
-                range: range,
+                range: normalRange,
               };
             }
 
             if (diastolicThreshold && diastolicVariance && diastolic) {
-              const range = getRange(diastolicThreshold, diastolicVariance);
+              const normalRange = getRange(diastolicThreshold, diastolicVariance);
+
               thresholdData.thresholds.diastolic = {
                 value: diastolic,
                 threshold: diastolicThreshold,
                 variance: diastolicVariance,
-                range: range,
+                range: normalRange,
               };
             }
           }
 
-          for (const user of usersList) {
+          const warningUsers = getFilteredUsers(false);
+          console.log(`Sending warning notifications to ${warningUsers.length} staff members`);
+
+          for (const user of warningUsers) {
             // if (user.email) {
             //   emailCalls.push(
             //     sendEmail(
@@ -327,7 +502,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             if (user.profile) {
               const payloadForCommunication = {
                 resourceType: 'Communication',
-                priority: 'asap',
+                priority: 'asap', // Normal priority for warning alerts
                 recipient: [
                   {
                     type: 'Practitioner',
@@ -380,9 +555,179 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             }
           }
 
-          console.log('emailCalls : ', emailCalls.length > 0 ? await Promise.allSettled(emailCalls) : []);
+          console.log('Warning emailCalls : ', emailCalls.length > 0 ? await Promise.allSettled(emailCalls) : []);
           console.log(
-            'communicationAPICalls : ',
+            'Warning communicationAPICalls : ',
+            communicationAPICalls.length > 0 ? await Promise.allSettled(communicationAPICalls) : []
+          );
+        }
+
+        // Send Critical notifications
+        if (isCritical && message?.length > 0) {
+          const communicationAPICalls: any[] = [];
+          const emailCalls: any[] = [];
+          let topicText = '';
+          const alertType = 'CRITICAL';
+
+          if (isWS) topicText = `${alertType}: Weight Baseline Alert for ${patientName}`;
+          if (isBG) topicText = `${alertType}: Glucose Baseline Alert for ${patientName}`;
+          if (isBP) topicText = `${alertType}: Blood Pressure Baseline Alert for ${patientName}`;
+
+          let thresholdData: any = {};
+
+          if (isWS) {
+            const weightThreshold = getCmpVal(payload, 'weight-threshold');
+            const weightCriticalVariance = getCmpVal(payload, 'weight-critical-variance');
+            let weight = getCmpVal(payload, 'wt');
+            weight = weight ? weight * 0.00220462 : null;
+
+            if (weightThreshold && weightCriticalVariance && weight) {
+              const criticalRange = getRange(weightThreshold, weightCriticalVariance);
+
+              thresholdData = {
+                ...thresholdData,
+                deviceType: 'WS',
+                thresholds: {
+                  weight: {
+                    value: weight,
+                    threshold: weightThreshold,
+                    variance: weightCriticalVariance,
+                    range: criticalRange,
+                  },
+                },
+              };
+            }
+          } else if (isBG) {
+            const glucoseThreshold = getCmpVal(payload, 'glucose-threshold');
+            const glucoseCriticalVariance = getCmpVal(payload, 'glucose-critical-variance');
+            const glucose = getCmpVal(payload, 'data');
+
+            if (glucoseThreshold && glucoseCriticalVariance && glucose) {
+              const criticalRange = getRange(glucoseThreshold, glucoseCriticalVariance);
+
+              thresholdData = {
+                ...thresholdData,
+                deviceType: 'BG',
+                thresholds: {
+                  glucose: {
+                    value: glucose,
+                    threshold: glucoseThreshold,
+                    variance: glucoseCriticalVariance,
+                    range: criticalRange,
+                  },
+                },
+              };
+            }
+          } else if (isBP) {
+            const systolicThreshold = getCmpVal(payload, 'systolic-threshold');
+            const systolicCriticalVariance = getCmpVal(payload, 'systolic-critical-variance');
+            const systolic = getCmpVal(payload, 'sys');
+            const diastolicThreshold = getCmpVal(payload, 'diastolic-threshold');
+            const diastolicCriticalVariance = getCmpVal(payload, 'diastolic-critical-variance');
+            const diastolic = getCmpVal(payload, 'dia');
+
+            thresholdData = {
+              ...thresholdData,
+              deviceType: 'BP',
+              thresholds: {},
+            };
+
+            if (systolicThreshold && systolicCriticalVariance && systolic) {
+              const criticalRange = getRange(systolicThreshold, systolicCriticalVariance);
+
+              thresholdData.thresholds.systolic = {
+                value: systolic,
+                threshold: systolicThreshold,
+                variance: systolicCriticalVariance,
+                range: criticalRange,
+              };
+            }
+
+            if (diastolicThreshold && diastolicCriticalVariance && diastolic) {
+              const criticalRange = getRange(diastolicThreshold, diastolicCriticalVariance);
+              thresholdData.thresholds.diastolic = {
+                value: diastolic,
+                threshold: diastolicThreshold,
+                variance: diastolicCriticalVariance,
+                range: criticalRange,
+              };
+            }
+          }
+
+          const criticalUsers = getFilteredUsers(true);
+          console.log(`Sending critical notifications to ${criticalUsers.length} users (providers and staff)`);
+
+          for (const user of criticalUsers) {
+            // if (user.email) {
+            //   emailCalls.push(
+            //     sendEmail(
+            //       user.email,
+            //       PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID,
+            //       topicText,
+            //       templateInformation,
+            //       secrets
+            //     )
+            //   );
+            // }
+            if (user.profile) {
+              const payloadForCommunication = {
+                resourceType: 'Communication',
+                priority: 'asap', // Highest priority for critical alerts
+                recipient: [
+                  {
+                    type: 'Practitioner',
+                    reference: `${user.profile}`,
+                  },
+                ],
+                status: 'completed',
+                topic: {
+                  text: topicText,
+                },
+                payload: [
+                  {
+                    contentString: message,
+                  },
+                ],
+                meta: {
+                  lastUpdated: uploadTimeUTC,
+                },
+                sender: {
+                  type: 'Device',
+                  reference: `Device/${fhirDevice.id}`,
+                },
+                category: [
+                  {
+                    coding: [
+                      {
+                        system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
+                        code: AppointmentProviderNotificationTypes.device_vital_alert,
+                        version: patientId.replace('Patient/', ''),
+                      },
+                    ],
+                  },
+                ],
+                reasonCode: [
+                  {
+                    text: `${templateInformation.imei}`,
+                    coding: [
+                      {
+                        system: 'threshold-data',
+                        code: JSON.stringify(thresholdData),
+                        display: 'Device Threshold Information',
+                        version: 'new latest',
+                      },
+                    ],
+                  },
+                ],
+                sent: DateTime.utc().toISO()!,
+              };
+              communicationAPICalls.push(oystehr.fhir.create<any>(payloadForCommunication));
+            }
+          }
+
+          console.log('Critical emailCalls : ', emailCalls.length > 0 ? await Promise.allSettled(emailCalls) : []);
+          console.log(
+            'Critical communicationAPICalls : ',
             communicationAPICalls.length > 0 ? await Promise.allSettled(communicationAPICalls) : []
           );
         }

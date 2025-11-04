@@ -100,7 +100,10 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     const employeeDetails: EmployeeDetails[] = allEmployees.map((employee) => {
       const status = inactiveMemberIds?.includes(employee.id) ? 'Deactivated' : 'Active';
       const practitionerId = employee.profile.split('/')[1];
-      const practitioner = resources.find((resource) => resource.id === practitionerId) as Practitioner | undefined;
+      console.log('PractitionerID : ', practitionerId);
+      console.log('Resources : ', resources);
+      const practitioner = resources?.find((resource) => resource.id === practitionerId) as Practitioner | undefined;
+      console.log('Practitioner : ', practitioner);
 
       const phone = practitioner?.telecom?.find((telecom) => telecom.system === 'sms')?.value;
 

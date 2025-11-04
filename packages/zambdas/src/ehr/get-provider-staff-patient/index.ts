@@ -1,11 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Practitioner, Resource } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
+import { getResourcesFromBatchInlineRequests } from 'utils';
 import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
 
 let oystehrToken: string;
 
 export const index = wrapHandler(
-  'get-providers-staff-patient',
+  'get-provider-staff-patient',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     try {
       let requestBody;
@@ -41,9 +43,23 @@ export const index = wrapHandler(
         }
         providerList = getUniqueById(providerList);
 
+        const practitionerIds = providerList.map((u) => u.profile.split('/')[1]);
+        const resources = (await getResourcesFromBatchInlineRequests(oystehr, [
+          `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,name`,
+        ])) as Resource[];
+        console.log('Provider Resource:', JSON.stringify(resources, null, 2));
+        providerList = providerList.map((user) => {
+          const practitioner = resources.find((r) => r.id === user.profile.split('/')[1]) as Practitioner | undefined;
+          return {
+            ...user,
+            firstName: practitioner?.name?.[0]?.given?.join(' ') ?? '',
+            lastName: practitioner?.name?.[0]?.family ?? '',
+          };
+        });
+
         return lambdaResponse(200, {
           message: `Successfully retrieved providers`,
-          providerList: providerList,
+          providerList,
         });
       } else if (resourceType === 'Staff') {
         const roles = (await oystehr.role.list()).filter((x: any) => ['Staff'].includes(x.name));
@@ -54,9 +70,23 @@ export const index = wrapHandler(
         }
         staffList = getUniqueById(staffList);
 
+        const practitionerIds = staffList.map((u) => u.profile.split('/')[1]);
+        const resources = (await getResourcesFromBatchInlineRequests(oystehr, [
+          `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,name`,
+        ])) as Resource[];
+
+        staffList = staffList.map((user) => {
+          const practitioner = resources.find((r) => r.id === user.profile.split('/')[1]) as Practitioner | undefined;
+          return {
+            ...user,
+            firstName: practitioner?.name?.[0]?.given?.join(' ') ?? '',
+            lastName: practitioner?.name?.[0]?.family ?? '',
+          };
+        });
+
         return lambdaResponse(200, {
           message: `Successfully retrieved staff`,
-          staffList: staffList,
+          staffList,
         });
       } else if (resourceType === 'Patient') {
         const roles = (await oystehr.role.list()).filter((x: any) => ['Patient'].includes(x.name));
@@ -67,9 +97,23 @@ export const index = wrapHandler(
         }
         patientList = getUniqueById(patientList);
 
+        const patientIds = patientList.map((u) => u.profile.split('/')[1]);
+        const resources = (await getResourcesFromBatchInlineRequests(oystehr, [
+          `Patient?_id=${patientIds.join(',')}&_elements=id,name`,
+        ])) as Resource[];
+        console.log('Patient Resource:', JSON.stringify(resources, null, 2));
+        patientList = patientList.map((user) => {
+          const patient = resources.find((r) => r.id === user.profile.split('/')[1]) as any;
+          return {
+            ...user,
+            firstName: patient?.name?.[0]?.given?.join(' ') ?? '',
+            lastName: patient?.name?.[0]?.family ?? '',
+          };
+        });
+
         return lambdaResponse(200, {
           message: `Successfully retrieved patients`,
-          patientList: patientList,
+          patientList,
         });
       } else {
         throw new Error('Invalid resourceType. Must be one of Practitioner, RelatedPerson, or Patient.');
