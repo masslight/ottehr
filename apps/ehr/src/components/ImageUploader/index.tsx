@@ -13,13 +13,12 @@ import { otherColors } from 'src/themes/ottehr/colors';
 import { GetPresignedFileURLInput, MIME_TYPES } from 'utils';
 
 interface UploadComponentProps {
-  fileName: GetPresignedFileURLInput['fileType'];
-  appointmentId: string | undefined;
+  fileName: string;
+  appointmentId: string;
   aspectRatio: number;
-  saveAttachmentPending: boolean;
   disabled?: boolean;
   submitAttachment: (attachment: Attachment) => Promise<void>;
-  onScanClick: () => void;
+  onScanClick?: () => void;
 }
 
 const FILE_TYPES_ACCEPTED = [MIME_TYPES.PNG, MIME_TYPES.JPEG, MIME_TYPES.JPG, MIME_TYPES.PDF].join(', ');
@@ -34,7 +33,6 @@ const UploadComponent: FC<UploadComponentProps> = ({
   fileName,
   appointmentId,
   aspectRatio,
-  saveAttachmentPending,
   disabled,
   submitAttachment,
   onScanClick,
@@ -90,7 +88,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
         const z3URL = await createZ3Object(
           {
             appointmentID: appointmentId,
-            fileType: fileName,
+            fileType: fileName as GetPresignedFileURLInput['fileType'],
             fileFormat: file.type.split('/')[1] as GetPresignedFileURLInput['fileFormat'],
             file,
           },
@@ -102,8 +100,8 @@ const UploadComponent: FC<UploadComponentProps> = ({
           title: fileName,
           creation: DateTime.now().toISO(),
         };
-        setZ3UploadState(UploadState.complete);
         await submitAttachment(attachment);
+        setZ3UploadState(UploadState.complete);
         setPendingZ3Upload(undefined);
       } catch (e) {
         console.error(e);
@@ -117,7 +115,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
     }
   }, [pendingZ3Upload, z3UploadState, fileName, appointmentId, oystehrZambda, submitAttachment]);
 
-  const isLoading = z3UploadState === UploadState.pending || saveAttachmentPending;
+  const isLoading = z3UploadState === UploadState.pending || compressingImage;
 
   return (
     <Box

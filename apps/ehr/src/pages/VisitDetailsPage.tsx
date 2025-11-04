@@ -1526,8 +1526,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
             <Grid item key={itemIdentifier(key as 'front' | 'back')} xs={5.5}>
               <ImageUploader
                 fileName={itemIdentifier(key as 'front' | 'back')}
-                appointmentId={appointmentID}
-                saveAttachmentPending={filesMutator.isPending}
+                appointmentId={appointmentID!}
                 aspectRatio={ASPECT_RATIO}
                 disabled={imagesLoading}
                 onScanClick={() => handleOpenScanner(itemIdentifier(key as 'front' | 'back'))}
