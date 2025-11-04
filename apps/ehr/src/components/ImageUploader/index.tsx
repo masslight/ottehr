@@ -17,6 +17,7 @@ interface UploadComponentProps {
   appointmentId: string;
   aspectRatio: number;
   disabled?: boolean;
+  isUploading?: boolean;
   submitAttachment: (attachment: Attachment) => Promise<void>;
   onScanClick?: () => void;
 }
@@ -34,6 +35,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
   appointmentId,
   aspectRatio,
   disabled,
+  isUploading,
   submitAttachment,
   onScanClick,
 }): JSX.Element => {
@@ -115,7 +117,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
     }
   }, [pendingZ3Upload, z3UploadState, fileName, appointmentId, oystehrZambda, submitAttachment]);
 
-  const isLoading = z3UploadState === UploadState.pending || compressingImage;
+  const isLoading = z3UploadState === UploadState.pending || compressingImage || isUploading;
 
   return (
     <Box

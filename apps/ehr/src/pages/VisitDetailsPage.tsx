@@ -217,6 +217,7 @@ export default function VisitDetailsPage(): ReactElement {
   const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
   const [scannerModalOpen, setScannerModalOpen] = useState<boolean>(false);
   const [scannerFileType, setScannerFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
+  const [uploadingFileType, setUploadingFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
   const user = useEvolveUser();
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
@@ -312,6 +313,7 @@ export default function VisitDetailsPage(): ReactElement {
     if (!oystehrZambda || !appointmentID || !scannerFileType) return;
 
     try {
+      setUploadingFileType(scannerFileType);
       // Handle PNG blobs (array of blobs)
       if (Array.isArray(fileBlob)) {
         // Upload each PNG file
@@ -343,6 +345,7 @@ export default function VisitDetailsPage(): ReactElement {
         }
 
         setScannerModalOpen(false);
+        setUploadingFileType(null);
         enqueueSnackbar(
           `Successfully uploaded ${fileBlob.length} scanned ${fileBlob.length === 1 ? 'image' : 'images'}`,
           { variant: 'success' }
@@ -374,10 +377,12 @@ export default function VisitDetailsPage(): ReactElement {
         });
 
         setScannerModalOpen(false);
+        setUploadingFileType(null);
         enqueueSnackbar('Scanned document uploaded successfully', { variant: 'success' });
       }
     } catch (error) {
       console.error('Error uploading scanned document:', error);
+      setUploadingFileType(null);
       enqueueSnackbar('Error uploading scanned document', { variant: 'error' });
     }
   };
@@ -949,6 +954,7 @@ export default function VisitDetailsPage(): ReactElement {
                         handleImageClick={handleCardImageClick}
                         handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
+                        uploadingFileType={uploadingFileType}
                       />
                       <CardCategoryGridItem
                         category="secondary-ins"
@@ -959,6 +965,7 @@ export default function VisitDetailsPage(): ReactElement {
                         handleImageClick={handleCardImageClick}
                         handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
+                        uploadingFileType={uploadingFileType}
                       />
                       <CardCategoryGridItem
                         category="id"
@@ -969,6 +976,7 @@ export default function VisitDetailsPage(): ReactElement {
                         handleImageClick={handleCardImageClick}
                         handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
+                        uploadingFileType={uploadingFileType}
                       />
                     </Grid>
                   </Box>
@@ -1379,6 +1387,7 @@ interface CardCategoryGridItemInput {
   filesMutator: UseMutationResult<void, Error, UpdateVisitFilesInput, unknown>;
   imagesLoading?: boolean;
   fullCardPdf?: DocumentInfo | undefined;
+  uploadingFileType: UpdateVisitFilesInput['fileType'] | null;
   handleImageClick: (imageType: string) => void;
   handleOpenScanner: (fileType: UpdateVisitFilesInput['fileType']) => void;
 }
@@ -1399,6 +1408,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
   fullCardPdf,
   filesMutator,
   imagesLoading,
+  uploadingFileType,
   handleImageClick,
   handleOpenScanner,
 }) => {
@@ -1529,6 +1539,7 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
                 appointmentId={appointmentID!}
                 aspectRatio={ASPECT_RATIO}
                 disabled={imagesLoading}
+                isUploading={uploadingFileType === itemIdentifier(key as 'front' | 'back')}
                 onScanClick={() => handleOpenScanner(itemIdentifier(key as 'front' | 'back'))}
                 submitAttachment={async (attachment: Attachment) => {
                   await filesMutator.mutateAsync({
