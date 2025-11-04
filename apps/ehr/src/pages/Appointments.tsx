@@ -13,11 +13,13 @@ import { usePatientLabOrders } from 'src/features/external-labs/components/labs-
 import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
+import { useGetVitalsForEncounters } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useGetMedicationOrders } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   ExtendedMedicationDataForResponse,
   GetRadiologyOrderListZambdaOrder,
+  GetVitalsForListOfEncountersResponseData,
   InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
   LabOrderListPageDTO,
@@ -189,6 +191,10 @@ export default function Appointments(): ReactElement {
     radiologyOrdersByAppointmentId,
   };
 
+  const { data: vitals } = useGetVitalsForEncounters({
+    encounterIds: [...inOfficeEncounterIds, ...completedEncounterIds],
+  });
+
   useEffect(() => {
     const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');
     if (selectedVisitTypes) {
@@ -347,6 +353,7 @@ export default function Appointments(): ReactElement {
       cancelledAppointments={cancelledAppointments}
       inOfficeAppointments={inOfficeAppointments}
       orders={orders}
+      vitals={vitals}
       locationSelected={locationSelected}
       setLocationSelected={setLocationSelected}
       practitioners={practitioners}
@@ -379,6 +386,7 @@ interface AppointmentsBodyProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   orders: OrdersForTrackingBoardTable;
+  vitals?: GetVitalsForListOfEncountersResponseData;
 }
 function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
   const {
@@ -401,6 +409,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     updateAppointments,
     setEditingComment,
     orders,
+    vitals,
   } = props;
 
   const [displayFilters, setDisplayFilters] = useState<boolean>(true);
@@ -571,6 +580,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
               completedAppointments={completedAppointments}
               inOfficeAppointments={inOfficeAppointments}
               orders={orders}
+              vitals={vitals}
               loading={loadingState.status === 'loading'}
               updateAppointments={updateAppointments}
               setEditingComment={setEditingComment}

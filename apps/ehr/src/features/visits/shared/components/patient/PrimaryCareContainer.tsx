@@ -8,7 +8,7 @@ import { FormFields } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 const primaryCare = FormFields.primaryCarePhysician;
-export const PrimaryCareContainer: FC = () => {
+export const PrimaryCareContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { control, watch, setValue } = useFormContext();
 
   const isActive = watch(primaryCare.active.key, true);
@@ -24,6 +24,7 @@ export const PrimaryCareContainer: FC = () => {
               <Checkbox
                 data-testid={dataTestIds.primaryCarePhysicianContainer.pcpCheckbox}
                 checked={!value}
+                disabled={isLoading}
                 onClick={(e) => {
                   const checked = (e.target as HTMLInputElement).checked;
                   setValue(primaryCare.active.key, !checked, { shouldDirty: true });
@@ -39,6 +40,7 @@ export const PrimaryCareContainer: FC = () => {
           <FormTextField
             name={primaryCare.firstName.key}
             control={control}
+            disabled={isLoading}
             rules={{
               validate: (value: string) => {
                 if (isActive && !value) return REQUIRED_FIELD_ERROR_MESSAGE;
@@ -53,6 +55,7 @@ export const PrimaryCareContainer: FC = () => {
           <FormTextField
             name={primaryCare.lastName.key}
             control={control}
+            disabled={isLoading}
             rules={{
               validate: (value: string) => {
                 if (isActive && !value) return REQUIRED_FIELD_ERROR_MESSAGE;
@@ -67,6 +70,7 @@ export const PrimaryCareContainer: FC = () => {
           <FormTextField
             name={primaryCare.practiceName.key}
             control={control}
+            disabled={isLoading}
             rules={{
               validate: (value: string) => {
                 if (isActive && !value) return REQUIRED_FIELD_ERROR_MESSAGE;
@@ -81,6 +85,7 @@ export const PrimaryCareContainer: FC = () => {
           <FormTextField
             name={primaryCare.address.key}
             control={control}
+            disabled={isLoading}
             rules={{
               validate: (value: string) => {
                 if (isActive && !value) return REQUIRED_FIELD_ERROR_MESSAGE;
@@ -95,6 +100,7 @@ export const PrimaryCareContainer: FC = () => {
           <FormTextField
             data-testid={dataTestIds.primaryCarePhysicianContainer.mobile}
             name={primaryCare.phone.key}
+            disabled={isLoading}
             control={control}
             rules={{
               validate: (value: string) => {

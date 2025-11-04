@@ -173,6 +173,10 @@ export const PatientFollowupEncountersGrid: FC<PatientEncountersGridProps> = (pr
                 name: 'type',
                 value: FOLLOWUP_SYSTEMS.type.code,
               },
+              {
+                name: 'part-of:missing',
+                value: 'true',
+              },
             ],
           })
         ).unbundle();

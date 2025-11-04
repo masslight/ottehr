@@ -21,12 +21,13 @@ import { useMutation } from '@tanstack/react-query';
 import { DocumentReference, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { Fragment, ReactElement, useEffect, useState } from 'react';
+import { FC, Fragment, ReactElement, useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
 import {
   APIError,
+  APIErrorCode,
   CashOrCardPayment,
   getPaymentVariantFromEncounter,
   isApiError,
@@ -81,12 +82,18 @@ export default function PatientPaymentList({
     data: paymentData,
     refetch: refetchPaymentList,
     isRefetching,
+    error: paymentListError,
   } = useGetPatientPaymentsList({
     patientId: patient?.id ?? '',
     encounterId,
     disabled: !encounterId || !patient?.id,
   });
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
+
+  const stripeCustomerDeletedError =
+    paymentListError && isApiError(paymentListError)
+      ? (paymentListError as APIError).code === APIErrorCode.STRIPE_CUSTOMER_ID_DOES_NOT_EXIST
+      : false;
 
   useEffect(() => {
     if (oystehr && encounterId) {
@@ -262,93 +269,98 @@ export default function PatientPaymentList({
           label="Self-pay"
         />
       </RadioGroup>
-      <Typography variant="h5" color="primary.dark" sx={{ mt: 2 }}>
-        Patient Payments
-      </Typography>
-      <Table size="small" style={{ tableLayout: 'fixed' }}>
-        <TableBody>
-          {payments.length === 0 && !loading && (
-            <TableRow>
-              <TableCell sx={{ paddingTop: 1, paddingBottom: 1 }}>
-                <Typography variant="body1" color="textSecondary">
-                  No payments recorded.
-                </Typography>
-              </TableCell>
-            </TableRow>
-          )}
-          {payments.map((payment) => {
-            const paymentDateString = DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT);
-            return (
-              <Fragment key={idForPaymentDTO(payment)}>
-                <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
-                  <>
-                    <TableCell
-                      sx={{
-                        width: '50%',
-                        color: theme.palette.primary.dark,
-                        paddingLeft: 0,
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
-                        {getLabelForPayment(payment)}
-                      </Box>
-                    </TableCell>
-
-                    <TableCell
-                      colSpan={2}
-                      sx={{
-                        textAlign: 'center',
-                        wordWrap: 'break-word',
-                        paddingRight: 0,
-                        paddingTop: 0,
-                        fontSize: '12px',
-                      }}
-                    >
-                      {paymentDateString}
-                    </TableCell>
-
-                    <TableCell
-                      sx={{
-                        textAlign: 'right',
-                        wordWrap: 'break-word',
-                        paddingRight: 0,
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                        {loading ? (
-                          <Skeleton aria-busy="true" width={200} />
-                        ) : (
-                          <Typography variant="body1">{`$${payment.amountInCents / 100}`}</Typography>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </>
+      {stripeCustomerDeletedError && <StripeErrorAlert />}
+      {!stripeCustomerDeletedError && (
+        <>
+          <Typography variant="h5" color="primary.dark" sx={{ mt: 2 }}>
+            Patient Payments
+          </Typography>
+          <Table size="small" style={{ tableLayout: 'fixed' }}>
+            <TableBody>
+              {payments.length === 0 && !loading && (
+                <TableRow>
+                  <TableCell sx={{ paddingTop: 1, paddingBottom: 1 }}>
+                    <Typography variant="body1" color="textSecondary">
+                      No payments recorded.
+                    </Typography>
+                  </TableCell>
                 </TableRow>
-              </Fragment>
-            );
-          })}
-        </TableBody>
-      </Table>
-      <Button sx={{ marginTop: 2 }} onClick={() => setPaymentDialogOpen(true)} variant="contained" color="primary">
-        $ Add Payment
-      </Button>
-      <Tooltip
-        disableHoverListener={receiptDocRefId !== undefined}
-        placement="top"
-        title="Patient doesn't have any receipt for this encounter"
-      >
-        <span>
-          <Button
-            sx={{ mt: 2, ml: 2 }}
-            disabled={!receiptDocRefId}
-            onClick={() => setSendReceiptByEmailDialogOpen(true)}
-            variant="contained"
-            color="primary"
-          >
-            Email receipt
+              )}
+              {payments.map((payment) => {
+                const paymentDateString = DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT);
+                return (
+                  <Fragment key={idForPaymentDTO(payment)}>
+                    <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                      <>
+                        <TableCell
+                          sx={{
+                            width: '50%',
+                            color: theme.palette.primary.dark,
+                            paddingLeft: 0,
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center' }}>
+                            {getLabelForPayment(payment)}
+                          </Box>
+                        </TableCell>
+
+                        <TableCell
+                          colSpan={2}
+                          sx={{
+                            textAlign: 'center',
+                            wordWrap: 'break-word',
+                            paddingRight: 0,
+                            paddingTop: 0,
+                            fontSize: '12px',
+                          }}
+                        >
+                          {paymentDateString}
+                        </TableCell>
+
+                        <TableCell
+                          sx={{
+                            textAlign: 'right',
+                            wordWrap: 'break-word',
+                            paddingRight: 0,
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            {loading ? (
+                              <Skeleton aria-busy="true" width={200} />
+                            ) : (
+                              <Typography variant="body1">{`$${payment.amountInCents / 100}`}</Typography>
+                            )}
+                          </Box>
+                        </TableCell>
+                      </>
+                    </TableRow>
+                  </Fragment>
+                );
+              })}
+            </TableBody>
+          </Table>
+          <Button sx={{ marginTop: 2 }} onClick={() => setPaymentDialogOpen(true)} variant="contained" color="primary">
+            $ Add Payment
           </Button>
-        </span>
-      </Tooltip>
+          <Tooltip
+            disableHoverListener={receiptDocRefId !== undefined}
+            placement="top"
+            title="Patient doesn't have any receipt for this encounter"
+          >
+            <span>
+              <Button
+                sx={{ mt: 2, ml: 2 }}
+                disabled={!receiptDocRefId}
+                onClick={() => setSendReceiptByEmailDialogOpen(true)}
+                variant="contained"
+                color="primary"
+              >
+                Email receipt
+              </Button>
+            </span>
+          </Tooltip>
+        </>
+      )}
       {patient && (
         <PaymentDialog
           open={paymentDialogOpen}
@@ -389,3 +401,32 @@ export default function PatientPaymentList({
     </Paper>
   );
 }
+
+const StripeErrorAlert: FC = () => {
+  const theme = useTheme();
+  return (
+    <Box
+      sx={{
+        backgroundColor: theme.palette.common.white,
+        borderColor: theme.palette.error.dark,
+        borderWidth: 1,
+        borderStyle: 'solid',
+        marginTop: 2,
+        padding: 2,
+        borderRadius: '8px',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      <Typography
+        sx={{
+          color: theme.palette.error.dark,
+        }}
+      >
+        The Stripe customer ID associated with this account does not exist and may have been deleted. Collection of
+        payments will be disabled until this issue is resolved. Please report the issue.
+      </Typography>
+    </Box>
+  );
+};

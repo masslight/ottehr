@@ -1,3 +1,5 @@
+import { CPTCodeOption } from '../../types';
+
 export const EMERGENCY_REVENUE_CODE = '1001';
 
 export const EXTENSION_PATIENT_PAID = 'http://fhir-api.zapehr.com/extension/patient-paid';
@@ -30,3 +32,15 @@ export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_RESUBMISSION_RELATIONSHIP =
 export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER =
   'https://terminology.zapehr.com/rcm/cms1500/procedure-modifier';
 export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REVENUE_CODE = 'https://terminology.zapehr.com/rcm/cms1500/revenue-code';
+
+export const emCodeOptions: CPTCodeOption[] = [
+  { display: '99201 New Patient - E/M Level 1', code: '99201' },
+  { display: '99202 New Patient - E/M Level 2', code: '99202' },
+  { display: '99203 New Patient - E/M Level 3', code: '99203' },
+  { display: '99204 New Patient - E/M Level 4', code: '99204' },
+  { display: '99205 New Patient - E/M Level 5', code: '99205' },
+  { display: '99212 Established Patient - E/M Level 2', code: '99212' },
+  { display: '99213 Established Patient - E/M Level 3', code: '99213' },
+  { display: '99214 Established Patient - E/M Level 4', code: '99214' },
+  { display: '99215 Established Patient - E/M Level 5', code: '99215' },
+];
