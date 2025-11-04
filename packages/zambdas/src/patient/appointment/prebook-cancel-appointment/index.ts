@@ -89,7 +89,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
       throw APPOINTMENT_NOT_FOUND_ERROR;
     }
 
-    if (!isEHRUser) {
+    if ((user && !isEHRUser) || !user) {
       if (isPostTelemedAppointment(appointment)) {
         throw POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR;
       }
@@ -104,15 +104,14 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
           throw CANT_CANCEL_CHECKED_IN_APT_ERROR;
         }
       }
-    } else {
+    } else if (user && isEHRUser) {
       console.log('cancelled by EHR user');
     }
 
     // stamp critical update tag so this event can be surfaced in activity logs
     const formattedUserNumber = formatPhoneNumberDisplay(user?.name.replace('+1', ''));
-    const cancelledBy = isEHRUser
-      ? `Staff ${user?.email}`
-      : `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
+    const cancelledBy =
+      user && isEHRUser ? `Staff ${user?.email}` : `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
 
     const appointmentPatchOperations: Operation[] = [
       ...getAppointmentMetaTagOpForStatusUpdate(appointment, 'cancelled', { updatedByOverride: cancelledBy }),

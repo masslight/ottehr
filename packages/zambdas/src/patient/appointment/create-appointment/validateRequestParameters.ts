@@ -169,7 +169,7 @@ export const createAppointmentComplexValidation = async (
   // patient input complex validation
   if (patient.id) {
     const userAccess = await userHasAccessToPatient(user, patient.id, oystehrClient);
-    if (!userAccess && !isEHRUser && !isTestUser(user)) {
+    if (!user || (!userAccess && !isEHRUser && !isTestUser(user))) {
       throw NO_READ_ACCESS_TO_PATIENT_ERROR;
     }
   }

@@ -260,7 +260,7 @@ export async function createAppointment(
     oystehr: oystehr,
     updatePatientRequest,
     createPatientRequest,
-    performPreProcessing: !isTestUser(user),
+    performPreProcessing: user && !isTestUser(user),
     listRequests,
     unconfirmedDateOfBirth,
     newPatientDob: (createPatientRequest?.resource as Patient | undefined)?.birthDate,
