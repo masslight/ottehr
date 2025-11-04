@@ -1225,12 +1225,12 @@
       "src": "src/ehr/invoiceable-patients-report/index",
       "zip": ".dist/zips/invoiceable-patients-report.zip"
     },
-    "SEND-INVOICE-TO-PATIENT": {
-      "name": "send-invoice-to-patient",
+    "SUB-SEND-INVOICE-TO-PATIENT": {
+      "name": "sub-send-invoice-to-patient",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/subscriptions/send-invoice-to-patient/index",
-      "zip": ".dist/zips/send-invoice-to-patient.zip",
+      "src": "src/subscriptions/task/sub-send-invoice-to-patient/index",
+      "zip": ".dist/zips/sub-send-invoice-to-patient.zip",
       "subscription": {
         "criteria": "Task?code=send-invoice-to-patient|&status=requested",
         "reason": "Send invoice to patient",
@@ -1246,6 +1246,13 @@
       "schedule": {
         "expression": "cron(0 0 * * ? *)"
       }
+    },
+    "UPDATE_INVOICE_TASK": {
+      "name": "update-invoice-task",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/update-invoice-task/index",
+      "zip": ".dist/zips/update-invoice-task.zip"
     }
   },
   "faxNumbers": {
@@ -1533,7 +1540,7 @@
         ]
       }
     },
-    "SEND_INVOICE_TO_PATIENT_SUBSCRIPTION": {
+    "SUB_SEND_INVOICE_TO_PATIENT_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
         "status": "active",
@@ -1541,7 +1548,7 @@
         "criteria": "Task?code=send-invoice-to-patient|&status=requested",
         "channel": {
           "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SEND-INVOICE-TO-PATIENT/id}"
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-INVOICE-TO-PATIENT/id}"
         },
         "extension": [
           {

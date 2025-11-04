@@ -23,8 +23,6 @@ export function createInvoiceTaskInput(input: PrefilledInvoiceInfo): TaskInput[]
 export function parseInvoiceTaskInput(invoiceTask: Task): PrefilledInvoiceInfo | undefined {
   console.log('invoiceTask', invoiceTask);
   return {
-    encounterId: 'example',
-    patientId: 'example',
     recipientName: 'temp',
     recipientEmail: 'temp',
     recipientPhoneNumber: '123',
