@@ -7,6 +7,7 @@ import Rotate90DegreesCcwIcon from '@mui/icons-material/Rotate90DegreesCcw';
 import Rotate90DegreesCwIcon from '@mui/icons-material/Rotate90DegreesCw';
 import ScannerIcon from '@mui/icons-material/Scanner';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Box,
@@ -82,6 +83,9 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
     return `scanned-document-${timestamp}`;
   });
 
+  // Loading state for save operation
+  const [isSaving, setIsSaving] = useState(false);
+
   // Initialize scanner when modal opens
   useEffect(() => {
     if (open && !isInitialized) {
@@ -128,12 +132,15 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
     }
 
     try {
+      setIsSaving(true);
+
       if (outputFormat === 'pdf') {
         // Get all images as a single PDF
         const pdfBlob = await getAllImagesAsPdf();
 
         if (!pdfBlob) {
           console.error('Failed to create PDF from scanned images');
+          setIsSaving(false);
           return;
         }
 
@@ -147,6 +154,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
 
         if (pngBlobs.length === 0) {
           console.error('Failed to create PNG files from scanned images');
+          setIsSaving(false);
           return;
         }
 
@@ -160,6 +168,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
       onClose();
     } catch (err) {
       console.error('Error saving scanned images:', err);
+      setIsSaving(false);
     }
   };
 
@@ -487,14 +496,15 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
             <Button onClick={handleCancel} variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none' }}>
               Cancel
             </Button>
-            <Button
+            <LoadingButton
               onClick={handleSaveAndClose}
               variant="contained"
+              loading={isSaving}
               disabled={imageCount === 0 || isScanning || !fileName.trim()}
               sx={{ borderRadius: '50px', textTransform: 'none' }}
             >
               Save {imageCount > 0 && `(${imageCount})`}
-            </Button>
+            </LoadingButton>
           </Box>
         </Stack>
       </DialogContent>

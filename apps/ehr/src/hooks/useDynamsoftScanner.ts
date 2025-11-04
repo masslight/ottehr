@@ -88,6 +88,12 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
       dwtObjectRef.current = dwtObject;
       console.log('DWT object created successfully');
 
+      // Disable progress bar/popup if the property exists
+      if ('IfShowProgressBar' in dwtObject) {
+        (dwtObject as any).IfShowProgressBar = false;
+        console.log('Progress bar disabled');
+      }
+
       // Bind viewer to container
       const container = document.getElementById(containerId);
       if (!container) {
