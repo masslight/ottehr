@@ -1,5 +1,9 @@
-import { usePatientsSearch } from 'src/features/visits/shared/components/patients-search/usePatientsSearch';
+import { SearchParam } from '@oystehr/sdk';
+import { Patient } from 'fhir/r4b';
+import { useState } from 'react';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
+import { getFullName } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';
 import { Option } from './Option';
 
@@ -11,28 +15,48 @@ type Props = {
 };
 
 export const PatientSelectInput: React.FC<Props> = ({ name, label, required, dataTestId }) => {
-  const { searchResult, arePatientsLoading, search } = usePatientsSearch();
+  const { oystehr } = useApiClients();
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [options, setOptions] = useState<Option[]>([]);
 
-  const options = searchResult.patients.map((patient) => {
-    return {
-      label: patient.name,
-      value: patient.id,
-    };
-  });
   const { debounce } = useDebounce(800);
   const debouncedHandleInputChange = (data: string): void => {
-    debounce(() => {
-      const [last, first] = data.split(',');
-      search({
-        filters: {
-          givenNames: first?.trim(),
-          lastName: last?.trim(),
-        },
-        pagination: {
-          pageSize: 10,
-          offset: 0,
-        },
-      });
+    debounce(async () => {
+      if (!oystehr) {
+        return;
+      }
+      setOptions([]);
+      setIsLoading(true);
+      try {
+        const [last, first] = data.split(',');
+        const params: SearchParam[] = [{ name: '_count', value: 10 }];
+        if (first) {
+          params.push({ name: 'given:contains', value: first?.trim() });
+        }
+        if (last) {
+          params.push({ name: 'family:contains', value: last?.trim() });
+        }
+        if (params.length > 1) {
+          const patients = (
+            await oystehr.fhir.search<Patient>({
+              resourceType: 'Patient',
+              params: params,
+            })
+          ).unbundle();
+          setOptions(
+            patients.map((patient) => {
+              return {
+                label: getFullName(patient),
+                value: patient.id ?? '',
+              };
+            })
+          );
+        } else {
+          setOptions([]);
+        }
+      } finally {
+        setIsLoading(false);
+      }
     });
   };
   return (
@@ -40,7 +64,7 @@ export const PatientSelectInput: React.FC<Props> = ({ name, label, required, dat
       name={name}
       label={label}
       options={options}
-      loading={arePatientsLoading}
+      loading={isLoading}
       required={required}
       dataTestId={dataTestId}
       valueToOption={(value: any) => {
