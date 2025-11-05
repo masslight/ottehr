@@ -7,6 +7,7 @@ import Rotate90DegreesCcwIcon from '@mui/icons-material/Rotate90DegreesCcw';
 import Rotate90DegreesCwIcon from '@mui/icons-material/Rotate90DegreesCw';
 import ScannerIcon from '@mui/icons-material/Scanner';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Box,
@@ -31,15 +32,18 @@ import { DateTime } from 'luxon';
 import { FC, useEffect, useState } from 'react';
 import { useDynamsoftScanner } from '../hooks/useDynamsoftScanner';
 
+export type ScannerOutputFormat = 'pdf' | 'png';
+
 interface ScannerModalProps {
   open: boolean;
   onClose: () => void;
-  onScanComplete?: (pdfBlob: Blob, fileName: string) => void;
+  outputFormat?: ScannerOutputFormat; // 'pdf' for single PDF, 'png' for multiple PNGs
+  onScanComplete?: (fileBlob: Blob | Blob[], fileName: string) => void;
 }
 
 const SCANNER_CONTAINER_ID = 'dynamsoft-scanner-container';
 
-export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanComplete }) => {
+export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputFormat = 'pdf', onScanComplete }) => {
   const {
     isInitialized,
     isScanning,
@@ -54,6 +58,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
     refreshScanners,
     acquireImage,
     getAllImagesAsPdf,
+    getAllImagesAsPng,
     removeCurrentImage,
     removeAllImages,
     rotateLeft,
@@ -77,6 +82,9 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
     const timestamp = new Date().getTime();
     return `scanned-document-${timestamp}`;
   });
+
+  // Loading state for save operation
+  const [isSaving, setIsSaving] = useState(false);
 
   // Initialize scanner when modal opens
   useEffect(() => {
@@ -124,23 +132,43 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
     }
 
     try {
-      // Get all images as a single PDF
-      const pdfBlob = await getAllImagesAsPdf();
+      setIsSaving(true);
 
-      if (!pdfBlob) {
-        console.error('Failed to create PDF from scanned images');
-        return;
-      }
+      if (outputFormat === 'pdf') {
+        // Get all images as a single PDF
+        const pdfBlob = await getAllImagesAsPdf();
 
-      if (onScanComplete) {
-        // Pass the single combined PDF blob and fileName
-        onScanComplete(pdfBlob, fileName.trim());
+        if (!pdfBlob) {
+          console.error('Failed to create PDF from scanned images');
+          setIsSaving(false);
+          return;
+        }
+
+        if (onScanComplete) {
+          // Pass the single combined PDF blob and fileName
+          onScanComplete(pdfBlob, fileName.trim());
+        }
+      } else {
+        // Get all images as PNG files
+        const pngBlobs = await getAllImagesAsPng();
+
+        if (pngBlobs.length === 0) {
+          console.error('Failed to create PNG files from scanned images');
+          setIsSaving(false);
+          return;
+        }
+
+        if (onScanComplete) {
+          // Pass all PNG blobs and fileName
+          onScanComplete(pngBlobs, fileName.trim());
+        }
       }
 
       cleanup();
       onClose();
     } catch (err) {
       console.error('Error saving scanned images:', err);
+      setIsSaving(false);
     }
   };
 
@@ -468,14 +496,15 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, onScanCompl
             <Button onClick={handleCancel} variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none' }}>
               Cancel
             </Button>
-            <Button
+            <LoadingButton
               onClick={handleSaveAndClose}
               variant="contained"
+              loading={isSaving}
               disabled={imageCount === 0 || isScanning || !fileName.trim()}
               sx={{ borderRadius: '50px', textTransform: 'none' }}
             >
               Save {imageCount > 0 && `(${imageCount})`}
-            </Button>
+            </LoadingButton>
           </Box>
         </Stack>
       </DialogContent>
