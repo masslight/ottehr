@@ -1,9 +1,9 @@
 import Dynamsoft from 'dwt';
+import { DynamsoftEnumsDWT } from 'dwt/dist/types/Dynamsoft.Enum';
 import { WebTwain } from 'dwt/dist/types/WebTwain';
 import { Device } from 'dwt/dist/types/WebTwain.Acquire';
 import { Area } from 'dwt/dist/types/WebTwain.Viewer';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DynamsoftEnumsDWT } from '../../public/dwt-resources/types/Dynamsoft.Enum';
 
 export interface ScannerDevice {
   displayName: string;
@@ -72,7 +72,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
       console.log('Initializing Dynamsoft scanner...');
 
       // Configure Dynamsoft
-      Dynamsoft.DWT.ResourcesPath = '/dwt-resources';
+      Dynamsoft.DWT.ResourcesPath = 'https://unpkg.com/dwt@latest/dist';
       Dynamsoft.DWT.ProductKey = import.meta.env.VITE_APP_DYNAMSOFT_LICENSE_KEY || '';
       Dynamsoft.DWT.UseLocalService = true;
 
