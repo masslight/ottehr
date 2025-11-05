@@ -76,6 +76,10 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
       Dynamsoft.DWT.ProductKey = import.meta.env.VITE_APP_DYNAMSOFT_LICENSE_KEY || '';
       Dynamsoft.DWT.UseLocalService = true;
 
+      Dynamsoft.DWT.OnWebTwainPreExecute = function () {
+        // By defining this, we override the default which showed a hideous orange progress indicator. So do not remove it.
+      };
+
       // Create DWT object
       const dwtObject = await new Promise<WebTwain>((resolve, reject) => {
         Dynamsoft.DWT.CreateDWTObjectEx(
@@ -88,11 +92,8 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
       dwtObjectRef.current = dwtObject;
       console.log('DWT object created successfully');
 
-      // Disable progress bar/popup if the property exists
-      if ('IfShowProgressBar' in dwtObject) {
-        (dwtObject as any).IfShowProgressBar = false;
-        console.log('Progress bar disabled');
-      }
+      // Disable progress bar/popup
+      dwtObject.IfShowProgressBar = false;
 
       // Bind viewer to container
       const container = document.getElementById(containerId);
