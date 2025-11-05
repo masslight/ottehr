@@ -1,10 +1,12 @@
 import { Box, Button, Tab, Tabs, Typography, useTheme } from '@mui/material';
+import { StaticDatePicker } from '@mui/x-date-pickers';
+import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { nextAvailableFrom } from 'utils';
 import { Slots } from './Slots';
-
 interface TabPanelProps {
   children?: ReactNode;
   dir?: string;
@@ -137,10 +139,13 @@ const SlotPicker = ({
   const selectedDate = useMemo(() => {
     if (currentTab === 0) {
       return firstAvailableDay;
-    } else if (currentTab === 1) {
+    } else if (secondAvailableDay && currentTab === 1) {
       return secondAvailableDay;
     } else {
-      return selectedOtherDate;
+      if (selectedOtherDate) {
+        return selectedOtherDate;
+      }
+      return firstAvailableDay;
     }
   }, [currentTab, firstAvailableDay, secondAvailableDay, selectedOtherDate]);
 
@@ -254,6 +259,16 @@ const SlotPicker = ({
                       }}
                     />
                   )}
+                  <Tab
+                    label="Other dates"
+                    {...tabProps(secondAvailableDay ? 2 : 1)}
+                    sx={{
+                      color: currentTab === 2 ? theme.palette.secondary.main : theme.palette.text.secondary,
+                      opacity: 1,
+                      textTransform: 'capitalize',
+                      fontWeight: 500,
+                    }}
+                  />
                 </Tabs>
               </Box>
               <Box>
@@ -282,6 +297,38 @@ const SlotPicker = ({
                   </Typography>
                   <Slots
                     slots={getSlotsForDate(secondAvailableDay)}
+                    timezone={timezone}
+                    selectedSlot={selectedSlot}
+                    setSelectedSlot={setSelectedSlot}
+                  />
+                </TabPanel>
+                <TabPanel value={currentTab} index={secondAvailableDay ? 2 : 1} dir={theme.direction}>
+                  <LocalizationProvider dateAdapter={AdapterLuxon}>
+                    <StaticDatePicker
+                      displayStaticWrapperAs="desktop"
+                      views={['month', 'day']}
+                      value={selectedDate ?? null}
+                      onChange={(newDate) => {
+                        if (newDate != null) {
+                          setSelectedOtherDate(newDate);
+                        }
+                      }}
+                      shouldDisableDate={(date) => daySlotsMap[date.ordinal] == null}
+                      // Minus one day for timezone shenanigans
+                      minDate={firstAvailableDay?.minus({ days: 1 })}
+                      // Plus one month for month picker dropdown
+                      maxDate={DateTime.fromISO(slotsList[slotsList.length - 1].start)?.plus({ months: 1 })}
+                    />
+                  </LocalizationProvider>
+                  <Typography
+                    variant="h3"
+                    color="#000000"
+                    sx={{ textAlign: 'center', fontSize: '20px', color: theme.palette.primary.main }}
+                  >
+                    {selectedDate ? selectedDate.toLocaleString(DateTime.DATE_HUGE) : 'Unknown date'}
+                  </Typography>
+                  <Slots
+                    slots={getSlotsForDate(selectedDate)}
                     timezone={timezone}
                     selectedSlot={selectedSlot}
                     setSelectedSlot={setSelectedSlot}
