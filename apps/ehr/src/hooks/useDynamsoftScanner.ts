@@ -469,7 +469,6 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
         dwtObjectRef.current.Viewer.unbind();
         // Destroy the Dynamsoft object to prevent duplicate ID errors
         Dynamsoft.DWT.DeleteDWTObject('dwtObject');
-        console.log('DWT object destroyed');
       } catch (err) {
         console.error('Cleanup error:', err);
       }
