@@ -8,6 +8,7 @@ import {
   FHIR_APPOINTMENT_TYPE_MAP,
   PAPERWORK_CONSENT_CODE_UNIQUE,
   PUBLIC_EXTENSION_BASE_URL,
+  REASON_FOR_VISIT_SEPARATOR,
   TELEMED_VIDEO_ROOM_CODE,
   TelemedAppointmentStatusEnum,
   TelemedStatusHistoryElement,
@@ -187,4 +188,21 @@ export const getReasonForVisitFromAppointment = (appointment?: Appointment): str
   }
   const complaints = (appointment?.description ?? '').split(',');
   return complaints.map((complaint) => complaint.trim()).join(', ');
+};
+
+export const getReasonForVisitAndAdditionalDetailsFromAppointment = (
+  appointment?: Appointment
+): { reasonForVisit?: string; additionalDetails?: string } => {
+  if (!appointment?.description) {
+    return {};
+  }
+  const complaints = (appointment?.description ?? '').split(REASON_FOR_VISIT_SEPARATOR);
+  return {
+    reasonForVisit: complaints[0]?.trim(),
+    additionalDetails: complaints[1]
+      ?.trim()
+      .split(',')
+      .map((complaint) => complaint.trim())
+      .join(', '),
+  };
 };

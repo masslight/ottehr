@@ -20,7 +20,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { createTask, getTaskLocationId } from '../../shared/tasks';
+import { createTask, getTaskLocation } from '../../shared/tasks';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'collect-in-house-lab-specimen';
@@ -161,7 +161,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         code: IN_HOUSE_LAB_TASK.code.inputResultsTask,
       },
       encounterId: encounterId,
-      locationId: getTaskLocationId(collectionTask),
+      location: getTaskLocation(collectionTask),
       input: collectionTask.input,
       basedOn: [`ServiceRequest/${serviceRequestId}`],
     });
