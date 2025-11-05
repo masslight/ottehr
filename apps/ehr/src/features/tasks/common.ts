@@ -1,11 +1,28 @@
 import { DateTime } from 'luxon';
 import { Option } from 'src/components/input/Option';
+import { IN_HOUSE_LAB_TASK, LAB_ORDER_TASK, MANUAL_TASK } from 'utils';
 import { usePatientLabOrders } from '../external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from '../nursing-orders/components/orders/useNursingOrders';
 import { usePatientRadiologyOrders } from '../radiology/components/usePatientRadiologyOrders';
 import { useGetMedicationOrders } from '../visits/shared/stores/appointment/appointment.queries';
 import { useChartData } from '../visits/shared/stores/appointment/appointment.store';
+
+export const TASK_CATEGORY_LABEL: Record<string, string> = {
+  [LAB_ORDER_TASK.category]: 'External Lab',
+  [IN_HOUSE_LAB_TASK.category]: 'In-house Lab',
+  [MANUAL_TASK.category.externalLab]: 'External Lab',
+  [MANUAL_TASK.category.inHouseLab]: 'In-house Lab',
+  [MANUAL_TASK.category.inHouseMedications]: 'In-House Medications',
+  [MANUAL_TASK.category.nursingOrders]: 'Nursing Orders',
+  [MANUAL_TASK.category.patientFollowUp]: 'Patient Follow-up',
+  [MANUAL_TASK.category.procedures]: 'Procedures',
+  [MANUAL_TASK.category.radiology]: 'Radiology',
+  [MANUAL_TASK.category.erx]: 'eRX',
+  [MANUAL_TASK.category.charting]: 'Charting',
+  [MANUAL_TASK.category.coding]: 'Coding',
+  [MANUAL_TASK.category.other]: 'Other',
+};
 
 export function formatDate(dateIso: string): string {
   return DateTime.fromISO(dateIso).toFormat('MM/dd/yyyy h:mm a');

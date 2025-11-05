@@ -44,9 +44,9 @@ import {
 } from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
-import { formatDate } from '../common';
+import { formatDate, TASK_CATEGORY_LABEL } from '../common';
 import { AssignTaskDialog } from '../components/AssignTaskDialog';
-import { CategoryChip, TASK_CATEGORY_LABEL } from '../components/CategoryChip';
+import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
 
 const LOCAL_STORAGE_FILTERS_KEY = 'tasks.filters';
@@ -57,10 +57,21 @@ const TASK_STATUS_LABEL: Record<string, string> = {
   'in-progress': 'in progress',
   completed: 'completed',
 };
-const CATEGORY_OPTIONS: Option[] = Object.entries(TASK_CATEGORY_LABEL).map((entry) => {
+const CATEGORY_OPTIONS: Option[] = Object.entries(
+  Object.entries(TASK_CATEGORY_LABEL).reduce<Record<string, string>>((previousValue, entry) => {
+    const category = entry[0];
+    const label = entry[1];
+    if (previousValue[label]) {
+      previousValue[label] += ',' + category;
+    } else {
+      previousValue[label] = category;
+    }
+    return previousValue;
+  }, {})
+).map((entry) => {
   return {
-    label: entry[1],
-    value: entry[0],
+    label: entry[0],
+    value: entry[1],
   };
 });
 const STATUS_OPTIONS: Option[] = Object.entries(TASK_STATUS_LABEL).map((entry) => {
@@ -84,7 +95,7 @@ export const Tasks: React.FC = () => {
   } | null>(null);
   const [taskToAssign, setTaskToAssign] = useState<Task | null>(null);
 
-  const renderActionButtons = (task: Task): ReactElement | null => {
+  const renderActionButton = (task: Task): ReactElement | null => {
     if (task.status === COMPLETED) {
       return null;
     }
@@ -111,20 +122,24 @@ export const Tasks: React.FC = () => {
     }
     if (task.action) {
       return (
-        <Stack direction="row" spacing={1}>
-          <RoundedButton
-            variant="contained"
-            disabled={currentUserProviderId !== task.assignee?.id}
-            onClick={() => window.open(task.action?.link, '_blank')}
-          >
-            {task.action.name}
-          </RoundedButton>
-          {task.completable ? (
-            <RoundedButton variant="contained" onClick={async () => await completeTask({ taskId: task.id })}>
-              Complete
-            </RoundedButton>
-          ) : null}
-        </Stack>
+        <RoundedButton
+          variant="contained"
+          disabled={currentUserProviderId !== task.assignee?.id}
+          onClick={() => window.open(task.action?.link, '_blank')}
+        >
+          {task.action.name}
+        </RoundedButton>
+      );
+    }
+    return null;
+  };
+
+  const renderCompleteButton = (task: Task): ReactElement | null => {
+    if (task.status !== COMPLETED && currentUserProviderId === task.assignee?.id && task.completable) {
+      return (
+        <RoundedButton variant="contained" onClick={async () => await completeTask({ taskId: task.id })}>
+          Complete
+        </RoundedButton>
       );
     }
     return null;
@@ -356,7 +371,8 @@ export const Tasks: React.FC = () => {
                       <TableCell>
                         {task.status !== COMPLETED ? (
                           <Stack direction="row" justifyContent="space-between">
-                            {renderActionButtons(task)}
+                            {renderActionButton(task)}
+                            {renderCompleteButton(task)}
                             {renderMoreButton(task)}
                           </Stack>
                         ) : null}
