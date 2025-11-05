@@ -105,9 +105,10 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
       const timestamp = DateTime.now().toFormat('yyyyLLdd-HHmmss');
       setFileName(`scan-${timestamp}`);
     } else {
-      removeAllImages();
+      // Cleanup and destroy Dynamsoft object when modal closes
+      cleanup();
     }
-  }, [open, removeAllImages]);
+  }, [open, cleanup]);
 
   const handleScan = async (): Promise<void> => {
     await acquireImage({
