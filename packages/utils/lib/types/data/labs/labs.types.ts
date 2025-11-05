@@ -102,6 +102,7 @@ export type LabOrderResultDetails = {
   reviewedDate: string | null;
   resultPdfUrl: string | null;
   alternatePlacerId: string | undefined; // DR.identifier (system ==== OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM)
+  labGeneratedResultUrl?: string;
 };
 
 export type QuestionnaireData = {
@@ -383,10 +384,8 @@ export interface GetLabelPdfParameters {
   contextRelatedReference: Reference;
   searchParams: { name: string; value: string }[];
 }
-
-// todo labs team absorb LabelPdf in LabPdf
-export interface LabPdf {
-  type: 'abn';
+export interface LabDocument {
+  type: 'abn' | 'lab-generated-result';
   documentReference: DocumentReference;
   presignedURL: string;
 }
