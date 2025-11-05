@@ -1,6 +1,5 @@
 import { BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { getFirstName, getLastName } from 'utils';
@@ -189,7 +188,7 @@ test('In-house medications page', async () => {
       status: STATUS,
     });
 
-    const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+    const progressNotePage = await medicationsPage.sideMenu().clickProgressNote();
     await progressNotePage.verifyInHouseMedication({
       medication: NEW_MEDICATION,
       dose: NEW_DOSE,
@@ -219,51 +218,49 @@ test('In-house medications page', async () => {
 });
 
 test('Making in-house medication order Administered happy path', async ({ page }) => {
-  await test.step('Administer order and verify', async () => {
-    const medicationsPage = await createOrderForAdministration(MEDICATION_FOR_ADMINISTERED, page);
+  const medicationsPage = await createOrderForAdministration(MEDICATION_FOR_ADMINISTERED, page);
 
-    const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickAdministeredButton();
-    await administrationConfirmationDialog.verifyTitle('Medication Administered');
-    await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
-    await administrationConfirmationDialog.verifyMedication({
-      medication: MEDICATION_FOR_ADMINISTERED,
-      dose: DOSE,
-      units: UNITS,
-      route: ROUTE,
-    });
-    await administrationConfirmationDialog.verifyMessage(
-      'Please confirm that you want to mark this medication order as Administered.'
-    );
-    await administrationConfirmationDialog.clickMarkAsAdministeredButton();
-    const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
-    await inHouseMedicationsPage.verifyMedicationPresent({
-      medicationName: MEDICATION_FOR_ADMINISTERED,
-      dose: DOSE,
-      units: UNITS,
-      route: ROUTE,
-      orderedBy: await getCurrentPractitionerFirstLastName(),
-      givenBy: await getCurrentPractitionerFirstLastName(),
-      instructions: INSTRUCTIONS,
-      status: ADMINISTERED,
-    });
-    const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
-    await inHouseMedicationsPage.verifyMedicationInMedicationHistoryTable({
-      medication: MEDICATION_FOR_ADMINISTERED,
-      dose: DOSE,
-      units: UNITS,
-      type: 'In-house medication',
-      whoAdded: getLastName(testUserPractitioner) + ', ' + getFirstName(testUserPractitioner),
-    });
-    const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyInHouseMedication({
-      medication: MEDICATION_FOR_ADMINISTERED,
-      dose: DOSE,
-      units: UNITS,
-      route: ROUTE,
-      givenBy: await getCurrentPractitionerFirstLastName(),
-      instructions: INSTRUCTIONS,
-      status: ADMINISTERED,
-    });
+  const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickAdministeredButton();
+  await administrationConfirmationDialog.verifyTitle('Medication Administered');
+  await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
+  await administrationConfirmationDialog.verifyMedication({
+    medication: MEDICATION_FOR_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+  });
+  await administrationConfirmationDialog.verifyMessage(
+    'Please confirm that you want to mark this medication order as Administered.'
+  );
+  await administrationConfirmationDialog.clickMarkAsAdministeredButton();
+  const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
+  await inHouseMedicationsPage.verifyMedicationPresent({
+    medicationName: MEDICATION_FOR_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+    orderedBy: await getCurrentPractitionerFirstLastName(),
+    givenBy: await getCurrentPractitionerFirstLastName(),
+    instructions: INSTRUCTIONS,
+    status: ADMINISTERED,
+  });
+  const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
+  await inHouseMedicationsPage.verifyMedicationInMedicationHistoryTable({
+    medication: MEDICATION_FOR_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    type: 'In-house medication',
+    whoAdded: getLastName(testUserPractitioner) + ', ' + getFirstName(testUserPractitioner),
+  });
+  const progressNotePage = await medicationsPage.sideMenu().clickProgressNote();
+  await progressNotePage.verifyInHouseMedication({
+    medication: MEDICATION_FOR_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+    givenBy: await getCurrentPractitionerFirstLastName(),
+    instructions: INSTRUCTIONS,
+    status: ADMINISTERED,
   });
 });
 
@@ -296,7 +293,7 @@ test('Making in-house medication order Partly Administered happy path', async ({
     status: PARTLY_ADMINISTERED,
     reason: PATIENT_REFUSED,
   });
-  const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+  const progressNotePage = await medicationsPage.sideMenu().clickProgressNote();
   await progressNotePage.verifyInHouseMedication({
     medication: MEDICATION_FOR_PARTLY_ADMINISTERED,
     dose: DOSE,
@@ -337,7 +334,7 @@ test('Making in-house medication order Not Administered happy path', async ({ pa
     status: NOT_ADMINISTERED,
     reason: PATIENT_REFUSED,
   });
-  const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+  const progressNotePage = await medicationsPage.sideMenu().clickProgressNote();
   await progressNotePage.verifyInHouseMedication({
     medication: MEDICATION_FOR_NOT_ADMINISTERED,
     dose: DOSE,
