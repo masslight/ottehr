@@ -466,11 +466,15 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
       try {
         dwtObjectRef.current.RemoveAllImages();
         dwtObjectRef.current.Viewer.unbind();
+        // Destroy the Dynamsoft object to prevent duplicate ID errors
+        Dynamsoft.DWT.DeleteDWTObject('dwtObject');
+        console.log('DWT object destroyed');
       } catch (err) {
         console.error('Cleanup error:', err);
       }
       dwtObjectRef.current = null;
     }
+    setIsInitialized(false);
   }, []);
 
   // Cleanup on unmount
