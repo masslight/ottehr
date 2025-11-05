@@ -63,7 +63,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const oystehr = createOystehrClient(oystehrToken, secrets);
-    const { tasks, patient, labOrg } = await fetchRelatedResources(diagnosticReport, oystehr);
+    const { tasks, patient, labOrg, encounter } = await fetchRelatedResources(diagnosticReport, oystehr);
 
     const requests: BatchInputRequest<Task>[] = [];
 
@@ -92,6 +92,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       (task) => getCoding(task.code, LAB_ORDER_TASK.system)?.code == LAB_ORDER_TASK.code.preSubmission
     );
 
+    const appointmentRef = encounter?.appointment?.[0].reference;
+    const appointmentId = appointmentRef?.startsWith('Appointment/')
+      ? appointmentRef?.replace('Appointment/', '')
+      : undefined;
+
     const taskInput: { type: string; value?: string }[] | TaskInput[] | undefined = preSubmissionTask
       ? preSubmissionTask.input
       : [
@@ -110,6 +115,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           {
             type: LAB_ORDER_TASK.input.patientName,
             value: patient ? getFullestAvailableName(patient) : undefined,
+          },
+          {
+            type: LAB_ORDER_TASK.input.appointmentId,
+            value: appointmentId ? appointmentId : undefined,
           },
         ];
 

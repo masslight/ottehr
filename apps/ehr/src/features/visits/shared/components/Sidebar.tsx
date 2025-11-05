@@ -11,8 +11,10 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getAdmitterPractitionerId, getInPersonVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeButton';
+import { EncounterSwitcher } from '../../in-person/components/EncounterSwitcher';
 import { RouteInPerson, useInPersonNavigationContext } from '../../in-person/context/InPersonNavigationContext';
 import { ROUTER_PATH, routesInPerson } from '../../in-person/routing/routesInPerson';
+import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
 import { usePractitionerActions } from '../hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 
@@ -258,6 +260,8 @@ export const Sidebar = (): JSX.Element => {
   const { chartData } = useChartData();
   const { appointment, encounter } = visitState;
   const status = appointment && encounter ? getInPersonVisitStatus(appointment, encounter) : undefined;
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
 
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
@@ -362,6 +366,9 @@ export const Sidebar = (): JSX.Element => {
           <ArrowIcon direction={open ? 'left' : 'right'} />
         </IconButton>
       </DrawerHeader>
+
+      <EncounterSwitcher open={open} />
+
       <List sx={{ padding: '0px' }}>
         {menuItems.map((item) => {
           const comparedPath = item?.activeCheckPath || item.to;
@@ -387,11 +394,13 @@ export const Sidebar = (): JSX.Element => {
         })}
       </List>
       <br />
-      <CompleteIntakeButton
-        isDisabled={!appointmentID || isEncounterUpdatePending || status !== 'intake'}
-        handleCompleteIntake={handleCompleteIntake}
-        status={status}
-      />
+      {!isFollowup && (
+        <CompleteIntakeButton
+          isDisabled={!appointmentID || isEncounterUpdatePending || status !== 'intake'}
+          handleCompleteIntake={handleCompleteIntake}
+          status={status}
+        />
+      )}
     </Drawer>
   );
 };

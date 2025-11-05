@@ -191,6 +191,13 @@
       "src": "src/ehr/incomplete-encounters-report/index",
       "zip": ".dist/zips/incomplete-encounters-report.zip"
     },
+    "AI-ASSISTED-ENCOUNTERS-REPORT": {
+      "name": "ai-assisted-encounters-report",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/ai-assisted-encounters-report/index",
+      "zip": ".dist/zips/ai-assisted-encounters-report.zip"
+    },
     "DAILY-PAYMENTS-REPORT": {
       "name": "daily-payments-report",
       "type": "http_auth",
@@ -1185,6 +1192,13 @@
       "src": "src/ehr/visit-details/get-visit-files/index",
       "zip": ".dist/zips/get-visit-files.zip"
     },
+    "UPDATE-VISIT-FILES": {
+      "name": "update-visit-files",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/visit-details/update-visit-files/index",
+      "zip": ".dist/zips/update-visit-files.zip"
+    },
     "EHR-GET-VISIT-DETAILS": {
       "name": "ehr-get-visit-details",
       "type": "http_auth",
@@ -1530,9 +1544,7 @@
       }
     },
     "SCHEDULE_TELEMED_NJ": {
-      "managedFields": [
-        "actor"
-      ],
+      "managedFields": ["actor"],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1584,9 +1596,7 @@
       }
     },
     "SCHEDULE_TELEMED_OH": {
-      "managedFields": [
-        "actor"
-      ],
+      "managedFields": ["actor"],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1736,9 +1746,7 @@
       }
     },
     "SCHEDULE_PHYSICAL_NY": {
-      "managedFields": [
-        "actor"
-      ],
+      "managedFields": ["actor"],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1898,9 +1906,7 @@
       }
     },
     "SCHEDULE_PHYSICAL_CA": {
-      "managedFields": [
-        "actor"
-      ],
+      "managedFields": ["actor"],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -1963,11 +1969,7 @@
           }
         ]
       },
-      "managedFields": [
-        "name",
-        "active",
-        "identifier"
-      ]
+      "managedFields": ["name", "active", "identifier"]
     },
     "PRACTITIONER_EXAMPLE_1": {
       "resource": {
@@ -5500,9 +5502,7 @@
       }
     },
     "SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_1": {
-      "managedFields": [
-        "actor"
-      ],
+      "managedFields": ["actor"],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -5524,9 +5524,7 @@
       }
     },
     "SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_2": {
-      "managedFields": [
-        "actor"
-      ],
+      "managedFields": ["actor"],
       "resource": {
         "resourceType": "Schedule",
         "active": true,
@@ -5635,10 +5633,7 @@
       "name": "#{var/EHR_APP_NAME}",
       "description": "EHR application with email authentication",
       "loginRedirectUri": "#{var/PROVIDER_LOGIN_REDIRECT_URL}",
-      "allowedCallbackUrls": [
-        "#{var/PROVIDER_ALLOWED_URL_1}",
-        "#{var/PROVIDER_ALLOWED_URL_2}"
-      ],
+      "allowedCallbackUrls": ["#{var/PROVIDER_ALLOWED_URL_1}", "#{var/PROVIDER_ALLOWED_URL_2}"],
       "allowedLogoutUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
       "allowedWebOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
       "allowedCORSOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
@@ -5705,7 +5700,8 @@
             "Z3:#{var/PROJECT_ID}-audio-recordings/*",
             "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
             "Z3:#{var/PROJECT_ID}-discharge-summaries/*",
-            "Z3:#{var/PROJECT_ID}-labs/*"
+            "Z3:#{var/PROJECT_ID}-labs/*",
+            "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject"],
           "effect": "Allow"
@@ -6450,6 +6446,10 @@
     },
     "DISCHARGE_SUMMARIES": {
       "name": "#{var/PROJECT_ID}-discharge-summaries",
+      "removalPolicy": "retain"
+    },
+    "INVOICEABLE_PATIENTS_REPORTS": {
+      "name": "#{var/PROJECT_ID}-invoiceable-patients-reports",
       "removalPolicy": "retain"
     }
   },

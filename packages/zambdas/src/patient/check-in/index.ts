@@ -48,7 +48,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
     console.log('getting user');
     const userToken = input.headers.Authorization?.replace('Bearer ', '');
     const user = userToken && (await getUser(userToken, input.secrets));
-    const formattedUserNumber = formatPhoneNumberDisplay(user?.name.replace('+1', ''));
+    const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
     const checkedInBy = `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
     const validatedParameters = validateRequestParameters(input);
     const { appointmentId: appointmentID, secrets } = validatedParameters;

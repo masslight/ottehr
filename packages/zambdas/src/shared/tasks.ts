@@ -1,6 +1,7 @@
 import { CodeableConcept, Coding, Reference, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ottehrCodeSystemUrl, ottehrIdentifierSystem, undefinedIfEmptyArray } from 'utils';
+import { undefinedIfEmptyArray } from 'utils';
+import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 
 export const TASK_TYPE_SYSTEM = ottehrCodeSystemUrl('task-type');
 const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');

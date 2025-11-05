@@ -13,7 +13,7 @@ export class VisitsPage {
     if (time) {
       visitLocator = visitLocator.filter({ hasText: time });
     }
-    await expect(visitLocator).toBeVisible();
+    await expect(visitLocator).toBeVisible({ timeout: 30000 });
   }
 
   async verifyVisitsStatus(appointmentId: string, visitStatus: string): Promise<void> {
@@ -28,59 +28,55 @@ export class VisitsPage {
     await this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
       .getByTestId(dataTestIds.dashboard.intakeButton)
-      .click();
+      .click({ timeout: 25000 });
   }
 
   async clickVisitDetailsButton(appointmentId: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
       .getByTestId(dataTestIds.dashboard.visitDetailsButton)
-      .click();
+      .click({ timeout: 25000 });
   }
 
   async clickProgressNoteButton(appointmentId: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
       .getByTestId(dataTestIds.dashboard.progressNoteButton)
-      .click();
+      .click({ timeout: 25000 });
   }
 
   async clickArrivedButton(appointmentId: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
       .getByTestId(dataTestIds.dashboard.arrivedButton)
-      .click();
+      .click({ timeout: 25000 });
   }
 
   async clickOnPatientName(appointmentId: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
       .getByTestId(dataTestIds.dashboard.patientName)
-      .click();
+      .click({ timeout: 25000 });
   }
 
   async clickChatButton(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.dashboard.chatButton).click();
+    await this.#page.getByTestId(dataTestIds.dashboard.chatButton).click({ timeout: 25000 });
   }
 
   async clickPrebookedTab(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.prebookedTab).click();
-    await this.#page.waitForTimeout(15000);
   }
 
   async clickInOfficeTab(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.inOfficeTab).click();
-    await this.#page.waitForTimeout(15000);
   }
 
   async clickDischargedTab(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.dischargedTab).click();
-    await this.#page.waitForTimeout(15000);
   }
 
   async clickCancelledTab(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.cancelledTab).click();
-    await this.#page.waitForTimeout(15000);
   }
 
   async selectLocation(locationName: string): Promise<void> {
