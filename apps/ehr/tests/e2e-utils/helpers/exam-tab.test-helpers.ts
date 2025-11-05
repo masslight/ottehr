@@ -70,6 +70,7 @@ export interface ComponentTestResult {
   selectedOptions?: string[];
   formEntryText?: string;
   dropdownValue?: string;
+  textValue?: string; // Store the text entered in text component
 }
 
 /**
@@ -278,6 +279,7 @@ export async function testTextComponent(page: Page, examTable: Locator): Promise
       return {
         rowIndex,
         componentType: 'text',
+        textValue: comment,
       };
     }
   }
