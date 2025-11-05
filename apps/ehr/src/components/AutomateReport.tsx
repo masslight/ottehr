@@ -61,6 +61,7 @@ export const AutomateReport = (): JSX.Element => {
   const [toastOpen, setToastOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [toastSeverity, setToastSeverity] = useState<'success' | 'warning'>('warning');
+  const [nextTriggerDates, setNextTriggerDates] = useState<string[]>([]);
   const navigate = useNavigate();
 
   const fetchSettings = async (): Promise<void> => {
@@ -114,6 +115,12 @@ export const AutomateReport = (): JSX.Element => {
     void fetchSettings();
   }, []);
 
+  useEffect(() => {
+    if (frequency) {
+      setNextTriggerDates(getNextTriggerDates(frequency));
+    }
+  }, [frequency]);
+
   const handleCloseToast = (): void => setToastOpen(false);
 
   const validateLogoFile = (file: File): string | null => {
@@ -157,6 +164,34 @@ export const AutomateReport = (): JSX.Element => {
     setLogoPreview(null);
     setLogoFileName('');
     setExistingLogoPath(null);
+  };
+
+  const getNextTriggerDates = (frequency: string): string[] => {
+    const dates: string[] = [];
+    const now = new Date();
+
+    for (let i = 1; i <= 10; i++) {
+      const next = new Date(now);
+
+      if (frequency === 'daily') {
+        next.setUTCDate(now.getUTCDate() + i);
+      } else if (frequency === 'weekly') {
+        next.setUTCDate(now.getUTCDate() + 7 * i);
+      } else if (frequency === 'monthly') {
+        next.setUTCMonth(now.getUTCMonth() + i);
+      }
+
+      next.setUTCHours(0, 0, 0, 0);
+      dates.push(next.toUTCString().replace('GMT', 'UTC'));
+    }
+
+    return dates;
+  };
+
+  const handleFrequencyChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const value = e.target.value;
+    setFrequency(value);
+    setNextTriggerDates(getNextTriggerDates(value));
   };
 
   const handleSubmit = async (): Promise<void> => {
@@ -211,13 +246,25 @@ export const AutomateReport = (): JSX.Element => {
             <Typography variant="h6" gutterBottom>
               Automation Frequency
             </Typography>
-            <RadioGroup row value={frequency} onChange={(e) => setFrequency(e.target.value)}>
+            <RadioGroup row value={frequency} onChange={handleFrequencyChange}>
               <FormControlLabel value="daily" control={<Radio />} label="Daily" />
               <FormControlLabel value="weekly" control={<Radio />} label="Weekly" />
               <FormControlLabel value="monthly" control={<Radio />} label="Monthly" />
             </RadioGroup>
             {errors.frequency && <FormHelperText>{errors.frequency}</FormHelperText>}
           </FormControl>
+          {nextTriggerDates.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Next 10 trigger date(s)
+              </Typography>
+              {nextTriggerDates.map((date, index) => (
+                <Typography key={index} variant="body2">
+                  {new Date(date).toUTCString().replace('GMT', '')}
+                </Typography>
+              ))}
+            </Box>
+          )}
 
           {reportTemplate === 'pdf' && (
             <>

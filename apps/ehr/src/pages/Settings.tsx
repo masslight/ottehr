@@ -33,7 +33,7 @@ export default function Settings(): JSX.Element {
                 value="notifications"
                 label={
                   <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
-                    Notifications
+                    Notifications Settings
                   </Typography>
                 }
               />
