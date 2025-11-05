@@ -19,12 +19,14 @@ import {
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
 import { useICD10SearchNew } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
@@ -56,8 +58,15 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
   const { encounter, appointment } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
-  const { diagnosis = [] } = chartData || {};
   const didPrimaryDiagnosisInit = useRef(false);
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
+  const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
+
+  const diagnosis = useMemo<DiagnosisDTO[]>(
+    () => (isFollowup ? mainEncounterChartData?.diagnosis || [] : chartData?.diagnosis || []),
+    [mainEncounterChartData?.diagnosis, chartData?.diagnosis, isFollowup]
+  );
 
   // already added diagnoses may have "added via in-house lab order" flag with true and false values
   // so, the "select dx" dropdown will show all diagnoses that are displayed on the Assessment page regardless of their source
@@ -67,18 +76,18 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   // and they will be linked to appointment resources in the create-in-house-lab-order zambda
   const [selectedNewDiagnoses, setSelectedNewDiagnoses] = useState<DiagnosisDTO[]>([]);
 
-  // init selectedAssessmentDiagnoses with primary diagnosis
+  // init selectedAssessmentDiagnoses with primary diagnosis from main encounter
   useEffect(() => {
     if (didPrimaryDiagnosisInit.current) {
       return;
     }
-    const primaryDiagnosis = [chartData?.diagnosis?.find((d) => d.isPrimary)].filter((d): d is DiagnosisDTO => !!d);
+    const primaryDiagnosis = [diagnosis.find((d) => d.isPrimary)].filter((d): d is DiagnosisDTO => !!d);
 
     if (primaryDiagnosis.length && !selectedAssessmentDiagnoses.length) {
       setSelectedAssessmentDiagnoses(primaryDiagnosis);
       didPrimaryDiagnosisInit.current = true;
     }
-  }, [chartData?.diagnosis, selectedAssessmentDiagnoses]);
+  }, [diagnosis, selectedAssessmentDiagnoses]);
 
   // used to fetch dx icd10 codes
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -168,9 +177,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         }
 
         // update chart data local state with new diagnoses after successful creation to see actual diagnoses in the Assessment page
-        setPartialChartData({
-          diagnosis: [...(chartData?.diagnosis || []), ...savedDiagnoses],
-        });
+        if (!isFollowup) {
+          setPartialChartData({
+            diagnosis: [...diagnosis, ...savedDiagnoses],
+          });
+        }
 
         if (shouldPrintLabel) {
           const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id! });
