@@ -332,8 +332,7 @@ export const handleRejectedAbn = async ({
   const { abnDocRef, serviceRequest } = resourceSearch.reduce((acc, resource) => {
     if (resource.resourceType === 'ServiceRequest') acc.serviceRequest = resource;
     if (resource.resourceType === 'DocumentReference') {
-      const isAbnAndCurrent = docRefIsAbnAndCurrent(resource);
-      if (isAbnAndCurrent) acc.abnDocRef = resource;
+      if (docRefIsAbnAndCurrent(resource)) acc.abnDocRef = resource;
     }
     return acc;
   }, initial);

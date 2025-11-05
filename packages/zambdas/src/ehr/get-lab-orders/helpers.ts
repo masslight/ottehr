@@ -1390,6 +1390,7 @@ export const parseLabOrderStatus = (
       2
     )
   );
+  console.log('sr status: ', serviceRequest.status);
 
   return ExternalLabsStatus.unknown;
 };
