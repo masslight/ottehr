@@ -299,6 +299,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const attendingProviderId = getAttendingPractitionerId(encounter);
       const admitterProviderId = getAdmitterPractitionerId(encounter);
 
+      // For telemed encounters, practitioners may not have specific role types (Attender/Admitter)
+      // In this case, find any practitioner participant
+      let telemedPractitionerId: string | undefined;
+      if (isTelemedicine && !attendingProviderId && !admitterProviderId) {
+        const practitionerParticipant = encounter.participant?.find(
+          (part) => part.individual?.reference?.includes('Practitioner/')
+        );
+        if (practitionerParticipant?.individual?.reference) {
+          telemedPractitionerId = practitionerParticipant.individual.reference.replace('Practitioner/', '');
+        }
+      }
+
       // Process attending provider
       if (attendingProviderId) {
         const key = `${attendingProviderId}-Attending Provider`;
@@ -334,6 +346,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           currentData.inPerson++;
         }
 
+        practitionerVisitsMap.set(key, currentData);
+      }
+
+      // Process telemed practitioner if no attending/admitter found
+      if (telemedPractitionerId) {
+        const key = `${telemedPractitionerId}-Attending Provider`;
+        const currentData = practitionerVisitsMap.get(key) || {
+          practitionerId: telemedPractitionerId,
+          role: 'Attending Provider' as const,
+          inPerson: 0,
+          telemed: 0,
+        };
+
+        currentData.telemed++;
         practitionerVisitsMap.set(key, currentData);
       }
     });

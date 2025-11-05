@@ -358,27 +358,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         code: IN_HOUSE_LAB_TASK.code.collectSampleTask,
       },
       encounterId: encounterId,
-      locationId: location?.id,
+      location: location?.id
+        ? {
+            id: location.id,
+          }
+        : undefined,
       input: [
         {
           type: IN_HOUSE_LAB_TASK.input.testName,
-          value: activityDefinition.name,
+          valueString: activityDefinition.name,
         },
         {
           type: IN_HOUSE_LAB_TASK.input.patientName,
-          value: getFullestAvailableName(patient),
+          valueString: getFullestAvailableName(patient),
         },
         {
           type: IN_HOUSE_LAB_TASK.input.providerName,
-          value: currentUserPractitionerName ?? 'Unknown',
+          valueString: currentUserPractitionerName ?? 'Unknown',
         },
         {
           type: IN_HOUSE_LAB_TASK.input.orderDate,
-          value: serviceRequestConfig.authoredOn,
+          valueString: serviceRequestConfig.authoredOn,
         },
         {
           type: IN_HOUSE_LAB_TASK.input.appointmentId,
-          value: encounter.appointment?.[0]?.reference?.split('/')?.[1],
+          valueString: encounter.appointment?.[0]?.reference?.split('/')?.[1],
         },
       ],
       basedOn: [serviceRequestFullUrl],
