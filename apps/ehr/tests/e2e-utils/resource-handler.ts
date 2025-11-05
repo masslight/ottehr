@@ -358,7 +358,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
 
     try {
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 50; i++) {
         const appointment = (
           await apiClient.fhir.search({
             resourceType: 'Appointment',
@@ -377,7 +377,7 @@ export class ResourceHandler {
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
       throw new Error("Appointment wasn't preprocessed");
@@ -391,7 +391,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
 
     try {
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 50; i++) {
         const appointment = (
           await apiClient.fhir.search({
             resourceType: 'Appointment',
