@@ -58,7 +58,7 @@ export const OrderDetailsPage: React.FC = () => {
 
   const pageName = labOrder.testItem;
 
-  if (status === 'pending' || status === 'ready' || status?.includes('sent')) {
+  if (status === 'pending' || status === 'ready' || status?.includes('sent') || status === 'rejected abn') {
     return (
       <DetailPageContainer>
         <LabBreadcrumbs sectionName={pageName}>

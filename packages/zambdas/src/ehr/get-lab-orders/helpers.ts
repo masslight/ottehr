@@ -81,6 +81,7 @@ import {
   parseAppointmentIdForServiceRequest,
   parseTimezoneForAppointmentSchedule,
   ResourcesByDr,
+  srHasRejectedAbnExt,
 } from '../shared/labs';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 
@@ -1230,6 +1231,10 @@ export const parseLabOrderStatus = (
     return ExternalLabsStatus.unknown;
   }
 
+  if (serviceRequest.status === 'revoked') {
+    if (srHasRejectedAbnExt(serviceRequest)) return ExternalLabsStatus['rejected abn'];
+  }
+
   const { orderedFinalAndCorrectedResults, reflexFinalAndCorrectedResults, orderedPrelimResults, reflexPrelimResults } =
     cache?.parsedResults || parseResults(serviceRequest, results);
 
@@ -1385,6 +1390,7 @@ export const parseLabOrderStatus = (
       2
     )
   );
+  console.log('sr status: ', serviceRequest.status);
 
   return ExternalLabsStatus.unknown;
 };
@@ -1396,6 +1402,10 @@ export const parseLabOrderStatusWithSpecificTask = (
   serviceRequest: ServiceRequest | undefined, // will be undefined for unsolicited results only
   PSTTask: Task | null
 ): ExternalLabsStatus => {
+  if (serviceRequest?.status === 'revoked') {
+    if (srHasRejectedAbnExt(serviceRequest)) return ExternalLabsStatus['rejected abn'];
+  }
+
   if (
     result.status === 'cancelled' &&
     task.code?.coding?.some((c) => c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
@@ -1746,6 +1756,15 @@ export const parseLabOrdersHistory = (
     ...parseProvenancesForHistory('ordered', PROVENANCE_ACTIVITY_CODING_ENTITY.submit, practitioners, provenances)
   );
 
+  history.push(
+    ...parseProvenancesForHistory(
+      'rejected abn',
+      PROVENANCE_ACTIVITY_CODING_ENTITY.abnRejected,
+      practitioners,
+      provenances
+    )
+  );
+
   const isPSC = parseIsPSC(serviceRequest);
   const pushPerformedHistory = (specimen: Specimen): void => {
     history.push({
@@ -1845,6 +1864,7 @@ export const parseAccountNumber = (
   return getAccountNumberFromLocationAndOrganization(orderingLocation, srPerformer) ?? NOT_FOUND;
 };
 
+// todo labs team - we could probably refactor to iterate over provenances only once
 export const parseProvenancesForHistory = (
   historyAction: LabOrderUnreceivedHistoryRow['action'],
   activityCoding: Coding,
@@ -1858,11 +1878,11 @@ export const parseProvenancesForHistory = (
       )
   );
   if (!relatedProvenance) return [];
-  const pstTaskCompletedBy = parseReviewerNameFromProvenance(relatedProvenance, practitioners);
+  const taskCompletedBy = parseReviewerNameFromProvenance(relatedProvenance, practitioners);
   const date = relatedProvenance.recorded;
   const historyRow: LabOrderHistoryRow = {
     action: historyAction,
-    performer: pstTaskCompletedBy,
+    performer: taskCompletedBy,
     date,
   };
   return [historyRow];
