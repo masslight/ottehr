@@ -132,6 +132,7 @@ export const createSampleAppointments = async ({
   paperworkAnswers,
   serviceMode,
   appointmentMetadata,
+  skipPaperwork,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
@@ -145,6 +146,7 @@ export const createSampleAppointments = async ({
   paperworkAnswers?: GetPaperworkAnswers;
   serviceMode?: ServiceMode;
   appointmentMetadata?: Appointment['meta'];
+  skipPaperwork?: boolean;
 }): Promise<CreateAppointmentResponse> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
@@ -230,15 +232,17 @@ export const createSampleAppointments = async ({
             throw new Error('Error: appointment data is null');
           }
 
-          await processPaperwork(
-            typedAppointment,
-            randomPatientInfo.patient,
-            zambdaUrl,
-            authToken,
-            projectId,
-            serviceModeToUse,
-            paperworkAnswers
-          );
+          if (!skipPaperwork) {
+            await processPaperwork(
+              typedAppointment,
+              randomPatientInfo.patient,
+              zambdaUrl,
+              authToken,
+              projectId,
+              serviceModeToUse,
+              paperworkAnswers
+            );
+          }
 
           // If it's a virtual appointment, mark it as 'arrived'
           if (serviceModeToUse === ServiceMode.virtual) {
