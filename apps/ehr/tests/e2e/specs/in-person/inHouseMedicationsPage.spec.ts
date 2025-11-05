@@ -281,7 +281,7 @@ test('Making in-house medication order Partly Administered happy path', async ()
   await medicationsPage.sideMenu().clickInHouseMedications();
   await medicationsPage.clickOrderButton();
 
-  await createOrderForAdministration(MEDICATION_FOR_ADMINISTERED, page);
+  await createOrderForAdministration(MEDICATION_FOR_PARTLY_ADMINISTERED, page);
 
   const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickPartlyAdministeredButton();
   await administrationConfirmationDialog.verifyTitle('Medication Partly Administered');
@@ -325,7 +325,7 @@ test('Making in-house medication order Not Administered happy path', async () =>
   await medicationsPage.sideMenu().clickInHouseMedications();
   await medicationsPage.clickOrderButton();
 
-  await createOrderForAdministration(MEDICATION_FOR_ADMINISTERED, page);
+  await createOrderForAdministration(MEDICATION_FOR_NOT_ADMINISTERED, page);
 
   const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickNotAdministeredButton();
   await administrationConfirmationDialog.verifyTitle('Medication Not Administered');
