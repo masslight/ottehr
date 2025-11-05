@@ -1,9 +1,9 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import { Operation } from 'fast-json-patch';
 import { Extension, Location, Organization } from 'fhir/r4b';
-import { getPatchBinary } from 'src/helpers/fhir';
+import { bulkUpdateInsuranceStatus } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  BulkUpdateInsuranceStatusInput,
   FHIR_EXTENSION,
   INSURANCE_SETTINGS_MAP,
   isLocationVirtual,
@@ -194,35 +194,16 @@ export const useInsuranceOrganizationsQuery = (): UseQueryResult<Organization[],
   });
 };
 
-export interface BulkInsuranceStatusData {
-  insuranceIds: string[];
-  active: boolean;
-}
-
-export const useBulkInsuranceStatusMutation = (): UseMutationResult<void, Error, BulkInsuranceStatusData> => {
-  const { oystehr } = useApiClients();
+export const useBulkInsuranceStatusMutation = (): UseMutationResult<void, Error, BulkUpdateInsuranceStatusInput> => {
+  const { oystehrZambda } = useApiClients();
 
   return useMutation({
     mutationKey: ['bulk-insurance-status'],
 
-    mutationFn: async (data: BulkInsuranceStatusData) => {
-      if (!oystehr) throw new Error('Oystehr is not defined');
+    mutationFn: async (data: BulkUpdateInsuranceStatusInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
 
-      const patchOp: Operation = {
-        op: 'replace',
-        path: '/active',
-        value: data.active,
-      };
-
-      await oystehr.fhir.batch({
-        requests: data.insuranceIds.map((insuranceId) =>
-          getPatchBinary({
-            resourceId: insuranceId,
-            resourceType: 'Organization',
-            patchOperations: [patchOp],
-          })
-        ),
-      });
+      await bulkUpdateInsuranceStatus(oystehrZambda, data);
     },
   });
 };

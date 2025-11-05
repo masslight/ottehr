@@ -162,32 +162,14 @@ export default function Insurances(): ReactElement {
       );
     }
 
-    const BATCH_SIZE = 100;
-    const batches: string[][] = [];
-    for (let i = 0; i < insurancesToUpdate.length; i += BATCH_SIZE) {
-      batches.push(insurancesToUpdate.slice(i, i + BATCH_SIZE));
-    }
-
-    let totalUpdated = 0;
-    for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i];
-      if (batches.length > 1) {
-        enqueueSnackbar(`Processing batch ${i + 1} of ${batches.length}...`, {
-          variant: 'info',
-        });
-      }
-
-      await bulkStatusMutation.mutateAsync({
-        insuranceIds: batch,
-        active: desiredActiveState,
-      });
-
-      totalUpdated += batch.length;
-    }
+    await bulkStatusMutation.mutateAsync({
+      insuranceIds: insurancesToUpdate,
+      active: desiredActiveState,
+    });
 
     await queryClient.invalidateQueries({ queryKey: ['insurances'] });
 
-    enqueueSnackbar(`Successfully ${action}d ${totalUpdated} insurance(s)`, {
+    enqueueSnackbar(`Successfully ${action}d ${insurancesToUpdate.length} insurance(s)`, {
       variant: 'success',
     });
 
