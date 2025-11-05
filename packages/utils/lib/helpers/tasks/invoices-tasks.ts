@@ -22,12 +22,26 @@ export function createInvoiceTaskInput(input: PrefilledInvoiceInfo): TaskInput[]
 
 export function parseInvoiceTaskInput(invoiceTask: Task): PrefilledInvoiceInfo | undefined {
   console.log('invoiceTask', invoiceTask);
+  const recipientName = getInvoiceTaskInputFieldByCode('recipientName', invoiceTask);
+  const recipientEmail = getInvoiceTaskInputFieldByCode('recipientEmail', invoiceTask);
+  const recipientPhoneNumber = getInvoiceTaskInputFieldByCode('recipientPhoneNumber', invoiceTask);
+  const dueDate = getInvoiceTaskInputFieldByCode('dueDate', invoiceTask);
+  const memo = getInvoiceTaskInputFieldByCode('memo', invoiceTask);
+  const smsTextMessage = getInvoiceTaskInputFieldByCode('smsTextMessage', invoiceTask);
+  if (!recipientName || !recipientEmail || !recipientPhoneNumber || !dueDate || !smsTextMessage) return undefined;
   return {
-    recipientName: 'temp',
-    recipientEmail: 'temp',
-    recipientPhoneNumber: '123',
-    dueDate: '2041-10-05T14:48:00.000Z',
-    memo: 'temp',
-    smsTextMessage: 'temp',
+    recipientName,
+    recipientEmail,
+    recipientPhoneNumber,
+    dueDate,
+    memo,
+    smsTextMessage,
   };
+}
+
+function getInvoiceTaskInputFieldByCode(code: string, task: Task): string | undefined {
+  return task.input?.find(
+    (input) =>
+      input.type.coding?.find((type) => type.system === ottehrCodeSystemUrl('invoice-task-input') && type.code === code)
+  )?.valueString;
 }

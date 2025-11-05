@@ -34,7 +34,7 @@ const ZAMBDA_NAME = 'send-invoice-to-patient';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParams = validateRequestParameters(input);
-    const { secrets, encounterId, prefilledInfo } = validatedParams;
+    const { secrets, encounterId, prefilledInfo, task } = validatedParams;
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
@@ -79,11 +79,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('Sending sms to patient');
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-    const smsMessage = replaceTemplateVariablesDollar(prefilledInfo.smsTextMessage, {
-      invoiceLink: 'link will be here', // todo place link here
-    });
+    const smsMessage = sendInvoiceResponse.hosted_invoice_url
+      ? replaceTemplateVariablesDollar(prefilledInfo.smsTextMessage, {
+          invoiceLink: sendInvoiceResponse.hosted_invoice_url,
+        })
+      : prefilledInfo.smsTextMessage;
     await sendSmsForPatient(smsMessage, oystehr, patient, ENVIRONMENT);
     console.log('Sms sent to patient');
+
+    console.log('Setting task status to completed');
+    await oystehr.fhir.patch({
+      resourceType: 'Task',
+      id: task.id!,
+      operations: [
+        {
+          op: 'replace',
+          path: '/status',
+          value: 'completed',
+        },
+      ],
+    });
 
     return {
       statusCode: 200,

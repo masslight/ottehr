@@ -1,6 +1,6 @@
 import { Task } from 'fhir/r4b';
 import { parseInvoiceTaskInput, PrefilledInvoiceInfo } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput

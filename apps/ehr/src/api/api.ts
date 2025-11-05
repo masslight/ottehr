@@ -1312,7 +1312,7 @@ export const updateInvoiceTask = async (oystehr: Oystehr, parameters: UpdateInvo
   try {
     await oystehr.zambda.execute({
       id: UPDATE_INVOICE_TASK_ZAMBDA_ID,
-      parameters,
+      ...parameters,
     });
   } catch (error: unknown) {
     console.log(error);

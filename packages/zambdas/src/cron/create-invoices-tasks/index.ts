@@ -16,6 +16,7 @@ import {
   getResourcesFromBatchInlineRequests,
   getSecret,
   PrefilledInvoiceInfo,
+  RcmTaskCodings,
   Secrets,
   SecretsKeys,
   takeContainedOrFind,
@@ -43,6 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const candid = createCandidApiClient(secrets);
 
     const encountersWithoutATask = await getEncountersWithoutTask(candid, oystehr);
+    console.log('encounters without task: ', encountersWithoutATask.length);
 
     const promises: Promise<void>[] = [];
     encountersWithoutATask.forEach((encounter) => {
@@ -52,7 +54,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Invoice created and sent successfully' }),
+      body: JSON.stringify({ message: 'Successfully created tasks for encounters' }),
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
@@ -108,6 +110,7 @@ async function createTaskForEncounter(oystehr: Oystehr, encounter: Encounter, se
       resourceType: 'Task',
       status: 'ready',
       intent: 'order',
+      code: RcmTaskCodings.sendInvoiceToPatient,
       encounter: createReference(encounter),
       input: createInvoiceTaskInput(prefilledInvoiceInfo),
     };
@@ -120,6 +123,7 @@ async function createTaskForEncounter(oystehr: Oystehr, encounter: Encounter, se
 }
 
 async function getEncountersWithoutTask(candid: CandidApiClient, oystehr: Oystehr): Promise<Encounter[]> {
+  console.log('getting candid claims');
   const inventoryPages = await getCandidInventoryPagesRecursive({
     candid,
     claims: [],
@@ -193,7 +197,7 @@ async function getEncounterTasksPackages(oystehr: Oystehr, claims: InventoryReco
       (res) =>
         res.resourceType === 'Encounter' && claim.encounterId === getCandidEncounterIdFromEncounter(res as Encounter)
     ) as Encounter;
-    if (encounter.id) {
+    if (encounter?.id) {
       const encounterTasks = tasks.filter((task) => task.encounter?.reference === createReference(encounter).reference);
       result.push({ encounter, claim, tasks: encounterTasks });
     }

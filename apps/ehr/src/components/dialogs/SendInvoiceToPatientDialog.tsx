@@ -38,12 +38,14 @@ export default function SendInvoiceToPatientDialog({
   const emailValidator = z.string().email();
 
   const handleSubmitWrapped = (data: SendInvoiceFormData): void => {
-    if (invoiceTask) {
-      if (invoiceTask?.id) {
+    if (invoiceTask && invoiceTask?.id) {
+      const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
+      if (invoiceTaskInput) {
+        // getting disabled fields from initial input
         void onSubmit(invoiceTask?.id, {
-          recipientName: data.recipientName,
-          recipientEmail: data.recipientEmail,
-          recipientPhoneNumber: data.recipientPhoneNumber,
+          recipientName: invoiceTaskInput.recipientName,
+          recipientEmail: invoiceTaskInput.recipientEmail,
+          recipientPhoneNumber: invoiceTaskInput.recipientPhoneNumber,
           dueDate: data.dueDate,
           memo: data.memo,
           smsTextMessage: data.smsTextMessage,
