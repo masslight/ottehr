@@ -54,6 +54,7 @@ export const index = wrapHandler(
             ...user,
             firstName: practitioner?.name?.[0]?.given?.join(' ') ?? '',
             lastName: practitioner?.name?.[0]?.family ?? '',
+            providerId: practitioner?.id,
           };
         });
 
@@ -81,6 +82,7 @@ export const index = wrapHandler(
             ...user,
             firstName: practitioner?.name?.[0]?.given?.join(' ') ?? '',
             lastName: practitioner?.name?.[0]?.family ?? '',
+            staffId: practitioner?.id,
           };
         });
 
@@ -108,6 +110,7 @@ export const index = wrapHandler(
             ...user,
             firstName: patient?.name?.[0]?.given?.join(' ') ?? '',
             lastName: patient?.name?.[0]?.family ?? '',
+            patientId: patient?.id,
           };
         });
 

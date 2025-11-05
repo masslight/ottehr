@@ -38,6 +38,22 @@ interface Option {
   name: string;
 }
 
+interface ProviderOption {
+  id: string;
+  name: string;
+  providerId: string;
+}
+interface StaffOption {
+  id: string;
+  name: string;
+  staffId: string;
+}
+interface PatientOption {
+  id: string;
+  name: string;
+  patientId: string;
+}
+
 interface Patient {
   id: string;
   name: string;
@@ -70,6 +86,9 @@ interface ApiUser {
   profile: string;
   firstName: string;
   lastName: string;
+  providerId?: string;
+  staffId?: string;
+  patientId?: string;
 }
 
 interface SnackbarState {
@@ -121,9 +140,9 @@ const MenuProps = {
 
 export const NotificationHierarchy = (): JSX.Element => {
   const [providers, setProviders] = useState<Provider[]>([]);
-  const [providerOptions, setProviderOptions] = useState<Option[]>([]);
-  const [staffOptions, setStaffOptions] = useState<Record<string, Option[]>>({});
-  const [patientOptions, setPatientOptions] = useState<Record<string, Option[]>>({});
+  const [providerOptions, setProviderOptions] = useState<ProviderOption[]>([]);
+  const [staffOptions, setStaffOptions] = useState<Record<string, StaffOption[]>>({});
+  const [patientOptions, setPatientOptions] = useState<Record<string, PatientOption[]>>({});
   const [selectedPatientIds, setSelectedPatientIds] = useState<Record<string, string[]>>({});
   const { oystehrZambda } = useApiClients();
   const [showProviderDropdown, setShowProviderDropdown] = useState(false);
@@ -143,6 +162,15 @@ export const NotificationHierarchy = (): JSX.Element => {
     open: false,
     currentValue: false,
     type: 'notification',
+  });
+  const [originalApiData, setOriginalApiData] = useState<{
+    providers: ApiUser[];
+    staff: ApiUser[];
+    patients: ApiUser[];
+  }>({
+    providers: [],
+    staff: [],
+    patients: [],
   });
 
   const getFullName = (user: ApiUser): string => {
@@ -235,7 +263,6 @@ export const NotificationHierarchy = (): JSX.Element => {
     }));
   };
 
-  // Function to add selected patients
   const handleAddSelectedPatients = (providerId: string, staffId: string): void => {
     const selectedIds = selectedPatientIds[staffId] || [];
 
@@ -272,17 +299,14 @@ export const NotificationHierarchy = (): JSX.Element => {
       )
     );
 
-    // Clear the selection after adding
     setSelectedPatientIds((prev) => ({
       ...prev,
       [staffId]: [],
     }));
 
     setShowPatientDropdown((prev) => ({ ...prev, [staffId]: false }));
-    showSnackbar(`Added ${selectedPatients.length} patient(s) successfully`, 'success');
   };
 
-  // Function to cancel patient selection
   const handleCancelPatientSelection = (staffId: string): void => {
     setSelectedPatientIds((prev) => ({
       ...prev,
@@ -334,6 +358,21 @@ export const NotificationHierarchy = (): JSX.Element => {
     [providers]
   );
 
+  const getProviderProfileId = (uiId: string): string => {
+    const provider = originalApiData.providers.find((p) => p.id === uiId);
+    return provider?.providerId || uiId;
+  };
+
+  const getStaffProfileId = (uiId: string): string => {
+    const staff = originalApiData.staff.find((s) => s.id === uiId);
+    return staff?.staffId || uiId;
+  };
+
+  const getPatientProfileId = (uiId: string): string => {
+    const patient = originalApiData.patients.find((p) => p.id === uiId);
+    return patient?.patientId || uiId;
+  };
+
   const getSelectedPatientIds = useCallback(
     (providerId: string, staffId: string): string[] => {
       const provider = providers.find((p) => p.id === providerId);
@@ -377,11 +416,17 @@ export const NotificationHierarchy = (): JSX.Element => {
     },
     {
       enabled: !!oystehrZambda,
+      onSuccess: (data) => {
+        if (data) {
+          setOriginalApiData((prev) => ({ ...prev, providers: data }));
+        }
+      },
       select: (data) => {
         if (data?.providerList) {
           return data.providerList.map((provider: ApiUser) => ({
             id: provider.id,
             name: getFullName(provider),
+            providerId: provider.providerId,
           }));
         }
         return [];
@@ -400,11 +445,17 @@ export const NotificationHierarchy = (): JSX.Element => {
     },
     {
       enabled: !!oystehrZambda,
+      onSuccess: (data) => {
+        if (data) {
+          setOriginalApiData((prev) => ({ ...prev, staff: data }));
+        }
+      },
       select: (data) => {
         if (data?.staffList) {
           return data.staffList.map((staff: ApiUser) => ({
             id: staff.id,
             name: getFullName(staff),
+            staffId: staff.staffId,
           }));
         }
         return [];
@@ -423,11 +474,17 @@ export const NotificationHierarchy = (): JSX.Element => {
     },
     {
       enabled: !!oystehrZambda,
+      onSuccess: (data) => {
+        if (data) {
+          setOriginalApiData((prev) => ({ ...prev, patients: data }));
+        }
+      },
       select: (data) => {
         if (data?.patientList) {
           return data.patientList.map((patient: ApiUser) => ({
             id: patient.id,
             name: getFullName(patient),
+            patientId: patient.patientId,
           }));
         }
         return [];
@@ -442,7 +499,6 @@ export const NotificationHierarchy = (): JSX.Element => {
   } = useQuery(['patient-settings'], () => fetchPatientSettings(), {
     enabled: true,
     onSuccess: (data) => {
-      console.log('Fetched saved settings:', data);
       if (data?.settings) {
         transformSavedSettingsToHierarchy(data.settings);
       }
@@ -490,14 +546,12 @@ export const NotificationHierarchy = (): JSX.Element => {
       const hierarchy: Provider[] = [];
       const providerMap = new Map<string, Provider>();
       const staffMap = new Map<string, Staff>();
-
-      const providerNameMap = new Map(providerOptions.map((p) => [p.id, p.name]));
-      const staffNameMap = new Map(staffOptions.global?.map((s) => [s.id, s.name]) || []);
-      const patientNameMap = new Map(patientOptions.global?.map((p) => [p.id, p.name]) || []);
+      const providerNameMap = new Map(providerOptions.map((p) => [p.providerId, p.name]));
+      const staffNameMap = new Map(staffOptions.global?.map((s) => [s.staffId, s.name]) || []);
+      const patientNameMap = new Map(patientOptions.global?.map((p) => [p.patientId, p.name]) || []);
 
       sortedSettings.forEach((setting) => {
         if (!setting.staff_id) return;
-
         if (!providerMap.has(setting.provider_id)) {
           const providerName = providerNameMap.get(setting.provider_id) || `Provider ${setting.provider_id}`;
           const provider: Provider = {
@@ -510,7 +564,6 @@ export const NotificationHierarchy = (): JSX.Element => {
         }
 
         const provider = providerMap.get(setting.provider_id)!;
-
         const staffKey = `${setting.provider_id}-${setting.staff_id}`;
         if (!staffMap.has(staffKey)) {
           const staffName = staffNameMap.get(setting.staff_id) || `Staff ${setting.staff_id}`;
@@ -537,7 +590,6 @@ export const NotificationHierarchy = (): JSX.Element => {
         }
       });
 
-      console.log('Transformed hierarchy:', hierarchy);
       setProviders(hierarchy);
     },
     [providerOptions, staffOptions.global, patientOptions.global]
@@ -618,7 +670,6 @@ export const NotificationHierarchy = (): JSX.Element => {
     transformSavedSettingsToHierarchy,
   ]);
 
-  // 2. Add new items at the top of the list
   const handleProviderSelect = (providerId: string): void => {
     const selectedProvider = providerOptions.find((p) => p.id === providerId);
     if (!selectedProvider) return;
@@ -722,13 +773,19 @@ export const NotificationHierarchy = (): JSX.Element => {
     let orderCounter = 1;
 
     providers.forEach((provider) => {
+      const providerProfileId = getProviderProfileId(provider.id);
+
       provider.staff.forEach((staff) => {
+        const staffProfileId = getStaffProfileId(staff.id);
+
         if (staff.patients.length > 0) {
           staff.patients.forEach((patient) => {
+            const patientProfileId = getPatientProfileId(patient.id);
+
             settingsData.push({
-              provider_id: provider.id,
-              staff_id: staff.id,
-              patient_id: patient.id,
+              provider_id: providerProfileId,
+              staff_id: staffProfileId,
+              patient_id: patientProfileId,
               order: orderCounter++,
               is_notification_enabled: patient.is_notification_enabled,
               is_report_enabled: patient.is_report_enabled,
@@ -736,8 +793,8 @@ export const NotificationHierarchy = (): JSX.Element => {
           });
         } else {
           settingsData.push({
-            provider_id: provider.id,
-            staff_id: staff.id,
+            provider_id: providerProfileId,
+            staff_id: staffProfileId,
             patient_id: null,
             order: orderCounter++,
             is_notification_enabled: true,
@@ -747,14 +804,10 @@ export const NotificationHierarchy = (): JSX.Element => {
       });
     });
 
-    console.log('Settings data to be saved:', settingsData);
-    console.log('JSON format:', JSON.stringify(settingsData, null, 2));
-
     saveSettingsMutation.mutate(settingsData);
   };
 
   const handleCancel = (): void => {
-    console.log('Canceling changes');
     if (savedSettingsData?.settings) {
       transformSavedSettingsToHierarchy(savedSettingsData.settings);
     } else {
@@ -805,7 +858,6 @@ export const NotificationHierarchy = (): JSX.Element => {
                   </MenuItem>
                   {getAvailableProviderOptions().map((p) => (
                     <MenuItem key={p.id} value={p.id}>
-                      {/* 3. Add position in brackets */}
                       {p.name} (Provider)
                     </MenuItem>
                   ))}
@@ -826,7 +878,6 @@ export const NotificationHierarchy = (): JSX.Element => {
               <Card key={provider.id} variant="outlined" sx={{ borderRadius: 2 }}>
                 <CardContent>
                   <Stack direction="row" alignItems="center" justifyContent="space-between">
-                    {/* 3. Add position in brackets for displayed names */}
                     <Typography variant="h6">{provider.name} (Provider)</Typography>
                     <IconButton
                       onClick={() => openDeleteModal('provider', provider.name, provider.id)}
@@ -864,7 +915,6 @@ export const NotificationHierarchy = (): JSX.Element => {
                           </MenuItem>
                           {availableStaffOptions.map((s) => (
                             <MenuItem key={s.id} value={s.id}>
-                              {/* 3. Add position in brackets */}
                               {s.name} (MA)
                             </MenuItem>
                           ))}
@@ -886,7 +936,6 @@ export const NotificationHierarchy = (): JSX.Element => {
                         <Card key={staff.id} variant="outlined" sx={{ borderRadius: 2 }}>
                           <CardContent>
                             <Stack direction="row" alignItems="center" justifyContent="space-between">
-                              {/* 3. Add position in brackets for displayed names */}
                               <Typography variant="subtitle1">{staff.name} (MA)</Typography>
                               <IconButton
                                 onClick={() => openDeleteModal('staff', staff.name, provider.id, staff.id)}
@@ -913,7 +962,6 @@ export const NotificationHierarchy = (): JSX.Element => {
                               <Box sx={{ mt: 2 }}>
                                 <FormControl size="small" sx={{ width: 300 }}>
                                   <InputLabel>Select Patients</InputLabel>
-                                  {/* Multi-select dropdown for patients */}
                                   <Select
                                     multiple
                                     value={selectedPatientIds[staff.id] || []}
@@ -944,7 +992,6 @@ export const NotificationHierarchy = (): JSX.Element => {
                                   </Select>
                                 </FormControl>
 
-                                {/* OK and Cancel buttons */}
                                 <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                                   <Button
                                     variant="contained"
@@ -963,7 +1010,6 @@ export const NotificationHierarchy = (): JSX.Element => {
                                   </Button>
                                 </Stack>
 
-                                {/* Show selected count */}
                                 {(selectedPatientIds[staff.id] || []).length > 0 && (
                                   <Typography
                                     variant="caption"
@@ -989,11 +1035,9 @@ export const NotificationHierarchy = (): JSX.Element => {
                                     borderRadius: 1,
                                   }}
                                 >
-                                  {/* 3. Add position in brackets for displayed names */}
                                   <Typography>{patient.name} (Patient)</Typography>
                                   <Stack direction="row" alignItems="center" spacing={1}>
                                     <Typography variant="body2">Report</Typography>
-                                    {/* 1. Modal for notification toggle */}
                                     <Switch
                                       size="small"
                                       checked={patient.is_report_enabled}
@@ -1065,7 +1109,6 @@ export const NotificationHierarchy = (): JSX.Element => {
         </Stack>
       )}
 
-      {/* Delete Confirmation Modal */}
       <Dialog
         open={deleteModal.open}
         onClose={closeDeleteModal}
@@ -1098,7 +1141,6 @@ export const NotificationHierarchy = (): JSX.Element => {
         </DialogActions>
       </Dialog>
 
-      {/* 1. Notification Toggle Confirmation Modal */}
       <Dialog
         open={notificationModal.open}
         onClose={closeNotificationModal}

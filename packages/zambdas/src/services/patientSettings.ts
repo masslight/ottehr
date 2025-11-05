@@ -54,7 +54,7 @@ export const fetchPatientSettings = async (): Promise<any> => {
 
     return response.data.data;
   } catch (error) {
-    console.error('Error fetching reports:', error);
+    console.error('Error fetching patient settings:', error);
     return { reports: [], total: 0 };
   }
 };
@@ -77,7 +77,7 @@ export const fetchPatientSettingsById = async (patientId: string): Promise<any> 
 
     return response.data.data;
   } catch (error) {
-    console.error('Error fetching reports:', error);
+    console.error('Error fetching patient settings by Id:', error);
     return { reports: [], total: 0 };
   }
 };

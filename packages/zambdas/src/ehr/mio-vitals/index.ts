@@ -43,11 +43,11 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
         console.log('already have token');
       }
       const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
-      const PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID = getSecret(
-        SecretsKeys.PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID,
-        secrets
-      );
-      console.log('PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID : ', PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID);
+      // const PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID = getSecret(
+      //   SecretsKeys.PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID,
+      //   secrets
+      // );
+      // console.log('PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID : ', PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID);
       const oystehr = createOystehrClient(oystehrToken, secrets);
 
       const roles = (await oystehr.role.list()).filter((x: any) => ['Provider', 'Staff'].includes(x.name));
@@ -57,6 +57,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
         allUsersList = [...allUsersList, ...users.data];
       }
       allUsersList = getUniqueById(allUsersList);
+      console.log('Allocated List : ', JSON.stringify(allUsersList, null, 2));
 
       const fhirDevice = await fetchFHIRDevice(oystehr, imei);
       if (fhirDevice) {
@@ -73,12 +74,15 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
         const patient = patientId ? await fetchFHIRPatient(oystehr, patientId) : null;
         const patientBaseline = patientId ? await fetchPatientBaseline(oystehr, patientId) : null;
 
-        // Fetch patient settings to get allocated providers and staff
         let allocatedProviders: any[] = [];
         let allocatedStaff: any[] = [];
+
+        console.log('Patient Id : ', patientId);
         if (patientId) {
           try {
-            const patientSettings = await fetchPatientSettingsById(patientId);
+            const patientSettings = await fetchPatientSettingsById(patientId.split('/')[1]);
+            console.log('Patient settings api res :', JSON.stringify(patientSettings, null, 2));
+
             if (patientSettings?.settings) {
               const patientSpecificId = patientId.replace('Patient/', '');
               const patientEntries = patientSettings.settings.filter(
@@ -172,7 +176,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
           issued: uploadTimeUTC,
         };
         const vital = await oystehr.fhir.create<any>(payload);
-        console.log('vital created : ', vital);
+        console.log('vital created :', JSON.stringify(vital, null, 2));
 
         const patientName = patient
           ? [patient.name?.[0]?.family, patient.name?.[0]?.given?.[0]].filter(Boolean).join(' ')
@@ -210,10 +214,8 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             const normalRange = getRange(weightThreshold, weightVariance);
             const criticalRange = getRange(weightThreshold, weightCriticalVariance);
 
-            // Check normal variance
             isWarning = normalRange.length == 2 ? !(weight >= normalRange[0] && weight <= normalRange[1]) : false;
 
-            // Check critical variance
             isCritical =
               criticalRange.length == 2 ? !(weight >= criticalRange[0] && weight <= criticalRange[1]) : false;
 
@@ -245,10 +247,8 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             const normalRange = getRange(glucoseThreshold, glucoseVariance);
             const criticalRange = getRange(glucoseThreshold, glucoseCriticalVariance);
 
-            // Check normal variance
             isWarning = normalRange.length == 2 ? !(glucose >= normalRange[0] && glucose <= normalRange[1]) : false;
 
-            // Check critical variance
             isCritical =
               criticalRange.length == 2 ? !(glucose >= criticalRange[0] && glucose <= criticalRange[1]) : false;
 
@@ -291,7 +291,6 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
           let diastolicExceeding = false;
           let diastolicCritical = false;
 
-          // Check systolic thresholds
           if (systolicThreshold && systolicVariance && systolicCriticalVariance && systolic) {
             systolicNormalRange = getRange(systolicThreshold, systolicVariance);
             systolicCriticalRange = getRange(systolicThreshold, systolicCriticalVariance);
@@ -304,6 +303,9 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
               systolicCriticalRange.length == 2
                 ? !(systolic >= systolicCriticalRange[0] && systolic <= systolicCriticalRange[1])
                 : false;
+
+            console.log('Systolic exceeding :', systolicExceeding);
+            console.log('Systolic critical :', systolicCritical);
 
             if (systolicExceeding) {
               templateInformation.systolicDisplay = 'block';
@@ -320,7 +322,6 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             }
           }
 
-          // Check diastolic thresholds
           if (diastolicThreshold && diastolicVariance && diastolicCriticalVariance && diastolic) {
             diastolicNormalRange = getRange(diastolicThreshold, diastolicVariance);
             diastolicCriticalRange = getRange(diastolicThreshold, diastolicCriticalVariance);
@@ -334,7 +335,11 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
                 ? !(diastolic >= diastolicCriticalRange[0] && diastolic <= diastolicCriticalRange[1])
                 : false;
 
+            console.log('Diastolic exceeding:', diastolicExceeding);
+            console.log('Diastolic critical:', diastolicCritical);
+
             if (diastolicExceeding) {
+              console.log('Inside diastolic exceeding');
               templateInformation.diastolicDisplay = 'block';
               templateInformation.diastolicRange = `${diastolicNormalRange[0]} – ${diastolicNormalRange[1]}`;
               templateInformation.diastolic = diastolic;
@@ -349,7 +354,6 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             }
           }
 
-          // Build message for BP
           if (isWarning || isCritical) {
             const alertType = isCritical ? 'CRITICAL' : 'Warning';
 
@@ -375,24 +379,21 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
 
         const getFilteredUsers = (isCriticalAlert: boolean): any => {
           return allUsersList.filter((user) => {
-            // Extract the ID from the profile (profile is usually in format "Practitioner/{id}")
             const userId = user.profile?.replace('Practitioner/', '');
 
+            console.log('User Id : ', userId);
             if (!userId) return false;
 
-            // For critical alerts: send to both allocated providers and staff
             if (isCriticalAlert) {
               return allocatedProviders.includes(userId) || allocatedStaff.includes(userId);
-            }
-            // For normal alerts: send only to allocated staff
-            else {
+            } else {
               return allocatedStaff.includes(userId);
             }
           });
         };
 
         // Send Warning notifications
-        if (isWarning && !isCritical && message?.length > 0) {
+        if (isWarning && message?.length > 0) {
           const communicationAPICalls: any[] = [];
           const emailCalls: any[] = [];
           let topicText = '';
@@ -502,7 +503,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             if (user.profile) {
               const payloadForCommunication = {
                 resourceType: 'Communication',
-                priority: 'asap', // Normal priority for warning alerts
+                priority: 'asap',
                 recipient: [
                   {
                     type: 'Practitioner',
@@ -655,6 +656,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
           }
 
           const criticalUsers = getFilteredUsers(true);
+          console.log('Critical Users :', JSON.stringify(criticalUsers, null, 2));
           console.log(`Sending critical notifications to ${criticalUsers.length} users (providers and staff)`);
 
           for (const user of criticalUsers) {
@@ -672,7 +674,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             if (user.profile) {
               const payloadForCommunication = {
                 resourceType: 'Communication',
-                priority: 'asap', // Highest priority for critical alerts
+                priority: 'asap',
                 recipient: [
                   {
                     type: 'Practitioner',
