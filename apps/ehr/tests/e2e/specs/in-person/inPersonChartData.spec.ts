@@ -428,10 +428,7 @@ test.describe('In-Person Visit Chart Data', async () => {
       const componentExists = await checkboxComponent.count();
 
       if (componentExists > 0) {
-        console.log('✓ Found checkbox component, testing...');
         testResults.checkbox = await testCheckboxComponent(page, examTable);
-      } else {
-        console.log('⊘ No checkbox component found, skipping');
       }
 
       // Add a comment if not already added
@@ -443,7 +440,6 @@ test.describe('In-Person Visit Chart Data', async () => {
         await textbox.fill(comment);
         await waitForFieldSave(textbox);
         testResults.comment = { rowIndex: testResults.checkbox.rowIndex, text: comment };
-        console.log(`✓ Added comment to row ${testResults.checkbox.rowIndex}`);
       }
     });
 
@@ -457,13 +453,10 @@ test.describe('In-Person Visit Chart Data', async () => {
       const componentExists = await textComponent.count();
 
       if (componentExists > 0) {
-        console.log('✓ Found text component in abnormal column, testing...');
         const result = await testTextComponent(page, examTable);
         if (result) {
           testResults.text = result;
         }
-      } else {
-        console.log('⊘ No text component found in abnormal column, skipping');
       }
     });
 
@@ -475,10 +468,7 @@ test.describe('In-Person Visit Chart Data', async () => {
       const componentExists = await dropdownComponent.count();
 
       if (componentExists > 0) {
-        console.log('✓ Found dropdown component, testing...');
         testResults.dropdown = await testDropdownComponent(page, examTable);
-      } else {
-        console.log('⊘ No dropdown component found, skipping');
       }
     });
 
@@ -495,13 +485,8 @@ test.describe('In-Person Visit Chart Data', async () => {
         const hasCombobox = (await multiSelectComponent.getByRole('combobox').count()) > 0;
 
         if (hasCheckbox || hasCombobox) {
-          console.log('✓ Found multi-select component, testing...');
           testResults.multiSelect = await testMultiSelectComponent(page, examTable);
-        } else {
-          console.log('⊘ Multi-select component found but not in expected state, skipping');
         }
-      } else {
-        console.log('⊘ No multi-select component found, skipping');
       }
     });
 
@@ -513,10 +498,7 @@ test.describe('In-Person Visit Chart Data', async () => {
       const componentExists = await formComponent.count();
 
       if (componentExists > 0) {
-        console.log('✓ Found form component, testing...');
         testResults.form = await testFormComponent(page, examTable);
-      } else {
-        console.log('⊘ No form component found, skipping');
       }
     });
 
@@ -542,9 +524,6 @@ test.describe('In-Person Visit Chart Data', async () => {
         for (let i = 0; i < normalCount; i++) {
           preReloadNormalStates.push(await normalCheckboxes.nth(i).isChecked());
         }
-        console.log(
-          `✓ Captured checkbox states before reload: ${preReloadAbnormalStates.length} abnormal, ${preReloadNormalStates.length} normal`
-        );
       }
 
       // Reload the page
@@ -557,7 +536,6 @@ test.describe('In-Person Visit Chart Data', async () => {
       await test.step('Verify all checkbox states persisted', async () => {
         const checkboxData = testResults.checkbox;
         if (!checkboxData) {
-          console.log('⊘ No checkbox component was tested, skipping checkbox persistence verification');
           return;
         }
 
@@ -588,8 +566,6 @@ test.describe('In-Person Visit Chart Data', async () => {
             ).not.toBeChecked();
           }
         }
-        console.log(`✓ All ${abnormalCount} abnormal checkboxes persisted correctly in row ${checkboxData.rowIndex}`);
-
         // Verify ALL normal checkboxes match expected states IN THE TESTED ROW
         const normalCount = await normalCheckboxes.count();
         for (let i = 0; i < normalCount; i++) {
@@ -610,16 +586,12 @@ test.describe('In-Person Visit Chart Data', async () => {
             ).not.toBeChecked();
           }
         }
-        console.log(`✓ All ${normalCount} normal checkboxes persisted correctly in row ${checkboxData.rowIndex}`);
 
         // Now capture ALL checkbox states from the ENTIRE exam table for progress note verification
         // This must be done AFTER all tests have modified checkboxes, just before going to progress note
         const allCheckboxStates = await captureAllCheckboxStates(examTable);
         checkboxData.abnormalCheckboxLabels = allCheckboxStates.abnormalCheckboxLabels;
         checkboxData.normalCheckboxLabels = allCheckboxStates.normalCheckboxLabels;
-        console.log(
-          `✓ Captured final states of ALL checkboxes: ${allCheckboxStates.normalCheckboxLabels.length} normal, ${allCheckboxStates.abnormalCheckboxLabels.length} abnormal`
-        );
       });
 
       // Verify comment persistence
@@ -628,12 +600,11 @@ test.describe('In-Person Visit Chart Data', async () => {
         const commentCell = row.getByRole('cell').nth(3);
         const textbox = commentCell.getByRole('textbox');
         await expect(textbox).toHaveValue(testResults.comment.text);
-        console.log(`✓ Comment persisted in row ${testResults.comment.rowIndex}`);
       }
 
       // Verify dropdown persistence
       if (testResults.dropdown) {
-        console.log(`✓ Dropdown component state persisted in row ${testResults.dropdown.rowIndex}`);
+        // Dropdown component state persisted; value verified later on progress note
       }
 
       // Verify multi-select persistence
@@ -665,8 +636,6 @@ test.describe('In-Person Visit Chart Data', async () => {
             const optionTextElement = multiSelectContainer.locator(`text=${option}`).last();
             await expect(optionTextElement).toBeVisible();
           }
-
-          console.log(`✓ Multi-select options persisted in row ${testResults.multiSelect.rowIndex}`);
         }
       }
 
@@ -678,11 +647,10 @@ test.describe('In-Person Visit Chart Data', async () => {
         // Check that form entry is still visible
         if (testResults.form.formEntryText) {
           await expect(abnormalCell.locator(`p:has-text("${testResults.form.formEntryText}")`)).toBeVisible();
-          console.log(`✓ Form entry persisted in row ${testResults.form.rowIndex}`);
         }
       }
 
-      console.log('✅ All component states persisted after page reload');
+      // All component states persisted after page reload
     });
 
     test('Should verify all findings on Review and Sign page', async () => {
@@ -707,11 +675,9 @@ test.describe('In-Person Visit Chart Data', async () => {
               if (checked) {
                 // Checked abnormal MUST appear in progress note
                 expect(examinationsText).toContain(label);
-                console.log(`✓ Checked abnormal "${label}" appears in progress note`);
               } else {
                 // Unchecked abnormal MUST NOT appear in progress note
                 expect(examinationsText).not.toContain(label);
-                console.log(`✓ Unchecked abnormal "${label}" correctly omitted from progress note`);
               }
             }
           }
@@ -722,39 +688,36 @@ test.describe('In-Person Visit Chart Data', async () => {
               if (checked) {
                 // Checked normal MUST appear in progress note
                 expect(examinationsText).toContain(label);
-                console.log(`✓ Checked normal "${label}" appears in progress note`);
               } else {
                 // Unchecked normal MUST NOT appear in progress note
                 expect(examinationsText).not.toContain(label);
-                console.log(`✓ Unchecked normal "${label}" correctly omitted from progress note`);
               }
             }
           }
-
-          console.log('✓ All checkbox findings correctly appear in progress note');
         });
       }
 
       if (testResults.text) {
         await test.step('Verify text component appears in progress note', async () => {
-          // Text input should appear in examination text
-          expect(examinationsText).toBeTruthy();
-          console.log('✓ Text component verified on progress note');
+          // Verify the entered text value appears in progress note
+          if (testResults.text!.textValue) {
+            expect(examinationsText).toContain(testResults.text!.textValue);
+          }
         });
       }
 
       if (testResults.comment) {
         await test.step('Verify comment appears in progress note', async () => {
           expect(examinationsText).toContain(testResults.comment!.text);
-          console.log('✓ Comment appears on progress note');
         });
       }
 
       if (testResults.dropdown) {
         await test.step('Verify dropdown component appears in progress note', async () => {
-          // Dropdown selections should appear in examination text
-          expect(examinationsText).toBeTruthy();
-          console.log('✓ Dropdown component verified on progress note');
+          // Verify the selected dropdown value appears in progress note
+          if (testResults.dropdown!.dropdownValue) {
+            expect(examinationsText).toContain(testResults.dropdown!.dropdownValue);
+          }
         });
       }
 
@@ -766,7 +729,6 @@ test.describe('In-Person Visit Chart Data', async () => {
               expect(examinationsText).toContain(option);
             }
           }
-          console.log('✓ Multi-select options appear on progress note');
         });
       }
 
@@ -781,12 +743,11 @@ test.describe('In-Person Visit Chart Data', async () => {
               expect(examinationsText?.toLowerCase() || '').toContain(part);
             }
           }
-          console.log('✓ Form entry appears on progress note');
         });
       }
 
       // Count tested components
-      const testedComponents = [
+      const _testedComponents = [
         testResults.checkbox,
         testResults.text,
         testResults.dropdown,
@@ -794,7 +755,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         testResults.form,
       ].filter(Boolean).length;
 
-      console.log(`✅ Verified ${testedComponents} component type(s) on Review and Sign page`);
+      // Verified component types on Review and Sign page: ${_testedComponents}
     });
   });
 });
