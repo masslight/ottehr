@@ -224,7 +224,7 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
 function filterTasks(task: FhirTask): boolean {
   const category = task.groupIdentifier?.value ?? '';
   if (category === LAB_ORDER_TASK.category) {
-    const labTypeString = getInput(LAB_ORDER_TASK.input.drTag, task);
+    const labTypeString = getInputString(LAB_ORDER_TASK.input.drTag, task);
     if (labTypeString === LabType.pdfAttachment) return false;
   }
   return true;
