@@ -1,14 +1,17 @@
 import { SearchParam } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { Task as FhirTask } from 'fhir/r4b';
+import { Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  chooseJson,
+  CreateManualTaskRequest,
   getCoding,
   getExtension,
   IN_HOUSE_LAB_TASK,
   LAB_ORDER_TASK,
   LabType,
+  MANUAL_TASK,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TASK_CATEGORY_IDENTIFIER,
   TASK_INPUT_SYSTEM,
@@ -17,6 +20,7 @@ import {
 
 export const GET_TASKS_KEY = 'get-tasks';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
+const GO_TO_TASK = 'Go to task';
 
 export const TASKS_PAGE_SIZE = 20;
 
@@ -26,6 +30,7 @@ export interface Task {
   createdDate: string;
   title: string;
   subtitle: string;
+  details?: string;
   status: string;
   action?: {
     name: string;
@@ -37,6 +42,7 @@ export interface Task {
     date: string;
   };
   alert?: string;
+  completable: boolean;
 }
 
 export interface TasksSearchParams {
@@ -56,6 +62,10 @@ export interface AssignTaskRequest {
 }
 
 export interface UnassignTaskRequest {
+  taskId: string;
+}
+
+export interface CompleteTaskRequest {
   taskId: string;
 }
 
@@ -214,33 +224,82 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
 function filterTasks(task: FhirTask): boolean {
   const category = task.groupIdentifier?.value ?? '';
   if (category === LAB_ORDER_TASK.category) {
-    const labTypeString = getInput(LAB_ORDER_TASK.input.drTag, task);
+    const labTypeString = getInputString(LAB_ORDER_TASK.input.drTag, task);
     if (labTypeString === LabType.pdfAttachment) return false;
   }
   return true;
 }
 
+export const useCreateManualTask = (): UseMutationResult<void, Error, CreateManualTaskRequest> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateManualTaskRequest) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      const response = await oystehrZambda.zambda.execute({
+        ...input,
+        id: 'create-manual-task',
+      });
+      return chooseJson(response);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: [GET_TASKS_KEY],
+        exact: false,
+      });
+    },
+  });
+};
+
+export const useCompleteTask = (): UseMutationResult<void, Error, CompleteTaskRequest> => {
+  const { oystehr } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CompleteTaskRequest) => {
+      if (!oystehr) throw new Error('oystehr not defined');
+      await oystehr.fhir.patch<FhirTask>({
+        resourceType: 'Task',
+        id: input.taskId,
+        operations: [
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'completed',
+          },
+        ],
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: [GET_TASKS_KEY],
+        exact: false,
+      });
+    },
+  });
+};
+
 function fhirTaskToTask(task: FhirTask): Task {
   const category = task.groupIdentifier?.value ?? '';
   let action: any = undefined;
-  let title = getInput('title', task) ?? '';
-  let subtitle = getInput('subtitle', task) ?? '';
+  let title = '';
+  let subtitle = '';
+  let details: string | undefined = undefined;
   if (category === LAB_ORDER_TASK.category) {
     const code = getCoding(task.code, LAB_ORDER_TASK.system)?.code ?? '';
-    const testName = getInput(LAB_ORDER_TASK.input.testName, task);
-    const labName = getInput(LAB_ORDER_TASK.input.labName, task);
+    const testName = getInputString(LAB_ORDER_TASK.input.testName, task);
+    const labName = getInputString(LAB_ORDER_TASK.input.labName, task);
     const fullTestName = testName + (labName ? ' / ' + labName : '');
-    const patientName = getInput(LAB_ORDER_TASK.input.patientName, task);
-    const appointmentId = getInput(LAB_ORDER_TASK.input.appointmentId, task);
+    const patientName = getInputString(LAB_ORDER_TASK.input.patientName, task);
+    const appointmentId = getInputString(LAB_ORDER_TASK.input.appointmentId, task);
     const serviceRequestId = task.basedOn
       ?.find((reference) => reference.reference?.startsWith('ServiceRequest'))
       ?.reference?.split('/')?.[1];
     const diagnosticReportId = task.basedOn
       ?.find((reference) => reference.reference?.startsWith('DiagnosticReport'))
       ?.reference?.split('/')?.[1];
-    const providerName = getInput(LAB_ORDER_TASK.input.providerName, task);
-    const orderDate = getInput(LAB_ORDER_TASK.input.orderDate, task);
-    const labTypeString = getInput(LAB_ORDER_TASK.input.drTag, task);
+    const providerName = getInputString(LAB_ORDER_TASK.input.providerName, task);
+    const orderDate = getInputString(LAB_ORDER_TASK.input.orderDate, task);
+    const labTypeString = getInputString(LAB_ORDER_TASK.input.drTag, task);
 
     if (code === LAB_ORDER_TASK.code.preSubmission) {
       title = `Collect sample for “${fullTestName}” for ${patientName}`;
@@ -266,7 +325,7 @@ function fhirTaskToTask(task: FhirTask): Task {
       };
     }
     if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
-      const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
+      const receivedDate = getInputString(LAB_ORDER_TASK.input.receivedDate, task);
       title = `Match unsolicited test results`;
       subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
       action = {
@@ -279,7 +338,7 @@ function fhirTaskToTask(task: FhirTask): Task {
       (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
     ) {
       if (labTypeString === LabType.unsolicited) {
-        const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
+        const receivedDate = getInputString(LAB_ORDER_TASK.input.receivedDate, task);
         title = `Review unsolicited test results for “${fullTestName}” for ${patientName}`;
         subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
         action = {
@@ -288,7 +347,7 @@ function fhirTaskToTask(task: FhirTask): Task {
         };
       }
       if (labTypeString === LabType.reflex) {
-        const receivedDate = getInput(LAB_ORDER_TASK.input.receivedDate, task);
+        const receivedDate = getInputString(LAB_ORDER_TASK.input.receivedDate, task);
         title = `Review reflex results for “${fullTestName}” for ${patientName}`;
         subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
         action = {
@@ -300,11 +359,11 @@ function fhirTaskToTask(task: FhirTask): Task {
   }
   if (category === IN_HOUSE_LAB_TASK.category) {
     const code = getCoding(task.code, IN_HOUSE_LAB_TASK.system)?.code ?? '';
-    const testName = getInput(IN_HOUSE_LAB_TASK.input.testName, task);
-    const patientName = getInput(IN_HOUSE_LAB_TASK.input.patientName, task);
-    const providerName = getInput(IN_HOUSE_LAB_TASK.input.providerName, task);
-    const orderDate = getInput(IN_HOUSE_LAB_TASK.input.orderDate, task);
-    const appointmentId = getInput(IN_HOUSE_LAB_TASK.input.appointmentId, task);
+    const testName = getInputString(IN_HOUSE_LAB_TASK.input.testName, task);
+    const patientName = getInputString(IN_HOUSE_LAB_TASK.input.patientName, task);
+    const providerName = getInputString(IN_HOUSE_LAB_TASK.input.providerName, task);
+    const orderDate = getInputString(IN_HOUSE_LAB_TASK.input.orderDate, task);
+    const appointmentId = getInputString(IN_HOUSE_LAB_TASK.input.appointmentId, task);
     subtitle = `Ordered by ${providerName} on ${
       orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
     }`;
@@ -321,12 +380,66 @@ function fhirTaskToTask(task: FhirTask): Task {
       )?.[1]}/order-details`,
     };
   }
+  if (category.startsWith('manual')) {
+    const providerName = getInputString(MANUAL_TASK.input.providerName, task);
+    const patientReference = getInputReference(MANUAL_TASK.input.patient, task);
+    const appointmentId = getInputString(MANUAL_TASK.input.appointmentId, task);
+    const orderId = getInputString(MANUAL_TASK.input.orderId, task);
+    title =
+      getInputString(MANUAL_TASK.input.title, task) +
+      (patientReference ? ' for ' + patientReference.display?.replaceAll(',', '') : '');
+    subtitle = `Manual task by ${providerName} / ${task.location?.display ?? ''}`;
+    details = getInputString(MANUAL_TASK.input.details, task) ?? '';
+    if (orderId) {
+      if (category === MANUAL_TASK.category.inHouseLab) {
+        action = {
+          name: GO_TO_TASK,
+          link: `/in-person/${appointmentId}/in-house-lab-orders/${orderId}/order-details`,
+        };
+      }
+      if (category === MANUAL_TASK.category.externalLab) {
+        action = {
+          name: GO_TO_TASK,
+          link: `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`,
+        };
+      }
+      if (category === MANUAL_TASK.category.nursingOrders) {
+        action = {
+          name: GO_TO_TASK,
+          link: `/in-person/${appointmentId}/nursing-orders/${orderId}/order-details`,
+        };
+      }
+      if (category === MANUAL_TASK.category.radiology) {
+        action = {
+          name: GO_TO_TASK,
+          link: `/in-person/${appointmentId}/radiology/${orderId}/order-details`,
+        };
+      }
+      if (category === MANUAL_TASK.category.procedures) {
+        action = {
+          name: GO_TO_TASK,
+          link: `/in-person/${appointmentId}/procedures/${orderId}`,
+        };
+      }
+    } else if (appointmentId) {
+      action = {
+        name: GO_TO_TASK,
+        link: `/in-person/${appointmentId}`,
+      };
+    } else if (patientReference) {
+      action = {
+        name: GO_TO_TASK,
+        link: `/patient/${patientReference.reference?.split('/')?.[1]}`,
+      };
+    }
+  }
   return {
     id: task.id ?? '',
     category: category,
     createdDate: task.authoredOn ?? '',
     title: title,
     subtitle: subtitle,
+    details: details,
     status: task.status,
     action: action,
     assignee: task.owner
@@ -336,10 +449,19 @@ function fhirTaskToTask(task: FhirTask): Task {
           date: getExtension(task.owner, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime ?? '',
         }
       : undefined,
-    alert: getInput('alert', task) ?? '',
+    alert: getInputString('alert', task) ?? '',
+    completable: category.startsWith('manual'),
   };
 }
 
-function getInput(code: string, task: FhirTask): string | undefined {
-  return task.input?.find((input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === code)?.valueString;
+function getInputString(code: string, task: FhirTask): string | undefined {
+  return getInput(code, task)?.valueString;
+}
+
+function getInputReference(code: string, task: FhirTask): Reference | undefined {
+  return getInput(code, task)?.valueReference;
+}
+
+function getInput(code: string, task: FhirTask): TaskInput | undefined {
+  return task.input?.find((input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === code);
 }
