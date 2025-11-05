@@ -63,7 +63,8 @@ describe('Review and Submit Screen', () => {
     expect(patientName).toBeDefined();
     expect(patientName.textContent).toBe(mockData.patientInfo.firstName + ' ' + mockData.patientInfo.lastName);
 
-    expect(screen.getByText(mockData.scheduleOwnerType)).toBeDefined(); // Location / Provider / Group
+    expect(screen.getByText(mockData.scheduleOwnerType)).toBeDefined();
+    // Location / Provider / Group
     const locationName = screen.getByTestId('location-name-review-screen');
     expect(locationName).toBeDefined();
     expect(locationName.textContent).toBe(mockData.scheduleOwnerName);
@@ -72,7 +73,8 @@ describe('Review and Submit Screen', () => {
     const slotTime = screen.getByTestId('prebook-slot-review-screen');
     expect(slotTime).toBeDefined();
     expect(slotTime.textContent).toBe(
-      DateTime.fromISO(mockData.startISO, { zone: mockData.timezone }).toFormat('MMMM d, h:mm a ZZZZ') // eg November 6, 10:00 AM EST
+      // eg November 6, 10:00 AM EST
+      DateTime.fromISO(mockData.startISO, { zone: mockData.timezone }).toFormat('MMMM d, h:mm a ZZZZ')
     );
   });
 
@@ -151,7 +153,8 @@ describe('Review and Submit Screen', () => {
       { startISO: '2025-05-06T09:00:00-05:00', timezone: 'America/New_York', expectedZone: 'EDT' },
       { startISO: '2025-05-06T09:00:00-05:00', timezone: 'America/Chicago', expectedZone: 'CDT' },
       { startISO: '2025-05-06T09:00:00-05:00', timezone: 'America/Denver', expectedZone: 'MDT' },
-      { startISO: '2025-05-06T09:00:00-05:00', timezone: 'America/Phoenix', expectedZone: 'MST' }, // Phoenix doesn't do DST
+      // Phoenix doesn't do DST
+      { startISO: '2025-05-06T09:00:00-05:00', timezone: 'America/Phoenix', expectedZone: 'MST' },
       { startISO: '2025-05-06T09:00:00-05:00', timezone: 'America/Los_Angeles', expectedZone: 'PDT' },
       { startISO: '2025-11-06T09:00:00-05:00', timezone: 'America/New_York', expectedZone: 'EST' },
       { startISO: '2025-11-06T09:00:00-05:00', timezone: 'America/Chicago', expectedZone: 'CST' },
@@ -177,7 +180,8 @@ describe('Review and Submit Screen', () => {
       const slotTime = screen.getByTestId('prebook-slot-review-screen');
       expect(slotTime).toBeDefined();
       expect(slotTime.textContent).toBe(
-        DateTime.fromISO(startISO, { zone: timezone }).toFormat(`MMMM d, h:mm a '${expectedZone}'`) // eg November 6, 10:00 AM EST
+        // eg November 6, 10:00 AM EST
+        DateTime.fromISO(startISO, { zone: timezone }).toFormat(`MMMM d, h:mm a '${expectedZone}'`)
       );
       unmount();
     });
