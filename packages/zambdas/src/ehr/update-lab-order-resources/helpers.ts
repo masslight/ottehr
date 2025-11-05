@@ -330,7 +330,9 @@ export const handleRejectedAbn = async ({
     serviceRequest: undefined,
   };
   const { abnDocRef, serviceRequest } = resourceSearch.reduce((acc, resource) => {
-    if (resource.resourceType === 'ServiceRequest') acc.serviceRequest = resource;
+    if (resource.resourceType === 'ServiceRequest' && resource.status !== 'completed') {
+      acc.serviceRequest = resource;
+    }
     if (resource.resourceType === 'DocumentReference') {
       if (docRefIsAbnAndCurrent(resource)) acc.abnDocRef = resource;
     }
@@ -341,6 +343,10 @@ export const handleRejectedAbn = async ({
     throw new Error(
       `ABN rejection failed: there is no current abn document reference for this lab. ${serviceRequestId}`
     );
+  }
+
+  if (!serviceRequest) {
+    throw new Error(`ABN rejection failed: did not find service request resource. ${serviceRequestId}`);
   }
 
   console.log('formatting requests for handleRejectedAbn');
