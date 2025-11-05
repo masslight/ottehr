@@ -222,7 +222,7 @@ test.describe('In-house medications tests', () => {
     });
   });
 
-  test('Making in-house medication order Administered happy path', async () => {
+  test('Making in-house medication order Administered happy path', async ({ page }) => {
     const medicationsPage = await createOrderForAdministration(MEDICATION_FOR_ADMINISTERED, page);
 
     const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickAdministeredButton();
@@ -269,7 +269,7 @@ test.describe('In-house medications tests', () => {
     });
   });
 
-  test('Making in-house medication order Partly Administered happy path', async () => {
+  test('Making in-house medication order Partly Administered happy path', async ({ page }) => {
     const medicationsPage = await createOrderForAdministration(MEDICATION_FOR_PARTLY_ADMINISTERED, page);
 
     const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickPartlyAdministeredButton();
@@ -310,7 +310,7 @@ test.describe('In-house medications tests', () => {
     });
   });
 
-  test('Making in-house medication order Not Administered happy path', async () => {
+  test('Making in-house medication order Not Administered happy path', async ({ page }) => {
     const medicationsPage = await createOrderForAdministration(MEDICATION_FOR_NOT_ADMINISTERED, page);
 
     const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickNotAdministeredButton();
