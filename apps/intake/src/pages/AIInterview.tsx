@@ -12,7 +12,7 @@ import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { useVisitContext } from './ThankYou';
 
 const AIInterview = (): JSX.Element => {
-  const zambdaClient = useUCZambdaClient({ tokenless: true });
+  const zambdaClient = useUCZambdaClient({ tokenless: false });
 
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
