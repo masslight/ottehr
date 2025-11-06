@@ -35,6 +35,7 @@ jobs:
     strategy:
       matrix:
         node-version:
+          - "20"
           - "22"
     env:
       SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
