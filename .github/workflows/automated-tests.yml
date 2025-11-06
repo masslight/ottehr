@@ -1,4 +1,4 @@
-name: Lint and Build
+name: Unit, Component, and Integration Tests
 
 on:
   workflow_dispatch:
@@ -28,7 +28,7 @@ on:
       - 'package.json'
 
 jobs:
-  lint-and-build:
+  build-and-test:
     if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 15
@@ -91,12 +91,37 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint:eslint
-
       - name: Build
         run: npm run build
         env:
+          NODE_OPTIONS: '--max-old-space-size=8192'
+
+      # Tests start here
+      - name: Unit tests
+        run: npm run test
+        env:
+          CI: true
+          NODE_OPTIONS: '--max-old-space-size=8192'
+
+      - name: Patient component tests
+        run: cd apps/intake && npm run component-tests
+        env:
+          ENV: 'local'
+          CI: true
+          NODE_OPTIONS: '--max-old-space-size=8192'
+
+      - name: EHR component tests
+        run: cd apps/ehr && npm run component-tests
+        env:
+          ENV: 'local'
+          CI: true
+          NODE_OPTIONS: '--max-old-space-size=8192'
+
+      - name: Integration tests
+        run: npm run integration:zambdas
+        env:
+          ENV: 'local'
+          CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'
 
       - name: TruffleHog -- Check for secrets in bundles of publicly available code
