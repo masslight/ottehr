@@ -1,34 +1,82 @@
-name: Automated tests
+name: Automated Tests
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/ehr/**'
+      - 'apps/intake/**'
+      - 'packages/zambdas/**'
+      - 'packages/utils/**'
+      - 'packages/ui-components/**'
+      - 'scripts/**'
+      - '.github/**'
+      - '.prettierignore'
+      - 'package.json'
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-    branches:
-      - main
-      - develop
-      - 'release/**'
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'apps/ehr/**'
+      - 'apps/intake/**'
+      - 'packages/zambdas/**'
+      - 'packages/utils/**'
+      - 'packages/ui-components/**'
+      - 'scripts/**'
+      - '.github/**'
+      - '.prettierignore'
+      - 'package.json'
 
 jobs:
-  unit-tests:
-    name: Unit tests
-    runs-on: ubuntu-latest-4-cores
+  automated-tests:
+    if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest-8-cores
+    timeout-minutes: 15
     strategy:
       matrix:
         node-version:
           - "20"
           - "22"
+    env:
+      SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
     steps:
+      - name: Install SSH Client
+        uses: webfactory/ssh-agent@836c84ec59a0e7bc0eabc79988384eb567561ee2 # v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+
       # Checkout the main repository
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
 
-      # Cache node modules
+      # Set up Node.js environment
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: TruffleHog -- Check for secrets committed to the repository
+        uses: trufflesecurity/trufflehog@af3e68261fa87568031f65161577cc2ebe1ca669 # v3.83.7
+        with:
+          extra_args: --only-verified
+
+      - name: Check out secrets repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ env.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          path: 'secrets'
+
+      - name: Setup secrets
+        run: |
+          mkdir -p packages/zambdas/.env
+          cp secrets/zambdas/* packages/zambdas/.env
+          mkdir -p apps/ehr/env apps/intake/env
+          cp secrets/ehr/app/.env.local apps/ehr/env/
+          cp secrets/ehr/app/tests.*.json apps/ehr/env/
+          cp secrets/intake/app/.env.local apps/intake/env/
+          cp secrets/intake/app/tests.*.json apps/intake/env/
+
       - name: Cache node modules
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         env:
@@ -41,87 +89,63 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
 
-      # Set up Node.js environment
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
-
       - name: Install dependencies
         run: npm ci
 
+      - name: Run linting
+        run: npm run lint:eslint
+
+      # Tests start here
       - name: Run unit tests
         run: npm run test
         env:
           CI: true
+          NODE_OPTIONS: '--max-old-space-size=8192'
 
-  # integration-tests:
-  #   name: Integration tests
-  #   runs-on: ubuntu-latest-4-cores
-  #   strategy:
-  #     matrix:
-  #       node-version:
-  #         - "20"
-  #         - "22"
-  #   steps:
-  #     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-  #     - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-  #       with:
-  #         node-version: ${{ matrix.node-version }}
-  #         cache: npm
+      - name: Run integration tests
+        run: npm run integration:zambdas
+        env:
+          ENV: 'local'
+          CI: true
+          NODE_OPTIONS: '--max-old-space-size=8192'
 
-  #     - name: Install dependencies
-  #       run: npm ci
+      - name: Run patient component tests
+        run: cd apps/intake && npm run component-tests
+        env:
+          ENV: 'local'
+          CI: true
+          NODE_OPTIONS: '--max-old-space-size=8192'
 
-
-  #     - name: Run integration tests
-  #       run: npm run integration:zambdas
-  #       env:
-  #         ENV: 'local'
-  #         CI: true
-  #         NODE_OPTIONS: '--max-old-space-size=8192'
-
-  # patient-component-tests:
-  #   name: Component tests in patient app
-  #   runs-on: ubuntu-latest-4-cores
-  #   strategy:
-  #     matrix:
-  #       node-version:
-  #         - "20"
-  #         - "22"
-  #   steps:
-  #     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-  #     - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-  #       with:
-  #         node-version: ${{ matrix.node-version }}
-  #         cache: npm
-  #     - name: Run patient integration tests
-  #       run: cd apps/intake && npm run component-tests
-  #       env:
-  #         ENV: 'local'
-  #         CI: true
-
-  # ehr-component-tests:
-  #   name: Component tests in ehr app
-  #   runs-on: ubuntu-latest-4-cores
-  #   strategy:
-  #     matrix:
-  #       node-version:
-  #         - "20"
-  #         - "22"
-  #   steps:
-  #     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-  #     - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-  #       with:
-  #         node-version: ${{ matrix.node-version }}
-  #         cache: npm
-
-  #     - name: Install dependencies
-  #       run: npm ci
+      - name: Run ehr component tests
+        run: cd ../ehr && npm run component-tests
+        env:
+          ENV: 'local'
+          CI: true
+          NODE_OPTIONS: '--max-old-space-size=8192'
 
 
-  #     - name: Run ehr integration tests
-  #       run: cd apps/ehr && npm run component-tests
-  #       env:
-  #         ENV: 'local'
-  #         CI: true
+      - name: TruffleHog -- Check for secrets in bundles of publicly available code
+        run: |
+          docker run --rm -v .:/tmp -w /tmp \
+          ghcr.io/trufflesecurity/trufflehog:3.82.13 \
+          filesystem ./packages/test-utils/dist \
+          ./packages/utils/dist \
+          ./packages/ui-components/dist \
+          ./apps/intake/build/assets \
+          ./apps/ehr/build/assets \
+          --github-actions \
+          --only-verified \
+          --fail
+
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        if: always()
+        with:
+          script: |
+            const success = '${{ job.status }}' === 'success';
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.sha,
+              state: success ? 'success' : 'failure',
+              context: 'CI / Tests',
+              description: success ? 'Tests successful' : 'Tests failed'
+            });
