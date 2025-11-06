@@ -1,6 +1,7 @@
 import { Stack } from '@mui/material';
 import React, { useEffect } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { useParams } from 'react-router-dom';
 import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
 import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
@@ -35,14 +36,20 @@ export const CATEGORY_OPTIONS = [
 ];
 
 interface Props {
-  appointmentId?: string;
-  category?: string;
-  order?: string;
   open: boolean;
   handleClose: () => void;
 }
 
 export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
+  const urlParams = useParams();
+
+  const appointmentIdFromUrl = urlParams['id'];
+  const restUrlPath = urlParams['*'];
+  if (restUrlPath?.startsWith('procedures')) {
+    const procedureIdFromUrl = urlParams['procedureId'];
+    console.log(appointmentIdFromUrl + ' ' + procedureIdFromUrl);
+  }
+
   const methods = useForm();
   const formValue = methods.watch();
 

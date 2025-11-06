@@ -370,7 +370,7 @@ export const Tasks: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         {task.status !== COMPLETED ? (
-                          <Stack direction="row" justifyContent="space-between">
+                          <Stack direction="row" justifyContent="space-between" spacing={1}>
                             {renderActionButton(task)}
                             {renderCompleteButton(task)}
                             {renderMoreButton(task)}
