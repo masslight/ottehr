@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.21.7",
+  "version": "1.21.11",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -59,6 +59,7 @@
     "make-in-house-test-items": "tsx src/scripts/labs/load-in-house-labs-tests.ts",
     "migrate-practitioner-credentials": "tsx src/scripts/migrate-practitioner-credentials.ts",
     "mock-pdf-result": "tsx src/scripts/labs/pdf-attachment-result-helper.ts",
+    "mock-attachment-result": "tsx src/scripts/labs/attachment-result-helper.ts",
     "get-lab-sr-dr-docref": "tsx src/scripts/labs/get-external-lab-sr-dr-docref.ts",
     "test-emails": "tsx src/scripts/test-emails.ts",
     "remove-payor-orgs": "tsx src/scripts/remove-payor-orgs.ts",

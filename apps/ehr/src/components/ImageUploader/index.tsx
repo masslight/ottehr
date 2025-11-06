@@ -1,31 +1,28 @@
-import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
-import { Box, CircularProgress, Container, Typography, useMediaQuery, useTheme } from '@mui/material';
+import ScannerIcon from '@mui/icons-material/Scanner';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import { Box, Button, CircularProgress, useTheme } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import imageCompression from 'browser-image-compression';
 import { Attachment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ChangeEvent, FC, ReactElement, useEffect, useRef, useState } from 'react';
-import Markdown from 'react-markdown';
+import { ChangeEvent, FC, useEffect, useRef, useState } from 'react';
 import { createZ3Object } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { otherColors } from 'src/themes/ottehr/colors';
 import { GetPresignedFileURLInput, MIME_TYPES } from 'utils';
 
 interface UploadComponentProps {
-  fileName: GetPresignedFileURLInput['fileType'];
-  appointmentId: string | undefined;
+  fileName: string;
+  appointmentId: string;
   aspectRatio: number;
-  saveAttachmentPending: boolean;
   disabled?: boolean;
+  isUploading?: boolean;
   submitAttachment: (attachment: Attachment) => Promise<void>;
+  onScanClick?: () => void;
 }
 
 const FILE_TYPES_ACCEPTED = [MIME_TYPES.PNG, MIME_TYPES.JPEG, MIME_TYPES.JPG, MIME_TYPES.PDF].join(', ');
-
-function DescriptionRenderer(props: any): ReactElement {
-  return <span>{props.children}</span>;
-}
 
 enum UploadState {
   initial,
@@ -37,9 +34,10 @@ const UploadComponent: FC<UploadComponentProps> = ({
   fileName,
   appointmentId,
   aspectRatio,
-  saveAttachmentPending,
   disabled,
+  isUploading,
   submitAttachment,
+  onScanClick,
 }): JSX.Element => {
   const theme = useTheme();
   const [pendingZ3Upload, setPendingZ3Upload] = useState<File | undefined>();
@@ -48,9 +46,6 @@ const UploadComponent: FC<UploadComponentProps> = ({
   const { oystehrZambda } = useApiClients();
 
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
-  const textSX = isSmallScreen ? { display: 'none' } : {};
 
   const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>): Promise<string | null> => {
     try {
@@ -95,7 +90,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
         const z3URL = await createZ3Object(
           {
             appointmentID: appointmentId,
-            fileType: fileName,
+            fileType: fileName as GetPresignedFileURLInput['fileType'],
             fileFormat: file.type.split('/')[1] as GetPresignedFileURLInput['fileFormat'],
             file,
           },
@@ -107,8 +102,8 @@ const UploadComponent: FC<UploadComponentProps> = ({
           title: fileName,
           creation: DateTime.now().toISO(),
         };
-        setZ3UploadState(UploadState.complete);
         await submitAttachment(attachment);
+        setZ3UploadState(UploadState.complete);
         setPendingZ3Upload(undefined);
       } catch (e) {
         console.error(e);
@@ -122,7 +117,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
     }
   }, [pendingZ3Upload, z3UploadState, fileName, appointmentId, oystehrZambda, submitAttachment]);
 
-  const isLoading = z3UploadState === UploadState.pending || saveAttachmentPending;
+  const isLoading = z3UploadState === UploadState.pending || compressingImage || isUploading;
 
   return (
     <Box
@@ -130,46 +125,47 @@ const UploadComponent: FC<UploadComponentProps> = ({
         border: `1px dashed ${disabled ? otherColors.disabled : theme.palette.primary.main}`,
         borderRadius: 2,
         background: disabled ? otherColors.disabledBackground : otherColors.cardBackground,
+        display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        textAlign: 'center',
         justifyContent: 'center',
-        px: 4,
-        cursor: 'pointer',
+        gap: 1,
+        padding: 2,
         aspectRatio,
       }}
-      onClick={() => {
-        inputRef.current?.click();
-      }}
     >
-      <Container
-        style={{
-          margin: 0,
-          padding: 0,
-          height: '100%',
-          width: 'auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {compressingImage ? (
-          <Typography id={`${fileName}-description`}>
-            <Markdown components={{ p: DescriptionRenderer }}>
-              {"Hold tight!  \nThis image is a little too big, we're compressing it for you..."}
-            </Markdown>
-          </Typography>
-        ) : isLoading ? (
-          <CircularProgress size={24} />
-        ) : (
-          <Box height="100%" display={'flex'} gap={1} flexDirection="row" alignItems="center" justifyContent="center">
-            <AddPhotoAlternateIcon fontSize="small" color={disabled ? 'disabled' : 'primary'} />
-            <Typography variant="body2" color={disabled ? 'disabled' : 'primary'} sx={textSX}>
-              Add Image
-            </Typography>
-          </Box>
-        )}
-      </Container>
+      {compressingImage || isLoading ? (
+        <CircularProgress size={24} />
+      ) : (
+        <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', width: '100%' }}>
+          <Button
+            variant="outlined"
+            size="medium"
+            disabled={disabled}
+            startIcon={<UploadFileIcon />}
+            onClick={() => inputRef.current?.click()}
+            sx={{
+              borderRadius: '20px',
+              textTransform: 'none',
+            }}
+          >
+            Upload
+          </Button>
+          <Button
+            variant="outlined"
+            size="medium"
+            disabled={disabled}
+            startIcon={<ScannerIcon />}
+            onClick={onScanClick}
+            sx={{
+              borderRadius: '20px',
+              textTransform: 'none',
+            }}
+          >
+            Scan
+          </Button>
+        </Box>
+      )}
       <input
         type="file"
         accept={FILE_TYPES_ACCEPTED}

@@ -151,7 +151,7 @@ const PatientDocumentsExplorerPage: FC = () => {
   }, []);
 
   const handleScanComplete = useCallback(
-    async (pdfBlob: Blob, fileName: string): Promise<void> => {
+    async (fileBlob: Blob | Blob[], fileName: string): Promise<void> => {
       const folderId = selectedFolder?.id;
       if (!folderId) {
         enqueueSnackbar('No folder selected', { variant: 'error' });
@@ -159,9 +159,16 @@ const PatientDocumentsExplorerPage: FC = () => {
       }
 
       try {
+        // Since this page uses PDF format (default), fileBlob should be a single Blob
+        if (Array.isArray(fileBlob)) {
+          console.error('Unexpected array of blobs for PDF output format');
+          enqueueSnackbar('Failed to upload scanned document', { variant: 'error' });
+          return;
+        }
+
         // Ensure fileName ends with .pdf extension
         const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
-        const file = new File([pdfBlob], finalFileName, { type: 'application/pdf' });
+        const file = new File([fileBlob], finalFileName, { type: 'application/pdf' });
 
         await documentActions.uploadDocumentAction({
           docFile: file,

@@ -8,6 +8,8 @@ import {
   ApplyTemplateZambdaOutput,
   AssignPractitionerInput,
   AssignPractitionerResponse,
+  BulkUpdateInsuranceStatusInput,
+  BulkUpdateInsuranceStatusResponse,
   CancelAppointmentZambdaInput,
   CancelAppointmentZambdaOutput,
   CancelRadiologyOrderZambdaInput,
@@ -169,6 +171,7 @@ const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
 const INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID = 'invoiceable-patients-report';
+const BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID = 'bulk-update-insurance-status';
 const UPDATE_INVOICE_TASK_ZAMBDA_ID = 'update-invoice-task';
 
 export const getUser = async (token: string): Promise<User> => {
@@ -1315,6 +1318,25 @@ export const invoiceablePatientsReport = async (oystehr: Oystehr): Promise<void>
   try {
     const response = await oystehr.zambda.execute({
       id: INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const bulkUpdateInsuranceStatus = async (
+  oystehr: Oystehr,
+  parameters: BulkUpdateInsuranceStatusInput
+): Promise<BulkUpdateInsuranceStatusResponse> => {
+  try {
+    if (BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID == null) {
+      throw new Error('bulk update insurance status zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID,
+      ...parameters,
     });
     return chooseJson(response);
   } catch (error: unknown) {

@@ -127,6 +127,7 @@ export type CreateTestAppointmentInput = {
   reasonsForVisit?: string;
   telemedLocationState?: string;
   selectedLocationId?: string;
+  skipPaperwork?: boolean;
 };
 
 export class ResourceHandler {
@@ -218,6 +219,7 @@ export class ResourceHandler {
         projectId: process.env.PROJECT_ID!,
         paperworkAnswers: this.#paperworkAnswers,
         appointmentMetadata: getProcessMetaTag(this.#processId!),
+        skipPaperwork: inputParams?.skipPaperwork,
       });
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
@@ -356,7 +358,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
 
     try {
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 50; i++) {
         const appointment = (
           await apiClient.fhir.search({
             resourceType: 'Appointment',
@@ -375,7 +377,7 @@ export class ResourceHandler {
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
       throw new Error("Appointment wasn't preprocessed");
@@ -389,7 +391,7 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
 
     try {
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 50; i++) {
         const appointment = (
           await apiClient.fhir.search({
             resourceType: 'Appointment',
@@ -410,7 +412,7 @@ export class ResourceHandler {
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 6000));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
       throw new Error("Appointment wasn't harvested by sub-intake-harvest module");

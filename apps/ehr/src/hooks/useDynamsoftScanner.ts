@@ -1,9 +1,9 @@
 import Dynamsoft from 'dwt';
+import { DynamsoftEnumsDWT } from 'dwt/dist/types/Dynamsoft.Enum';
 import { WebTwain } from 'dwt/dist/types/WebTwain';
 import { Device } from 'dwt/dist/types/WebTwain.Acquire';
 import { Area } from 'dwt/dist/types/WebTwain.Viewer';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DynamsoftEnumsDWT } from '../../public/dwt-resources/types/Dynamsoft.Enum';
 
 export interface ScannerDevice {
   displayName: string;
@@ -40,6 +40,7 @@ export interface UseDynamsoftScannerResult {
   acquireImage: (settings: ScanSettings) => Promise<void>;
   getImageAsBlob: (index: number) => Promise<Blob | null>;
   getAllImagesAsPdf: () => Promise<Blob | null>;
+  getAllImagesAsPng: () => Promise<Blob[]>;
   removeImage: (index: number) => void;
   removeCurrentImage: () => void;
   removeAllImages: () => void;
@@ -71,9 +72,13 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
       console.log('Initializing Dynamsoft scanner...');
 
       // Configure Dynamsoft
-      Dynamsoft.DWT.ResourcesPath = '/dwt-resources';
+      Dynamsoft.DWT.ResourcesPath = 'https://unpkg.com/dwt@latest/dist';
       Dynamsoft.DWT.ProductKey = import.meta.env.VITE_APP_DYNAMSOFT_LICENSE_KEY || '';
       Dynamsoft.DWT.UseLocalService = true;
+
+      Dynamsoft.DWT.OnWebTwainPreExecute = function () {
+        // By defining this, we override the default which showed a hideous orange progress indicator. So do not remove it.
+      };
 
       // Create DWT object
       const dwtObject = await new Promise<WebTwain>((resolve, reject) => {
@@ -86,6 +91,9 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
 
       dwtObjectRef.current = dwtObject;
       console.log('DWT object created successfully');
+
+      // Disable progress bar/popup
+      dwtObject.IfShowProgressBar = false;
 
       // Bind viewer to container
       const container = document.getElementById(containerId);
@@ -337,6 +345,49 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     }
   }, []);
 
+  const getAllImagesAsPng = useCallback(async (): Promise<Blob[]> => {
+    if (!dwtObjectRef.current) return [];
+
+    try {
+      const dwtObject = dwtObjectRef.current;
+      const count = dwtObject.HowManyImagesInBuffer;
+
+      if (count === 0) {
+        console.log('No images to convert to PNG');
+        return [];
+      }
+
+      console.log(`Converting ${count} images to PNG format...`);
+
+      const pngBlobs: Blob[] = [];
+
+      // Convert each image to PNG
+      for (let i = 0; i < count; i++) {
+        const blob = await new Promise<Blob>((resolve, reject) => {
+          dwtObject.ConvertToBlob(
+            [i],
+            Dynamsoft.DWT.EnumDWT_ImageType.IT_PNG,
+            (result: Blob) => {
+              console.log(`Successfully converted image ${i + 1} to PNG`);
+              resolve(result);
+            },
+            (errorCode: number, errorString: string) => {
+              console.error(`Error converting image ${i + 1} to PNG:`, errorString);
+              reject(new Error(errorString));
+            }
+          );
+        });
+        pngBlobs.push(blob);
+      }
+
+      console.log(`Successfully converted all ${count} images to PNG`);
+      return pngBlobs;
+    } catch (err) {
+      console.error('Error getting all images as PNG:', err);
+      return [];
+    }
+  }, []);
+
   const removeImage = useCallback((index: number) => {
     if (dwtObjectRef.current) {
       dwtObjectRef.current.RemoveImage(index);
@@ -416,11 +467,14 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
       try {
         dwtObjectRef.current.RemoveAllImages();
         dwtObjectRef.current.Viewer.unbind();
+        // Destroy the Dynamsoft object to prevent duplicate ID errors
+        Dynamsoft.DWT.DeleteDWTObject('dwtObject');
       } catch (err) {
         console.error('Cleanup error:', err);
       }
       dwtObjectRef.current = null;
     }
+    setIsInitialized(false);
   }, []);
 
   // Cleanup on unmount
@@ -445,6 +499,7 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
     acquireImage,
     getImageAsBlob,
     getAllImagesAsPdf,
+    getAllImagesAsPng,
     removeImage,
     removeCurrentImage,
     removeAllImages,

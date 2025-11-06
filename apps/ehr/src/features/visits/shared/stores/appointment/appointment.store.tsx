@@ -566,6 +566,7 @@ export const useChartData = ({
   onError,
   enabled = true,
   refetchInterval,
+  encounterId: paramEncounterId,
 }: {
   appointmentId?: string;
   onSuccess?: (data: ChartDataResponse | null) => void;
@@ -573,6 +574,7 @@ export const useChartData = ({
   enabled?: boolean;
   shouldUpdateExams?: boolean; // todo: migrate this to the separate hook
   refetchInterval?: number;
+  encounterId?: string;
 } = {}): {
   refetch: () => Promise<void>;
   isLoading: boolean;
@@ -587,7 +589,7 @@ export const useChartData = ({
   const { update: updateExamObservations } = useExamObservations();
   const { id: appointmentIdFromUrl } = useParams();
   const { encounter } = useAppointmentData(appointmentId || appointmentIdFromUrl);
-  const encounterId = encounter?.id;
+  const encounterId = encounter?.id ?? paramEncounterId;
   const queryClient = useQueryClient();
 
   const {
