@@ -9,10 +9,12 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTasks';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useGetPatient } from 'src/hooks/useGetPatient';
 import { MANUAL_TASK } from 'utils';
 import {
+  getPatientLabel,
   useExternalLabOrdersOptions,
   useInHouseLabOrdersOptions,
   useInHouseMedicationsOptions,
@@ -42,15 +44,6 @@ interface Props {
 }
 
 export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
-  const urlParams = useParams();
-
-  const appointmentIdFromUrl = urlParams['id'];
-  const restUrlPath = urlParams['*'];
-  if (restUrlPath?.startsWith('procedures')) {
-    const procedureIdFromUrl = urlParams['procedureId'];
-    console.log(appointmentIdFromUrl + ' ' + procedureIdFromUrl);
-  }
-
   const methods = useForm();
   const formValue = methods.watch();
 
@@ -121,15 +114,58 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
 
   useEffect(() => {
     if (!formValue.patient) {
-      methods.resetField('appointment');
+      methods.setValue('appointment', null);
     }
   }, [formValue.patient, methods]);
 
   useEffect(() => {
     if (!formValue.appointment || !formValue.category) {
-      methods.resetField('order');
+      methods.setValue('order', null);
     }
   }, [formValue.appointment, formValue.category, methods]);
+
+  const urlParams = useParams();
+  const appointmentId = urlParams['id'];
+  const appointment = useAppointmentData(appointmentId);
+  useEffect(() => {
+    if (appointment.patient) {
+      methods.setValue('patient', {
+        id: appointment.patient.id,
+        name: getPatientLabel(appointment.patient),
+      });
+      methods.setValue('appointment', appointmentId);
+    }
+  }, [appointmentId, appointment, methods]);
+
+  useEffect(() => {
+    const orderFullUrl = urlParams['*'];
+    const serviceRequestId = urlParams['serviceRequestID'];
+    const procedureId = urlParams['procedureId'];
+    if (orderFullUrl?.startsWith('in-house-lab-orders') && serviceRequestId) {
+      methods.setValue('category', MANUAL_TASK.category.inHouseLab);
+      methods.setValue('order', serviceRequestId);
+    } else if (orderFullUrl?.startsWith('external-lab-orders') && serviceRequestId) {
+      methods.setValue('category', MANUAL_TASK.category.externalLab);
+      methods.setValue('order', serviceRequestId);
+    } else if (orderFullUrl?.startsWith('nursing-orders') && serviceRequestId) {
+      methods.setValue('category', MANUAL_TASK.category.nursingOrders);
+      methods.setValue('order', serviceRequestId);
+    } else if (orderFullUrl?.startsWith('radiology') && serviceRequestId) {
+      methods.setValue('category', MANUAL_TASK.category.radiology);
+      methods.setValue('order', serviceRequestId);
+    } else if (procedureId) {
+      methods.setValue('category', MANUAL_TASK.category.procedures);
+      methods.setValue('order', procedureId);
+    } else {
+      methods.setValue('category', null);
+      methods.setValue('order', null);
+    }
+    methods.setValue('taskTitle', null);
+    methods.setValue('taskDetails', null);
+    methods.setValue('assignee', null);
+    methods.setValue('location', null);
+  }, [urlParams, methods]);
+
   return (
     <InPersonModal
       color="primary.main"
@@ -138,7 +174,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
       open={open}
       handleClose={handleClose}
       handleConfirm={handleConfirm}
-      disabled={!formValue.category || !formValue.task || !formValue.location}
+      disabled={!formValue.category || !formValue.taskTitle || !formValue.location}
       description={''}
       title={'New Task'}
       confirmText={'Create new task'}
