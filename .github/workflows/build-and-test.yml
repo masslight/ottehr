@@ -1,31 +1,31 @@
-name: Build and Test
+name: Lint, Build, Unit, Integration, and Component Tests
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [main, develop]
-  #   paths:
-  #     - 'apps/ehr/**'
-  #     - 'apps/intake/**'
-  #     - 'packages/zambdas/**'
-  #     - 'packages/utils/**'
-  #     - 'packages/ui-components/**'
-  #     - 'scripts/**'
-  #     - '.github/**'
-  #     - '.prettierignore'
-  #     - 'package.json'
-  # pull_request:
-  #   types: [opened, synchronize, reopened, ready_for_review]
-  #   paths:
-  #     - 'apps/ehr/**'
-  #     - 'apps/intake/**'
-  #     - 'packages/zambdas/**'
-  #     - 'packages/utils/**'
-  #     - 'packages/ui-components/**'
-  #     - 'scripts/**'
-  #     - '.github/**'
-  #     - '.prettierignore'
-  #     - 'package.json'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/ehr/**'
+      - 'apps/intake/**'
+      - 'packages/zambdas/**'
+      - 'packages/utils/**'
+      - 'packages/ui-components/**'
+      - 'scripts/**'
+      - '.github/**'
+      - '.prettierignore'
+      - 'package.json'
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'apps/ehr/**'
+      - 'apps/intake/**'
+      - 'packages/zambdas/**'
+      - 'packages/utils/**'
+      - 'packages/ui-components/**'
+      - 'scripts/**'
+      - '.github/**'
+      - '.prettierignore'
+      - 'package.json'
 
 jobs:
   build-and-test:
@@ -95,7 +95,12 @@ jobs:
       - name: Run linting
         run: npm run lint:eslint
 
+      - name: Run build
+        run: npm run build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=8192'
 
+      # Tests start here
       - name: Run unit tests
         run: npm run test
         env:
@@ -108,6 +113,21 @@ jobs:
           ENV: 'local'
           CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'
+
+      - name: Run patient component tests
+        run: cd apps/intake && npm run component-tests
+        env:
+          ENV: 'local'
+          CI: true
+          NODE_OPTIONS: '--max-old-space-size=8192'
+
+      - name: Run ehr component tests
+        run: cd apps/ehr && npm run component-tests
+        env:
+          ENV: 'local'
+          CI: true
+          NODE_OPTIONS: '--max-old-space-size=8192'
+
 
       - name: TruffleHog -- Check for secrets in bundles of publicly available code
         run: |
