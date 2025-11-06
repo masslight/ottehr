@@ -1,4 +1,5 @@
 import {
+  API_BASE_URL,
   API_TOKEN,
   AUTH0_AUDIENCE,
   AUTH0_CLIENT,
@@ -14,6 +15,7 @@ import {
 } from '../../.env/local.json';
 
 export const SECRETS = {
+  API_BASE_URL,
   FHIR_API: FHIR_API,
   AUTH0_ENDPOINT: AUTH0_ENDPOINT,
   AUTH0_AUDIENCE: AUTH0_AUDIENCE,
