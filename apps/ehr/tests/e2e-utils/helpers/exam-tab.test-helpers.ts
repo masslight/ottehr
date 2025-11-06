@@ -2,6 +2,78 @@ import { expect, Locator, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
 
 /**
+ * LOADING PATTERNS FOR EXAM COMPONENTS
+ * =====================================
+ *
+ * This document describes the loading/saving behavior for each component type in the exam table.
+ * All components use the `useExamObservations` hook which provides an `isLoading` state.
+ *
+ * 1. TEXT/COMMENT FIELDS (ExamCommentField):
+ *    - Component: TextField with debounced save (700ms)
+ *    - Loading indicator: CircularProgress (role="progressbar") appears as InputProps.endAdornment
+ *    - Wait strategy: Wait for progressbar to appear and disappear
+ *    - Helper: waitForFieldSave()
+ *
+ * 2. CHECKBOXES (ControlledExamCheckbox):
+ *    - Component: Checkbox with immediate save on click
+ *    - Loading indicator: Checkbox becomes disabled during isLoading
+ *    - Wait strategy: Wait for checkbox to not be disabled after click
+ *    - Note: No visual progress indicator, only disabled state
+ *
+ * 3. MULTI-SELECT (ControlledCheckboxSelect):
+ *    - Component: Checkbox + MUI Select (multiple) dropdown
+ *    - Loading indicators:
+ *      - Parent checkbox: disabled during isLoading
+ *      - Dropdown options (MenuItem): disabled during isLoading
+ *    - Wait strategy: Wait for options to not be disabled after selection
+ *    - Note: Selections persist in combobox renderValue + ListItemText elements below
+ *
+ * 4. DROPDOWN (ControlledExamCheckboxDropdown):
+ *    - Component: Checkbox + Autocomplete dropdown
+ *    - Loading indicators:
+ *      - Checkbox: disabled during isLoading
+ *      - Autocomplete: disabled during isLoading
+ *    - Wait strategy: Wait for dropdown to not be disabled after selection
+ *
+ * 5. FORM (ExamForm):
+ *    - Component: Checkbox + dynamic form fields + Add button
+ *    - Form contains: radio buttons, text fields, autocomplete dropdowns
+ *    - Loading indicators:
+ *      - Parent checkbox: disabled during isLoading
+ *      - All form inputs: disabled during isLoading
+ *      - Add button: disabled during isLoading
+ *    - Wait strategy: Wait for form elements to not be disabled after adding entry
+ *    - Note: Added entries appear as paragraph elements with delete buttons
+ *
+ * GENERAL RULES:
+ * - Never use page.waitForTimeout() - always wait for actual loading states
+ * - For checkboxes/dropdowns: Wait for not.toBeDisabled()
+ * - For text fields: Use waitForFieldSave() helper
+ * - Dropdowns auto-close when option is selected
+ * - Multi-select dropdowns stay open, close with Escape or click outside
+ */
+
+/**
+ * Result of testing a component - stores which row and component was tested
+ */
+export interface ComponentTestResult {
+  rowIndex: number;
+  componentType: 'checkbox' | 'text' | 'multi-select' | 'dropdown' | 'form';
+  abnormalCheckboxIndex?: number;
+  normalCheckboxIndex?: number;
+  // Store initial states of ALL checkboxes for persistence verification
+  initialAbnormalCheckboxStates?: boolean[];
+  initialNormalCheckboxStates?: boolean[];
+  // Store checkbox labels and their final states for progress note verification
+  abnormalCheckboxLabels?: Array<{ label: string; checked: boolean }>;
+  normalCheckboxLabels?: Array<{ label: string; checked: boolean }>;
+  selectedOptions?: string[];
+  formEntryText?: string;
+  dropdownValue?: string;
+  textValue?: string; // Store the text entered in text component
+}
+
+/**
  * Helper function to wait for loading indicator to appear and disappear on a textbox
  */
 export async function waitForFieldSave(textbox: Locator): Promise<void> {
@@ -22,583 +94,449 @@ export async function waitForFieldSave(textbox: Locator): Promise<void> {
     .catch(() => {
       // Already disappeared
     });
-
-  // Add small delay to ensure save completed
-  await textbox.page().waitForTimeout(300);
-}
-
-export interface TestSection {
-  rowIndex: number;
-  rowName: string;
-  abnormalCheckboxes: Array<{ index: number; label: string }>;
-  uncheckedNormals: Array<{ index: number; label: string }>;
-  dropdownData?: { checkboxIndex: number; dropdownValue: string };
-  formEntries?: Array<{ checkboxLabel: string; entryText: string }>; // For form-based checkboxes
-  comment: string;
 }
 
 /**
- * Test a multiselect dropdown checkbox by selecting multiple options
+ * Helper function to wait for a checkbox to finish saving (waits for disabled state to clear)
  */
-async function testMultiselectDropdown(
-  page: Page,
-  abnormalCell: Locator,
-  label: string,
-  rowName: string,
-  i: number,
-  dropdownData: { checkboxIndex: number; dropdownValue: string } | undefined,
-  formEntries: Array<{ checkboxLabel: string; entryText: string }>
-): Promise<{ dropdownData?: { checkboxIndex: number; dropdownValue: string } }> {
-  console.log(`Found multiselect dropdown checkbox "${label}" in section "${rowName}" - selecting multiple options`);
+export async function waitForCheckboxSave(checkbox: Locator): Promise<void> {
+  await checkbox.waitFor({ state: 'attached' });
 
-  const comboboxesAfterClick = abnormalCell.getByRole('combobox');
-  const dropdown = comboboxesAfterClick.first();
-  await dropdown.click();
-  await page.waitForTimeout(500);
+  // Wait for the checkbox input to not be disabled (indicates save is complete)
+  const input = checkbox.locator('..').locator('input[type="checkbox"]').first();
 
-  // Select up to 3 options from the multiselect dropdown
+  // Use waitFor with a polling check
+  await input.waitFor({ state: 'attached' });
+
+  // Poll until the checkbox is no longer disabled
+  await expect(async () => {
+    const isDisabled = await input.evaluate((el: HTMLInputElement) => el.disabled);
+    if (isDisabled) {
+      throw new Error('Checkbox still disabled, waiting for save to complete');
+    }
+  }).toPass({ timeout: 5000, intervals: [100, 200, 300] });
+}
+
+/**
+ * Capture ALL checkbox labels and states from the entire exam table
+ */
+export async function captureAllCheckboxStates(examTable: Locator): Promise<{
+  abnormalCheckboxLabels: Array<{ label: string; checked: boolean }>;
+  normalCheckboxLabels: Array<{ label: string; checked: boolean }>;
+}> {
+  const abnormalCheckboxLabels: Array<{ label: string; checked: boolean }> = [];
+  const normalCheckboxLabels: Array<{ label: string; checked: boolean }> = [];
+
+  // Get all rows in tbody
+  const rows = examTable.locator('tbody').getByRole('row');
+  const rowCount = await rows.count();
+
+  for (let rowIdx = 0; rowIdx < rowCount; rowIdx++) {
+    const row = rows.nth(rowIdx);
+    const cells = row.getByRole('cell');
+
+    // Normal checkboxes are in column 1 (index 1)
+    const normalCell = cells.nth(1);
+    const normalCheckboxes = normalCell.getByRole('checkbox');
+    const normalCount = await normalCheckboxes.count();
+
+    for (let i = 0; i < normalCount; i++) {
+      const checkbox = normalCheckboxes.nth(i);
+      const isChecked = await checkbox.isChecked();
+      // Label text is in <p> element inside the parent <label> tag (grandparent of checkbox)
+      const label = (await checkbox.locator('../..').locator('p').textContent()) || '';
+      if (label.trim()) {
+        normalCheckboxLabels.push({ label: label.trim(), checked: isChecked });
+      }
+    }
+
+    // Abnormal checkboxes are in column 2 (index 2)
+    const abnormalCell = cells.nth(2);
+    const abnormalCheckboxes = abnormalCell.getByRole('checkbox');
+    const abnormalCount = await abnormalCheckboxes.count();
+
+    for (let i = 0; i < abnormalCount; i++) {
+      const checkbox = abnormalCheckboxes.nth(i);
+      const isChecked = await checkbox.isChecked();
+      // Label text is in <p> element inside the parent <label> tag (grandparent of checkbox)
+      const label = (await checkbox.locator('../..').locator('p').textContent()) || '';
+      if (label.trim()) {
+        abnormalCheckboxLabels.push({ label: label.trim(), checked: isChecked });
+      }
+    }
+  }
+
+  return { abnormalCheckboxLabels, normalCheckboxLabels };
+}
+
+/**
+ * Test a checkbox component by clicking abnormal checkbox and unchecking a normal checkbox
+ */
+export async function testCheckboxComponent(page: Page, examTable: Locator): Promise<ComponentTestResult> {
+  // Find first checkbox in tbody (skip header)
+  const checkboxComponent = examTable.locator('tbody [data-testid^="exam-component-checkbox-"]').first();
+  await checkboxComponent.waitFor({ state: 'visible', timeout: 5000 });
+  const testId = await checkboxComponent.getAttribute('data-testid');
+
+  // Find the parent row index within tbody (add 1 to account for header row in total row count)
+  const rowIndex = await examTable
+    .locator('tbody')
+    .getByRole('row')
+    .locator(`[data-testid="${testId}"]`)
+    .first()
+    .evaluateHandle((el) => {
+      const tr = el.closest('tr');
+      if (!tr) return -1;
+      const tbody = tr.parentElement;
+      if (!tbody) return -1;
+      // Add 1 to account for header row
+      return Array.from(tbody.children).indexOf(tr) + 1;
+    })
+    .then((handle) => handle.jsonValue());
+
+  const cells = examTable
+    .getByRole('row')
+    .nth(rowIndex as number)
+    .getByRole('cell');
+  const abnormalCell = cells.nth(2);
+  const normalCell = cells.nth(1);
+
+  // Capture initial states of ALL checkboxes before making changes
+  const abnormalCheckboxes = abnormalCell.getByRole('checkbox');
+  const abnormalCheckboxCount = await abnormalCheckboxes.count();
+  const initialAbnormalCheckboxStates: boolean[] = [];
+  for (let i = 0; i < abnormalCheckboxCount; i++) {
+    const isChecked = await abnormalCheckboxes.nth(i).isChecked();
+    initialAbnormalCheckboxStates.push(isChecked);
+  }
+
+  const normalCheckboxes = normalCell.getByRole('checkbox');
+  const normalCheckboxCount = await normalCheckboxes.count();
+  const initialNormalCheckboxStates: boolean[] = [];
+  for (let i = 0; i < normalCheckboxCount; i++) {
+    const isChecked = await normalCheckboxes.nth(i).isChecked();
+    initialNormalCheckboxStates.push(isChecked);
+  }
+
+  // Click first abnormal checkbox
+  const abnormalCheckbox = abnormalCheckboxes.first();
+  await abnormalCheckbox.click();
+  await waitForCheckboxSave(abnormalCheckbox);
+  console.log(`✓ Clicked abnormal checkbox in row ${rowIndex}`);
+
+  // Uncheck first checked normal checkbox
+  let normalCheckboxIndex: number | undefined;
+
+  for (let i = 0; i < normalCheckboxCount; i++) {
+    const normalCheckbox = normalCheckboxes.nth(i);
+    const isChecked = await normalCheckbox.isChecked();
+    if (isChecked) {
+      await normalCheckbox.click();
+      await waitForCheckboxSave(normalCheckbox);
+      normalCheckboxIndex = i;
+      console.log(`✓ Unchecked normal checkbox ${i} in row ${rowIndex}`);
+      break;
+    }
+  }
+
+  // NOTE: We do NOT capture all checkbox states here because other tests may modify checkboxes
+  // The test suite will capture ALL checkbox states later, after all component tests have run
+
+  return {
+    rowIndex: rowIndex as number,
+    componentType: 'checkbox',
+    abnormalCheckboxIndex: 0,
+    normalCheckboxIndex,
+    initialAbnormalCheckboxStates,
+    initialNormalCheckboxStates,
+    // These will be populated later in the persistence test, after all tests have modified checkboxes
+    abnormalCheckboxLabels: undefined,
+    normalCheckboxLabels: undefined,
+  };
+}
+
+/**
+ * Test a text component (provider comment field)
+ */
+export async function testTextComponent(page: Page, examTable: Locator): Promise<ComponentTestResult | null> {
+  // Search for text components ONLY in abnormal column (cell index 2) to avoid comment column
+  const rows = examTable.locator('tbody').getByRole('row');
+  const rowCount = await rows.count();
+
+  for (let i = 0; i < rowCount; i++) {
+    const row = rows.nth(i);
+    const abnormalCell = row.getByRole('cell').nth(2); // Abnormal column only
+    const textComponent = abnormalCell.locator('[data-testid^="exam-component-text-"]');
+
+    if ((await textComponent.count()) > 0) {
+      const textbox = textComponent.getByRole('textbox');
+      const comment = `Test text field ${DateTime.now().toMillis()}`;
+      await textbox.fill(comment);
+      await waitForFieldSave(textbox);
+      const rowIndex = i + 1; // +1 for header row
+      console.log(`✓ Filled text component in abnormal column of row ${rowIndex}`);
+
+      return {
+        rowIndex,
+        componentType: 'text',
+        textValue: comment,
+      };
+    }
+  }
+
+  console.log('⊘ No text component found in abnormal column');
+  return null;
+}
+
+/**
+ * Test a multi-select component by selecting multiple options
+ * Note: The multi-select requires clicking a parent checkbox first to activate the combobox
+ */
+export async function testMultiSelectComponent(page: Page, examTable: Locator): Promise<ComponentTestResult> {
+  const multiSelectComponent = examTable.locator('tbody [data-testid^="exam-component-multi-select-"]').first();
+  const testId = await multiSelectComponent.getAttribute('data-testid');
+
+  // Find the parent row index within tbody (add 1 to account for header row)
+  const rowIndex = await examTable
+    .locator('tbody')
+    .getByRole('row')
+    .locator(`[data-testid="${testId}"]`)
+    .first()
+    .evaluateHandle((el) => {
+      const tr = el.closest('tr');
+      if (!tr) return -1;
+      const tbody = tr.parentElement;
+      if (!tbody) return -1;
+      return Array.from(tbody.children).indexOf(tr) + 1;
+    })
+    .then((handle) => handle.jsonValue());
+
+  // Check if the combobox already exists (multi-select is active)
+  const combobox = multiSelectComponent.getByRole('combobox');
+  const comboboxExists = await combobox.count();
+
+  // If combobox doesn't exist, we need to click the parent checkbox first
+  if (comboboxExists === 0) {
+    // The checkbox is part of the multi-select wrapper but we need to find it
+    const checkbox = multiSelectComponent.getByRole('checkbox');
+    const checkboxCount = await checkbox.count();
+
+    if (checkboxCount === 0) {
+      console.log('⊘ Multi-select not activated (no checkbox or combobox found)');
+      throw new Error('Multi-select component not in expected state');
+    }
+
+    console.log(`✓ Activating multi-select by clicking parent checkbox in row ${rowIndex}`);
+    await checkbox.click();
+
+    // After clicking the checkbox, wait for the combobox to appear (not for checkbox save)
+    // The checkbox may be removed/replaced during the transition to showing the combobox
+    await combobox.waitFor({ state: 'visible', timeout: 5000 });
+    console.log(`✓ Multi-select combobox appeared after checkbox click`);
+  }
+
+  console.log(`✓ Multi-select is active in row ${rowIndex}`);
+
+  // Click the combobox to open the dropdown
+  await combobox.click();
+  await page.getByRole('listbox').first().waitFor({ state: 'visible' });
+
+  // Select up to 3 options
   const listbox = page.getByRole('listbox').first();
   const options = listbox.getByRole('option');
   const optionCount = await options.count();
   const optionsToSelect = Math.min(3, optionCount);
+  const selectedOptions: string[] = [];
 
-  for (let optIdx = 0; optIdx < optionsToSelect; optIdx++) {
-    // Wait for options to be enabled (they temporarily disable during save)
-    await page.waitForTimeout(500);
-
-    // Re-query options to get fresh state
+  for (let i = 0; i < optionsToSelect; i++) {
     const currentOptions = page.getByRole('listbox').first().getByRole('option');
-    const option = currentOptions.nth(optIdx);
+    const option = currentOptions.nth(i);
 
     // Wait for option to be enabled
-    let retries = 10;
-    while (retries > 0) {
-      const isDisabled = await option.isDisabled();
-      if (!isDisabled) break;
-      await page.waitForTimeout(300);
-      retries--;
-    }
+    await option.waitFor({ state: 'attached' });
+    // Wait for option to not be disabled
+    await expect(option).not.toBeDisabled();
 
     const optionText = await option.textContent();
     await option.click();
-    await page.waitForTimeout(500);
-    console.log(`Selected option ${optIdx + 1}/${optionsToSelect}: "${optionText}" for "${label}"`);
 
-    // Store the first selected option
-    if (optIdx === 0 && optionText) {
-      dropdownData = {
-        checkboxIndex: i,
-        dropdownValue: optionText.trim(),
-      };
+    // After clicking, wait for the option to become not disabled again (save completes)
+    // The option itself gets disabled during save, then re-enabled
+    await expect(async () => {
+      const isDisabled = await option.isDisabled();
+      if (isDisabled) {
+        throw new Error('Option still disabled, waiting for save to complete');
+      }
+    }).toPass({ timeout: 5000, intervals: [100, 200, 300] });
+
+    if (optionText) {
+      selectedOptions.push(optionText.trim());
+      console.log(`✓ Selected option "${optionText.trim()}" in multi-select`);
     }
+  }
 
-    // Capture the paragraph entry that appears after selection
-    const paragraphs = abnormalCell.locator('p');
-    const paragraphCount = await paragraphs.count();
-    for (let p = 0; p < paragraphCount; p++) {
-      const pText = await paragraphs.nth(p).textContent();
-      if (pText && pText.trim() !== label && pText.trim().length > 0) {
-        // Check if this entry is new (not already captured)
-        const alreadyCaptured = formEntries.some((e) => e.entryText === pText.trim());
-        if (!alreadyCaptured) {
-          formEntries.push({ checkboxLabel: label, entryText: pText.trim() });
-          console.log(`Captured multiselect entry ${formEntries.length}: "${pText.trim()}"`);
-          break;
+  // Close the dropdown
+  await page.keyboard.press('Escape');
+  // Wait for listbox to close
+  await listbox.waitFor({ state: 'hidden' });
+
+  return {
+    rowIndex: rowIndex as number,
+    componentType: 'multi-select',
+    selectedOptions,
+  };
+}
+
+/**
+ * Test a dropdown component (checkbox with dropdown selection)
+ */
+export async function testDropdownComponent(page: Page, examTable: Locator): Promise<ComponentTestResult> {
+  const dropdownComponent = examTable.locator('tbody [data-testid^="exam-component-dropdown-"]').first();
+  const testId = await dropdownComponent.getAttribute('data-testid');
+
+  // Find the parent row index within tbody (add 1 to account for header row)
+  const rowIndex = await examTable
+    .locator('tbody')
+    .getByRole('row')
+    .locator(`[data-testid="${testId}"]`)
+    .first()
+    .evaluateHandle((el) => {
+      const tr = el.closest('tr');
+      if (!tr) return -1;
+      const tbody = tr.parentElement;
+      if (!tbody) return -1;
+      return Array.from(tbody.children).indexOf(tr) + 1;
+    })
+    .then((handle) => handle.jsonValue());
+
+  // Click the checkbox to enable the dropdown
+  const checkbox = dropdownComponent.getByRole('checkbox');
+  await checkbox.click();
+  await waitForCheckboxSave(checkbox);
+  console.log(`✓ Enabled dropdown in row ${rowIndex}`);
+
+  // Click the combobox to open the dropdown
+  const combobox = dropdownComponent.getByRole('combobox');
+  await combobox.click();
+  await page.getByRole('listbox').first().waitFor({ state: 'visible' });
+
+  // Select first option
+  const listbox = page.getByRole('listbox').first();
+  const options = listbox.getByRole('option');
+  const firstOption = options.first();
+  const optionText = await firstOption.textContent();
+  await firstOption.click();
+  await waitForCheckboxSave(checkbox); // Wait for save after selection
+  console.log(`✓ Selected option "${optionText}" in dropdown`);
+
+  return {
+    rowIndex: rowIndex as number,
+    componentType: 'dropdown',
+    dropdownValue: optionText?.trim(),
+  };
+}
+
+/**
+ * Test a form component by filling form fields and clicking Add
+ */
+export async function testFormComponent(page: Page, examTable: Locator): Promise<ComponentTestResult> {
+  const formComponent = examTable.locator('tbody [data-testid^="exam-component-form-"]').first();
+  const testId = await formComponent.getAttribute('data-testid');
+
+  // Find the parent row index within tbody (add 1 to account for header row)
+  const rowIndex = await examTable
+    .locator('tbody')
+    .getByRole('row')
+    .locator(`[data-testid="${testId}"]`)
+    .first()
+    .evaluateHandle((el) => {
+      const tr = el.closest('tr');
+      if (!tr) return -1;
+      const tbody = tr.parentElement;
+      if (!tbody) return -1;
+      return Array.from(tbody.children).indexOf(tr) + 1;
+    })
+    .then((handle) => handle.jsonValue());
+
+  // Click the checkbox to show the form
+  const checkbox = formComponent.getByRole('checkbox');
+  await checkbox.click();
+  await waitForCheckboxSave(checkbox);
+  console.log(`✓ Enabled form in row ${rowIndex}`);
+
+  // Fill form fields
+  // Select first radio button if present
+  const radios = formComponent.getByRole('radio');
+  if ((await radios.count()) > 0) {
+    await radios.first().click();
+    await waitForCheckboxSave(checkbox); // Wait for save after radio selection
+    console.log(`✓ Selected radio button in form`);
+  }
+
+  // Fill all comboboxes (dropdowns)
+  const comboboxes = formComponent.getByRole('combobox');
+  const comboboxCount = await comboboxes.count();
+
+  for (let i = 0; i < comboboxCount; i++) {
+    const combobox = comboboxes.nth(i);
+    const isDisabled = await combobox.isDisabled().catch(() => true);
+
+    if (!isDisabled) {
+      await combobox.click();
+      const listbox = page.getByRole('listbox').first();
+      await listbox.waitFor({ state: 'visible', timeout: 2000 }).catch(() => false);
+      const isVisible = await listbox.isVisible().catch(() => false);
+
+      if (isVisible) {
+        const options = listbox.getByRole('option');
+        const optionCount = await options.count();
+        if (optionCount > 0) {
+          const firstOption = options.first();
+          const optionText = await firstOption.textContent();
+          await firstOption.click();
+          await waitForCheckboxSave(checkbox); // Wait for save after dropdown selection
+          console.log(`✓ Selected "${optionText}" in dropdown ${i}`);
         }
       }
     }
   }
 
-  // Close the dropdown by pressing Escape
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(500);
-
-  return { dropdownData };
-}
-
-/**
- * Test a form-based checkbox by filling radio buttons, dropdowns, textboxes, and clicking Add
- */
-async function testFormBasedCheckbox(
-  page: Page,
-  abnormalCell: Locator,
-  label: string,
-  rowName: string,
-  i: number,
-  dropdownData: { checkboxIndex: number; dropdownValue: string } | undefined,
-  formEntries: Array<{ checkboxLabel: string; entryText: string }>
-): Promise<{ dropdownData?: { checkboxIndex: number; dropdownValue: string } }> {
-  console.log(`Found form-based checkbox "${label}" in section "${rowName}" - filling form`);
-
-  // Wait a moment for form to fully initialize
-  await page.waitForTimeout(300);
-
-  // Find all form inputs: textboxes and radio buttons
-  const formTextboxes = abnormalCell.getByRole('textbox');
-  const formRadios = abnormalCell.getByRole('radio');
-
-  // Select first radio button if present
-  if ((await formRadios.count()) > 0) {
-    const firstRadio = formRadios.first();
-    await firstRadio.click();
-    await page.waitForTimeout(300);
+  // Fill textboxes if present
+  const textboxes = formComponent.getByRole('textbox');
+  const textboxCount = await textboxes.count();
+  if (textboxCount > 0) {
+    for (let i = 0; i < textboxCount; i++) {
+      const textbox = textboxes.nth(i);
+      await textbox.fill(`Test text ${i + 1}`);
+      await waitForFieldSave(textbox); // Wait for each field to save
+    }
+    console.log(`✓ Filled ${textboxCount} textbox(es) in form`);
   }
 
-  // Fill all comboboxes (dropdowns) - use while loop to handle cascading dropdowns
-  // that appear dynamically after selecting previous dropdown values
-  let cbIndex = 0;
-  const maxIterations = 10; // Safety limit
-  while (cbIndex < maxIterations) {
-    // Re-get comboboxes each iteration to catch newly appeared conditional dropdowns
-    const currentComboboxes = abnormalCell.getByRole('combobox');
-    const comboboxCount = await currentComboboxes.count();
+  // Click Add button
+  const addButton = formComponent.getByRole('button', { name: 'Add' });
+  await addButton.click();
+  // Wait for Add button to be enabled again (indicating save is complete)
+  await expect(addButton).not.toBeDisabled();
+  console.log(`✓ Clicked Add button in form`);
 
-    // If we've processed all comboboxes, break
-    if (cbIndex >= comboboxCount) {
+  // Capture the added entry text
+  const paragraphs = formComponent.locator('p');
+  const paragraphCount = await paragraphs.count();
+  let formEntryText: string | undefined;
+
+  for (let i = 0; i < paragraphCount; i++) {
+    const pText = await paragraphs.nth(i).textContent();
+    if (pText && pText.includes('|')) {
+      formEntryText = pText.trim();
+      console.log(`✓ Captured form entry: "${formEntryText}"`);
       break;
     }
-
-    const formDropdown = currentComboboxes.nth(cbIndex);
-
-    // Check if enabled (with timeout to avoid hanging)
-    let isDisabled = false;
-    try {
-      isDisabled = await formDropdown.isDisabled({ timeout: 3000 });
-    } catch {
-      console.log(`Dropdown ${cbIndex} isDisabled check timed out, skipping`);
-      cbIndex++;
-      continue;
-    }
-
-    if (isDisabled) {
-      console.log(`Dropdown ${cbIndex} is disabled, skipping`);
-      cbIndex++;
-      continue;
-    }
-
-    // Check if already filled - some dropdowns don't have input elements,
-    // so check both inputValue and textContent
-    const currentValue = await formDropdown.inputValue().catch(() => '');
-
-    // For non-input dropdowns (like MUI Select), check if it has selected text
-    // by looking at textContent excluding button labels and field labels
-    let currentText = '';
-    try {
-      const fullText = await formDropdown.textContent();
-      // Remove button labels and common field labels from text to get actual selected value
-      // Field labels often contain the word before the selected value (e.g., "Distress degreeMild")
-      const cleaned = fullText?.replace(/Open|Close/g, '').trim() || '';
-
-      // If after removing buttons we still have text, check if it's a value or just the label
-      // If text contains common option words or is reasonably short, it's likely a selected value
-      if (cleaned && cleaned.length > 0) {
-        // Check if this looks like it has a selected value (not just empty or just the label)
-        // Look for common patterns: dropdown usually shows selected value after the label
-        const hasLikelyValue = cleaned.length < 50; // Selected values are usually short
-        if (hasLikelyValue) {
-          currentText = cleaned;
-        }
-      }
-    } catch {
-      currentText = '';
-    }
-
-    const hasValue = (currentValue && currentValue.trim() !== '') || (currentText && currentText !== '');
-
-    if (hasValue) {
-      console.log(`Dropdown ${cbIndex} already has value "${currentValue || currentText}", skipping`);
-      cbIndex++;
-      continue;
-    }
-
-    // Click the dropdown
-    await formDropdown.click();
-    await page.waitForTimeout(500);
-
-    // Try to get options from the listbox
-    const listbox = page.getByRole('listbox').first();
-    const listboxVisible = await listbox.isVisible().catch(() => false);
-
-    if (!listboxVisible) {
-      console.log(`Listbox did not appear for dropdown ${cbIndex}, skipping`);
-      cbIndex++;
-      continue;
-    }
-
-    const options = listbox.getByRole('option');
-    const optionCount = await options.count();
-
-    if (optionCount > 0) {
-      const firstOption = options.first();
-      const optionText = await firstOption.textContent();
-      await firstOption.click();
-      await page.waitForTimeout(300);
-      console.log(`Selected "${optionText}" in dropdown ${cbIndex} for "${label}"`);
-
-      // Store the first dropdown value for reference
-      if (cbIndex === 0) {
-        dropdownData = {
-          checkboxIndex: i,
-          dropdownValue: optionText || 'selected-option',
-        };
-      }
-
-      // After selecting, wait a bit for conditional dropdowns to appear
-      await page.waitForTimeout(300);
-    }
-
-    cbIndex++;
   }
 
-  // Fill all textboxes if present
-  const textboxCount = await formTextboxes.count();
-  if (textboxCount > 0) {
-    for (let tbIndex = 0; tbIndex < textboxCount; tbIndex++) {
-      const textbox = formTextboxes.nth(tbIndex);
-      await textbox.fill(`Test text ${tbIndex + 1} for ${label}`);
-      await page.waitForTimeout(200);
-    }
-  }
-
-  // Click the Add button if it exists (some dropdowns auto-save without Add button)
-  const addButtons = abnormalCell.getByRole('button', { name: 'Add' });
-  const addButtonCount = await addButtons.count();
-
-  if (addButtonCount > 0) {
-    await addButtons.first().click();
-    await page.waitForTimeout(500);
-
-    // Capture the added entry text (it appears as a paragraph after clicking Add)
-    const paragraphs = abnormalCell.locator('p');
-    const paragraphCount = await paragraphs.count();
-    // The entry text should be in one of the paragraphs (not the checkbox label)
-    for (let p = 0; p < paragraphCount; p++) {
-      const pText = await paragraphs.nth(p).textContent();
-      // Skip if it's just the checkbox label or empty
-      if (pText && pText.trim() !== label && pText.includes('|')) {
-        formEntries.push({ checkboxLabel: label, entryText: pText.trim() });
-        console.log(`Captured form entry: "${pText.trim()}"`);
-        break;
-      }
-    }
-  } else {
-    console.log(`No Add button found for "${label}", dropdown likely auto-saves`);
-  }
-
-  return { dropdownData };
-}
-
-/**
- * Test a simple dropdown (not form-based, not multiselect)
- */
-async function testSimpleDropdown(
-  page: Page,
-  abnormalCell: Locator,
-  i: number
-): Promise<{ dropdownData?: { checkboxIndex: number; dropdownValue: string } }> {
-  const comboboxes = abnormalCell.getByRole('combobox');
-  const dropdown = comboboxes.first();
-
-  // Check if dropdown exists and is enabled (some are conditional)
-  const dropdownCount = await comboboxes.count();
-  if (dropdownCount === 0) {
-    return { dropdownData: undefined };
-  }
-
-  const isDisabled = await dropdown.isDisabled({ timeout: 5000 });
-  if (!isDisabled) {
-    // Click to open dropdown
-    await dropdown.click();
-    await page.waitForTimeout(500);
-
-    // Try to select the first option
-    const options = page.getByRole('option');
-    const optionCount = await options.count();
-    if (optionCount > 0) {
-      const firstOption = options.first();
-      const optionText = await firstOption.textContent();
-      await firstOption.click();
-      await page.waitForTimeout(300);
-
-      return {
-        dropdownData: {
-          checkboxIndex: i,
-          dropdownValue: optionText || 'selected-option',
-        },
-      };
-    }
-  }
-
-  return { dropdownData: undefined };
-}
-
-/**
- * Discover and test all sections in the exam table
- */
-export async function discoverAndTestExamSections(page: Page, examTable: Locator): Promise<TestSection[]> {
-  const testData: TestSection[] = [];
-  const allRows = examTable.getByRole('row');
-  const rowCount = await allRows.count();
-
-  // Iterate through all rows (skip header at index 0)
-  for (let rowIndex = 1; rowIndex < rowCount; rowIndex++) {
-    const row = allRows.nth(rowIndex);
-    const cells = row.getByRole('cell');
-    const cellCount = await cells.count();
-
-    if (cellCount < 4) continue; // Need at least 4 cells (name, normal, abnormal, comment)
-
-    // Get row name from first cell
-    const rowName = await cells.nth(0).textContent();
-    if (!rowName || rowName.trim().length === 0) continue;
-
-    // Get abnormal cell (3rd cell, index 2)
-    const abnormalCell = cells.nth(2);
-    const checkboxes = abnormalCell.getByRole('checkbox');
-    const checkboxCount = await checkboxes.count();
-
-    if (checkboxCount === 0) continue;
-
-    // Check if there's a combobox (dropdown) in the abnormal cell
-    const comboboxes = abnormalCell.getByRole('combobox');
-    const hasDropdown = (await comboboxes.count()) > 0;
-    let dropdownData: { checkboxIndex: number; dropdownValue: string } | undefined;
-
-    const checkedBoxes: Array<{ index: number; label: string }> = [];
-    const formEntries: Array<{ checkboxLabel: string; entryText: string }> = [];
-
-    // Click only the first abnormal checkbox per section
-    const checkboxesToClick = 1;
-
-    for (let i = 0; i < checkboxesToClick; i++) {
-      const checkbox = checkboxes.nth(i);
-      const label = (await checkbox.getAttribute('aria-label')) || `checkbox-${i}`;
-
-      await checkbox.click();
-      await page.waitForTimeout(300); // Wait for UI update
-      checkedBoxes.push({ index: i, label });
-
-      // Check if this checkbox opened a dropdown (multiselect or form-based)
-      await page.waitForTimeout(500); // Wait for dropdown/form to appear
-
-      const addButtons = abnormalCell.getByRole('button', { name: 'Add' });
-      const hasAddButton = (await addButtons.count()) > 0;
-
-      // Check if there's a multiselect dropdown (combobox without Add button)
-      // To distinguish between multiselect and single-select, we need to check behavior:
-      // - Multiselect: after clicking, options can be selected multiple times (checkboxes in listbox)
-      // - Single-select: after clicking, selecting an option closes the dropdown
-      const comboboxesAfterClick = abnormalCell.getByRole('combobox');
-      let hasMultiselectDropdown = false;
-
-      if ((await comboboxesAfterClick.count()) > 0 && !hasAddButton) {
-        // Click the dropdown to open it and check the listbox content
-        const firstCombobox = comboboxesAfterClick.first();
-
-        // Open the dropdown to inspect options (always check for multiselect)
-        await firstCombobox.click();
-        await page.waitForTimeout(300);
-
-        // Check if listbox contains checkboxes (multiselect) or just options (single-select)
-        const listbox = page.getByRole('listbox').first();
-        const isListboxVisible = await listbox.isVisible().catch(() => false);
-
-        if (isListboxVisible) {
-          // Check for checkboxes in the listbox - multiselect dropdowns have checkboxes
-          const checkboxesInListbox = listbox.getByRole('checkbox');
-          const hasCheckboxes = (await checkboxesInListbox.count()) > 0;
-          hasMultiselectDropdown = hasCheckboxes;
-
-          // Close the dropdown by pressing Escape
-          await page.keyboard.press('Escape');
-          await page.waitForTimeout(200);
-        }
-      }
-
-      if (hasMultiselectDropdown) {
-        const result = await testMultiselectDropdown(page, abnormalCell, label, rowName, i, dropdownData, formEntries);
-        dropdownData = result.dropdownData;
-      } else if (hasAddButton) {
-        const result = await testFormBasedCheckbox(page, abnormalCell, label, rowName, i, dropdownData, formEntries);
-        dropdownData = result.dropdownData;
-      } else if ((await comboboxesAfterClick.count()) > 0) {
-        // Single-select dropdown without Add button - treat it as form-based
-        const result = await testFormBasedCheckbox(page, abnormalCell, label, rowName, i, dropdownData, formEntries);
-        dropdownData = result.dropdownData;
-      } else if (i === 0 && hasDropdown) {
-        // If this is the first checkbox and there's a simple dropdown (not form-based), test it
-        const result = await testSimpleDropdown(page, abnormalCell, i);
-        dropdownData = result.dropdownData;
-      }
-    }
-
-    if (checkedBoxes.length === 0) continue;
-
-    // Test unchecking one normal checkbox per section
-    const normalCell = cells.nth(1);
-    const normalCheckboxes = normalCell.getByRole('checkbox');
-    const normalCheckboxCount = await normalCheckboxes.count();
-    const uncheckedNormals: Array<{ index: number; label: string }> = [];
-
-    if (normalCheckboxCount > 0) {
-      // Find a checked normal checkbox and uncheck it
-      for (let i = 0; i < normalCheckboxCount; i++) {
-        const normalCheckbox = normalCheckboxes.nth(i);
-        const isChecked = await normalCheckbox.isChecked();
-        if (isChecked) {
-          const label = (await normalCheckbox.getAttribute('aria-label')) || `normal-checkbox-${i}`;
-          await normalCheckbox.click();
-          await page.waitForTimeout(300); // Wait for UI update
-          uncheckedNormals.push({ index: i, label });
-          console.log(`Unchecked normal checkbox "${label}" in section "${rowName.trim()}"`);
-          break; // Only uncheck one per section
-        }
-      }
-    }
-
-    // Add comment only in the first section (index 1, since 0 is header)
-    let comment = '';
-    if (rowIndex === 1) {
-      const commentCell = cells.nth(3);
-      const textbox = commentCell.getByRole('textbox');
-      comment = `Test comment for ${rowName.trim()} - ${DateTime.now().toMillis()}`;
-      await textbox.fill(comment);
-      await waitForFieldSave(textbox);
-    }
-
-    testData.push({
-      rowIndex,
-      rowName: rowName.trim(),
-      abnormalCheckboxes: checkedBoxes,
-      uncheckedNormals,
-      dropdownData,
-      formEntries: formEntries.length > 0 ? formEntries : undefined,
-      comment,
-    });
-  }
-
-  return testData;
-}
-
-/**
- * Verify that all sections' data persisted after page reload
- */
-export async function verifyExamSectionsPersistence(
-  page: Page,
-  examTable: Locator,
-  sections: TestSection[]
-): Promise<void> {
-  for (const section of sections) {
-    const row = examTable.getByRole('row').nth(section.rowIndex);
-    const cells = row.getByRole('cell');
-
-    // Verify the row name hasn't changed
-    const rowName = await cells.nth(0).textContent();
-    expect(rowName?.trim()).toBe(section.rowName);
-
-    // Verify all abnormal checkboxes are still checked
-    const abnormalCell = cells.nth(2);
-    for (const checkboxData of section.abnormalCheckboxes) {
-      const checkbox = abnormalCell.getByRole('checkbox').nth(checkboxData.index);
-      await expect(checkbox).toBeChecked();
-    }
-
-    // Verify unchecked normal checkboxes remain unchecked
-    const normalCell = cells.nth(1);
-    for (const uncheckedData of section.uncheckedNormals) {
-      const normalCheckbox = normalCell.getByRole('checkbox').nth(uncheckedData.index);
-      await expect(normalCheckbox).not.toBeChecked();
-      console.log(
-        `Verified normal checkbox "${uncheckedData.label}" remains unchecked in section "${section.rowName}"`
-      );
-    }
-
-    // Verify dropdown value if it was set (only for simple dropdowns with actual input value)
-    // For multiselect dropdowns, open them and verify options are checked
-    if (section.dropdownData && !section.formEntries) {
-      const dropdown = abnormalCell.getByRole('combobox').first();
-      // Try to get input value for simple dropdowns
-      try {
-        const dropdownValue = await dropdown.inputValue();
-        expect(dropdownValue).toBeTruthy();
-        console.log(`Verified simple dropdown value persisted in section "${section.rowName}"`);
-      } catch {
-        // Multiselect dropdown - open it and verify options are selected
-        console.log(`Verifying multiselect dropdown options in section "${section.rowName}"`);
-        await dropdown.click();
-        await page.waitForTimeout(300);
-
-        // Verify that at least some options are selected
-        const listbox = page.getByRole('listbox').first();
-        // For multiselect, selected options have the [aria-selected="true"] attribute
-        const allOptions = listbox.getByRole('option');
-        const totalOptions = await allOptions.count();
-
-        let selectedCount = 0;
-        for (let i = 0; i < totalOptions; i++) {
-          const option = allOptions.nth(i);
-          const isSelected = await option.getAttribute('aria-selected');
-          if (isSelected === 'true') {
-            selectedCount++;
-          }
-        }
-
-        expect(selectedCount).toBeGreaterThan(0);
-        console.log(`Verified ${selectedCount} options selected in multiselect dropdown for "${section.rowName}"`);
-
-        // Close the dropdown
-        await page.keyboard.press('Escape');
-        await page.waitForTimeout(300);
-      }
-    }
-
-    // Verify form entries if they were added (includes form-based entries with paragraphs)
-    if (section.formEntries && section.formEntries.length > 0) {
-      for (const formEntry of section.formEntries) {
-        // Look for paragraph containing the entry text
-        const entryParagraph = abnormalCell.locator(`p:has-text("${formEntry.entryText}")`);
-        await expect(entryParagraph).toBeVisible();
-        console.log(`Verified form entry "${formEntry.entryText}" persisted in section "${section.rowName}"`);
-      }
-    }
-
-    // Verify the comment persisted
-    const commentCell = cells.nth(3);
-    const textbox = commentCell.getByRole('textbox');
-    await expect(textbox).toHaveValue(section.comment);
-  }
-}
-
-/**
- * Verify all findings appear on the Review/Sign page
- */
-export async function verifyExamFindingsOnReviewPage(
-  examinationsContainer: Locator,
-  sections: TestSection[]
-): Promise<void> {
-  // Get the full text content of examinations section
-  const examinationsText = await examinationsContainer.textContent();
-  expect(examinationsText).toBeTruthy();
-
-  // Verify each section's findings appear in the review
-  for (const section of sections) {
-    // Check that section name appears
-    expect(examinationsText).toContain(section.rowName);
-
-    // Check that comment appears
-    if (section.comment) {
-      expect(examinationsText).toContain(section.comment);
-    }
-
-    // For sections with checkbox labels, verify they appear (or at least the section was tested)
-    // Note: Normal checkboxes also appear, so we just verify the section was included
-    const abnormalCount = section.abnormalCheckboxes.length;
-    expect(abnormalCount).toBeGreaterThan(0);
-  }
-
-  // Count sections with dropdowns
-  const sectionsWithDropdowns = sections.filter((s) => s.dropdownData).length;
-  console.log(`✅ All findings verified on Review and Sign page`);
-  console.log(`   - ${sections.length} sections tested`);
-  console.log(`   - ${sectionsWithDropdowns} sections with dropdown values`);
+  return {
+    rowIndex: rowIndex as number,
+    componentType: 'form',
+    formEntryText,
+  };
 }

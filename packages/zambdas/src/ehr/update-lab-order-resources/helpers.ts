@@ -1,6 +1,14 @@
-import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { DiagnosticReport, Provenance, QuestionnaireResponse, ServiceRequest, Specimen, Task } from 'fhir/r4b';
+import {
+  DiagnosticReport,
+  DocumentReference,
+  Provenance,
+  QuestionnaireResponse,
+  ServiceRequest,
+  Specimen,
+  Task,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
@@ -11,8 +19,9 @@ import {
   OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SpecimenCollectionDateConfig,
+  SR_REVOKED_REASON_EXT,
 } from 'utils';
-import { parseAccessionNumberFromDr, populateQuestionnaireResponseItems } from '../shared/labs';
+import { docRefIsAbnAndCurrent, parseAccessionNumberFromDr, populateQuestionnaireResponseItems } from '../shared/labs';
 
 export const getSpecimenPatchAndMostRecentCollectionDate = (
   specimenResources: Specimen[],
@@ -288,4 +297,97 @@ export const handleMatchUnsolicitedRequest = async ({
 
   console.log('making fhir requests, total requests to make: ', requests.length);
   await oystehr.fhir.transaction<DiagnosticReport | Task | ServiceRequest>({ requests });
+};
+
+export const handleRejectedAbn = async ({
+  oystehr,
+  serviceRequestId,
+  practitionerIdFromCurrentUser,
+}: {
+  oystehr: Oystehr;
+  serviceRequestId: string;
+  practitionerIdFromCurrentUser: string;
+}): Promise<void> => {
+  const resourceSearch = (
+    await oystehr.fhir.search<ServiceRequest | DocumentReference>({
+      resourceType: 'ServiceRequest',
+      params: [
+        {
+          name: '_id',
+          value: serviceRequestId,
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'DocumentReference:related', // to validate there is an abn doc
+        },
+      ],
+    })
+  ).unbundle();
+  console.log(`resource search for handleRejectedAbn returned ${resourceSearch.length}`);
+
+  const initial: { abnDocRef: DocumentReference | undefined; serviceRequest: ServiceRequest | undefined } = {
+    abnDocRef: undefined,
+    serviceRequest: undefined,
+  };
+  const { abnDocRef, serviceRequest } = resourceSearch.reduce((acc, resource) => {
+    if (resource.resourceType === 'ServiceRequest' && resource.status !== 'completed') {
+      acc.serviceRequest = resource;
+    }
+    if (resource.resourceType === 'DocumentReference') {
+      if (docRefIsAbnAndCurrent(resource)) acc.abnDocRef = resource;
+    }
+    return acc;
+  }, initial);
+
+  if (!abnDocRef) {
+    throw new Error(
+      `ABN rejection failed: there is no current abn document reference for this lab. ${serviceRequestId}`
+    );
+  }
+
+  if (!serviceRequest) {
+    throw new Error(`ABN rejection failed: did not find service request resource. ${serviceRequestId}`);
+  }
+
+  console.log('formatting requests for handleRejectedAbn');
+
+  const srExtension = serviceRequest?.extension;
+  const srPatch: BatchInputPatchRequest<ServiceRequest> = {
+    method: 'PATCH',
+    url: `ServiceRequest/${serviceRequestId}`,
+    operations: [
+      {
+        op: 'replace',
+        path: '/status',
+        value: 'revoked',
+      },
+      {
+        op: 'add',
+        path: srExtension ? '/extension/-' : '/extension',
+        value: srExtension ? SR_REVOKED_REASON_EXT : [SR_REVOKED_REASON_EXT],
+      },
+    ],
+  };
+
+  const curUserReference = { reference: `Practitioner/${practitionerIdFromCurrentUser}` };
+  const provenancePost: BatchInputPostRequest<Provenance> = {
+    method: 'POST',
+    url: '/Provenance',
+    resource: {
+      resourceType: 'Provenance',
+      target: [
+        {
+          reference: `ServiceRequest/${serviceRequestId}`,
+        },
+      ],
+      recorded: DateTime.now().toISO(),
+      agent: [{ who: curUserReference }],
+      activity: {
+        coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.abnRejected],
+      },
+    },
+  };
+
+  console.log('revoking the service request due to rejected abn');
+  await oystehr.fhir.transaction({ requests: [srPatch, provenancePost] });
 };

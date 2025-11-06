@@ -8,6 +8,7 @@ import { expectAssessmentPage, InPersonAssessmentPage } from './in-person/InPers
 import { expectExamPage, InPersonExamPage } from './in-person/InPersonExamsPage';
 import { expectInPersonProgressNotePage, InPersonProgressNotePage } from './in-person/InPersonProgressNotePage';
 import { expectMedicalConditionsPage, MedicalConditionsPage } from './MedicalConditionsPage';
+import { expectProceduresPage, ProceduresPage } from './ProceduresPage';
 import { expectSurgicalHistoryPage, SurgicalHistoryPage } from './SurgicalHistoryPage';
 
 export class SideMenu {
@@ -55,6 +56,11 @@ export class SideMenu {
   async clickExam(): Promise<InPersonExamPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('examination')).click();
     return expectExamPage(this.#page);
+  }
+
+  async clickProcedures(): Promise<ProceduresPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('procedures')).click();
+    return expectProceduresPage(this.#page);
   }
 
   async clickCompleteIntakeButton(): Promise<void> {

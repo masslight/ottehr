@@ -16,4 +16,3 @@ playwright-report*/
 apps/**/playwright-report*/
 scripts/**/*.js
 *.js
-apps/ehr/public/dwt-resources/

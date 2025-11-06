@@ -28,7 +28,7 @@ test.beforeAll(async ({ browser }) => {
   page = await context.newPage();
   assessmentPage = new TelemedAssessmentPage(page);
   progressNotePage = new TelemedProgressNotePage(page);
-  await resourceHandler.setResources();
+  await resourceHandler.setResources({ skipPaperwork: true });
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
 });
 

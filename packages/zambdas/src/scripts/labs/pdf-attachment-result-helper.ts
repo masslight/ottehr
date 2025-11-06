@@ -7,6 +7,10 @@ import { createOystehrClient, getAuth0Token } from '../../shared';
 import { EXAMPLE_ENVS, LAB_PDF_ATTACHMENT_DR_TAG, PDF_ATTACHMENT_CODE } from './lab-script-consts';
 import { createPdfAttachmentObs } from './lab-script-helpers';
 
+// we are updating the logic for handling attachments in on the oystehr side
+// they are no longer going to get their own DR
+// once that is live we can kill this script
+
 // Creates a DiagnosticReport and an Observation to mock a pdf attachment
 // npm run mock-pdf-result ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
 
