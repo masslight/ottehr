@@ -10,7 +10,7 @@ terraform {
 ##### EHR Bucket #####
 
 resource "aws_s3_bucket" "ehr_bucket" {
-  bucket        = "ottehr-${var.project_id}-ehr"
+  bucket        = "ottehr-${var.project_id}-ehr.ottehr.com"
   force_destroy = true
 }
 
@@ -63,6 +63,13 @@ resource "aws_s3_bucket_policy" "ehr_bucket_policy" {
 
 ##### EHR CloudFront Distribution #####
 
+data "aws_acm_certificate" "ehr_cert" {
+  count       = var.ehr_cert_domain == null ? 0 : 1
+  domain      = var.ehr_cert_domain
+  statuses    = ["ISSUED"]
+  most_recent = true
+}
+
 resource "aws_cloudfront_distribution" "ehr_cf" {
   depends_on   = [aws_s3_bucket.ehr_bucket]
   enabled      = true
@@ -97,8 +104,10 @@ resource "aws_cloudfront_distribution" "ehr_cf" {
     }
   }
   viewer_certificate {
-    # TODO: support ACM certificates
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = var.ehr_cert_domain == null ? true : false
+    acm_certificate_arn            = var.ehr_cert_domain == null ? null : data.aws_acm_certificate.ehr_cert[0].arn
+    minimum_protocol_version       = "TLSv1.2_2021"
+    ssl_support_method             = "sni-only"
   }
 }
 
@@ -158,6 +167,13 @@ resource "aws_s3_bucket_policy" "patient_portal_bucket_policy" {
 
 ##### Patient Portal CloudFront Distribution #####
 
+data "aws_acm_certificate" "patient_portal_cert" {
+  count       = var.patient_portal_cert_domain == null ? 0 : 1
+  domain      = var.patient_portal_cert_domain
+  statuses    = ["ISSUED"]
+  most_recent = true
+}
+
 resource "aws_cloudfront_distribution" "patient_portal_cf" {
   enabled = true
   comment = "ottehr-patient-portal-${var.project_id}"
@@ -190,7 +206,9 @@ resource "aws_cloudfront_distribution" "patient_portal_cf" {
     }
   }
   viewer_certificate {
-    # TODO: support ACM certificates
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = var.patient_portal_cert_domain == null ? true : false
+    acm_certificate_arn            = var.patient_portal_cert_domain == null ? null : data.aws_acm_certificate.patient_portal_cert[0].arn
+    minimum_protocol_version       = "TLSv1.2_2021"
+    ssl_support_method             = "sni-only"
   }
 }
