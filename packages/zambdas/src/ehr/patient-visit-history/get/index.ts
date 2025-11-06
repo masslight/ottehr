@@ -26,6 +26,8 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
   PatientVisitListResponse,
+  RCM_TASK_SYSTEM,
+  RcmTaskCode,
   Secrets,
   SecretsKeys,
   ServiceMode,
@@ -233,8 +235,10 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
       ? tasks.find(
           (task) =>
             // todo: confirm task.code plan
-            task.encounter?.reference === `Encounter/${encounter?.id}` &&
-            task.code?.coding?.some((coding) => coding.code === 'send-invoice')
+            task.encounter?.reference === `Encounter/${encounter.id}` &&
+            task.code?.coding?.some(
+              (coding) => coding.system === RCM_TASK_SYSTEM && coding.code === RcmTaskCode.sendInvoiceToPatient
+            )
         )
       : undefined;
 
