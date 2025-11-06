@@ -48,6 +48,7 @@ import { diagnosticReportSpecificResultType, getExternalLabOrderResourcesViaServ
 import {
   getSpecimenPatchAndMostRecentCollectionDate,
   handleMatchUnsolicitedRequest,
+  handleRejectedAbn,
   makePstCompletePatchRequests,
   makeQrPatchRequest,
   makeSpecimenPatchRequest,
@@ -106,7 +107,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           }),
         };
       }
-
       case 'specimenDateChanged': {
         const { serviceRequestId, specimenId, date } = validatedParameters;
 
@@ -126,7 +126,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           }),
         };
       }
-
       case 'saveOrderCollectionData': {
         const { serviceRequestId, data, specimenCollectionDates } = validatedParameters;
         const { presignedLabelURL } = await handleSaveCollectionData(
@@ -149,7 +148,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           }),
         };
       }
-
       case LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask: {
         console.log('handling cancel task to match unsolicited result');
         const { taskId } = validatedParameters;
@@ -175,7 +173,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           }),
         };
       }
-
       case LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult: {
         const { taskId, diagnosticReportId, srToMatchId, patientToMatchId } = validatedParameters;
         console.log('handling match unsolicited result');
@@ -184,6 +181,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           statusCode: 200,
           body: JSON.stringify({
             message: `Successfully matched unsolicited result`,
+          }),
+        };
+      }
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn: {
+        const { serviceRequestId } = validatedParameters;
+        console.log('handling rejected abn');
+        await handleRejectedAbn({ oystehr, serviceRequestId, practitionerIdFromCurrentUser });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully revoked sr for lab with rejected abn`,
           }),
         };
       }

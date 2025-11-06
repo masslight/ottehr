@@ -301,6 +301,13 @@
       "src": "src/ehr/delete-chart-data/index",
       "zip": ".dist/zips/delete-chart-data.zip"
     },
+    "BULK-UPDATE-INSURANCE-STATUS": {
+      "name": "bulk-update-insurance-status",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/bulk-update-insurance-status/index",
+      "zip": ".dist/zips/bulk-update-insurance-status.zip"
+    },
     "UPDATE-USER": {
       "name": "update-user",
       "type": "http_auth",
@@ -1204,6 +1211,13 @@
       "src": "src/ehr/visit-details/get-visit-files/index",
       "zip": ".dist/zips/get-visit-files.zip"
     },
+    "UPDATE-VISIT-FILES": {
+      "name": "update-visit-files",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/visit-details/update-visit-files/index",
+      "zip": ".dist/zips/update-visit-files.zip"
+    },
     "EHR-GET-VISIT-DETAILS": {
       "name": "ehr-get-visit-details",
       "type": "http_auth",
@@ -1224,6 +1238,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/invoiceable-patients-report/index",
       "zip": ".dist/zips/invoiceable-patients-report.zip"
+    },
+    "CREATE-MANUAL-TASK": {
+      "name": "create-manual-task",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/tasks/create-manual-task/index",
+      "zip": ".dist/zips/create-manual-task.zip"
     },
     "SUB-SEND-INVOICE-TO-PATIENT": {
       "name": "sub-send-invoice-to-patient",

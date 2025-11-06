@@ -7,11 +7,6 @@ export async function waitForSnackbar(page: Page): Promise<void> {
   await expect(snackbar).toBeVisible();
 }
 
-export async function awaitAppointmentsTableToBeVisible(page: Page): Promise<void> {
-  await expect(page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable)).toBeVisible();
-  await expect(page.getByTestId(dataTestIds.dashboard.loadingIndicator)).not.toBeVisible();
-}
-
 export async function telemedDialogConfirm(page: Page): Promise<void> {
   const dialogButtonConfirm = page.getByTestId(dataTestIds.dialog.proceedButton);
   await expect(dialogButtonConfirm).toBeVisible();

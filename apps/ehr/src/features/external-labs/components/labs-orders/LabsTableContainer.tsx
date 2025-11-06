@@ -35,6 +35,7 @@ type LabsTableContainerProps<SearchBy extends LabOrdersSearchBy> = {
     testItemName: string;
   }) => void;
   DeleteOrderDialog: ReactElement<any, string | JSXElementConstructor<any>> | null;
+  handleRejectedAbn?: (serviceRequestId: string) => Promise<void>;
 };
 
 export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
@@ -48,6 +49,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
   fetchLabOrders,
   showDeleteLabOrderDialog,
   DeleteOrderDialog,
+  handleRejectedAbn,
 }: LabsTableContainerProps<SearchBy>): ReactElement => {
   const { oystehrZambda: oystehr } = useApiClients();
 
@@ -197,6 +199,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
               bundleRow={bundleHeaderRow}
               allowDelete={allowDelete}
               showDeleteLabOrderDialog={showDeleteLabOrderDialog}
+              handleRejectedAbn={handleRejectedAbn}
             />
           </>
         </Box>
