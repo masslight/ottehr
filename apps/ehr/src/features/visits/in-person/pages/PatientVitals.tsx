@@ -25,8 +25,7 @@ interface PatientVitalsProps {
 
 export const PatientVitals: React.FC<PatientVitalsProps> = () => {
   const {
-    resources: { appointment },
-    encounter,
+    resources: { appointment, encounter },
     isAppointmentLoading,
     appointmentError,
   } = useAppointmentData();
