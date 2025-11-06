@@ -28,7 +28,7 @@ export const LocationSelectInput: React.FC<Props> = ({ name, label, required }) 
         const options = (
           await oystehr.fhir.search<Location>({
             resourceType: 'Location',
-            params: [{ name: '_count', value: '30' }],
+            params: [{ name: '_count', value: '1000' }],
           })
         )
           .unbundle()
