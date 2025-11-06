@@ -2,7 +2,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Output } from 'utils';
 import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
 
-// For local development it makes it easier to track performance
 if (process.env.IS_OFFLINE === 'true') {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   require('console-stamp')(console, { pattern: 'HH:MM:ss.l' });
@@ -25,24 +24,40 @@ export const index = wrapHandler('get-devices', async (input: ZambdaInput): Prom
     }
 
     const oystehr = createOystehrClient(oystehrToken, secrets);
+
+    const searchParams: any[] = [
+      ...(body.offset ? [{ name: '_offset', value: body.offset }] : []),
+      ...(body.count ? [{ name: '_count', value: body.count }] : []),
+      { name: '_total', value: 'accurate' },
+      ...(body.patientId ? [{ name: 'patient', value: body.patientId }] : []),
+      ...(body.deviceId ? [{ name: '_id', value: body.deviceId }] : []),
+      ...(Object.prototype.hasOwnProperty.call(body, 'missing')
+        ? [{ name: 'patient:missing', value: body.missing }]
+        : []),
+    ];
+
     const locationsResults = await oystehr.fhir.search<any>({
       resourceType: 'Device',
-      params: [
-        ...(body.offset ? [{ name: '_offset', value: body.offset }] : []),
-        ...(body.count ? [{ name: '_count', value: body.count }] : []),
-        ...(body.offset || body.count ? [{ name: '_total', value: 'accurate' }] : []),
-        ...(body.patientId ? [{ name: 'patient', value: body.patientId }] : []),
-        ...(body.deviceId ? [{ name: '_id', value: body.deviceId }] : []),
-        ...(Object.prototype.hasOwnProperty.call(body, 'missing')
-          ? [{ name: 'patient:missing', value: body.missing }]
-          : []),
-      ],
+      params: searchParams,
     });
+
+    let devices = locationsResults.unbundle();
+
+    if (body.search) {
+      devices = devices.filter(
+        (device: any) =>
+          device.identifier?.some((id: any) => id.value?.toLowerCase().includes(body.search.toLowerCase()))
+      );
+    }
+
+    if (body.count) {
+      devices = devices.slice(0, Number(body.count));
+    }
 
     const response: Output = {
       message: `Successfully retrieved devices details`,
-      total: Number(locationsResults.total),
-      devices: locationsResults.unbundle(),
+      total: devices.length,
+      devices,
     };
 
     return lambdaResponse(200, response);

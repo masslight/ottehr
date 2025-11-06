@@ -176,7 +176,7 @@ export const index = wrapHandler('update-timer', async (input: ZambdaInput): Pro
             ...participant,
             period: {
               ...participant.period,
-              end: endTime.format('YYYY-MM-DDTHH:mm:ss.SSS[+00:00]'),
+              end: endTime.toISOString(),
             },
           };
         }
@@ -189,10 +189,7 @@ export const index = wrapHandler('update-timer', async (input: ZambdaInput): Pro
           : encounterResults[0]?.period?.start || new Date().toISOString();
 
       const encounterStartMoment = moment(encounterStartTime);
-      const encounterEndTime = encounterStartMoment
-        .clone()
-        .add(totalTimeMs, 'milliseconds')
-        .format('YYYY-MM-DDTHH:mm:ss.SSS[+00:00]');
+      const encounterEndTime = encounterStartMoment.clone().add(totalTimeMs, 'milliseconds').toISOString();
 
       const existingIdentifiers = encounterResults[0]?.identifier || [];
 
