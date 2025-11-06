@@ -1,6 +1,7 @@
+import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Option } from 'src/components/input/Option';
-import { IN_HOUSE_LAB_TASK, LAB_ORDER_TASK, MANUAL_TASK } from 'utils';
+import { DOB_DATE_FORMAT, getFullName, IN_HOUSE_LAB_TASK, LAB_ORDER_TASK, MANUAL_TASK } from 'utils';
 import { usePatientLabOrders } from '../external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from '../nursing-orders/components/orders/useNursingOrders';
@@ -144,4 +145,11 @@ export function useInHouseMedicationsOptions(encounterId: string): {
       };
     }),
   };
+}
+
+export function getPatientLabel(patient: Patient): string {
+  return (
+    getFullName(patient) +
+    (patient.birthDate ? ` (${DateTime.fromISO(patient.birthDate).toFormat(DOB_DATE_FORMAT)})` : '')
+  );
 }

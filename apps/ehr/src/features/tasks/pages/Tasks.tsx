@@ -28,9 +28,9 @@ import React, { ReactElement, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { GenericToolTip } from 'src/components/GenericToolTip';
+import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { Option } from 'src/components/input/Option';
-import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
@@ -242,7 +242,7 @@ export const Tasks: React.FC = () => {
             <Stack direction="row" spacing={2} padding="8px">
               <LocationSelectInput name="location" label="Location" />
               <SelectInput name="category" label="Category" options={CATEGORY_OPTIONS} />
-              <ProviderSelectInput name="assignedTo" label="Assigned to" />
+              <EmployeeSelectInput name="assignedTo" label="Assigned to" />
               <SelectInput name="status" label="Status" options={STATUS_OPTIONS} />
               <RoundedButton variant="contained" onClick={onNewTaskClick} startIcon={<AddIcon />}>
                 New Task
@@ -370,7 +370,7 @@ export const Tasks: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         {task.status !== COMPLETED ? (
-                          <Stack direction="row" justifyContent="space-between">
+                          <Stack direction="row" justifyContent="space-between" spacing={1}>
                             {renderActionButton(task)}
                             {renderCompleteButton(task)}
                             {renderMoreButton(task)}
