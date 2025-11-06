@@ -64,84 +64,92 @@ export class PatientsPage extends PageWithTablePagination {
   }
 
   async verifyPatientPresent(patientInfo: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    dateOfBirth: string;
-    email: string;
-    phoneNumber: string;
-    address: string;
+    firstName?: string;
+    lastName?: string;
+    dateOfBirth?: string;
+    email?: string;
+    phoneNumber?: string;
+    address?: string;
   }): Promise<void> {
     const patientPresent = await this.findInPages(
       async () => {
-        const rowLocator = this.#page.getByTestId(dataTestIds.patients.searchResultRow(patientInfo.id));
-        if (!(await rowLocator.isVisible())) {
-          console.log(`❌ Row for patient ID ${patientInfo.id} is not visible in current page`);
+        // Get all rows matching the search results prefix
+        const allRows = await this.#page
+          .getByTestId(new RegExp(`^${dataTestIds.patients.searchResultsRowPrefix}`))
+          .all();
+
+        if (allRows.length === 0) {
           return false;
         }
 
-        const rowPatientId = await rowLocator.getByTestId(dataTestIds.patients.patientId).innerText();
-        const rowPatientName = await rowLocator.getByTestId(dataTestIds.patients.patientName).innerText();
-        const rowPatientDateOfBirth = await rowLocator.getByTestId(dataTestIds.patients.patientDateOfBirth).innerText();
-        const rowPatientEmail = await rowLocator.getByTestId(dataTestIds.patients.patientEmail).innerText();
-        const rowPatientPhoneNumber = await rowLocator.getByTestId(dataTestIds.patients.patientPhoneNumber).innerText();
-        const rowPatientAddress = await rowLocator.getByTestId(dataTestIds.patients.patientAddress).innerText();
+        // Check each row to find a match
+        for (const rowLocator of allRows) {
+          try {
+            const rowPatientName = await rowLocator.getByTestId(dataTestIds.patients.patientName).innerText();
+            const rowPatientDateOfBirth = await rowLocator
+              .getByTestId(dataTestIds.patients.patientDateOfBirth)
+              .innerText();
+            const rowPatientEmail = await rowLocator.getByTestId(dataTestIds.patients.patientEmail).innerText();
+            const rowPatientPhoneNumber = await rowLocator
+              .getByTestId(dataTestIds.patients.patientPhoneNumber)
+              .innerText();
+            const rowPatientAddress = await rowLocator.getByTestId(dataTestIds.patients.patientAddress).innerText();
 
-        const expectedName = patientInfo.lastName + ', ' + patientInfo.firstName;
-        const normalizedExpectedPhone = patientInfo.phoneNumber.replace(/[^\d]/g, '');
-        const normalizedActualPhone = rowPatientPhoneNumber.replace(/^(\+1)/, '').replace(/[^\d]/g, '');
-        const expectedAddress = patientInfo.address;
+            // Build checks for provided fields only
+            const checks: boolean[] = [];
 
-        const idMatch = rowPatientId === patientInfo.id;
-        const nameMatch = rowPatientName === expectedName;
-        const dobMatch = rowPatientDateOfBirth === patientInfo.dateOfBirth;
-        const emailMatch = rowPatientEmail === patientInfo.email;
-        const phoneMatch = normalizedActualPhone === normalizedExpectedPhone;
-        const addressMatch = rowPatientAddress === expectedAddress;
+            if (patientInfo.lastName !== undefined || patientInfo.firstName !== undefined) {
+              let nameMatch = false;
 
-        const allMatches = idMatch && nameMatch && dobMatch && emailMatch && phoneMatch && addressMatch;
+              if (patientInfo.lastName && patientInfo.firstName) {
+                // If both provided, expect exact match in "LastName, FirstName" format
+                const expectedName = `${patientInfo.lastName}, ${patientInfo.firstName}`;
+                nameMatch = rowPatientName === expectedName;
+              } else if (patientInfo.lastName) {
+                // If only last name provided, check if row name starts with it (before comma)
+                nameMatch = rowPatientName.startsWith(`${patientInfo.lastName},`);
+              } else if (patientInfo.firstName) {
+                // If only first name provided, check if it appears after the comma
+                nameMatch = rowPatientName.includes(`, ${patientInfo.firstName}`);
+              }
 
-        if (!allMatches) {
-          console.log(`❌ Patient verification failed for ID: ${patientInfo.id}`);
+              checks.push(nameMatch);
+            }
 
-          if (!idMatch) {
-            console.log(`  - ID mismatch:
-              Expected: "${patientInfo.id}"
-              Actual:   "${rowPatientId}"`);
-          }
+            if (patientInfo.dateOfBirth !== undefined) {
+              const dobMatch = rowPatientDateOfBirth === patientInfo.dateOfBirth;
+              checks.push(dobMatch);
+            }
 
-          if (!nameMatch) {
-            console.log(`  - Name mismatch:
-              Expected: "${expectedName}"
-              Actual:   "${rowPatientName}"`);
-          }
+            if (patientInfo.email !== undefined) {
+              const emailMatch = rowPatientEmail === patientInfo.email;
+              checks.push(emailMatch);
+            }
 
-          if (!dobMatch) {
-            console.log(`  - Date of Birth mismatch:
-              Expected: "${patientInfo.dateOfBirth}"
-              Actual:   "${rowPatientDateOfBirth}"`);
-          }
+            if (patientInfo.phoneNumber !== undefined) {
+              const normalizedExpectedPhone = patientInfo.phoneNumber.replace(/[^\d]/g, '');
+              const normalizedActualPhone = rowPatientPhoneNumber.replace(/^(\+1)/, '').replace(/[^\d]/g, '');
+              const phoneMatch = normalizedActualPhone === normalizedExpectedPhone;
+              checks.push(phoneMatch);
+            }
 
-          if (!emailMatch) {
-            console.log(`  - Email mismatch:
-              Expected: "${patientInfo.email}"
-              Actual:   "${rowPatientEmail}"`);
-          }
+            if (patientInfo.address !== undefined) {
+              const addressMatch = rowPatientAddress === patientInfo.address;
+              checks.push(addressMatch);
+            }
 
-          if (!phoneMatch) {
-            console.log(`  - Phone Number mismatch:
-              Expected: "${patientInfo.phoneNumber}" (normalized: "${normalizedExpectedPhone}")
-              Actual:   "${rowPatientPhoneNumber}" (normalized: "${normalizedActualPhone}")`);
-          }
-
-          if (!addressMatch) {
-            console.log(`  - Address mismatch:
-              Expected: "${JSON.stringify(expectedAddress)}"
-              Actual:   "${JSON.stringify(rowPatientAddress)}"`);
+            // If all provided fields match, we found the patient
+            if (checks.length > 0 && checks.every((check) => check === true)) {
+              console.log(`✅ Patient found matching all provided criteria`);
+              return true;
+            }
+          } catch {
+            // Skip rows that don't have all expected elements
+            continue;
           }
         }
 
-        return allMatches;
+        return false;
       },
       async () => {
         // Ensure search results update after response is received

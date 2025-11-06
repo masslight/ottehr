@@ -137,12 +137,8 @@ let sideMenu: SideMenu;
 let context: BrowserContext;
 let page: Page;
 test.beforeAll(async ({ browser }) => {
-  if (process.env.INTEGRATION_TEST === 'true') {
-    await resourceHandler.setResourcesFast();
-  } else {
-    await resourceHandler.setResources({ skipPaperwork: true });
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-  }
+  await resourceHandler.setResources({ skipPaperwork: true });
+  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
   context = await browser.newContext();
   page = await context.newPage();

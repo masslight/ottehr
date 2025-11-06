@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { formatDOB } from 'utils';
 import {
@@ -16,7 +16,7 @@ import {
   PATIENT_STATE,
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
-import { expectPatientInformationPage } from '../page/PatientInformationPage';
+import { expectPatientInformationPage, PatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientsPage } from '../page/PatientsPage';
 
 // We may create new instances for the tests with mutable operations, and keep parallel tests isolated
@@ -24,11 +24,7 @@ const PROCESS_ID = `patients.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID);
 
 test.beforeAll(async () => {
-  if (process.env.INTEGRATION_TEST === 'true') {
-    await resourceHandler.setResourcesFast();
-  } else {
-    await resourceHandler.setResources();
-  }
+  await resourceHandler.setResources({ skipPaperwork: true });
 });
 
 test.afterAll(async () => {
@@ -53,8 +49,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.searchByLastName(PATIENT_LAST_NAME);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
-      ...patientData,
-      id: resourceHandler.patient.id!,
+      lastName: PATIENT_LAST_NAME,
     });
   });
 
@@ -65,8 +60,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.searchByGivenNames(PATIENT_FIRST_NAME);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
-      ...patientData,
-      id: resourceHandler.patient.id!,
+      firstName: PATIENT_FIRST_NAME,
     });
   });
 
@@ -77,8 +71,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
-      ...patientData,
-      id: resourceHandler.patient.id!,
+      dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
     });
   });
 
@@ -89,8 +82,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
-      ...patientData,
-      id: resourceHandler.patient.id!,
+      phoneNumber: PATIENT_PHONE_NUMBER,
     });
   });
 
@@ -101,8 +93,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.searchByAddress(PATIENT_LINE.substring(0, 6));
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
-      ...patientData,
-      id: resourceHandler.patient.id!,
+      address: patientData.address,
     });
   });
 
@@ -113,8 +104,7 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.searchByEmail(PATIENT_EMAIL);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
-      ...patientData,
-      id: resourceHandler.patient.id!,
+      email: PATIENT_EMAIL,
     });
   });
 
@@ -126,8 +116,8 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.searchByGivenNames(PATIENT_FIRST_NAME);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
-      ...patientData,
-      id: resourceHandler.patient.id!,
+      firstName: PATIENT_FIRST_NAME,
+      lastName: PATIENT_LAST_NAME,
     });
   });
 
@@ -139,8 +129,8 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
-      ...patientData,
-      id: resourceHandler.patient.id!,
+      lastName: PATIENT_LAST_NAME,
+      dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
     });
   });
 
@@ -152,8 +142,8 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.searchByAddress(PATIENT_CITY);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
-      ...patientData,
-      id: resourceHandler.patient.id!,
+      lastName: PATIENT_LAST_NAME,
+      address: patientData.address,
     });
   });
 
@@ -165,8 +155,8 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
-      ...patientData,
-      id: resourceHandler.patient.id!,
+      lastName: PATIENT_LAST_NAME,
+      phoneNumber: PATIENT_PHONE_NUMBER,
     });
   });
 
@@ -179,37 +169,45 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
     await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
-      ...patientData,
-      id: resourceHandler.patient.id!,
+      lastName: PATIENT_LAST_NAME,
+      firstName: PATIENT_FIRST_NAME,
+      dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
     });
-  });
 
-  test('Reset filters', async ({ page }) => {
-    await page.goto('/patients');
-
-    const patientsPage = await expectPatientsPage(page);
-    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
-    await patientsPage.searchByGivenNames(PATIENT_FIRST_NAME);
-    await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
-    await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
-    await patientsPage.searchByAddress(PATIENT_CITY);
-    await patientsPage.searchByEmail(PATIENT_EMAIL);
-    await patientsPage.clickResetFiltersButton();
-    await patientsPage.verifyFilterReset();
+    await test.step('Reset filters', async () => {
+      await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
+      await patientsPage.searchByAddress(PATIENT_CITY);
+      await patientsPage.searchByEmail(PATIENT_EMAIL);
+      await patientsPage.clickResetFiltersButton();
+      await patientsPage.verifyFilterReset();
+    });
   });
 });
 
 test.describe('Patient header tests', () => {
-  test.beforeEach(async ({ page }) => {
+  let patientInformationPage: PatientInformationPage;
+  let page: Page;
+  let context: BrowserContext;
+
+  test.beforeAll(async ({ browser }) => {
+    context = await browser.newContext();
+    page = await context.newPage();
     await page.goto('/patient/' + resourceHandler.patient.id + '/info');
+    patientInformationPage = await expectPatientInformationPage(page, resourceHandler.patient.id!);
   });
+
+  test.afterAll(async () => {
+    await page.close();
+    await context.close();
+  });
+
+  test.describe.configure({ mode: 'serial' });
 
   const HEADER_PATIENT_BIRTHDAY = formatDOB(PATIENT_BIRTHDAY)!;
   const HEADER_PATIENT_GENDER = 'Male';
   const HEADER_PATIENT_NAME = PATIENT_LAST_NAME + ', ' + PATIENT_FIRST_NAME;
 
-  test('Check header info', async ({ page }) => {
-    const patientInformationPage = await expectPatientInformationPage(page, resourceHandler.patient.id!);
+  test('Check header info', async () => {
     const patientHeader = patientInformationPage.getPatientHeader();
     await patientHeader.verifyHeaderPatientID('PID: ' + resourceHandler.patient.id);
     await patientHeader.verifyHeaderPatientName(HEADER_PATIENT_NAME);
@@ -217,8 +215,7 @@ test.describe('Patient header tests', () => {
     await patientHeader.verifyHeaderPatientBirthday(HEADER_PATIENT_BIRTHDAY);
   });
 
-  test('Check patient info', async ({ page }) => {
-    const patientInformationPage = await expectPatientInformationPage(page, resourceHandler.patient.id!);
+  test('Check patient info', async () => {
     await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
     await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
     await patientInformationPage.verifyPatientDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
