@@ -1,5 +1,7 @@
+import PhoneIcon from '@mui/icons-material/Phone';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
+import { IconButton } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { DeviceVitalsPage } from 'src/components/DeviceVitalsPage';
@@ -8,6 +10,7 @@ import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
 import { PatientReportsTab } from 'src/components/PatientReportsTab';
 import { ThresholdsTable } from 'src/components/ThresholdGrid';
+import { loadRingCentralWidget, postToEmbeddable, waitForRingCentralReady } from 'src/hooks/useRingCentral';
 import { getFirstName, getLastName, ServiceMode } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { Contacts, FullNameDisplay, IdentifiersRow, PatientAvatar, Summary } from '../components/patient';
@@ -70,6 +73,45 @@ export default function PatientPage(): JSX.Element {
     setIsSummaryModalOpen(false);
   };
 
+  const patientPhoneNumber = useMemo(() => {
+    if (!patient?.telecom) return null;
+
+    const mobilePhone = patient.telecom.find((t) => t.system === 'phone');
+    console.log('mobilePhone', mobilePhone);
+
+    return mobilePhone?.value;
+  }, [patient]);
+
+  const handleRingCentralCall = async (): Promise<void> => {
+    if (!patientPhoneNumber) return;
+
+    try {
+      await loadRingCentralWidget();
+
+      await waitForRingCentralReady();
+
+      postToEmbeddable({ type: 'rc-adapter-show' });
+      postToEmbeddable({ type: 'rc-adapter-navigate-to', path: '/dialer' });
+      postToEmbeddable({
+        type: 'rc-adapter-new-call',
+        phoneNumber: patientPhoneNumber,
+      });
+
+      const minimizedHeader = document.querySelector('#rc-widget.Adapter_minimized .Adapter_header') as HTMLElement;
+      const toggleButton = document.querySelector('#rc-widget [data-sign="adapterToggle"]') as HTMLElement;
+
+      if (minimizedHeader) {
+        minimizedHeader.click();
+      } else if (toggleButton) {
+        toggleButton.click();
+      } else {
+        console.warn('RingCentral widget not found');
+      }
+    } catch (err) {
+      console.error('Error initializing RingCentral message widget:', err);
+    }
+  };
+
   return (
     <>
       <PageContainer tabTitle="Patient Information">
@@ -125,7 +167,42 @@ export default function PatientPage(): JSX.Element {
 
               <Box sx={{ flexGrow: 1, maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <IdentifiersRow id={id} />
-                <FullNameDisplay patient={patient} loading={loading} />
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                  }}
+                >
+                  <FullNameDisplay patient={patient} loading={loading} />
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {/* RingCentral Voice Call */}
+                    <IconButton
+                      size="small"
+                      sx={{
+                        padding: '10px',
+                        minWidth: '36px',
+                        border: '1px solid #43A047',
+                        '&:hover': { bgcolor: '#C8E6C9' },
+                        '&:disabled': {
+                          border: '1px solid #BDBDBD',
+                          backgroundColor: '#F5F5F5',
+                        },
+                      }}
+                      aria-label="ringcentral call"
+                      onClick={() => handleRingCentralCall()}
+                    >
+                      <PhoneIcon
+                        sx={{
+                          color: '#43A047',
+                        }}
+                      />
+                    </IconButton>
+                  </Box>
+                </Box>
+
                 <Summary patient={patient} loading={loading} />
                 <Contacts patient={patient} loading={loading} />
 

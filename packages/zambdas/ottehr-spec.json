@@ -45,6 +45,14 @@
       "name": "ENVIRONMENT",
       "value": "#var/ENVIRONMENT"
     },
+    "RC_CLIENT_ID": {
+      "name": "RC_CLIENT_ID",
+      "value": "#var/RC_CLIENT_ID"
+    },
+    "API_TOKEN": {
+      "name": "API_TOKEN",
+      "value": "#var/API_TOKEN"
+    },
     "SENDGRID_API_KEY": {
       "name": "SENDGRID_API_KEY",
       "value": "#var/SENDGRID_API_KEY"
