@@ -4,7 +4,7 @@ import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   ExternalLabOrderResult,
   Gender,
-  InHouseLabResult as IInHouseLabResult,
+  InHouseLabResult as InHouseLabResultPdfData,
   LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   ObservationDTO,
@@ -293,7 +293,7 @@ export interface VisitNoteData extends PdfExaminationBlockData {
   allergiesNotes?: string[];
   medicalConditions?: string[];
   medicalConditionsNotes?: string[];
-  inHouseLabs?: { orders: LabOrder[]; results: IInHouseLabResult[] };
+  inHouseLabs?: { orders: LabOrder[]; results: InHouseLabResultPdfData[] };
   externalLabs?: { orders: LabOrder[]; results: ExternalLabOrderResult[] };
   surgicalHistory?: string[];
   surgicalHistoryNotes?: string[];
@@ -415,7 +415,7 @@ export type DischargeSummaryData = {
   currentMedicationsNotes?: string[];
   allergies?: string[];
   allergiesNotes?: string[];
-  inHouseLabs?: { orders: LabOrder[]; results: IInHouseLabResult[] };
+  inHouseLabs?: { orders: LabOrder[]; results: InHouseLabResultPdfData[] };
   externalLabs?: { orders: LabOrder[]; results: ExternalLabOrderResult[] };
   radiology?: {
     name: string;
