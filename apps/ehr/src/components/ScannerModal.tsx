@@ -104,6 +104,8 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
       // Reset fileName with new timestamp when modal opens
       const timestamp = DateTime.now().toFormat('yyyyLLdd-HHmmss');
       setFileName(`scan-${timestamp}`);
+      // Reset saving state to ensure button doesn't show spinner from previous save
+      setIsSaving(false);
     } else {
       // Cleanup and destroy Dynamsoft object when modal closes
       cleanup();
