@@ -32,6 +32,11 @@ jobs:
     if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 15
+    strategy:
+      matrix:
+        node-version:
+          - "20"
+          - "22"
     env:
       SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
     steps:
@@ -48,7 +53,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         name: Set up Node.js environment
         with:
-          node-version: '22'
+          node-version: ${{ matrix.node-version }}
 
       - name: TruffleHog -- Check for secrets committed to the repository
         uses: trufflesecurity/trufflehog@af3e68261fa87568031f65161577cc2ebe1ca669 # v3.83.7
