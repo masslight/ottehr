@@ -391,14 +391,16 @@ export const Sidebar = (): JSX.Element => {
 
         <List sx={{ padding: '0px' }}>
           <Box style={{ width: '100%', padding: '8px 16px' }}>
-            <RoundedButton
-              variant="outlined"
-              onClick={onCreateTaskClick}
-              startIcon={<AddIcon />}
-              style={{ width: '100%' }}
-            >
-              Create Task
-            </RoundedButton>
+            {open ? (
+              <RoundedButton
+                variant="outlined"
+                onClick={onCreateTaskClick}
+                startIcon={<AddIcon />}
+                style={{ width: '100%' }}
+              >
+                Create Task
+              </RoundedButton>
+            ) : null}
           </Box>
           {menuItems.map((item) => {
             const comparedPath = item?.activeCheckPath || item.to;
