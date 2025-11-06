@@ -1,4 +1,4 @@
-name: Lint, Build, Unit, Integration, and Component Tests
+name: Lint, Build, Unit, Component, and Integration Tests
 
 on:
   workflow_dispatch:
