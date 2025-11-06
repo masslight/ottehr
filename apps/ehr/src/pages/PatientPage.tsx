@@ -1,5 +1,6 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
@@ -10,7 +11,8 @@ import { FullNameDisplay } from 'src/features/visits/shared/components/patient/i
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import Summary from 'src/features/visits/shared/components/patient/info/Summary';
 import { PatientFollowupEncountersGrid } from 'src/features/visits/shared/components/patient/PatientFollowupEncountersGrid';
-import { getFirstName, getLastName, ServiceMode } from 'utils';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { getFirstName, getLastName, PatientVisitListResponse, ServiceMode } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
 import { PatientLabsTab } from '../components/PatientLabsTab';
@@ -25,7 +27,9 @@ export default function PatientPage(): JSX.Element {
   const location = useLocation();
   const [tab, setTab] = useState(location.state?.defaultTab || 'encounters');
 
-  const { appointments, loading, patient } = useGetPatient(id);
+  const { loading, patient } = useGetPatient(id);
+
+  const { oystehrZambda } = useApiClients();
 
   const { firstName, lastName } = useMemo(() => {
     if (!patient) return {};
@@ -35,6 +39,23 @@ export default function PatientPage(): JSX.Element {
     };
   }, [patient]);
 
+  const { data: visitHistory } = useQuery({
+    queryKey: [`get-patient-visit-history`, { patientId: id }],
+    queryFn: async (): Promise<PatientVisitListResponse> => {
+      if (oystehrZambda && id) {
+        const result = await oystehrZambda.zambda.execute({
+          id: 'get-patient-visit-history',
+          patientId: id,
+        });
+        return result.output as PatientVisitListResponse;
+      }
+
+      throw new Error('api client not defined or patient id is not provided');
+    },
+    enabled: Boolean(id) && Boolean(oystehrZambda),
+  });
+
+  const appointments = visitHistory?.visits || [];
   const latestAppointment = appointments?.[0];
 
   return (
@@ -95,8 +116,8 @@ export default function PatientPage(): JSX.Element {
                   sx={{ width: '100%' }}
                   to={
                     latestAppointment.serviceMode === ServiceMode.virtual
-                      ? `/telemed/appointments/${latestAppointment.id}?tab=sign`
-                      : `/in-person/${latestAppointment.id}/progress-note`
+                      ? `/telemed/appointments/${latestAppointment.appointmentId}?tab=sign`
+                      : `/in-person/${latestAppointment.appointmentId}/progress-note`
                   }
                 >
                   Recent Progress Note
@@ -159,7 +180,11 @@ export default function PatientPage(): JSX.Element {
             </Box>
 
             <TabPanel value="encounters" sx={{ p: 0 }}>
-              <PatientEncountersGrid appointments={appointments} loading={loading} patient={patient} />
+              <PatientEncountersGrid
+                patient={patient}
+                totalCount={appointments.length}
+                latestVisitDate={latestAppointment.dateTime ?? null}
+              />
             </TabPanel>
             <TabPanel value="followups" sx={{ p: 0 }}>
               <PatientFollowupEncountersGrid patient={patient} loading={loading}></PatientFollowupEncountersGrid>

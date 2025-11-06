@@ -52,3 +52,4 @@ export * from './send-receipt-by-email.types';
 export * from './update-visit-details.types';
 export * from './invoiceable-patients-reports.types';
 export * from './send-invoice-to-patient.types';
+export * from './patient-visit-history.types';
