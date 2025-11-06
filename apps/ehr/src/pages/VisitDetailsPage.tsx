@@ -29,6 +29,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
+  createZ3Object,
   generatePaperworkPdf,
   getPatientVisitDetails,
   getPatientVisitFiles,
@@ -38,6 +39,7 @@ import {
 import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
 import ImageUploader from 'src/components/ImageUploader';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { ScannerModal } from 'src/components/ScannerModal';
 import { TelemedAppointmentStatusChip } from 'src/components/TelemedAppointmentStatusChip';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
@@ -53,7 +55,7 @@ import {
   getLastName,
   getMiddleName,
   getPatchOperationForNewMetaTag,
-  getReasonForVisitFromAppointment,
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
   getTelemedVisitStatus,
   getUnconfirmedDOBForAppointment,
   isApiError,
@@ -116,6 +118,7 @@ interface EditDOBParams {
 
 interface EditReasonForVisitParams {
   reasonForVisit?: string;
+  additionalDetails?: string;
 }
 interface EditNLGParams {
   guardians?: string;
@@ -136,10 +139,16 @@ type EditDialogConfig =
         last: 'Last';
         suffix: 'Suffix';
       };
+      requiredKeys: string[];
     }
-  | { type: 'dob'; values: EditDOBParams; keyTitleMap: { dob: 'DOB' } }
-  | { type: 'reason-for-visit'; values: EditReasonForVisitParams; keyTitleMap: { reasonForVisit: 'Reason for Visit' } }
-  | { type: 'nlg'; values: EditNLGParams; keyTitleMap: { guardians: 'Guardians' } };
+  | { type: 'dob'; values: EditDOBParams; keyTitleMap: { dob: 'DOB' }; requiredKeys: string[] }
+  | {
+      type: 'reason-for-visit';
+      values: EditReasonForVisitParams;
+      keyTitleMap: { reasonForVisit: 'Reason for Visit'; additionalDetails: 'Additional Details' };
+      requiredKeys: string[];
+    }
+  | { type: 'nlg'; values: EditNLGParams; keyTitleMap: { guardians: 'Guardians' }; requiredKeys: string[] };
 
 const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
   switch (type) {
@@ -156,7 +165,11 @@ const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
   }
 };
 
-const CLOSED_EDIT_DIALOG: EditDialogConfig = Object.freeze({ type: 'closed', values: {}, keyTitleMap: {} });
+const CLOSED_EDIT_DIALOG: EditDialogConfig = Object.freeze({
+  type: 'closed',
+  values: {},
+  keyTitleMap: {},
+});
 
 interface SavedCardItem {
   front: DocumentInfo | null;
@@ -202,6 +215,9 @@ export default function VisitDetailsPage(): ReactElement {
   const [activityLogsLoading, setActivityLogsLoading] = useState<boolean>(true);
   const [activityLogs, setActivityLogs] = useState<ActivityLogData[] | undefined>(undefined);
   const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
+  const [scannerModalOpen, setScannerModalOpen] = useState<boolean>(false);
+  const [scannerFileType, setScannerFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
+  const [uploadingFileType, setUploadingFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
   const user = useEvolveUser();
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
@@ -283,6 +299,91 @@ export default function VisitDetailsPage(): ReactElement {
     if (index > -1) {
       setZoomedIdx(index);
       setPhotoZoom(true);
+    }
+  };
+
+  // Handler for opening the scanner modal
+  const handleOpenScanner = (fileType: UpdateVisitFilesInput['fileType']): void => {
+    setScannerFileType(fileType);
+    setScannerModalOpen(true);
+  };
+
+  // Handler for when scanning is complete
+  const handleScanComplete = async (fileBlob: Blob | Blob[], fileName: string): Promise<void> => {
+    if (!oystehrZambda || !appointmentID || !scannerFileType) return;
+
+    try {
+      setUploadingFileType(scannerFileType);
+      // Handle PNG blobs (array of blobs)
+      if (Array.isArray(fileBlob)) {
+        // Upload each PNG file
+        for (let i = 0; i < fileBlob.length; i++) {
+          const blob = fileBlob[i];
+          const pngFileName = fileBlob.length > 1 ? `${fileName}-${i + 1}.png` : `${fileName}.png`;
+
+          const z3URL = await createZ3Object(
+            {
+              appointmentID,
+              fileType: scannerFileType,
+              fileFormat: 'png',
+              file: new File([blob], pngFileName, { type: 'image/png' }),
+            },
+            oystehrZambda
+          );
+
+          const attachment: Attachment = {
+            url: z3URL,
+            title: scannerFileType,
+            creation: DateTime.now().toISO(),
+          };
+
+          await filesMutation.mutateAsync({
+            appointmentId: appointmentID,
+            attachment,
+            fileType: scannerFileType,
+          });
+        }
+
+        setScannerModalOpen(false);
+        setUploadingFileType(null);
+        enqueueSnackbar(
+          `Successfully uploaded ${fileBlob.length} scanned ${fileBlob.length === 1 ? 'image' : 'images'}`,
+          { variant: 'success' }
+        );
+      } else {
+        // Handle single PDF blob (backward compatibility)
+        const pdfFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+
+        const z3URL = await createZ3Object(
+          {
+            appointmentID,
+            fileType: scannerFileType,
+            fileFormat: 'pdf',
+            file: new File([fileBlob], pdfFileName, { type: 'application/pdf' }),
+          },
+          oystehrZambda
+        );
+
+        const attachment: Attachment = {
+          url: z3URL,
+          title: scannerFileType,
+          creation: DateTime.now().toISO(),
+        };
+
+        await filesMutation.mutateAsync({
+          appointmentId: appointmentID,
+          attachment,
+          fileType: scannerFileType,
+        });
+
+        setScannerModalOpen(false);
+        setUploadingFileType(null);
+        enqueueSnackbar('Scanned document uploaded successfully', { variant: 'success' });
+      }
+    } catch (error) {
+      console.error('Error uploading scanned document:', error);
+      setUploadingFileType(null);
+      enqueueSnackbar('Error uploading scanned document', { variant: 'error' });
     }
   };
 
@@ -614,7 +715,7 @@ export default function VisitDetailsPage(): ReactElement {
     signedConsentForm[consentToTreatPatientDetailsKey] = imagesLoading ? 'Loading...' : 'Not signed';
   }
 
-  const reasonForVisit = getReasonForVisitFromAppointment(appointment);
+  const { reasonForVisit, additionalDetails } = getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
 
   const authorizedGuardians =
     patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ??
@@ -691,6 +792,7 @@ export default function VisitDetailsPage(): ReactElement {
                           last: patientLastName,
                         },
                         keyTitleMap: { first: 'First', middle: 'Middle', last: 'Last', suffix: 'Suffix' },
+                        requiredKeys: ['first', 'last'],
                       })
                     }
                     size="25px"
@@ -850,7 +952,9 @@ export default function VisitDetailsPage(): ReactElement {
                         filesMutator={filesMutation}
                         fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsurance)}
                         handleImageClick={handleCardImageClick}
+                        handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
+                        uploadingFileType={uploadingFileType}
                       />
                       <CardCategoryGridItem
                         category="secondary-ins"
@@ -859,7 +963,9 @@ export default function VisitDetailsPage(): ReactElement {
                         filesMutator={filesMutation}
                         fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullInsuranceSecondary)}
                         handleImageClick={handleCardImageClick}
+                        handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
+                        uploadingFileType={uploadingFileType}
                       />
                       <CardCategoryGridItem
                         category="id"
@@ -868,7 +974,9 @@ export default function VisitDetailsPage(): ReactElement {
                         filesMutator={filesMutation}
                         fullCardPdf={fullCardPdfs.find((pdf) => pdf.type === DocumentType.FullPhotoId)}
                         handleImageClick={handleCardImageClick}
+                        handleOpenScanner={handleOpenScanner}
                         imagesLoading={imagesLoading}
+                        uploadingFileType={uploadingFileType}
                       />
                     </Grid>
                   </Box>
@@ -893,7 +1001,7 @@ export default function VisitDetailsPage(): ReactElement {
                                 "Patient's date of birth (Unmatched)": formatDateUsingSlashes(unconfirmedDOB),
                               }
                             : {}),
-                          'Reason for visit': reasonForVisit,
+                          'Reason for visit': `${reasonForVisit} ${additionalDetails ? `- ${additionalDetails}` : ''}`,
                           'Authorized non-legal guardian(s)':
                             patient?.extension?.find(
                               (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
@@ -919,6 +1027,7 @@ export default function VisitDetailsPage(): ReactElement {
                                   keyTitleMap: {
                                     dob: 'DOB',
                                   },
+                                  requiredKeys: ['dob'],
                                 })
                               }
                               size="16px"
@@ -930,8 +1039,12 @@ export default function VisitDetailsPage(): ReactElement {
                               onClick={() =>
                                 setEditDialogConfig({
                                   type: 'reason-for-visit',
-                                  values: { reasonForVisit },
-                                  keyTitleMap: { reasonForVisit: 'Reason for Visit' },
+                                  values: { reasonForVisit, additionalDetails },
+                                  keyTitleMap: {
+                                    reasonForVisit: 'Reason for Visit',
+                                    additionalDetails: 'Additional Details',
+                                  },
+                                  requiredKeys: [],
                                 })
                               }
                               size="16px"
@@ -945,6 +1058,7 @@ export default function VisitDetailsPage(): ReactElement {
                                   type: 'nlg',
                                   values: { guardians: authorizedGuardians },
                                   keyTitleMap: { guardians: 'Guardians' },
+                                  requiredKeys: [],
                                 })
                               }
                               size="16px"
@@ -1191,9 +1305,9 @@ export default function VisitDetailsPage(): ReactElement {
                     <TextField
                       key={key}
                       label={editDialogConfig.keyTitleMap[key as keyof typeof editDialogConfig.keyTitleMap] || key}
-                      required
                       fullWidth
                       value={value}
+                      required={editDialogConfig.requiredKeys.includes(key)}
                       onChange={(e) =>
                         setEditDialogConfig(
                           (prev) =>
@@ -1255,6 +1369,12 @@ export default function VisitDetailsPage(): ReactElement {
             {toastMessage}
           </Alert>
         </Snackbar>
+        <ScannerModal
+          open={scannerModalOpen}
+          onClose={() => setScannerModalOpen(false)}
+          outputFormat="png"
+          onScanComplete={handleScanComplete}
+        />
       </>
     </PageContainer>
   );
@@ -1267,7 +1387,9 @@ interface CardCategoryGridItemInput {
   filesMutator: UseMutationResult<void, Error, UpdateVisitFilesInput, unknown>;
   imagesLoading?: boolean;
   fullCardPdf?: DocumentInfo | undefined;
+  uploadingFileType: UpdateVisitFilesInput['fileType'] | null;
   handleImageClick: (imageType: string) => void;
+  handleOpenScanner: (fileType: UpdateVisitFilesInput['fileType']) => void;
 }
 
 function parseFiletype(fileUrl: string): string {
@@ -1286,7 +1408,9 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
   fullCardPdf,
   filesMutator,
   imagesLoading,
+  uploadingFileType,
   handleImageClick,
+  handleOpenScanner,
 }) => {
   const title = (() => {
     if (category === 'primary-ins') {
@@ -1412,19 +1536,18 @@ const CardCategoryGridItem: React.FC<CardCategoryGridItemInput> = ({
             <Grid item key={itemIdentifier(key as 'front' | 'back')} xs={5.5}>
               <ImageUploader
                 fileName={itemIdentifier(key as 'front' | 'back')}
-                appointmentId={appointmentID}
-                saveAttachmentPending={
-                  filesMutator.variables?.fileType === itemIdentifier(key as 'front' | 'back') && filesMutator.isPending
-                }
+                appointmentId={appointmentID!}
+                aspectRatio={ASPECT_RATIO}
+                disabled={imagesLoading}
+                isUploading={uploadingFileType === itemIdentifier(key as 'front' | 'back')}
+                onScanClick={() => handleOpenScanner(itemIdentifier(key as 'front' | 'back'))}
                 submitAttachment={async (attachment: Attachment) => {
                   await filesMutator.mutateAsync({
-                    appointmentId: appointmentID,
+                    appointmentId: appointmentID!,
                     attachment,
                     fileType: itemIdentifier(key as 'front' | 'back'),
                   });
                 }}
-                aspectRatio={ASPECT_RATIO}
-                disabled={imagesLoading}
               />
             </Grid>
           )

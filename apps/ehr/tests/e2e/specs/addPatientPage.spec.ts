@@ -98,7 +98,7 @@ test.describe.skip(
       if (process.env.INTEGRATION_TEST === 'true') {
         await resourceHandler.setResourcesFast();
       } else {
-        await resourceHandler.setResources();
+        await resourceHandler.setResources({ skipPaperwork: true });
         await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
       }
     });

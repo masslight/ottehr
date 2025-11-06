@@ -31,6 +31,7 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
     showDeleteLabOrderDialog,
     DeleteOrderDialog,
     fetchLabOrders,
+    handleRejectedAbn,
   } = usePatientLabOrders(searchBy);
 
   if (loading) {
@@ -91,6 +92,7 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
                 fetchLabOrders={fetchLabOrders}
                 showDeleteLabOrderDialog={showDeleteLabOrderDialog}
                 DeleteOrderDialog={DeleteOrderDialog}
+                handleRejectedAbn={handleRejectedAbn}
               />
             ))}
             {bundlesWithResults.length > 0 && (

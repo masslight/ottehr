@@ -10,6 +10,7 @@ import {
 
 export interface BookingDetails {
   reasonForVisit?: string;
+  additionalDetails?: string;
   authorizedNonLegalGuardians?: string;
   confirmedDob?: string;
   patientName?: {

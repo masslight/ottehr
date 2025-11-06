@@ -131,7 +131,7 @@ const VideoRoomContainer: FC<
               color: type === 'pinned' ? theme.palette.primary.dark : theme.palette.primary.contrastText,
             }}
           >
-            <PushPinIcon fontSize="small" />
+            <PushPinIcon data-testid={dataTestIds.telemedEhrFlow.pinVideoCallButton} fontSize="small" />
           </IconButtonContained>
           <IconButtonContained
             size="small"

@@ -244,32 +244,36 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         code: LAB_ORDER_TASK.code.preSubmission,
       },
       encounterId: encounter.id ?? '',
-      locationId: orderingLocation.id,
+      location: orderingLocation.id
+        ? {
+            id: orderingLocation.id,
+          }
+        : undefined,
       basedOn: [serviceRequestFullUrl],
       input: [
         {
           type: LAB_ORDER_TASK.input.testName,
-          value: activityDefinitionToContain.name,
+          valueString: activityDefinitionToContain.name,
         },
         {
           type: LAB_ORDER_TASK.input.labName,
-          value: labOrganization.name,
+          valueString: labOrganization.name,
         },
         {
           type: LAB_ORDER_TASK.input.patientName,
-          value: getFullestAvailableName(patient),
+          valueString: getFullestAvailableName(patient),
         },
         {
           type: LAB_ORDER_TASK.input.providerName,
-          value: getFullestAvailableName(currentUserPractitioner),
+          valueString: getFullestAvailableName(currentUserPractitioner),
         },
         {
           type: LAB_ORDER_TASK.input.orderDate,
-          value: serviceRequestConfig.authoredOn,
+          valueString: serviceRequestConfig.authoredOn,
         },
         {
           type: LAB_ORDER_TASK.input.appointmentId,
-          value: encounter.appointment?.[0]?.reference?.split('/')?.[1],
+          valueString: encounter.appointment?.[0]?.reference?.split('/')?.[1],
         },
       ],
     });

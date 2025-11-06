@@ -11,12 +11,10 @@ export const VaccineDetailsCardList: React.FC = () => {
   const [searchParams] = useSearchParams();
   const scrollTo = searchParams.get('scrollTo');
 
-  const {
-    resources: { patient },
-  } = useAppointmentData(appointmentId);
+  const { encounter } = useAppointmentData(appointmentId);
 
   const { data: ordersResponse } = useGetImmunizationOrders({
-    patientId: patient?.id,
+    encounterId: encounter.id,
   });
 
   const pendingOrders = (ordersResponse?.orders ?? [])

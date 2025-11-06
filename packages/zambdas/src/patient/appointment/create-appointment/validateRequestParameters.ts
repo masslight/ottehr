@@ -18,6 +18,7 @@ import {
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   PatientInfo,
   PersonSex,
+  REASON_FOR_VISIT_SEPARATOR,
   REASON_MAXIMUM_CHAR_LIMIT,
   ScheduleOwnerFhirResource,
   Secrets,
@@ -39,7 +40,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (!input.body) {
     throw new Error('No request body provided');
   }
-  const isEHRUser = checkIsEHRUser(user);
+  const isEHRUser = user && checkIsEHRUser(user);
 
   const bodyJSON = JSON.parse(input.body);
   const { slotId, language, patient, unconfirmedDateOfBirth, locationState, appointmentMetadata } = bodyJSON;
@@ -97,7 +98,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   }
 
   patient.reasonForVisit = `${patient.reasonForVisit}${
-    patient?.reasonAdditional ? ` - ${patient?.reasonAdditional}` : ''
+    patient?.reasonAdditional ? `${REASON_FOR_VISIT_SEPARATOR}${patient?.reasonAdditional}` : ''
   }`;
 
   if (patient.reasonForVisit && patient.reasonForVisit.length > REASON_MAXIMUM_CHAR_LIMIT) {
@@ -169,7 +170,7 @@ export const createAppointmentComplexValidation = async (
   // patient input complex validation
   if (patient.id) {
     const userAccess = await userHasAccessToPatient(user, patient.id, oystehrClient);
-    if (!userAccess && !isEHRUser && !isTestUser(user)) {
+    if (!user || (!userAccess && !isEHRUser && !isTestUser(user))) {
       throw NO_READ_ACCESS_TO_PATIENT_ERROR;
     }
   }

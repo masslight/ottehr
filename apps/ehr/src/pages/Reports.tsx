@@ -1,7 +1,6 @@
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SummarizeIcon from '@mui/icons-material/Summarize';
 import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
@@ -115,12 +114,6 @@ export default function Reports(): React.ReactElement {
       description: 'Analyze visit metrics, time-to-provider statistics, and appointment status workflows',
       icon: <AssessmentIcon />,
       path: '/reports/workflow-efficiency',
-    },
-    {
-      title: 'Data Exports',
-      description: 'Export clinical and administrative data including appointments, encounters, and charts',
-      icon: <CloudDownloadIcon />,
-      path: '/reports/data-exports',
     },
     {
       title: 'Invoiceable patients',
