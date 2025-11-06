@@ -1,10 +1,10 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from '@mui/material';
-import { Task, TaskInput } from 'fhir/r4b';
+import { Task } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { createInvoiceTaskInput, isPhoneNumberValid, parseInvoiceTaskInput, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { isPhoneNumberValid, parseInvoiceTaskInput, PrefilledInvoiceInfo, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { z } from 'zod';
 import { BasicDatePicker } from '../form';
 import InputMask from '../InputMask';
@@ -22,7 +22,7 @@ interface SendInvoiceToPatientDialogProps {
   title: string;
   modalOpen: boolean;
   handleClose: () => void;
-  onSubmit: (taskId: string, taskInput: TaskInput[]) => Promise<void>;
+  onSubmit: (taskId: string, prefilledInvoiceInfo: PrefilledInvoiceInfo) => Promise<void>;
   submitButtonName: string;
   invoiceTask?: Task;
 }
@@ -38,24 +38,18 @@ export default function SendInvoiceToPatientDialog({
   const emailValidator = z.string().email();
 
   const handleSubmitWrapped = (data: SendInvoiceFormData): void => {
-    if (invoiceTask) {
-      const originalTaskInput = parseInvoiceTaskInput(invoiceTask);
-      if (!originalTaskInput) {
-        enqueueSnackbar('Error sending invoice', { variant: 'error' });
-        return;
-      }
-      const taskInput = createInvoiceTaskInput({
-        encounterId: originalTaskInput?.encounterId,
-        patientId: originalTaskInput?.patientId,
-        recipientName: data.recipientName,
-        recipientEmail: data.recipientEmail,
-        recipientPhoneNumber: data.recipientPhoneNumber,
-        dueDate: data.dueDate,
-        memo: data.memo,
-        smsTextMessage: data.smsTextMessage,
-      });
-      if (invoiceTask?.id) {
-        void onSubmit(invoiceTask?.id, taskInput);
+    if (invoiceTask && invoiceTask?.id) {
+      const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
+      if (invoiceTaskInput) {
+        // getting disabled fields from initial input
+        void onSubmit(invoiceTask?.id, {
+          recipientName: invoiceTaskInput.recipientName,
+          recipientEmail: invoiceTaskInput.recipientEmail,
+          recipientPhoneNumber: invoiceTaskInput.recipientPhoneNumber,
+          dueDate: data.dueDate,
+          memo: data.memo,
+          smsTextMessage: data.smsTextMessage,
+        });
       }
     } else enqueueSnackbar('Error sending invoice', { variant: 'error' });
   };

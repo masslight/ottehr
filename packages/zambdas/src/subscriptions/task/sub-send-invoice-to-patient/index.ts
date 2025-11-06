@@ -10,8 +10,8 @@ import {
   getPatientReferenceFromAccount,
   getSecret,
   getStripeCustomerIdFromAccount,
-  parseInvoiceTaskInput,
   PrefilledInvoiceInfo,
+  removePrefix,
   replaceTemplateVariablesDollar,
   SecretsKeys,
 } from 'utils';
@@ -24,7 +24,7 @@ import {
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
-} from '../../shared';
+} from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -34,10 +34,7 @@ const ZAMBDA_NAME = 'send-invoice-to-patient';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParams = validateRequestParameters(input);
-    const { secrets, task } = validatedParams;
-    const prefilledInfo = parseInvoiceTaskInput(task);
-    if (!prefilledInfo) throw new Error('Prefilled info is not found');
-    const { encounterId, patientId } = prefilledInfo;
+    const { secrets, encounterId, prefilledInfo, task } = validatedParams;
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
@@ -45,7 +42,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const stripe = getStripeClient(secrets);
 
     console.log('Fetching fhir resources');
-    const fhirResources = await getFhirResources(oystehr, patientId, encounterId);
+    const fhirResources = await getFhirResources(oystehr, encounterId);
     if (!fhirResources) throw new Error('Failed to fetch all needed FHIR resources');
     const { patient, encounter, account } = fhirResources;
     console.log('Fhir resources fetched');
@@ -66,6 +63,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Patient balance retrieved');
 
     console.log('Creating invoice and invoice item');
+    const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
+    if (!patientId) throw new Error("Encounter don't have patient reference");
     const invoiceResponse = await createInvoice(stripe, stripeCustomerId, {
       oystEncounterId: encounterId,
       oystPatientId: patientId,
@@ -80,11 +79,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('Sending sms to patient');
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-    const smsMessage = replaceTemplateVariablesDollar(prefilledInfo.smsTextMessage, {
-      invoiceLink: 'link will be here', // todo place link here
-    });
+    const smsMessage = sendInvoiceResponse.hosted_invoice_url
+      ? replaceTemplateVariablesDollar(prefilledInfo.smsTextMessage, {
+          invoiceLink: sendInvoiceResponse.hosted_invoice_url,
+        })
+      : prefilledInfo.smsTextMessage;
     await sendSmsForPatient(smsMessage, oystehr, patient, ENVIRONMENT);
     console.log('Sms sent to patient');
+
+    console.log('Setting task status to completed');
+    await oystehr.fhir.patch({
+      resourceType: 'Task',
+      id: task.id!,
+      operations: [
+        {
+          op: 'replace',
+          path: '/status',
+          value: 'completed',
+        },
+      ],
+    });
 
     return {
       statusCode: 200,
@@ -199,7 +213,6 @@ async function getPatientBalanceInCentsForClaim(input: {
 
 async function getFhirResources(
   oystehr: Oystehr,
-  patientId: string,
   encounterId: string
 ): Promise<{ patient: Patient; encounter: Encounter; account: Account } | undefined> {
   const response = (
@@ -223,6 +236,11 @@ async function getFhirResources(
   ).unbundle();
 
   const encounter = response.find((resource) => resource.resourceType === 'Encounter') as Encounter;
+  const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
+  if (!patientId) {
+    console.error("Encounter don't have patient reference");
+    return undefined;
+  }
   const patient = response.find(
     (resource) => resource.resourceType === 'Patient' && resource.id === patientId
   ) as Patient;

@@ -16,6 +16,7 @@ import {
   getResourcesFromBatchInlineRequests,
   getSecret,
   PrefilledInvoiceInfo,
+  RcmTaskCodings,
   Secrets,
   SecretsKeys,
   takeContainedOrFind,
@@ -33,7 +34,7 @@ import {
 
 let m2mToken: string;
 
-const ZAMBDA_NAME = 'create-invoices-tasks';
+const ZAMBDA_NAME = 'sub-create-invoices-tasks';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -43,6 +44,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const candid = createCandidApiClient(secrets);
 
     const encountersWithoutATask = await getEncountersWithoutTask(candid, oystehr);
+    console.log('encounters without task: ', encountersWithoutATask.length);
 
     const promises: Promise<void>[] = [];
     encountersWithoutATask.forEach((encounter) => {
@@ -52,7 +54,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Invoice created and sent successfully' }),
+      body: JSON.stringify({ message: 'Successfully created tasks for encounters' }),
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
@@ -68,7 +70,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function getPrefilledInvoiceInfo(
   oystehr: Oystehr,
   patientId: string,
-  encounterId: string,
   secrets: Secrets | null
 ): Promise<PrefilledInvoiceInfo> {
   try {
@@ -82,8 +83,6 @@ async function getPrefilledInvoiceInfo(
       const phoneNumber = getPhoneNumberForIndividual(responsibleParty);
       if (!email || !phoneNumber) throw new Error('Email or phone number not found for responsible party');
       return {
-        patientId,
-        encounterId,
         recipientName: getFullName(responsibleParty),
         recipientEmail: email,
         recipientPhoneNumber: phoneNumber,
@@ -104,14 +103,15 @@ async function getPrefilledInvoiceInfo(
 async function createTaskForEncounter(oystehr: Oystehr, encounter: Encounter, secrets: Secrets | null): Promise<void> {
   try {
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
-    if (!encounter.id) throw new Error('Encounter ID not found in encounter');
     if (!patientId) throw new Error('Patient ID not found in encounter: ' + encounter.id);
-    const prefilledInvoiceInfo = await getPrefilledInvoiceInfo(oystehr, patientId, encounter.id, secrets);
+    const prefilledInvoiceInfo = await getPrefilledInvoiceInfo(oystehr, patientId, secrets);
 
     const task: Task = {
       resourceType: 'Task',
       status: 'ready',
       intent: 'order',
+      code: RcmTaskCodings.sendInvoiceToPatient,
+      encounter: createReference(encounter),
       input: createInvoiceTaskInput(prefilledInvoiceInfo),
     };
 
@@ -123,6 +123,7 @@ async function createTaskForEncounter(oystehr: Oystehr, encounter: Encounter, se
 }
 
 async function getEncountersWithoutTask(candid: CandidApiClient, oystehr: Oystehr): Promise<Encounter[]> {
+  console.log('getting candid claims');
   const inventoryPages = await getCandidInventoryPagesRecursive({
     candid,
     claims: [],
@@ -196,7 +197,7 @@ async function getEncounterTasksPackages(oystehr: Oystehr, claims: InventoryReco
       (res) =>
         res.resourceType === 'Encounter' && claim.encounterId === getCandidEncounterIdFromEncounter(res as Encounter)
     ) as Encounter;
-    if (encounter.id) {
+    if (encounter?.id) {
       const encounterTasks = tasks.filter((task) => task.encounter?.reference === createReference(encounter).reference);
       result.push({ encounter, claim, tasks: encounterTasks });
     }

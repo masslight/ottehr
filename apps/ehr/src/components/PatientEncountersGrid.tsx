@@ -23,7 +23,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { Encounter, Location, Patient, Task, TaskInput } from 'fhir/r4b';
+import { Encounter, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { FC, ReactElement, useMemo, useState } from 'react';
@@ -38,11 +38,13 @@ import {
   FOLLOWUP_SYSTEMS,
   formatMinutes,
   PatientVisitListResponse,
+  PrefilledInvoiceInfo,
   ServiceMode,
   TelemedAppointmentStatus,
   TelemedCallStatusesArr,
   visitStatusArray,
 } from 'utils';
+import { updateInvoiceTask } from '../api/api';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { SendInvoiceToPatientDialog } from './dialogs';
@@ -147,7 +149,6 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [sendInvoiceDialogOpen, setSendInvoiceDialogOpen] = useState(false);
   const [selectedInvoiceTask, setSelectedInvoiceTask] = useState<Task | undefined>(undefined);
 
   const { oystehrZambda, oystehr } = useApiClients();
@@ -279,26 +280,15 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     return filtered.slice(startIndex, startIndex + rowsPerPage);
   }, [filtered, page, rowsPerPage]);
 
-  const sendInvoice = async (taskId: string, taskInput: TaskInput[]): Promise<void> => {
+  const sendInvoice = async (taskId: string, prefilledInvoiceInfo: PrefilledInvoiceInfo): Promise<void> => {
     try {
-      if (oystehr) {
-        await oystehr.fhir.patch({
-          resourceType: 'Task',
-          id: taskId,
-          operations: [
-            {
-              op: 'replace',
-              path: '/status',
-              value: 'requested', // todo what to put here?
-            },
-            {
-              op: 'replace',
-              path: '/input',
-              value: taskInput,
-            },
-          ],
+      if (oystehrZambda) {
+        await updateInvoiceTask(oystehrZambda, {
+          taskId,
+          status: 'requested',
+          prefilledInvoiceInfo,
         });
-        setSendInvoiceDialogOpen(false);
+        setSelectedInvoiceTask(undefined);
         enqueueSnackbar('Invoice created and sent successfully', { variant: 'success' });
       }
     } catch {
@@ -432,7 +422,6 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           <RoundedButton
             disabled={!lastActiveEncounterTask}
             onClick={() => {
-              setSendInvoiceDialogOpen(true);
               setSelectedInvoiceTask(lastActiveEncounterTask);
             }}
           >
@@ -648,8 +637,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       />
       <SendInvoiceToPatientDialog
         title="Send invoice"
-        modalOpen={sendInvoiceDialogOpen}
-        handleClose={() => setSendInvoiceDialogOpen(false)}
+        modalOpen={selectedInvoiceTask !== undefined}
+        handleClose={() => setSelectedInvoiceTask(undefined)}
         submitButtonName="Send"
         onSubmit={sendInvoice}
         invoiceTask={selectedInvoiceTask}
