@@ -25,10 +25,6 @@ export const TASK_CATEGORY_LABEL: Record<string, string> = {
   [MANUAL_TASK.category.other]: 'Other',
 };
 
-export function formatDate(dateIso: string): string {
-  return DateTime.fromISO(dateIso).toFormat('MM/dd/yyyy h:mm a');
-}
-
 export function useInHouseLabOrdersOptions(encounterId: string): {
   inHouseLabOrdersLoading: boolean;
   inHouseLabOrdersOptions: Option[];
