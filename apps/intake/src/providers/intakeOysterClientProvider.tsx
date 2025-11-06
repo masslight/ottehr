@@ -29,14 +29,7 @@ export const IntakeClientsContext = createContext<IntakeClientsContext>({
 
 export const IntakeClientsProvider: FC<PropsWithChildren> = ({ children }) => {
   const [clientWithToken, setClientWithToken] = useState<Oystehr | null>(null);
-
-  const clientTokenlessRef = useRef<Oystehr | null>(
-    new Oystehr({
-      projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
-      projectId: import.meta.env.VITE_APP_PROJECT_ID,
-    })
-  );
-
+  const [clientTokenless, setClientTokenless] = useState<Oystehr | null>(null);
   const { isAuthenticated, getAccessTokenSilently, logout } = useAuth0();
   const auth0Loaded = useAwaitAuth0();
   const [searchParams, _] = useSearchParams();
@@ -79,37 +72,61 @@ export const IntakeClientsProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [getAccessTokenSilently, auth0Loaded, isAuthenticated, urlTokenFromUrl]);
 
   const updateClient = useCallback(async (): Promise<void> => {
-    setClientWithToken(
-      new Oystehr({
-        accessToken: await tryGetToken(),
+    const token = await tryGetToken();
+
+    const clientWithToken = new Oystehr({
+      accessToken: token,
+      projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
+      projectId: import.meta.env.VITE_APP_PROJECT_ID,
+
+      // fetch interceptor responsible for:
+      // - Checks token validity before each request and refreshes token if it is close to expiration (30s buffer)
+      // - Logs out and redirects on token refresh failure
+      fetch: async (req: Request) => {
+        await auth0Loaded; // we need to wait for Auth0 state to be loaded before we can get the token; if we don't, we'll get a false positive logout
+        const newToken = await tryGetToken();
+
+        if (!newToken || !checkTokenIsValid(newToken)) {
+          await logout({
+            logoutParams: { returnTo: import.meta.env.VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL, federated: true },
+          });
+          throw new Error('token is invalid');
+        }
+
+        const headers = new Headers(req.headers);
+        headers.set('Authorization', `Bearer ${newToken}`);
+
+        return fetch(
+          new Request(req, {
+            headers: headers,
+          })
+        );
+      },
+    });
+
+    setClientWithToken(clientWithToken);
+
+    /**
+     * TokenlessClient is a hybrid client that tries to use token-based auth first if available,
+     * then falls back to tokenless mode.
+     *
+     * We preserve the token-first logic because:
+     * 1. Previously we had a client with the same behavior
+     * 2. Some tokenless zambdas have optional authenticated sections and produce different results
+     *    if a token is not present (e.g., get-paperwork zambda)
+     * 3. Forcing tokenless-only mode would cause regressions in these flows, since previously
+     *    we always attempted token-based auth first when available, even in tokenless mode
+     */
+    setClientTokenless(() => {
+      if (token) {
+        return clientWithToken;
+      }
+
+      return new Oystehr({
         projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
         projectId: import.meta.env.VITE_APP_PROJECT_ID,
-
-        // fetch interceptor responsible for:
-        // - Checks token validity before each request and refreshes token if it is close to expiration (30s buffer)
-        // - Logs out and redirects on token refresh failure
-        fetch: async (req: Request) => {
-          await auth0Loaded; // we need to wait for Auth0 state to be loaded before we can get the token; if we don't, we'll get a false positive logout
-          const newToken = await tryGetToken();
-
-          if (!newToken || !checkTokenIsValid(newToken)) {
-            await logout({
-              logoutParams: { returnTo: import.meta.env.VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL, federated: true },
-            });
-            throw new Error('token is invalid');
-          }
-
-          const headers = new Headers(req.headers);
-          headers.set('Authorization', `Bearer ${newToken}`);
-
-          return fetch(
-            new Request(req, {
-              headers: headers,
-            })
-          );
-        },
-      })
-    );
+      });
+    });
   }, [tryGetToken, logout, auth0Loaded]);
 
   // Recreates client when auth state changes (isAuthenticated or URL token); fetch interceptor handles additional token validation during requests.
@@ -118,7 +135,7 @@ export const IntakeClientsProvider: FC<PropsWithChildren> = ({ children }) => {
   }, [updateClient]);
 
   return (
-    <IntakeClientsContext.Provider value={{ clientWithToken, clientTokenless: clientTokenlessRef.current }}>
+    <IntakeClientsContext.Provider value={{ clientWithToken, clientTokenless }}>
       {children}
     </IntakeClientsContext.Provider>
   );
