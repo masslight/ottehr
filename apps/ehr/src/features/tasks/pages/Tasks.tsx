@@ -1,4 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
+import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PersonAddIcon from '@mui/icons-material/PersonAddOutlined';
 import PriorityHighOutlinedIcon from '@mui/icons-material/PriorityHighOutlined';
@@ -37,14 +38,16 @@ import {
   Task,
   TASKS_PAGE_SIZE,
   useAssignTask,
+  useCompleteTask,
   useGetTasks,
   useUnassignTask,
 } from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
-import { formatDate } from '../common';
+import { formatDate, TASK_CATEGORY_LABEL } from '../common';
 import { AssignTaskDialog } from '../components/AssignTaskDialog';
-import { CategoryChip, TASK_CATEGORY_LABEL } from '../components/CategoryChip';
+import { CategoryChip } from '../components/CategoryChip';
+import { CreateTaskDialog } from '../components/CreateTaskDialog';
 
 const LOCAL_STORAGE_FILTERS_KEY = 'tasks.filters';
 const UNKNOWN = 'Unknown';
@@ -54,10 +57,21 @@ const TASK_STATUS_LABEL: Record<string, string> = {
   'in-progress': 'in progress',
   completed: 'completed',
 };
-const CATEGORY_OPTIONS: Option[] = Object.entries(TASK_CATEGORY_LABEL).map((entry) => {
+const CATEGORY_OPTIONS: Option[] = Object.entries(
+  Object.entries(TASK_CATEGORY_LABEL).reduce<Record<string, string>>((previousValue, entry) => {
+    const category = entry[0];
+    const label = entry[1];
+    if (previousValue[label]) {
+      previousValue[label] += ',' + category;
+    } else {
+      previousValue[label] = category;
+    }
+    return previousValue;
+  }, {})
+).map((entry) => {
   return {
-    label: entry[1],
-    value: entry[0],
+    label: entry[0],
+    value: entry[1],
   };
 });
 const STATUS_OPTIONS: Option[] = Object.entries(TASK_STATUS_LABEL).map((entry) => {
@@ -71,6 +85,7 @@ export const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const { mutateAsync: assignTask, isPending: isAssigning } = useAssignTask();
   const { mutateAsync: unassignTask } = useUnassignTask();
+  const { mutateAsync: completeTask } = useCompleteTask();
   const currentUser = useEvolveUser();
   const currentUserProviderId = currentUser?.profile?.split('/')[1];
 
@@ -109,10 +124,21 @@ export const Tasks: React.FC = () => {
       return (
         <RoundedButton
           variant="contained"
-          onClick={() => navigate(task.action?.link ?? '#')}
           disabled={currentUserProviderId !== task.assignee?.id}
+          onClick={() => window.open(task.action?.link, '_blank')}
         >
           {task.action.name}
+        </RoundedButton>
+      );
+    }
+    return null;
+  };
+
+  const renderCompleteButton = (task: Task): ReactElement | null => {
+    if (task.status !== COMPLETED && currentUserProviderId === task.assignee?.id && task.completable) {
+      return (
+        <RoundedButton variant="contained" onClick={async () => await completeTask({ taskId: task.id })}>
+          Complete
         </RoundedButton>
       );
     }
@@ -193,7 +219,7 @@ export const Tasks: React.FC = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  const [pageNumber, setPageNumber] = React.useState(0);
+  const [pageNumber, setPageNumber] = useState(0);
 
   const { data: tasksData, isLoading: isTasksLoading } = useGetTasks({
     assignedTo: searchParams.get('assignedTo'),
@@ -203,6 +229,11 @@ export const Tasks: React.FC = () => {
     page: pageNumber,
   });
 
+  const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
+  const onNewTaskClick = (): void => {
+    setShowCreateTaskDialog(true);
+  };
+
   return (
     <PageContainer>
       <Stack spacing={2}>
@@ -211,8 +242,11 @@ export const Tasks: React.FC = () => {
             <Stack direction="row" spacing={2} padding="8px">
               <LocationSelectInput name="location" label="Location" />
               <SelectInput name="category" label="Category" options={CATEGORY_OPTIONS} />
-              <ProviderSelectInput name="assignedTo" label="Asigned to" />
+              <ProviderSelectInput name="assignedTo" label="Assigned to" />
               <SelectInput name="status" label="Status" options={STATUS_OPTIONS} />
+              <RoundedButton variant="contained" onClick={onNewTaskClick} startIcon={<AddIcon />}>
+                New Task
+              </RoundedButton>
             </Stack>
           </Paper>
         </FormProvider>
@@ -305,7 +339,8 @@ export const Tasks: React.FC = () => {
                             </GenericToolTip>
                           ) : null}
                         </Box>
-                        <Typography variant="body2" display="inline" style={{ color: '#00000099' }}>
+                        {task.details ? <Typography variant="body2">{task.details}</Typography> : null}
+                        <Typography variant="body2" style={{ color: '#00000099' }}>
                           {task.subtitle}
                         </Typography>
                       </TableCell>
@@ -322,7 +357,7 @@ export const Tasks: React.FC = () => {
                             </Typography>
                           </>
                         ) : (
-                          'Not Assigned'
+                          'Unassigned'
                         )}
                       </TableCell>
                       <TableCell>
@@ -337,6 +372,7 @@ export const Tasks: React.FC = () => {
                         {task.status !== COMPLETED ? (
                           <Stack direction="row" justifyContent="space-between">
                             {renderActionButton(task)}
+                            {renderCompleteButton(task)}
                             {renderMoreButton(task)}
                           </Stack>
                         ) : null}
@@ -403,6 +439,12 @@ export const Tasks: React.FC = () => {
           </Popover>
         ) : null}
         {taskToAssign ? <AssignTaskDialog task={taskToAssign} handleClose={() => setTaskToAssign(null)} /> : null}
+        <CreateTaskDialog
+          open={showCreateTaskDialog}
+          handleClose={(): void => {
+            setShowCreateTaskDialog(false);
+          }}
+        />
       </Stack>
     </PageContainer>
   );

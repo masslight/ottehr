@@ -50,3 +50,5 @@ export const ORG_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/organ
 export const ORG_TYPE_PAYER_CODE = 'pay';
 
 export const AI_QUESTIONNAIRE_ID = 'aiInterviewQuestionnaire';
+
+export const REASON_FOR_VISIT_SEPARATOR = ' - ';

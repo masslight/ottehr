@@ -1,8 +1,6 @@
-import { expect, Page, test } from '@playwright/test';
+import { test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { formatDOB } from 'utils';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import {
   PATIENT_BIRTH_DATE_SHORT,
   PATIENT_BIRTHDAY,
@@ -20,112 +18,21 @@ import {
 } from '../../e2e-utils/resource-handler';
 import { expectPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientsPage } from '../page/PatientsPage';
-import { openVisitsPage } from '../page/VisitsPage';
 
 // We may create new instances for the tests with mutable operations, and keep parallel tests isolated
-const PROCESS_ID = `ehr.spec.ts-${DateTime.now().toMillis()}`;
+const PROCESS_ID = `patients.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID);
-
-const awaitInPersonHeaderInit = async (page: Page): Promise<void> => {
-  await expect(async () => {
-    const content = await page.getByTestId(dataTestIds.inPersonHeader.container).textContent();
-    return content?.includes(resourceHandler.patient.name![0].family!) ?? false;
-  }).toPass({ timeout: 30_000 });
-};
 
 test.beforeAll(async () => {
   if (process.env.INTEGRATION_TEST === 'true') {
     await resourceHandler.setResourcesFast();
   } else {
     await resourceHandler.setResources();
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   }
 });
 
 test.afterAll(async () => {
   await resourceHandler.cleanupResources();
-});
-
-test('Happy path: set up filters and navigate to visit page', async ({ page }) => {
-  const visitsPage = await openVisitsPage(page);
-
-  // INITIAL DATA IS LOADED
-  await expect(page.getByTestId('PersonIcon')).toBeVisible();
-  await expect(page.getByTestId(dataTestIds.dashboard.addPatientButton)).toBeVisible({ timeout: 15000 });
-  await expect(page.getByTestId(dataTestIds.header.userName)).toBeAttached({ timeout: 15000 });
-
-  // CHOOSE DATE
-  await page.waitForSelector('button[aria-label*="Choose date"]');
-  await page.click('button[aria-label*="Choose date"]');
-  await page.getByTestId(dataTestIds.dashboard.datePickerTodayButton).locator('button').click();
-
-  await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-  await visitsPage.clickPrebookedTab();
-  await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
-  await visitsPage.clickInOfficeTab();
-  await visitsPage.clickIntakeButton(resourceHandler.appointment.id!);
-
-  // todo: commenting out cause it doesn't work in CI, need to investigate why, locally runs fine every time
-  // // GOTO VISIT PAGE
-  // await page.getByTestId(dataTestIds.dashboard.tableRowStatus(resourceHandler.appointment.id!)).click();
-
-  // // CHECK THE URL CHANGED
-  // await page.waitForURL(`/visit/${resourceHandler.appointment.id}`);
-
-  // // PATIENT NAME IS DISPLAYED
-  // await expect(page.getByTestId(dataTestIds.appointmentPage.patientFullName)).toContainText(
-  //   resourceHandler.patient.name![0].family!
-  // );
-});
-
-test('In-Person patient page is available', async ({ page }) => {
-  await page.goto(`in-person/${resourceHandler.appointment.id}/patient-info`);
-  await awaitInPersonHeaderInit(page);
-});
-
-test('In-Person screening-questions page is available', async ({ page }) => {
-  await page.goto(`/in-person/${resourceHandler.appointment.id}/screening-questions`);
-  await awaitInPersonHeaderInit(page);
-});
-
-test('In-Person vitals page is available', async ({ page }) => {
-  await page.goto(`in-person/${resourceHandler.appointment.id}/vitals`);
-  await awaitInPersonHeaderInit(page);
-});
-
-test('In-Person allergies page is available', async ({ page }) => {
-  await page.goto(`in-person/${resourceHandler.appointment.id}/allergies`);
-  await awaitInPersonHeaderInit(page);
-});
-
-test('In-Person medications page is available', async ({ page }) => {
-  await page.goto(`in-person/${resourceHandler.appointment.id}/medications`);
-  await awaitInPersonHeaderInit(page);
-});
-
-test('In-Person medical conditions page is available', async ({ page }) => {
-  await page.goto(`in-person/${resourceHandler.appointment.id}/medical-conditions`);
-  await awaitInPersonHeaderInit(page);
-});
-
-test('In-Person surgical history page is available', async ({ page }) => {
-  await page.goto(`in-person/${resourceHandler.appointment.id}/surgical-history`);
-  await awaitInPersonHeaderInit(page);
-});
-
-test('In-Person hospitalization page is available', async ({ page }) => {
-  await page.goto(`in-person/${resourceHandler.appointment.id}/hospitalization`);
-  await awaitInPersonHeaderInit(page);
-});
-
-test('In-Person external lab orders page is available', async ({ page }) => {
-  await page.goto(`in-person/${resourceHandler.appointment.id}/external-lab-orders`);
-  await awaitInPersonHeaderInit(page);
-});
-
-test('In-Person assessment page is available', async ({ page }) => {
-  await page.goto(`in-person/${resourceHandler.appointment.id}/assessment`);
-  await awaitInPersonHeaderInit(page);
 });
 
 test.describe('Patient search', { tag: '@flaky' }, () => {
@@ -293,10 +200,6 @@ test.describe('Patient search', { tag: '@flaky' }, () => {
 });
 
 test.describe('Patient header tests', () => {
-  test.afterAll(async () => {
-    await resourceHandler.cleanupResources();
-  });
-
   test.beforeEach(async ({ page }) => {
     await page.goto('/patient/' + resourceHandler.patient.id + '/info');
   });

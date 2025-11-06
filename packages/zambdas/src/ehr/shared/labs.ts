@@ -20,6 +20,7 @@ import {
   QuestionnaireResponseItemAnswer,
   Schedule,
   ServiceRequest,
+  Slot,
   Specimen,
   Task,
 } from 'fhir/r4b';
@@ -33,6 +34,7 @@ import {
   externalLabOrderIsManual,
   ExternalLabOrderResult,
   ExternalLabOrderResultConfig,
+  getAdditionalPlacerId,
   getCoding,
   getOrderNumber,
   getPresignedURL,
@@ -46,11 +48,11 @@ import {
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
+  LabDocument,
   LabDrTypeTagCode,
   LabelPdf,
   LabOrderPDF,
   LabOrderResultDetails,
-  LabPdf,
   LabResultPDF,
   LabType,
   nameLabTest,
@@ -58,9 +60,11 @@ import {
   NonNormalResult,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_DOC_CATEGORY_CODING,
+  OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PATIENT_BILLING_ACCOUNT_TYPE,
+  SR_REVOKED_REASON_EXT,
 } from 'utils';
 import { parseLabOrderStatusWithSpecificTask } from '../get-lab-orders/helpers';
 
@@ -85,6 +89,7 @@ type DrLabResultResources = {
   labOrganization: Organization;
   diagnosticReport: DiagnosticReport;
   observations: Observation[];
+  schedule: Schedule | undefined;
 };
 
 const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): SearchParam[] => {
@@ -105,6 +110,18 @@ const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): Se
       name: '_include:iterate',
       value: 'DiagnosticReport:result', // observations
     },
+    {
+      name: '_include:iterate',
+      value: 'Encounter:appointment',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Slot:schedule',
+    },
   ];
 };
 
@@ -114,7 +131,9 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
 ): Promise<DrLabResultResources> {
   const searchParams = makeSearchParamsBasedOnDiagnosticReport(diagnosticReportID);
   const resourceSearch = (
-    await oystehr.fhir.search<Patient | Organization | DiagnosticReport | Observation>({
+    await oystehr.fhir.search<
+      Patient | Organization | DiagnosticReport | Observation | Encounter | Appointment | Slot | Schedule
+    >({
       resourceType: 'DiagnosticReport',
       params: searchParams,
     })
@@ -124,6 +143,7 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   const organizations: Organization[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const observations: Observation[] = [];
+  const schedules: Schedule[] = [];
 
   resourceSearch.forEach((resource) => {
     if (resource.resourceType === 'Patient') patients.push(resource);
@@ -137,21 +157,25 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
       );
       if (isCorrectCategory) diagnosticReports.push(resource);
     }
+    if (resource.resourceType === 'Schedule') schedules.push(resource);
   });
 
   if (patients?.length !== 1) throw new Error('patient is not found');
   if (organizations?.length !== 1) throw new Error('performing lab Org not found');
   if (diagnosticReports?.length !== 1) throw new Error('diagnosticReport is not found');
+  if (schedules.length > 1) throw new Error('found multiple schedules for DR appointment');
 
   const patient = patients[0];
   const labOrganization = organizations[0];
   const diagnosticReport = diagnosticReports[0];
+  const schedule = schedules.length ? schedules[0] : undefined;
 
   return {
     patient,
     labOrganization,
     diagnosticReport,
     observations,
+    schedule,
   };
 }
 
@@ -655,16 +679,17 @@ const getDocRefRelatedId = (
   return reference?.split('/')[1];
 };
 
-type FetchLabOrderPDFRes = {
+type FetchLabDocumentsRes = {
   resultPDFs: LabResultPDF[];
   labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
-  abnPDFs: LabPdf[];
+  abnPDFs: LabDocument[];
+  labGeneratedResults: LabDocument[];
 };
-export const fetchLabOrderPDFsPresignedUrls = async (
+export const fetchLabDocumentPresignedUrls = async (
   documentReferences: DocumentReference[],
   m2mToken: string
-): Promise<FetchLabOrderPDFRes | undefined> => {
+): Promise<FetchLabDocumentsRes | undefined> => {
   if (!documentReferences.length) {
     return;
   }
@@ -672,6 +697,14 @@ export const fetchLabOrderPDFsPresignedUrls = async (
 
   for (const docRef of documentReferences) {
     const diagnosticReportId = getDocRefRelatedId(docRef, 'DiagnosticReport');
+    const isLabGeneratedResultDoc = docRef.category?.find(
+      (cat) =>
+        cat.coding?.find(
+          (code) =>
+            code.system === OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING.system &&
+            code.code === OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING.code
+        )
+    );
     const serviceRequestId = getDocRefRelatedId(docRef, 'ServiceRequest');
     const isLabOrderDoc = docRef.type?.coding?.find(
       (code) => code.system === LAB_ORDER_DOC_REF_CODING_CODE.system && code.code === LAB_ORDER_DOC_REF_CODING_CODE.code
@@ -691,13 +724,19 @@ export const fetchLabOrderPDFsPresignedUrls = async (
           getPresignedURL(z3Url, m2mToken)
             .then((presignedURL) => {
               if (diagnosticReportId) {
-                return { presignedURL, diagnosticReportId } as LabResultPDF;
-              } else if (serviceRequestId && isLabOrderDoc) {
-                return { presignedURL, serviceRequestId, docRefId } as LabOrderPDF;
-              } else if (serviceRequestId && isAbnDoc) {
-                return { presignedURL, documentReference: docRef, type: 'abn' } as LabPdf;
-              } else if (serviceRequestId && isLabelDoc) {
-                return { presignedURL, documentReference: docRef } as LabelPdf;
+                if (isLabGeneratedResultDoc) {
+                  return { presignedURL, documentReference: docRef, type: 'lab-generated-result' } as LabDocument;
+                } else {
+                  return { presignedURL, diagnosticReportId } as LabResultPDF;
+                }
+              } else if (serviceRequestId) {
+                if (isLabOrderDoc) {
+                  return { presignedURL, serviceRequestId, docRefId } as LabOrderPDF;
+                } else if (isAbnDoc) {
+                  return { presignedURL, documentReference: docRef, type: 'abn' } as LabDocument;
+                } else if (isLabelDoc) {
+                  return { presignedURL, documentReference: docRef } as LabelPdf;
+                }
               }
               return null;
             })
@@ -713,30 +752,34 @@ export const fetchLabOrderPDFsPresignedUrls = async (
 
   const pdfs = await Promise.allSettled(pdfPromises);
 
-  const { resultPDFs, labelPDF, orderPDF, abnPDFs } = pdfs
+  const { resultPDFs, labelPDF, orderPDF, abnPDFs, labGeneratedResults } = pdfs
     .filter(
-      (result): result is PromiseFulfilledResult<LabResultPDF | LabelPdf | LabOrderPDF | LabPdf> =>
+      (result): result is PromiseFulfilledResult<LabResultPDF | LabelPdf | LabOrderPDF | LabDocument> =>
         result.status === 'fulfilled' && result.value !== null
     )
     .reduce(
-      (acc: FetchLabOrderPDFRes, result) => {
+      (acc: FetchLabDocumentsRes, result) => {
         if ('diagnosticReportId' in result.value) {
           acc.resultPDFs.push(result.value);
         } else if ('serviceRequestId' in result.value) {
           acc.orderPDF = result.value;
         } else if ('documentReference' in result.value) {
           if ('type' in result.value) {
-            acc.abnPDFs.push(result.value);
+            if (result.value.type === 'abn') {
+              acc.abnPDFs.push(result.value);
+            } else if (result.value.type === 'lab-generated-result') {
+              acc.labGeneratedResults.push(result.value);
+            }
           } else {
             acc.labelPDF = result.value;
           }
         }
         return acc;
       },
-      { resultPDFs: [], labelPDF: undefined, orderPDF: undefined, abnPDFs: [] }
+      { resultPDFs: [], labelPDF: undefined, orderPDF: undefined, abnPDFs: [], labGeneratedResults: [] }
     );
 
-  return { resultPDFs, labelPDF, orderPDF, abnPDFs };
+  return { resultPDFs, labelPDF, orderPDF, abnPDFs, labGeneratedResults };
 };
 
 export const parseAppointmentIdForServiceRequest = (
@@ -833,6 +876,12 @@ export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
       )
   );
   return isCurrent && isAbn;
+};
+
+export const srHasRejectedAbnExt = (sr: ServiceRequest): boolean => {
+  return !!sr.extension?.some(
+    (ext) => ext.url === SR_REVOKED_REASON_EXT.url && ext.valueCode === SR_REVOKED_REASON_EXT.valueCode
+  );
 };
 
 export interface AOEDisplayForOrderForm {
@@ -1142,14 +1191,15 @@ const getResultDetailsBasedOnDr = async (
     resultPdfUrl,
     diagnosticReportId: diagnosticReport.id || '',
     taskId: task.id || '',
+    alternatePlacerId: getAdditionalPlacerId(diagnosticReport),
   };
 
   return resultDetail;
 };
 
 const getResultPDFUrlBasedOnDr = async (docRef: DocumentReference, m2mToken: string): Promise<string> => {
-  const pdfs = await fetchLabOrderPDFsPresignedUrls([docRef], m2mToken);
-  const resultPDFs = pdfs?.resultPDFs;
+  const documents = await fetchLabDocumentPresignedUrls([docRef], m2mToken);
+  const resultPDFs = documents?.resultPDFs;
   if (resultPDFs?.length !== 1) {
     console.log('Unexpected number of resultPDFs returned: ', resultPDFs?.length);
     return '';

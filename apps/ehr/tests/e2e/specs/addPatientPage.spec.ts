@@ -18,8 +18,6 @@ import { expectAddPatientPage } from '../page/AddPatientPage';
 import { expectVisitsPage } from '../page/VisitsPage';
 
 const PATIENT_PREFILL_NAME = PATIENT_FIRST_NAME + ' ' + PATIENT_LAST_NAME;
-const PATIENT_INPUT_BIRTHDAY = PATIENT_BIRTH_DATE_SHORT;
-const REASON_FOR_VISIT = PATIENT_REASON_FOR_VISIT;
 
 // todo: remove hardcoded values, use constants from resource-handler
 const NEW_PATIENT_1_LAST_NAME = 'new_1' + PATIENT_LAST_NAME;
@@ -41,91 +39,9 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/visits/add');
 });
 
-test('Open "Add patient page", click "Cancel", navigates back to visits page', async ({ page }) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.clickCancelButton();
-
-  await expectVisitsPage(page);
-});
-
-test('Open "Add patient page", click "Search patient", validation error on "Mobile phone" field shown', async ({
-  page,
-}) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.verifyMobilePhoneNumberValidationErrorShown();
-});
-
-test('Open "Add patient page" then enter invalid phone number, click "Search patient", validation error on "Mobile phone" field shown', async ({
-  page,
-}) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.enterMobilePhone('123');
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.verifyMobilePhoneNumberValidationErrorShown();
-});
-
-test('Add button does nothing when any required field is empty', async ({ page }) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifySearchForPatientsErrorShown();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.clickPatientNotFoundButton();
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.enterFirstName(PATIENT_FIRST_NAME);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.enterLastName(PATIENT_LAST_NAME);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.enterDateOfBirth(PATIENT_INPUT_BIRTHDAY);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.selectSexAtBirth(PATIENT_INPUT_GENDER);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.selectReasonForVisit(REASON_FOR_VISIT);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.selectVisitType(VISIT_TYPES.PRE_BOOK);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.clickCloseSelectDateWarningDialog();
-  await addPatientPage.verifyPageStillOpened();
-
-  await addPatientPage.selectVisitType(VISIT_TYPES.POST_TELEMED);
-  await addPatientPage.clickAddButton();
-  await addPatientPage.clickCloseSelectDateWarningDialog();
-  await addPatientPage.verifyPageStillOpened();
-});
-
-test('Open "Add patient page" then enter invalid date of birth, click "Add", validation error on "Date of Birth" field shown', async ({
-  page,
-}) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
-  await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.clickPatientNotFoundButton();
-  await addPatientPage.enterDateOfBirth('3');
-  await addPatientPage.verifyDateFormatValidationErrorShown();
-});
+// Note: Simple validation tests have been migrated to component tests
+// See: tests/component/AddPatientValidation.test.tsx
+// These tests run much faster (~4s vs ~60s) and are more reliable
 
 test.describe('For new patient', () => {
   test(
@@ -182,7 +98,7 @@ test.describe.skip(
       if (process.env.INTEGRATION_TEST === 'true') {
         await resourceHandler.setResourcesFast();
       } else {
-        await resourceHandler.setResources();
+        await resourceHandler.setResources({ skipPaperwork: true });
         await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
       }
     });
