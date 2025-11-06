@@ -26,20 +26,20 @@ const MODAL_STYLE = {
 const AIInterviewStartPage = (): JSX.Element => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
-  const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
+  const client = useUCZambdaClient({ tokenless: false });
 
   const [aiChatStartButtonEnabled, setAiChatStartButtonEnabled] = useState<boolean>(false);
   const [aiChatStartButtonLoading, setAiChatStartButtonLoading] = useState<boolean>(false);
 
   const saveAiChatConsentAndStartChat = async (): Promise<void> => {
-    if (tokenlessZambdaClient == null || appointmentId == null) return;
+    if (client == null || appointmentId == null) return;
     setAiChatStartButtonLoading(true);
     setAiChatStartButtonEnabled(false);
     await api.aIInterviewPersistConsent(
       {
         appointmentId,
       },
-      tokenlessZambdaClient
+      client
     );
     navigate(intakeFlowPageRoute.AIInterview.path.replace(':id', appointmentId));
   };
