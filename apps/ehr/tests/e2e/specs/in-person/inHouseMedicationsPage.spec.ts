@@ -37,12 +37,8 @@ let orderMedicationPage: OrderMedicationPage;
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
-  if (process.env.INTEGRATION_TEST === 'true') {
-    await resourceHandler.setResourcesFast();
-  } else {
-    await resourceHandler.setResources();
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-  }
+  await resourceHandler.setResources();
+  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
   await page.goto(`in-person/${resourceHandler.appointment.id}`);
   const inPersonHeader = new InPersonHeader(page);
