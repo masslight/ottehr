@@ -1268,6 +1268,13 @@
         "expression": "cron(0 0 * * ? *)"
       }
     },
+    "GET-PATIENT-VISIT-HISTORY": {
+      "name": "get-patient-visit-history",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/patient-visit-history/get/index",
+      "zip": ".dist/zips/get-patient-visit-history.zip"
+    },
     "UPDATE_INVOICE_TASK": {
       "name": "update-invoice-task",
       "type": "http_auth",

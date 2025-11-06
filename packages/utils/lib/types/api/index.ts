@@ -51,5 +51,6 @@ export * from './user.types';
 export * from './send-receipt-by-email.types';
 export * from './update-visit-details.types';
 export * from './invoiceable-patients-reports.types';
+export * from './patient-visit-history.types';
 export * from './bulk-update-insurance-status.types';
 export * from './update-invoice-task.types';

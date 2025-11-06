@@ -1412,6 +1412,6 @@ export const updateInvoiceTask = async (oystehr: Oystehr, parameters: UpdateInvo
     });
   } catch (error: unknown) {
     console.log(error);
-    throw error;
+    throw apiErrorToThrow(error);
   }
 };
