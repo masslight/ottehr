@@ -1445,9 +1445,9 @@ export interface TemplateVariables {
   [key: string]: string | number;
 }
 
-// ${} syntax
-export function replaceTemplateVariablesDollar(template: string, variables: TemplateVariables): string {
-  return template.replace(/\$\{(\w+)\}/g, (match, key) => {
+// #{} syntax
+export function replaceTemplateVariablesHashtag(template: string, variables: TemplateVariables): string {
+  return template.replace(/#\{(\w+)}/g, (match, key) => {
     return variables[key]?.toString() || match;
   });
 }

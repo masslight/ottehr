@@ -1573,7 +1573,7 @@
         "resourceType": "Subscription",
         "status": "active",
         "reason": "Send invoice to patient",
-        "criteria": "Task?code=send-invoice-to-patient|&status=requested",
+        "criteria": "Task?code=|send-invoice-to-patient&status=requested",
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-INVOICE-TO-PATIENT/id}"
@@ -1582,6 +1582,10 @@
           {
             "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
             "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
           }
         ]
       }

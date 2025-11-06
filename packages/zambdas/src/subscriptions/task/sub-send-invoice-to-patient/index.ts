@@ -12,7 +12,7 @@ import {
   getStripeCustomerIdFromAccount,
   PrefilledInvoiceInfo,
   removePrefix,
-  replaceTemplateVariablesDollar,
+  replaceTemplateVariablesHashtag,
   SecretsKeys,
 } from 'utils';
 import {
@@ -80,7 +80,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Sending sms to patient');
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     const smsMessage = sendInvoiceResponse.hosted_invoice_url
-      ? replaceTemplateVariablesDollar(prefilledInfo.smsTextMessage, {
+      ? replaceTemplateVariablesHashtag(prefilledInfo.smsTextMessage, {
           invoiceLink: sendInvoiceResponse.hosted_invoice_url,
         })
       : prefilledInfo.smsTextMessage;
@@ -127,10 +127,9 @@ async function createInvoiceItem(
 
     const invoiceItemParams: Stripe.InvoiceItemCreateParams = {
       customer: stripeCustomerId,
-      // amount, // cents
-      amount: 100, // todo remove this it's for testing needs
+      amount, // cents
       currency: 'usd',
-      description: memo, // ??
+      description: memo,
       invoice: invoice.id, // force add current invoiceItem to previously created invoice
     };
     const invoiceItemResponse = await stripe.invoiceItems.create(invoiceItemParams);
@@ -165,7 +164,7 @@ async function createInvoice(
         oystehr_encounter_id: oystEncounterId,
       },
       currency: 'USD',
-      due_date: DateTime.fromISO(dueDate).toUnixInteger(), // ???
+      due_date: DateTime.fromISO(dueDate).toUnixInteger(),
       pending_invoice_items_behavior: 'exclude', // Start with a blank invoice
       auto_advance: false, // Ensure it stays a draft
     };

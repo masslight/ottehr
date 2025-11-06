@@ -4,6 +4,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
 import {
   Box,
+  ButtonOwnProps,
   capitalize,
   Checkbox,
   Chip,
@@ -20,6 +21,7 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
@@ -137,7 +139,6 @@ const columns: TableColumn[] = [
 
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
   const { patient, totalCount, latestVisitDate } = props;
-
   const { id: patientId } = useParams();
 
   const [type, setType] = useState('all');
@@ -417,16 +418,41 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           </RoundedButton>
         );
       case 'invoice': {
-        const lastActiveEncounterTask = row.sendInvoiceTask;
+        const lastEncounterTask = row.sendInvoiceTask;
+
+        console.log('Task status: ', lastEncounterTask?.status);
+
+        let buttonColor: ButtonOwnProps['color'] = 'secondary';
+        let tooltipText = "Invoice can't be send for this visit yet.";
+        switch (lastEncounterTask?.status) {
+          case 'ready':
+            buttonColor = 'primary';
+            tooltipText = 'Invoice can be send for this visit.';
+            break;
+          case 'completed':
+            buttonColor = 'success';
+            tooltipText =
+              'Invoice has been sent and processed for this visit successfully. You can resend it by pressing this button';
+            break;
+          case 'failed':
+            buttonColor = 'error';
+            tooltipText = 'Invoice has been sent but failed to process for this visit.';
+            break;
+        }
         return (
-          <RoundedButton
-            disabled={!lastActiveEncounterTask}
-            onClick={() => {
-              setSelectedInvoiceTask(lastActiveEncounterTask);
-            }}
-          >
-            Invoice
-          </RoundedButton>
+          <Tooltip title={tooltipText} placement="top">
+            <Box>
+              <RoundedButton
+                disabled={!lastEncounterTask}
+                color={buttonColor}
+                onClick={() => {
+                  setSelectedInvoiceTask(lastEncounterTask);
+                }}
+              >
+                Invoice
+              </RoundedButton>
+            </Box>
+          </Tooltip>
         );
       }
       default:

@@ -143,6 +143,10 @@ async function getEncountersWithoutTask(candid: CandidApiClient, oystehr: Oysteh
     encounterPackagesResponse.forEach((pkg) => {
       if (!pkg.tasks || pkg.tasks.length === 0) {
         const itemization = itemizationResponse[pkg.claim.claimId];
+        console.log(
+          `patient: ${pkg.claim.patientExternalId} claim: ${pkg.claim.claimId} balance: `,
+          itemization.patientBalanceCents / 100
+        );
         if (itemization.patientBalanceCents > 0) {
           // todo: is it right to check if balance is > 0?
           encountersWithoutTask.push(pkg.encounter);

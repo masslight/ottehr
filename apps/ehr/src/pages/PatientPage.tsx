@@ -28,7 +28,6 @@ export default function PatientPage(): JSX.Element {
   const [tab, setTab] = useState(location.state?.defaultTab || 'encounters');
 
   const { loading, patient } = useGetPatient(id);
-
   const { oystehrZambda } = useApiClients();
 
   const { firstName, lastName } = useMemo(() => {
@@ -183,7 +182,7 @@ export default function PatientPage(): JSX.Element {
               <PatientEncountersGrid
                 patient={patient}
                 totalCount={appointments.length}
-                latestVisitDate={latestAppointment.dateTime ?? null}
+                latestVisitDate={latestAppointment?.dateTime ?? null}
               />
             </TabPanel>
             <TabPanel value="followups" sx={{ p: 0 }}>
