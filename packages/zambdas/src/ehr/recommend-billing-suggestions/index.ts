@@ -15,7 +15,7 @@ export const index = wrapHandler(
       console.debug('validateRequestParameters success');
 
       let prompt =
-        'Take on a persona or a medical biller and coder. Using that persona review claims based on provided diagnosis codes (ICD-10) and other CPT codes and let me know what should be adjusted for proper billing. Provide recommendation as a concise single sentence.  If claim is good, simply reply with "No coding changes." Now, using this persona, review claim with  Do not include markdown.';
+        'Take on a persona of a medical biller and coder looking for errors that might cause a claim to be rejected in an urgent care setting. Review the following claim based on provided ICD and CPT codes and provide a very concise single sentence explaining any possible issues or say "No coding changes." Do not include markdown.';
 
       if (diagnoses && diagnoses.length > 0) {
         prompt += ` ICD: ${diagnoses
@@ -26,10 +26,8 @@ export const index = wrapHandler(
       if (billing && billing.length > 0) {
         prompt += ` CPT: ${billing.map((code) => code.code).join(', ')}.`;
       }
-      console.log(prompt);
+
       const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
-      // const aiResponseString = await invokeChatbotOpenAI(prompt, secrets);
-      console.log(aiResponseString);
 
       return {
         statusCode: 200,

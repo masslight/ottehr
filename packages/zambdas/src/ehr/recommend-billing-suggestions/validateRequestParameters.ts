@@ -8,7 +8,6 @@ export function validateRequestParameters(
     throw new Error('No request body provided');
   }
 
-  // no complication
   const { diagnoses, billing } = JSON.parse(input.body);
 
   return {
