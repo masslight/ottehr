@@ -364,9 +364,7 @@ function fhirTaskToTask(task: FhirTask): Task {
     const providerName = getInputString(IN_HOUSE_LAB_TASK.input.providerName, task);
     const orderDate = getInputString(IN_HOUSE_LAB_TASK.input.orderDate, task);
     const appointmentId = getInputString(IN_HOUSE_LAB_TASK.input.appointmentId, task);
-    subtitle = `Ordered by ${providerName} on ${
-      orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
-    }`;
+    subtitle = `Ordered by ${providerName} on ${orderDate ? formatDate(orderDate) : ''}`;
     if (code === IN_HOUSE_LAB_TASK.code.collectSampleTask) {
       title = `Collect sample for “${testName}” for ${patientName}`;
     }
@@ -464,4 +462,8 @@ function getInputReference(code: string, task: FhirTask): Reference | undefined 
 
 function getInput(code: string, task: FhirTask): TaskInput | undefined {
   return task.input?.find((input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === code);
+}
+
+export function formatDate(dateIso: string): string {
+  return DateTime.fromISO(dateIso).toFormat('MM/dd/yyyy h:mm a', { locale: 'en-US' });
 }

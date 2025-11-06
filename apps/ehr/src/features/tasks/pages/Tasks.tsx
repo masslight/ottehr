@@ -36,6 +36,7 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
 import {
+  formatDate,
   Task,
   TASKS_PAGE_SIZE,
   useAssignTask,
@@ -45,7 +46,7 @@ import {
 } from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
-import { formatDate, TASK_CATEGORY_LABEL } from '../common';
+import { TASK_CATEGORY_LABEL } from '../common';
 import { AssignTaskDialog } from '../components/AssignTaskDialog';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
