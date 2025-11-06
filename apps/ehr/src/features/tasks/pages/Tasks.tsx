@@ -1,5 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import AddIcon from '@mui/icons-material/Add';
+import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PersonAddIcon from '@mui/icons-material/PersonAddOutlined';
 import PriorityHighOutlinedIcon from '@mui/icons-material/PriorityHighOutlined';
@@ -84,7 +85,7 @@ const STATUS_OPTIONS: Option[] = Object.entries(TASK_STATUS_LABEL).map((entry) =
 
 export const Tasks: React.FC = () => {
   const navigate = useNavigate();
-  const { mutateAsync: assignTask, isPending: isAssigning } = useAssignTask();
+  const { mutateAsync: assignTask } = useAssignTask();
   const { mutateAsync: unassignTask } = useUnassignTask();
   const { mutateAsync: completeTask } = useCompleteTask();
   const currentUser = useEvolveUser();
@@ -100,34 +101,9 @@ export const Tasks: React.FC = () => {
     if (task.status === COMPLETED) {
       return null;
     }
-    if (!task.assignee) {
-      return (
-        <RoundedButton
-          variant="outlined"
-          onClick={async () => {
-            if (currentUserProviderId && currentUser?.name) {
-              await assignTask({
-                taskId: task.id,
-                assignee: {
-                  id: currentUserProviderId,
-                  name: currentUser.userName,
-                },
-              });
-            }
-          }}
-          loading={isAssigning}
-        >
-          Assign Me
-        </RoundedButton>
-      );
-    }
     if (task.action) {
       return (
-        <RoundedButton
-          variant="contained"
-          disabled={currentUserProviderId !== task.assignee?.id}
-          onClick={() => window.open(task.action?.link, '_blank')}
-        >
+        <RoundedButton variant="contained" onClick={() => window.open(task.action?.link, '_blank')}>
           {task.action.name}
         </RoundedButton>
       );
@@ -422,19 +398,42 @@ export const Tasks: React.FC = () => {
                   </ListItemButton>
                 </ListItem>
               ) : (
-                <ListItem disablePadding>
-                  <ListItemButton
-                    onClick={() => {
-                      setTaskToAssign(moreActionsPopoverData.task);
-                      closeMoreActionsPopover();
-                    }}
-                  >
-                    <ListItemIcon>
-                      <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
-                    </ListItemIcon>
-                    <ListItemText primary="Assign to someone else" />
-                  </ListItemButton>
-                </ListItem>
+                <>
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      onClick={async () => {
+                        if (currentUserProviderId && currentUser?.name) {
+                          await assignTask({
+                            taskId: moreActionsPopoverData.task.id,
+                            assignee: {
+                              id: currentUserProviderId,
+                              name: currentUser.userName,
+                            },
+                          });
+                          closeMoreActionsPopover();
+                        }
+                      }}
+                    >
+                      <ListItemIcon>
+                        <HowToRegOutlinedIcon color="primary" />
+                      </ListItemIcon>
+                      <ListItemText primary="Assign me" />
+                    </ListItemButton>
+                  </ListItem>
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      onClick={() => {
+                        setTaskToAssign(moreActionsPopoverData.task);
+                        closeMoreActionsPopover();
+                      }}
+                    >
+                      <ListItemIcon>
+                        <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
+                      </ListItemIcon>
+                      <ListItemText primary="Assign to someone else" />
+                    </ListItemButton>
+                  </ListItem>
+                </>
               )}
             </List>
           </Popover>
