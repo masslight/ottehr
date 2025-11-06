@@ -24,9 +24,9 @@ on:
           - staging
           - demo
         default: 'local'
-  # pull_request:
-  #   types: [opened, synchronize, reopened, ready_for_review]
-  #   branches: [main, develop, 'release/**']
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, develop, 'release/**']
   schedule:
     - cron: '0 0 * * *'
 
