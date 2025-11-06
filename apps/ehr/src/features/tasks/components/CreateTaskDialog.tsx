@@ -2,9 +2,9 @@ import { Stack } from '@mui/material';
 import React, { useEffect } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
+import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
-import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
@@ -32,6 +32,7 @@ export const CATEGORY_OPTIONS = [
   { value: MANUAL_TASK.category.erx, label: 'eRx' },
   { value: MANUAL_TASK.category.charting, label: 'Charting' },
   { value: MANUAL_TASK.category.coding, label: 'Coding' },
+  { value: MANUAL_TASK.category.billing, label: 'Billing' },
   { value: MANUAL_TASK.category.other, label: 'Other' },
 ];
 
@@ -59,7 +60,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
       category: formValue.category,
       appointmentId: formValue.appointment,
       orderId: formValue.order,
-      taskTitle: formValue.task,
+      taskTitle: formValue.taskTitle,
       taskDetails: formValue.taskDetails,
       assignee: formValue.assignee,
       location: formValue.location,
@@ -161,10 +162,10 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
               loading={ordersLoading}
               disabled={!formValue.appointment || !formValue.category}
             />
-            <TextInput name="task" label="Task" required />
+            <TextInput name="taskTitle" label="Title" required />
             <TextInput name="taskDetails" label="Task details" />
             <Stack direction="row" spacing={1}>
-              <ProviderSelectInput name="assignee" label="Assign task to" />
+              <EmployeeSelectInput name="assignee" label="Assign task to" />
               <LocationSelectInput name="location" label="Location" required />
             </Stack>
           </Stack>

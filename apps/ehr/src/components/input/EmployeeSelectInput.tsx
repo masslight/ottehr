@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'react';
 import { getEmployees } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { EmployeeDetails } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';
 import { Option } from './Option';
+
+export const PROVIDERS_FILTER = (employee: EmployeeDetails): boolean => {
+  return employee.isProvider;
+};
 
 type Props = {
   name: string;
   label: string;
   required?: boolean;
   dataTestId?: string;
+  filter?: (employee: EmployeeDetails) => boolean;
 };
 
-export const ProviderSelectInput: React.FC<Props> = ({ name, label, required, dataTestId }) => {
+export const EmployeeSelectInput: React.FC<Props> = ({ name, label, required, dataTestId, filter }) => {
   const { oystehrZambda } = useApiClients();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [options, setOptions] = useState<Option[] | undefined>(undefined);
@@ -19,7 +25,7 @@ export const ProviderSelectInput: React.FC<Props> = ({ name, label, required, da
     if (!oystehrZambda) {
       return;
     }
-    async function loadProvidersOptions(): Promise<void> {
+    async function loadOptions(): Promise<void> {
       if (!oystehrZambda) {
         return;
       }
@@ -27,14 +33,14 @@ export const ProviderSelectInput: React.FC<Props> = ({ name, label, required, da
         setIsLoading(true);
         const getEmployeesResponse = await getEmployees(oystehrZambda);
         if (getEmployeesResponse.employees) {
-          const providerOptions = getEmployeesResponse.employees
-            .filter((employee: any) => employee.status === 'Active' && employee.isProvider)
+          const options = getEmployeesResponse.employees
+            .filter((employee: any) => employee.status === 'Active' && (filter ? filter(employee) : true))
             .map((employee: any) => ({
               value: employee.profile.split('/')[1],
               label: `${employee.firstName} ${employee.lastName}`.trim() || employee.name,
             }));
-          providerOptions.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
-          setOptions(providerOptions);
+          options.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+          setOptions(options);
         }
       } catch (e) {
         console.error('error loading providers', e);
@@ -42,8 +48,8 @@ export const ProviderSelectInput: React.FC<Props> = ({ name, label, required, da
         setIsLoading(false);
       }
     }
-    void loadProvidersOptions();
-  }, [oystehrZambda]);
+    void loadOptions();
+  }, [filter, oystehrZambda]);
   return (
     <AutocompleteInput
       name={name}

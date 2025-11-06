@@ -30,6 +30,7 @@ export const MANUAL_TASK = {
     erx: 'manual-erx',
     charting: 'manual-charting',
     coding: 'manual-coding',
+    billing: 'manual-billing',
     other: 'manual-other',
   },
   input: {

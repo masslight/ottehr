@@ -1,9 +1,10 @@
 import { SearchParam } from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { getFullName } from 'utils';
+import { DOB_DATE_FORMAT, getFullName } from 'utils';
 import { AutocompleteInput } from './AutocompleteInput';
 import { Option } from './Option';
 
@@ -46,7 +47,9 @@ export const PatientSelectInput: React.FC<Props> = ({ name, label, required, dat
           setOptions(
             patients.map((patient) => {
               return {
-                label: getFullName(patient),
+                label:
+                  getFullName(patient) +
+                  (patient.birthDate ? ` (${DateTime.fromISO(patient.birthDate).toFormat(DOB_DATE_FORMAT)})` : ''),
                 value: patient.id ?? '',
               };
             })
