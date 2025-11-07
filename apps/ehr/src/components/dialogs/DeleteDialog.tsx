@@ -1,3 +1,4 @@
+import { LoadingButton } from '@mui/lab';
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, useTheme } from '@mui/material';
 import { MouseEventHandler, ReactElement } from 'react';
 
@@ -9,6 +10,7 @@ interface DeleteDialogProps {
   handleDelete: MouseEventHandler<HTMLButtonElement>;
   open: boolean;
   title: string;
+  loadingDelete?: boolean;
 }
 
 export default function DeleteDialog({
@@ -19,6 +21,7 @@ export default function DeleteDialog({
   handleDelete,
   open,
   title,
+  loadingDelete,
 }: DeleteDialogProps): ReactElement {
   const theme = useTheme();
   const buttonSx = {
@@ -54,9 +57,16 @@ export default function DeleteDialog({
         <Button variant="outlined" onClick={handleClose} size="medium" sx={buttonSx}>
           {closeButtonText}
         </Button>
-        <Button variant="contained" onClick={handleDelete} size="medium" color="error" sx={buttonSx}>
+        <LoadingButton
+          variant="contained"
+          onClick={handleDelete}
+          size="medium"
+          color="error"
+          sx={buttonSx}
+          loading={loadingDelete}
+        >
           {deleteButtonText}
-        </Button>
+        </LoadingButton>
       </DialogActions>
     </Dialog>
   );

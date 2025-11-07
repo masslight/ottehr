@@ -95,12 +95,8 @@ test.describe.skip(
   },
   () => {
     test.beforeAll(async () => {
-      if (process.env.INTEGRATION_TEST === 'true') {
-        await resourceHandler.setResourcesFast();
-      } else {
-        await resourceHandler.setResources();
-        await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-      }
+      await resourceHandler.setResources({ skipPaperwork: true });
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
     });
 
     test.afterAll(async () => {

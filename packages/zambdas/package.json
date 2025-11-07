@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.21.8",
+  "version": "1.21.18",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -11,6 +11,7 @@
     "start:local:iac": "ENV=local npm run start:iac",
     "start:demo:iac": "ENV=demo npm run start:iac",
     "cancel-telemed-appointments": "tsx src/scripts/cancel-telemed-appointments.ts",
+    "charge-due-and-past-due-invoices": "tsx src/scripts/charge-due-and-past-due-invoices.ts",
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
     "report-daily-payments": "tsx src/scripts/report-daily-payments.ts",
     "report-duplicate-payments": "tsx src/scripts/report-duplicate-payments.ts",
@@ -59,6 +60,7 @@
     "make-in-house-test-items": "tsx src/scripts/labs/load-in-house-labs-tests.ts",
     "migrate-practitioner-credentials": "tsx src/scripts/migrate-practitioner-credentials.ts",
     "mock-pdf-result": "tsx src/scripts/labs/pdf-attachment-result-helper.ts",
+    "mock-attachment-result": "tsx src/scripts/labs/attachment-result-helper.ts",
     "get-lab-sr-dr-docref": "tsx src/scripts/labs/get-external-lab-sr-dr-docref.ts",
     "test-emails": "tsx src/scripts/test-emails.ts",
     "remove-payor-orgs": "tsx src/scripts/remove-payor-orgs.ts",

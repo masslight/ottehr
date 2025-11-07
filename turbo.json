@@ -20,7 +20,6 @@
       "dependsOn": ["build", "lint"]
     },
     "test": {
-      "dependsOn": ["build"],
       "inputs": [
         "apps/**/*.tsx",
         "apps/**/*.ts",
@@ -37,8 +36,7 @@
       "cache": false
     },
     "integration:zambdas": {
-      "cache": false,
-      "dependsOn": ["^build"]
+      "cache": false
     },
     "e2e:login": {
       "cache": false,

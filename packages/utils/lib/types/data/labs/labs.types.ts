@@ -73,11 +73,12 @@ export enum ExternalLabsStatus {
   corrected = 'corrected',
   'cancelled by lab' = 'cancelled by lab',
   'sent manually' = 'sent manually',
+  'rejected abn' = 'rejected abn',
   unknown = 'unknown', // for debugging purposes
 }
 
 export type LabOrderUnreceivedHistoryRow = {
-  action: 'created' | 'performed' | 'ready' | 'ordered' | 'cancelled by lab';
+  action: 'created' | 'performed' | 'ready' | 'ordered' | 'cancelled by lab' | 'rejected abn';
   performer: string;
   date: string;
 };
@@ -102,6 +103,7 @@ export type LabOrderResultDetails = {
   reviewedDate: string | null;
   resultPdfUrl: string | null;
   alternatePlacerId: string | undefined; // DR.identifier (system ==== OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM)
+  labGeneratedResultUrl?: string;
 };
 
 export type QuestionnaireData = {
@@ -319,6 +321,7 @@ export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
   saveOrderCollectionData: 'saveOrderCollectionData',
   cancelUnsolicitedResultTask: 'cancelUnsolicitedResultTask', // match or review tasks
   matchUnsolicitedResult: 'matchUnsolicitedResult',
+  rejectedAbn: 'rejectedAbn',
 } as const;
 
 export type TaskReviewedParameters = {
@@ -363,7 +366,8 @@ export type UpdateLabOrderResourcesInput =
   | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged })
   | (SaveOrderCollectionData & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.saveOrderCollectionData })
   | CancelMatchUnsolicitedResultTask
-  | FinalizeUnsolicitedResultMatch;
+  | FinalizeUnsolicitedResultMatch
+  | { serviceRequestId: string; event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn };
 
 export type DeleteLabOrderZambdaInput = {
   serviceRequestId: string;
@@ -383,10 +387,8 @@ export interface GetLabelPdfParameters {
   contextRelatedReference: Reference;
   searchParams: { name: string; value: string }[];
 }
-
-// todo labs team absorb LabelPdf in LabPdf
-export interface LabPdf {
-  type: 'abn';
+export interface LabDocument {
+  type: 'abn' | 'lab-generated-result';
   documentReference: DocumentReference;
   presignedURL: string;
 }

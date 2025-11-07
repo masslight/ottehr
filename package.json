@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.21.8",
+  "version": "1.21.18",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -61,7 +61,7 @@
     "apps:start:iac": "npm run apply-local --workspace deploy && turbo start:iac --filter=intake-ui --filter=ehr-ui --filter=zambdas",
     "apps:start:no-apply": "turbo start:iac --filter=intake-ui --filter=ehr-ui --filter=zambdas",
     "apps:start:labcorp": "ENV=labcorp-local turbo start --filter=intake-ui --filter=ehr-ui --filter=zambdas",
-    "integration:zambdas": "npm run build && ENV=local && cd packages/zambdas && DEBUG=start-server-and-test && npm run test:integration:ci",
+    "integration:zambdas": "ENV=local && cd packages/zambdas && DEBUG=start-server-and-test && npm run test:integration:ci",
     "test": "turbo test",
     "prepare": "husky",
     "spellcheck": "cspell .",

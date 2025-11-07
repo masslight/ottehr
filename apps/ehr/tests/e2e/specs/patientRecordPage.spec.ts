@@ -125,33 +125,27 @@ const populateAllRequiredFields = async (patientInformationPage: PatientInformat
   await patientInformationPage.enterResponsiblePartyZip(NEW_ZIP_RESPONSIBLE_PARTY);
 };
 
-test.describe('Patient Record Page non-mutating tests', () => {
-  const PROCESS_ID = `patientRecordPage-non-mutating-${DateTime.now().toMillis()}`;
+test.describe('Patient Record Page tests', () => {
+  const PROCESS_ID = `patientRecordPage-mutating-patient-info-fields-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID);
-  test.describe.configure({ mode: 'serial' });
 
+  test.describe.configure({ mode: 'serial' });
   let context: BrowserContext;
   let page: Page;
-
   test.beforeAll(async ({ browser }) => {
-    if (process.env.INTEGRATION_TEST === 'true') {
-      await resourceHandler.setResourcesFast();
-    } else {
-      await resourceHandler.setResources();
-      await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
-    }
+    await resourceHandler.setResources();
+    await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
     context = await browser.newContext();
     page = await context.newPage();
   });
-
   test.afterAll(async () => {
-    await resourceHandler.cleanupResources();
     await page.close();
     await context.close();
+    await resourceHandler.cleanupResources();
   });
-
   let patientInformationPage: PatientInformationPage;
 
+  /* Non-mutating part start */
   test('Click on "See all patient info button", Patient Info Page is opened', async () => {
     await page.goto('/patient/' + resourceHandler.patient.id);
     const patientRecordPage = await expectPatientRecordPage(resourceHandler.patient.id!, page);
@@ -293,27 +287,8 @@ test.describe('Patient Record Page non-mutating tests', () => {
     patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
   });
-});
 
-test.describe('Patient Record Page mutating tests', () => {
-  const PROCESS_ID = `patientRecordPage-mutating-patient-info-fields-${DateTime.now().toMillis()}`;
-  const resourceHandler = new ResourceHandler(PROCESS_ID);
-
-  test.describe.configure({ mode: 'serial' });
-  let context: BrowserContext;
-  let page: Page;
-  test.beforeAll(async ({ browser }) => {
-    await resourceHandler.setResources();
-    await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
-    context = await browser.newContext();
-    page = await context.newPage();
-  });
-  test.afterAll(async () => {
-    await page.close();
-    await context.close();
-    await resourceHandler.cleanupResources();
-  });
-  let patientInformationPage: PatientInformationPage;
+  /* Non-mutating part end */
 
   test.describe('Filling and saving required fields, checking validation errors, checking updated fields are displayed correctly', async () => {
     test('Fill and save required values on Patient Info Page, values are saved and updated successfully. Check all section fields validation errors.', async () => {
