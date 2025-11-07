@@ -256,6 +256,7 @@ export const Tasks: React.FC = () => {
                     Action
                   </Typography>
                 </TableCell>
+                <TableCell style={{ width: '50px' }}></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -350,10 +351,10 @@ export const Tasks: React.FC = () => {
                           <Stack direction="row" justifyContent="space-between" spacing={1}>
                             {renderActionButton(task)}
                             {renderCompleteButton(task)}
-                            {renderMoreButton(task)}
                           </Stack>
                         ) : null}
                       </TableCell>
+                      <TableCell>{task.status !== COMPLETED ? renderMoreButton(task) : null}</TableCell>
                     </TableRow>
                   );
                 })}
