@@ -317,7 +317,32 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
       try {
         console.log('Generating ICD-10 codes from clinical notes');
-        const potentialDiagnoses = await generateIcdTenCodesFromNotes(hpiTextUpdated, mdmTextUpdated, secrets);
+
+        const promiseWithTimeout = new Promise<{ diagnosis: string; icd10: string }[]>((resolve, reject) => {
+          const timer = setTimeout(() => {
+            reject(new Error('ICD generation timed out after 15 seconds'));
+          }, 15_000);
+
+          generateIcdTenCodesFromNotes(hpiTextUpdated, mdmTextUpdated, secrets)
+            .then((res) => {
+              clearTimeout(timer);
+              resolve(res);
+            })
+            .catch((err) => {
+              clearTimeout(timer);
+              reject(err);
+            });
+        });
+
+        let potentialDiagnoses: { diagnosis: string; icd10: string }[] = [];
+        try {
+          potentialDiagnoses = await promiseWithTimeout;
+        } catch (error) {
+          console.log('ICD-10 generation failed or timed out, skipping AI suggestions', error);
+          // Skip AI suggestions if generation failed or timed out
+          potentialDiagnoses = [];
+        }
+
         const existingAiDiagnoses: Condition[] = allResources.filter(
           (resource) =>
             resource.resourceType === 'Condition' &&
