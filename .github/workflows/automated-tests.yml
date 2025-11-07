@@ -28,9 +28,9 @@ on:
       - 'package.json'
 
 jobs:
-  automated-test:
+  automated-tests:
     if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest-8-cores
+    runs-on: ubuntu-latest-4-cores
     timeout-minutes: 15
     strategy:
       matrix:
