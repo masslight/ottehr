@@ -23,11 +23,11 @@ if [ $node_major_version -lt 22 ]; then
   errors+="Error: Node.js version must be 22 or higher. Current version: $node_version\n"
 fi
 
-# Check npm version (9+)
+# Check npm version (10+)
 npm_version=$(npm -v)
 npm_major_version=$(echo $npm_version | cut -d'.' -f1)
-if [ $npm_major_version -lt 9 ]; then
-  errors+="Error: npm version must be 9 or higher. Current version: $npm_version\n"
+if [ $npm_major_version -lt 10 ]; then
+  errors+="Error: npm version must be 10 or higher. Current version: $npm_version\n"
 fi
 
 # If there were any errors, print them and exit
