@@ -97,7 +97,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ? appointmentRef?.replace('Appointment/', '')
       : undefined;
 
-    const taskInput: { type: string; value?: string }[] | TaskInput[] | undefined = preSubmissionTask
+    const taskInput: { type: string; value?: string }[] | TaskInput[] | undefined = preSubmissionTask?.input
       ? preSubmissionTask.input
       : [
           {
