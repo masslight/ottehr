@@ -990,6 +990,13 @@
       "src": "src/ehr/schedules/create-schedule/index",
       "zip": ".dist/zips/create-schedule.zip"
     },
+    "RECOMMEND-BILLING-SUGGESTIONS": {
+      "name": "recommend-billing-suggestions",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/recommend-billing-suggestions/index",
+      "zip": ".dist/zips/recommend-billing-suggestions.zip"
+    },
     "RECOMMEND-BILLING-CODES": {
       "name": "recommend-billing-codes",
       "type": "http_auth",
