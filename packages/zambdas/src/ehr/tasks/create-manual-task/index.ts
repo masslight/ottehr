@@ -1,6 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner } from 'fhir/r4b';
-import { CreateManualTaskRequest, getFullName, getSecret, MANUAL_TASK, SecretsKeys } from 'utils';
+import { DateTime } from 'luxon';
+import {
+  CreateManualTaskRequest,
+  getFullName,
+  getSecret,
+  MANUAL_TASK,
+  SecretsKeys,
+  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -72,6 +80,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       taskToCreate.owner = {
         reference: 'Practitioner/' + params.assignee.id,
         display: params.assignee.name,
+        extension: [
+          {
+            url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+            valueDateTime: DateTime.now().toISO(),
+          },
+        ],
       };
       taskToCreate.status = 'in-progress';
     }
