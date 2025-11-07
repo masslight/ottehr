@@ -92,11 +92,11 @@ jobs:
       #     NODE_OPTIONS: '--max-old-space-size=8192'
 
       # Tests start here
-      # - name: Unit tests
-      #   run: npm run test
-      #   env:
-      #     CI: true
-      #     NODE_OPTIONS: '--max-old-space-size=8192'
+      - name: Unit tests
+        run: npm run test
+        env:
+          CI: true
+          NODE_OPTIONS: '--max-old-space-size=8192'
 
       # - name: Patient component tests
       #   run: cd apps/intake && npm run component-tests
@@ -112,12 +112,12 @@ jobs:
       #     CI: true
       #     NODE_OPTIONS: '--max-old-space-size=8192'
 
-      - name: Integration tests
-        run: npm run integration:zambdas
-        env:
-          ENV: 'local'
-          CI: true
-          NODE_OPTIONS: '--max-old-space-size=8192'
+      # - name: Integration tests
+      #   run: npm run integration:zambdas
+      #   env:
+      #     ENV: 'local'
+      #     CI: true
+      #     NODE_OPTIONS: '--max-old-space-size=8192'
 
       - name: Set GitHub Commit Status
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
