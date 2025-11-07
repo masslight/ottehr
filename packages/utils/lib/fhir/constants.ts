@@ -636,6 +636,8 @@ export const RCM_TASK_SYSTEM = ottehrCodeSystemUrl('rcm-task');
 // note: be careful, one of these codes are hardcoded in ottehr-spec.json in SUB-SEND-INVOICE-TO-PATIENT endpoint
 export enum RcmTaskCode {
   sendInvoiceToPatient = 'send-invoice-to-patient',
+  sendInvoiceOutputInvoiceId = 'send-invoice-output-invoice-Id',
+  sendInvoiceOutputError = 'send-invoice-output-error',
 }
 export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
   sendInvoiceToPatient: {
@@ -643,6 +645,22 @@ export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
       {
         system: RCM_TASK_SYSTEM,
         code: RcmTaskCode.sendInvoiceToPatient,
+      },
+    ],
+  },
+  sendInvoiceOutputInvoiceId: {
+    coding: [
+      {
+        system: RCM_TASK_SYSTEM,
+        code: RcmTaskCode.sendInvoiceOutputInvoiceId,
+      },
+    ],
+  },
+  sendInvoiceOutputError: {
+    coding: [
+      {
+        system: RCM_TASK_SYSTEM,
+        code: RcmTaskCode.sendInvoiceOutputError,
       },
     ],
   },

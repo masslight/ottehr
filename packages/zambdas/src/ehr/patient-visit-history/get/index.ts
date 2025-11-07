@@ -49,7 +49,7 @@ import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
 
-const ZAMBDA_NAME = 'patient-payments-list';
+const ZAMBDA_NAME = 'get-patient-visit-history';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -98,7 +98,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error(error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('patient-payments-list', error, ENVIRONMENT);
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
 

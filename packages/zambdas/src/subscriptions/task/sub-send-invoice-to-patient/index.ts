@@ -2,7 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
-import { Account, Encounter, Patient } from 'fhir/r4b';
+import { Operation } from 'fast-json-patch';
+import { Account, Encounter, Patient, Task, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
@@ -11,6 +12,7 @@ import {
   getSecret,
   getStripeCustomerIdFromAccount,
   PrefilledInvoiceInfo,
+  RcmTaskCodings,
   removePrefix,
   replaceTemplateVariablesHashtag,
   SecretsKeys,
@@ -29,7 +31,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
-const ZAMBDA_NAME = 'send-invoice-to-patient';
+const ZAMBDA_NAME = 'sub-send-invoice-to-patient';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -41,64 +43,64 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const candid = createCandidApiClient(secrets);
     const stripe = getStripeClient(secrets);
 
-    console.log('Fetching fhir resources');
-    const fhirResources = await getFhirResources(oystehr, encounterId);
-    if (!fhirResources) throw new Error('Failed to fetch all needed FHIR resources');
-    const { patient, encounter, account } = fhirResources;
-    console.log('Fhir resources fetched');
+    try {
+      console.log('Fetching fhir resources');
+      const fhirResources = await getFhirResources(oystehr, encounterId);
+      if (!fhirResources) throw new Error('Failed to fetch all needed FHIR resources');
+      const { patient, encounter, account } = fhirResources;
+      console.log('Fhir resources fetched');
 
-    console.log('Getting stripe and candid ids');
-    const stripeCustomerId = getStripeCustomerIdFromAccount(account);
-    if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
-    const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
-    if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
-    const candidClaimId = await getCandidClaimIdFromCandidEncounterId(candid, candidEncounterId);
-    if (!candidClaimId) throw new Error('CandidClaimId is not found');
-    console.log('Stripe and candid ids retrieved');
+      console.log('Getting stripe and candid ids');
+      const stripeCustomerId = getStripeCustomerIdFromAccount(account);
+      if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
+      const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
+      if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
+      const candidClaimId = await getCandidClaimIdFromCandidEncounterId(candid, candidEncounterId);
+      if (!candidClaimId) throw new Error('CandidClaimId is not found');
+      console.log('Stripe and candid ids retrieved');
 
-    console.log('Getting patient balance');
-    const patientBalance = await getPatientBalanceInCentsForClaim({ candid, claimId: candidClaimId });
-    if (patientBalance === undefined)
-      throw new Error('Patient balance is undefined for this claim, claim id: ' + candidClaimId);
-    console.log('Patient balance retrieved');
+      console.log('Getting patient balance');
+      const patientBalance = await getPatientBalanceInCentsForClaim({ candid, claimId: candidClaimId });
+      if (patientBalance === undefined)
+        throw new Error('Patient balance is undefined for this claim, claim id: ' + candidClaimId);
+      console.log('Patient balance retrieved');
 
-    console.log('Creating invoice and invoice item');
-    const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
-    if (!patientId) throw new Error("Encounter don't have patient reference");
-    const invoiceResponse = await createInvoice(stripe, stripeCustomerId, {
-      oystEncounterId: encounterId,
-      oystPatientId: patientId,
-      prefilledInfo,
-    });
-    await createInvoiceItem(stripe, stripeCustomerId, invoiceResponse, patientBalance, prefilledInfo);
-    console.log('Invoice and invoice item created');
+      console.log('Creating invoice and invoice item');
+      const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
+      if (!patientId) throw new Error("Encounter doesn't have patient reference");
+      const invoiceResponse = await createInvoice(stripe, stripeCustomerId, {
+        oystEncounterId: encounterId,
+        oystPatientId: patientId,
+        prefilledInfo,
+      });
+      await createInvoiceItem(stripe, stripeCustomerId, invoiceResponse, patientBalance, prefilledInfo);
+      console.log('Invoice and invoice item created');
 
-    console.log('Sending invoice to patient (with email)');
-    const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id);
-    console.log('Invoice sent: ', sendInvoiceResponse.status);
+      console.log('Sending invoice to patient (with email)');
+      const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id);
+      console.log('Invoice sent: ', sendInvoiceResponse.status);
 
-    console.log('Sending sms to patient');
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-    const smsMessage = sendInvoiceResponse.hosted_invoice_url
-      ? replaceTemplateVariablesHashtag(prefilledInfo.smsTextMessage, {
-          invoiceLink: sendInvoiceResponse.hosted_invoice_url,
-        })
-      : prefilledInfo.smsTextMessage;
-    await sendSmsForPatient(smsMessage, oystehr, patient, ENVIRONMENT);
-    console.log('Sms sent to patient');
+      console.log('Sending sms to patient');
+      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+      const smsMessage = sendInvoiceResponse.hosted_invoice_url
+        ? replaceTemplateVariablesHashtag(prefilledInfo.smsTextMessage, {
+            invoiceLink: sendInvoiceResponse.hosted_invoice_url,
+          })
+        : prefilledInfo.smsTextMessage;
+      await sendSmsForPatient(smsMessage, oystehr, patient, ENVIRONMENT);
+      console.log('Sms sent to patient');
 
-    console.log('Setting task status to completed');
-    await oystehr.fhir.patch({
-      resourceType: 'Task',
-      id: task.id!,
-      operations: [
-        {
-          op: 'replace',
-          path: '/status',
-          value: 'completed',
-        },
-      ],
-    });
+      console.log('Setting task status to completed');
+      const taskCopy = addInvoiceIdToTaskOutput(task, invoiceResponse.id);
+      await updateTaskStatusAndOutput(oystehr, task, 'completed', taskCopy.output);
+      console.log('Task status and output updated');
+    } catch (error) {
+      const oystehr = createOystehrClient(m2mToken, secrets);
+      console.log('updating task status to failed and output');
+      const taskCopy = addErrorToTaskOutput(task, error instanceof Error ? error.message : 'Unknown error');
+      await updateTaskStatusAndOutput(oystehr, task, 'failed', taskCopy.output);
+      throw error;
+    }
 
     return {
       statusCode: 200,
@@ -186,13 +188,12 @@ async function getCandidClaimIdFromCandidEncounterId(
   if (candidEncounter && candidEncounter.ok && candidEncounter.body) {
     const candidEncounterResponse = candidEncounter.body;
     console.log(
-      'Candid encounter claims statuses: ',
+      `Candid encounter ${candidEncounterId} claims statuses: `,
       candidEncounterResponse.claims.map((claim) => claim.status)
     );
     // todo what i'm suppose to get here as claim id? i have array of claims with statuses
-    // return candidEncounterResponse.claims.find((claim) => claim.status === CandidApi.ClaimStatus.BillerReceived)
-    //   ?.claimId;
-    return candidEncounterResponse.claims[0]?.claimId;
+    return candidEncounterResponse.claims.find((claim) => claim.status === CandidApi.ClaimStatus.Paid)?.claimId;
+    // return candidEncounterResponse.claims[0]?.claimId;
   }
   return undefined;
 }
@@ -237,7 +238,7 @@ async function getFhirResources(
   const encounter = response.find((resource) => resource.resourceType === 'Encounter') as Encounter;
   const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
   if (!patientId) {
-    console.error("Encounter don't have patient reference");
+    console.error("Encounter doesn't have patient reference");
     return undefined;
   }
   const patient = response.find(
@@ -257,4 +258,61 @@ async function getFhirResources(
     patient,
     account,
   };
+}
+
+async function updateTaskStatusAndOutput(
+  oystehr: Oystehr,
+  task: Task,
+  status: Task['status'],
+  newOutput?: TaskOutput[]
+): Promise<void> {
+  const patchOperations: Operation[] = [
+    {
+      op: 'replace',
+      path: '/status',
+      value: status,
+    },
+  ];
+  if (newOutput) {
+    patchOperations.push({
+      op: task.output ? 'replace' : 'add',
+      path: '/output',
+      value: newOutput,
+    });
+  }
+  await oystehr.fhir.patch({
+    resourceType: 'Task',
+    id: task.id!,
+    operations: patchOperations,
+  });
+}
+
+function addInvoiceIdToTaskOutput(task: Task, invoiceId: string): Task {
+  const taskCopy = { ...task };
+  if (!taskCopy.output) taskCopy.output = [];
+  const invoiceIdCoding = RcmTaskCodings.sendInvoiceOutputInvoiceId;
+
+  const existingInvoiceId = taskCopy.output.find((output) => output.valueString === invoiceId);
+  if (existingInvoiceId) {
+    return taskCopy;
+  } else {
+    const newInvoiceId: TaskOutput = {
+      type: invoiceIdCoding,
+      valueString: invoiceId,
+    };
+    taskCopy.output?.push(newInvoiceId);
+    return taskCopy;
+  }
+}
+
+function addErrorToTaskOutput(task: Task, error: string): Task {
+  const taskCopy = { ...task };
+  if (!taskCopy.output) taskCopy.output = [];
+  const taskError = RcmTaskCodings.sendInvoiceOutputError;
+
+  taskCopy.output?.push({
+    type: taskError,
+    valueString: error,
+  });
+  return taskCopy;
 }

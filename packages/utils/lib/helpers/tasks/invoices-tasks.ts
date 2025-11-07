@@ -21,7 +21,6 @@ export function createInvoiceTaskInput(input: PrefilledInvoiceInfo): TaskInput[]
 }
 
 export function parseInvoiceTaskInput(invoiceTask: Task): PrefilledInvoiceInfo | undefined {
-  console.log('invoiceTask', invoiceTask);
   const recipientName = getInvoiceTaskInputFieldByCode('recipientName', invoiceTask);
   const recipientEmail = getInvoiceTaskInputFieldByCode('recipientEmail', invoiceTask);
   const recipientPhoneNumber = getInvoiceTaskInputFieldByCode('recipientPhoneNumber', invoiceTask);

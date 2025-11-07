@@ -11,7 +11,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
-const ZAMBDA_NAME = 'send-invoice-to-patient';
+const ZAMBDA_NAME = 'update-invoice-task';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {

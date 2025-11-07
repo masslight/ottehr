@@ -158,7 +158,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const {
     data: visitHistory,
     isLoading: visitHistoryIsLoading,
-    isRefetching: visitHistoryIsRefetching,
+    refetch: refetchVisitHistory,
   } = useQuery({
     queryKey: [`get-patient-visit-history`, { patientId, status, type, period }],
     queryFn: async (): Promise<PatientVisitListResponse> => {
@@ -190,8 +190,6 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     },
     enabled: Boolean(patient?.id) && Boolean(oystehrZambda),
   });
-
-  console.log('isLoading, isRefetching', visitHistoryIsLoading, visitHistoryIsRefetching);
 
   // Fetch follow-up encounters
   // todo: move this to the visit history zambda
@@ -290,6 +288,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           prefilledInvoiceInfo,
         });
         setSelectedInvoiceTask(undefined);
+        void refetchVisitHistory();
         enqueueSnackbar('Invoice created and sent successfully', { variant: 'success' });
       }
     } catch {
@@ -420,14 +419,12 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       case 'invoice': {
         const lastEncounterTask = row.sendInvoiceTask;
 
-        console.log('Task status: ', lastEncounterTask?.status);
-
         let buttonColor: ButtonOwnProps['color'] = 'secondary';
-        let tooltipText = "Invoice can't be send for this visit yet.";
+        let tooltipText = "Invoice can't be sent for this visit yet.";
         switch (lastEncounterTask?.status) {
           case 'ready':
             buttonColor = 'primary';
-            tooltipText = 'Invoice can be send for this visit.';
+            tooltipText = 'Invoice can be sent for this visit.';
             break;
           case 'completed':
             buttonColor = 'success';
