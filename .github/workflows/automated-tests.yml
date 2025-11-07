@@ -28,7 +28,7 @@ on:
       - 'package.json'
 
 jobs:
-  build-and-test:
+  automated-test:
     if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 15
@@ -86,11 +86,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # - name: Build
-      #   run: npm run build
-      #   env:
-      #     NODE_OPTIONS: '--max-old-space-size=8192'
-
       # Tests start here
       - name: Unit tests
         run: npm run test
@@ -121,7 +116,6 @@ jobs:
 
       - name: Set GitHub Commit Status
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
-        if: always()
         with:
           script: |
             const success = '${{ job.status }}' === 'success';
