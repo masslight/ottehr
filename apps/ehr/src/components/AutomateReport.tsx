@@ -260,7 +260,7 @@ export const AutomateReport = (): JSX.Element => {
               </Typography>
               {nextTriggerDates.map((date, index) => (
                 <Typography key={index} variant="body2">
-                  {new Date(date).toUTCString().replace('GMT', '')}
+                  {new Date(date).toUTCString().replace('GMT', 'UTC')}
                 </Typography>
               ))}
             </Box>

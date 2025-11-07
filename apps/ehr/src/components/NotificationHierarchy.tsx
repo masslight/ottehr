@@ -397,6 +397,20 @@ export const NotificationHierarchy = (): JSX.Element => {
     [staffOptions, getSelectedStaffIds]
   );
 
+  const validateHierarchy = (): boolean => {
+    for (const provider of providers) {
+      if (provider.staff.length === 0) {
+        return false;
+      }
+      for (const staff of provider.staff) {
+        if (staff.patients.length === 0) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+
   const getAvailablePatientOptions = useCallback(
     (providerId: string, staffId: string): Option[] => {
       const selectedIds = getSelectedPatientIds(providerId, staffId);
@@ -761,6 +775,11 @@ export const NotificationHierarchy = (): JSX.Element => {
   };
 
   const handleSave = (): void => {
+    if (!validateHierarchy()) {
+      showSnackbar('Please assign at least one patient to all staff members before saving.', 'error');
+      return;
+    }
+
     const settingsData: Array<{
       provider_id: string;
       staff_id: string;
@@ -1096,7 +1115,7 @@ export const NotificationHierarchy = (): JSX.Element => {
               <Button
                 variant="contained"
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || providers.length === 0 || !validateHierarchy()}
                 startIcon={isSaving ? <CircularProgress size={16} /> : null}
               >
                 {isSaving ? 'Saving...' : 'Save'}
