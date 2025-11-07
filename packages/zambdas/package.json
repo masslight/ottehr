@@ -69,7 +69,7 @@
     "reset-lab-order": "tsx src/scripts/labs/reset-lab-order.ts"
   },
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=22.0.0",
     "npm": ">=9.0.0"
   },
   "dependencies": {

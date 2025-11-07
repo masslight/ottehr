@@ -5,7 +5,7 @@
     "deploy": "bin/deploy.js"
   },
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=22.0.0",
     "npm": ">=9.0.0"
   },
   "scripts": {

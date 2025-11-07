@@ -1,7 +1,7 @@
 name: Intake E2E Tests
 
 env:
-  NODE_VERSION: 20
+  NODE_VERSION: 22
   TOKEN_VALIDITY_THRESHOLD_MINUTES: 60
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
   SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
