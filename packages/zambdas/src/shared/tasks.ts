@@ -1,21 +1,25 @@
-import { CodeableConcept, Coding, Task, TaskInput } from 'fhir/r4b';
+import { CodeableConcept, Coding, Reference, Task, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ottehrCodeSystemUrl, ottehrIdentifierSystem, undefinedIfEmptyArray } from 'utils';
+import { undefinedIfEmptyArray } from 'utils';
+import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 
 export const TASK_TYPE_SYSTEM = ottehrCodeSystemUrl('task-type');
 const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
 
 export function createTask(data: {
   category: string;
-  code:
+  code?:
     | {
         system: string;
         code: string;
       }
     | CodeableConcept;
   encounterId?: string;
-  locationId?: string;
-  input?: { type: string; value?: string }[] | TaskInput[];
+  location?: {
+    id: string;
+    name?: string;
+  };
+  input?: { type: string; valueString?: string; valueReference?: Reference }[] | TaskInput[];
   basedOn?: string[];
 }): Task {
   const tag: Coding[] = [
@@ -23,10 +27,11 @@ export function createTask(data: {
       code: 'task',
     },
   ];
-  if (data.locationId != null) {
+  if (data.location != null) {
     tag.push({
       system: TASK_LOCATION_SYSTEM,
-      code: data.locationId,
+      code: data.location.id,
+      display: data.location?.name,
     });
   }
   return {
@@ -36,16 +41,18 @@ export function createTask(data: {
       system: ottehrIdentifierSystem('task-category'),
       value: data.category,
     },
-    code: isCodeableConcept(data.code)
-      ? data.code
-      : {
-          coding: [
-            {
-              system: data.code.system,
-              code: data.code.code,
-            },
-          ],
-        },
+    code: data.code
+      ? isCodeableConcept(data.code)
+        ? data.code
+        : {
+            coding: [
+              {
+                system: data.code.system,
+                code: data.code.code,
+              },
+            ],
+          }
+      : undefined,
     encounter: data.encounterId ? { reference: `Encounter/${data.encounterId}` } : undefined,
     authoredOn: DateTime.now().toISO(),
     intent: 'order',
@@ -71,19 +78,33 @@ export function createTask(data: {
                 },
               ],
             },
-            valueString: input.value,
+            valueString: input.valueString,
+            valueReference: input.valueReference,
           };
         })
-        .filter((input) => input.valueString != null)
+        .filter((input) => input.valueString || input.valueReference)
     ),
+    location: data.location
+      ? {
+          reference: 'Location/' + data.location.id,
+          display: data.location.name,
+        }
+      : undefined,
     meta: {
       tag,
     },
   };
 }
 
-export function getTaskLocationId(task: Task): string | undefined {
-  return task.meta?.tag?.find((coding) => coding.system === TASK_LOCATION_SYSTEM)?.code;
+export function getTaskLocation(task: Task): { id: string; name?: string } | undefined {
+  const locationCoding = task.meta?.tag?.find((coding) => coding.system === TASK_LOCATION_SYSTEM);
+  if (locationCoding?.code) {
+    return {
+      id: locationCoding.code,
+      name: locationCoding.display,
+    };
+  }
+  return undefined;
 }
 
 function isTaskInput(input: { type: string; value?: string } | TaskInput): input is TaskInput {

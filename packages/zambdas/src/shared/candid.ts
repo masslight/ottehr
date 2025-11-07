@@ -13,6 +13,7 @@ import {
   PatientRelationshipToInsuredCodeAll,
   PreEncounterAppointmentId,
   PreEncounterPatientId,
+  ProcedureModifier,
   ServiceLineUnits,
   State,
   SubscriberCreate,
@@ -66,12 +67,13 @@ import {
   getPaymentVariantFromEncounter,
   getSecret,
   INVALID_INPUT_ERROR,
+  isTelemedAppointment,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   PaymentVariant,
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
+import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, emCodeOptions } from 'utils/lib/helpers/rcm';
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';
@@ -282,7 +284,7 @@ async function candidCreateEncounterRequest(
   input: CreateEncounterInput,
   apiClient: CandidApiClient
 ): Promise<EncounterCreate> {
-  const { encounter, patient, practitioner, diagnoses, procedures, insuranceResources, location } = input;
+  const { encounter, patient, practitioner, diagnoses, procedures, insuranceResources, location, appointment } = input;
   const patientName = assertDefined(patient.name?.[0], 'Patient name');
   const patientAddress = assertDefined(patient.address?.[0], 'Patient address');
   const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
@@ -376,12 +378,19 @@ async function candidCreateEncounterRequest(
     diagnoses: candidDiagnoses,
     serviceLines: procedures.flatMap<ServiceLineCreate>((procedure) => {
       const procedureCode = procedure.code?.coding?.[0].code;
+      let modifiers: ProcedureModifier[] = [];
       if (procedureCode == null) {
         return [];
+      }
+
+      const isEandMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
+      if (isEandMCode && isTelemedAppointment(appointment)) {
+        modifiers = ['95'];
       }
       return [
         {
           procedureCode: procedureCode,
+          modifiers,
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
           diagnosisPointers: [primaryDiagnosisIndex],
@@ -1266,12 +1275,19 @@ async function candidCreateEncounterFromAppointmentRequest(
     diagnoses: candidDiagnoses,
     serviceLines: procedures.flatMap<ServiceLineCreate>((procedure) => {
       const procedureCode = procedure.code?.coding?.[0].code;
+      let modifiers: ProcedureModifier[] = [];
       if (procedureCode == null) {
         return [];
+      }
+
+      const isEandMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
+      if (isEandMCode && isTelemedAppointment(appointment)) {
+        modifiers = ['95'];
       }
       return [
         {
           procedureCode: procedureCode,
+          modifiers,
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
           diagnosisPointers: [primaryDiagnosisIndex],

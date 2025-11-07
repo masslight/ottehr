@@ -1,18 +1,34 @@
 import { otherColors } from '@ehrTheme/colors';
 import { ottehrAiIcon } from '@ehrTheme/icons';
+import AddIcon from '@mui/icons-material/Add';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
-import { alpha, Button, Drawer, IconButton, List, ListItem, ListItemIcon, ListItemText, styled } from '@mui/material';
+import {
+  alpha,
+  Box,
+  Button,
+  Drawer,
+  IconButton,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  styled,
+} from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getAdmitterPractitionerId, getInPersonVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeButton';
+import { EncounterSwitcher } from '../../in-person/components/EncounterSwitcher';
 import { RouteInPerson, useInPersonNavigationContext } from '../../in-person/context/InPersonNavigationContext';
 import { ROUTER_PATH, routesInPerson } from '../../in-person/routing/routesInPerson';
+import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
 import { usePractitionerActions } from '../hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 
@@ -258,6 +274,8 @@ export const Sidebar = (): JSX.Element => {
   const { chartData } = useChartData();
   const { appointment, encounter } = visitState;
   const status = appointment && encounter ? getInPersonVisitStatus(appointment, encounter) : undefined;
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
 
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
@@ -321,77 +339,107 @@ export const Sidebar = (): JSX.Element => {
       .filter((route) => route.path !== ROUTER_PATH.OTTEHR_AI || chartData?.aiChat?.documents?.[0])
   );
 
+  const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
+  const onCreateTaskClick = (): void => {
+    setShowCreateTaskDialog(true);
+  };
+
   return (
-    <Drawer
-      variant="permanent"
-      open={open}
-      sx={{
-        position: 'relative',
-        width: open ? drawerWidth : (theme) => theme.spacing(7),
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
+    <>
+      <Drawer
+        variant="permanent"
+        open={open}
+        sx={{
           position: 'relative',
           width: open ? drawerWidth : (theme) => theme.spacing(7),
-          boxSizing: 'border-box',
-          overflowX: 'hidden',
-          transition: 'width 0.1s',
-        },
-      }}
-    >
-      <DrawerHeader
-        sx={{
-          display: 'flex',
-          padding: '0px',
-          ...(open
-            ? { justifyContent: 'end', paddingRight: '10px' }
-            : { justifyContent: 'center', paddingRight: '0px' }),
-          borderBottom: '1px solid #e0e0e0',
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            position: 'relative',
+            width: open ? drawerWidth : (theme) => theme.spacing(7),
+            boxSizing: 'border-box',
+            overflowX: 'hidden',
+            transition: 'width 0.1s',
+          },
         }}
       >
-        <IconButton
+        <DrawerHeader
           sx={{
-            width: 40,
-            height: 40,
-            padding: 0,
-            '&:hover': {
-              backgroundColor: otherColors.sidebarItemHover,
-            },
+            display: 'flex',
+            padding: '0px',
+            ...(open
+              ? { justifyContent: 'end', paddingRight: '10px' }
+              : { justifyContent: 'center', paddingRight: '0px' }),
           }}
-          onClick={handleDrawerToggle}
+          style={{ minHeight: '48px' }}
         >
-          <ArrowIcon direction={open ? 'left' : 'right'} />
-        </IconButton>
-      </DrawerHeader>
-      <List sx={{ padding: '0px' }}>
-        {menuItems.map((item) => {
-          const comparedPath = item?.activeCheckPath || item.to;
-          return (
-            <StyledButton
-              isactive={location.pathname.includes(comparedPath).toString()}
-              key={item.text}
-              onClick={() => {
-                requestAnimationFrame(() => {
-                  navigate(item.to);
-                });
-              }}
-            >
-              <ListItem
-                data-testid={dataTestIds.sideMenu.sideMenuItem(item.to)}
-                sx={{ width: '100%', height: 'inherit' }}
+          <IconButton
+            sx={{
+              width: 40,
+              height: 40,
+              padding: 0,
+              '&:hover': {
+                backgroundColor: otherColors.sidebarItemHover,
+              },
+            }}
+            onClick={handleDrawerToggle}
+          >
+            <ArrowIcon direction={open ? 'left' : 'right'} />
+          </IconButton>
+        </DrawerHeader>
+
+        <EncounterSwitcher open={open} />
+
+        <List sx={{ padding: '0px' }}>
+          <Box style={{ width: '100%', padding: '8px 16px' }}>
+            {open ? (
+              <RoundedButton
+                variant="outlined"
+                onClick={onCreateTaskClick}
+                startIcon={<AddIcon />}
+                style={{ width: '100%' }}
               >
-                <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.text} sx={{ opacity: open ? 1 : 0 }} />
-              </ListItem>
-            </StyledButton>
-          );
-        })}
-      </List>
-      <br />
-      <CompleteIntakeButton
-        isDisabled={!appointmentID || isEncounterUpdatePending || status !== 'intake'}
-        handleCompleteIntake={handleCompleteIntake}
-        status={status}
+                Create Task
+              </RoundedButton>
+            ) : null}
+          </Box>
+          {menuItems.map((item) => {
+            const comparedPath = item?.activeCheckPath || item.to;
+            return (
+              <StyledButton
+                isactive={location.pathname.includes(comparedPath).toString()}
+                key={item.text}
+                onClick={() => {
+                  requestAnimationFrame(() => {
+                    navigate(item.to);
+                  });
+                }}
+              >
+                <ListItem
+                  data-testid={dataTestIds.sideMenu.sideMenuItem(item.to)}
+                  sx={{ width: '100%', height: 'inherit' }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.text} sx={{ opacity: open ? 1 : 0 }} />
+                </ListItem>
+              </StyledButton>
+            );
+          })}
+        </List>
+        <br />
+        {!isFollowup && (
+          <CompleteIntakeButton
+            isDisabled={!appointmentID || isEncounterUpdatePending || status !== 'intake'}
+            handleCompleteIntake={handleCompleteIntake}
+            status={status}
+          />
+        )}
+      </Drawer>
+      <CreateTaskDialog
+        open={showCreateTaskDialog}
+        handleClose={(): void => {
+          setShowCreateTaskDialog(false);
+        }}
       />
-    </Drawer>
+    </>
   );
 };

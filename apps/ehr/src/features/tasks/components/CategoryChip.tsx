@@ -1,10 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import React from 'react';
-import { IN_HOUSE_LAB_TASK, LAB_ORDER_TASK } from 'utils';
-
-export const TASK_CATEGORY_LABEL: Record<string, string> = {};
-TASK_CATEGORY_LABEL[LAB_ORDER_TASK.category] = 'External Lab';
-TASK_CATEGORY_LABEL[IN_HOUSE_LAB_TASK.category] = 'In-house Lab';
+import { TASK_CATEGORY_LABEL } from '../common';
 
 interface Props {
   category: string;

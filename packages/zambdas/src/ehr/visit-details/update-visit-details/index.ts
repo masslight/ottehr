@@ -9,6 +9,7 @@ import {
   FHIR_EXTENSION,
   FHIR_RESOURCE_NOT_FOUND,
   getCriticalUpdateTagOp,
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
   getSecret,
   getUnconfirmedDOBIdx,
   INVALID_INPUT_ERROR,
@@ -16,6 +17,7 @@ import {
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
+  REASON_ADDITIONAL_MAX_CHAR,
   Secrets,
   SecretsKeys,
   UpdateVisitDetailsInput,
@@ -188,13 +190,19 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     });
   }
 
-  if (bookingDetails.reasonForVisit) {
+  if (bookingDetails.reasonForVisit || bookingDetails.additionalDetails) {
     const op = appointment.description ? 'replace' : 'add';
+    const { reasonForVisit: existingReasonForVisit, additionalDetails: existingAdditionalDetails } =
+      getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
+    const newAdditionalDetails = bookingDetails.additionalDetails ?? existingAdditionalDetails;
+    const value =
+      `${bookingDetails.reasonForVisit ?? (existingReasonForVisit || '')}` +
+      (newAdditionalDetails ? ` - ${newAdditionalDetails ?? existingAdditionalDetails ?? ''}` : '');
     const appointmentPatchOps: Operation[] = [
       {
         op,
         path: '/description',
-        value: bookingDetails.reasonForVisit,
+        value,
       },
     ];
     patchRequests.push({
@@ -204,33 +212,43 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void
     });
   }
 
-  if (bookingDetails.authorizedNonLegalGuardians) {
+  if (bookingDetails.authorizedNonLegalGuardians !== undefined) {
     const extension = patient.extension || [];
     const extensionIndex = (patient.extension || []).findIndex((ext) => {
       return ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url;
     });
 
+    let skipUpdate = false;
+
     if (extensionIndex > -1) {
-      extension[extensionIndex].valueString = bookingDetails.authorizedNonLegalGuardians;
-    } else {
+      if (bookingDetails.authorizedNonLegalGuardians) {
+        extension[extensionIndex].valueString = bookingDetails.authorizedNonLegalGuardians;
+      } else {
+        extension.splice(extensionIndex, 1);
+      }
+    } else if (bookingDetails.authorizedNonLegalGuardians) {
       extension.push({
         url: FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url,
         valueString: bookingDetails.authorizedNonLegalGuardians,
       });
+    } else {
+      skipUpdate = true;
     }
-    const op = extensionIndex > -1 ? 'replace' : 'add';
-    const patientPatchOps: Operation[] = [
-      {
-        op,
-        path: '/extension',
-        value: extension,
-      },
-    ];
-    patchRequests.push({
-      method: 'PATCH',
-      url: `/Patient/${patient.id}`,
-      operations: patientPatchOps,
-    });
+    if (!skipUpdate) {
+      const op = extensionIndex > -1 ? 'replace' : 'add';
+      const patientPatchOps: Operation[] = [
+        {
+          op,
+          path: '/extension',
+          value: extension,
+        },
+      ];
+      patchRequests.push({
+        method: 'PATCH',
+        url: `/Patient/${patient.id}`,
+        operations: patientPatchOps,
+      });
+    }
   }
 
   if (bookingDetails.consentForms) {
@@ -383,6 +401,12 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     throw INVALID_INPUT_ERROR(`reasonForVisit, "${bookingDetails.reasonForVisit}", is not a valid option`);
   }
 
+  if (bookingDetails.additionalDetails && typeof bookingDetails.additionalDetails !== 'string') {
+    throw INVALID_INPUT_ERROR('additionalDetails must be a string');
+  } else if (bookingDetails.additionalDetails && bookingDetails.additionalDetails.length > REASON_ADDITIONAL_MAX_CHAR) {
+    throw INVALID_INPUT_ERROR(`additionalDetails must be at most ${REASON_ADDITIONAL_MAX_CHAR} characters`);
+  }
+
   if (bookingDetails.authorizedNonLegalGuardians && typeof bookingDetails.authorizedNonLegalGuardians !== 'string') {
     throw INVALID_INPUT_ERROR('authorizedNonLegalGuardians must be a string');
   }
@@ -413,6 +437,12 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     if (bookingDetails.patientName.suffix && typeof bookingDetails.patientName.suffix !== 'string') {
       throw INVALID_INPUT_ERROR('"patientName.suffix" must be a string');
     }
+    if (bookingDetails.patientName.first !== undefined && bookingDetails.patientName.first.trim().length === 0) {
+      throw INVALID_INPUT_ERROR('patientName must have a non-empty first name');
+    }
+    if (bookingDetails.patientName.last !== undefined && bookingDetails.patientName.last.trim().length === 0) {
+      throw INVALID_INPUT_ERROR('patientName must have a non-empty last name');
+    }
   }
 
   if (bookingDetails.consentForms && typeof bookingDetails.consentForms !== 'object') {
@@ -429,11 +459,12 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
   // Require at least one field to be present
 
   if (
-    !bookingDetails.reasonForVisit &&
-    !bookingDetails.authorizedNonLegalGuardians &&
-    !bookingDetails.confirmedDob &&
-    !bookingDetails.patientName &&
-    !bookingDetails.consentForms
+    bookingDetails.reasonForVisit === undefined &&
+    bookingDetails.additionalDetails === undefined &&
+    bookingDetails.authorizedNonLegalGuardians === undefined &&
+    bookingDetails.confirmedDob === undefined &&
+    bookingDetails.patientName === undefined &&
+    bookingDetails.consentForms === undefined
   ) {
     throw INVALID_INPUT_ERROR('at least one field in bookingDetails must be provided');
   }

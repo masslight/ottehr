@@ -17,8 +17,8 @@ import {
   Practitioner,
   QuestionnaireResponse,
 } from 'fhir/r4b';
-import { useCallback, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { APPOINTMENT_REFRESH_INTERVAL, CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import {
@@ -49,6 +49,7 @@ import { create } from 'zustand';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
+import { getEncounterValues } from './parser/extractors';
 import { parseBundle } from './parser/parser';
 import { VisitMappedData, VisitResources } from './parser/types';
 
@@ -58,7 +59,10 @@ export type AppointmentTelemedState = {
   location: Location | undefined;
   locationVirtual: Location | undefined;
   practitioner?: Practitioner;
+  followUpOriginEncounter: Encounter;
   encounter: Encounter;
+  followupEncounters?: Encounter[];
+  selectedEncounterId: string | undefined;
   questionnaireResponse: QuestionnaireResponse | undefined;
   patientPhotoUrls: string[];
   schoolWorkNoteUrls: string[];
@@ -75,6 +79,8 @@ type AppointmentStateUpdater = {
           state: AppointmentTelemedState & AppointmentRawResourcesState & InPersonAppointmentState
         ) => Partial<AppointmentTelemedState & AppointmentRawResourcesState & InPersonAppointmentState>)
   ) => void;
+  setSelectedEncounter: (encounterId: string | undefined) => void;
+  getSelectedEncounter: () => Encounter | undefined;
 };
 
 type AppointmentRawResourcesState = {
@@ -130,7 +136,10 @@ const APPOINTMENT_INITIAL: AppointmentTelemedState & AppointmentRawResourcesStat
   location: undefined,
   locationVirtual: undefined,
   practitioner: undefined,
+  followUpOriginEncounter: {} as Encounter,
   encounter: {} as Encounter,
+  followupEncounters: [],
+  selectedEncounterId: undefined,
   questionnaireResponse: undefined,
   patientPhotoUrls: [],
   schoolWorkNoteUrls: [],
@@ -161,6 +170,8 @@ export const useAppointmentData = (
   AppointmentStateUpdater &
   ReactQueryState => {
   const { id: appointmentIdFromUrl } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const appointmentId = appointmentIdFromProps || appointmentIdFromUrl;
   const queryClient = useQueryClient();
   const { data: currentState, isLoading, isFetching, refetch, error, isPending } = useGetAppointment({ appointmentId });
@@ -196,21 +207,79 @@ export const useAppointmentData = (
     [queryClient, appointmentId, currentState]
   );
 
-  const fullState = useMemo(
-    () => ({
-      ...(currentState || APPOINTMENT_INITIAL),
+  const setSelectedEncounter = useCallback(
+    (encounterId: string | undefined) => {
+      setState((state) => ({
+        ...state,
+        selectedEncounterId: encounterId,
+      }));
+    },
+    [setState]
+  );
+
+  useEffect(() => {
+    if (isLoading || isPending) {
+      return;
+    }
+    const encounterIdFromLocation = (
+      location.state as {
+        encounterId?: string;
+      }
+    )?.encounterId;
+    if (encounterIdFromLocation && !isLoading && !isPending) {
+      setSelectedEncounter(encounterIdFromLocation);
+      navigate('.', { replace: true });
+    }
+  }, [isLoading, isPending, location.state, navigate, setSelectedEncounter]);
+
+  const getSelectedEncounter = useCallback(() => {
+    const state = currentState || APPOINTMENT_INITIAL;
+    if (!state.selectedEncounterId || state.selectedEncounterId === state.followUpOriginEncounter?.id) {
+      return state.followUpOriginEncounter;
+    }
+
+    return state.followupEncounters?.find((encounter) => encounter.id === state.selectedEncounterId);
+  }, [currentState]);
+
+  const fullState = useMemo(() => {
+    const state = currentState || APPOINTMENT_INITIAL;
+    const selectedEncounter = getSelectedEncounter();
+    const encounterToUse = selectedEncounter || state.followUpOriginEncounter;
+
+    return {
+      ...state,
+      encounter: encounterToUse,
+      visitState: {
+        ...state.visitState,
+        encounter: encounterToUse,
+      },
+      resources: {
+        ...state.resources,
+        encounter: getEncounterValues(encounterToUse),
+      },
       isAppointmentLoading: isLoading,
       appointmentRefetch: refetch,
       appointmentSetState: setState,
       appointmentError: error,
+      setSelectedEncounter,
+      getSelectedEncounter,
       isFetching,
       isPending,
       error,
       isLoading,
       refetch,
-    }),
-    [currentState, isLoading, setState, refetch, error, isFetching, isPending]
-  );
+    };
+  }, [
+    currentState,
+    isLoading,
+    setState,
+    refetch,
+    error,
+    isFetching,
+    isPending,
+    setSelectedEncounter,
+    getSelectedEncounter,
+  ]);
 
   return fullState;
 };
@@ -224,7 +293,8 @@ export type AppointmentResources =
   | QuestionnaireResponse;
 
 const selectAppointmentData = (
-  data: AppointmentResources[] | undefined
+  data: AppointmentResources[] | undefined,
+  preserveSelectedEncounterId?: string
 ): (AppointmentTelemedState & InPersonAppointmentState & AppointmentRawResourcesState) | null => {
   if (!data) return null;
 
@@ -238,7 +308,20 @@ const selectAppointmentData = (
   const location = (data?.filter((resource: FhirResource) => resource.resourceType === 'Location') as Location[]).find(
     (location) => !isLocationVirtual(location)
   );
-  const encounter = data?.find((resource: FhirResource) => resource.resourceType === 'Encounter') as Encounter;
+
+  const followUpOriginEncounter = data?.find(
+    (resource: FhirResource) => resource.resourceType === 'Encounter' && !resource.partOf
+  ) as Encounter;
+  const followupEncounters = data?.filter(
+    (resource: FhirResource) => resource.resourceType === 'Encounter' && resource.partOf
+  ) as Encounter[] | undefined;
+
+  // Preserve the selected encounter ID if it exists and is valid, otherwise default to main encounter
+  const allEncounters = [followUpOriginEncounter, ...(followupEncounters || [])].filter(Boolean);
+  const validSelectedEncounterId =
+    preserveSelectedEncounterId && allEncounters.some((enc) => enc.id === preserveSelectedEncounterId)
+      ? preserveSelectedEncounterId
+      : followUpOriginEncounter?.id;
 
   return {
     rawResources: data,
@@ -251,7 +334,10 @@ const selectAppointmentData = (
     practitioner: data?.find(
       (resource: FhirResource) => resource.resourceType === 'Practitioner'
     ) as unknown as Practitioner,
-    encounter,
+    followUpOriginEncounter,
+    encounter: followUpOriginEncounter, // Default to main encounter, will be updated by hook
+    followupEncounters,
+    selectedEncounterId: validSelectedEncounterId,
     questionnaireResponse,
     patientPhotoUrls: extractPhotoUrlsFromAppointmentData(data),
     schoolWorkNoteUrls:
@@ -274,7 +360,7 @@ const selectAppointmentData = (
       appointment,
       patient,
       location,
-      encounter,
+      encounter: followUpOriginEncounter,
       questionnaireResponse,
     },
 
@@ -294,11 +380,18 @@ const useGetAppointment = (
   unknown
 > => {
   const { oystehr } = useApiClients();
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: [TELEMED_APPOINTMENT_QUERY_KEY, appointmentId],
     queryFn: async () => {
       if (oystehr && appointmentId) {
+        // Get the current selected encounter ID from the query cache to preserve it
+        const currentData = queryClient.getQueryData([TELEMED_APPOINTMENT_QUERY_KEY, appointmentId]) as
+          | (AppointmentTelemedState & InPersonAppointmentState & AppointmentRawResourcesState)
+          | undefined;
+        const currentSelectedEncounterId = currentData?.selectedEncounterId;
+
         const data = (
           await oystehr.fhir.search<AppointmentResources>({
             resourceType: 'Appointment',
@@ -322,6 +415,10 @@ const useGetAppointment = (
               },
               {
                 name: '_revinclude:iterate',
+                value: 'Encounter:part-of',
+              },
+              {
+                name: '_revinclude:iterate',
                 value: 'QuestionnaireResponse:encounter',
               },
               { name: '_revinclude', value: 'DocumentReference:related' },
@@ -336,7 +433,7 @@ const useGetAppointment = (
               resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
           );
 
-        return selectAppointmentData(data);
+        return selectAppointmentData(data, currentSelectedEncounterId);
       }
       throw new Error('fhir client not defined or appointmentId not provided');
     },
@@ -434,7 +531,7 @@ export const useSaveChartData = (): UseMutationResult<
         throw new Error('update disabled in read only mode');
       }
 
-      if (apiClient && encounter.id) {
+      if (apiClient && encounter?.id) {
         return apiClient.saveChartData({
           encounterId: encounter.id,
           ...chartDataFields,
@@ -456,7 +553,7 @@ export const useDeleteChartData = (): UseMutationResult<
 
   return useMutation({
     mutationFn: (chartDataFields: AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }) => {
-      if (apiClient && encounter.id) {
+      if (apiClient && encounter?.id) {
         return apiClient.deleteChartData({
           encounterId: encounter.id,
           ...chartDataFields,
@@ -475,6 +572,7 @@ export const useChartData = ({
   onError,
   enabled = true,
   refetchInterval,
+  encounterId: paramEncounterId,
 }: {
   appointmentId?: string;
   onSuccess?: (data: ChartDataResponse | null) => void;
@@ -482,6 +580,7 @@ export const useChartData = ({
   enabled?: boolean;
   shouldUpdateExams?: boolean; // todo: migrate this to the separate hook
   refetchInterval?: number;
+  encounterId?: string;
 } = {}): {
   refetch: () => Promise<void>;
   isLoading: boolean;
@@ -496,7 +595,7 @@ export const useChartData = ({
   const { update: updateExamObservations } = useExamObservations();
   const { id: appointmentIdFromUrl } = useParams();
   const { encounter } = useAppointmentData(appointmentId || appointmentIdFromUrl);
-  const encounterId = encounter?.id;
+  const encounterId = encounter?.id ?? paramEncounterId;
   const queryClient = useQueryClient();
 
   const {
@@ -594,7 +693,7 @@ export const useChartData = ({
 
   const chartDataRefetch = useCallback(async (): Promise<void> => {
     await queryClient.invalidateQueries({
-      queryKey: [CHART_DATA_QUERY_KEY, encounter.id],
+      queryKey: [CHART_DATA_QUERY_KEY, encounter?.id],
       exact: false,
     });
   }, [queryClient, encounter.id]);

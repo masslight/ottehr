@@ -85,12 +85,8 @@ const resourceHandler = new ResourceHandler(`immunization-mutating-${DateTime.no
 
 test.describe('Immunization Page mutating tests', () => {
   test.beforeEach(async ({ page }) => {
-    if (process.env.INTEGRATION_TEST === 'true') {
-      await resourceHandler.setResourcesFast();
-    } else {
-      await resourceHandler.setResources();
-      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-    }
+    await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
     await setupPractitioners(page);
   });
 

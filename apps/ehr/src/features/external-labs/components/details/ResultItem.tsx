@@ -37,7 +37,6 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          mb: 1,
         }}
       >
         <Box
@@ -71,6 +70,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
           onMarkAsReviewed={onMarkAsReviewed}
           loading={loading}
           taskId={resultDetails.taskId}
+          labGeneratedResultUrl={resultDetails.labGeneratedResultUrl}
         />
       )}
 
@@ -83,6 +83,14 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
           onPrelimView={() => onMarkAsReviewed()} // todo: add open PDF when task will be ready
           timezone={timezone}
         />
+      )}
+
+      {resultDetails.alternatePlacerId && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body1">
+            <span style={{ fontWeight: 500 }}>Requisition Number: </span> {resultDetails.alternatePlacerId}
+          </Typography>
+        </Box>
       )}
     </>
   );

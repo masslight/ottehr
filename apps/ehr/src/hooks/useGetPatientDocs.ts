@@ -27,7 +27,7 @@ export type DocRef = {
 export type PatientDocumentAttachment = {
   title: string;
   fileNameFromUrl?: string;
-  z3Url: string;
+  z3Url?: string;
   presignedUrl?: string;
 };
 
@@ -160,7 +160,10 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
 
       const openAttachments = async (attachments: PatientDocumentAttachment[]): Promise<void> => {
         const urlSigningRequests = attachments.map(async (attachment) => {
-          const presignedUrl = await getPresignedURL(attachment.z3Url, authToken);
+          let presignedUrl = undefined;
+          if (attachment.z3Url) {
+            presignedUrl = await getPresignedURL(attachment.z3Url, authToken);
+          }
           return { attachment, presignedUrl };
         });
 

@@ -94,12 +94,19 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       icon: sidebarMenuIcons['Med. Administration'],
       title: 'In-House Medications',
       tableUrl: getInHouseMedicationMARUrl(appointment.id),
-      orders: filteredInHouseMedications.map((med) => ({
-        fhirResourceId: med.id,
-        itemDescription: med.medicationName,
-        detailPageUrl: `${getInHouseMedicationDetailsUrl(appointment.id)}?scrollTo=${med.id}`,
-        statusChip: <MedicationStatusChip medication={med} />,
-      })),
+      orders: filteredInHouseMedications.map((med) => {
+        const isPending = med.status === 'pending';
+        const targetUrl = isPending
+          ? `${getInHouseMedicationDetailsUrl(appointment.id)}?scrollTo=${med.id}`
+          : `${getInHouseMedicationMARUrl(appointment.id)}?scrollTo=${med.id}`;
+
+        return {
+          fhirResourceId: med.id,
+          itemDescription: med.medicationName,
+          detailPageUrl: targetUrl,
+          statusChip: <MedicationStatusChip medication={med} />,
+        };
+      }),
     };
     orderConfigs.push(inHouseMedicationConfig);
   }

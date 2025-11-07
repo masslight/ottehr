@@ -3,7 +3,7 @@ import { getSelectors, TelemedAppointmentInformationIntake } from 'utils';
 import { useOystehrAPIClient } from '../../../utils';
 import { useAppointmentStore, useGetAppointments } from '..';
 
-export const useAppointmentsData = (): {
+export const useAppointmentsData = ({ enabled = true }: { enabled?: boolean } = {}): {
   appointmentID: string | undefined;
   appointment: TelemedAppointmentInformationIntake | undefined;
   appointments: TelemedAppointmentInformationIntake[] | undefined;
@@ -18,7 +18,7 @@ export const useAppointmentsData = (): {
     data: { appointments } = {},
     isFetching: isAppointmentsFetching,
     refetch: refetchAppointments,
-  } = useGetAppointments(apiClient, Boolean(apiClient));
+  } = useGetAppointments(apiClient, Boolean(apiClient && enabled));
 
   useEffect(() => {
     const appointment = appointments?.find?.((appointment) => {

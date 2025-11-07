@@ -1,4 +1,20 @@
-import { Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  Appointment,
+  DiagnosticReport,
+  Encounter,
+  Location,
+  Observation,
+  Organization,
+  Patient,
+  Practitioner,
+  Provenance,
+  QuestionnaireResponse,
+  Schedule,
+  ServiceRequest,
+  Specimen,
+  Task,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   ASQ_FIELD,
@@ -24,15 +40,21 @@ import {
   isDropdownComponent,
   isInPersonAppointment,
   isMultiSelectComponent,
+  LabOrderPDF,
+  LabResultPDF,
   mapDispositionTypeToLabel,
   mapVitalsToDisplay,
   NOTE_TYPE,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
+  Pagination,
+  PatientLabItem,
   patientScreeningQuestionsConfig,
+  QuestionnaireData,
   searchRouteByCode,
   Secrets,
   Timezone,
 } from 'utils';
+import { mapResourcesToExternalLabOrders, mapResourcesToInHouseLabOrders } from '../helpers/mappers';
 import { PdfInfo } from '../pdf-utils';
 import { PdfExaminationBlockData, VisitNoteData } from '../types';
 import { createVisitNotePDF } from '../visit-note-pdf';
@@ -43,6 +65,42 @@ type AllChartData = {
   additionalChartData?: GetChartDataResponse;
   medicationOrders?: GetMedicationOrdersResponse['orders'];
   immunizationOrders?: ImmunizationOrder[];
+  externalLabsData?: {
+    serviceRequests: ServiceRequest[];
+    tasks: Task[];
+    diagnosticReports: DiagnosticReport[];
+    practitioners: Practitioner[];
+    pagination: Pagination;
+    encounters: Encounter[];
+    locations: Location[];
+    observations: Observation[];
+    appointments: Appointment[];
+    provenances: Provenance[];
+    organizations: Organization[];
+    questionnaires: QuestionnaireData[];
+    resultPDFs: LabResultPDF[];
+    orderPDF: LabOrderPDF | undefined;
+    specimens: Specimen[];
+    patientLabItems: PatientLabItem[];
+    appointmentScheduleMap: Record<string, Schedule>;
+  };
+  inHouseOrdersData?: {
+    serviceRequests: ServiceRequest[];
+    tasks: Task[];
+    practitioners: Practitioner[];
+    encounters: Encounter[];
+    locations: Location[];
+    appointments: Appointment[];
+    provenances: Provenance[];
+    activityDefinitions: ActivityDefinition[];
+    specimens: Specimen[];
+    observations: Observation[];
+    pagination: Pagination;
+    diagnosticReports: DiagnosticReport[];
+    resultsPDFs: LabResultPDF[];
+    currentPractitioner?: Practitioner;
+    appointmentScheduleMap: Record<string, Schedule>;
+  };
 };
 
 export async function composeAndCreateVisitNotePdf(
@@ -55,7 +113,14 @@ export async function composeAndCreateVisitNotePdf(
   console.log('Start composing data for pdf');
   const data = composeDataForPdf(allChartData, appointmentPackage, isInPerson);
   console.log('Start creating pdf');
-  return await createVisitNotePDF(data, appointmentPackage.patient!, secrets, token, isInPerson);
+  return await createVisitNotePDF(
+    data,
+    appointmentPackage.patient!,
+    secrets,
+    token,
+    isInPerson,
+    appointmentPackage.encounter
+  );
 }
 
 function composeDataForPdf(
@@ -63,9 +128,10 @@ function composeDataForPdf(
   appointmentPackage: FullAppointmentResourcePackage,
   isInPersonAppointment: boolean
 ): VisitNoteData {
-  const { chartData, additionalChartData, medicationOrders, immunizationOrders } = allChartData;
+  const { chartData, additionalChartData, medicationOrders, immunizationOrders, externalLabsData, inHouseOrdersData } =
+    allChartData;
 
-  const { patient, encounter, appointment, location, questionnaireResponse, practitioners, timezone } =
+  const { patient, encounter, mainEncounter, appointment, location, questionnaireResponse, practitioners, timezone } =
     appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');
   // if (!practitioner) throw new Error('No practitioner found for this encounter'); // TODO: fix that
@@ -78,7 +144,7 @@ function composeDataForPdf(
     .valueString;
 
   // --- Visit details ---
-  const { dateOfService, signedOnDate } = getStatusRelatedDates(encounter, appointment, timezone);
+  const { dateOfService, signedOnDate } = getStatusRelatedDates(mainEncounter ?? encounter, appointment, timezone);
   const reasonForVisit = appointment?.description;
   let providerName: string;
   let intakePersonName: string | undefined = undefined;
@@ -152,6 +218,23 @@ function composeDataForPdf(
   const immunizationOrdersToRender = (immunizationOrders ?? [])
     .filter((order) => ['administered', 'administered-partly'].includes(order.status))
     .map(immunizationOrderToString);
+
+  // --- In-House Labs ---
+  const inHouseLabResults = additionalChartData?.inHouseLabResults?.labOrderResults ?? [];
+  const inHouseLabOrders = inHouseOrdersData?.serviceRequests?.length
+    ? mapResourcesToInHouseLabOrders(
+        inHouseOrdersData?.serviceRequests,
+        inHouseOrdersData?.activityDefinitions,
+        inHouseOrdersData?.observations
+      )
+    : [];
+
+  // --- External Labs ---
+  const externalLabResults = additionalChartData?.externalLabResults?.labOrderResults ?? [];
+
+  const externalLabOrders = externalLabsData?.serviceRequests?.length
+    ? mapResourcesToExternalLabOrders(externalLabsData?.serviceRequests)
+    : [];
 
   // --- Addition questions ---
   const additionalQuestions: Record<string, any> = {};
@@ -310,6 +393,14 @@ function composeDataForPdf(
     inHouseMedications,
     inHouseMedicationsNotes,
     immunizationOrders: immunizationOrdersToRender,
+    inHouseLabs: {
+      orders: inHouseLabOrders,
+      results: inHouseLabResults,
+    },
+    externalLabs: {
+      orders: externalLabOrders,
+      results: externalLabResults,
+    },
     screening: {
       additionalQuestions,
       currentASQ,

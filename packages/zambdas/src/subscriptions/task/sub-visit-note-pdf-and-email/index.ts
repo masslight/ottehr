@@ -8,6 +8,7 @@ import {
   getPatientContactEmail,
   getSecret,
   InPersonCompletionTemplateData,
+  isFollowupEncounter,
   OTTEHR_MODULE,
   progressNoteChartDataRequestedFields,
   Secrets,
@@ -16,6 +17,8 @@ import {
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
 import { getChartData } from '../../../ehr/get-chart-data';
+import { getInHouseResources } from '../../../ehr/get-in-house-orders/helpers';
+import { getLabResources } from '../../../ehr/get-lab-orders/helpers';
 import { getMedicationOrders } from '../../../ehr/get-medication-orders';
 import { getImmunizationOrders } from '../../../ehr/immunization/get-orders';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
@@ -89,7 +92,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error('no appointment ID found on task focus');
   }
 
-  const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
+  const visitResources = await getAppointmentAndRelatedResources(
+    oystehr,
+    appointmentId,
+    true,
+    task.encounter?.reference?.split('/')[1]
+  );
   if (!visitResources) {
     {
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
@@ -107,6 +115,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
 
+  // Check if this is a PDF-only task (for follow-ups) or regular PDF+email task
+  const isPDFOnlyTask = isFollowupEncounter(encounter);
+
   const chartDataPromise = getChartData(oystehr, oystehrToken, visitResources.encounter.id!);
   const additionalChartDataPromise = getChartData(
     oystehr,
@@ -114,6 +125,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     visitResources.encounter.id!,
     isInPersonAppointment ? progressNoteChartDataRequestedFields : telemedProgressNoteChartDataRequestedFields
   );
+
   const medicationOrdersPromise = getMedicationOrders(oystehr, {
     searchBy: {
       field: 'encounterId',
@@ -121,20 +133,52 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     },
   });
 
-  const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(
-    (promise) => promise.response
+  const externalLabOrdersPromise = getLabResources(
+    oystehr,
+    {
+      searchBy: { field: 'encounterId', value: encounter.id! },
+      itemsPerPage: 10,
+      pageIndex: 0,
+      secrets,
+    },
+    oystehrToken,
+    { searchBy: { field: 'encounterId', value: encounter.id! } }
   );
-  const medicationOrders = (await medicationOrdersPromise).orders;
+
+  const inHouseOrdersPromise = getInHouseResources(
+    oystehr,
+    {
+      searchBy: { field: 'encounterId', value: encounter.id! },
+      itemsPerPage: 10,
+      pageIndex: 0,
+      secrets,
+      userToken: '',
+    },
+    { searchBy: { field: 'encounterId', value: encounter.id! } },
+    oystehrToken
+  );
+
+  const [chartDataResult, additionalChartDataResult, externalLabsData, inHouseOrdersData, medicationOrdersData] =
+    await Promise.all([
+      chartDataPromise,
+      additionalChartDataPromise,
+      externalLabOrdersPromise,
+      inHouseOrdersPromise,
+      medicationOrdersPromise,
+    ]);
   const immunizationOrders = (
     await getImmunizationOrders(oystehr, {
       encounterId: visitResources.encounter.id!,
     })
   ).orders;
+  const chartData = chartDataResult.response;
+  const additionalChartData = additionalChartDataResult.response;
+  const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
 
   console.log('Chart data received');
   try {
     const pdfInfo = await composeAndCreateVisitNotePdf(
-      { chartData, additionalChartData, medicationOrders, immunizationOrders },
+      { chartData, additionalChartData, medicationOrders, immunizationOrders, externalLabsData, inHouseOrdersData },
       visitResources,
       secrets,
       oystehrToken
@@ -145,7 +189,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const emailClient = getEmailClient(secrets);
     const emailEnabled = emailClient.getFeatureFlag();
-    if (emailEnabled) {
+    if (emailEnabled && !isPDFOnlyTask) {
       const patientEmail = getPatientContactEmail(patient);
       let prettyStartTime = '';
       let locationName = '';
@@ -205,7 +249,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // update task status and status reason
     console.log('making patch request to update task status');
-    const patchedTask = await patchTaskStatus(oystehr, task.id, 'completed', 'PDF created and emailed successfully');
+    const statusMessage = isPDFOnlyTask ? 'PDF created successfully' : 'PDF created and emailed successfully';
+    const patchedTask = await patchTaskStatus(oystehr, task.id, 'completed', statusMessage);
 
     const response = {
       taskStatus: patchedTask.status,

@@ -4,6 +4,10 @@ import { PageSizes, PDFImage } from 'pdf-lib';
 import {
   BUCKET_NAMES,
   followUpInOptions,
+  formatFhirEncounterToPatientFollowupDetails,
+  isFollowupEncounter,
+  NonNormalResult,
+  NonNormalResultContained,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
   renderScreeningQuestionsForPDF,
@@ -12,10 +16,15 @@ import {
 } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
+import { ICON_STYLE } from './pdf-consts';
 import { createPdfClient, getPdfLogo, PdfInfo, rgbNormalized } from './pdf-utils';
 import { ImageStyle, LineStyle, PageStyles, PdfClientStyles, TextStyle, VisitNoteData } from './types';
 
-async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointment: boolean): Promise<Uint8Array> {
+async function createVisitNotePdfBytes(
+  data: VisitNoteData,
+  isInPersonAppointment: boolean,
+  encounter?: any
+): Promise<Uint8Array> {
   const pdfClientStyles: PdfClientStyles = {
     initialPage: {
       width: PageSizes.A4[0],
@@ -47,6 +56,12 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       font: RubikFontBold,
       spacing: 17,
       side: 'right',
+      newLineAfter: true,
+    },
+    subHeader: {
+      fontSize: 14,
+      font: RubikFontBold,
+      spacing: 5,
       newLineAfter: true,
     },
     blockHeader: {
@@ -233,6 +248,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     });
   };
 
+  const isFollowup = encounter ? isFollowupEncounter(encounter) : false;
+
   // This is headline of each line
   const drawHeadline = (): void => {
     const imgStyles: ImageStyle = {
@@ -240,7 +257,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       height: 28,
     };
     if (logo) pdfClient.drawImage(logo, imgStyles);
-    pdfClient.drawText('Visit Note', textStyles.header);
+    const title = isFollowup ? 'Follow-up Visit Note' : 'Visit Note';
+    pdfClient.drawText(title, textStyles.header);
   };
   // We can't set this headline in initial styles, so we gonna draw it and add
   // it as headline for all next pages to set automatically
@@ -265,46 +283,76 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   separateLine();
 
   drawBlockHeader('Visit Details');
-  drawFieldLine('Date of Service', data.dateOfService);
-  drawFieldLine('Reason for Visit', data.reasonForVisit);
-  drawFieldLine('Provider', data.provider);
-  if (data.intakePerson) {
-    drawFieldLine('Intake completed by', data.intakePerson);
+
+  if (isFollowup && encounter) {
+    const followupDetails = formatFhirEncounterToPatientFollowupDetails(encounter, data.patientName);
+
+    const followupDateTime = encounter.period?.start
+      ? new Date(encounter.period.start).toLocaleString()
+      : data.dateOfService;
+
+    drawFieldLine('Initial visit date', data.dateOfService);
+    drawFieldLine('Follow-up date and time', followupDateTime);
+
+    if (followupDetails.reason) {
+      drawFieldLine('Reason', followupDetails.reason);
+    }
+    if (followupDetails.reason === 'Other' && followupDetails.otherReason) {
+      drawFieldLine('Other reason', followupDetails.otherReason);
+    }
+    if (followupDetails.provider?.name) {
+      drawFieldLine('Follow-up provider', followupDetails.provider.name);
+    }
+    if (followupDetails.location) {
+      drawFieldLine('Location', followupDetails.location.name || '');
+    }
+    if (followupDetails.message) {
+      drawFieldLine('Comment', followupDetails.message);
+    }
+  } else {
+    drawFieldLine('Date of Service', data.dateOfService);
+    drawFieldLine('Reason for Visit', data.reasonForVisit);
+    drawFieldLine('Provider', data.provider);
+    if (data.intakePerson) {
+      drawFieldLine('Intake completed by', data.intakePerson);
+    }
+    drawFieldLine('Signed On', data.signedOn);
+    drawFieldLine('Visit ID', data.visitID);
+    drawFieldLine('Visit State', data.visitState);
+    if (data.insuranceCompany) {
+      drawFieldLine('Insurance Company', data.insuranceCompany);
+    }
+    if (data.insuranceSubscriberId) {
+      drawFieldLine('Subscriber ID', data.insuranceSubscriberId);
+    }
+    drawFieldLine('Address', data.address);
   }
-  drawFieldLine('Signed On', data.signedOn);
-  drawFieldLine('Visit ID', data.visitID);
-  drawFieldLine('Visit State', data.visitState);
-  if (data.insuranceCompany) {
-    drawFieldLine('Insurance Company', data.insuranceCompany);
-  }
-  if (data.insuranceSubscriberId) {
-    drawFieldLine('Subscriber ID', data.insuranceSubscriberId);
-  }
-  drawFieldLine('Address', data.address);
   regularText(
     // Related to a node bug, a second space(good space) was added between the words gave, their to handle a bad space(no space) occurance
     'Provider confirmed patient’s name, DOB, introduced themselves, and gave  their licensure and credentials.'
   );
   separateLine();
 
-  if (data.chiefComplaint || data.providerTimeSpan) {
-    drawBlockHeader('Chief complaint & History of Present Illness');
-    if (data.chiefComplaint && data.chiefComplaint.length > 0) {
-      regularText(data.chiefComplaint);
+  if (!isFollowup) {
+    if (data.chiefComplaint || data.providerTimeSpan) {
+      drawBlockHeader('Chief complaint & History of Present Illness');
+      if (data.chiefComplaint && data.chiefComplaint.length > 0) {
+        regularText(data.chiefComplaint);
+      }
+      if (data.providerTimeSpan && !isInPersonAppointment) {
+        pdfClient.drawText(
+          `Provider spent ${data.providerTimeSpan} minutes on real-time audio & video with this patient`,
+          textStyles.smallGreyText
+        );
+      }
+      separateLine();
     }
-    if (data.providerTimeSpan && !isInPersonAppointment) {
-      pdfClient.drawText(
-        `Provider spent ${data.providerTimeSpan} minutes on real-time audio & video with this patient`,
-        textStyles.smallGreyText
-      );
-    }
-    separateLine();
-  }
 
-  if (data.reviewOfSystems) {
-    drawBlockHeader('Review of Systems');
-    regularText(data.reviewOfSystems);
-    separateLine();
+    if (data.reviewOfSystems) {
+      drawBlockHeader('Review of Systems');
+      regularText(data.reviewOfSystems);
+      separateLine();
+    }
   }
 
   if (data.medications || (data.medicationsNotes && data.medicationsNotes.length > 0)) {
@@ -437,118 +485,242 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     });
     separateLine();
   }
+  // result flag icons
+  const inconclusiveIcon = await pdfClient.embedImage(fs.readFileSync('./assets/inconclusive.png'));
+  const abnormalIcon = await pdfClient.embedImage(fs.readFileSync('./assets/abnormal.png'));
+  const normalIcon = await pdfClient.embedImage(fs.readFileSync('./assets/normal.png'));
 
-  if (
-    (data.screening?.additionalQuestions && Object.keys(data.screening.additionalQuestions).length > 0) ||
-    data.screening?.currentASQ ||
-    (data.screening?.notes && data.screening.notes.length > 0)
-  ) {
-    drawBlockHeader('Additional questions');
+  const regularTextNoLineAfter = { ...textStyles.regularText, newLineAfter: false };
+  const getFlagsExcludingNeutral = (flags: NonNormalResult[]): NonNormalResult[] =>
+    flags.filter((flag) => flag !== NonNormalResult.Neutral);
 
-    if (data.screening?.additionalQuestions) {
-      renderScreeningQuestionsForPDF(data.screening.additionalQuestions, (question, formattedValue) => {
-        regularText(`${question} - ${formattedValue}`);
+  const getCurBounds = (): { leftBound: number; rightBound: number } => ({
+    leftBound: pdfClient.getX(),
+    rightBound: pdfClient.getRightBound(),
+  });
+  const drawResultFlags = (
+    nonNormalResultContained: NonNormalResultContained,
+    labType: 'inhouse' | 'external'
+  ): void => {
+    const resultFlagIconStyle = { ...ICON_STYLE, margin: { left: 5, right: 5 } };
+    if (nonNormalResultContained && nonNormalResultContained.length > 0) {
+      const flagsExcludingNeutral = getFlagsExcludingNeutral(nonNormalResultContained);
+      if (flagsExcludingNeutral?.length) {
+        flagsExcludingNeutral.forEach((flag, idx) => {
+          const lastFlag = flagsExcludingNeutral?.length === idx + 1;
+          const style = lastFlag ? textStyles.regularText : regularTextNoLineAfter;
+
+          if (flag === NonNormalResult.Abnormal) {
+            pdfClient.drawImage(abnormalIcon, resultFlagIconStyle, regularTextNoLineAfter);
+            pdfClient.drawTextSequential('Abnormal', { ...style, color: rgbNormalized(237, 108, 2) }, getCurBounds());
+          } else if (flag === NonNormalResult.Inconclusive) {
+            pdfClient.drawImage(inconclusiveIcon, resultFlagIconStyle, regularTextNoLineAfter);
+            pdfClient.drawTextSequential(
+              'Inconclusive',
+              { ...style, color: rgbNormalized(117, 117, 117) },
+              getCurBounds()
+            );
+          }
+        });
+      }
+    } else if (labType === 'inhouse') {
+      // too hairy to assume normal results for external labs so we will only do this for inhouse
+      pdfClient.drawImage(normalIcon, resultFlagIconStyle, regularTextNoLineAfter);
+      pdfClient.drawTextSequential(
+        'Normal',
+        { ...textStyles.regularText, color: rgbNormalized(46, 125, 50) },
+        getCurBounds()
+      );
+    }
+  };
+
+  const getTestNameTextStyle = (
+    nonNormalResultContained: NonNormalResultContained,
+    labType: 'inhouse' | 'external'
+  ): TextStyle => {
+    // results are normal, no flags
+    if (!nonNormalResultContained) {
+      if (labType === 'inhouse') {
+        // there will be a normal flag therefore the test name should not have a new line after it is written
+        return regularTextNoLineAfter;
+      } else {
+        // no normal flag therefore the test name should have a new line after it is written
+        return textStyles.regularText;
+      }
+    }
+
+    const flagsExcludingNeutral = getFlagsExcludingNeutral(nonNormalResultContained);
+    if (flagsExcludingNeutral.length > 0) {
+      // results have a flag to display therefore the test name should not have a new line after it is written
+      return regularTextNoLineAfter;
+    } else {
+      // no flags for neutral tests, new line after test name
+      return textStyles.regularText;
+    }
+  };
+
+  const drawInHouseLabs = (): void => {
+    pdfClient.drawText('In-House Labs', textStyles.subHeader);
+    if (data.inHouseLabs?.orders.length) {
+      pdfClient.drawText('Orders:', textStyles.subHeader);
+      data.inHouseLabs?.orders.forEach((order) => {
+        pdfClient.drawText(order.testItemName, textStyles.regularText);
       });
     }
-
-    if (data.screening?.currentASQ) {
-      regularText(`ASQ - ${data.screening.currentASQ}`);
-    }
-
-    if (data.screening?.notes && data.screening.notes.length > 0) {
-      drawBlockHeader('Screening notes', textStyles.blockSubHeader);
-      data.screening.notes.forEach((record) => {
-        regularText(record);
+    if (data.inHouseLabs?.results.length) {
+      pdfClient.drawText('Results:', textStyles.subHeader);
+      data.inHouseLabs?.results.forEach((result) => {
+        const testNameTextStyle = getTestNameTextStyle(result.nonNormalResultContained, 'inhouse');
+        pdfClient.drawTextSequential(result.name, testNameTextStyle, {
+          leftBound: pdfClient.getLeftBound(),
+          rightBound: pdfClient.getRightBound(),
+        });
+        drawResultFlags(result.nonNormalResultContained, 'inhouse');
       });
     }
-    separateLine();
-  }
+    pdfClient.drawSeparatedLine(separatedLineStyle);
+  };
 
-  if (data.intakeNotes && data.intakeNotes.length > 0) {
-    drawBlockHeader('Intake notes');
-    data.intakeNotes.forEach((record) => {
-      regularText(record);
-    });
-    separateLine();
-  }
+  const drawExternalLabs = (): void => {
+    pdfClient.drawText('External Labs', textStyles.subHeader);
+    if (data.externalLabs?.orders.length) {
+      pdfClient.drawText('Orders:', textStyles.subHeader);
+      data.externalLabs?.orders.forEach((order) => {
+        pdfClient.drawText(order.testItemName, textStyles.regularText);
+      });
+    }
+    if (data.externalLabs?.results.length) {
+      pdfClient.drawText('Results:', textStyles.subHeader);
+      data.externalLabs?.results.forEach((result) => {
+        const testNameTextStyle = getTestNameTextStyle(result.nonNormalResultContained, 'external');
+        pdfClient.drawTextSequential(result.name, testNameTextStyle, {
+          leftBound: pdfClient.getLeftBound(),
+          rightBound: pdfClient.getRightBound(),
+        });
+        drawResultFlags(result.nonNormalResultContained, 'external');
+      });
+    }
+    pdfClient.drawSeparatedLine(separatedLineStyle);
+  };
 
-  if (data.vitals && (Object.values(data.vitals).filter((arr) => arr && arr.length > 0) ?? []).length > 0) {
-    drawBlockHeader('Vitals');
+  if (data.inHouseLabs?.orders.length || data.inHouseLabs?.results.length) drawInHouseLabs();
+  if (data.externalLabs?.orders.length || data.externalLabs?.results.length) drawExternalLabs();
 
-    const vitalLabelMapper: { [value in VitalFieldNames]: string } & { notes: string } = {
-      [VitalFieldNames.VitalTemperature]: 'Temperature',
-      [VitalFieldNames.VitalHeartbeat]: 'Heartbeat',
-      [VitalFieldNames.VitalRespirationRate]: 'Respiration rate',
-      [VitalFieldNames.VitalBloodPressure]: 'Blood pressure',
-      [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen saturation',
-      [VitalFieldNames.VitalWeight]: 'Weight',
-      [VitalFieldNames.VitalHeight]: 'Height',
-      [VitalFieldNames.VitalVision]: 'Vision',
-      notes: 'Vitals notes',
-    };
+  if (!isFollowup) {
+    if (
+      (data.screening?.additionalQuestions && Object.keys(data.screening.additionalQuestions).length > 0) ||
+      data.screening?.currentASQ ||
+      (data.screening?.notes && data.screening.notes.length > 0)
+    ) {
+      drawBlockHeader('Additional questions');
 
-    Object.keys(vitalLabelMapper)
-      .filter((name) => data.vitals?.[name as VitalFieldNames] && data.vitals?.[name as VitalFieldNames]!.length > 0)
-      .forEach((vitalName) => {
-        drawBlockHeader(vitalLabelMapper[vitalName as VitalFieldNames], textStyles.blockSubHeader);
-        data.vitals?.[vitalName as VitalFieldNames]?.forEach((record) => {
+      if (data.screening?.additionalQuestions) {
+        renderScreeningQuestionsForPDF(data.screening.additionalQuestions, (question, formattedValue) => {
+          regularText(`${question} - ${formattedValue}`);
+        });
+      }
+
+      if (data.screening?.currentASQ) {
+        regularText(`ASQ - ${data.screening.currentASQ}`);
+      }
+
+      if (data.screening?.notes && data.screening.notes.length > 0) {
+        drawBlockHeader('Screening notes', textStyles.blockSubHeader);
+        data.screening.notes.forEach((record) => {
           regularText(record);
         });
-      });
-
-    separateLine();
-  }
-
-  drawBlockHeader('Examination');
-
-  // Process examination data using the new structure
-  const examination = data.examination;
-
-  if (examination && Object.keys(examination).length > 0) {
-    Object.entries(examination).forEach(([sectionKey, section]) => {
-      if (section.items && section.items.length > 0) {
-        const sectionLabel = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
-        drawExaminationCard(`${sectionLabel}:   `, section.items, undefined, section.comment);
-      } else if (section.comment) {
-        // If there are no items but there's a comment, still show the section
-        const sectionLabel = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
-        drawExaminationCard(`${sectionLabel}:   `, [], undefined, section.comment);
       }
-    });
-  }
-  separateLine();
+      separateLine();
+    }
 
-  if (data.assessment?.primary) {
-    drawBlockHeader('Assessment');
-    drawBlockHeader('Primary:', textStyles.blockSubHeader);
-    regularText(data.assessment?.primary);
-    if (data.assessment?.secondary.length > 0) {
-      drawBlockHeader('Secondary:', textStyles.blockSubHeader);
-      data.assessment?.secondary.forEach((assessment) => {
-        regularText(assessment);
+    if (data.intakeNotes && data.intakeNotes.length > 0) {
+      drawBlockHeader('Intake notes');
+      data.intakeNotes.forEach((record) => {
+        regularText(record);
+      });
+      separateLine();
+    }
+
+    if (data.vitals && (Object.values(data.vitals).filter((arr) => arr && arr.length > 0) ?? []).length > 0) {
+      drawBlockHeader('Vitals');
+
+      const vitalLabelMapper: { [value in VitalFieldNames]: string } & { notes: string } = {
+        [VitalFieldNames.VitalTemperature]: 'Temperature',
+        [VitalFieldNames.VitalHeartbeat]: 'Heartbeat',
+        [VitalFieldNames.VitalRespirationRate]: 'Respiration rate',
+        [VitalFieldNames.VitalBloodPressure]: 'Blood pressure',
+        [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen saturation',
+        [VitalFieldNames.VitalWeight]: 'Weight',
+        [VitalFieldNames.VitalHeight]: 'Height',
+        [VitalFieldNames.VitalVision]: 'Vision',
+        notes: 'Vitals notes',
+      };
+
+      Object.keys(vitalLabelMapper)
+        .filter((name) => data.vitals?.[name as VitalFieldNames] && data.vitals?.[name as VitalFieldNames]!.length > 0)
+        .forEach((vitalName) => {
+          drawBlockHeader(vitalLabelMapper[vitalName as VitalFieldNames], textStyles.blockSubHeader);
+          data.vitals?.[vitalName as VitalFieldNames]?.forEach((record) => {
+            regularText(record);
+          });
+        });
+
+      separateLine();
+    }
+  }
+
+  if (!isFollowup) {
+    drawBlockHeader('Examination');
+
+    // Process examination data using the new structure
+    const examination = data.examination;
+
+    if (examination && Object.keys(examination).length > 0) {
+      Object.entries(examination).forEach(([sectionKey, section]) => {
+        if (section.items && section.items.length > 0) {
+          const sectionLabel = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
+          drawExaminationCard(`${sectionLabel}:   `, section.items, undefined, section.comment);
+        } else if (section.comment) {
+          // If there are no items but there's a comment, still show the section
+          const sectionLabel = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
+          drawExaminationCard(`${sectionLabel}:   `, [], undefined, section.comment);
+        }
       });
     }
     separateLine();
-  }
 
-  if (data.medicalDecision) {
-    drawBlockHeader('Medical Decision Making');
-    regularText(data.medicalDecision);
-    separateLine();
-  }
+    if (data.assessment?.primary) {
+      drawBlockHeader('Assessment');
+      drawBlockHeader('Primary:', textStyles.blockSubHeader);
+      regularText(data.assessment?.primary);
+      if (data.assessment?.secondary.length > 0) {
+        drawBlockHeader('Secondary:', textStyles.blockSubHeader);
+        data.assessment?.secondary.forEach((assessment) => {
+          regularText(assessment);
+        });
+      }
+      separateLine();
+    }
 
-  if (data.emCode) {
-    drawBlockHeader('E&M code');
-    regularText(data.emCode, 'No E&M code provided.');
-    separateLine();
-  }
+    if (data.medicalDecision) {
+      drawBlockHeader('Medical Decision Making');
+      regularText(data.medicalDecision);
+      separateLine();
+    }
 
-  if (data.cptCodes && data.cptCodes.length > 0) {
-    drawBlockHeader('CPT codes');
-    data.cptCodes.forEach((cptCode) => {
-      regularText(cptCode);
-    });
-    separateLine();
+    if (data.emCode) {
+      drawBlockHeader('E&M code');
+      regularText(data.emCode, 'No E&M code provided.');
+      separateLine();
+    }
+
+    if (data.cptCodes && data.cptCodes.length > 0) {
+      drawBlockHeader('CPT codes');
+      data.cptCodes.forEach((cptCode) => {
+        regularText(cptCode);
+      });
+      separateLine();
+    }
   }
 
   if (data.procedures && data.procedures.length > 0) {
@@ -683,6 +855,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     }
   }
 
+  if (isFollowup && encounter) {
+    const completedDateTime = encounter.period?.end
+      ? new Date(encounter.period.end).toLocaleString()
+      : new Date().toLocaleString();
+    drawFieldLine('Follow-up completed', completedDateTime);
+  }
+
   return await pdfClient.save();
 }
 
@@ -696,14 +875,15 @@ export async function createVisitNotePDF(
   patient: Patient,
   secrets: Secrets | null,
   token: string,
-  isInPersonAppointment: boolean
+  isInPersonAppointment: boolean,
+  encounter?: any
 ): Promise<PdfInfo> {
   if (!patient.id) {
     throw new Error('No patient id found for consent items');
   }
 
   console.log('Creating pdf bytes');
-  const pdfBytes = await createVisitNotePdfBytes(input, isInPersonAppointment).catch((error) => {
+  const pdfBytes = await createVisitNotePdfBytes(input, isInPersonAppointment, encounter).catch((error) => {
     throw new Error('failed creating pdfBytes: ' + error.message);
   });
 
