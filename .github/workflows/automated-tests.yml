@@ -28,9 +28,9 @@ on:
       - 'package.json'
 
 jobs:
-  set-up-node:
+  build-and-test:
     if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest-4-cores
+    runs-on: ubuntu-latest-8-cores
     timeout-minutes: 15
     strategy:
       matrix:
@@ -86,60 +86,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: node-artifacts
-          path: |
-            node_modules
-            apps/*/node_modules
-            packages/*/node_modules
-            apps/ehr/env
-            apps/intake/env
-            packages/zambdas/.env
-          retention-days: 1
+      # - name: Build
+      #   run: npm run build
+      #   env:
+      #     NODE_OPTIONS: '--max-old-space-size=8192'
 
-  unit-tests:
-    needs: set-up-node
-    runs-on: ubuntu-latest-4-cores
-    timeout-minutes: 10
-    steps:
-      - name: Checkout the main repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Set up Node.js environment
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: "22"
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: node-artifacts
-
+      # Tests start here
       - name: Unit tests
         run: npm run test
         env:
           CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'
-
-  patient-component-tests:
-    needs: set-up-node
-    runs-on: ubuntu-latest-4-cores
-    timeout-minutes: 10
-    steps:
-      - name: Checkout the main repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Set up Node.js environment
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: "22"
-
-      - name: Download node artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: node-artifacts
 
       - name: Patient component tests
         run: cd apps/intake && npm run component-tests
@@ -148,48 +105,12 @@ jobs:
           CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'
 
-  ehr-component-tests:
-    needs: set-up-node
-    runs-on: ubuntu-latest-4-cores
-    timeout-minutes: 10
-    steps:
-      - name: Checkout the main repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Set up Node.js environment
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: "22"
-
-      - name: Download node artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: node-artifacts
-
       - name: EHR component tests
         run: cd apps/ehr && npm run component-tests
         env:
           ENV: 'local'
           CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'
-
-  integration-tests:
-    needs: set-up-node
-    runs-on: ubuntu-latest-4-cores
-    timeout-minutes: 10
-    steps:
-      - name: Checkout the main repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Set up Node.js environment
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: "22"
-
-      - name: Download node artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: node-artifacts
 
       - name: Integration tests
         run: npm run integration:zambdas
@@ -198,26 +119,16 @@ jobs:
           CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'
 
-  report-status:
-    needs: [unit-tests, patient-component-tests, ehr-component-tests, integration-tests]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
       - name: Set GitHub Commit Status
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        if: always()
         with:
           script: |
-            const jobs = [
-              '${{ needs.unit-tests.result }}',
-              '${{ needs.patient-component-tests.result }}',
-              '${{ needs.ehr-component-tests.result }}',
-              '${{ needs.integration-tests.result }}'
-            ];
-            const success = jobs.every(result => result === 'success');
+            const success = '${{ job.status }}' === 'success';
             await github.rest.repos.createCommitStatus({
               ...context.repo,
               sha: context.sha,
               state: success ? 'success' : 'failure',
               context: 'CI / Tests',
-              description: success ? 'All tests passed' : 'Some tests failed'
+              description: success ? 'Tests successful' : 'Tests failed'
             });
