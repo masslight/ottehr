@@ -1,7 +1,7 @@
 {
   "name": "ui-components",
   "private": true,
-  "version": "1.21.16",
+  "version": "1.21.17",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "engines": {
