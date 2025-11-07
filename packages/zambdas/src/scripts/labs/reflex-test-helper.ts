@@ -1,12 +1,20 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { CodeableConcept, DiagnosticReport, Observation, Reference, ServiceRequest, Specimen } from 'fhir/r4b';
+import {
+  CodeableConcept,
+  DiagnosticReport,
+  DocumentReference,
+  Observation,
+  Reference,
+  ServiceRequest,
+  Specimen,
+} from 'fhir/r4b';
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import { LAB_DR_TYPE_TAG } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
 import { DR_REFLEX_TAG, LAB_PDF_ATTACHMENT_DR_TAG, PDF_ATTACHMENT_CODE } from './lab-script-consts';
-import { createPdfAttachmentObs } from './lab-script-helpers';
+import { createAttachmentDocRef, createPdfAttachmentObs } from './lab-script-helpers';
 
 // Creates a DiagnosticReport and Observation(s) to mock a reflex test
 // npm run mock-reflex-test ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
@@ -80,7 +88,7 @@ const main = async (): Promise<void> => {
     process.exit(1);
   }
 
-  const requests: BatchInputPostRequest<DiagnosticReport | Observation>[] = [];
+  const requests: BatchInputPostRequest<DiagnosticReport | Observation | DocumentReference>[] = [];
 
   // grab first related diagnostic report thats not a reflex test
   const drToDuplicate = resultResources.find(
@@ -156,8 +164,10 @@ const main = async (): Promise<void> => {
   delete reflexDR.id;
   delete reflexDR.basedOn;
 
+  const drFullUrl = `urn:uuid:${randomUUID()}`;
   requests.push({
     method: 'POST',
+    fullUrl: drFullUrl,
     url: '/DiagnosticReport',
     resource: reflexDR,
   });
@@ -182,6 +192,23 @@ const main = async (): Promise<void> => {
     method: 'POST',
     url: '/DiagnosticReport',
     resource: pdfAttachmentDR,
+  });
+
+  // new attachment logic
+  const projectId = envConfig.PROJECT_ID;
+  if (!projectId) throw new Error(`Could not get projectId`);
+  const patientRef = serviceRequest.subject.reference?.startsWith('Patient/') ? serviceRequest.subject : undefined;
+  const attachmentDocRef = createAttachmentDocRef({
+    ENV,
+    projectId,
+    relatedDiagnosticReportReferences: [{ reference: drFullUrl }],
+    encounterRef: serviceRequest?.encounter,
+    patientRef,
+  });
+  requests.push({
+    method: 'POST',
+    url: '/DocumentReference',
+    resource: attachmentDocRef,
   });
 
   console.log('making transaction request');

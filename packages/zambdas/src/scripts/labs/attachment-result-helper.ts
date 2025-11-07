@@ -1,9 +1,9 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { DiagnosticReport, DocumentReference, ServiceRequest } from 'fhir/r4b';
 import fs from 'fs';
-import { DateTime } from 'luxon';
 import { createOystehrClient, getAuth0Token } from '../../shared';
 import { EXAMPLE_ENVS } from './lab-script-consts';
+import { createAttachmentDocRef } from './lab-script-helpers';
 
 // Creates a DiagnosticReport and an Observation to mock a pdf attachment
 // npm run mock-pdf-result ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
@@ -24,6 +24,9 @@ const main = async (): Promise<void> => {
   } catch (error) {
     console.error(`Error parsing secrets for ENV '${ENV}'. Error: ${JSON.stringify(error)}`);
   }
+
+  const projectId = envConfig.PROJECT_ID;
+  if (!projectId) throw new Error(`Could not get projectId`);
 
   const token = await getAuth0Token(envConfig);
   if (!token) {
@@ -68,48 +71,14 @@ const main = async (): Promise<void> => {
   const requests: BatchInputPostRequest<DocumentReference>[] = [];
 
   const diagnosticReports = resultResources.filter((resource) => resource.resourceType === 'DiagnosticReport');
-
-  const docRef: DocumentReference = {
-    resourceType: 'DocumentReference',
-    status: 'current',
-    docStatus: 'final',
-    type: {
-      coding: [
-        {
-          system: 'http://loinc.org',
-          code: '11502-2',
-          display: 'Laboratory report',
-        },
-      ],
-      text: 'Lab result document',
-    },
-    category: [
-      {
-        coding: [
-          {
-            system: 'https://terminology.fhir.oystehr.com/CodeSystem/lab-documents',
-            code: 'lab-generated-result-document',
-            display: 'Lab Generated Result Document',
-          },
-        ],
-      },
-    ],
-    date: DateTime.now().toISO(),
-    content: [
-      {
-        attachment: {
-          url: 'https://project-api.zapehr.com/v1/z3/0ba6d7a5-a5a6-4c16-a6d9-ce91f300acb4-labs/ec2712c1-a080-4aa8-981c-de2b5128cf69/2025-10-11-1760211958816-onion_lab_result.pdf',
-          contentType: 'application/pdf',
-          title: 'onion_lab_result.pdf',
-        },
-      },
-    ],
-    subject: patientRef ? patientRef : undefined,
-    context: {
-      related: diagnosticReports.map((dr) => ({ reference: `DiagnosticReport/${dr.id}` })),
-      encounter: encounterRef ? [encounterRef] : undefined,
-    },
-  };
+  const relatedDiagnosticReportReferences = diagnosticReports.map((dr) => ({ reference: `DiagnosticReport/${dr.id}` }));
+  const docRef = createAttachmentDocRef({
+    ENV,
+    projectId,
+    relatedDiagnosticReportReferences,
+    encounterRef,
+    patientRef,
+  });
 
   requests.push({
     method: 'POST',
