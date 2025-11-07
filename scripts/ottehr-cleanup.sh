@@ -16,11 +16,11 @@ if ! command -v npm &> /dev/null; then
   errors+="Error: npm is not installed. Please install npm before running this script.\n"
 fi
 
-# Check Node.js version (18+)
+# Check Node.js version (22+)
 node_version=$(node -v | cut -d'v' -f2)
 node_major_version=$(echo $node_version | cut -d'.' -f1)
-if [ $node_major_version -lt 18 ]; then
-  errors+="Error: Node.js version must be 18 or higher. Current version: $node_version\n"
+if [ $node_major_version -lt 22 ]; then
+  errors+="Error: Node.js version must be 22 or higher. Current version: $node_version\n"
 fi
 
 # Check npm version (9+)
