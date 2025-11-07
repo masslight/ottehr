@@ -124,7 +124,7 @@ export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): 
     }
     return lambdaResponse(200, { primary, secondary });
   } catch (error: any) {
-    console.error(error, error.issue);
+    console.error(error, error.message);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch('get-eligibility', error, ENVIRONMENT);
   }
