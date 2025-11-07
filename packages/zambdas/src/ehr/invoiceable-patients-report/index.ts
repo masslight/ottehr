@@ -96,10 +96,6 @@ async function getInvoiceableClaims(input: InvoiceableClaimsInput): Promise<Invo
       onlyInvoiceable,
     });
 
-    inventoryPages?.claims.forEach((claim) => {
-      if (claim.patientArStatus !== 'invoiceable') console.log('nnot invoiceable');
-    });
-
     console.log('\n📊 Patient Inventory Response:');
     console.log('===============================');
     console.log(`📄 Total pages fetched: ${inventoryPages?.pageCount}`);

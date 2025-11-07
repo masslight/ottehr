@@ -148,7 +148,6 @@ async function getEncountersWithoutTask(candid: CandidApiClient, oystehr: Oysteh
           itemization.patientBalanceCents / 100
         );
         if (itemization.patientBalanceCents > 0) {
-          // todo: is it right to check if balance is > 0?
           encountersWithoutTask.push(pkg.encounter);
         }
       }
