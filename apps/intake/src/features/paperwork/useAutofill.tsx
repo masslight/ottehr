@@ -2,6 +2,7 @@ import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { useEffect, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { IntakeQuestionnaireItem } from 'utils';
+import { usePaperworkContext } from './context';
 import { getPaperworkFieldId, useQRState } from './useFormHelpers';
 import { getItemDisplayStrategy } from './useSelectItems';
 
@@ -61,6 +62,7 @@ interface AutofillInputs {
 export const useAutoFillValues = (input: AutofillInputs): void => {
   const { questionnaireItems, fieldId, parentItem } = input;
   const { formValues, allFields } = useQRState();
+  const { questionnaireResponse } = usePaperworkContext();
   // console.log('all fields', allFields);
   const [replacedValues, setReplacedValues] = useState<string[]>([]);
 
@@ -70,13 +72,13 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
         return false;
       }
       // console.log('allFields use items to auto fill', allFields);
-      const displayStrategy = getItemDisplayStrategy(qi, questionnaireItems, allFields);
+      const displayStrategy = getItemDisplayStrategy(qi, questionnaireItems, allFields, questionnaireResponse);
       if (displayStrategy === 'hidden' || displayStrategy === 'protected') {
         return qi.autofillFromWhenDisabled !== undefined;
       }
       return false;
     });
-  }, [allFields, questionnaireItems]);
+  }, [allFields, questionnaireItems, questionnaireResponse]);
   const { getValues, setValue } = useFormContext();
   return useEffect(() => {
     // console.log('autofill effect fired', itemsToFill, Object.entries(replacedValues.current));
