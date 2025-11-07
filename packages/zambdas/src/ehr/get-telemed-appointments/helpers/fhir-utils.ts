@@ -49,10 +49,6 @@ export const getAllResourcesFromFhir = async (
         value: 'RelatedPerson:patient',
       },
       {
-        name: '_revinclude:iterate',
-        value: 'Encounter:participant',
-      },
-      {
         name: '_include:iterate',
         value: 'Encounter:participant:Practitioner',
       },
@@ -61,12 +57,16 @@ export const getAllResourcesFromFhir = async (
         value: 'Appointment:location',
       },
       {
-        name: '_revinclude:iterate',
+        name: '_revinclude',
         value: 'Encounter:appointment',
       },
       {
         name: '_revinclude:iterate',
         value: 'DocumentReference:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'QuestionnaireResponse:encounter',
       },
       ...(searchDate
         ? [
@@ -91,34 +91,9 @@ export const getAllResourcesFromFhir = async (
     ],
   };
 
-  console.log('Fhir search params: ' + JSON.stringify(fhirSearchParams, null, 2));
-
-  const allResources = await getAllFhirSearchPages<FhirResource>(fhirSearchParams, oystehr, 100);
-
-  // Fetch QuestionnaireResponse resources separately to avoid bundle size limits
-  const encounterIds = allResources
-    .filter((resource) => resource.resourceType === 'Encounter')
-    .map((resource) => resource.id)
-    .filter((id): id is string => !!id);
-
-  if (encounterIds.length > 0) {
-    const questionnaireResponseParams: FhirSearchParams<FhirResource> = {
-      resourceType: 'QuestionnaireResponse',
-      params: [
-        {
-          name: 'encounter',
-          value: encounterIds.join(','),
-        },
-      ],
-    };
-
-    const questionnaireResponses = await getAllFhirSearchPages<FhirResource>(questionnaireResponseParams, oystehr, 100);
-    allResources.push(...questionnaireResponses);
-  }
-
-  const filtered = allResources.filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
-
-  return filtered;
+  return (await getAllFhirSearchPages<FhirResource>(fhirSearchParams, oystehr, 100)).filter(
+    (resource) => isNonPaperworkQuestionnaireResponse(resource) === false
+  );
 };
 
 export const getPractitionerLicensesLocationsAbbreviations = async (oystehr: Oystehr): Promise<string[]> => {
