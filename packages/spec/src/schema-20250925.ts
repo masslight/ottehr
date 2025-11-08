@@ -66,6 +66,7 @@ export class Schema20250925 implements Schema<Spec20250925> {
 
   validate(specFile: SpecFile): Spec20250925 {
     const spec = specFile.spec;
+    // Check for unknown top-level keys
     for (const key of Object.keys(spec)) {
       if (
         ![
@@ -86,6 +87,7 @@ export class Schema20250925 implements Schema<Spec20250925> {
         throw new Error(`${specFile.path} has unknown top-level key: ${key}`);
       }
     }
+    // Ensure at least one resource type is present
     if (
       ![
         'project',
@@ -104,6 +106,35 @@ export class Schema20250925 implements Schema<Spec20250925> {
       throw new Error(
         `${specFile.path} must have at least one of the following top-level keys: project, apps, buckets, faxNumbers, fhirResources, labRoutes, m2ms, outputs, roles, secrets, zambdas.`
       );
+    }
+    // Check for duplicate keys within each resource type
+    for (const resourceType of [
+      'project',
+      'apps',
+      'buckets',
+      'faxNumbers',
+      'fhirResources',
+      'labRoutes',
+      'm2ms',
+      'outputs',
+      'roles',
+      'secrets',
+      'zambdas',
+    ]) {
+      if (Object.prototype.hasOwnProperty.call(spec, resourceType)) {
+        const resourceKeys = Object.keys(spec[resourceType as keyof Spec20250925] as object);
+        // Check for duplicate names within the spec file
+        const uniqueResourceNames = new Set(resourceKeys);
+        if (uniqueResourceNames.size !== resourceKeys.length) {
+          throw new Error(`${specFile.path} has duplicate names in resource type: ${resourceType}`);
+        }
+        // Check for duplicate names across spec files
+        for (const key of resourceKeys) {
+          if (Object.hasOwnProperty.call(this.resources[resourceType as keyof Spec20250925] as any, key)) {
+            throw new Error(`${specFile.path} has duplicate resource name "${key}" in resource type: ${resourceType}`);
+          }
+        }
+      }
     }
     return spec as Spec20250925;
   }

@@ -18,6 +18,7 @@ import { t } from 'i18next';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useGetPaymentMethods, useSetupPaymentMethod } from 'src/telemed/features/paperwork';
 import {
   APIError,
   ComplexValidationResult,
@@ -206,6 +207,17 @@ export const PaperworkHome: FC = () => {
     });
   }, [allItems]);
 
+  const { data: stripeSetupData, isFetching: isSetupDataLoading } = useSetupPaymentMethod(patient?.id);
+
+  const {
+    data: cardData,
+    isFetching: cardsAreLoading,
+    refetch: refetchPaymentMethods,
+  } = useGetPaymentMethods({
+    beneficiaryPatientId: patient?.id,
+    setupCompleted: Boolean(stripeSetupData),
+  });
+
   const outletContext: PaperworkContext = useMemo(() => {
     return {
       appointment,
@@ -218,6 +230,12 @@ export const PaperworkHome: FC = () => {
       patient,
       updateTimestamp,
       saveButtonDisabled,
+      cardsAreLoading,
+      paymentMethods: cardData?.cards ?? [],
+      paymentMethodStateInitializing:
+        (stripeSetupData === undefined && isSetupDataLoading) || (cardData?.cards.length === 0 && cardsAreLoading),
+      stripeSetupData,
+      refetchPaymentMethods,
       setSaveButtonDisabled,
       findAnswerWithLinkId: (linkId: string): QuestionnaireResponseItem | undefined => {
         return findQuestionnaireResponseItemLinkId(linkId, completedPaperwork);
@@ -233,6 +251,11 @@ export const PaperworkHome: FC = () => {
     patient,
     updateTimestamp,
     saveButtonDisabled,
+    cardsAreLoading,
+    cardData?.cards,
+    stripeSetupData,
+    isSetupDataLoading,
+    refetchPaymentMethods,
   ]);
 
   const redirectTarget = useMemo(() => {
@@ -335,13 +358,13 @@ export const PaperworkPage: FC = () => {
       const paperworkValues = convertQRItemToLinkIdMap(qr.item);
       let idx = 1;
       let nextPage = paperworkPages[currentIndex + idx];
-      while (nextPage && !evalEnableWhen(nextPage, allItems, paperworkValues)) {
+      while (nextPage && !evalEnableWhen(nextPage, allItems, paperworkValues, questionnaireResponse)) {
         idx += 1;
         nextPage = paperworkPages[currentIndex + idx];
       }
       return nextPage;
     },
-    [allItems, currentIndex, paperworkPages]
+    [allItems, currentIndex, paperworkPages, questionnaireResponse]
   );
 
   useEffect(() => {

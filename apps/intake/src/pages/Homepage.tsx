@@ -1,3 +1,4 @@
+import { useAuth0 } from '@auth0/auth0-react';
 import CloseIcon from '@mui/icons-material/Close';
 import LiveHelpOutlinedIcon from '@mui/icons-material/LiveHelpOutlined';
 import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined';
@@ -24,21 +25,29 @@ import { useOystehrAPIClient } from '../telemed/utils';
 const DEFAULT_WALKIN_LOCATION_NAME = import.meta.env.VITE_APP_DEFAULT_WALKIN_LOCATION_NAME;
 
 const Homepage = (): JSX.Element => {
+  const { isAuthenticated } = useAuth0();
   const apiClient = useOystehrAPIClient();
+  const mayUserAccessAppointments = Boolean(isAuthenticated && apiClient);
   const navigate = useNavigate();
   const [isCancelVisitDialogOpen, setCancelVisitDialogOpen] = useState<boolean>(false);
-  const { isAppointmentsFetching, refetchAppointments, appointments } = useAppointmentsData();
+
+  const { isAppointmentsFetching, refetchAppointments, appointments } = useAppointmentsData({
+    enabled: Boolean(mayUserAccessAppointments),
+  });
+
   const activeAppointment = useMemo(() => findActiveAppointment(appointments), [appointments]);
   const isAppointmentStatusProposed = activeAppointment?.appointmentStatus === 'proposed';
   const appointmentID = activeAppointment?.id || '';
-  const { refetch } = useGetAppointments(apiClient, Boolean(apiClient));
+  const { refetch } = useGetAppointments(apiClient, Boolean(mayUserAccessAppointments));
 
   useEffect(() => {
-    if (apiClient) {
-      // TODO research option invalidate cache on the place to rid of useEffects with manually refetching
-      void refetch();
+    if (!mayUserAccessAppointments) {
+      return;
     }
-  }, [refetch, apiClient]);
+
+    // TODO research option invalidate cache on the place to rid of useEffects with manually refetching
+    void refetch();
+  }, [refetch, mayUserAccessAppointments]);
 
   const handleRequestVisit = (): void => {
     navigate(intakeFlowPageRoute.StartVirtualVisit.path);

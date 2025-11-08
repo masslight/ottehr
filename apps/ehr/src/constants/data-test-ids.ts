@@ -283,10 +283,7 @@ export const dataTestIds = {
     hpiCurrentMedicationsListItem: (listDataTestId: string) => `${listDataTestId}-item`,
     hpiCurrentMedicationsColumn: 'telemed-hpi-current-medications-column',
     hpiSurgicalHistoryColumn: 'telemed-hpi-surgical-history-column',
-    hpiSurgicalHistoryList: 'telemed-hpi-surgical-history-list',
     hpiSurgicalHistoryPatientProvidedList: 'telemed-hpi-surgical-history-patient-provided-list',
-    hpiSurgicalHistoryInput: 'telemed-hpi-surgical-history-input',
-    hpiSurgicalHistoryListItem: 'telemed-hpi-surgical-history-list-item',
     hpiAdditionalQuestions: (questionSymptom: string) => `telemed-additional-questions-${questionSymptom}`,
     hpiAdditionalQuestionsPatientProvided: (questionSymptom: string) =>
       `telemed-additional-questions-patient-provided-${questionSymptom}`,
@@ -297,10 +294,12 @@ export const dataTestIds = {
     hpiReasonForVisit: 'telemed-reason-for-visit',
     videoRoomContainer: 'telemed-video-room-container',
     endVideoCallButton: 'telemed-end-video-call-button',
+    pinVideoCallButton: 'telemed-pin-video-call-button',
     finishVisitButton: 'telemed-finish-visit-button',
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
+    closeChartButton: 'telemed-chart-close-icon',
     planTabDispositionContainer: 'telemed-plan-tab-disposition-container',
     planTabDispositionToggleButton: (buttonName: DispositionType) =>
       `telemed-plan-tab-disposition-toggle-button-${buttonName}`,
@@ -308,7 +307,6 @@ export const dataTestIds = {
     planTabDispositionNote: 'telemed-plan-tab-disposition-note',
     planTabDispositionReasonForTransferDropdown: 'telemed-plan-tab-disposition-reason-for-transfer-dropdown',
     reviewTabMedicationsContainer: 'telemed-review-tab-medications-container',
-    reviewTabSurgicalHistoryContainer: 'telemed-review-tab-surgical-history-container',
     reviewTabAdditionalQuestion: (questionSymptom: string) =>
       `telemed-review-tab-additional-question-${questionSymptom}`,
     reviewTabChiefComplaintContainer: 'telemed-review-tab-chief-complaint-container',
@@ -323,6 +321,7 @@ export const dataTestIds = {
     telemedNewOrExistingPatient: 'telemed-new-or-existing-patient',
     hpiSurgicalHistoryAddNoteButton: 'telemed-hpi-surgical-history-add-note-button',
     hpiSurgicalHistoryNoteIsLoading: 'telemed-hpi-surgical-history-note-is-loading',
+    closeImagePreviewButton: 'close-image-preview-button',
   },
   sideMenu: {
     completeIntakeButton: 'complete-intake-button',
@@ -346,12 +345,14 @@ export const dataTestIds = {
     secondaryDiagnosisLink: 'secondary-diagnosis-link',
     medicalDecisionLink: 'medical-decision-link',
     emCodeLink: 'em-code-link',
+    hpiLink: 'hpi-link',
     visitNoteCard: 'visit-note-card',
     procedureItem: 'procedure-item',
     vaccineItem: 'vaccine-item',
     labsTitle: (labType: string) => `title-${labType.toLowerCase().replace(/\s+/g, '-')}`,
     knownAllergiesContainer: 'known-allergies-container',
     medicalConditionsContainer: 'medical-conditions-container',
+    surgicalHistoryContainer: 'surgical-history-container',
   },
   assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
@@ -387,6 +388,7 @@ export const dataTestIds = {
     marTableRouteCell: 'mar-table-route-cell',
     marTableInstructionsCell: 'mar-table-instructions-cell',
     medicationDetailsTab: 'medication-details-tab',
+    marTab: 'mar-tab',
     pencilIconButton: 'EditOutlinedIcon',
   },
   orderMedicationPage: {
@@ -511,6 +513,15 @@ export const dataTestIds = {
     medicalConditionPatientProvidedList: 'medical-condition-patient-provided-list',
     medicalConditionsInput: 'medical-condition-input',
     medicalConditionListItem: 'medical-condition-list-item',
+  },
+  surgicalHistory: {
+    surgicalHistoryTitle: 'surgical-history-title',
+    surgicalHistoryOption: 'surgical-history-option',
+    surgicalHistoryColumn: 'surgical-history-column',
+    surgicalHistoryList: 'surgical-history-list',
+    surgicalHistoryPatientProvidedList: 'surgical-history-patient-provided-list',
+    surgicalHistoryInput: 'surgical-history-input',
+    surgicalHistoryListItem: 'surgical-history-list-item',
   },
   orderVaccinePage: {
     title: 'order-vaccine-title',

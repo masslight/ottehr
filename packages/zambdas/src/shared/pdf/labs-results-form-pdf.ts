@@ -27,6 +27,8 @@ import {
   createFilesDocumentReferences,
   EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
   formatPhoneNumberDisplay,
+  formatZipcodeForDisplay,
+  getAdditionalPlacerId,
   getFullestAvailableName,
   getOrderNumber,
   getOrderNumberFromDr,
@@ -39,13 +41,13 @@ import {
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
+  LABCORP_SNOWMED_CODE_SYSTEM,
   LabDrTypeTagCode,
   LabType,
   ObsContentType,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM,
-  OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM,
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
   OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
   OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL,
@@ -130,7 +132,7 @@ type LabTypeSpecificResources =
   | { type: LabType.inHouse; specificResources: { inHouseLabResults: InHouseLabResultConfig[] } }
   | {
       type: LabDrTypeTagCode;
-      specificResources: Omit<ExternalLabSpecificResources, 'collectionDate' | 'orderSubmitDate'> & {
+      specificResources: Omit<ExternalLabSpecificResources, 'orderSubmitDate'> & {
         testName: string | undefined;
         patient: Patient;
         diagnosticReport: DiagnosticReport;
@@ -159,6 +161,7 @@ const getResultDataConfigForDrResources = (
     resultsReceivedDate,
     resultInterpretations,
     attachments,
+    collectionDate,
   } = specificResources;
 
   const baseData: LabResultsData = {
@@ -198,8 +201,7 @@ const getResultDataConfigForDrResources = (
 
   const unsolicitedResultData: Omit<UnsolicitedExternalLabResultsData, keyof LabResultsData> = {
     accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
-    alternatePlacerId: diagnosticReport.identifier?.find((id) => id.system === OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM)
-      ?.value,
+    alternatePlacerId: getAdditionalPlacerId(diagnosticReport),
     reviewed,
     reviewingProvider,
     reviewDate,
@@ -211,6 +213,7 @@ const getResultDataConfigForDrResources = (
       diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
       '',
     resultsReceivedDate,
+    collectionDate,
   };
 
   if (type === LabType.reflex || type === LabType.pdfAttachment) {
@@ -320,9 +323,7 @@ const getResultDataConfig = (
 
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
       orderNumber,
-      alternatePlacerId: diagnosticReport.identifier?.find(
-        (id) => id.system === OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM
-      )?.value,
+      alternatePlacerId: getAdditionalPlacerId(diagnosticReport),
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
       orderSubmitDate,
@@ -410,7 +411,7 @@ export async function createExternalLabResultPDFBasedOnDr(
   secrets: Secrets | null,
   token: string
 ): Promise<void> {
-  const { patient, diagnosticReport, observations } = await getExternalLabOrderResourcesViaDiagnosticReport(
+  const { patient, diagnosticReport, observations, schedule } = await getExternalLabOrderResourcesViaDiagnosticReport(
     oystehr,
     diagnosticReportID
   );
@@ -426,6 +427,16 @@ export async function createExternalLabResultPDFBasedOnDr(
     obsAttachments,
   } = await getResultsDetailsForPDF(oystehr, diagnosticReport, observations);
 
+  let timezone;
+  if (schedule) {
+    timezone = getTimezone(schedule);
+  }
+
+  const collectionTimeFromDr = getResultSpecimenFromDr(diagnosticReport)?.collectedDateTime;
+  const collectionDate = collectionTimeFromDr
+    ? DateTime.fromISO(collectionTimeFromDr).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
+    : '';
+
   const externalSpecificResources: LabTypeSpecificResources = {
     type,
     specificResources: {
@@ -439,6 +450,7 @@ export async function createExternalLabResultPDFBasedOnDr(
       resultsReceivedDate,
       resultInterpretations: resultInterpretationDisplays,
       attachments: obsAttachments,
+      collectionDate,
     },
   };
 
@@ -1072,7 +1084,7 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
 
     drawRowHelper({
       col1: `Sex: ${data.patientSex}`,
-      col2: `Collected Date & Time: ${type === LabType.external ? data.collectionDate : ''}`,
+      col2: `Collected Date & Time: ${data.collectionDate ? data.collectionDate : ''}`,
     });
 
     drawRowHelper({
@@ -1130,15 +1142,6 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
   // );
   // pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting Physician:', data.providerName);
   // pdfClient.newLine(STANDARD_NEW_LINE);
-
-  console.log(
-    `Drawing results date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Reported Date & Time:', data.resultsReceivedDate);
-  pdfClient.newLine(STANDARD_FONT_SIZE);
-  pdfClient.newLine(STANDARD_FONT_SIZE);
-
-  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
   drawTestNameHeader(data.testName, data.testItemCode, pdfClient, textStyles);
 
@@ -1647,6 +1650,7 @@ const parseObservationForPDF = (
     const attachmentResult: ExternalLabResult = {
       resultCodeAndDisplay: '',
       loincCodeAndDisplay: '',
+      snowmedDisplay: '',
       resultValue: '',
       attachmentText: `${initialText} attachment is included at the end of this document`,
       observationStatus: observation.status,
@@ -1686,6 +1690,7 @@ const parseObservationForPDF = (
 
   let resultCodeCodings: Coding[] | undefined;
   let resultLoincCodings: Coding[] | undefined;
+  let resultSnowmedDisplays: string[] | undefined;
   observation.code.coding?.forEach((coding) => {
     if (coding.system === `http://loinc.org`) {
       if (resultLoincCodings !== undefined) {
@@ -1694,6 +1699,14 @@ const parseObservationForPDF = (
         return;
       }
       resultLoincCodings = [coding];
+    } else if (coding.system === LABCORP_SNOWMED_CODE_SYSTEM && coding.display) {
+      // labcorp doesn't want to see the actual code, just the display
+      if (resultSnowmedDisplays !== undefined) {
+        console.info(`Found multiple snowmed codings in Observation/${observation.id} code`);
+        resultSnowmedDisplays.push(coding.display);
+        return;
+      }
+      resultSnowmedDisplays = [coding.display];
     } else if (
       ![OYSTEHR_OBR_NOTE_CODING_SYSTEM, OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM].includes(coding.system || '')
     ) {
@@ -1713,10 +1726,12 @@ const parseObservationForPDF = (
 
   const resultCodesAndDisplays = resultCodeCodings?.map((coding) => formatResultCodeAndDisplay(coding)).join(', ');
   const loincCodesAndDisplays = resultLoincCodings?.map((coding) => formatResultCodeAndDisplay(coding)).join(', ');
+  const snowmedDisplays = resultSnowmedDisplays?.join(', ');
 
   const labResult: ExternalLabResult = {
     resultCodeAndDisplay: resultCodesAndDisplays || '',
     loincCodeAndDisplay: loincCodesAndDisplays || '',
+    snowmedDisplay: snowmedDisplays || '',
     resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
     resultInterpretationDisplay: interpretationDisplay,
     resultValue: value || '',
@@ -1747,7 +1762,7 @@ const getPerformingLabAddressFromObs = (obs: Observation, oystehr: Oystehr): str
   if (siteExt) {
     const address = siteExt.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.address)
       ?.valueAddress;
-    if (address) return oystehr.fhir.formatAddress(address);
+    if (address) return formatZipcodeForDisplay(oystehr.fhir.formatAddress(address));
   }
   return;
 };
@@ -1757,7 +1772,7 @@ const getPerformingLabPhoneFromObs = (obs: Observation): string | undefined => {
   if (siteExt) {
     const phone = siteExt.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.phone)
       ?.valueContactPoint?.value;
-    return phone;
+    return formatPhoneNumberDisplay(phone || '');
   }
   return;
 };
@@ -1826,6 +1841,13 @@ const writeResultDetailLinesInPdf = (
   if (labResult.loincCodeAndDisplay) {
     console.log('writing loinc code', labResult.loincCodeAndDisplay);
     pdfClient.drawText(`LOINC Code: ${labResult.loincCodeAndDisplay}`, textStyles.text);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  // Add the snowmed label for labcorp if present
+  if (labResult.snowmedDisplay) {
+    console.log('writing snowmed code', labResult.loincCodeAndDisplay);
+    pdfClient.drawText(`SNOWMED: ${labResult.snowmedDisplay}`, textStyles.text);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
@@ -2024,6 +2046,8 @@ const getResultSpecimenFromDr = (diagnosticReport: DiagnosticReport): ResultSpec
       (coding) => coding.system === OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM
     )?.display;
   }
+
+  collectionInfo.collectedDateTime = specimen.collection.collectedDateTime;
 
   return Object.keys(collectionInfo).length ? collectionInfo : undefined;
 };

@@ -122,6 +122,14 @@ export const ExternalLabsStatusPalette: {
       primary: '#D32F2F',
     },
   },
+  'rejected abn': {
+    background: {
+      primary: '#FFCDD2',
+    },
+    color: {
+      primary: '#D32F2F',
+    },
+  },
   unknown: {
     background: {
       primary: '#e3c254',

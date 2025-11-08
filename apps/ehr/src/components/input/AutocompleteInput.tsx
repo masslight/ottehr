@@ -9,6 +9,7 @@ type Props = {
   options: Option[] | undefined;
   loading?: boolean;
   required?: boolean;
+  disabled?: boolean;
   validate?: (value: string | undefined) => boolean | string;
   selectOnly?: boolean;
   onInputTextChanged?: (text: string) => void;
@@ -24,6 +25,7 @@ export const AutocompleteInput: React.FC<Props> = ({
   options,
   loading,
   required,
+  disabled,
   validate,
   selectOnly,
   onInputTextChanged,
@@ -57,6 +59,7 @@ export const AutocompleteInput: React.FC<Props> = ({
             <Autocomplete
               value={valueOption}
               options={optionsToUse}
+              getOptionKey={(option) => option.value}
               noOptionsText={noOptionsText}
               getOptionLabel={(option) => option.label ?? options?.find((o) => o.value === option.value)?.label}
               isOptionEqualToValue={(option, tempValue) => option.value === tempValue.value}
@@ -76,6 +79,7 @@ export const AutocompleteInput: React.FC<Props> = ({
                 />
               )}
               loading={loading}
+              disabled={disabled}
               fullWidth
             />
             {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}

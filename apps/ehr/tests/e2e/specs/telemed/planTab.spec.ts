@@ -20,7 +20,7 @@ test.describe('Disposition', async () => {
     test.beforeAll(async ({ browser }) => {
       const context = await browser.newContext();
       page = await context.newPage();
-      await resourceHandler.setResources();
+      await resourceHandler.setResources({ skipPaperwork: true });
       await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);

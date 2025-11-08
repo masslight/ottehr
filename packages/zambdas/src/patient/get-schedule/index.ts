@@ -38,7 +38,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { secrets, scheduleType, slug } = validatedParameters;
+    const { secrets, scheduleType, slug, selectedDate } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -68,8 +68,10 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     console.time('synchronous_data_processing');
     const { telemedAvailable: tmSlots, availableSlots: regularSlots } = await getAvailableSlotsForSchedules(
       {
-        now: DateTime.now(),
+        now: selectedDate ? DateTime.fromISO(selectedDate).startOf('day') : DateTime.now(),
         scheduleList,
+        numDays: selectedDate ? 1 : undefined,
+        selectedDate,
       },
       oystehr
     );
