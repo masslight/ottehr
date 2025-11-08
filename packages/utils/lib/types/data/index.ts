@@ -19,3 +19,4 @@ export * from './apply-template.types';
 export * from './list-template.types';
 export * from './screening-questions';
 export * from './visit-details.types';
+export * from './tasks';

@@ -3,6 +3,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { AppBar, Box, IconButton, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
 import { AppointmentTabsHeader } from './AppointmentTabsHeader';
 
@@ -29,7 +30,7 @@ export const AppointmentHeader: FC = () => {
         </Box>
 
         <IconButton onClick={() => navigate('/telemed/appointments')}>
-          <CloseIcon fontSize="small" />
+          <CloseIcon data-testid={dataTestIds.telemedEhrFlow.closeChartButton} fontSize="small" />
         </IconButton>
       </Box>
     </AppBar>

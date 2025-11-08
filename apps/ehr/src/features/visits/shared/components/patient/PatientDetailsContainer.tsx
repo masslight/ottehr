@@ -19,8 +19,9 @@ import ShowMoreButton from './ShowMoreButton';
 const FormFields = AllFormFields.patientDetails;
 interface PatientDetailsContainerProps {
   patient: Patient;
+  isLoading: boolean;
 }
-export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ patient }) => {
+export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ patient, isLoading }) => {
   const theme = useTheme();
   const { control, watch } = useFormContext();
 
@@ -67,6 +68,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
         <FormSelect
           name={FormFields.ethnicity.key}
           control={control}
+          disabled={isLoading}
           options={ETHNICITY_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
@@ -77,6 +79,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
         <FormSelect
           name={FormFields.race.key}
           control={control}
+          disabled={isLoading}
           options={RACE_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
@@ -84,10 +87,20 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
         />
       </Row>
       <Row label="Sexual orientation" dataTestId={dataTestIds.patientDetailsContainer.sexualOrientation}>
-        <FormSelect name={FormFields.sexualOrientation.key} control={control} options={SEXUAL_ORIENTATION_OPTIONS} />
+        <FormSelect
+          disabled={isLoading}
+          name={FormFields.sexualOrientation.key}
+          control={control}
+          options={SEXUAL_ORIENTATION_OPTIONS}
+        />
       </Row>
       <Row label="Gender identity" dataTestId={dataTestIds.patientDetailsContainer.genderIdentity}>
-        <FormSelect name={FormFields.genderIdentity.key} control={control} options={GENDER_IDENTITY_OPTIONS} />
+        <FormSelect
+          disabled={isLoading}
+          name={FormFields.genderIdentity.key}
+          control={control}
+          options={GENDER_IDENTITY_OPTIONS}
+        />
       </Row>
       {isNonBinaryGender && (
         <Box
@@ -102,6 +115,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
               name={FormFields.genderIdentityDetails.key}
               data-testid={dataTestIds.patientDetailsContainer.pleaseSpecifyField}
               control={control}
+              disabled={isLoading}
               rules={{
                 validate: (value: string) => {
                   if (!value && isNonBinaryGender) return REQUIRED_FIELD_ERROR_MESSAGE;
@@ -113,7 +127,12 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
         </Box>
       )}
       <Row label="How did you hear about us?" dataTestId={dataTestIds.patientDetailsContainer.howDidYouHearAboutUs}>
-        <FormSelect name={FormFields.pointOfDiscovery.key} control={control} options={POINT_OF_DISCOVERY_OPTIONS} />
+        <FormSelect
+          disabled={isLoading}
+          name={FormFields.pointOfDiscovery.key}
+          control={control}
+          options={POINT_OF_DISCOVERY_OPTIONS}
+        />
       </Row>
       <Box
         sx={{
@@ -135,6 +154,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
                 value={String(field.value) || ''}
                 variant="standard"
                 sx={{ width: '100%' }}
+                disabled={isLoading}
                 onChange={(e) => {
                   const boolValue = e.target.value === 'true';
                   field.onChange(boolValue);
@@ -173,6 +193,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
                 {...field}
                 value={field.value || ''}
                 variant="standard"
+                disabled={isLoading}
                 sx={{ width: '100%' }}
                 data-testid={dataTestIds.patientDetailsContainer.preferredLanguage}
               >
@@ -205,6 +226,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
                 {...field}
                 value={String(field.value) || ''}
                 variant="standard"
+                disabled={isLoading}
                 sx={{ width: '100%' }}
                 onChange={(e) => {
                   const boolValue = e.target.value === 'true';

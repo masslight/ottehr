@@ -1,6 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Box, Modal, Typography } from '@mui/material';
 import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
+import { REASON_FOR_VISIT_SEPARATOR } from 'utils';
 import { FLAGGED_REASONS_FOR_VISIT, MOBILE_MODAL_STYLE } from '../constants';
 import { ApptTab } from './AppointmentTabs';
 import { GenericToolTip } from './GenericToolTip';
@@ -22,7 +23,7 @@ const ReasonsForVisit = ({
 }: ReasonsForVisitProps): ReactElement => {
   const [reasonIsOverflowing, setReasonIsOverflowing] = useState(false);
   const reasonRef = useRef<HTMLDivElement | null>(null);
-  const [reason, reasonAdditional] = reasonsForVisit.split(' - ');
+  const [reason, reasonAdditional] = reasonsForVisit.split(REASON_FOR_VISIT_SEPARATOR);
   const [mobileModalOpen, setMobileModalOpen] = useState<boolean>(false);
 
   const truncatedTextStyles = useMemo(() => {
@@ -71,7 +72,7 @@ const ReasonsForVisit = ({
         <span style={{ color: flagReason ? otherColors.priorityHighText : undefined, display: 'inline' }}>
           {reason}
         </span>
-        {reasonAdditional && ` - ${reasonAdditional}`}
+        {reasonAdditional && `${REASON_FOR_VISIT_SEPARATOR}${reasonAdditional}`}
       </Typography>
     ),
     [flagReason, formattedPriorityHighIcon, isMobile, reason, reasonAdditional, toolTipTitle, truncatedTextStyles]

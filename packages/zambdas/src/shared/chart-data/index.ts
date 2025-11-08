@@ -164,6 +164,7 @@ export function makeConditionDTO(condition: Condition): MedicalConditionDTO {
     display: condition.code?.coding?.[0]?.display,
     note: condition.note?.[0]?.text,
     current: condition.clinicalStatus?.coding?.[0]?.code === 'active',
+    lastUpdated: condition.meta?.lastUpdated || undefined,
   };
 }
 
@@ -228,6 +229,7 @@ export function makeAllergyDTO(allergy: AllergyIntolerance): AllergyDTO {
     id: allergy.code?.coding?.[0].code,
     note: allergy.note?.[0]?.text,
     current: allergy.clinicalStatus?.coding?.[0]?.code === 'active',
+    lastUpdated: allergy.meta?.lastUpdated || undefined,
   };
 }
 
@@ -1356,7 +1358,11 @@ export function handleCustomDTOExtractions(data: AllChartValues, resources: Fhir
   // 6. AI potential diagnoses
   resources
     .filter(
-      (resource) => resource.resourceType === 'Condition' && resource.meta?.tag?.[0].code === 'ai-potential-diagnosis'
+      (resource) =>
+        resource.resourceType === 'Condition' &&
+        resource.meta?.tag?.[0].code === 'ai-potential-diagnosis' &&
+        encounterResource.id !== undefined &&
+        resourceReferencesEncounter(resource, encounterResource.id)
     )
     .forEach((condition) => {
       data.aiPotentialDiagnosis?.push(makeDiagnosisDTO(condition as Condition, false));

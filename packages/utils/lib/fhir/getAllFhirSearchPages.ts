@@ -17,10 +17,6 @@ export async function getAllFhirSearchPages<T extends FhirResource>(
     { name: '_total', value: 'accurate' },
   ];
   while (currentIndex < total) {
-    console.log(
-      `Fetching FHIR resources: currentIndex=${currentIndex}, total=${total}, params=${JSON.stringify(params, null, 2)}`
-    );
-
     const bundledResponse = await oystehr.fhir.search<T>({
       resourceType: fhirSearchParams.resourceType,
       params: [...params, { name: '_offset', value: `${currentIndex}` }],

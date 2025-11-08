@@ -49,6 +49,7 @@ import { create } from 'zustand';
 import { OystehrTelemedAPIClient } from '../../api/oystehrApi';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
+import { getEncounterValues } from './parser/extractors';
 import { parseBundle } from './parser/parser';
 import { VisitMappedData, VisitResources } from './parser/types';
 
@@ -243,13 +244,18 @@ export const useAppointmentData = (
   const fullState = useMemo(() => {
     const state = currentState || APPOINTMENT_INITIAL;
     const selectedEncounter = getSelectedEncounter();
+    const encounterToUse = selectedEncounter || state.followUpOriginEncounter;
 
     return {
       ...state,
-      encounter: selectedEncounter || state.followUpOriginEncounter,
+      encounter: encounterToUse,
       visitState: {
         ...state.visitState,
-        encounter: selectedEncounter || state.followUpOriginEncounter,
+        encounter: encounterToUse,
+      },
+      resources: {
+        ...state.resources,
+        encounter: getEncounterValues(encounterToUse),
       },
       isAppointmentLoading: isLoading,
       appointmentRefetch: refetch,
@@ -566,6 +572,7 @@ export const useChartData = ({
   onError,
   enabled = true,
   refetchInterval,
+  encounterId: paramEncounterId,
 }: {
   appointmentId?: string;
   onSuccess?: (data: ChartDataResponse | null) => void;
@@ -573,6 +580,7 @@ export const useChartData = ({
   enabled?: boolean;
   shouldUpdateExams?: boolean; // todo: migrate this to the separate hook
   refetchInterval?: number;
+  encounterId?: string;
 } = {}): {
   refetch: () => Promise<void>;
   isLoading: boolean;
@@ -587,7 +595,7 @@ export const useChartData = ({
   const { update: updateExamObservations } = useExamObservations();
   const { id: appointmentIdFromUrl } = useParams();
   const { encounter } = useAppointmentData(appointmentId || appointmentIdFromUrl);
-  const encounterId = encounter?.id;
+  const encounterId = encounter?.id ?? paramEncounterId;
   const queryClient = useQueryClient();
 
   const {

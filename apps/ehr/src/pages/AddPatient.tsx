@@ -674,6 +674,7 @@ export default function AddPatient(): JSX.Element {
                             : locationWithSlotData?.available?.map((si) => si.slot)
                         }
                         slotsLoading={loadingSlotState.status === 'loading'}
+                        selectedLocation={selectedLocation}
                         timezone={locationWithSlotData?.location?.timezone || 'Undefined'}
                         selectedSlot={slot}
                         setSelectedSlot={setSlot}

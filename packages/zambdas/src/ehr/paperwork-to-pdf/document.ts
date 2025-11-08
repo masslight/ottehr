@@ -188,43 +188,51 @@ function createImageItems(
   questionnaire: Questionnaire,
   oystehr: Oystehr
 ): ImageItem[] {
-  return (questionnaireResponse.item ?? []).flatMap<ImageItem>((sectionItem) => {
-    const questionItemSection = getItem(sectionItem.linkId, questionnaire);
-    return (sectionItem.item ?? []).flatMap((item) => {
-      const title = getItem(item.linkId, questionItemSection)?.text;
-      const attachment = item.answer?.[0]?.valueAttachment;
-      const url = attachment?.url;
-      if (title == null || attachment == null || url == null) {
-        return [];
-      }
-      let imageType: ImageType | undefined = undefined;
-      if (attachment.contentType === 'image/jpeg') {
-        imageType = ImageType.JPG;
-      }
-      if (attachment.contentType === 'image/png') {
-        imageType = ImageType.PNG;
-      }
-      if (imageType == null) {
-        return [];
-      }
-      return [
-        {
-          title,
-          imageType,
-          imageBytes: downloadImage(url, oystehr),
-        },
-      ];
-    });
-  });
+  const collected: ImageItem[] = [];
+
+  collectImageItems(questionnaireResponse.item, questionnaire.item, oystehr, collected, questionnaire);
+
+  return collected;
 }
 
-function getItem(
-  linkId: string,
-  obj?: {
-    item?: QuestionnaireResponseItem[] | undefined;
+function collectImageItems(
+  responseItems: QuestionnaireResponseItem[] | undefined,
+  parentQuestionnaireItems: QuestionnaireItem[] | undefined,
+  oystehr: Oystehr,
+  collected: ImageItem[],
+  questionnaire: Questionnaire
+): void {
+  if (!responseItems) return;
+
+  for (const item of responseItems) {
+    const questionnaireItem = findQuestionnaireItem(item.linkId, parentQuestionnaireItems ?? questionnaire.item);
+    const title = questionnaireItem?.text;
+    const attachment = item.answer?.[0]?.valueAttachment;
+
+    if (attachment?.url && attachment?.contentType) {
+      let imageType: ImageType | undefined;
+      if (attachment.contentType === 'image/jpeg') imageType = ImageType.JPG;
+      if (attachment.contentType === 'image/png') imageType = ImageType.PNG;
+
+      if (imageType) {
+        collected.push({
+          title: title ?? attachment.title ?? item.linkId,
+          imageType,
+          imageBytes: downloadImage(attachment.url, oystehr),
+        });
+      }
+    }
+
+    if (item.item && item.item.length > 0) {
+      collectImageItems(
+        item.item,
+        questionnaireItem?.item ?? parentQuestionnaireItems,
+        oystehr,
+        collected,
+        questionnaire
+      );
+    }
   }
-): QuestionnaireResponseItem | undefined {
-  return obj?.item?.find((item) => item.linkId === linkId);
 }
 
 function fetchQuestionnaire(questionnaire: string, oystehr: Oystehr): Promise<Questionnaire> {

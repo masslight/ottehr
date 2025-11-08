@@ -436,10 +436,10 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
               />
               <Box sx={{ display: 'flex', gap: 3 }}>
                 <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <AboutPatientContainer />
-                  <ContactContainer />
-                  <PatientDetailsContainer patient={patient} />
-                  <PrimaryCareContainer />
+                  <AboutPatientContainer isLoading={isFetching || submitQR.isPending} />
+                  <ContactContainer isLoading={isFetching || submitQR.isPending} />
+                  <PatientDetailsContainer patient={patient} isLoading={isFetching || submitQR.isPending} />
+                  <PrimaryCareContainer isLoading={isFetching || submitQR.isPending} />
                 </Box>
                 <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <InsuranceSection
@@ -450,9 +450,9 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     onRemoveCoverage={handleRemoveCoverage}
                     onAddInsurance={() => setOpenAddInsuranceModal(true)}
                   />
-                  <ResponsibleInformationContainer />
-                  <EmergencyContactContainer />
-                  <PharmacyContainer />
+                  <ResponsibleInformationContainer isLoading={isFetching || submitQR.isPending} />
+                  <EmergencyContactContainer isLoading={isFetching || submitQR.isPending} />
+                  <PharmacyContainer isLoading={isFetching || submitQR.isPending} />
                 </Box>
               </Box>
             </Box>

@@ -8,7 +8,7 @@ import { isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 
 const FormFields = AllFormFields.emergencyContact;
 
-export const EmergencyContactContainer: FC = () => {
+export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { control } = useFormContext();
 
   return (
@@ -24,6 +24,7 @@ export const EmergencyContactContainer: FC = () => {
               EMERGENCY_CONTACT_RELATIONSHIP_OPTIONS.some((option) => option.value === value),
           }}
           id={FormFields.relationship.key}
+          disabled={isLoading}
         />
       </Row>
       <Row label={FormFields.firstName.label} required inputId={FormFields.firstName.key}>
@@ -32,10 +33,16 @@ export const EmergencyContactContainer: FC = () => {
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id={FormFields.firstName.key}
+          disabled={isLoading}
         />
       </Row>
       <Row label={FormFields.middleName.label} inputId={FormFields.middleName.key}>
-        <FormTextField name={FormFields.middleName.key} control={control} id={FormFields.middleName.key} />
+        <FormTextField
+          name={FormFields.middleName.key}
+          control={control}
+          id={FormFields.middleName.key}
+          disabled={isLoading}
+        />
       </Row>
       <Row label={FormFields.lastName.label} required inputId={FormFields.lastName.key}>
         <FormTextField
@@ -43,6 +50,7 @@ export const EmergencyContactContainer: FC = () => {
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           id={FormFields.lastName.key}
+          disabled={isLoading}
         />
       </Row>
       <Row label={FormFields.phone.label} required inputId={FormFields.phone.key}>
@@ -64,6 +72,7 @@ export const EmergencyContactContainer: FC = () => {
             },
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
+          disabled={isLoading}
         />
       </Row>
     </Section>
