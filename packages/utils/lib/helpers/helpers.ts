@@ -1445,9 +1445,9 @@ export interface TemplateVariables {
   [key: string]: string | number;
 }
 
-// #{} syntax
-export function replaceTemplateVariablesHashtag(template: string, variables: TemplateVariables): string {
-  return template.replace(/#\{(\w+)}/g, (match, key) => {
+// <key> syntax
+export function replaceTemplateVariablesArrows(template: string, variables: TemplateVariables): string {
+  return template.replace(/<(\w+)>/g, (match, key) => {
     return variables[key]?.toString() || match;
   });
 }

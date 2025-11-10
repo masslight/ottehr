@@ -14,7 +14,8 @@ import {
   PrefilledInvoiceInfo,
   RcmTaskCodings,
   removePrefix,
-  replaceTemplateVariablesHashtag,
+  replaceTemplateVariablesArrows,
+  Secrets,
   SecretsKeys,
 } from 'utils';
 import {
@@ -44,6 +45,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const candid = createCandidApiClient(secrets);
     const stripe = getStripeClient(secrets);
 
+    // todo: remove this
+    const clinicName = 'Ottehr';
+
     try {
       console.log('Fetching fhir resources');
       const fhirResources = await getFhirResources(oystehr, encounterId);
@@ -69,7 +73,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('Creating invoice and invoice item');
       const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
       if (!patientId) throw new Error("Encounter doesn't have patient reference");
-      const invoiceResponse = await createInvoice(stripe, stripeCustomerId, {
+      const invoiceResponse = await createInvoice(stripe, stripeCustomerId, clinicName, {
         oystEncounterId: encounterId,
         oystPatientId: patientId,
         prefilledInfo,
@@ -82,13 +86,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('Invoice sent: ', sendInvoiceResponse.status);
 
       console.log('Sending sms to patient');
-      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-      const smsMessage = sendInvoiceResponse.hosted_invoice_url
-        ? replaceTemplateVariablesHashtag(prefilledInfo.smsTextMessage, {
-            invoiceLink: sendInvoiceResponse.hosted_invoice_url,
-          })
-        : prefilledInfo.smsTextMessage;
-      await sendSmsForPatient(smsMessage, oystehr, patient, ENVIRONMENT);
+      const invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
+      await sendInvoiceSmsToPatient(
+        oystehr,
+        prefilledInfo.smsTextMessage,
+        invoiceUrl,
+        clinicName,
+        patientBalance.toString(),
+        prefilledInfo.dueDate,
+        patient,
+        secrets
+      );
       console.log('Sms sent to patient');
 
       console.log('Setting task status to completed');
@@ -148,6 +156,7 @@ async function createInvoiceItem(
 async function createInvoice(
   stripe: Stripe,
   stripeCustomerId: string,
+  clinic: string,
   params: {
     oystEncounterId: string;
     oystPatientId: string;
@@ -157,11 +166,17 @@ async function createInvoice(
   try {
     const { oystEncounterId, oystPatientId, prefilledInfo } = params;
     const { memo, dueDate } = prefilledInfo;
+    const filledMemo = memo
+      ? replaceTemplateVariablesArrows(memo, {
+          clinic,
+          'due-date': dueDate,
+        })
+      : memo;
 
     const invoiceParams: Stripe.InvoiceCreateParams = {
       customer: stripeCustomerId,
       collection_method: 'send_invoice',
-      description: memo,
+      description: filledMemo,
       metadata: {
         oystehr_patient_id: oystPatientId,
         oystehr_encounter_id: oystEncounterId,
@@ -317,4 +332,24 @@ function addErrorToTaskOutput(task: Task, error: string): Task {
     valueString: error,
   });
   return taskCopy;
+}
+
+async function sendInvoiceSmsToPatient(
+  oystehr: Oystehr,
+  smsTextMessage: string,
+  invoiceUrl: string,
+  clinic: string,
+  amount: string,
+  dueDate: string,
+  patient: Patient,
+  secrets: Secrets | null
+): Promise<void> {
+  const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+  const smsMessage = replaceTemplateVariablesArrows(smsTextMessage, {
+    clinic,
+    amount,
+    'due-date': dueDate,
+    'invoice-link': invoiceUrl,
+  });
+  await sendSmsForPatient(smsMessage, oystehr, patient, ENVIRONMENT);
 }
