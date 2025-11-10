@@ -172,6 +172,7 @@ const main = async (): Promise<void> => {
     resource: reflexDR,
   });
 
+  // old logic
   // mock pdf attachment for reflex
   const pdfAttachmentDR: DiagnosticReport = {
     ...reflexDR,

@@ -44,6 +44,7 @@ import {
   IN_HOUSE_TEST_CODE_SYSTEM,
   INCONCLUSIVE_RESULT_DR_TAG,
   InHouseLabResult,
+  LAB_DOC_REF_TAG_hl7_TRANSMISSION,
   LAB_DR_TYPE_TAG,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
@@ -826,6 +827,13 @@ export const docRefIsLabGeneratedResult = (docRef: DocumentReference): boolean =
   );
 };
 
+export const docRefIsOgHl7Transmission = (docRef: DocumentReference): boolean => {
+  return !!docRef.meta?.tag?.some(
+    (tag) =>
+      tag.system === LAB_DOC_REF_TAG_hl7_TRANSMISSION.system && tag.code === LAB_DOC_REF_TAG_hl7_TRANSMISSION.code
+  );
+};
+
 // todo labs we should be able to get rid of this
 export const diagnosticReportIsReflex = (dr: DiagnosticReport): boolean => {
   return !!dr?.meta?.tag?.find(
@@ -1098,6 +1106,7 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
     const relatedDrId = docRef.context?.related
       ?.find((ref) => ref.reference?.startsWith('DiagnosticReport/'))
       ?.reference?.replace('DiagnosticReport/', '');
+    console.log('docRef id check', docRef.id);
     const isLabGeneratedResultDoc = docRefIsLabGeneratedResult(docRef);
     if (relatedDrId) {
       if (isLabGeneratedResultDoc) {
@@ -1155,6 +1164,7 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
   // const history: LabOrderHistoryRow[] = [parseTaskReceivedAndReviewedAndCorrectedHistory(task, )]
 
   console.log('forming result detail');
+  console.log('labGeneratedResultPdfDocumentReference', labGeneratedResultPdfDocumentReference?.id);
   const detail = await getResultDetailsBasedOnDr(
     diagnosticReport,
     task,
@@ -1203,6 +1213,7 @@ const getResultDetailsBasedOnDr = async (
   const docRefs: DocumentReference[] = [];
   if (resultPdfDocRef) docRefs.push(resultPdfDocRef);
   if (labGeneratedResultPdfDocRef) docRefs.push(labGeneratedResultPdfDocRef);
+  console.log('whats here?', JSON.stringify(docRefs));
   const { resultPdfUrl, labGeneratedResultUrl } = await getResultPDFUrlsBasedOnDrs(docRefs, token);
 
   const testType = diagnosticReportSpecificResultType(diagnosticReport);

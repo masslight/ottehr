@@ -52,6 +52,7 @@ import {
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
+import { docRefIsLabGeneratedResult, docRefIsOgHl7Transmission } from '../../../zambdas/src/ehr/shared/labs';
 import {
   BookableResource,
   EncounterVirtualServiceExtension,
@@ -278,9 +279,9 @@ export async function createFilesDocumentReferences(
           return doc.content[0]?.attachment.title === file.title;
         } else {
           console.log('isLabsResultDoc');
-          // any docRefs for the related DR should be superseded
-          // there should only be one current docRef per DR
-          return true;
+          const isLabGeneratedDocRef = docRefIsLabGeneratedResult(doc);
+          const isOgTransmissionDocRef = docRefIsOgHl7Transmission(doc);
+          return !isLabGeneratedDocRef && !isOgTransmissionDocRef;
         }
       });
       if (oldDoc) {
