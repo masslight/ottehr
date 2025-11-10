@@ -73,7 +73,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
         const patientBaseline = patientId ? await fetchPatientBaseline(oystehr, patientId) : null;
         let baseLineComponent = [];
         let componentNames: string[] = [];
-        const upload_time = requestBody.upload_time || requestBody.uptime;
+        const upload_time = requestBody.upload_time || requestBody.uptime || null;
         const ts = requestBody.ts;
         const tz = requestBody.tz ?? 'UTC+0';
         if (isWS) {
@@ -90,12 +90,14 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
         }
 
         const offset = getOffsetFromTZ(tz);
-        const tsUTC = moment.unix(ts).utcOffset(offset).utc().format('YYYY-MM-DDTHH:mm:ss.SSS[+00:00]');
-        const uploadTimeUTC = moment
-          .unix(upload_time)
-          .utcOffset(offset)
-          .utc()
-          .format('YYYY-MM-DDTHH:mm:ss.SSS[+00:00]');
+
+        // Handle ts safely
+        const tsUTC = ts ? moment.unix(ts).utcOffset(offset).format('YYYY-MM-DDTHH:mm:ss.SSSZ') : null;
+
+        const uploadTimeUTC = upload_time
+          ? moment.unix(upload_time).utcOffset(offset).format('YYYY-MM-DDTHH:mm:ss.SSSZ')
+          : null;
+        console.log('upload time :', uploadTimeUTC);
 
         const component: any[] = [];
 
@@ -136,8 +138,8 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
               ],
             },
           ],
-          effectiveDateTime: tsUTC,
-          issued: uploadTimeUTC,
+          effectiveDateTime: tsUTC || null,
+          issued: uploadTimeUTC || null,
         };
         const vital = await oystehr.fhir.create<any>(payload);
         console.log('vital created : ', vital);
