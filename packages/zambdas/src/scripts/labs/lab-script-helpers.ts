@@ -36,6 +36,12 @@ export const createAttachmentDocRef = (input: CreateAttachmentDocRefInput): Docu
     case 'local':
       patientId = 'ec2712c1-a080-4aa8-981c-de2b5128cf69';
       break;
+    case 'development':
+      patientId = '2489f7c6-0877-40a7-89dd-80009b9de0aa';
+      break;
+    case 'testing':
+      patientId = 'b016011c-39ac-4363-bbb3-da36f8d96c1e';
+      break;
     case 'staging':
       patientId = '39a5abb5-6c56-40e0-a905-44ed6fef27cb';
       break;
