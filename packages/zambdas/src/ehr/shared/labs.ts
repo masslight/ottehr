@@ -1087,7 +1087,6 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
     const relatedDrId = docRef.context?.related
       ?.find((ref) => ref.reference?.startsWith('DiagnosticReport/'))
       ?.reference?.replace('DiagnosticReport/', '');
-    console.log('docRef id check', docRef.id);
     const isLabGeneratedResultDoc = docRefIsLabGeneratedResult(docRef);
     if (relatedDrId) {
       if (isLabGeneratedResultDoc) {
@@ -1144,8 +1143,7 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
 
   // const history: LabOrderHistoryRow[] = [parseTaskReceivedAndReviewedAndCorrectedHistory(task, )]
 
-  console.log('forming result detail');
-  console.log('labGeneratedResultPdfDocumentReference', labGeneratedResultPdfDocumentReference?.id);
+  console.log('forming result detail for', diagnosticReport.id);
   const detail = await getResultDetailsBasedOnDr(
     diagnosticReport,
     task,
@@ -1178,6 +1176,8 @@ const getResultDetailsBasedOnDr = async (
   labGeneratedResultPdfDocRef: DocumentReference | undefined,
   token: string
 ): Promise<LabOrderResultDetails> => {
+  console.log('doc refs included', resultPdfDocRef?.id, labGeneratedResultPdfDocRef?.id);
+
   const resultType: LabOrderResultDetails['resultType'] = (() => {
     switch (diagnosticReport.status) {
       case 'final':
@@ -1194,10 +1194,10 @@ const getResultDetailsBasedOnDr = async (
   const docRefs: DocumentReference[] = [];
   if (resultPdfDocRef) docRefs.push(resultPdfDocRef);
   if (labGeneratedResultPdfDocRef) docRefs.push(labGeneratedResultPdfDocRef);
-  console.log('whats here?', JSON.stringify(docRefs));
   const { resultPdfUrl, labGeneratedResultUrl } = await getResultPDFUrlsBasedOnDrs(docRefs, token);
 
   const testType = diagnosticReportSpecificResultType(diagnosticReport);
+  console.log('testType', testType);
   if (!testType) throw new Error(`no result-type tag on the DiagnosticReport ${diagnosticReport.id}`);
 
   const resultDetail: LabOrderResultDetails = {
