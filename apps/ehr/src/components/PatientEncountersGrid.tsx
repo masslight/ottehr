@@ -266,10 +266,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
 
     // Apply sorting
     if (metadata.sortDirection === sortDirection) {
-      console.log('sort matches');
       return filtered;
     } else {
-      console.log('sort does not match');
       return filtered.slice().reverse();
     }
   }, [visitHistory, hideCancelled, hideNoShow, sortDirection]);
