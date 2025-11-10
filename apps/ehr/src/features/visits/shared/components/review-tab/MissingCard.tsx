@@ -2,6 +2,7 @@ import { Box, Link, Typography } from '@mui/material';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
+import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { getAssessmentUrl } from 'src/features/visits/in-person/routing/helpers';
 import { TelemedAppointmentVisitTabs } from 'utils';
@@ -13,7 +14,7 @@ export const MissingCard: FC = () => {
   const { appointment } = useAppointmentData();
   const { chartData } = useChartData();
 
-  const { data: chartFields } = useChartFields({
+  const { data: chartFields, isFetching } = useChartFields({
     requestedFields: {
       medicalDecision: {
         _tag: 'medical-decision',
@@ -59,7 +60,8 @@ export const MissingCard: FC = () => {
 
   return (
     <AccordionCard label="Missing" dataTestId={dataTestIds.progressNotePage.missingCard}>
-      <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'start' }}>
+      <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'start', position: 'relative' }}>
+        {isFetching && <LoadingScreen />}
         <Typography data-testid={dataTestIds.progressNotePage.missingCardText}>
           This information is required to sign the chart. Click on the item to navigate to it.
         </Typography>

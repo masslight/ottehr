@@ -62,10 +62,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 interface GetFilesInput {
   patientId: string;
   appointmentId: string;
-  selfPay?: boolean;
 }
 async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToken: string): Promise<VisitDocuments> {
-  const { patientId, appointmentId, selfPay } = input;
+  const { patientId, appointmentId } = input;
   const documents: VisitDocuments = {
     photoIdCards: [],
     insuranceCards: [],
@@ -97,12 +96,12 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
       {
         // Photo IDs
         method: 'GET',
-        url: `/DocumentReference?status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}|${PHOTO_ID_CARD_CODE}`,
+        url: `/DocumentReference?_sort=-_lastUpdated&status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}|${PHOTO_ID_CARD_CODE}`,
       },
       {
         // Insurance Cards
         method: 'GET',
-        url: `/DocumentReference?status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}|${INSURANCE_CARD_CODE}`,
+        url: `/DocumentReference?_sort=-_lastUpdated&status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}|${INSURANCE_CARD_CODE}`,
       },
     ],
   });
@@ -132,7 +131,7 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
         PAPERWORK_CONSENT_CODING_LOINC.code,
         PRIVACY_POLICY_CODE,
       ].includes(docRefCode) ||
-        (docRefCode === INSURANCE_CARD_CODE && !selfPay))
+        docRefCode === INSURANCE_CARD_CODE)
     ) {
       for (const content of docRef.content) {
         const title = content.attachment.title;
@@ -168,12 +167,15 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
   if (z3Documents.length) {
     documents.photoIdCards = z3Documents
       .filter((doc) => [DocumentType.PhotoIdFront, DocumentType.PhotoIdBack].includes(doc.type))
+      .slice(0, 2) // we're slicing all these because somewhere we're failing to mark the DR as no longer current and are getting multiples
       .sort(compareCards(DocumentType.PhotoIdBack));
     documents.insuranceCards = z3Documents
       .filter((doc) => [DocumentType.InsuranceFront, DocumentType.InsuranceBack].includes(doc.type))
+      .slice(0, 2)
       .sort(compareCards(DocumentType.InsuranceBack));
     documents.insuranceCardsSecondary = z3Documents
       .filter((doc) => [DocumentType.InsuranceFrontSecondary, DocumentType.InsuranceBackSecondary].includes(doc.type))
+      .slice(0, 2)
       .sort(compareCards(DocumentType.InsuranceBackSecondary));
     documents.fullCardPdfs = z3Documents.filter((doc) =>
       [DocumentType.FullInsurance, DocumentType.FullInsuranceSecondary, DocumentType.FullPhotoId].includes(doc.type)
