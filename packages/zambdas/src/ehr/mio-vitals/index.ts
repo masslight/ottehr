@@ -28,7 +28,11 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
     }
     console.groupEnd();
     console.debug('validateRequestParameters success');
-
+    if (!requestBody) {
+      return lambdaResponse(500, {
+        message: 'Invalid request format',
+      });
+    }
     const keys = Object.keys(requestBody);
     const isWS = keys.includes('wet') && keys.includes('lts');
     const isBP = keys.includes('dia') && keys.includes('sys') && keys.includes('pul');
