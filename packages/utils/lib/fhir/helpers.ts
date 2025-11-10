@@ -284,8 +284,8 @@ export async function createFilesDocumentReferences(
           console.log('isLabGeneratedDocRef:', isLabGeneratedDocRef);
           const isOgTransmissionDocRef = docRefIsOgHl7Transmission(doc);
           console.log('isOgTransmissionDocRef:', isOgTransmissionDocRef);
-          const docShouldBeSuperSeded = !isLabGeneratedDocRef && !isOgTransmissionDocRef;
-          return docShouldBeSuperSeded;
+          const docShouldBeSuperseded = !isLabGeneratedDocRef && !isOgTransmissionDocRef;
+          return docShouldBeSuperseded;
         }
       });
       if (oldDoc) {
