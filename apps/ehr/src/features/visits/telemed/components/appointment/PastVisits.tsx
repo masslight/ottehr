@@ -1,14 +1,12 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, Dialog, IconButton, Link, Skeleton, Typography } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
 import { FC, useState } from 'react';
 import { PastVisitsTable } from 'src/components/PastVisitsTable';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatient } from 'src/hooks/useGetPatient';
 import { getPatientName } from 'src/shared/utils/getPatientName';
-import { PatientVisitListResponse } from 'utils';
+import { useGetPatientVisitHistory } from '../../../../../hooks/useGetPatientVisitHistory';
 
 export const PastVisits: FC = () => {
   const { patient } = useAppointmentData();
@@ -17,24 +15,7 @@ export const PastVisits: FC = () => {
 
   const patientName = getPatientName(patient?.name).fullDisplayName;
 
-  const { oystehrZambda } = useApiClients();
-
-  const { data: visitHistory } = useQuery({
-    queryKey: [`get-patient-visit-history`, { patientId: patient?.id }],
-    queryFn: async (): Promise<PatientVisitListResponse> => {
-      if (oystehrZambda && patient?.id) {
-        const result = await oystehrZambda.zambda.execute({
-          id: 'get-patient-visit-history',
-          patientId: patient.id,
-        });
-        return result.output as PatientVisitListResponse;
-      }
-
-      throw new Error('api client not defined or patient id is not provided');
-    },
-    enabled: Boolean(patient?.id) && Boolean(oystehrZambda),
-  });
-
+  const { data: visitHistory } = useGetPatientVisitHistory(patient?.id);
   const appointments = visitHistory?.visits ?? [];
 
   if (loading) {

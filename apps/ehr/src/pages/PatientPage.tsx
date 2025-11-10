@@ -1,6 +1,5 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
@@ -11,8 +10,7 @@ import { FullNameDisplay } from 'src/features/visits/shared/components/patient/i
 import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
 import Summary from 'src/features/visits/shared/components/patient/info/Summary';
 import { PatientFollowupEncountersGrid } from 'src/features/visits/shared/components/patient/PatientFollowupEncountersGrid';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { getFirstName, getLastName, PatientVisitListResponse, ServiceMode } from 'utils';
+import { getFirstName, getLastName, ServiceMode } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
 import { PatientLabsTab } from '../components/PatientLabsTab';
@@ -20,6 +18,7 @@ import { RoundedButton } from '../components/RoundedButton';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { useGetPatient } from '../hooks/useGetPatient';
+import { useGetPatientVisitHistory } from '../hooks/useGetPatientVisitHistory';
 import PageContainer from '../layout/PageContainer';
 
 export default function PatientPage(): JSX.Element {
@@ -28,7 +27,6 @@ export default function PatientPage(): JSX.Element {
   const [tab, setTab] = useState(location.state?.defaultTab || 'encounters');
 
   const { loading, patient } = useGetPatient(id);
-  const { oystehrZambda } = useApiClients();
 
   const { firstName, lastName } = useMemo(() => {
     if (!patient) return {};
@@ -38,21 +36,7 @@ export default function PatientPage(): JSX.Element {
     };
   }, [patient]);
 
-  const { data: visitHistory } = useQuery({
-    queryKey: [`get-patient-visit-history`, { patientId: id }],
-    queryFn: async (): Promise<PatientVisitListResponse> => {
-      if (oystehrZambda && id) {
-        const result = await oystehrZambda.zambda.execute({
-          id: 'get-patient-visit-history',
-          patientId: id,
-        });
-        return result.output as PatientVisitListResponse;
-      }
-
-      throw new Error('api client not defined or patient id is not provided');
-    },
-    enabled: Boolean(id) && Boolean(oystehrZambda),
-  });
+  const { data: visitHistory } = useGetPatientVisitHistory(patient?.id);
 
   const appointments = visitHistory?.visits || [];
   const latestAppointment = appointments?.[0];

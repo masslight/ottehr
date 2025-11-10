@@ -37,6 +37,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     const validatedParams = validateRequestParameters(input);
     const { secrets, encounterId, prefilledInfo, task } = validatedParams;
+    console.log('Input task id: ', task.id);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
@@ -191,9 +192,10 @@ async function getCandidClaimIdFromCandidEncounterId(
       `Candid encounter ${candidEncounterId} claims statuses: `,
       candidEncounterResponse.claims.map((claim) => claim.status)
     );
-    // todo what i'm suppose to get here as claim id? i have array of claims with statuses
-    return candidEncounterResponse.claims.find((claim) => claim.status === CandidApi.ClaimStatus.Paid)?.claimId;
-    // return candidEncounterResponse.claims[0]?.claimId;
+    // Candid patientArStatus statuses are really tricky, and it's hard to say if claim status affect inventory-claim.patientArStatus being 'invoiceable' or 'non-invoiceable'
+    // since we already have this claim as invoiceable in create-invoices-tasks and i don't think we are creating few claims for the same encounter
+    // this part is ok
+    return candidEncounterResponse.claims[0]?.claimId;
   }
   return undefined;
 }

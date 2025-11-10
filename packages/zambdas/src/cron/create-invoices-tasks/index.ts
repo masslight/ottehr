@@ -16,6 +16,8 @@ import {
   getResourcesFromBatchInlineRequests,
   getSecret,
   PrefilledInvoiceInfo,
+  RCM_TASK_SYSTEM,
+  RcmTaskCode,
   RcmTaskCodings,
   Secrets,
   SecretsKeys,
@@ -133,6 +135,7 @@ async function getEncountersWithoutTask(candid: CandidApiClient, oystehr: Oysteh
   });
 
   const claimsFetched = inventoryPages?.claims;
+  console.log('fetched claims: ', claimsFetched?.length);
   if (claimsFetched?.length && claimsFetched.length > 0) {
     const [itemizationResponse, encounterPackagesResponse] = await Promise.all([
       getItemizationToClaimIdMap(candid, claimsFetched),
@@ -192,7 +195,13 @@ async function getEncounterTasksPackages(oystehr: Oystehr, claims: InventoryReco
     )
   );
   const resourcesResponse = (await Promise.all(promises)).flat();
-  const tasks = resourcesResponse.filter((res) => res.resourceType === 'Task') as Task[];
+  const tasks = resourcesResponse.filter(
+    (res) =>
+      res.resourceType === 'Task' &&
+      (res as Task).code?.coding?.some(
+        (coding) => coding.system === RCM_TASK_SYSTEM && coding.code === RcmTaskCode.sendInvoiceToPatient
+      )
+  ) as Task[];
 
   const result: EncounterPackage[] = [];
   claims.forEach((claim) => {
