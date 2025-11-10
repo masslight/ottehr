@@ -1,8 +1,8 @@
 import { Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
+import { EmployeeSelectInput, PROVIDERS_FILTER } from 'src/components/input/EmployeeSelectInput';
 import { Option } from 'src/components/input/Option';
-import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -108,11 +108,12 @@ export const OrderDetailsSection: React.FC = () => {
         />
       </Grid>
       <Grid xs={6} item>
-        <ProviderSelectInput
+        <EmployeeSelectInput
           name="details.orderedProvider"
           label="Ordered by"
           required
           dataTestId={dataTestIds.orderVaccinePage.orderedBy}
+          filter={PROVIDERS_FILTER}
         />
       </Grid>
     </Grid>

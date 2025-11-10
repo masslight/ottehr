@@ -165,6 +165,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
         }
       }
 
+      setIsSaving(false);
       cleanup();
       onClose();
     } catch (err) {

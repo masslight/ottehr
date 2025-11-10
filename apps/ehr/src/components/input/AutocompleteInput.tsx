@@ -59,6 +59,7 @@ export const AutocompleteInput: React.FC<Props> = ({
             <Autocomplete
               value={valueOption}
               options={optionsToUse}
+              getOptionKey={(option) => option.value}
               noOptionsText={noOptionsText}
               getOptionLabel={(option) => option.label ?? options?.find((o) => o.value === option.value)?.label}
               isOptionEqualToValue={(option, tempValue) => option.value === tempValue.value}

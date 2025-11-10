@@ -29,13 +29,10 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOn
   const [seeMoreOpen, setSeeMoreOpen] = useState(false);
   const { id: appointmentId } = useParams();
 
-  const {
-    resources: { patient },
-    isLoading: patientIdLoading,
-  } = useAppointmentData(appointmentId);
+  const { encounter, isLoading: patientIdLoading } = useAppointmentData(appointmentId);
 
   const { data: ordersResponse, isLoading: ordersLoading } = useGetImmunizationOrders({
-    patientId: patient?.id,
+    encounterId: encounter.id,
   });
 
   const orders = (ordersResponse?.orders ?? [])

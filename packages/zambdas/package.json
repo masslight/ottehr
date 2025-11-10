@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.21.11",
+  "version": "1.21.21",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -11,6 +11,7 @@
     "start:local:iac": "ENV=local npm run start:iac",
     "start:demo:iac": "ENV=demo npm run start:iac",
     "cancel-telemed-appointments": "tsx src/scripts/cancel-telemed-appointments.ts",
+    "charge-due-and-past-due-invoices": "tsx src/scripts/charge-due-and-past-due-invoices.ts",
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
     "report-daily-payments": "tsx src/scripts/report-daily-payments.ts",
     "report-duplicate-payments": "tsx src/scripts/report-duplicate-payments.ts",

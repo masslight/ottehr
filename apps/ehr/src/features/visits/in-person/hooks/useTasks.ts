@@ -303,9 +303,7 @@ function fhirTaskToTask(task: FhirTask): Task {
 
     if (code === LAB_ORDER_TASK.code.preSubmission) {
       title = `Collect sample for “${fullTestName}” for ${patientName}`;
-      subtitle = `Ordered by ${providerName} on ${
-        orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
-      }`;
+      subtitle = `Ordered by ${providerName} on ${orderDate ? formatDate(orderDate) : ''}`;
       action = {
         name: GO_TO_LAB_TEST,
         link: `/in-person/${appointmentId}/external-lab-orders/${serviceRequestId}/order-details`,
@@ -316,9 +314,7 @@ function fhirTaskToTask(task: FhirTask): Task {
       (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
     ) {
       title = `Review results for “${fullTestName}” for ${patientName}`;
-      subtitle = `Ordered by ${providerName} on ${
-        orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
-      }`;
+      subtitle = `Ordered by ${providerName} on ${orderDate ? formatDate(orderDate) : ''}`;
       action = {
         name: GO_TO_LAB_TEST,
         link: `/in-person/${appointmentId}/external-lab-orders/${serviceRequestId}/order-details`,
@@ -327,7 +323,7 @@ function fhirTaskToTask(task: FhirTask): Task {
     if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
       const receivedDate = getInputString(LAB_ORDER_TASK.input.receivedDate, task);
       title = `Match unsolicited test results`;
-      subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
+      subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
       action = {
         name: 'Match',
         link: `/unsolicited-results/${diagnosticReportId}/match`,
@@ -340,7 +336,7 @@ function fhirTaskToTask(task: FhirTask): Task {
       if (labTypeString === LabType.unsolicited) {
         const receivedDate = getInputString(LAB_ORDER_TASK.input.receivedDate, task);
         title = `Review unsolicited test results for “${fullTestName}” for ${patientName}`;
-        subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
+        subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
         action = {
           name: 'Go to Lab Test',
           link: `/unsolicited-results/${diagnosticReportId}/review`,
@@ -349,7 +345,7 @@ function fhirTaskToTask(task: FhirTask): Task {
       if (labTypeString === LabType.reflex) {
         const receivedDate = getInputString(LAB_ORDER_TASK.input.receivedDate, task);
         title = `Review reflex results for “${fullTestName}” for ${patientName}`;
-        subtitle = `Received on ${receivedDate ? DateTime.fromISO(receivedDate).toFormat('MM/dd/yyyy HH:mm a') : ''}`;
+        subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
         action = {
           name: 'Go to Lab Test',
           link: `/in-person/${appointmentId}/external-lab-orders/report/${diagnosticReportId}/order-details`,
@@ -364,9 +360,7 @@ function fhirTaskToTask(task: FhirTask): Task {
     const providerName = getInputString(IN_HOUSE_LAB_TASK.input.providerName, task);
     const orderDate = getInputString(IN_HOUSE_LAB_TASK.input.orderDate, task);
     const appointmentId = getInputString(IN_HOUSE_LAB_TASK.input.appointmentId, task);
-    subtitle = `Ordered by ${providerName} on ${
-      orderDate ? DateTime.fromISO(orderDate).toFormat('MM/dd/yyyy HH:mm a') : ''
-    }`;
+    subtitle = `Ordered by ${providerName} on ${orderDate ? formatDate(orderDate) : ''}`;
     if (code === IN_HOUSE_LAB_TASK.code.collectSampleTask) {
       title = `Collect sample for “${testName}” for ${patientName}`;
     }
@@ -464,4 +458,8 @@ function getInputReference(code: string, task: FhirTask): Reference | undefined 
 
 function getInput(code: string, task: FhirTask): TaskInput | undefined {
   return task.input?.find((input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === code);
+}
+
+export function formatDate(dateIso: string): string {
+  return DateTime.fromISO(dateIso).toFormat('MM/dd/yyyy h:mm a', { locale: 'en-US' });
 }
