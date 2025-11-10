@@ -40,6 +40,8 @@ import { DateTime } from 'luxon';
 import {
   addOperation,
   CODE_SYSTEM_COVERAGE_CLASS,
+  docRefIsLabGeneratedResult,
+  docRefIsOgHl7Transmission,
   findExistingListByDocumentTypeCode,
   getMimeType,
   getPatchOperationsForNewMetaTags,
@@ -52,7 +54,6 @@ import {
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
-import { docRefIsLabGeneratedResult, docRefIsOgHl7Transmission } from '../../../zambdas/src/ehr/shared/labs';
 import {
   BookableResource,
   EncounterVirtualServiceExtension,

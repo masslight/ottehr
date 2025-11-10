@@ -27,6 +27,7 @@ import {
 import {
   ABNORMAL_RESULT_DR_TAG,
   DiagnosticReportLabDetailPageDTO,
+  docRefIsLabGeneratedResult,
   DynamicAOEInput,
   EncounterExternalLabResult,
   EncounterInHouseLabResult,
@@ -44,7 +45,6 @@ import {
   IN_HOUSE_TEST_CODE_SYSTEM,
   INCONCLUSIVE_RESULT_DR_TAG,
   InHouseLabResult,
-  LAB_DOC_REF_TAG_hl7_TRANSMISSION,
   LAB_DR_TYPE_TAG,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
@@ -61,7 +61,6 @@ import {
   NonNormalResult,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_DOC_CATEGORY_CODING,
-  OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PATIENT_BILLING_ACCOUNT_TYPE,
@@ -813,24 +812,6 @@ export const parseTimezoneForAppointmentSchedule = (
 export const documentReferenceIsLabs = (docRef: DocumentReference): boolean => {
   return !!docRef.type?.coding?.some(
     (c) => c.system === LAB_RESULT_DOC_REF_CODING_CODE.system && c.code === LAB_RESULT_DOC_REF_CODING_CODE.code
-  );
-};
-
-export const docRefIsLabGeneratedResult = (docRef: DocumentReference): boolean => {
-  return !!docRef.category?.find(
-    (cat) =>
-      cat.coding?.find(
-        (code) =>
-          code.system === OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING.system &&
-          code.code === OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING.code
-      )
-  );
-};
-
-export const docRefIsOgHl7Transmission = (docRef: DocumentReference): boolean => {
-  return !!docRef.meta?.tag?.some(
-    (tag) =>
-      tag.system === LAB_DOC_REF_TAG_hl7_TRANSMISSION.system && tag.code === LAB_DOC_REF_TAG_hl7_TRANSMISSION.code
   );
 };
 
