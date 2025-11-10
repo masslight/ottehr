@@ -147,6 +147,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       newTask.status = 'completed';
     }
 
+    // Don't show "preliminary" result task on the tasks board
+    if (diagnosticReport.status === 'preliminary' && newTask.meta) {
+      newTask.meta.tag = undefined;
+    }
+
     // no task will be created for an unsolicited result pdf attachment
     // no result pdf can be created until it is matched and it should come in with at least one other DR that will trigger the task
     // after the matching is complete we can create the review task / generate the pdf
