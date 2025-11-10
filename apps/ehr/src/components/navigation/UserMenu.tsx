@@ -26,6 +26,8 @@ export const UserMenu: FC = () => {
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const user = useEvolveUser();
   const userIsProvider = user?.hasRole([RoleType.Provider]);
+  const userIsStaff = user?.hasRole([RoleType.Staff]);
+  // const userIsAdministrator = user?.hasRole([RoleType.Administrator]);
   const location = useLocation();
   const isOnPatientPage = useMemo(() => {
     const patientPageRegex = /\/patient\/[^/]+/;
@@ -69,7 +71,7 @@ export const UserMenu: FC = () => {
   return (
     <>
       {userIsProvider && isOnPatientPage && <TimerComponent />}
-      {userIsProvider && <ProviderNotifications />}
+      {(userIsProvider || userIsStaff) && <ProviderNotifications />}
       <ListItem disablePadding sx={{ width: 'fit-content' }}>
         <ListItemButton onClick={(event: MouseEvent<HTMLElement>) => setAnchorElement(event.currentTarget)}>
           <ListItemAvatar sx={{ minWidth: 'auto', mr: { xs: '0', sm: 2 } }}>
