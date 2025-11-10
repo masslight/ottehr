@@ -6,27 +6,31 @@ import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/syst
 export const TASK_TYPE_SYSTEM = ottehrCodeSystemUrl('task-type');
 const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
 
-export function createTask(data: {
-  category: string;
-  code?:
-    | {
-        system: string;
-        code: string;
-      }
-    | CodeableConcept;
-  encounterId?: string;
-  location?: {
-    id: string;
-    name?: string;
-  };
-  input?: { type: string; valueString?: string; valueReference?: Reference }[] | TaskInput[];
-  basedOn?: string[];
-}): Task {
-  const tag: Coding[] = [
-    {
+export function createTask(
+  data: {
+    category: string;
+    code?:
+      | {
+          system: string;
+          code: string;
+        }
+      | CodeableConcept;
+    encounterId?: string;
+    location?: {
+      id: string;
+      name?: string;
+    };
+    input?: { type: string; valueString?: string; valueReference?: Reference }[] | TaskInput[];
+    basedOn?: string[];
+  },
+  showOnBoard = true
+): Task {
+  const tag: Coding[] = [];
+  if (showOnBoard) {
+    tag.push({
       code: 'task',
-    },
-  ];
+    });
+  }
   if (data.location != null) {
     tag.push({
       system: TASK_LOCATION_SYSTEM,
