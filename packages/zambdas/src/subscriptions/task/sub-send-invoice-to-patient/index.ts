@@ -45,10 +45,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const candid = createCandidApiClient(secrets);
     const stripe = getStripeClient(secrets);
 
-    // todo: remove this
-    const clinicName = 'Ottehr';
-
     try {
+      const clinicName = getSecret(SecretsKeys.BUSINESS_DISPLAY_NAME, secrets);
+
       console.log('Fetching fhir resources');
       const fhirResources = await getFhirResources(oystehr, encounterId);
       if (!fhirResources) throw new Error('Failed to fetch all needed FHIR resources');

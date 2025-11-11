@@ -418,27 +418,41 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         const lastEncounterTask = row.sendInvoiceTask;
 
         let buttonColor: ButtonOwnProps['color'] = 'secondary';
-        let tooltipText = "Invoice can't be sent for this visit yet.";
-        switch (lastEncounterTask?.status) {
-          case 'ready':
-            buttonColor = 'primary';
-            tooltipText = 'Invoice can be sent for this visit.';
-            break;
-          case 'completed':
-            buttonColor = 'success';
-            tooltipText =
-              'Invoice has been sent and processed for this visit successfully. You can resend it by pressing this button';
-            break;
-          case 'failed':
-            buttonColor = 'error';
-            tooltipText = 'Invoice has been sent but failed to process for this visit.';
-            break;
+        let tooltipText = '---';
+        let buttonDisabled = true;
+        if (lastEncounterTask !== undefined) {
+          switch (lastEncounterTask?.status) {
+            case 'ready':
+              buttonColor = 'primary';
+              tooltipText = 'Invoice can be sent for this visit.';
+              buttonDisabled = false;
+              break;
+            case 'completed':
+              buttonColor = 'success';
+              tooltipText =
+                'Invoice has been sent and processed for this visit successfully. You can resend it by pressing this button';
+              buttonDisabled = false;
+              break;
+            case 'failed':
+              buttonColor = 'error';
+              tooltipText = 'Invoice has been sent but failed to process for this visit.';
+              buttonDisabled = false;
+              break;
+            default:
+              buttonColor = 'secondary';
+              tooltipText = "Invoice can't be sent for this visit yet.";
+              buttonDisabled = true;
+          }
+        } else {
+          buttonColor = 'inherit';
+          tooltipText = "Invoice can't be sent for this visit yet.";
+          buttonDisabled = true;
         }
         return (
           <Tooltip title={tooltipText} placement="top">
             <Box>
               <RoundedButton
-                disabled={!lastEncounterTask}
+                disabled={buttonDisabled}
                 color={buttonColor}
                 onClick={() => {
                   setSelectedInvoiceTask(lastEncounterTask);
