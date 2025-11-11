@@ -170,8 +170,14 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   }
 
   try {
+    // if the user selects the self-pay option, we don't want to remove any coverages that already exist on the account
+    const preserveOmittedCoverages =
+      qr.item
+        ?.find((item) => item.linkId === 'payment-option-page')
+        ?.item?.find((subItem) => subItem.linkId === 'payment-option')?.answer?.[0]?.valueString ===
+      'I will pay without insurance';
     await updatePatientAccountFromQuestionnaire(
-      { patientId: patientResource.id, questionnaireResponseItem: qr.item ?? [] },
+      { patientId: patientResource.id, questionnaireResponseItem: qr.item ?? [], preserveOmittedCoverages },
       oystehr
     );
   } catch (error: unknown) {

@@ -129,20 +129,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       });
     }
 
-    const newTask = createTask({
-      category: LAB_ORDER_TASK.category,
-      code: {
-        system: LAB_ORDER_TASK.system,
-        code: getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched),
+    // Don't show "preliminary" result task on the tasks board
+    const showTaskOnBoard = diagnosticReport.status !== 'preliminary';
+
+    const newTask = createTask(
+      {
+        category: LAB_ORDER_TASK.category,
+        code: {
+          system: LAB_ORDER_TASK.system,
+          code: getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched),
+        },
+        encounterId: preSubmissionTask?.encounter?.reference?.split('/')[1] ?? '',
+        basedOn: [
+          `DiagnosticReport/${diagnosticReport.id}`,
+          ...(serviceRequestId ? [`ServiceRequest/${serviceRequestId}`] : []),
+        ],
+        location: preSubmissionTask ? getTaskLocation(preSubmissionTask) : undefined,
+        input: taskInput,
       },
-      encounterId: preSubmissionTask?.encounter?.reference?.split('/')[1] ?? '',
-      basedOn: [
-        `DiagnosticReport/${diagnosticReport.id}`,
-        ...(serviceRequestId ? [`ServiceRequest/${serviceRequestId}`] : []),
-      ],
-      location: preSubmissionTask ? getTaskLocation(preSubmissionTask) : undefined,
-      input: taskInput,
-    });
+      showTaskOnBoard
+    );
     if (diagnosticReport.status === 'cancelled') {
       newTask.status = 'completed';
     }

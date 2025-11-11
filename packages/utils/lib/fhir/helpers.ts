@@ -40,6 +40,8 @@ import { DateTime } from 'luxon';
 import {
   addOperation,
   CODE_SYSTEM_COVERAGE_CLASS,
+  docRefIsLabGeneratedResult,
+  docRefIsOgHl7Transmission,
   findExistingListByDocumentTypeCode,
   getMimeType,
   getPatchOperationsForNewMetaTags,
@@ -278,9 +280,12 @@ export async function createFilesDocumentReferences(
           return doc.content[0]?.attachment.title === file.title;
         } else {
           console.log('isLabsResultDoc');
-          // any docRefs for the related DR should be superseded
-          // there should only be one current docRef per DR
-          return true;
+          const isLabGeneratedDocRef = docRefIsLabGeneratedResult(doc);
+          console.log('isLabGeneratedDocRef:', isLabGeneratedDocRef);
+          const isOgTransmissionDocRef = docRefIsOgHl7Transmission(doc);
+          console.log('isOgTransmissionDocRef:', isOgTransmissionDocRef);
+          const docShouldBeSuperseded = !isLabGeneratedDocRef && !isOgTransmissionDocRef;
+          return docShouldBeSuperseded;
         }
       });
       if (oldDoc) {
