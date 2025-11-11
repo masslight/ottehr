@@ -49,6 +49,7 @@ import {
   PSC_HOLD_CONFIG,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
   SecretsKeys,
+  serviceRequestPaymentMethod,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../shared';
@@ -831,26 +832,6 @@ function getClientBillCoverageConfig(patient: Patient, clientOrg: Organization, 
     },
   };
   return clientBillCoverageConfig;
-}
-
-function serviceRequestPaymentMethod(
-  serviceRequest: ServiceRequest,
-  coverages: Coverage[]
-): CreateLabPaymentMethod | undefined {
-  const insuranceCoverageRef = serviceRequest?.insurance?.find(
-    (insurance) => insurance.reference?.startsWith('Coverage/')
-  );
-  if (!insuranceCoverageRef) return LabPaymentMethod.SelfPay;
-  const coverageId = insuranceCoverageRef.reference?.replace('Coverage/', '');
-  const coverage = coverages.find((coverage) => coverage.id === coverageId);
-  if (!coverage) {
-    console.log(`Warning: unable to determine the payment method of this service request ${serviceRequest.id}
-      coverages passed: ${coverages.map((coverage) => coverage.id)}`);
-    return;
-  }
-  const paymentMethod = paymentMethodFromCoverage(coverage);
-  console.log('service request payment method and id', paymentMethod, serviceRequest.id);
-  return paymentMethod;
 }
 
 function getLabGuidFromClientBillCoverage(coverage: Coverage): string | undefined {

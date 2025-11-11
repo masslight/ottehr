@@ -144,7 +144,7 @@ interface LabsData {
   isPscOrder: boolean;
 }
 
-export type CoverageAndOrgForOrderForm = {
+export type InsuranceCoverageAndOrgForOrderForm = {
   coverage: Coverage;
   insuranceOrganization: Organization;
   coverageRank: number;

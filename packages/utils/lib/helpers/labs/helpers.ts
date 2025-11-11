@@ -193,3 +193,23 @@ export function paymentMethodFromCoverage(coverage: Coverage): CreateLabPaymentM
   }
   return paymentMethod;
 }
+
+export function serviceRequestPaymentMethod(
+  serviceRequest: ServiceRequest,
+  coverages: Coverage[]
+): CreateLabPaymentMethod | undefined {
+  const insuranceCoverageRef = serviceRequest?.insurance?.find(
+    (insurance) => insurance.reference?.startsWith('Coverage/')
+  );
+  if (!insuranceCoverageRef) return LabPaymentMethod.SelfPay;
+  const coverageId = insuranceCoverageRef.reference?.replace('Coverage/', '');
+  const coverage = coverages.find((coverage) => coverage.id === coverageId);
+  if (!coverage) {
+    console.log(`Warning: unable to determine the payment method of this service request ${serviceRequest.id}
+      coverages passed: ${coverages.map((coverage) => coverage.id)}`);
+    return;
+  }
+  const paymentMethod = paymentMethodFromCoverage(coverage);
+  console.log('service request payment method and id', paymentMethod, serviceRequest.id);
+  return paymentMethod;
+}

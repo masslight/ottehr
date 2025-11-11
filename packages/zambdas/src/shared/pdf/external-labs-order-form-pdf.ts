@@ -7,6 +7,7 @@ import {
   FHIR_IDENTIFIER_NPI,
   formatPhoneNumberDisplay,
   getFullestAvailableName,
+  LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   ORDER_ITEM_UNKNOWN,
   Secrets,
 } from 'utils';
@@ -17,7 +18,12 @@ import { drawFieldLineBoldHeader, getPdfClientForLabsPDFs, LabsPDFTextStyleConfi
 import { getLabFileName } from './labs-results-form-pdf';
 import { ICON_STYLE, STANDARD_NEW_LINE, SUB_HEADER_FONT_SIZE } from './pdf-consts';
 import { BLACK_LINE_STYLE, PdfInfo, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
-import { CoverageAndOrgForOrderForm, ExternalLabOrderFormData, OrderFormInsuranceInfo, PdfClient } from './types';
+import {
+  ExternalLabOrderFormData,
+  InsuranceCoverageAndOrgForOrderForm,
+  OrderFormInsuranceInfo,
+  PdfClient,
+} from './types';
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
   const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
@@ -331,13 +337,28 @@ export function getOrderFormDataConfig(
     location,
     isManualOrder,
     isPscOrder,
-    coveragesAndOrgs,
+    insuranceCoveragesAndOrgs,
+    clientBillCoverage,
   } = resources;
 
-  const coverage = coveragesAndOrgs?.length ? coveragesAndOrgs?.[0].coverage : undefined;
+  let coverage: Coverage | undefined;
+  if (insuranceCoveragesAndOrgs?.length) {
+    coverage = insuranceCoveragesAndOrgs[0].coverage;
+  } else if (clientBillCoverage) {
+    coverage = clientBillCoverage;
+  }
   // this is the same logic we use in oystehr to determine PV1-20
-  const coverageType = coverage?.type?.coding?.[0]?.code; // assumption: we'll use the first code in the list
-  const billClass = !coverage || coverageType === 'pay' ? 'Patient Bill (P)' : 'Third-Party Bill (T)';
+  const getBillClass = (coverage: Coverage | undefined): string => {
+    const coverageType = coverage?.type?.coding?.[0]?.code; // assumption: we'll use the first code in the list
+    if (!coverage || coverageType === 'pay') {
+      return 'Patient Bill (P)';
+    } else if (coverageType === LAB_CLIENT_BILL_COVERAGE_TYPE_CODING.code) {
+      return 'Client Bill (C)';
+    } else {
+      return 'Third-Party Bill (T)';
+    }
+  };
+  const billClass = getBillClass(coverage);
 
   const dataConfig: ExternalLabOrderFormData = {
     locationName: location?.name,
@@ -367,7 +388,7 @@ export function getOrderFormDataConfig(
     dateIncludedInFileName: testDetails[0].serviceRequestCreatedDate,
     orderPriority: testDetails[0].testPriority || ORDER_ITEM_UNKNOWN, // used for file name
     billClass,
-    insuranceDetails: getInsuranceDetails(coveragesAndOrgs, patient, oystehr),
+    insuranceDetails: getInsuranceDetails(insuranceCoveragesAndOrgs, patient, oystehr),
     testDetails,
     isManualOrder,
     isPscOrder,
@@ -377,14 +398,14 @@ export function getOrderFormDataConfig(
 }
 
 function getInsuranceDetails(
-  coveragesAndOrgs: CoverageAndOrgForOrderForm[] | undefined,
+  insuranceCoveragesAndOrgs: InsuranceCoverageAndOrgForOrderForm[] | undefined,
   patient: Patient,
   oystehr: Oystehr
 ): OrderFormInsuranceInfo[] | undefined {
-  if (!coveragesAndOrgs || !coveragesAndOrgs.length) return undefined;
+  if (!insuranceCoveragesAndOrgs || !insuranceCoveragesAndOrgs.length) return undefined;
 
   const insuranceInfo: OrderFormInsuranceInfo[] = [];
-  coveragesAndOrgs.forEach((covAndOrg) => {
+  insuranceCoveragesAndOrgs.forEach((covAndOrg) => {
     const { coverage, insuranceOrganization, coverageRank } = covAndOrg;
     const { insuredName, insuredAddress } = getInsuredInfoFromCoverageSubscriber(coverage, patient);
     insuranceInfo.push({
