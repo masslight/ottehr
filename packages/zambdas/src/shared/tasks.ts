@@ -1,10 +1,16 @@
-import { CodeableConcept, Coding, Reference, Task, TaskInput } from 'fhir/r4b';
+import { CodeableConcept, Coding, Reference, Task, TaskInput as FhirTaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { undefinedIfEmptyArray } from 'utils';
 import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 
 export const TASK_TYPE_SYSTEM = ottehrCodeSystemUrl('task-type');
 const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
+
+export interface TaskInput {
+  type: string;
+  valueString?: string;
+  valueReference?: Reference;
+}
 
 export function createTask(
   data: {
@@ -20,7 +26,7 @@ export function createTask(
       id: string;
       name?: string;
     };
-    input?: { type: string; valueString?: string; valueReference?: Reference }[] | TaskInput[];
+    input?: TaskInput[] | FhirTaskInput[];
     basedOn?: string[];
   },
   showOnBoard = true
@@ -70,7 +76,7 @@ export function createTask(
     input: undefinedIfEmptyArray(
       (data.input ?? [])
         .map((input) => {
-          if (isTaskInput(input)) {
+          if (isFhirTaskInput(input)) {
             return input;
           }
           return {
@@ -114,7 +120,7 @@ export function getTaskLocation(task: Task): { id: string; name?: string } | und
   return undefined;
 }
 
-function isTaskInput(input: { type: string; value?: string } | TaskInput): input is TaskInput {
+function isFhirTaskInput(input: TaskInput | FhirTaskInput): input is FhirTaskInput {
   return typeof input.type === 'object';
 }
 
