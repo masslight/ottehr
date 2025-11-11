@@ -1447,7 +1447,7 @@ export interface TemplateVariables {
 
 // <key> syntax
 export function replaceTemplateVariablesArrows(template: string, variables: TemplateVariables): string {
-  return template.replace(/<(\w+)>/g, (match, key) => {
+  return template.replace(/<([\w-]+)>/g, (match, key) => {
     return variables[key]?.toString() || match;
   });
 }

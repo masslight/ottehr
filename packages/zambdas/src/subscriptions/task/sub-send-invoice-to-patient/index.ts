@@ -65,8 +65,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('Stripe and candid ids retrieved');
 
       console.log('Getting patient balance');
-      const patientBalance = await getPatientBalanceInCentsForClaim({ candid, claimId: candidClaimId });
-      if (patientBalance === undefined)
+      const patientBalanceCents = await getPatientBalanceInCentsForClaim({ candid, claimId: candidClaimId });
+      if (patientBalanceCents === undefined)
         throw new Error('Patient balance is undefined for this claim, claim id: ' + candidClaimId);
       console.log('Patient balance retrieved');
 
@@ -78,7 +78,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         oystPatientId: patientId,
         prefilledInfo,
       });
-      await createInvoiceItem(stripe, stripeCustomerId, invoiceResponse, patientBalance, prefilledInfo);
+      await createInvoiceItem(stripe, stripeCustomerId, invoiceResponse, patientBalanceCents, prefilledInfo);
       console.log('Invoice and invoice item created');
 
       console.log('Sending invoice to patient (with email)');
@@ -92,7 +92,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         prefilledInfo.smsTextMessage,
         invoiceUrl,
         clinicName,
-        patientBalance.toString(),
+        (patientBalanceCents / 100).toString(),
         prefilledInfo.dueDate,
         patient,
         secrets
@@ -351,5 +351,6 @@ async function sendInvoiceSmsToPatient(
     'due-date': dueDate,
     'invoice-link': invoiceUrl,
   });
+  console.log('Sending sms to patient: ', smsMessage);
   await sendSmsForPatient(smsMessage, oystehr, patient, ENVIRONMENT);
 }
