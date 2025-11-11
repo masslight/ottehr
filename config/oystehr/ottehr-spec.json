@@ -159,301 +159,301 @@
     "VERSION": {
       "name": "version",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/version/index",
       "zip": ".dist/zips/version.zip"
     },
     "CREATE-USER": {
       "name": "create-user",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/create-user/index",
       "zip": ".dist/zips/create-user.zip"
     },
     "USER-ACTIVATION": {
       "name": "user-activation",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/user-activation/index",
       "zip": ".dist/zips/user-activation.zip"
     },
     "GET-APPOINTMENTS": {
       "name": "get-appointments",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-appointments/index",
       "zip": ".dist/zips/get-appointments.zip"
     },
     "INCOMPLETE-ENCOUNTERS-REPORT": {
       "name": "incomplete-encounters-report",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/incomplete-encounters-report/index",
       "zip": ".dist/zips/incomplete-encounters-report.zip"
     },
     "AI-ASSISTED-ENCOUNTERS-REPORT": {
       "name": "ai-assisted-encounters-report",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/ai-assisted-encounters-report/index",
       "zip": ".dist/zips/ai-assisted-encounters-report.zip"
     },
     "DAILY-PAYMENTS-REPORT": {
       "name": "daily-payments-report",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/daily-payments-report/index",
       "zip": ".dist/zips/daily-payments-report.zip"
     },
     "VISITS-OVERVIEW-REPORT": {
       "name": "visits-overview-report",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/visits-overview-report/index",
       "zip": ".dist/zips/visits-overview-report.zip"
     },
     "GET-TELEMED-APPOINTMENTS": {
       "name": "get-telemed-appointments",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-telemed-appointments/index",
       "zip": ".dist/zips/get-telemed-appointments.zip"
     },
     "CHANGE-TELEMED-APPOINTMENT-STATUS": {
       "name": "change-telemed-appointment-status",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/change-telemed-appointment-status/index",
       "zip": ".dist/zips/change-telemed-appointment-status.zip"
     },
     "ASSIGN-PRACTITIONER": {
       "name": "assign-practitioner",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/assign-practitioner/index",
       "zip": ".dist/zips/assign-practitioner.zip"
     },
     "UNASSIGN-PRACTITIONER": {
       "name": "unassign-practitioner",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/unassign-practitioner/index",
       "zip": ".dist/zips/unassign-practitioner.zip"
     },
     "CHANGE-IN-PERSON-VISIT-STATUS": {
       "name": "change-in-person-visit-status",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/change-in-person-visit-status/index",
       "zip": ".dist/zips/change-in-person-visit-status.zip"
     },
     "SIGN-APPOINTMENT": {
       "name": "sign-appointment",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/sign-appointment/index",
       "zip": ".dist/zips/sign-appointment.zip"
     },
     "UNLOCK-APPOINTMENT": {
       "name": "unlock-appointment",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/unlock-appointment/index",
       "zip": ".dist/zips/unlock-appointment.zip"
     },
     "PENDING-SUPERVISOR-APPROVAL": {
       "name": "pending-supervisor-approval",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/pending-supervisor-approval/index",
       "zip": ".dist/zips/pending-supervisor-approval.zip"
     },
     "GET-CHART-DATA": {
       "name": "get-chart-data",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-chart-data/index",
       "zip": ".dist/zips/get-chart-data.zip"
     },
     "SAVE-CHART-DATA": {
       "name": "save-chart-data",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/save-chart-data/index",
       "zip": ".dist/zips/save-chart-data.zip"
     },
     "DELETE-CHART-DATA": {
       "name": "delete-chart-data",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/delete-chart-data/index",
       "zip": ".dist/zips/delete-chart-data.zip"
     },
     "BULK-UPDATE-INSURANCE-STATUS": {
       "name": "bulk-update-insurance-status",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/bulk-update-insurance-status/index",
       "zip": ".dist/zips/bulk-update-insurance-status.zip"
     },
     "UPDATE-USER": {
       "name": "update-user",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/update-user/index",
       "zip": ".dist/zips/update-user.zip"
     },
     "INIT-TELEMED-SESSION": {
       "name": "init-telemed-session",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/init-telemed-session/index",
       "zip": ".dist/zips/init-telemed-session.zip"
     },
     "GET-USER": {
       "name": "get-user",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-user/index",
       "zip": ".dist/zips/get-user.zip"
     },
     "SAVE-PATIENT-INSTRUCTION": {
       "name": "save-patient-instruction",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/save-patient-instruction/index",
       "zip": ".dist/zips/save-patient-instruction.zip"
     },
     "GET-PATIENT-INSTRUCTIONS": {
       "name": "get-patient-instructions",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-instructions/index",
       "zip": ".dist/zips/get-patient-instructions.zip"
     },
     "DELETE-PATIENT-INSTRUCTION": {
       "name": "delete-patient-instruction",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/delete-patient-instruction/index",
       "zip": ".dist/zips/delete-patient-instruction.zip"
     },
     "SAVE-FOLLOWUP-ENCOUNTER": {
       "name": "save-followup-encounter",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/save-followup-encounter/index",
       "zip": ".dist/zips/save-followup-encounter.zip"
     },
     "GET-CONVERSATION": {
       "name": "get-conversation",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-conversation/index",
       "zip": ".dist/zips/get-conversation.zip"
     },
     "GET-EMPLOYEES": {
       "name": "get-employees",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-employees/index",
       "zip": ".dist/zips/get-employees.zip"
     },
     "SYNC-USER": {
       "name": "sync-user",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/sync-user/index",
       "zip": ".dist/zips/sync-user.zip"
     },
     "ICD-SEARCH": {
       "name": "icd-search",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/icd-search/index",
       "zip": ".dist/zips/icd-search.zip"
     },
     "ICD-10-SEARCH": {
       "name": "icd-10-search",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/icd-10-search/index",
       "zip": ".dist/zips/icd-10-search.zip"
     },
     "GET-PATIENT-PROFILE-PHOTO-URL": {
       "name": "get-patient-profile-photo-url",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-patient-profile-photo-url/index",
       "zip": ".dist/zips/get-patient-profile-photo-url.zip"
     },
     "GET-CLAIMS": {
       "name": "get-claims",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-claims/index",
       "zip": ".dist/zips/get-claims.zip"
     },
     "CREATE-UPDATE-MEDICATION-ORDER": {
       "name": "create-update-medication-order",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/create-update-medication-order/index",
       "zip": ".dist/zips/create-update-medication-order.zip"
     },
     "GET-MEDICATION-ORDERS": {
       "name": "get-medication-orders",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-medication-orders/index",
       "zip": ".dist/zips/get-medication-orders.zip"
     },
     "CREATE-UPLOAD-AUDIO-RECORDING-URL": {
       "name": "upload-audio-recording",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/upload-audio-recording/index",
       "zip": ".dist/zips/upload-audio-recording.zip"
     },
     "CREATE-RESOURCES-FROM-AUDIO-RECORDING": {
       "name": "create-resources-from-audio-recording",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/create-resources-from-audio-recording/index",
       "zip": ".dist/zips/create-resources-from-audio-recording.zip"
     },
     "CREATE-UPLOAD-DOCUMENT-URL": {
       "name": "create-upload-document-url",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/create-upload-document-url/index",
       "zip": ".dist/zips/create-upload-document-url.zip"
     },
     "CREATE-LAB-ORDER": {
       "name": "create-lab-order",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/create-lab-order/index",
       "zip": ".dist/zips/create-lab-order.zip"
     },
     "GET-CREATE-LAB-ORDER-RESOURCES": {
       "name": "get-create-lab-order-resources",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-create-lab-order-resources/index",
       "zip": ".dist/zips/get-create-lab-order-resources.zip"
     },
     "GET-UNSOLICITED-RESULTS-RESOURCES": {
       "name": "get-unsolicited-results-resources",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-unsolicited-results-resources/index",
       "zip": ".dist/zips/get-unsolicited-results-resources.zip"
     },
     "HANDLE-LAB-RESULT": {
       "name": "handle-lab-result",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/subscriptions/diagnostic-report/handle-lab-result/index",
       "zip": ".dist/zips/handle-lab-result.zip",
       "subscription": {
@@ -464,259 +464,259 @@
     "PAPERWORK-TO-PDF": {
       "name": "paperwork-to-pdf",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/paperwork-to-pdf/index",
       "zip": ".dist/zips/paperwork-to-pdf.zip"
     },
     "GET-PATIENT-ACCOUNT": {
       "name": "get-patient-account",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/get/index",
       "zip": ".dist/zips/get-patient-account.zip"
     },
     "UPDATE-PATIENT-ACCOUNT": {
       "name": "update-patient-account",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/update/index",
       "zip": ".dist/zips/update-patient-account.zip"
     },
     "REMOVE-PATIENT-COVERAGE": {
       "name": "remove-patient-coverage",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/patient-account/remove-coverage/index",
       "zip": ".dist/zips/remove-patient-coverage.zip"
     },
     "CANCEL-APPOINTMENT": {
       "name": "cancel-appointment",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/appointment/prebook-cancel-appointment/index",
       "zip": ".dist/zips/cancel-appointment.zip"
     },
     "CHECK-IN": {
       "name": "check-in",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/check-in/index",
       "zip": ".dist/zips/check-in.zip"
     },
     "GET-SCHEDULE": {
       "name": "get-schedule",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/get-schedule/index",
       "zip": ".dist/zips/get-schedule.zip"
     },
     "UPDATE-PAPERWORK-IN-PROGRESS": {
       "name": "update-paperwork-in-progress",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/update-paperwork-in-progress/index",
       "zip": ".dist/zips/update-paperwork-in-progress.zip"
     },
     "PATCH-PAPERWORK": {
       "name": "patch-paperwork",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/patch-paperwork/index",
       "zip": ".dist/zips/patch-paperwork.zip"
     },
     "SUBMIT-PAPERWORK": {
       "name": "submit-paperwork",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/submit-paperwork/index",
       "zip": ".dist/zips/submit-paperwork.zip"
     },
     "CREATE-APPOINTMENT": {
       "name": "create-appointment",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/appointment/create-appointment/index",
       "zip": ".dist/zips/create-appointment.zip"
     },
     "INTAKE-GET-APPOINTMENTS": {
       "name": "intake-get-appointments",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/appointment/prebook-get-appointments/index",
       "zip": ".dist/zips/intake-get-appointments.zip"
     },
     "GET-PATIENTS": {
       "name": "get-patients",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/get-patients/index",
       "zip": ".dist/zips/get-patients.zip"
     },
     "GET-PAPERWORK": {
       "name": "get-paperwork",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/get-paperwork/index",
       "zip": ".dist/zips/get-paperwork.zip"
     },
     "UPDATE-APPOINTMENT": {
       "name": "update-appointment",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/appointment/prebook-update-appointment/index",
       "zip": ".dist/zips/update-appointment.zip"
     },
     "GET-PRESIGNED-FILE-URL": {
       "name": "get-presigned-file-url",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/get-presigned-file-url/index",
       "zip": ".dist/zips/get-presigned-file-url.zip"
     },
     "GET-APPOINTMENT-DETAILS": {
       "name": "get-appointment-details",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/get-appointment-details/index",
       "zip": ".dist/zips/get-appointment-details.zip"
     },
     "PAYMENT-METHODS-LIST": {
       "name": "payment-methods-list",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/payment-methods/list/index",
       "zip": ".dist/zips/payment-methods-list.zip"
     },
     "PAYMENT-METHODS-DELETE": {
       "name": "payment-methods-delete",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/payment-methods/delete/index",
       "zip": ".dist/zips/payment-methods-delete.zip"
     },
     "PAYMENT-METHODS-SETUP": {
       "name": "payment-methods-setup",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/payment-methods/setup/index",
       "zip": ".dist/zips/payment-methods-setup.zip"
     },
     "PAYMENT-METHODS-SET-DEFAULT": {
       "name": "payment-methods-set-default",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/payment-methods/set-default/index",
       "zip": ".dist/zips/payment-methods-set-default.zip"
     },
     "VIDEO-CHAT-INVITES-CANCEL": {
       "name": "video-chat-invites-cancel",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/video-chat-invites/cancel-invite/index",
       "zip": ".dist/zips/video-chat-invites-cancel.zip"
     },
     "VIDEO-CHAT-INVITES-CREATE": {
       "name": "video-chat-invites-create",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/video-chat-invites/create-invite/index",
       "zip": ".dist/zips/video-chat-invites-create.zip"
     },
     "VIDEO-CHAT-INVITES-LIST": {
       "name": "video-chat-invites-list",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/video-chat-invites/list-invites/index",
       "zip": ".dist/zips/video-chat-invites-list.zip"
     },
     "GET-VISIT-DETAILS": {
       "name": "get-visit-details",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/appointment/get-visit-details/index",
       "zip": ".dist/zips/get-visit-details.zip"
     },
     "GET-ELIGIBILITY": {
       "name": "get-eligibility",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/get-eligibility/index",
       "zip": ".dist/zips/get-eligibility.zip"
     },
     "GET-ANSWER-OPTIONS": {
       "name": "get-answer-options",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/get-answer-options/index",
       "zip": ".dist/zips/get-answer-options.zip"
     },
     "GET-TELEMED-LOCATIONS": {
       "name": "get-telemed-locations",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/get-telemed-locations/index",
       "zip": ".dist/zips/get-telemed-locations.zip"
     },
     "GET-WAIT-STATUS": {
       "name": "get-wait-status",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/get-wait-status/index",
       "zip": ".dist/zips/get-wait-status.zip"
     },
     "JOIN-CALL": {
       "name": "join-call",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/join-call/index",
       "zip": ".dist/zips/join-call.zip"
     },
     "TELEMED-CANCEL-APPOINTMENT": {
       "name": "telemed-cancel-appointment",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/appointment/telemed-cancel-appointment/index",
       "zip": ".dist/zips/telemed-cancel-appointment.zip"
     },
     "TELEMED-GET-APPOINTMENTS": {
       "name": "telemed-get-appointments",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/appointment/telemed-get-appointments/index",
       "zip": ".dist/zips/telemed-get-appointments.zip"
     },
     "GET-PAST-VISITS": {
       "name": "get-past-visits",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/appointment/get-past-visits/index",
       "zip": ".dist/zips/get-past-visits.zip"
     },
     "TELEMED-UPDATE-APPOINTMENT": {
       "name": "telemed-update-appointment",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/appointment/telemed-update-appointment/index",
       "zip": ".dist/zips/telemed-update-appointment.zip"
     },
     "TELEMED-GET-PATIENTS": {
       "name": "telemed-get-patients",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/telemed-get-patients/index",
       "zip": ".dist/zips/telemed-get-patients.zip"
     },
     "LIST-BOOKABLES": {
       "name": "list-bookables",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/bookable/list-bookables/index",
       "zip": ".dist/zips/list-bookables.zip"
     },
     "NOTIFICATIONS-UPDATER": {
       "name": "notifications-updater",
       "type": "cron",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/cron/notifications-updater/index",
       "zip": ".dist/zips/notifications-updater.zip",
       "schedule": {
@@ -726,7 +726,7 @@
     "SEND-MESSAGE-CRON": {
       "name": "send-message-cron",
       "type": "cron",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/cron/send-message-cron/index",
       "zip": ".dist/zips/send-message-cron.zip",
       "schedule": {
@@ -736,7 +736,7 @@
     "COMMUNICATION-SUBSCRIPTION": {
       "name": "communication-subscription",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/subscriptions/communication/communication-subscription/index",
       "zip": ".dist/zips/communication-subscription.zip",
       "subscription": {
@@ -748,7 +748,7 @@
     "PROCESS-ERX-RESOURCES": {
       "name": "process-erx-resources",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/subscriptions/medication-request/process-erx-resources/index",
       "zip": ".dist/zips/process-erx-resources.zip",
       "subscription": {
@@ -760,7 +760,7 @@
     "APPOINTMENT-CHART-DATA-PREFILLING": {
       "name": "appointment-chart-data-prefilling",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/subscriptions/appointment/appointment-chart-data-prefilling/index",
       "zip": ".dist/zips/appointment-chart-data-prefilling.zip",
       "subscription": {
@@ -772,7 +772,7 @@
     "SUB-CANCELLATION-EMAIL": {
       "name": "sub-cancellation-email",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-cancellation-email/index",
       "zip": ".dist/zips/sub-cancellation-email.zip",
       "subscription": {
@@ -784,7 +784,7 @@
     "SUB-CHECK-IN-TEXT": {
       "name": "sub-check-in-text",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-check-in-text/index",
       "zip": ".dist/zips/sub-check-in-text.zip",
       "subscription": {
@@ -796,7 +796,7 @@
     "SUB-READY-TEXT": {
       "name": "sub-ready-text",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-ready-text/index",
       "zip": ".dist/zips/sub-ready-text.zip",
       "subscription": {
@@ -808,7 +808,7 @@
     "SUB-UPDATE-APPOINTMENTS": {
       "name": "sub-update-appointments",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-update-appointments/index",
       "zip": ".dist/zips/sub-update-appointments.zip",
       "subscription": {
@@ -820,7 +820,7 @@
     "SUB-CONFIRMATION-MESSAGES": {
       "name": "sub-confirmation-messages",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-confirmation-messages/index",
       "zip": ".dist/zips/sub-confirmation-messages.zip",
       "subscription": {
@@ -832,7 +832,7 @@
     "SUB-INTAKE-HARVEST": {
       "name": "sub-intake-harvest",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/subscriptions/questionnaire-response/sub-intake-harvest/index",
       "zip": ".dist/zips/sub-intake-harvest.zip",
       "subscription": {
@@ -844,7 +844,7 @@
     "SUB-SEND-CLAIM": {
       "name": "sub-send-claim",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-send-claim/index",
       "zip": ".dist/zips/sub-send-claim.zip",
       "subscription": {
@@ -855,7 +855,7 @@
     "SUB-VISIT-NOTE-PDF-AND-EMAIL": {
       "name": "sub-visit-note-pdf-and-email",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-visit-note-pdf-and-email/index",
       "zip": ".dist/zips/sub-visit-note-pdf-and-email.zip",
       "subscription": {
@@ -867,126 +867,126 @@
     "AI-INTERVIEW-START": {
       "name": "ai-interview-start",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/ai-interview/start/index",
       "zip": ".dist/zips/ai-interview-start.zip"
     },
     "AI-INTERVIEW-HANDLE-ANSWER": {
       "name": "ai-interview-handle-answer",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/ai-interview/handle-answer/index",
       "zip": ".dist/zips/ai-interview-handle-answer.zip"
     },
     "AI-INTERVIEW-PERSIST-CONSENT": {
       "name": "ai-interview-persist-consent",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/ai-interview/persist-consent/index",
       "zip": ".dist/zips/ai-interview-persist-consent.zip"
     },
     "RADIOLOGY-CREATE-ORDER": {
       "name": "radiology-create-order",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/create-order/index",
       "zip": ".dist/zips/radiology-create-order.zip"
     },
     "RADIOLOGY-CANCEL-ORDER": {
       "name": "radiology-cancel-order",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/cancel-order/index",
       "zip": ".dist/zips/radiology-cancel-order.zip"
     },
     "RADIOLOGY-ORDER-LIST": {
       "name": "radiology-order-list",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/order-list/index",
       "zip": ".dist/zips/radiology-order-list.zip"
     },
     "RADIOLOGY-PACS-WEBHOOK": {
       "name": "radiology-pacs-webhook",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/pacs-webhook/index",
       "zip": ".dist/zips/radiology-pacs-webhook.zip"
     },
     "RADIOLOGY-LAUNCH-VIEWER": {
       "name": "radiology-launch-viewer",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/radiology/launch-viewer/index",
       "zip": ".dist/zips/radiology-launch-viewer.zip"
     },
     "GET-LAB-ORDERS": {
       "name": "get-lab-orders",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-lab-orders/index",
       "zip": ".dist/zips/get-lab-orders.zip"
     },
     "DELETE-LAB-ORDER": {
       "name": "delete-lab-order",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/delete-lab-order/index",
       "zip": ".dist/zips/delete-lab-order.zip"
     },
     "SUBMIT-LAB-ORDER": {
       "name": "submit-lab-order",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/submit-lab-order/index",
       "zip": ".dist/zips/submit-lab-order.zip"
     },
     "UPDATE-LAB-ORDER-RESOURCES": {
       "name": "update-lab-order-resources",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/update-lab-order-resources/index",
       "zip": ".dist/zips/update-lab-order-resources.zip"
     },
     "GET-LABEL-PDF": {
       "name": "get-label-pdf",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-label-pdf/index",
       "zip": ".dist/zips/get-label-pdf.zip"
     },
     "GET-OR-CREATE-VISIT-LABEL-PDF": {
       "name": "get-or-create-visit-label-pdf",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-or-create-visit-label-pdf/index",
       "zip": ".dist/zips/get-or-create-visit-label-pdf.zip"
     },
     "EHR-GET-SCHEDULE": {
       "name": "ehr-get-schedule",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/get-schedule/index",
       "zip": ".dist/zips/ehr-get-schedule.zip"
     },
     "UPDATE-SCHEDULE": {
       "name": "update-schedule",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/update-schedule/index",
       "zip": ".dist/zips/update-schedule.zip"
     },
     "LIST-SCHEDULE-OWNERS": {
       "name": "list-schedule-owners",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/list-schedule-owners/index",
       "zip": ".dist/zips/list-schedule-owners.zip"
     },
     "CREATE-SCHEDULE": {
       "name": "create-schedule",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/schedules/create-schedule/index",
       "zip": ".dist/zips/create-schedule.zip"
     },
@@ -1000,14 +1000,14 @@
     "RECOMMEND-BILLING-CODES": {
       "name": "recommend-billing-codes",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/recommend-billing-codes/index",
       "zip": ".dist/zips/recommend-billing-codes.zip"
     },
     "AI-INTERVIEW-SUMMARY": {
       "name": "ai-interview-summary",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "timeout": "300",
       "src": "src/subscriptions/questionnaire-response/ai-interview-summary/index",
       "zip": ".dist/zips/ai-interview-summary.zip",
@@ -1020,224 +1020,224 @@
     "SEND-FAX": {
       "name": "send-fax",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/send-fax/index",
       "zip": ".dist/zips/send-fax.zip"
     },
     "CREATE-SLOT": {
       "name": "create-slot",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/bookable/create-slot/index",
       "zip": ".dist/zips/create-slot.zip"
     },
     "GET-SLOT-DETAILS": {
       "name": "get-slot-details",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/bookable/get-slot-details/index",
       "zip": ".dist/zips/get-slot-details.zip"
     },
     "WALKIN-CHECK-AVAILABILITY": {
       "name": "walkin-check-availability",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/patient/walkin/check-availability/index",
       "zip": ".dist/zips/walkin-check-availability.zip"
     },
     "GET-IN-HOUSE-ORDERS": {
       "name": "get-in-house-orders",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-in-house-orders/index",
       "zip": ".dist/zips/get-in-house-orders.zip"
     },
     "CREATE-IN-HOUSE-LAB-ORDER": {
       "name": "create-in-house-lab-order",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/create-in-house-lab-order/index",
       "zip": ".dist/zips/create-in-house-lab-order.zip"
     },
     "GET-CREATE-IN-HOUSE-LAB-ORDER-RESOURCES": {
       "name": "get-create-in-house-lab-order-resources",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-create-in-house-lab-order-resources/index",
       "zip": ".dist/zips/get-create-in-house-lab-order-resources.zip"
     },
     "COLLECT-IN-HOUSE-LAB-SPECIMEN": {
       "name": "collect-in-house-lab-specimen",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/collect-in-house-lab-specimen/index",
       "zip": ".dist/zips/collect-in-house-lab-specimen.zip"
     },
     "HANDLE-IN-HOUSE-LAB-RESULTS": {
       "name": "handle-in-house-lab-results",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/handle-in-house-lab-results/index",
       "zip": ".dist/zips/handle-in-house-lab-results.zip"
     },
     "DELETE-IN-HOUSE-LAB-ORDER": {
       "name": "delete-in-house-lab-order",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/delete-in-house-lab-order/index",
       "zip": ".dist/zips/delete-in-house-lab-order.zip"
     },
     "GET-NURSING-ORDERS": {
       "name": "get-nursing-orders",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/get-nursing-orders/index",
       "zip": ".dist/zips/get-nursing-orders.zip"
     },
     "CREATE-NURSING-ORDER": {
       "name": "create-nursing-order",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/create-nursing-order/index",
       "zip": ".dist/zips/create-nursing-order.zip"
     },
     "UPDATE-NURSING-ORDER": {
       "name": "update-nursing-order",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/update-nursing-order/index",
       "zip": ".dist/zips/update-nursing-order.zip"
     },
     "PATIENT-PAYMENTS-LIST": {
       "name": "patient-payments-list",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/list/index",
       "zip": ".dist/zips/patient-payments-list.zip"
     },
     "PATIENT-PAYMENTS-POST": {
       "name": "patient-payments-post",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/post/index",
       "zip": ".dist/zips/patient-payments-post.zip"
     },
     "FAILING-ENDPOINT": {
       "name": "failing-endpoint",
       "type": "http_open",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/failing-endpoint/index",
       "zip": ".dist/zips/failing-endpoint.zip"
     },
     "CREATE-DISCHARGE_SUMMARY": {
       "name": "create-discharge-summary",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/create-discharge-summary/index",
       "zip": ".dist/zips/create-discharge-summary.zip"
     },
     "GET-VITALS": {
       "name": "get-vitals",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/chart-data/vitals/get/index",
       "zip": ".dist/zips/get-vitals.zip"
     },
     "GET-VITALS-FOR-LIST-OF-ENCOUNTERS": {
       "name": "get-vitals-for-list-of-encounters",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/chart-data/vitals/get-for-list-of-encounters/index",
       "zip": ".dist/zips/get-vitals-for-list-of-encounters.zip"
     },
     "CREATE-UPDATE-IMMUNIZATION_ORDER": {
       "name": "create-update-immunization-order",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/immunization/create-update-order/index",
       "zip": ".dist/zips/create-update-immunization-order.zip"
     },
     "GET-IMMUNIZATION_ORDERS": {
       "name": "get-immunization-orders",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/immunization/get-orders/index",
       "zip": ".dist/zips/get-immunization-orders.zip"
     },
     "ADMINISTER-IMMUNIZATION_ORDER": {
       "name": "administer-immunization-order",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/immunization/administer-order/index",
       "zip": ".dist/zips/administer-immunization-order.zip"
     },
     "CANCEL-IMMUNIZATION_ORDER": {
       "name": "cancel-immunization-order",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/immunization/cancel-order/index",
       "zip": ".dist/zips/cancel-immunization-order.zip"
     },
     "APPLY-TEMPLATE": {
       "name": "apply-template",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/apply-template/index",
       "zip": ".dist/zips/apply-template.zip"
     },
     "LIST-TEMPLATES": {
       "name": "list-templates",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/list-templates/index",
       "zip": ".dist/zips/list-templates.zip"
     },
     "SEND_RECEIPT_BY_EMAIL": {
       "name": "send-receipt-by-email",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/send-receipt-by-email/index",
       "zip": ".dist/zips/send-receipt-by-email.zip"
     },
     "GET-VISIT-FILES": {
       "name": "get-visit-files",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/get-visit-files/index",
       "zip": ".dist/zips/get-visit-files.zip"
     },
     "UPDATE-VISIT-FILES": {
       "name": "update-visit-files",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/update-visit-files/index",
       "zip": ".dist/zips/update-visit-files.zip"
     },
     "EHR-GET-VISIT-DETAILS": {
       "name": "ehr-get-visit-details",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/get-visit-details/index",
       "zip": ".dist/zips/ehr-get-visit-details.zip"
     },
     "EHR-UPDATE-VISIT-DETAILS": {
       "name": "ehr-update-visit-details",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/visit-details/update-visit-details/index",
       "zip": ".dist/zips/ehr-update-visit-details.zip"
     },
     "INVOICEABLE_PATIENTS_REPORT": {
       "name": "invoiceable-patients-report",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/invoiceable-patients-report/index",
       "zip": ".dist/zips/invoiceable-patients-report.zip"
     },
     "CREATE-MANUAL-TASK": {
       "name": "create-manual-task",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/tasks/create-manual-task/index",
       "zip": ".dist/zips/create-manual-task.zip"
     }
