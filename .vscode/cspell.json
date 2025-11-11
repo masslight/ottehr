@@ -27,6 +27,7 @@
     }
   ],
   "ignorePaths": [
+    "scripts/data/payers-addresses.csv",
     "**/i18n-es.json",
     "**/package.json",
     "**/packages/zambdas/src/scripts/data/insurance-payers.csv",
@@ -75,6 +76,7 @@
     "healthwise",
     "imask",
     "insuranceplan_ref",
+    "invoiceable",
     "langchain",
     "loinc",
     "luxon",
@@ -117,6 +119,7 @@
     "telehealth",
     "telemed",
     "telemedicine",
+    "tfvars",
     "tokenless",
     "unbundle",
     "undescended",
