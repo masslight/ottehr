@@ -133,7 +133,6 @@ export type LabOrderListPageDTO = {
   orderNumber: string | undefined; // ServiceRequest.identifier.value (system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
   abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_LAB_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
   location: Location | undefined; // Location that ordered the test. Was previously not required for lab orders, so can be undefined
-  paymentMethod: string | undefined; // SR.insurance (undefined if self pay and need to examine the coverage to determine client bill or insurance)
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {

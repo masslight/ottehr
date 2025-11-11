@@ -67,7 +67,6 @@ import {
   ReflexLabDTO,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
   sampleDTO,
-  // serviceRequestPaymentMethod,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { sendErrors } from '../../shared';
@@ -269,8 +268,6 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     orderNumber: requisitionNumber,
     abnPdfUrl,
     location: parseLocation(serviceRequest, locations),
-    // paymentMethod: serviceRequestPaymentMethod(serviceRequest, ); // todo labs, need coverages to be able to parse payment method
-    paymentMethod: undefined,
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
