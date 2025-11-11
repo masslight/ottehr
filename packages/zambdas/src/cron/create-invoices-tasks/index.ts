@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
@@ -23,7 +24,6 @@ import {
   SecretsKeys,
   takeContainedOrFind,
 } from 'utils';
-import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
@@ -117,7 +117,7 @@ async function createTaskForEncounter(oystehr: Oystehr, encounter: Encounter, se
     const created = await oystehr.fhir.create(task);
     console.log('Created task: ', created.id);
   } catch (error) {
-    safelyCaptureException(error);
+    captureException(error);
   }
 }
 
