@@ -97,6 +97,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ? appointmentRef?.replace('Appointment/', '')
       : undefined;
 
+    console.log('preSubmissionTask:');
+    console.log(JSON.stringify(preSubmissionTask, null, 2));
+
     const taskInput: { type: string; value?: string }[] | TaskInput[] | undefined = preSubmissionTask?.input
       ? preSubmissionTask.input
       : [
@@ -121,6 +124,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             value: appointmentId ? appointmentId : undefined,
           },
         ];
+
+    console.log('taskInput:');
+    console.log(JSON.stringify(taskInput, null, 2));
 
     if (specificDrTypeFromTag && taskInput) {
       taskInput.push({
@@ -152,6 +158,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (diagnosticReport.status === 'cancelled') {
       newTask.status = 'completed';
     }
+
+    console.log('newTask:');
+    console.log(JSON.stringify(newTask, null, 2));
 
     // no task will be created for an unsolicited result pdf attachment
     // no result pdf can be created until it is matched and it should come in with at least one other DR that will trigger the task
