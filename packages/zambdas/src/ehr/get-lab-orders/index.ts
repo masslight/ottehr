@@ -28,6 +28,8 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
+    console.log('searchBy:', JSON.stringify(searchBy));
+
     // todo labs future can probably refactor to do less data massaging for when this is being called from the table view
     let drDrivenResults: (ReflexLabDTO | PdfAttachmentDTO)[] = [];
 
@@ -40,6 +42,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
       });
       if (!drResources) throw Error(`could not find resources for ${JSON.stringify(searchBy)}`);
       const drDrivenResults = await mapResourcesToDrLabDTO(drResources, m2mToken);
+      console.log('search param is diagnosticReportId, returning drDrivenResults only');
       return {
         statusCode: 200,
         body: JSON.stringify({

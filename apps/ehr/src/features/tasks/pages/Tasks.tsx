@@ -196,14 +196,19 @@ export const Tasks: React.FC = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  const [pageNumber, setPageNumber] = useState(0);
+  const setPage = (page: number): void => {
+    searchParams.set('page', page.toString());
+    setSearchParams(searchParams);
+  };
+
+  const page = Number(searchParams.get('page') ?? '0');
 
   const { data: tasksData, isLoading: isTasksLoading } = useGetTasks({
     assignedTo: searchParams.get('assignedTo'),
     category: searchParams.get('category'),
     location: searchParams.get('location'),
     status: searchParams.get('status'),
-    page: pageNumber,
+    page: page,
   });
 
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
@@ -256,6 +261,7 @@ export const Tasks: React.FC = () => {
                     Action
                   </Typography>
                 </TableCell>
+                <TableCell style={{ width: '50px' }}></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -350,10 +356,10 @@ export const Tasks: React.FC = () => {
                           <Stack direction="row" justifyContent="space-between" spacing={1}>
                             {renderActionButton(task)}
                             {renderCompleteButton(task)}
-                            {renderMoreButton(task)}
                           </Stack>
                         ) : null}
                       </TableCell>
+                      <TableCell>{task.status !== COMPLETED ? renderMoreButton(task) : null}</TableCell>
                     </TableRow>
                   );
                 })}
@@ -364,9 +370,9 @@ export const Tasks: React.FC = () => {
             component="div"
             count={tasksData?.total ?? -1}
             rowsPerPage={TASKS_PAGE_SIZE}
-            page={pageNumber}
+            page={page}
             onPageChange={(_e, newPageNumber) => {
-              setPageNumber(newPageNumber);
+              setPage(newPageNumber);
             }}
           />
         </Paper>
