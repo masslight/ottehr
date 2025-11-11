@@ -76,7 +76,7 @@ export function createTask(
     input: undefinedIfEmptyArray(
       (data.input ?? [])
         .map((input) => {
-          if (isTaskInput(input)) {
+          if (isFhirTaskInput(input)) {
             return input;
           }
           return {
@@ -120,7 +120,7 @@ export function getTaskLocation(task: Task): { id: string; name?: string } | und
   return undefined;
 }
 
-function isTaskInput(input: { type: string; value?: string } | TaskInput): input is TaskInput {
+function isFhirTaskInput(input: TaskInput | FhirTaskInput): input is FhirTaskInput {
   return typeof input.type === 'object';
 }
 
