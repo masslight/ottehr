@@ -94,9 +94,12 @@ export function createTask(
           display: data.location.name,
         }
       : undefined,
-    meta: {
-      tag,
-    },
+    meta:
+      tag.length > 0
+        ? {
+            tag,
+          }
+        : undefined,
   };
 }
 
