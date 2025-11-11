@@ -269,7 +269,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     orderNumber: requisitionNumber,
     abnPdfUrl,
     location: parseLocation(serviceRequest, locations),
-    // paymentMethod: serviceRequestPaymentMethod(serviceRequest, ); // todo sarah, need coverages
+    // paymentMethod: serviceRequestPaymentMethod(serviceRequest, ); // todo labs, need coverages to be able to parse payment method
     paymentMethod: undefined,
   };
 
