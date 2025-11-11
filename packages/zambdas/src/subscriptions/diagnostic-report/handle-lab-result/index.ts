@@ -1,6 +1,6 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DiagnosticReport, Task, TaskInput } from 'fhir/r4b';
+import { DiagnosticReport, Task, TaskInput as FhirTaskInput } from 'fhir/r4b';
 import {
   getCoding,
   getFullestAvailableName,
@@ -17,7 +17,7 @@ import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
 } from '../../../shared/pdf/labs-results-form-pdf';
-import { createTask, getTaskLocation } from '../../../shared/tasks';
+import { createTask, getTaskLocation, TaskInput } from '../../../shared/tasks';
 import { fetchRelatedResources, getCodeForNewTask, isUnsolicitedResult } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -100,28 +100,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('preSubmissionTask:');
     console.log(JSON.stringify(preSubmissionTask, null, 2));
 
-    const taskInput: { type: string; value?: string }[] | TaskInput[] | undefined = preSubmissionTask?.input
+    const taskInput: TaskInput[] | FhirTaskInput[] | undefined = preSubmissionTask?.input
       ? preSubmissionTask.input
       : [
           {
             type: LAB_ORDER_TASK.input.testName,
-            value: getTestNameOrCodeFromDr(diagnosticReport),
+            valueString: getTestNameOrCodeFromDr(diagnosticReport),
           },
           {
             type: LAB_ORDER_TASK.input.labName,
-            value: labOrg?.name,
+            valueString: labOrg?.name,
           },
           {
             type: LAB_ORDER_TASK.input.receivedDate,
-            value: diagnosticReport.effectiveDateTime,
+            valueString: diagnosticReport.effectiveDateTime,
           },
           {
             type: LAB_ORDER_TASK.input.patientName,
-            value: patient ? getFullestAvailableName(patient) : undefined,
+            valueString: patient ? getFullestAvailableName(patient) : undefined,
           },
           {
             type: LAB_ORDER_TASK.input.appointmentId,
-            value: appointmentId ? appointmentId : undefined,
+            valueString: appointmentId ? appointmentId : undefined,
           },
         ];
 
@@ -131,7 +131,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (specificDrTypeFromTag && taskInput) {
       taskInput.push({
         type: LAB_ORDER_TASK.input.drTag,
-        value: specificDrTypeFromTag,
+        valueString: specificDrTypeFromTag,
       });
     }
 
