@@ -18,7 +18,9 @@ module "infra" {
   }
   project_id            = var.project_id
   ehr_domain            = var.ehr_domain
-  patient_portal_domain = var.patient_portal_domain
+  ehr_cert_domain            = var.ehr_cert_domain
+  patient_portal_domain      = var.patient_portal_domain
+  patient_portal_cert_domain = var.patient_portal_cert_domain
 }
 
 module "apps_upload" {
