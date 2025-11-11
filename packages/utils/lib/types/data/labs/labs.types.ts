@@ -270,8 +270,12 @@ export type CreateLabCoverageInfo = { coverageName: string; coverageId: string; 
 export enum LabPaymentMethod {
   Insurance = 'insurance',
   SelfPay = 'selfPay',
+  ClientBill = 'clientBill',
 }
-export type CreateLabPaymentMethod = LabPaymentMethod.Insurance | LabPaymentMethod.SelfPay;
+export type CreateLabPaymentMethod =
+  | LabPaymentMethod.Insurance
+  | LabPaymentMethod.SelfPay
+  | LabPaymentMethod.ClientBill;
 
 export type CreateLabOrderParameters = {
   dx: DiagnosisDTO[];

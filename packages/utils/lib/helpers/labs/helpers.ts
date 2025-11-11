@@ -1,6 +1,9 @@
-import { DiagnosticReport, Location, Organization, ServiceRequest } from 'fhir/r4b';
+import { Coverage, DiagnosticReport, Location, Organization, ServiceRequest } from 'fhir/r4b';
 import {
+  CreateLabPaymentMethod,
   LAB_ACCOUNT_NUMBER_SYSTEM,
+  LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
+  LabPaymentMethod,
   LabsTableColumn,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   ORDER_NUMBER_LEN,
@@ -176,3 +179,17 @@ export const getTestNameOrCodeFromDr = (dr: DiagnosticReport): string => {
   const testDescription = testName || testItemCode || 'missing test name';
   return testDescription;
 };
+
+export function paymentMethodFromCoverage(coverage: Coverage): CreateLabPaymentMethod {
+  let paymentMethod = LabPaymentMethod.Insurance;
+  const coverageTypeFromCoding = coverage.type?.coding?.[0]?.code;
+  switch (coverageTypeFromCoding) {
+    case 'pay':
+      paymentMethod = LabPaymentMethod.SelfPay;
+      break;
+    case LAB_CLIENT_BILL_COVERAGE_TYPE_CODING.code:
+      paymentMethod = LabPaymentMethod.ClientBill;
+      break;
+  }
+  return paymentMethod;
+}

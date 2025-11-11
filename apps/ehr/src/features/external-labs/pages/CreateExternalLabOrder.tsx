@@ -474,6 +474,9 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         <MenuItem id={'payment-method-item-self-pay'} value={LabPaymentMethod.SelfPay}>
                           Self Pay
                         </MenuItem>
+                        <MenuItem id={'payment-method-item-client-bill'} value={LabPaymentMethod.ClientBill}>
+                          Client Bill
+                        </MenuItem>
                       </Select>
                     </Grid>
                     {hasInsurance && selectedPaymentMethod === 'insurance' && (

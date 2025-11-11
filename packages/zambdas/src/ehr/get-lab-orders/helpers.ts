@@ -2567,7 +2567,10 @@ const groupAbnPDFsByRequisition = (
 
 const parseLocation = (serviceRequest: ServiceRequest, locations: Location[]): Location | undefined => {
   console.log(`Parsing location for ServiceRequest/${serviceRequest.id}`);
-  console.log(`These are the possible Locations`, locations);
+  console.log(
+    `These are the possible Locations`,
+    locations.map((location) => location.id)
+  );
   if (!serviceRequest.locationReference || !serviceRequest.locationReference.length || !locations.length)
     return undefined;
 
@@ -2579,6 +2582,6 @@ const parseLocation = (serviceRequest: ServiceRequest, locations: Location[]): L
   }
   const location = locations.find((loc) => `Location/${loc.id}` === locationRef);
 
-  console.log(`parsed location from ServiceRequest/${serviceRequest.id}: ${JSON.stringify(location)}`);
+  console.log(`parsed location from ServiceRequest/${serviceRequest.id}: ${location?.id}`);
   return location;
 };
