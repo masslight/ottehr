@@ -216,7 +216,7 @@ export const getResources = (
     patient: findResources<Patient>('Patient')?.[0],
     location: physicalLocation,
     locationVirtual: virtualLocation,
-    encounter: findResources<Encounter>('Encounter')?.[0],
+    encounter: findResources<Encounter>('Encounter')?.find((encounter) => !encounter.partOf),
     questionnaireResponse: findResources<QuestionnaireResponse>('QuestionnaireResponse')?.[0],
   };
 };

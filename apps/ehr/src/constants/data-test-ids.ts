@@ -294,10 +294,12 @@ export const dataTestIds = {
     hpiReasonForVisit: 'telemed-reason-for-visit',
     videoRoomContainer: 'telemed-video-room-container',
     endVideoCallButton: 'telemed-end-video-call-button',
+    pinVideoCallButton: 'telemed-pin-video-call-button',
     finishVisitButton: 'telemed-finish-visit-button',
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
+    closeChartButton: 'telemed-chart-close-icon',
     planTabDispositionContainer: 'telemed-plan-tab-disposition-container',
     planTabDispositionToggleButton: (buttonName: DispositionType) =>
       `telemed-plan-tab-disposition-toggle-button-${buttonName}`,
@@ -319,6 +321,7 @@ export const dataTestIds = {
     telemedNewOrExistingPatient: 'telemed-new-or-existing-patient',
     hpiSurgicalHistoryAddNoteButton: 'telemed-hpi-surgical-history-add-note-button',
     hpiSurgicalHistoryNoteIsLoading: 'telemed-hpi-surgical-history-note-is-loading',
+    closeImagePreviewButton: 'close-image-preview-button',
   },
   sideMenu: {
     completeIntakeButton: 'complete-intake-button',
@@ -385,6 +388,7 @@ export const dataTestIds = {
     marTableRouteCell: 'mar-table-route-cell',
     marTableInstructionsCell: 'mar-table-instructions-cell',
     medicationDetailsTab: 'medication-details-tab',
+    marTab: 'mar-tab',
     pencilIconButton: 'EditOutlinedIcon',
   },
   orderMedicationPage: {

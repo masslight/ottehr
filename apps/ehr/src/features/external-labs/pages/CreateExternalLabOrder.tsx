@@ -22,15 +22,14 @@ import { useNavigate } from 'react-router-dom';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import {
   useGetCreateExternalLabResources,
   useICD10SearchNew,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import {
-  useAppointmentData,
-  useChartData,
-  useSaveChartData,
-} from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   CreateLabPaymentMethod,
@@ -62,10 +61,24 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const navigate = useNavigate();
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const { mutate: saveChartData } = useSaveChartData();
-  const { encounter, appointment, patient, location: apptLocation } = useAppointmentData();
+  const apiClient = useOystehrAPIClient();
+  const {
+    encounter,
+    appointment,
+    patient,
+    location: apptLocation,
+    followUpOriginEncounter: mainEncounter,
+  } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
-  const { diagnosis } = chartData || {};
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
+  const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
+
+  const diagnosis = useMemo<DiagnosisDTO[]>(
+    () => (isFollowup ? mainEncounterChartData?.diagnosis || [] : chartData?.diagnosis || []),
+    [mainEncounterChartData?.diagnosis, chartData?.diagnosis, isFollowup]
+  );
+
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
   const attendingPractitionerId = getAttendingPractitionerId(encounter);
   const patientId = patient?.id || '';
@@ -201,6 +214,14 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   };
 
   const addAdditionalDxToEncounter = async (): Promise<void> => {
+    if (!apiClient) {
+      throw new Error('API client not available');
+    }
+
+    if (!mainEncounter?.id) {
+      throw new Error('Encounter ID not available');
+    }
+
     const dxToAdd: DiagnosisDTO[] = [];
     orderDx.forEach((dx) => {
       const alreadyExistsOnEncounter = diagnosis?.find((d) => d.code === dx.code);
@@ -213,28 +234,19 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       }
     });
     if (dxToAdd.length > 0) {
-      await new Promise<void>((resolve, reject) => {
-        saveChartData(
-          {
-            diagnosis: dxToAdd,
-          },
-          {
-            onSuccess: (data) => {
-              const returnedDiagnosis = data.chartData.diagnosis || [];
-              const allDx = [...returnedDiagnosis, ...(diagnosis || [])];
-              if (allDx) {
-                setPartialChartData({
-                  diagnosis: [...allDx],
-                });
-              }
-              resolve();
-            },
-            onError: (error) => {
-              reject(error);
-            },
-          }
-        );
+      const data = await apiClient.saveChartData({
+        encounterId: mainEncounter?.id,
+        diagnosis: dxToAdd,
       });
+
+      const returnedDiagnosis = data?.chartData?.diagnosis || [];
+      const currentEncounterDiagnoses = chartData?.diagnosis || [];
+      const allDx = [...returnedDiagnosis, ...currentEncounterDiagnoses];
+      if (allDx && !isFollowup) {
+        setPartialChartData({
+          diagnosis: [...allDx],
+        });
+      }
     }
   };
 

@@ -17,7 +17,7 @@ import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
 } from '../../../shared/pdf/labs-results-form-pdf';
-import { createTask, getTaskLocationId } from '../../../shared/tasks';
+import { createTask, getTaskLocation } from '../../../shared/tasks';
 import { fetchRelatedResources, getCodeForNewTask, isUnsolicitedResult } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -97,7 +97,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ? appointmentRef?.replace('Appointment/', '')
       : undefined;
 
-    const taskInput: { type: string; value?: string }[] | TaskInput[] | undefined = preSubmissionTask
+    const taskInput: { type: string; value?: string }[] | TaskInput[] | undefined = preSubmissionTask?.input
       ? preSubmissionTask.input
       : [
           {
@@ -140,7 +140,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         `DiagnosticReport/${diagnosticReport.id}`,
         ...(serviceRequestId ? [`ServiceRequest/${serviceRequestId}`] : []),
       ],
-      locationId: preSubmissionTask ? getTaskLocationId(preSubmissionTask) : undefined,
+      location: preSubmissionTask ? getTaskLocation(preSubmissionTask) : undefined,
       input: taskInput,
     });
     if (diagnosticReport.status === 'cancelled') {

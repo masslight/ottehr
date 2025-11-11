@@ -34,12 +34,14 @@ import {
   externalLabOrderIsManual,
   ExternalLabsStatus,
   getAccountNumberFromLocationAndOrganization,
+  getAdditionalPlacerId,
   getFullestAvailableName,
   getOrderNumber,
   getOrderNumberFromDr,
   isPositiveNumberOrZero,
   LAB_DR_TYPE_TAG,
   LAB_ORDER_TASK,
+  LabDocument,
   LabDrTypeTagCode,
   LabelPdf,
   LabOrderDetailedPageDTO,
@@ -50,7 +52,6 @@ import {
   LabOrderResultDetails,
   LabOrdersSearchBy,
   LabOrderUnreceivedHistoryRow,
-  LabPdf,
   LabResultPDF,
   LabType,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
@@ -70,18 +71,17 @@ import {
 } from 'utils';
 import { sendErrors } from '../../shared';
 import {
+  diagnosticReportIsReflex,
   diagnosticReportSpecificResultType,
   docRefIsAbnAndCurrent,
+  fetchLabDocumentPresignedUrls,
   formatResourcesIntoDiagnosticReportLabDTO,
   groupResourcesByDr,
   parseAccessionNumberFromDr,
-  ResourcesByDr,
-} from '../shared/labs';
-import {
-  diagnosticReportIsReflex,
-  fetchLabOrderPDFsPresignedUrls,
   parseAppointmentIdForServiceRequest,
   parseTimezoneForAppointmentSchedule,
+  ResourcesByDr,
+  srHasRejectedAbnExt,
 } from '../shared/labs';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 
@@ -103,10 +103,11 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   provenances: Provenance[],
   organizations: Organization[],
   questionnaires: QuestionnaireData[],
+  labGeneratedResults: LabDocument[],
   resultPDFs: LabResultPDF[],
   labelPDF: LabelPdf | undefined,
   orderPDF: LabOrderPDF | undefined,
-  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabPdf } | undefined,
+  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabDocument } | undefined,
   specimens: Specimen[],
   appointmentScheduleMap: Record<string, Schedule>,
   ENVIRONMENT: string
@@ -138,6 +139,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
           provenances,
           organizations,
           questionnaires,
+          labGeneratedResults,
           resultPDFs,
           labelPDF,
           orderPDF,
@@ -199,6 +201,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   provenances,
   organizations,
   questionnaires,
+  labGeneratedResults,
   resultPDFs,
   labelPDF,
   orderPDF,
@@ -218,10 +221,11 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   provenances: Provenance[];
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
+  labGeneratedResults: LabDocument[];
   resultPDFs: LabResultPDF[];
   labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
-  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabPdf } | undefined;
+  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabDocument } | undefined;
   specimens: Specimen[];
   appointmentScheduleMap: Record<string, Schedule>;
   cache?: Cache;
@@ -287,6 +291,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
         tasks,
         practitioners,
         provenances,
+        labGeneratedResults,
         resultPDFs,
         cache
       ),
@@ -515,10 +520,11 @@ export const getLabResources = async (
   provenances: Provenance[];
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
+  labGeneratedResults: LabDocument[];
   resultPDFs: LabResultPDF[];
   labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
-  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabPdf } | undefined;
+  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabDocument } | undefined;
   specimens: Specimen[];
   patientLabItems: PatientLabItem[];
   appointmentScheduleMap: Record<string, Schedule>;
@@ -628,27 +634,29 @@ export const getLabResources = async (
 
   const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
 
+  let labGeneratedResults: LabDocument[] = [];
   let resultPDFs: LabResultPDF[] = [];
   let labelPDF: LabelPdf | undefined;
   let orderPDF: LabOrderPDF | undefined;
-  let abnPDFs: LabPdf[] | undefined;
+  let abnPDFs: LabDocument[] | undefined;
 
   // todo labs team - future dev to make order pdfs available from the patient chart labs table
   if (isDetailPageRequest) {
-    const pdfs = await fetchLabOrderPDFsPresignedUrls(documentReferences, m2mToken);
-    if (pdfs) {
-      resultPDFs = pdfs.resultPDFs;
-      labelPDF = pdfs.labelPDF;
-      orderPDF = pdfs.orderPDF;
+    const documents = await fetchLabDocumentPresignedUrls(documentReferences, m2mToken);
+    if (documents) {
+      resultPDFs = documents.resultPDFs;
+      labelPDF = documents.labelPDF;
+      orderPDF = documents.orderPDF;
+      labGeneratedResults = documents.labGeneratedResults;
     }
   } else {
     const abnDocRefs = documentReferences.filter((docRef) => {
       return docRefIsAbnAndCurrent(docRef);
     });
     if (abnDocRefs) {
-      const pdfs = await fetchLabOrderPDFsPresignedUrls(abnDocRefs, m2mToken);
-      if (pdfs) {
-        abnPDFs = pdfs.abnPDFs;
+      const documents = await fetchLabDocumentPresignedUrls(abnDocRefs, m2mToken);
+      if (documents) {
+        abnPDFs = documents.abnPDFs;
       }
     }
   }
@@ -674,6 +682,7 @@ export const getLabResources = async (
     organizations,
     questionnaires,
     resultPDFs,
+    labGeneratedResults,
     labelPDF,
     orderPDF,
     abnPDFsByRequisitionNumber,
@@ -1222,6 +1231,10 @@ export const parseLabOrderStatus = (
     return ExternalLabsStatus.unknown;
   }
 
+  if (serviceRequest.status === 'revoked') {
+    if (srHasRejectedAbnExt(serviceRequest)) return ExternalLabsStatus['rejected abn'];
+  }
+
   const { orderedFinalAndCorrectedResults, reflexFinalAndCorrectedResults, orderedPrelimResults, reflexPrelimResults } =
     cache?.parsedResults || parseResults(serviceRequest, results);
 
@@ -1377,6 +1390,7 @@ export const parseLabOrderStatus = (
       2
     )
   );
+  console.log('sr status: ', serviceRequest.status);
 
   return ExternalLabsStatus.unknown;
 };
@@ -1388,6 +1402,10 @@ export const parseLabOrderStatusWithSpecificTask = (
   serviceRequest: ServiceRequest | undefined, // will be undefined for unsolicited results only
   PSTTask: Task | null
 ): ExternalLabsStatus => {
+  if (serviceRequest?.status === 'revoked') {
+    if (srHasRejectedAbnExt(serviceRequest)) return ExternalLabsStatus['rejected abn'];
+  }
+
   if (
     result.status === 'cancelled' &&
     task.code?.coding?.some((c) => c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
@@ -1738,6 +1756,15 @@ export const parseLabOrdersHistory = (
     ...parseProvenancesForHistory('ordered', PROVENANCE_ACTIVITY_CODING_ENTITY.submit, practitioners, provenances)
   );
 
+  history.push(
+    ...parseProvenancesForHistory(
+      'rejected abn',
+      PROVENANCE_ACTIVITY_CODING_ENTITY.abnRejected,
+      practitioners,
+      provenances
+    )
+  );
+
   const isPSC = parseIsPSC(serviceRequest);
   const pushPerformedHistory = (specimen: Specimen): void => {
     history.push({
@@ -1837,6 +1864,7 @@ export const parseAccountNumber = (
   return getAccountNumberFromLocationAndOrganization(orderingLocation, srPerformer) ?? NOT_FOUND;
 };
 
+// todo labs team - we could probably refactor to iterate over provenances only once
 export const parseProvenancesForHistory = (
   historyAction: LabOrderUnreceivedHistoryRow['action'],
   activityCoding: Coding,
@@ -1850,11 +1878,11 @@ export const parseProvenancesForHistory = (
       )
   );
   if (!relatedProvenance) return [];
-  const pstTaskCompletedBy = parseReviewerNameFromProvenance(relatedProvenance, practitioners);
+  const taskCompletedBy = parseReviewerNameFromProvenance(relatedProvenance, practitioners);
   const date = relatedProvenance.recorded;
   const historyRow: LabOrderHistoryRow = {
     action: historyAction,
-    performer: pstTaskCompletedBy,
+    performer: taskCompletedBy,
     date,
   };
   return [historyRow];
@@ -1966,6 +1994,7 @@ export const parseLResultsDetails = (
   tasks: Task[],
   practitioners: Practitioner[],
   provenances: Provenance[],
+  labGeneratedResults: LabDocument[],
   resultPDFs: LabResultPDF[],
   cache?: Cache
 ): LabOrderResultDetails[] => {
@@ -2047,8 +2076,13 @@ export const parseLResultsDetails = (
         compareDates(a.authoredOn, b.authoredOn)
       )[0];
       const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances)?.date || null;
+      const labGeneratedResultUrl = labGeneratedResults.find(
+        (doc) => doc.documentReference.context?.related?.some((ref) => result.id && ref.reference?.includes(result.id))
+      )?.presignedURL;
       const resultPdfUrl = resultPDFs.find((pdf) => pdf.diagnosticReportId === result.id)?.presignedURL || null;
-      if (details) resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl });
+      if (details) {
+        resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl, labGeneratedResultUrl });
+      }
     });
   });
 
@@ -2078,6 +2112,7 @@ export const parseResultDetails = (
     diagnosticReportId: result.id,
     taskId: task.id,
     receivedDate: task.authoredOn || '',
+    alternatePlacerId: getAdditionalPlacerId(result),
   };
 
   return details;
@@ -2509,11 +2544,11 @@ export const getAllServiceRequestsForPatient = async (
 
 // todo labs team eventually we will record the requisition number on the abn doc ref and then we wont need to do this mapping
 const groupAbnPDFsByRequisition = (
-  abnPDFs: LabPdf[] | undefined,
+  abnPDFs: LabDocument[] | undefined,
   serviceRequests: ServiceRequest[]
-): { [requisitionNumber: string]: LabPdf } | undefined => {
+): { [requisitionNumber: string]: LabDocument } | undefined => {
   if (!abnPDFs) return;
-  const abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabPdf } = {};
+  const abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabDocument } = {};
   abnPDFs.forEach((pdf) => {
     const docRef = pdf.documentReference;
     // abn doc refs will be linked to all the service requests within an order,

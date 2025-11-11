@@ -17,7 +17,7 @@ export async function createOrUpdateFlags(
     let paperworkStartedBy: string | undefined;
     let createdByTag: Coding | undefined;
     if (user) {
-      formattedUserNumber = formatPhoneNumberDisplay(user?.name.replace('+1', '') || '');
+      formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', '') || '');
       paperworkStartedBy = `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
     }
     if (formattedUserNumber && paperworkStartedBy) {

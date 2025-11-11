@@ -1,9 +1,10 @@
 import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForGetChartDataResponse, waitForSaveChartDataResponse } from 'test-utils';
+import { expectTelemedTrackingBoard, TelemedTrackingBoardPage } from 'tests/e2e/page/telemed/TelemedTrackingBoardPage';
 import { ApptTelemedTab, TelemedAppointmentStatusEnum, TelemedAppointmentVisitTabs } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
-import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
+import { telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
 const PROCESS_ID = `videoCallFlow.spec.ts-${DateTime.now().toMillis()}`;
@@ -13,7 +14,7 @@ let page: Page;
 test.beforeAll(async ({ browser }) => {
   const context = await browser.newContext();
   page = await context.newPage();
-  await resourceHandler.setResources();
+  await resourceHandler.setResources({ skipPaperwork: true });
 });
 
 test.afterAll(async () => {
@@ -22,9 +23,12 @@ test.afterAll(async () => {
 
 test.describe.configure({ mode: 'serial' });
 
+let telemedTrackingBoard: TelemedTrackingBoardPage;
+
 test('Should assign visit to practitioner', async () => {
   await page.goto(`telemed/appointments`);
-  await awaitAppointmentsTableToBeVisible(page);
+  telemedTrackingBoard = await expectTelemedTrackingBoard(page);
+  await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
   await page
     .getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
     .getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton)
@@ -62,7 +66,8 @@ test('Should end video call and check status "unsigned"', async () => {
 test('Visit should be in "unsigned" tab on the tracking board', async () => {
   await page.goto(`telemed/appointments`);
   await page.getByTestId(dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab['not-signed'])).click();
-  await awaitAppointmentsTableToBeVisible(page);
+
+  await telemedTrackingBoard.awaitAppointmentsTableToBeLoaded();
   await expect(
     page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
   ).toBeVisible();

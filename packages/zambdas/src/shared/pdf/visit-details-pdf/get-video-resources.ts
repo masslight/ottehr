@@ -191,7 +191,7 @@ export const getAppointmentAndRelatedResources = async (
     return (
       item.resourceType === 'Encounter' &&
       (inPerson || getVideoRoomResourceExtension(item)) &&
-      (encounterId ? item.id === encounterId : true)
+      (encounterId ? item.id === encounterId : !(item as Encounter).partOf)
     );
   }) as Encounter;
   if (!encounter) return undefined;

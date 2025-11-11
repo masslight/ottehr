@@ -150,13 +150,21 @@ const ExamTableCellComponent: FC<{
 
   const renderSingleElement = (key: string, element: ExamCardComponent): React.ReactNode => {
     if (element.type === 'checkbox') {
-      return <ControlledExamCheckbox key={key} name={key} label={element.label} abnormal={abnormal} />;
+      return (
+        <Box key={key} data-testid={`exam-component-checkbox-${key}`}>
+          <ControlledExamCheckbox name={key} label={element.label} abnormal={abnormal} />
+        </Box>
+      );
     } else if (element.type === 'text') {
-      return <ExamCommentField key={key} name={key} />;
+      return (
+        <Box key={key} data-testid={`exam-component-text-${key}`}>
+          <ExamCommentField name={key} />
+        </Box>
+      );
     } else if (element.type === 'column') {
       if ('components' in element) {
         return (
-          <Box key={key} sx={{ display: 'flex', flexDirection: 'column' }}>
+          <Box key={key} sx={{ display: 'flex', flexDirection: 'column' }} data-testid={`exam-component-column-${key}`}>
             <Typography variant="subtitle2" fontSize={16} color={theme.palette.primary.dark}>
               {element.label}
             </Typography>
@@ -166,32 +174,38 @@ const ExamTableCellComponent: FC<{
       }
     } else if (element.type === 'dropdown') {
       return (
-        <ControlledExamCheckboxDropdown
-          key={key}
-          abnormal={abnormal}
-          checkboxLabel={element.label}
-          dropdownLabel={element.placeholder}
-          options={Object.keys('components' in element ? element.components : {}).map((option) => ({
-            label: 'components' in element ? element.components[option].label : '',
-            name: option,
-          }))}
-        />
+        <Box key={key} data-testid={`exam-component-dropdown-${key}`}>
+          <ControlledExamCheckboxDropdown
+            abnormal={abnormal}
+            checkboxLabel={element.label}
+            dropdownLabel={element.placeholder}
+            options={Object.keys('components' in element ? element.components : {}).map((option) => ({
+              label: 'components' in element ? element.components[option].label : '',
+              name: option,
+            }))}
+          />
+        </Box>
       );
     } else if (element.type === 'multi-select') {
       return (
-        <ControlledCheckboxSelect
-          key={key}
-          name={key}
-          label={element.label}
-          options={Object.keys(element.options).map((option) => ({
-            label: element.options[option].label,
-            name: option,
-            description: element.options[option].description,
-          }))}
-        />
+        <Box key={key} data-testid={`exam-component-multi-select-${key}`}>
+          <ControlledCheckboxSelect
+            name={key}
+            label={element.label}
+            options={Object.keys(element.options).map((option) => ({
+              label: element.options[option].label,
+              name: option,
+              description: element.options[option].description,
+            }))}
+          />
+        </Box>
       );
     } else if (element.type === 'form') {
-      return <ExamForm key={key} form={element} abnormal={abnormal} />;
+      return (
+        <Box key={key} data-testid={`exam-component-form-${key}`}>
+          <ExamForm form={element} abnormal={abnormal} />
+        </Box>
+      );
     }
     return null;
   };

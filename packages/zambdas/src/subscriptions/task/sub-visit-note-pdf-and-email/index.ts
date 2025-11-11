@@ -17,6 +17,8 @@ import {
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
 import { getChartData } from '../../../ehr/get-chart-data';
+import { getInHouseResources } from '../../../ehr/get-in-house-orders/helpers';
+import { getLabResources } from '../../../ehr/get-lab-orders/helpers';
 import { getMedicationOrders } from '../../../ehr/get-medication-orders';
 import { getImmunizationOrders } from '../../../ehr/immunization/get-orders';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
@@ -123,6 +125,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     visitResources.encounter.id!,
     isInPersonAppointment ? progressNoteChartDataRequestedFields : telemedProgressNoteChartDataRequestedFields
   );
+
   const medicationOrdersPromise = getMedicationOrders(oystehr, {
     searchBy: {
       field: 'encounterId',
@@ -130,20 +133,52 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     },
   });
 
-  const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(
-    (promise) => promise.response
+  const externalLabOrdersPromise = getLabResources(
+    oystehr,
+    {
+      searchBy: { field: 'encounterId', value: encounter.id! },
+      itemsPerPage: 10,
+      pageIndex: 0,
+      secrets,
+    },
+    oystehrToken,
+    { searchBy: { field: 'encounterId', value: encounter.id! } }
   );
-  const medicationOrders = (await medicationOrdersPromise).orders;
+
+  const inHouseOrdersPromise = getInHouseResources(
+    oystehr,
+    {
+      searchBy: { field: 'encounterId', value: encounter.id! },
+      itemsPerPage: 10,
+      pageIndex: 0,
+      secrets,
+      userToken: '',
+    },
+    { searchBy: { field: 'encounterId', value: encounter.id! } },
+    oystehrToken
+  );
+
+  const [chartDataResult, additionalChartDataResult, externalLabsData, inHouseOrdersData, medicationOrdersData] =
+    await Promise.all([
+      chartDataPromise,
+      additionalChartDataPromise,
+      externalLabOrdersPromise,
+      inHouseOrdersPromise,
+      medicationOrdersPromise,
+    ]);
   const immunizationOrders = (
     await getImmunizationOrders(oystehr, {
       encounterId: visitResources.encounter.id!,
     })
   ).orders;
+  const chartData = chartDataResult.response;
+  const additionalChartData = additionalChartDataResult.response;
+  const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
 
   console.log('Chart data received');
   try {
     const pdfInfo = await composeAndCreateVisitNotePdf(
-      { chartData, additionalChartData, medicationOrders, immunizationOrders },
+      { chartData, additionalChartData, medicationOrders, immunizationOrders, externalLabsData, inHouseOrdersData },
       visitResources,
       secrets,
       oystehrToken
