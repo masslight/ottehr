@@ -41,7 +41,7 @@ import {
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
-  LABCORP_SNOWMED_CODE_SYSTEM,
+  LABCORP_SNOMED_CODE_SYSTEM,
   LabDrTypeTagCode,
   LabType,
   ObsContentType,
@@ -1650,7 +1650,7 @@ const parseObservationForPDF = (
     const attachmentResult: ExternalLabResult = {
       resultCodeAndDisplay: '',
       loincCodeAndDisplay: '',
-      snowmedDisplay: '',
+      snomedDisplay: '',
       resultValue: '',
       attachmentText: `${initialText} attachment is included at the end of this document`,
       observationStatus: observation.status,
@@ -1690,7 +1690,7 @@ const parseObservationForPDF = (
 
   let resultCodeCodings: Coding[] | undefined;
   let resultLoincCodings: Coding[] | undefined;
-  let resultSnowmedDisplays: string[] | undefined;
+  let resultSnomedDisplays: string[] | undefined;
   observation.code.coding?.forEach((coding) => {
     if (coding.system === `http://loinc.org`) {
       if (resultLoincCodings !== undefined) {
@@ -1699,14 +1699,14 @@ const parseObservationForPDF = (
         return;
       }
       resultLoincCodings = [coding];
-    } else if (coding.system === LABCORP_SNOWMED_CODE_SYSTEM && coding.display) {
+    } else if (coding.system === LABCORP_SNOMED_CODE_SYSTEM && coding.display) {
       // labcorp doesn't want to see the actual code, just the display
-      if (resultSnowmedDisplays !== undefined) {
-        console.info(`Found multiple snowmed codings in Observation/${observation.id} code`);
-        resultSnowmedDisplays.push(coding.display);
+      if (resultSnomedDisplays !== undefined) {
+        console.info(`Found multiple snomed codings in Observation/${observation.id} code`);
+        resultSnomedDisplays.push(coding.display);
         return;
       }
-      resultSnowmedDisplays = [coding.display];
+      resultSnomedDisplays = [coding.display];
     } else if (
       ![OYSTEHR_OBR_NOTE_CODING_SYSTEM, OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM].includes(coding.system || '')
     ) {
@@ -1726,12 +1726,12 @@ const parseObservationForPDF = (
 
   const resultCodesAndDisplays = resultCodeCodings?.map((coding) => formatResultCodeAndDisplay(coding)).join(', ');
   const loincCodesAndDisplays = resultLoincCodings?.map((coding) => formatResultCodeAndDisplay(coding)).join(', ');
-  const snowmedDisplays = resultSnowmedDisplays?.join(', ');
+  const snomedDisplays = resultSnomedDisplays?.join(', ');
 
   const labResult: ExternalLabResult = {
     resultCodeAndDisplay: resultCodesAndDisplays || '',
     loincCodeAndDisplay: loincCodesAndDisplays || '',
-    snowmedDisplay: snowmedDisplays || '',
+    snomedDisplay: snomedDisplays || '',
     resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
     resultInterpretationDisplay: interpretationDisplay,
     resultValue: value || '',
@@ -1844,10 +1844,10 @@ const writeResultDetailLinesInPdf = (
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
-  // Add the snowmed label for labcorp if present
-  if (labResult.snowmedDisplay) {
-    console.log('writing snowmed code', labResult.loincCodeAndDisplay);
-    pdfClient.drawText(`SNOWMED: ${labResult.snowmedDisplay}`, textStyles.text);
+  // Add the snomed label for labcorp if present
+  if (labResult.snomedDisplay) {
+    console.log('writing snomed code', labResult.loincCodeAndDisplay);
+    pdfClient.drawText(`SNOMED: ${labResult.snomedDisplay}`, textStyles.text);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 

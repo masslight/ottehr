@@ -293,8 +293,8 @@ export const OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM =
   'https://identifiers.fhir.oystehr.com/lab-result-additional-placer-id';
 
 // Also for LabCorp
-export const LABCORP_SNOWMED_CODE_SYSTEM =
-  'https://terminology.fhir.oystehr.com/CodeSystem/labcorp-snowmed-value-to-code';
+export const LABCORP_SNOMED_CODE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/labcorp-snomed-value-to-code';
 
 export const SR_REVOKED_REASON_EXT = {
   url: 'https://extensions.fhir.oystehr.com/reason-sr-revoked',
