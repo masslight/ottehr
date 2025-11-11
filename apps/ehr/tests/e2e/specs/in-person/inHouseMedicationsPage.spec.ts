@@ -102,7 +102,7 @@ test('In-house medications page', async () => {
 
   await test.step('Non-numeric values can not be entered into "Dose" field', async () => {
     await orderMedicationPage.editMedicationCard.enterDose('abc1dfg');
-    // this is fine since will be transfered as 1 and then after saving will be 1
+    // this is fine since will be transferred as 1 and then after saving will be 1
     await orderMedicationPage.editMedicationCard.verifyDose('01');
   });
 
@@ -154,7 +154,7 @@ test('In-house medications page', async () => {
     editOrderPage = await expectEditOrderPage(page);
   });
 
-  await test.step('Update order details and save, check on medications tabl', async () => {
+  await test.step('Update order details and save, check on medications table', async () => {
     //Updated values are saved successfully and Order is updated on the "MAR" tab
     await editOrderPage.editMedicationCard.selectMedication(NEW_MEDICATION);
     await editOrderPage.editMedicationCard.enterDose(NEW_DOSE);

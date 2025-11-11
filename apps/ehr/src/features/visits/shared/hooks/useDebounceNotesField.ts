@@ -128,7 +128,7 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
             if (refetchChartDataOnSave) {
               // refetch chart data
               refetch()
-                .then(() => console.log('Successfully refetched'))
+                .then(() => console.log('Successfully re-fetched'))
                 .catch(() => console.log('Error refetching'));
             }
 

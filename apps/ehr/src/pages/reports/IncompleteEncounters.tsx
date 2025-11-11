@@ -326,6 +326,7 @@ export default function IncompleteEncounters(): React.ReactElement {
 
           // Handle different visit types
           if (visitType === 'In-Person' && locationId) {
+            // cSpell:disable-next %2C
             const trackingBoardPath = `/visits?locationID=${locationId}&visitType=walk-in%2Cpre-booked%2Cpost-telemed&groups=&searchDate=${searchDate}`;
 
             return (
