@@ -1,6 +1,8 @@
 # Configuration
 
-This directory holds Ottehr configuration files. The files are in JSON format and must adhere to one of the schema versions defined in `packages/spec/`.
+This directory holds Infrastructure-as-Code (IaC) configuration files for resources used by Ottehr. Structuring required resources as static configuration files allows us to use IaC tools like [Terraform](https://developer.hashicorp.com/terraform) to ensure deployed environments match what is expected by the application. It also consolidates the source of resource setup down to a single location and separates resource declaration from [deployment](/deploy/README.md).
+
+All Oystehr resources are defined in the `oystehr/` subdirectory. The files are in JSON format and must adhere to one of the schema versions defined in [the Schema package](/packages/spec/README.md).
 
 ## Canonical FHIR Resources
 
@@ -76,7 +78,7 @@ npm run bump-canonical-version config/oystehr/in-house-lab-activity-definitions.
 
 ## Generation
 
-These static configuration files are combined with dynamic, per-environment config values by the `npm run generate` script in `deploy/`. Values and references are resolved according to the rules in the `packages/spec/` schema `generate()` function.
+These static configuration files are combined with dynamic, per-environment config values by the `npm run generate` script in [`deploy/`](/deploy/README.md). Values and references are resolved according to the rules in the [`packages/spec/`](/packages/spec/README.md) schema `generate()` function.
 
 ## Migration
 
