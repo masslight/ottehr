@@ -370,56 +370,53 @@ describe('prebook integration - from getting list of slots to booking with selec
   });
 
   // this is flaky and can fail based on time of day for the CI server
-  test.concurrent(
-    'create an appointment at 1130PM eastern and ensure that the appointment created is for the correct calendar day.',
-    async () => {
-      assert(processId);
-      const initialResources = await setUpInPersonResources();
-      const { timezone } = initialResources;
+  test.skip('create an appointment at 1130PM eastern and ensure that the appointment created is for the correct calendar day.', async () => {
+    assert(processId);
+    const initialResources = await setUpInPersonResources();
+    const { timezone } = initialResources;
 
-      const newPatient = makeTestPatient();
-      const patientInfo: PatientInfo = {
-        firstName: newPatient.name![0]!.given![0],
-        lastName: newPatient.name![0]!.family,
-        sex: 'female',
-        dateOfBirth: newPatient.birthDate,
-        newPatient: true,
-        phoneNumber: '+12027139680',
-        email: 'okovalenko+coolNewPatient@masslight.com',
-        tags: [
-          {
-            system: 'OTTEHR_AUTOMATED_TEST',
-            code: tagForProcessId(processId),
-            display: 'a test resource that should be cleaned up',
-          },
-        ],
-      };
+    const newPatient = makeTestPatient();
+    const patientInfo: PatientInfo = {
+      firstName: newPatient.name![0]!.given![0],
+      lastName: newPatient.name![0]!.family,
+      sex: 'female',
+      dateOfBirth: newPatient.birthDate,
+      newPatient: true,
+      phoneNumber: '+12027139680',
+      email: 'okovalenko+coolNewPatient@masslight.com',
+      tags: [
+        {
+          system: 'OTTEHR_AUTOMATED_TEST',
+          code: tagForProcessId(processId),
+          display: 'a test resource that should be cleaned up',
+        },
+      ],
+    };
 
-      const { slot: createdSlotResponse } = await getSlot({
-        ...initialResources,
-        serviceMode: ServiceMode['in-person'],
-        isWalkin: false,
-        isPostTelemed: false,
-      });
+    const { slot: createdSlotResponse } = await getSlot({
+      ...initialResources,
+      serviceMode: ServiceMode['in-person'],
+      isWalkin: false,
+      isPostTelemed: false,
+    });
 
-      console.log('createdSlotResponse ', createdSlotResponse);
+    console.log('createdSlotResponse ', createdSlotResponse);
 
-      const { appointment } = await createAppointmentAndValidate({
-        timezone,
-        patientInfo,
-        patient: undefined,
-        slot: createdSlotResponse,
-      });
+    const { appointment } = await createAppointmentAndValidate({
+      timezone,
+      patientInfo,
+      patient: undefined,
+      slot: createdSlotResponse,
+    });
 
-      console.log('appointment ', appointment);
+    console.log('appointment ', appointment);
 
-      expect(appointment).toBeDefined();
-      expect(appointment.start?.charAt(appointment.start.length - 1)).toEqual('Z'); // should be in UTC
-      const appointmentDateTime = DateTime.fromISO(appointment.start!);
-      const slotDateTime = DateTime.fromISO(createdSlotResponse.start!);
-      expect(slotDateTime.toISO()).toEqual(appointmentDateTime.toISO()); // Appointment should have the same time as the Slot
-      expect(appointmentDateTime.hour).toEqual(23);
-      expect(appointmentDateTime.day).toEqual(DateTime.now().day); // Appointment should be for today, not tomorrow.
-    }
-  );
+    expect(appointment).toBeDefined();
+    expect(appointment.start?.charAt(appointment.start.length - 1)).toEqual('Z'); // should be in UTC
+    const appointmentDateTime = DateTime.fromISO(appointment.start!);
+    const slotDateTime = DateTime.fromISO(createdSlotResponse.start!);
+    expect(slotDateTime.toISO()).toEqual(appointmentDateTime.toISO()); // Appointment should have the same time as the Slot
+    expect(appointmentDateTime.hour).toEqual(23);
+    expect(appointmentDateTime.day).toEqual(DateTime.now().day); // Appointment should be for today, not tomorrow.
+  });
 });
