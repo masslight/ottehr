@@ -23,6 +23,7 @@ import {
   SecretsKeys,
   takeContainedOrFind,
 } from 'utils';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
@@ -60,12 +61,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
     console.log('Error occurred:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' }),
-    };
+    return await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
 
@@ -120,7 +117,7 @@ async function createTaskForEncounter(oystehr: Oystehr, encounter: Encounter, se
     const created = await oystehr.fhir.create(task);
     console.log('Created task: ', created.id);
   } catch (error) {
-    console.error(`Error creating task for encounter (${encounter.id}): `, error);
+    safelyCaptureException(error);
   }
 }
 

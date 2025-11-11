@@ -117,12 +117,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
     console.log('Error occurred:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' }),
-    };
+    return await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
 
