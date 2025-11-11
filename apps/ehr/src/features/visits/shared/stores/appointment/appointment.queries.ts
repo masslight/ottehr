@@ -29,7 +29,9 @@ import {
   APIError,
   APIErrorCode,
   CancelMatchUnsolicitedResultTask,
+  CPTCodeDTO,
   createSmsModel,
+  DiagnosisDTO,
   filterResources,
   FinalizeUnsolicitedResultMatch,
   GetCreateLabOrderResources,
@@ -538,6 +540,20 @@ export const useGetIcd10Search = ({
   }, [queryResult.error]);
 
   return queryResult;
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useRecommendBillingSuggestions = () => {
+  const apiClient = useOystehrAPIClient();
+  return useMutation({
+    mutationFn: (props: { diagnoses: DiagnosisDTO[] | undefined; billing: CPTCodeDTO[] | undefined }) => {
+      if (!apiClient) {
+        throw new Error('api client is not defined');
+      }
+      return apiClient.recommendBillingSuggestions(props);
+    },
+    retry: 2,
+  });
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type

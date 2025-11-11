@@ -283,11 +283,13 @@ describe('prebook integration - from getting list of slots to booking with selec
       originalBookingUrl: `prebook/${serviceMode}?bookingOn=${slug}`,
       status: 'busy-tentative',
     });
+    console.log('createSlotParams ', createSlotParams);
     assert(createSlotParams);
     const validatedSlotResponse = await createSlotAndValidate(
       { params: createSlotParams, selectedSlot: elevenPMSlot, schedule },
       oystehr
     );
+    console.log('validatedSlotResponse ', validatedSlotResponse);
     const createdSlotResponse = validatedSlotResponse.slot;
     const serviceModeFromSlot = validatedSlotResponse.serviceMode;
     const bookingUrl = validatedSlotResponse.originalBookingUrl;
@@ -367,6 +369,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     await cleanupTestScheduleResources(processId, oystehr);
   });
 
+  // this is flaky and can fail based on time of day for the CI server
   test.concurrent(
     'create an appointment at 1130PM eastern and ensure that the appointment created is for the correct calendar day.',
     async () => {
