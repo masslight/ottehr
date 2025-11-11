@@ -49,14 +49,14 @@ export function createOystehrClient(token: string, fhirAPI: string, projectAPI: 
   return new Oystehr(CLIENT_CONFIG);
 }
 
-export type FetchClientWithOystAuth = {
-  oystFetch: <T = any>(method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH', url: string, body?: any) => Promise<T>;
+export type FetchClientWithOysterAuth = {
+  oystehrFetch: <T = any>(method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH', url: string, body?: any) => Promise<T>;
 };
 
-export function createFetchClientWithOystAuth(params: {
+export function createFetchClientWithOystehrAuth(params: {
   authToken: string;
   projectId?: string;
-}): FetchClientWithOystAuth {
+}): FetchClientWithOysterAuth {
   const authToken = params.authToken;
   const oystehrProjectId = params.projectId;
 
@@ -91,7 +91,7 @@ export function createFetchClientWithOystAuth(params: {
     return {} as T;
   }
   return {
-    oystFetch: fetchWithOystehrAuth,
+    oystehrFetch: fetchWithOystehrAuth,
   };
 }
 

@@ -14,7 +14,7 @@ main().catch((error) => {
 
 /**
  * Maps existing lab Organizations to Locations in a project. This enables each Location to order tests from the same Laboratory
- * using Location-specific account numbers. This should only be used to transition exsiting projects from the old model (one account number per Lab Org)
+ * using Location-specific account numbers. This should only be used to transition existing projects from the old model (one account number per Lab Org)
  * to the new model.
  */
 async function main(): Promise<void> {

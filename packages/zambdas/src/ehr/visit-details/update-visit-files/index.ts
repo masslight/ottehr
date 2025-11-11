@@ -158,7 +158,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
   }
 
   // todo: should be able to narrow the search based on the the document type being requested
-  // notes to a potential future brave refactorer:
+  // notes to a potential future brave refactor-er:
   // the shared abstraction for creating document references is a bit funny and says I need to include the existing list
   // of List resources, so I'm including it. it has the necessary input to go get those resources however and also already does additional querying
   // to get the DocumentReference resources using passed in params, so it's straddling a couple of different possible api designs here.

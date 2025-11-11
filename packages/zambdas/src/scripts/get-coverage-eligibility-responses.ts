@@ -1,3 +1,4 @@
+// cSpell:ignore elig, inplan, mesg
 import Oystehr from '@oystehr/sdk';
 import { CoverageEligibilityResponse } from 'fhir/r4b';
 import * as fs from 'fs';

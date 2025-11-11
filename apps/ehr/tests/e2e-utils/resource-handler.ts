@@ -24,7 +24,7 @@ import { fileURLToPath } from 'url';
 import {
   cleanAppointmentGraph,
   CreateAppointmentResponse,
-  createFetchClientWithOystAuth,
+  createFetchClientWithOystehrAuth,
   createSampleAppointments,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
@@ -509,11 +509,11 @@ export class ResourceHandler {
     const apiClient = await this.apiClient;
     const oystehrProjectId = process.env.PROJECT_ID;
     if (!oystehrProjectId) throw new Error('secret PROJECT_ID is not set');
-    const { oystFetch } = createFetchClientWithOystAuth({
+    const { oystehrFetch } = createFetchClientWithOystehrAuth({
       authToken: await this.#authToken,
       projectId: oystehrProjectId,
     });
-    const users = await oystFetch<
+    const users = await oystehrFetch<
       {
         id: string;
         name: string;

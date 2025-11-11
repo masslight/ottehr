@@ -1,3 +1,4 @@
+// cSpell:ignore Hyperlegible
 import fs from 'node:fs';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
