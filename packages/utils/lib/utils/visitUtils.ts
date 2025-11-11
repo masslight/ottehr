@@ -30,6 +30,18 @@ export const getDurationOfStatus = (statusEntry: VisitStatusHistoryEntry, dateTi
   return 0;
 };
 
+export const getTelemedLength = (history?: EncounterStatusHistory[]): number => {
+  const value = history?.find((item) => item.status === 'in-progress');
+  if (!value || !value.period.start) {
+    return 0;
+  }
+
+  const { start, end } = value.period;
+  const duration = DateTime.fromISO(start).diff(end ? DateTime.fromISO(end) : DateTime.now(), ['minute']);
+
+  return Math.abs(duration.minutes);
+};
+
 export const getVisitTotalTime = (
   appointment: InPersonAppointmentInformation | Appointment,
   visitStatusHistory: VisitStatusHistoryEntry[],

@@ -11,8 +11,9 @@ import { InPersonModal } from 'src/features/visits/in-person/components/InPerson
 import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
-import { useGetPatient } from 'src/hooks/useGetPatient';
 import { MANUAL_TASK } from 'utils';
+import { useGetPatientVisitHistory } from '../../../hooks/useGetPatientVisitHistory';
+import { getVisitTypeLabelForTypeAndServiceMode } from '../../../shared/utils';
 import {
   getPatientLabel,
   useExternalLabOrdersOptions,
@@ -61,21 +62,21 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
     });
   };
 
-  const { appointments, loading: appointmentsLoading } = useGetPatient(formValue.patient?.id);
+  const { data: visitHistory, isLoading: appointmentsLoading } = useGetPatientVisitHistory(formValue.patient?.id);
+  const appointments = visitHistory?.visits ?? [];
 
   const appointmentOptions = (appointments ?? []).map((appointment) => {
     return {
-      label: `${appointment.typeLabel} ${
-        appointment.dateTime ? formatISOStringToDateAndTime(appointment.dateTime, appointment.officeTimeZone) : ''
-      }`,
-      value: appointment.id ?? '',
+      label: `${getVisitTypeLabelForTypeAndServiceMode({
+        type: appointment.type,
+        serviceMode: appointment.serviceMode,
+      })} ${appointment.dateTime ? formatISOStringToDateAndTime(appointment.dateTime) : ''}`,
+      value: appointment.appointmentId ?? '',
     };
   });
 
-  const { encounter } = useAppointmentData(
-    appointments?.find((appointment) => appointment.id === formValue.appointment)?.id
-  );
-  const encounterId = encounter?.id ?? '';
+  const encounterId =
+    appointments?.find((appointment) => appointment.appointmentId === formValue.appointment)?.encounterId ?? '';
 
   const { inHouseLabOrdersLoading, inHouseLabOrdersOptions } = useInHouseLabOrdersOptions(encounterId);
   const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId);

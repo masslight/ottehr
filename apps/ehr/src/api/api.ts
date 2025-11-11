@@ -97,6 +97,7 @@ import {
   SubmitLabOrderOutput,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
+  UpdateInvoiceTaskZambdaInput,
   UpdateLabOrderResourcesInput,
   UpdateNursingOrderInput,
   UpdateScheduleParams,
@@ -171,6 +172,7 @@ const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
 const INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID = 'invoiceable-patients-report';
 const BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID = 'bulk-update-insurance-status';
+const UPDATE_INVOICE_TASK_ZAMBDA_ID = 'update-invoice-task';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1398,6 +1400,18 @@ export const createZ3Object = async (input: CreateZ3ObjectParams, oystehr: Oyste
 
     return presignedURLRequest.z3URL;
   } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const updateInvoiceTask = async (oystehr: Oystehr, parameters: UpdateInvoiceTaskZambdaInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: UPDATE_INVOICE_TASK_ZAMBDA_ID,
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
     throw apiErrorToThrow(error);
   }
 };

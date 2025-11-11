@@ -1479,3 +1479,7 @@ export const getInsuranceNameFromCoverage = (coverage: Coverage): string | undef
     (cls) => cls.type.coding?.find((coding) => coding.system === CODE_SYSTEM_COVERAGE_CLASS && coding.code === 'plan')
   )?.name;
 };
+
+export function getPatientReferenceFromAccount(account: Account): string | undefined {
+  return account.subject?.find((subj) => subj.reference?.includes('Patient/'))?.reference;
+}
