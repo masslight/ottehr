@@ -205,7 +205,7 @@ export function serviceRequestPaymentMethod(
   const coverageId = insuranceCoverageRef.reference?.replace('Coverage/', '');
   const coverage = coverages.find((coverage) => coverage.id === coverageId);
   if (!coverage) {
-    console.log(`Warning: unable to determine the payment method of this service request ${serviceRequest.id}
+    console.warn(`Warning: unable to determine the payment method of this service request ${serviceRequest.id}
       coverages passed: ${coverages.map((coverage) => coverage.id)}`);
     return;
   }
