@@ -2939,6 +2939,7 @@ describe('Harvest Module Integration Tests', () => {
             path: '/extension',
             value: [
               {
+                // cSpell:disable-next dummy url
                 url: 'dummyurl',
                 valueString: 'string',
               },
@@ -3018,6 +3019,7 @@ describe('Harvest Module Integration Tests', () => {
             path: '/extension',
             value: [
               {
+                // cSpell:disable-next dummy url
                 url: 'dummyurl',
                 valueString: 'string',
               },

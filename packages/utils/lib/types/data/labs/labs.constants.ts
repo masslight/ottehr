@@ -19,11 +19,13 @@ export const LAB_ORDER_TASK = {
   category: 'external-lab',
   system: 'external-lab-task',
   code: {
+    // cSpell:disable-next MURT
     matchUnsolicitedResult: 'MURT',
     preSubmission: 'PST',
     reviewPreliminaryResult: 'RPRT',
     reviewFinalResult: 'RFRT',
     reviewCorrectedResult: 'RCRT',
+    // cSpell:disable-next RCANRT
     reviewCancelledResult: 'RCANRT', // cancelled by the lab
   },
   input: {

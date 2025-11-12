@@ -1,3 +1,4 @@
+// cSpell:ignore annot, annots
 import fs from 'node:fs';
 import fontkit from '@pdf-lib/fontkit';
 import { captureException } from '@sentry/aws-serverless';
@@ -325,7 +326,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
 
     // If the text fits within the current line, draw it directly
     if (lineWidth < totalWidth) {
-      console.log('lineWdith of text fits between left and right bounds');
+      console.log('lineWidth of text fits between left and right bounds');
       if (lineWidth > availableWidth) {
         console.log(
           `lineWidth ${lineWidth} is greater than available width ${availableWidth}. Adding newline and drawing.`

@@ -312,8 +312,8 @@ describe('AddPatient - Validation Tests', () => {
       const visitTypeDropdown = screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown);
       const visitTypeButton = visitTypeDropdown.querySelector('[role="combobox"]');
       await user.click(visitTypeButton!);
-      const postTelemOption = await screen.findByText('Post Telemed Lab Only');
-      await user.click(postTelemOption);
+      const postTelemedOption = await screen.findByText('Post Telemed Lab Only');
+      await user.click(postTelemedOption);
 
       // Try to submit without selecting a slot
       const addButton = screen.getByTestId(dataTestIds.addPatientPage.addButton);

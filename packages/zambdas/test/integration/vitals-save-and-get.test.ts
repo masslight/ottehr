@@ -197,7 +197,7 @@ describe('saving and getting vitals', () => {
   });
 
   suite(
-    'writing vitals observations that dont rise to alert thresholds produces vitals dtos with no alerts',
+    'writing vitals observations that dont rise to alert thresholds produces vitals DTOs with no alerts',
     async () => {
       let encounterId: string;
       let patientId: string;
@@ -409,7 +409,7 @@ describe('saving and getting vitals', () => {
   );
 
   suite(
-    'writing vitals observations for 0-2 month old patients that do rise to alert threshold level produce vitals dtos with alerts',
+    'writing vitals observations for 0-2 month old patients that do rise to alert threshold level produce vitals DTOs with alerts',
     async () => {
       let encounterId: string;
       let patientId: string;
@@ -570,7 +570,7 @@ describe('saving and getting vitals', () => {
     { timeout: DEFAULT_SUITE_TIMEOUT }
   );
   suite(
-    'writing vitals observations for 2-12 month old patients that do rise to alert threshold level produce vitals dtos with alerts',
+    'writing vitals observations for 2-12 month old patients that do rise to alert threshold level produce vitals DTOs with alerts',
     async () => {
       let encounterId: string;
       let patientId: string;
@@ -665,7 +665,7 @@ describe('saving and getting vitals', () => {
   );
 
   suite(
-    'writing vitals observations for 12-36 month old patients that do rise to alert threshold level produce vitals dtos with alerts',
+    'writing vitals observations for 12-36 month old patients that do rise to alert threshold level produce vitals DTOs with alerts',
     async () => {
       let encounterId: string;
       let patientId: string;
@@ -746,7 +746,7 @@ describe('saving and getting vitals', () => {
   );
 
   suite(
-    'writing vitals observations for 12-36 month old patients that do rise to alert threshold level produce vitals dtos with alerts',
+    'writing vitals observations for 12-36 month old patients that do rise to alert threshold level produce vitals DTOs with alerts',
     async () => {
       let encounterId: string;
       let patientId: string;
@@ -823,7 +823,7 @@ describe('saving and getting vitals', () => {
   );
 
   suite(
-    'writing vitals observations for 72-108 month old patients that do rise to alert threshold level produce vitals dtos with alerts',
+    'writing vitals observations for 72-108 month old patients that do rise to alert threshold level produce vitals DTOs with alerts',
     async () => {
       let encounterId: string;
       let patientId: string;
@@ -907,7 +907,7 @@ describe('saving and getting vitals', () => {
   );
 
   suite(
-    'writing vitals observations for 108-144 month old patients that do rise to alert threshold level produce vitals dtos with alerts',
+    'writing vitals observations for 108-144 month old patients that do rise to alert threshold level produce vitals DTOs with alerts',
     async () => {
       let encounterId: string;
       let patientId: string;
@@ -993,7 +993,7 @@ describe('saving and getting vitals', () => {
   );
 
   suite(
-    'writing vitals observations for 144+ month old patients that do rise to alert threshold level produce vitals dtos with alerts',
+    'writing vitals observations for 144+ month old patients that do rise to alert threshold level produce vitals DTOs with alerts',
     async () => {
       let encounterId: string;
       let patientId: string;

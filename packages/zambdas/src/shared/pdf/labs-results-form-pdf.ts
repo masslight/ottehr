@@ -1452,6 +1452,7 @@ function generateLabResultFileName(
     : '';
   const reviewStatus = (() => {
     if (resultStatus === 'preliminary') return '';
+    // cSpell:disable-next unreviewed
     return reviewed ? '-reviewed' : '-unreviewed';
   })();
 

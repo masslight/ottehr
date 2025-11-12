@@ -227,7 +227,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
   justifyContent: 'flex-end',
 }));
 
-const StyledButton = styled(Button)<{ isactive: string }>(({ theme, isactive: isActive }) => ({
+const StyledButton = styled(Button)<{ isActive: string }>(({ theme, isActive: isActive }) => ({
   display: 'flex',
   width: '100%',
   height: '42px',
@@ -406,7 +406,7 @@ export const Sidebar = (): JSX.Element => {
             const comparedPath = item?.activeCheckPath || item.to;
             return (
               <StyledButton
-                isactive={location.pathname.includes(comparedPath).toString()}
+                isActive={location.pathname.includes(comparedPath).toString()}
                 key={item.text}
                 onClick={() => {
                   requestAnimationFrame(() => {

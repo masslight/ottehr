@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# cSpell:disable-next flags
 set -xeuo pipefail
 
 ENV=${1:-local}

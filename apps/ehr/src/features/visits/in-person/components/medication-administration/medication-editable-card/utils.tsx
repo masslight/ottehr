@@ -308,10 +308,10 @@ export const medicationInteractionsFromErxResponse = (
 
 export const findPrescriptionsForInteractions = async (
   patientId: string | undefined,
-  interationsResponse: ErxCheckPrecheckInteractionsResponse,
+  interactionsResponse: ErxCheckPrecheckInteractionsResponse,
   oystehr: Oystehr
 ): Promise<MedicationRequest[]> => {
-  const interactingDrugIds = interationsResponse.medications.flatMap(
+  const interactingDrugIds = interactionsResponse.medications.flatMap(
     (medication) => medication.medications?.map((nestedMedication) => nestedMedication.id.toString()) ?? []
   );
   if (interactingDrugIds.length === 0) {
