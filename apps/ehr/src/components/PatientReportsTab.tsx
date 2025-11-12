@@ -42,7 +42,7 @@ export const PatientReportsTab: FC = () => {
       return {
         id: r.id,
         reportFileFormat: r.reportFileFormat === 'csv' ? 'CSV' : 'PDF',
-        type: r.reportType === 'vital' ? 'Vitals' : 'Time',
+        type: r.reportType === 'vitals' ? 'Vital' : 'Time',
         startDate: start,
         endDate: end,
         dateGenerated: generated,
