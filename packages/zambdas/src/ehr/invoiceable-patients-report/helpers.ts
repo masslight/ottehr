@@ -1,9 +1,10 @@
 import { CandidApi, CandidApiClient } from 'candidhealth';
-import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
+import { InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
 import { Account, Appointment, Encounter, Patient, RelatedPerson, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   FHIR_EXTENSION,
+  getActiveAccountGuarantorReference,
   getFullName,
   InvoiceablePatientReport,
   InvoiceablePatientReportFail,
@@ -60,9 +61,7 @@ export function mapResourcesToInvoiceablePatient(input: {
   const patient = patientToIdMap[claim.patientExternalId];
   if (patient?.id === undefined) return logErrorForClaimAndReturn('Patient', claim);
   const account = accountsToPatientIdMap[claim.patientExternalId];
-  const responsiblePartyRef = account?.guarantor?.find((gRef) => {
-    return gRef.period?.end === undefined;
-  })?.party?.reference;
+  const responsiblePartyRef = getActiveAccountGuarantorReference(account);
   if (!responsiblePartyRef) return logErrorForClaimAndReturn('RelatedPerson reference', claim);
   const responsibleParty = takeContainedOrFind(responsiblePartyRef, allFhirResources, account) as
     | RelatedPerson
@@ -114,57 +113,6 @@ function getResponsiblePartyRelationship(responsibleParty: RelatedPerson): Patie
       })
   );
   return result;
-}
-
-interface getCandidPagesRecursiveParams {
-  candid: CandidApiClient;
-  pageToken?: string;
-  claims: InventoryRecord[];
-  pageCount: number;
-  onlyInvoiceable?: boolean;
-  limitPerPage?: number;
-  maxPages?: number;
-}
-
-export async function getCandidPagesRecursive(
-  input: getCandidPagesRecursiveParams
-): Promise<{ claims: InventoryRecord[]; pageCount: number } | undefined> {
-  const { candid, pageToken, limitPerPage, claims, pageCount, onlyInvoiceable, maxPages } = input;
-  if (limitPerPage && limitPerPage > 100)
-    throw new Error('Limit per page cannot be greater than 100 according to Candid API');
-
-  if (maxPages && pageCount >= maxPages) return { claims, pageCount };
-
-  console.log(`📄 Fetching page ${pageCount}`);
-  const inventoryResponse = await candid.patientAr.v1.listInventory({
-    limit: limitPerPage,
-    pageToken: pageToken ? CandidApi.PageToken(pageToken) : undefined,
-  });
-
-  if (inventoryResponse && inventoryResponse.ok && inventoryResponse.body) {
-    let records = inventoryResponse.body.records as InventoryRecord[];
-    const nextPageToken = inventoryResponse.body.nextPageToken;
-
-    if (onlyInvoiceable) records = records.filter((record) => record.patientArStatus === 'invoiceable');
-
-    console.log(`📄 Page ${pageCount}: Found ${records.length} total claims`);
-
-    if (nextPageToken)
-      return await getCandidPagesRecursive({
-        ...input,
-        claims: claims.concat(records),
-        pageToken: nextPageToken,
-        pageCount: pageCount + 1,
-      });
-    else return { claims: claims.concat(records), pageCount: pageCount };
-  } else {
-    console.log('⚠️ Unexpected response format or failed request on page', pageCount);
-    console.log('Response details:', JSON.stringify(inventoryResponse));
-  }
-  return {
-    claims,
-    pageCount,
-  };
 }
 
 function isoToFormat(isoDate: string, format: string = 'MM-dd-yyyy HH:mm:ss'): string {

@@ -4,6 +4,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
 import {
   Box,
+  ButtonOwnProps,
   capitalize,
   Checkbox,
   Chip,
@@ -20,39 +21,41 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { Encounter, Location, Patient } from 'fhir/r4b';
+import { Encounter, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import React, { FC, ReactElement, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { getTelemedVisitDetailsUrl } from 'src/features/visits/telemed/utils/routing';
+import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils';
 import { visitTypeToInPersonLabel, visitTypeToTelemedLabel } from 'src/types/types';
 import styled from 'styled-components';
 import {
-  EmployeeDetails,
+  AppointmentHistoryRow,
+  AppointmentType,
   FOLLOWUP_SYSTEMS,
   formatMinutes,
-  getInPersonVisitStatus,
-  getTelemedVisitStatus,
-  isInPersonAppointment,
+  PatientVisitListResponse,
+  PrefilledInvoiceInfo,
   ServiceMode,
+  TelemedAppointmentStatus,
   TelemedCallStatusesArr,
-  useSuccessQuery,
   visitStatusArray,
 } from 'utils';
-import { create } from 'zustand';
-import { getEmployees } from '../api/api';
+import { updateInvoiceTask } from '../api/api';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
-import { AppointmentHistoryRow } from '../hooks/useGetPatient';
+import { SendInvoiceToPatientDialog } from './dialogs';
 import { RoundedButton } from './RoundedButton';
 import { TelemedAppointmentStatusChip } from './TelemedAppointmentStatusChip';
 
 type PatientEncountersGridProps = {
-  appointments?: AppointmentHistoryRow[];
-  loading: boolean;
+  totalCount: number;
+  latestVisitDate: string | null;
   patient?: Patient;
 };
 
@@ -106,18 +109,8 @@ export const getFollowupStatusChip = (status: 'OPEN' | 'RESOLVED'): ReactElement
   );
 };
 
-const useEmployeesStore = create<{ employees: EmployeeDetails[] }>()(() => ({ employees: [] }));
-
-const ProviderCell: FC<{ encounter?: Encounter }> = ({ encounter }) => {
-  const { employees } = useEmployeesStore();
-
-  const practitioner = encounter?.participant
-    ?.find((participant) => participant.individual?.reference?.startsWith('Practitioner'))
-    ?.individual?.reference?.split('/')?.[1];
-
-  const employee = practitioner ? employees.find((employee) => employee.profile.endsWith(practitioner)) : undefined;
-
-  return <Typography variant="body2">{employee ? `${employee.firstName} ${employee.lastName}` : '-'}</Typography>;
+const ProviderCell: FC<{ name: string | undefined }> = ({ name }) => {
+  return <Typography variant="body2">{name || '-'}</Typography>;
 };
 
 type SortField = 'dateTime';
@@ -141,10 +134,12 @@ const columns: TableColumn[] = [
   { id: 'los', label: 'LOS', width: 100 },
   { id: 'info', label: 'Visit Info', width: 120, align: 'center' },
   { id: 'note', label: 'Progress Note', width: 150 },
+  { id: 'invoice', label: 'Invoice', width: 100, align: 'center' },
 ];
 
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
-  const { appointments, loading, patient } = props;
+  const { patient, totalCount, latestVisitDate } = props;
+  const { id: patientId } = useParams();
 
   const [type, setType] = useState('all');
   const [period, setPeriod] = useState(0);
@@ -155,33 +150,49 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [followupEncounters, setFollowupEncounters] = useState<Encounter[]>([]);
-  const [followupLocations, setFollowupLocations] = useState<Map<string, Location>>(new Map());
+  const [selectedInvoiceTask, setSelectedInvoiceTask] = useState<Task | undefined>(undefined);
 
   const { oystehrZambda, oystehr } = useApiClients();
   const navigate = useNavigate();
 
-  const { data: employeesData } = useQuery({
-    queryKey: ['employees'],
-    queryFn: async () => {
-      if (!oystehrZambda) {
-        return null;
+  const {
+    data: visitHistory,
+    isLoading: visitHistoryIsLoading,
+    refetch: refetchVisitHistory,
+  } = useQuery({
+    queryKey: [`get-patient-visit-history`, { patientId, status, type, period }],
+    queryFn: async (): Promise<PatientVisitListResponse> => {
+      let from: string | undefined;
+      if (period > 0) {
+        from = DateTime.now().minus({ months: period }).toISO();
       }
-      const data = await getEmployees(oystehrZambda);
-      if (!data.employees) {
-        return null;
+      let typeParam: AppointmentType[] | undefined = undefined;
+      let serviceMode: ServiceMode | undefined = undefined;
+      if (type !== 'all') {
+        const [typeStr, serviceModeStr] = type.split('|');
+        typeParam = [typeStr as AppointmentType];
+        serviceMode = serviceModeStr as ServiceMode;
       }
-      return data;
-    },
-    enabled: !!oystehrZambda,
-  });
+      if (oystehrZambda && patient?.id) {
+        const result = await oystehrZambda.zambda.execute({
+          id: 'get-patient-visit-history',
+          patientId: patient.id,
+          type: typeParam,
+          serviceMode,
+          status: status !== 'all' ? [status] : undefined,
+          from,
+          sortDirection,
+        });
+        return result.output as PatientVisitListResponse;
+      }
 
-  useSuccessQuery(employeesData, (data) => {
-    const employees = data?.employees || [];
-    useEmployeesStore.setState({ employees });
+      throw new Error('api client not defined or patient id is not provided');
+    },
+    enabled: Boolean(patient?.id) && Boolean(oystehrZambda),
   });
 
   // Fetch follow-up encounters
+  // todo: move this to the visit history zambda
   const { data: followupData } = useQuery({
     queryKey: ['followupEncounters', patient?.id],
     queryFn: async () => {
@@ -236,67 +247,52 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     enabled: !!oystehr && !!patient?.id,
   });
 
-  // Update follow-up encounters when data changes
-  React.useEffect(() => {
-    if (followupData) {
-      setFollowupEncounters(followupData.encounters);
-      setFollowupLocations(followupData.locations);
-    }
-  }, [followupData]);
+  const followupEncounters = followupData?.encounters || [];
+  const followupLocations = followupData?.locations || new Map<string, Location>();
 
   const filtered = useMemo(() => {
-    let filtered = appointments || [];
-
-    if (type !== 'all') {
-      filtered = filtered.filter((item) => item.typeLabel === type);
-    }
-
-    if (period) {
-      filtered = filtered.filter((item) => {
-        return -DateTime.fromISO(item.dateTime ?? '').diffNow('months').months < period;
-      });
-    }
-
-    if (status !== 'all') {
-      filtered = filtered.filter((item) => filterAppointmentForStatus(item, status));
-    }
+    if (!visitHistory) return [];
+    const { visits, metadata } = visitHistory;
+    let filtered = visits || [];
 
     if (hideCancelled) {
-      filtered = filtered.filter((item) => !filterAppointmentForStatus(item, 'cancelled'));
+      filtered = filtered.filter((item) => item.status !== 'cancelled');
     }
 
     if (hideNoShow) {
-      filtered = filtered.filter(
-        (item) => item.serviceMode === ServiceMode.virtual || !filterAppointmentForStatus(item, 'no show')
-      );
+      // not sure why all virtual visits are kept but keeping this pre-existing logic
+      filtered = filtered.filter((item) => item.serviceMode === ServiceMode.virtual || item.status !== 'no show');
     }
 
     // Apply sorting
-    if (sortField === 'dateTime') {
-      filtered = [...filtered].sort((a, b) => {
-        const dateA = DateTime.fromISO(a.dateTime ?? '');
-        const dateB = DateTime.fromISO(b.dateTime ?? '');
-        const diff = dateA.diff(dateB).milliseconds;
-        return sortDirection === 'asc' ? diff : -diff;
-      });
+    if (metadata.sortDirection === sortDirection) {
+      return filtered;
+    } else {
+      return filtered.slice().reverse();
     }
-
-    return filtered;
-  }, [appointments, period, type, status, hideCancelled, hideNoShow, sortField, sortDirection]);
+  }, [visitHistory, hideCancelled, hideNoShow, sortDirection]);
 
   const paginatedData = useMemo(() => {
     const startIndex = page * rowsPerPage;
     return filtered.slice(startIndex, startIndex + rowsPerPage);
   }, [filtered, page, rowsPerPage]);
 
-  function filterAppointmentForStatus(appointmentHistory: AppointmentHistoryRow, filterStatus: string): boolean {
-    if (!appointmentHistory.encounter) return false;
-    const appointmentStatus =
-      appointmentHistory.serviceMode === ServiceMode.virtual
-        ? getTelemedVisitStatus(appointmentHistory.encounter.status, appointmentHistory.appointment.status)
-        : getInPersonVisitStatus(appointmentHistory.appointment, appointmentHistory.encounter);
-    return filterStatus === appointmentStatus;
-  }
+  const sendInvoice = async (taskId: string, prefilledInvoiceInfo: PrefilledInvoiceInfo): Promise<void> => {
+    try {
+      if (oystehrZambda) {
+        await updateInvoiceTask(oystehrZambda, {
+          taskId,
+          status: 'requested',
+          prefilledInvoiceInfo,
+        });
+        setSelectedInvoiceTask(undefined);
+        void refetchVisitHistory();
+        enqueueSnackbar('Invoice created and sent successfully', { variant: 'success' });
+      }
+    } catch {
+      enqueueSnackbar('Error occurred during invoice creation, please try again', { variant: 'error' });
+    }
+  };
 
   const handleSort = (field: SortField): void => {
     if (sortField === field) {
@@ -317,8 +313,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   };
 
   const getFollowupEncountersForRow = (row: AppointmentHistoryRow): Encounter[] => {
-    if (!row.encounter?.id) return [];
-    return followupEncounters.filter((encounter) => encounter.partOf?.reference?.endsWith(row.encounter?.id || ''));
+    if (!row.encounterId) return [];
+    return followupEncounters.filter((encounter) => encounter.partOf?.reference?.endsWith(row.encounterId || ''));
   };
 
   const renderFollowupCellContent = (encounter: Encounter, columnId: string): React.ReactNode => {
@@ -343,7 +339,8 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         if (!encounter.reasonCode) return '-';
         return <Typography variant="body2">{encounter.reasonCode[0].text}</Typography>;
       case 'provider':
-        return <ProviderCell encounter={encounter} />;
+        // todo
+        return <ProviderCell name={undefined} />;
       case 'office':
         return location?.address?.state && location?.name
           ? `${location.address.state.toUpperCase()} - ${location.name}`
@@ -374,41 +371,32 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const renderCellContent = (row: AppointmentHistoryRow, columnId: string): React.ReactNode => {
     switch (columnId) {
       case 'dateTime':
-        return row.dateTime ? formatISOStringToDateAndTime(row.dateTime, row.officeTimeZone) : '-';
+        return row.dateTime ? formatISOStringToDateAndTime(row.dateTime) : '-';
       case 'status':
+        if (!row.status) return null;
         if (row.serviceMode === ServiceMode.virtual) {
-          if (!row.encounter) return null;
-          const status = getTelemedVisitStatus(row.encounter.status, row.appointment.status);
-          return !!status && <TelemedAppointmentStatusChip status={status} />;
+          // todo fix typing
+          return <TelemedAppointmentStatusChip status={`${row.status}` as TelemedAppointmentStatus} />;
         } else {
-          if (!row.encounter) return null;
-          const encounterStatus = getInPersonVisitStatus(row.appointment, row.encounter);
-          return encounterStatus || null;
+          return row.status;
         }
       case 'type':
-        return row.typeLabel || '-';
+        return getVisitTypeLabelForTypeAndServiceMode({ type: row.type, serviceMode: row.serviceMode });
       case 'reason':
-        return (
-          <Typography variant="body2">
-            {(row.appointment?.description ?? '')
-              .split(',')
-              .map((complaint) => complaint.trim())
-              .join(', ') || '-'}
-          </Typography>
-        );
+        return <Typography variant="body2">{row.visitReason || '-'}</Typography>;
       case 'provider':
-        return <ProviderCell encounter={row.encounter} />;
+        return <ProviderCell name={row.provider?.name} />;
       case 'office':
         return row.office || '-';
       case 'los':
         return row.length !== undefined ? `${formatMinutes(row.length)} ${row.length === 1 ? 'min' : 'mins'}` : '-';
       case 'info': {
-        if (!row.id) return null;
-        const isInPerson = isInPersonAppointment(row.appointment);
+        if (!row.appointmentId) return null;
+        const isInPerson = row.serviceMode === ServiceMode['in-person'];
         return (
           <RoundedButton
-            to={isInPerson ? `/visit/${row.id}` : getTelemedVisitDetailsUrl(row.id)}
-            state={{ encounterId: row.encounter?.id }}
+            to={isInPerson ? `/visit/${row.appointmentId}` : getTelemedVisitDetailsUrl(row.appointmentId)}
+            state={{ encounterId: row.encounterId }}
           >
             Visit Info
           </RoundedButton>
@@ -419,13 +407,63 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           <RoundedButton
             to={
               row.serviceMode === ServiceMode.virtual
-                ? `/telemed/appointments/${row.id}?tab=sign`
-                : `/in-person/${row.id}/progress-note`
+                ? `/telemed/appointments/${row.appointmentId}?tab=sign`
+                : `/in-person/${row.appointmentId}/progress-note`
             }
           >
             Progress Note
           </RoundedButton>
         );
+      case 'invoice': {
+        const lastEncounterTask = row.sendInvoiceTask;
+
+        let buttonColor: ButtonOwnProps['color'] = 'secondary';
+        let tooltipText = '---';
+        let buttonDisabled = true;
+        if (lastEncounterTask !== undefined) {
+          switch (lastEncounterTask?.status) {
+            case 'ready':
+              buttonColor = 'primary';
+              tooltipText = 'Invoice can be sent for this visit.';
+              buttonDisabled = false;
+              break;
+            case 'completed':
+              buttonColor = 'success';
+              tooltipText =
+                'Invoice has been sent and processed for this visit successfully. You can resend it by pressing this button';
+              buttonDisabled = false;
+              break;
+            case 'failed':
+              buttonColor = 'error';
+              tooltipText = 'Invoice has been sent but failed to process for this visit.';
+              buttonDisabled = false;
+              break;
+            default:
+              buttonColor = 'secondary';
+              tooltipText = "Invoice can't be sent for this visit yet.";
+              buttonDisabled = true;
+          }
+        } else {
+          buttonColor = 'inherit';
+          tooltipText = "Invoice can't be sent for this visit yet.";
+          buttonDisabled = true;
+        }
+        return (
+          <Tooltip title={tooltipText} placement="top">
+            <Box>
+              <RoundedButton
+                disabled={buttonDisabled}
+                color={buttonColor}
+                onClick={() => {
+                  setSelectedInvoiceTask(lastEncounterTask);
+                }}
+              >
+                Invoice
+              </RoundedButton>
+            </Box>
+          </Tooltip>
+        );
+      }
       default:
         return '-';
     }
@@ -435,13 +473,9 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <Typography variant="h4" color="primary.dark" sx={{ flexGrow: 1 }}>
-          Encounters - {appointments?.length || 0}
+          Encounters - {totalCount}
         </Typography>
-        {appointments?.[0]?.dateTime && (
-          <Typography>
-            Latest visit: {formatISOStringToDateAndTime(appointments[0].dateTime, appointments[0].officeTimeZone)}
-          </Typography>
-        )}
+        {latestVisitDate && <Typography>Latest visit: {formatISOStringToDateAndTime(latestVisitDate)}</Typography>}
         <RoundedButton to="/visits/add" target="_blank" variant="contained" startIcon={<AddIcon fontSize="small" />}>
           New Visit
         </RoundedButton>
@@ -457,13 +491,11 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       <Box sx={{ display: 'flex', gap: 2 }}>
         <TextField size="small" fullWidth label="Type" select value={type} onChange={(e) => setType(e.target.value)}>
           <MenuItem value="all">All</MenuItem>
-          <MenuItem value={visitTypeToInPersonLabel['walk-in']}>{visitTypeToInPersonLabel['walk-in']}</MenuItem>
-          <MenuItem value={visitTypeToInPersonLabel['post-telemed']}>
-            {visitTypeToInPersonLabel['post-telemed']}
-          </MenuItem>
-          <MenuItem value={visitTypeToInPersonLabel['pre-booked']}>{visitTypeToInPersonLabel['pre-booked']}</MenuItem>
-          <MenuItem value={visitTypeToTelemedLabel['pre-booked']}>{visitTypeToTelemedLabel['pre-booked']}</MenuItem>
-          <MenuItem value={visitTypeToTelemedLabel['walk-in']}>{visitTypeToTelemedLabel['walk-in']}</MenuItem>
+          <MenuItem value={'walk-in|in-person'}>{visitTypeToInPersonLabel['walk-in']}</MenuItem>
+          <MenuItem value={'post-telemed|in-person'}>{visitTypeToInPersonLabel['post-telemed']}</MenuItem>
+          <MenuItem value={'pre-booked|in-person'}>{visitTypeToInPersonLabel['pre-booked']}</MenuItem>
+          <MenuItem value={'pre-booked|virtual'}>{visitTypeToTelemedLabel['pre-booked']}</MenuItem>
+          <MenuItem value={'walk-in|virtual'}>{visitTypeToTelemedLabel['walk-in']}</MenuItem>
         </TextField>
 
         <TextField
@@ -550,7 +582,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
             </TableRow>
           </TableHead>
           <TableBody>
-            {loading ? (
+            {visitHistoryIsLoading ? (
               <TableRow>
                 <TableCell colSpan={columns.length} sx={{ textAlign: 'center', py: 4 }}>
                   Loading...
@@ -564,7 +596,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
               </TableRow>
             ) : (
               paginatedData.map((row, index) => {
-                const rowId = row.id || `row-${index}`;
+                const rowId = row.appointmentId || `row-${index}`;
                 const followupEncountersForRow = getFollowupEncountersForRow(row);
                 const hasFollowups = followupEncountersForRow.length > 0;
 
@@ -637,6 +669,14 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         page={page}
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
+      />
+      <SendInvoiceToPatientDialog
+        title="Send invoice"
+        modalOpen={selectedInvoiceTask !== undefined}
+        handleClose={() => setSelectedInvoiceTask(undefined)}
+        submitButtonName="Send"
+        onSubmit={sendInvoice}
+        invoiceTask={selectedInvoiceTask}
       />
     </Paper>
   );
