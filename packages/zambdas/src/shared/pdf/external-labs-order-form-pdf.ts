@@ -92,6 +92,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
   const yPosAtStartOfLocation = pdfClient.getY();
   let yPosAtEndOfLocation = yPosAtStartOfLocation;
   if (
+    data.clientOrgName ||
     data.locationName ||
     data.locationStreetAddress ||
     data.locationCity ||
@@ -100,6 +101,10 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
     data.locationPhone ||
     data.locationFax
   ) {
+    if (data.clientOrgName) {
+      pdfClient.drawTextSequential(data.clientOrgName, textStyles.textBold, leftColumnBounds);
+      pdfClient.newLine(STANDARD_NEW_LINE);
+    }
     if (data.locationName) {
       pdfClient.drawTextSequential(data.locationName, textStyles.textBold, leftColumnBounds);
       pdfClient.newLine(STANDARD_NEW_LINE);
@@ -332,6 +337,7 @@ export function getOrderFormDataConfig(
     isManualOrder,
     isPscOrder,
     coveragesAndOrgs,
+    clientOrganization,
   } = resources;
 
   const coverage = coveragesAndOrgs?.length ? coveragesAndOrgs?.[0].coverage : undefined;
@@ -348,6 +354,7 @@ export function getOrderFormDataConfig(
     locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
     locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
     labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
+    clientOrgName: clientOrganization.name,
     accountNumber,
     orderNumber: orderNumber || ORDER_ITEM_UNKNOWN,
     providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
