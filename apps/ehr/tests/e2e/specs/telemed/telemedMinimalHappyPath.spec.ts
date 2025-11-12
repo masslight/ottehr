@@ -113,11 +113,13 @@ test('Should fill all required fields', async () => {
   await waitForGetChartDataResponse(page, (json) => !!json.prescribedMedications);
 
   const patientInfoConfirmationCheckbox = page.getByTestId(dataTestIds.telemedEhrFlow.patientInfoConfirmationCheckbox);
+  await expect(patientInfoConfirmationCheckbox).toBeVisible();
+  await expect(patientInfoConfirmationCheckbox).toBeEnabled();
   const confirmationChecked = await patientInfoConfirmationCheckbox.isChecked();
   if (!confirmationChecked) {
-    await expect(patientInfoConfirmationCheckbox).toBeVisible();
     await patientInfoConfirmationCheckbox.click();
     await expect(patientInfoConfirmationCheckbox).toBeEnabled();
+    await expect(patientInfoConfirmationCheckbox).toBeChecked();
   }
 });
 

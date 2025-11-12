@@ -7,7 +7,7 @@ import { useDebounceNotesField } from '../../hooks/useDebounceNotesField';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 
 export const AddendumCard: FC = () => {
-  const { data: chartFields } = useChartFields({
+  const { data: chartFields, isFetching } = useChartFields({
     requestedFields: {
       addendumNote: {},
     },
@@ -52,7 +52,10 @@ export const AddendumCard: FC = () => {
               }}
               size="small"
               label="Notes"
-              disabled={appointmentAccessibility.isAppointmentReadOnly && !appointmentAccessibility.isAppointmentLocked}
+              disabled={
+                (appointmentAccessibility.isAppointmentReadOnly && !appointmentAccessibility.isAppointmentLocked) ||
+                isFetching
+              }
               fullWidth
               multiline
               InputProps={{

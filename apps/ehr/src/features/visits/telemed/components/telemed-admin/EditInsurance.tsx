@@ -102,7 +102,8 @@ export default function EditInsurance(): JSX.Element {
     reset({
       payor: insuranceDetails,
       displayName: insuranceDetails.name,
-      ...settingsMap,
+      // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
+      // ...settingsMap,
     });
     didSetInsuranceDetailsForm.current = true;
   }

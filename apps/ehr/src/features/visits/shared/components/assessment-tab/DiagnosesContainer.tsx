@@ -66,6 +66,7 @@ export const DiagnosesContainer: FC = () => {
         },
       }
     );
+    setPartialChartData({ diagnosis: newDiagnoses });
   };
 
   const onDelete = async (resourceId: string): Promise<void> => {
@@ -119,6 +120,7 @@ export const DiagnosesContainer: FC = () => {
         );
       }
     }
+    setPartialChartData({ diagnosis: localDiagnoses });
   };
 
   const onMakePrimary = (resourceId: string): void => {
@@ -149,6 +151,18 @@ export const DiagnosesContainer: FC = () => {
         },
       }
     );
+
+    setPartialChartData({
+      diagnosis: diagnoses.map((item) => {
+        if (item.isPrimary) {
+          return { ...item, isPrimary: false };
+        }
+        if (item.resourceId === resourceId) {
+          return { ...item, isPrimary: true };
+        }
+        return item;
+      }),
+    });
   };
 
   const handleSetup = (): void => {

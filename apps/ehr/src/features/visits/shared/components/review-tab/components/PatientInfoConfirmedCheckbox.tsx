@@ -7,7 +7,11 @@ import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointment
 import { useSaveChartData } from '../../../stores/appointment/appointment.store';
 
 export const PatientInfoConfirmedCheckbox: FC = () => {
-  const { data: chartData, setQueryCache } = useChartFields({
+  const {
+    data: chartData,
+    setQueryCache,
+    isFetching,
+  } = useChartFields({
     requestedFields: { patientInfoConfirmed: {} },
   });
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
@@ -40,7 +44,7 @@ export const PatientInfoConfirmedCheckbox: FC = () => {
     <FormControlLabel
       control={
         <Checkbox
-          disabled={isLoading || isReadOnly}
+          disabled={isLoading || isFetching || isReadOnly}
           checked={patientInfoConfirmed}
           data-testid={dataTestIds.telemedEhrFlow.patientInfoConfirmationCheckbox}
           onChange={(e) => onChange(e.target.checked)}

@@ -1,8 +1,11 @@
 import { Appointment, Encounter, Period, Slot } from 'fhir/r4b';
+import { z } from 'zod';
 import { AvailableLocationInformation, ServiceMode, TelemedAppointmentStatusEnum } from '../../types';
 import { SlotListItem } from '../../utils';
 
-export type AppointmentType = 'walk-in' | 'pre-booked' | 'post-telemed';
+export const AppointmentTypeOptions = ['walk-in', 'pre-booked', 'post-telemed'] as const;
+export type AppointmentType = (typeof AppointmentTypeOptions)[number];
+export const AppointmentTypeSchema = z.array(z.enum(AppointmentTypeOptions));
 
 export type ReviewAndSignData = {
   signedOnDate?: string;
