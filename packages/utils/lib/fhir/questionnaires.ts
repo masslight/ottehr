@@ -75,6 +75,7 @@ export const selectIntakeQuestionnaireResponse = (resources: FhirResource[]): Qu
     if (!questionnaireUrl) {
       return false;
     }
-    return BOOKING_CONFIG.intakeQuestionnaires.some((questionnaire) => questionnaire.url?.startsWith(questionnaireUrl));
+    console.log('alex questionnaireUrl', questionnaireUrl);
+    return BOOKING_CONFIG.intakeQuestionnaires.some((questionnaire) => questionnaireUrl.startsWith(questionnaire.url!));
   }) as QuestionnaireResponse | undefined;
 };
