@@ -7,7 +7,6 @@ import {
   formatPhoneNumberDisplay,
   getSecret,
   isLocationVirtual,
-  PROJECT_DOMAIN,
   PROJECT_NAME,
   Secrets,
   SecretsKeys,
@@ -274,7 +273,8 @@ export async function sendEmail(
 ): Promise<void> {
   console.log(`Sending email confirmation to ${email}`);
   const SENDGRID_API_KEY = getSecret(SecretsKeys.SENDGRID_API_KEY, secrets);
-  if (!(SENDGRID_API_KEY && templateID)) {
+  const SENDGRID_FROM_EMAIL = getSecret(SecretsKeys.SENDGRID_FROM_EMAIL, secrets);
+  if (!(SENDGRID_API_KEY && SENDGRID_FROM_EMAIL && templateID)) {
     console.error(
       "Email message can't be sent because either Sendgrid api key or message template ID variable was not set"
     );
@@ -289,11 +289,11 @@ export async function sendEmail(
   const emailConfiguration = {
     to: email,
     from: {
-      email: 'no-reply@' + PROJECT_DOMAIN,
+      email: SENDGRID_FROM_EMAIL,
       name: `${PROJECT_NAME} In Person`,
     },
     bcc: SENDGRID_EMAIL_BCC,
-    replyTo: 'no-reply@' + PROJECT_DOMAIN,
+    replyTo: SENDGRID_FROM_EMAIL,
     templateId: templateID,
     dynamic_template_data: {
       subject,

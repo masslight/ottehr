@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import moment from 'moment';
 import { AppointmentProviderNotificationTypes, getSecret, PROVIDER_NOTIFICATION_TYPE_SYSTEM, SecretsKeys } from 'utils';
 import { fetchPatientSettingsById } from '../../services/patientSettings';
-import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
+import { createOystehrClient, getAuth0Token, lambdaResponse, sendEmail, wrapHandler, ZambdaInput } from '../../shared';
 
 // For local development it makes it easier to track performance
 if (process.env.IS_OFFLINE === 'true') {
@@ -44,11 +44,14 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
         console.log('already have token');
       }
       const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
-      // const PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID = getSecret(
-      //   SecretsKeys.PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID,
-      //   secrets
-      // );
-      // console.log('PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID : ', PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID);
+      const PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID = getSecret(
+        SecretsKeys.PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID,
+        secrets
+      );
+      const PATIENT_VITAL_WARNING_TEMPLATE_EMAIL_TEMPLATE_ID = getSecret(
+        SecretsKeys.PATIENT_VITAL_WARNING_TEMPLATE_EMAIL_TEMPLATE_ID,
+        secrets
+      );
       const oystehr = createOystehrClient(oystehrToken, secrets);
 
       const roles = (await oystehr.role.list()).filter((x: any) => ['Provider', 'Staff'].includes(x.name));
@@ -490,17 +493,17 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
           console.log(`Sending warning notifications to ${warningUsers.length} staff members`);
 
           for (const user of warningUsers) {
-            // if (user.email) {
-            //   emailCalls.push(
-            //     sendEmail(
-            //       user.email,
-            //       PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID,
-            //       topicText,
-            //       templateInformation,
-            //       secrets
-            //     )
-            //   );
-            // }
+            if (user.email) {
+              emailCalls.push(
+                sendEmail(
+                  user.email,
+                  PATIENT_VITAL_WARNING_TEMPLATE_EMAIL_TEMPLATE_ID,
+                  topicText,
+                  templateInformation,
+                  secrets
+                )
+              );
+            }
             if (user.profile) {
               const payloadForCommunication = {
                 resourceType: 'Communication',
@@ -661,17 +664,17 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
           console.log(`Sending critical notifications to ${criticalUsers.length} users (providers and staff)`);
 
           for (const user of criticalUsers) {
-            // if (user.email) {
-            //   emailCalls.push(
-            //     sendEmail(
-            //       user.email,
-            //       PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID,
-            //       topicText,
-            //       templateInformation,
-            //       secrets
-            //     )
-            //   );
-            // }
+            if (user.email) {
+              emailCalls.push(
+                sendEmail(
+                  user.email,
+                  PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID,
+                  topicText,
+                  templateInformation,
+                  secrets
+                )
+              );
+            }
             if (user.profile) {
               const payloadForCommunication = {
                 resourceType: 'Communication',
