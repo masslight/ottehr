@@ -1184,6 +1184,8 @@ const getResultDetailsBasedOnDr = async (
         return 'final';
       case 'preliminary':
         return 'preliminary';
+      case 'corrected':
+        return 'corrected';
       case 'cancelled':
         return 'cancelled';
       default:
