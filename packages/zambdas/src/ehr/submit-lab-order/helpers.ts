@@ -43,6 +43,19 @@ import {
 export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
 
 type CoverageAndOrg = { coverage: Coverage; payorOrg: Organization };
+type InsurancePaymentResource = {
+  type: LabPaymentMethod.Insurance;
+  coverageAndOrgs: InsuranceCoverageAndOrgForOrderForm[];
+};
+type ClientBillResource = {
+  type: LabPaymentMethod.ClientBill;
+  coverage: Coverage;
+};
+type SelfPayResource = {
+  type: LabPaymentMethod.SelfPay;
+  coverage?: Coverage;
+};
+export type PaymentResources = InsurancePaymentResource | ClientBillResource | SelfPayResource;
 
 type LabOrderResourcesExtended = LabOrderResources & {
   accountNumber: string;
@@ -76,8 +89,7 @@ export type resourcesForOrderForm = {
   timezone: string | undefined;
   encounter: Encounter;
   location?: Location;
-  insuranceCoveragesAndOrgs?: InsuranceCoverageAndOrgForOrderForm[];
-  clientBillCoverage?: Coverage;
+  paymentResources: PaymentResources;
   account: Account;
   labGeneratedEReq?: DocumentReference; // will be generated after submit to oystehr labs IF applicable (right now only for labcorp & quest)
   abnDocRef?: DocumentReference; // will be generated after submit to oystehr labs IF applicable (right now only for labcorp & quest)
@@ -255,17 +267,11 @@ export async function getBundledOrderResources(
       if (bundledOrderResources[orderNumber]) {
         bundledOrderResources[orderNumber].testDetails.push(srTestDetail);
       } else {
-        const coveragesAndOrgsConfig = makeCoveragesAndOrgsForOrderForm(
+        const paymentResources = makePaymentResourceConfig(
+          allResources.serviceRequest.id,
           allResources.coveragesAndOrgs,
           allResources.account
         );
-        const insuranceCoveragesAndOrgs =
-          coveragesAndOrgsConfig?.type === LabPaymentMethod.Insurance ? coveragesAndOrgsConfig.data : undefined;
-        const clientBillCoverage =
-          coveragesAndOrgsConfig?.type === LabPaymentMethod.ClientBill
-            ? coveragesAndOrgsConfig.data.clientBillCoverage
-            : undefined;
-
         // oystehr labs will validate that all these resources match for each ServiceRequest submitted within
         // a bundled order so there is no need for us to do that validation here, we will just take the resources from the first ServiceRequest for that bundle
         bundledOrderResources[orderNumber] = {
@@ -279,8 +285,7 @@ export async function getBundledOrderResources(
           patient: allResources.patient,
           timezone: allResources.timezone,
           location: allResources.location,
-          insuranceCoveragesAndOrgs,
-          clientBillCoverage,
+          paymentResources,
           account: allResources.account,
         };
       }
@@ -578,22 +583,25 @@ export async function makeOrderFormsAndDocRefs(
   return presignedOrderFormURLs;
 }
 
-function makeCoveragesAndOrgsForOrderForm(
+function makePaymentResourceConfig(
+  serviceRequestID: string | undefined,
   coveragesAndOrgs: CoverageAndOrg[] | undefined,
   account: Account
-):
-  | { type: LabPaymentMethod.Insurance; data: InsuranceCoverageAndOrgForOrderForm[] }
-  | { type: LabPaymentMethod.ClientBill; data: { clientBillCoverage: Coverage } }
-  | undefined {
-  console.log('in makeCoveragesAndOrgsForOrderForm');
+): PaymentResources {
+  console.log('in makePaymentResourceConfig');
   console.log(`These are the coveragesAndOrgs: ${JSON.stringify(coveragesAndOrgs)}`);
-  if (!coveragesAndOrgs || !coveragesAndOrgs.length) return undefined;
+  console.log('For ServiceRequest', serviceRequestID);
+  if (!coveragesAndOrgs || !coveragesAndOrgs.length) return { type: LabPaymentMethod.SelfPay };
 
   const clientBillCoverageAndOrg = coveragesAndOrgs.find(
     (data) => paymentMethodFromCoverage(data.coverage) === LabPaymentMethod.ClientBill
   );
+  const selfPayCoverage = coveragesAndOrgs.find(
+    (data) => paymentMethodFromCoverage(data.coverage) === LabPaymentMethod.SelfPay
+  );
+
   if (clientBillCoverageAndOrg && coveragesAndOrgs.length === 1) {
-    return { type: LabPaymentMethod.ClientBill, data: { clientBillCoverage: clientBillCoverageAndOrg.coverage } };
+    return { type: LabPaymentMethod.ClientBill, coverage: clientBillCoverageAndOrg.coverage };
   } else if (
     coveragesAndOrgs.every((data) => paymentMethodFromCoverage(data.coverage) === LabPaymentMethod.Insurance)
   ) {
@@ -603,7 +611,7 @@ function makeCoveragesAndOrgsForOrderForm(
     );
 
     // this should only happen if there are no Coverages passed, which we know there would be
-    if (!sortedCoverages) return undefined;
+    if (!sortedCoverages) throw new Error('Error sorting coverages in makePaymentResourceConfig, none returned');
     console.log(
       `These are the sorted sortedCoverages ${JSON.stringify(sortedCoverages.map((e) => `Coverage/${e.id}`))}`
     );
@@ -611,7 +619,7 @@ function makeCoveragesAndOrgsForOrderForm(
     const coverageRefToResourcesMap = new Map<string, CoverageAndOrg>(
       coveragesAndOrgs.map((e) => [`Coverage/${e.coverage.id}`, e])
     );
-    const coveragesAndOrgsForOrderForm = sortedCoverages.map((coverage, idx) => {
+    const coveragesAndOrgsWithRank: InsuranceCoverageAndOrgForOrderForm[] = sortedCoverages.map((coverage, idx) => {
       const coverageAndOrg = coverageRefToResourcesMap.get(`Coverage/${coverage.id}`);
       if (!coverageAndOrg)
         throw EXTERNAL_LAB_ERROR(`Could not map Coverage back to its coverageAndOrg: Coverage/${coverage.id}`);
@@ -624,8 +632,8 @@ function makeCoveragesAndOrgsForOrderForm(
     });
 
     console.log(
-      `These are the coveragesAndOrgsForOrderForm: ${JSON.stringify(
-        coveragesAndOrgsForOrderForm.map((e) => {
+      `These are the coveragesAndOrgsWithRank: ${JSON.stringify(
+        coveragesAndOrgsWithRank.map((e) => {
           return {
             coverage: `Coverage/${e.coverage}`,
             insuranceOrganization: `Organization/${e.insuranceOrganization}`,
@@ -635,7 +643,9 @@ function makeCoveragesAndOrgsForOrderForm(
       )}`
     );
 
-    return { type: LabPaymentMethod.Insurance, data: coveragesAndOrgsForOrderForm };
+    return { type: LabPaymentMethod.Insurance, coverageAndOrgs: coveragesAndOrgsWithRank };
+  } else if (selfPayCoverage && coveragesAndOrgs.length === 1) {
+    return { type: LabPaymentMethod.SelfPay, coverage: selfPayCoverage.coverage };
   } else {
     const coverageIdWithPaymentMethod = coveragesAndOrgs.map((data) => ({
       coverageId: data.coverage.id,
@@ -646,6 +656,10 @@ function makeCoveragesAndOrgsForOrderForm(
         coverageIdWithPaymentMethod
       )}`
     );
-    return;
+    // right now labs can only have one type of payment method: self pay or insurance or client bill
+    // possibly in the future we could allow a combo of self pay and insurance (maybe idk) and then this error is not needed
+    throw new Error(
+      `Could not determine the payment method based on coverages linked to this service request ${serviceRequestID}`
+    );
   }
 }

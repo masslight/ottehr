@@ -8,10 +8,11 @@ import {
   formatPhoneNumberDisplay,
   getFullestAvailableName,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
+  LabPaymentMethod,
   ORDER_ITEM_UNKNOWN,
   Secrets,
 } from 'utils';
-import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/submit-lab-order/helpers';
+import { LABS_DATE_STRING_FORMAT, PaymentResources, resourcesForOrderForm } from '../../ehr/submit-lab-order/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { drawFieldLineBoldHeader, getPdfClientForLabsPDFs, LabsPDFTextStyleConfig } from './lab-pdf-utils';
@@ -337,18 +338,19 @@ export function getOrderFormDataConfig(
     location,
     isManualOrder,
     isPscOrder,
-    insuranceCoveragesAndOrgs,
-    clientBillCoverage,
+    paymentResources,
   } = resources;
 
-  let coverage: Coverage | undefined;
-  if (insuranceCoveragesAndOrgs?.length) {
-    coverage = insuranceCoveragesAndOrgs[0].coverage;
-  } else if (clientBillCoverage) {
-    coverage = clientBillCoverage;
-  }
   // this is the same logic we use in oystehr to determine PV1-20
-  const getBillClass = (coverage: Coverage | undefined): string => {
+  const getBillClass = (paymentResources: PaymentResources): string => {
+    let coverage: Coverage | undefined;
+    if (paymentResources.type === LabPaymentMethod.Insurance) {
+      coverage = paymentResources.coverageAndOrgs[0].coverage;
+    } else {
+      // client bill or self pay
+      coverage = paymentResources.coverage;
+    }
+
     const coverageType = coverage?.type?.coding?.[0]?.code; // assumption: we'll use the first code in the list
     if (!coverage || coverageType === 'pay') {
       return 'Patient Bill (P)';
@@ -358,7 +360,12 @@ export function getOrderFormDataConfig(
       return 'Third-Party Bill (T)';
     }
   };
-  const billClass = getBillClass(coverage);
+  const billClass = getBillClass(paymentResources);
+
+  const insuranceDetails =
+    paymentResources.type === LabPaymentMethod.Insurance
+      ? getInsuranceDetails(paymentResources.coverageAndOrgs, patient, oystehr)
+      : undefined;
 
   const dataConfig: ExternalLabOrderFormData = {
     locationName: location?.name,
@@ -388,7 +395,7 @@ export function getOrderFormDataConfig(
     dateIncludedInFileName: testDetails[0].serviceRequestCreatedDate,
     orderPriority: testDetails[0].testPriority || ORDER_ITEM_UNKNOWN, // used for file name
     billClass,
-    insuranceDetails: getInsuranceDetails(insuranceCoveragesAndOrgs, patient, oystehr),
+    insuranceDetails,
     testDetails,
     isManualOrder,
     isPscOrder,
