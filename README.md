@@ -72,21 +72,15 @@ Then, move into the new directory
 cd ottehr
 ```
 
-### Run the Setup Script
+### Configure Your Environment
+
+Follow the instructions on setting up a new project in [`deploy/README.md`](/deploy/README.md#setting-up-a-new-project).
+
+### Run the Application
 
 ```bash
-./scripts/ottehr-setup.sh
+npm run apps:start
 ```
-
-The script will prompt you for the following information:
-
-- Your access token &mdash; Log in to your Oystehr project on the [Oystehr Console](https://console.oystehr.com), and copy the access token from the dashboard.
-- Your project ID &mdash; Listed on the Oystehr Console next to the access token
-- An email address for your first Provider User of the EHR &mdash; Put your email here.
-
-When the setup script finishes, the intake and EHR websites will open automatically, and the email address you provided will receive an invitation to join the EHR.
-
-You only need to run the setup script once. To start the apps going forward, use `npm run apps:start`.
 
 ### Log in and explore the Patient app
 
