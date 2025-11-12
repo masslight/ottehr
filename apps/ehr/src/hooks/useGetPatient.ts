@@ -1,13 +1,6 @@
 import { BundleEntry } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import {
-  Bundle,
-  FhirResource,
-  Organization,
-  Patient,
-  QuestionnaireResponse,
-  RelatedPerson,
-} from 'fhir/r4b';
+import { Bundle, FhirResource, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
