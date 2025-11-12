@@ -1,4 +1,4 @@
-import { Task } from 'fhir/r4b';
+import { Encounter, Task } from 'fhir/r4b';
 import { ServiceMode } from '../common';
 import { TelemedAppointmentStatusEnum } from '../data';
 import { AppointmentType, VisitStatusLabel } from './appointment.types';
@@ -31,13 +31,24 @@ interface BaseAppointmentHistoryRow {
     | undefined;
 }
 
+export interface FollowUpVisitHistoryRow
+  extends Omit<BaseAppointmentHistoryRow, 'appointmentId' | 'type' | 'status' | 'length'> {
+  encounterId: string;
+  originalEncounterId: string | undefined;
+  originalAppointmentId: string | undefined;
+  status: Encounter['status'];
+  type: string | undefined;
+}
+
 type InPersonAppointmentHistoryRow = BaseAppointmentHistoryRow & {
   serviceMode: Omit<ServiceMode, 'virtual'>;
   status: VisitStatusLabel | undefined;
+  followUps: FollowUpVisitHistoryRow[] | undefined;
 };
 type VirtualAppointmentHistoryRow = BaseAppointmentHistoryRow & {
   serviceMode: ServiceMode.virtual;
   status: TelemedAppointmentStatusEnum | undefined;
+  followUps: FollowUpVisitHistoryRow[] | undefined;
 };
 
 export type AppointmentHistoryRow = InPersonAppointmentHistoryRow | VirtualAppointmentHistoryRow;
