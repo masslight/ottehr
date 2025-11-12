@@ -75,8 +75,10 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
     };
   });
 
-  const encounterId =
-    appointments?.find((appointment) => appointment.appointmentId === formValue.appointment)?.encounterId ?? '';
+  const { encounter } = useAppointmentData(
+    appointments?.find((appointment) => appointment.appointmentId === formValue.appointment)?.appointmentId
+  );
+  const encounterId = encounter?.id ?? '';
 
   const { inHouseLabOrdersLoading, inHouseLabOrdersOptions } = useInHouseLabOrdersOptions(encounterId);
   const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId);
