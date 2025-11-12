@@ -96,14 +96,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     try {
       if (encounter?.id) {
-        const validFollowups = allEncounters.filter((e) => isFollowupEncounter(e));
-
         const getEncounterSortValue = (encounterResource: Encounter): number => {
           const dateString = encounterResource.period?.start ?? encounterResource.period?.end;
           return dateString ? new Date(dateString).getTime() : Number.POSITIVE_INFINITY;
         };
 
-        const sortedFollowups = [...validFollowups].sort((a, b) => getEncounterSortValue(a) - getEncounterSortValue(b));
+        const sortedFollowups = allEncounters
+          .filter((e) => isFollowupEncounter(e))
+          .sort((a, b) => getEncounterSortValue(a) - getEncounterSortValue(b));
 
         followUps = await Promise.all(
           sortedFollowups.map(async (followupEncounter) => {
