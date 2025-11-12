@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.21.33",
+  "version": "1.21.34",
   "private": true,
   "type": "module",
   "engines": {
