@@ -621,7 +621,7 @@ const getAdditionalResources = async (
           const curSrIsPsc = isPSCOrder(sr);
           if (curSrIsPsc === psc) {
             // we bundled psc orders separately, so if the current test being submitted is psc
-            // it should only be bundled under the same requsition number if there are other psc orders for this lab
+            // it should only be bundled under the same requisition number if there are other psc orders for this lab
             serviceRequestsForBundle.push(sr);
           }
         } else {

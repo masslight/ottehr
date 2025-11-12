@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# cSpell:disable-next flags
 set -xeuo pipefail
 
 ENV=${1:-local}
@@ -22,4 +23,8 @@ fi
 if grep "^gcp_project" ${ENV}.tfvars; then
   cp gcp.tf.override gcp_override.tf
 fi
+npm run terraform-init
+
+# To debug without applying, uncomment the plan command and comment out the apply command
 terraform apply -no-color -parallelism=20 -var-file="${ENV}.tfvars" "${AUTO_APPROVE}"
+# terraform plan -no-color -parallelism=20 -var-file="${ENV}.tfvars"

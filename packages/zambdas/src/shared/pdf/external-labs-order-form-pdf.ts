@@ -248,7 +248,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
   }
 
   // Test Details
-  console.log('Drawing test deails section');
+  console.log('Drawing test details section');
   pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
   pdfClient.drawTextSequential('Labs', textStyles.header);
 
@@ -484,7 +484,7 @@ function drawInsuranceDetail(
       case 2:
         return 'Secondary';
       case 3:
-        return 'Terciary';
+        return 'Tertiary';
       default:
         return 'Additional';
     }

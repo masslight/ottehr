@@ -1,12 +1,14 @@
-import { Coverage, DiagnosticReport, Location, Organization, ServiceRequest } from 'fhir/r4b';
+import { Coverage, DiagnosticReport, DocumentReference, Location, Organization, ServiceRequest } from 'fhir/r4b';
 import {
   CreateLabPaymentMethod,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
+  LAB_DOC_REF_TAG_hl7_TRANSMISSION,
   LabPaymentMethod,
   LabsTableColumn,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   ORDER_NUMBER_LEN,
+  OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM,
@@ -213,3 +215,21 @@ export function serviceRequestPaymentMethod(
   console.log('service request payment method and id', paymentMethod, serviceRequest.id);
   return paymentMethod;
 }
+
+export const docRefIsLabGeneratedResult = (docRef: DocumentReference): boolean => {
+  return !!docRef.category?.find(
+    (cat) =>
+      cat.coding?.find(
+        (code) =>
+          code.system === OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING.system &&
+          code.code === OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING.code
+      )
+  );
+};
+
+export const docRefIsOgHl7Transmission = (docRef: DocumentReference): boolean => {
+  return !!docRef.meta?.tag?.some(
+    (tag) =>
+      tag.system === LAB_DOC_REF_TAG_hl7_TRANSMISSION.system && tag.code === LAB_DOC_REF_TAG_hl7_TRANSMISSION.code
+  );
+};

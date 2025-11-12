@@ -147,13 +147,16 @@ export const useInsuranceMutation = (
             ],
           },
         ],
+        identifier: insurancePlan?.identifier,
+        address: insurancePlan?.address,
       };
-      if (!requirementSettingsExistingExtensions) {
-        resourceExtensions?.push({
-          url: FHIR_EXTENSION.InsurancePlan.insuranceRequirements.url,
-          extension: requirementSettingsNewExtensions,
-        });
-      }
+      // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
+      // if (!requirementSettingsExistingExtensions) {
+      //   resourceExtensions?.push({
+      //     url: FHIR_EXTENSION.InsurancePlan.insuranceRequirements.url,
+      //     extension: requirementSettingsNewExtensions,
+      //   });
+      // }
       resource.extension = resourceExtensions;
 
       if (!oystehr) throw new Error('Oystehr is not defined');

@@ -36,6 +36,6 @@
     }
   },
   "extensions": {
-    "recommendations": ["dbaeumer.vscode-eslint", "streetsidesoftware.code-spell-checker", "eamodio.gitlens"]
+    "recommendations": ["dbaeumer.vscode-eslint", "streetsidesoftware.code-spell-checker", "eamodio.gitlens", "usernamehw.errorlens"]
   }
 }

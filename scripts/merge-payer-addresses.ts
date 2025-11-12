@@ -73,7 +73,7 @@ type InputJson = {
 };
 
 type CsvRow = {
-  payerIdNorm: string; // normalized (trimmed, uppercased); may be empty
+  payerIdNorm: string; // normalized (trimmed, converted to uppercase); may be empty
   rawPayerId: string; // original (may be empty)
   name: string;
   line: string;

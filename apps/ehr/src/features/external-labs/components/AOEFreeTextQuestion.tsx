@@ -24,7 +24,7 @@ export const AOEFreeTextQuestion: React.FC<FreeTextQuestionProps> = (props) => {
       sx={{ width: '100%' }}
       required={required}
       error={!!errors[linkId]}
-      // max length for labs input is 150 chararacters https://github.com/masslight/ottehr/issues/2467
+      // max length for labs input is 150 characters https://github.com/masslight/ottehr/issues/2467
       inputProps={{ readOnly: isReadOnly, maxLength: 150 }}
     />
   );

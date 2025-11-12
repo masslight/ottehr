@@ -49,14 +49,14 @@ export function createOystehrClient(token: string, fhirAPI: string, projectAPI: 
   return new Oystehr(CLIENT_CONFIG);
 }
 
-export type FetchClientWithOystAuth = {
-  oystFetch: <T = any>(method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH', url: string, body?: any) => Promise<T>;
+export type FetchClientWithOysterAuth = {
+  oystehrFetch: <T = any>(method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH', url: string, body?: any) => Promise<T>;
 };
 
-export function createFetchClientWithOystAuth(params: {
+export function createFetchClientWithOystehrAuth(params: {
   authToken: string;
   projectId?: string;
-}): FetchClientWithOystAuth {
+}): FetchClientWithOysterAuth {
   const authToken = params.authToken;
   const oystehrProjectId = params.projectId;
 
@@ -91,7 +91,7 @@ export function createFetchClientWithOystAuth(params: {
     return {} as T;
   }
   return {
-    oystFetch: fetchWithOystehrAuth,
+    oystehrFetch: fetchWithOystehrAuth,
   };
 }
 
@@ -339,6 +339,7 @@ export const DEMO_VISIT_PRACTICE_NAME = 'Practice name';
 export const DEMO_VISIT_PHYSICIAN_ADDRESS = '441 4th Street, NW';
 export const DEMO_VISIT_PHYSICIAN_MOBILE = '(202) 456-7890';
 export const DEMO_VISIT_EMERGENCY_CONTACT_RELATIONSHIP = 'Spouse';
+// cSpell:disable-next emergen(cy)
 export const DEMO_VISIT_EMERGENCY_CONTACT_FIRST_NAME = 'Emergen';
 export const DEMO_VISIT_EMERGENCY_CONTACT_MIDDLE_NAME = 'C';
 export const DEMO_VISIT_EMERGENCY_CONTACT_LAST_NAME = 'Contact';
@@ -1439,4 +1440,15 @@ export function formatZipcodeForDisplay(addressOrZip: string): string {
   console.log(`This is zipMatch ${JSON.stringify(zipMatch)}`);
   if (!zipMatch) return addressOrZip;
   return addressOrZip.replace(regexPattern, `${zipMatch[1]}-${zipMatch[2]}`);
+}
+
+export interface TemplateVariables {
+  [key: string]: string | number;
+}
+
+// <key> syntax
+export function replaceTemplateVariablesArrows(template: string, variables: TemplateVariables): string {
+  return template.replace(/<([\w-]+)>/g, (match, key) => {
+    return variables[key]?.toString() || match;
+  });
 }

@@ -383,8 +383,8 @@ async function candidCreateEncounterRequest(
         return [];
       }
 
-      const isEandMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
-      if (isEandMCode && isTelemedAppointment(appointment)) {
+      const isEAndMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
+      if (isEAndMCode && isTelemedAppointment(appointment)) {
         modifiers = ['95'];
       }
       return [
@@ -1280,8 +1280,8 @@ async function candidCreateEncounterFromAppointmentRequest(
         return [];
       }
 
-      const isEandMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
-      if (isEandMCode && isTelemedAppointment(appointment)) {
+      const isEAndMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
+      if (isEAndMCode && isTelemedAppointment(appointment)) {
         modifiers = ['95'];
       }
       return [
@@ -1310,3 +1310,7 @@ export const makeBusinessIdentifierForCandidPayment = (candidPaymentId: string):
     value: candidPaymentId,
   };
 };
+
+export function getCandidEncounterIdFromEncounter(encounter: Encounter): string | undefined {
+  return encounter.identifier?.find((idn) => idn.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM)?.value;
+}

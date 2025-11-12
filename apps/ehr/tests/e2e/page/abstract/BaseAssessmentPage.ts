@@ -1,4 +1,4 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
@@ -8,6 +8,10 @@ export abstract class BaseAssessmentPage {
 
   constructor(page: Page) {
     this.#page = page;
+  }
+
+  async emCodeDropdown(): Promise<Locator> {
+    return await this.#page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown);
   }
 
   async expectDiagnosisDropdown(): Promise<void> {
@@ -60,12 +64,13 @@ export abstract class BaseAssessmentPage {
   }
 
   async expectEmCodeDropdown(): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown)).toBeVisible();
+    await expect(await this.emCodeDropdown()).toBeVisible();
   }
 
   async selectEmCode(code: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown).click();
-    await this.#page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown).locator('input').fill(code);
+    const emCodeDropdown = await this.emCodeDropdown();
+    await emCodeDropdown.click();
+    await emCodeDropdown.locator('input').fill(code);
     await this.#page.getByRole('option').first().waitFor();
     await this.#page.getByRole('option').first().click();
   }
