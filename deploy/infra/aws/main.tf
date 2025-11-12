@@ -10,8 +10,11 @@ terraform {
 ##### EHR Bucket #####
 
 resource "aws_s3_bucket" "ehr_bucket" {
-  bucket        = "ottehr-${var.project_id}-ehr"
+  bucket        = "ottehr-${var.project_id}-ehr.ottehr.com"
   force_destroy = true
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_website_configuration" "ehr_website" {
@@ -22,6 +25,9 @@ resource "aws_s3_bucket_website_configuration" "ehr_website" {
   error_document {
     key = "index.html"
   }
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "ehr_pab" {
@@ -30,6 +36,9 @@ resource "aws_s3_bucket_public_access_block" "ehr_pab" {
   block_public_policy     = false
   ignore_public_acls      = true
   restrict_public_buckets = false
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_ownership_controls" "ehr_ownership" {
@@ -37,6 +46,9 @@ resource "aws_s3_bucket_ownership_controls" "ehr_ownership" {
 
   rule {
     object_ownership = "BucketOwnerEnforced"
+  }
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
@@ -59,15 +71,26 @@ resource "aws_s3_bucket_policy" "ehr_bucket_policy" {
   depends_on = [aws_s3_bucket_public_access_block.ehr_pab]
   bucket     = aws_s3_bucket.ehr_bucket.id
   policy     = data.aws_iam_policy_document.ehr_policy.json
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 ##### EHR CloudFront Distribution #####
 
+data "aws_acm_certificate" "ehr_cert" {
+  count       = var.ehr_cert_domain == null ? 0 : 1
+  domain      = var.ehr_cert_domain
+  statuses    = ["ISSUED"]
+  most_recent = true
+}
+
 resource "aws_cloudfront_distribution" "ehr_cf" {
-  depends_on   = [aws_s3_bucket.ehr_bucket]
-  enabled      = true
-  comment      = "ottehr-ehr-${var.project_id}"
-  http_version = "http2"
+  depends_on      = [aws_s3_bucket.ehr_bucket]
+  enabled         = true
+  comment         = "ottehr-ehr-${var.project_id}"
+  http_version    = "http2"
+  is_ipv6_enabled = true
   origin {
     domain_name = aws_s3_bucket_website_configuration.ehr_website.website_endpoint
     origin_id   = "ottehr-ehr-${var.project_id}"
@@ -97,8 +120,13 @@ resource "aws_cloudfront_distribution" "ehr_cf" {
     }
   }
   viewer_certificate {
-    # TODO: support ACM certificates
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = var.ehr_cert_domain == null ? true : false
+    acm_certificate_arn            = var.ehr_cert_domain == null ? null : data.aws_acm_certificate.ehr_cert[0].arn
+    minimum_protocol_version       = "TLSv1.2_2021"
+    ssl_support_method             = "sni-only"
+  }
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
@@ -107,6 +135,9 @@ resource "aws_cloudfront_distribution" "ehr_cf" {
 resource "aws_s3_bucket" "patient_portal_bucket" {
   bucket        = "ottehr-${var.project_id}-patient-portal"
   force_destroy = true
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_website_configuration" "patient_portal_website" {
@@ -117,6 +148,9 @@ resource "aws_s3_bucket_website_configuration" "patient_portal_website" {
   error_document {
     key = "index.html"
   }
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "patient_portal_pab" {
@@ -125,6 +159,9 @@ resource "aws_s3_bucket_public_access_block" "patient_portal_pab" {
   block_public_policy     = false
   ignore_public_acls      = true
   restrict_public_buckets = false
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_ownership_controls" "patient_portal_ownership" {
@@ -132,6 +169,9 @@ resource "aws_s3_bucket_ownership_controls" "patient_portal_ownership" {
 
   rule {
     object_ownership = "BucketOwnerPreferred"
+  }
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
@@ -154,13 +194,25 @@ resource "aws_s3_bucket_policy" "patient_portal_bucket_policy" {
   depends_on = [aws_s3_bucket_public_access_block.patient_portal_pab]
   bucket     = aws_s3_bucket.patient_portal_bucket.id
   policy     = data.aws_iam_policy_document.patient_portal_policy.json
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 ##### Patient Portal CloudFront Distribution #####
 
+data "aws_acm_certificate" "patient_portal_cert" {
+  count       = var.patient_portal_cert_domain == null ? 0 : 1
+  domain      = var.patient_portal_cert_domain
+  statuses    = ["ISSUED"]
+  most_recent = true
+}
+
 resource "aws_cloudfront_distribution" "patient_portal_cf" {
-  enabled = true
-  comment = "ottehr-patient-portal-${var.project_id}"
+  enabled         = true
+  comment         = "ottehr-patient-portal-${var.project_id}"
+  http_version    = "http2"
+  is_ipv6_enabled = true
   origin {
     domain_name = aws_s3_bucket_website_configuration.patient_portal_website.website_endpoint
     origin_id   = "ottehr-patient-portal-${var.project_id}"
@@ -190,7 +242,12 @@ resource "aws_cloudfront_distribution" "patient_portal_cf" {
     }
   }
   viewer_certificate {
-    # TODO: support ACM certificates
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = var.patient_portal_cert_domain == null ? true : false
+    acm_certificate_arn            = var.patient_portal_cert_domain == null ? null : data.aws_acm_certificate.patient_portal_cert[0].arn
+    minimum_protocol_version       = "TLSv1.2_2021"
+    ssl_support_method             = "sni-only"
+  }
+  lifecycle {
+    prevent_destroy = true
   }
 }

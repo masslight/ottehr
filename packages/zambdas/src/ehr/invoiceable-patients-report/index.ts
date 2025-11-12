@@ -5,6 +5,8 @@ import { Account, Appointment, Encounter, Patient, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createCandidApiClient,
+  getCandidInventoryPagesRecursive,
+  getPatientReferenceFromAccount,
   getResourcesFromBatchInlineRequests,
   getSecret,
   InvoiceablePatientReport,
@@ -21,16 +23,12 @@ import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  getCandidEncounterIdFromEncounter,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import {
-  getCandidItemizationMap,
-  getCandidPagesRecursive,
-  InvoiceableClaim,
-  mapResourcesToInvoiceablePatient,
-} from './helpers';
+import { getCandidItemizationMap, InvoiceableClaim, mapResourcesToInvoiceablePatient } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -90,16 +88,12 @@ async function getInvoiceableClaims(input: InvoiceableClaimsInput): Promise<Invo
     const { candid, limitPerPage, onlyInvoiceable } = input;
 
     console.log('🔍 Fetching patient inventory from Candid...');
-    const inventoryPages = await getCandidPagesRecursive({
+    const inventoryPages = await getCandidInventoryPagesRecursive({
       candid,
       claims: [],
       limitPerPage,
       pageCount: 0,
       onlyInvoiceable,
-    });
-
-    inventoryPages?.claims.forEach((claim) => {
-      if (claim.patientArStatus !== 'invoiceable') console.log('not invoiceable');
     });
 
     console.log('\n📊 Patient Inventory Response:');
@@ -174,9 +168,7 @@ async function getInvoiceablePatientsReport(input: {
         patientToIdMap[resource.id] = resource as Patient;
       }
       if (resource.resourceType === 'Account') {
-        const patientId = (resource as Account).subject
-          ?.find((subject) => subject.reference?.includes('Patient/'))
-          ?.reference?.split('/')[1];
+        const patientId = getPatientReferenceFromAccount(resource as Account)?.split('/')[1];
         if (patientId) {
           accountsToPatientIdMap[patientId] = resource as Account;
         }
@@ -185,9 +177,7 @@ async function getInvoiceablePatientsReport(input: {
         appointmentToIdMap[resource.id] = resource as Appointment;
       }
       if (resource.resourceType === 'Encounter') {
-        const candidEncounterId = (resource as Encounter).identifier?.find(
-          (idn) => idn.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM
-        )?.value;
+        const candidEncounterId = getCandidEncounterIdFromEncounter(resource as Encounter);
         if (candidEncounterId) encounterToCandidIdMap[candidEncounterId] = resource as Encounter;
       }
     });

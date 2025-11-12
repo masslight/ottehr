@@ -239,8 +239,12 @@ test('Add E&M code', async () => {
 
   // Select E&M code
   await test.step('Select E&M code', async () => {
+    const emCodeDropdown = await assessmentPage.emCodeDropdown();
     await assessmentPage.selectEmCode(E_M_CODE);
     await waitForSaveChartDataResponse(page, (json) => json.chartData.emCode?.code === E_M_CODE);
+    await expect(emCodeDropdown.locator('input')).toBeEnabled();
+    const value = await emCodeDropdown.locator('input').inputValue();
+    expect(value).toContain(E_M_CODE);
   });
 
   await test.step('Verify E&M code is added', async () => {

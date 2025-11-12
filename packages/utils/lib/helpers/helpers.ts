@@ -1441,3 +1441,14 @@ export function formatZipcodeForDisplay(addressOrZip: string): string {
   if (!zipMatch) return addressOrZip;
   return addressOrZip.replace(regexPattern, `${zipMatch[1]}-${zipMatch[2]}`);
 }
+
+export interface TemplateVariables {
+  [key: string]: string | number;
+}
+
+// <key> syntax
+export function replaceTemplateVariablesArrows(template: string, variables: TemplateVariables): string {
+  return template.replace(/<([\w-]+)>/g, (match, key) => {
+    return variables[key]?.toString() || match;
+  });
+}
