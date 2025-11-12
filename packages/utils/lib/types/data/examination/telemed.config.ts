@@ -1,3 +1,4 @@
+// cSpell:ignore andor, decreasedrom, lowerleg, upperarm
 import { createCodeableConcept } from '../../api';
 
 export const TelemedExamConfig = {

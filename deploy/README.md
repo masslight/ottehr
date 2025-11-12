@@ -41,16 +41,25 @@ There are npm scripts for deploying to local, staging, and production, as well a
 - `npm run apply-${env}` &mdash; generates Terraform config and deploys using `main.tf` and the `deploy/${env}.tfvars` file; the state is stored in the Terraform workspace corresponding to the environment
 - `npm run terraform-setup` &mdash; one-time configuration to set up Terraform workspaces for all environments
 
-## First-time Setup
+## Setting up a New Project
 
 ### Requirements
 
 - Install Terraform [as discussed above](#terraform)
 - Create an Oystehr project in the [Oystehr developer console](https://console.oystehr.com).
 - Create an M2M Client with full access rights in your Oystehr project; you can use the default M2M created during project setup.
-- Configure your local Terraform variables (`.tfvars`)
+- Configure your local Terraform variables (`.tfvars`).
 - Configure your Terraform Backend.
+
+Run only once for all environments:
+
 - Run `npm run terraform-setup` to configure remote state and workspaces.
+
+If you need to set up a new environment that wasn't previously set up by that npm script, such as adding a `uat` environment, add a new workspace using the terraform CLI:
+
+```bash
+terraform workspace new uat
+```
 
 ### Terraform Variables
 

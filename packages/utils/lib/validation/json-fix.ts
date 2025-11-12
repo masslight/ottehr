@@ -1,6 +1,6 @@
 /**
  * Fixes broken JSON strings by removing any leading or trailing characters for filtering AI responses.
- * Validates that the result is parseable JSON and returns the parsed object.
+ * Validates that the result is parsable JSON and returns the parsed object.
  */
 export function fixAndParseJsonObjectFromString(jsonString: string): Record<string, unknown> | unknown[] {
   if (!jsonString || typeof jsonString !== 'string') {

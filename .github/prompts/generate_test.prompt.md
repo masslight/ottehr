@@ -16,4 +16,4 @@ Project e2e testing setup:
 Instructions:
 - IMPORTANT: During running of MCP server and browser testing use existing processes and applications that were already run by the user!
 - use this script for creating a test appointment in the EHR `apps/ehr/tests/e2e-utils/create-test-appointment.ts`, get appointment ID from what it returns and use it in tests
-- for authentication in EHR app use credentioals for test user from apps/ehr/env/tests.local.json
+- for authentication in EHR app use credentials for test user from apps/ehr/env/tests.local.json

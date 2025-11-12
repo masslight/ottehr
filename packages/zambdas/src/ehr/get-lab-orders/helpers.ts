@@ -625,7 +625,11 @@ export const getLabResources = async (
   ] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests, params.secrets.ENVIRONMENT),
     fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
-    checkForDiagnosticReportDrivenResults(oystehr, serviceRequests, params.secrets.ENVIRONMENT),
+    checkForDiagnosticReportDrivenResults({
+      oystehr,
+      searchBy: { search: 'list', serviceRequests },
+      environment: params.secrets.ENVIRONMENT,
+    }),
     executeByCondition(isDetailPageRequest, () =>
       fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
     ),
@@ -961,44 +965,68 @@ export const extractLabResources = (
   };
 };
 
-export const checkForDiagnosticReportDrivenResults = async (
-  oystehr: Oystehr,
-  serviceRequests: ServiceRequest[],
-  environment: string
-): Promise<ResourcesByDr | undefined> => {
-  if (!serviceRequests.length) return;
-
-  const orderNumbersWithSystem = serviceRequests
-    .map((sr) => {
-      const orderNumber = getOrderNumber(sr);
-      if (orderNumber) {
-        return `${OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM}|${orderNumber}`;
-      } else {
-        return;
+interface DrResourceSearchParams {
+  oystehr: Oystehr;
+  searchBy:
+    | {
+        search: 'detail';
+        drId: string;
       }
-    })
-    .filter((value): value is string => value !== undefined);
+    | {
+        search: 'list';
+        serviceRequests: ServiceRequest[];
+      };
+  environment: string;
+}
+export const checkForDiagnosticReportDrivenResults = async (
+  input: DrResourceSearchParams
+): Promise<ResourcesByDr | undefined> => {
+  const { oystehr, searchBy, environment } = input;
 
-  if (orderNumbersWithSystem.length === 0) return; // this really should not happen, all SRs should have an orderNumber
+  const params = [
+    {
+      name: '_tag',
+      value: `${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.reflex},${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.attachment}`,
+    }, // only grab those tagged with reflex or pdfAttachment
+    { name: '_revinclude', value: 'Task:based-on' }, // review task
+    { name: '_revinclude:iterate', value: 'DocumentReference:related' }, // result pdf
+    { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
+    { name: '_include', value: 'DiagnosticReport:encounter' },
+  ];
+
+  if (searchBy.search === 'list') {
+    const serviceRequests = searchBy.serviceRequests;
+    if (!serviceRequests.length) return;
+
+    const orderNumbersWithSystem = serviceRequests
+      .map((sr) => {
+        const orderNumber = getOrderNumber(sr);
+        if (orderNumber) {
+          return `${OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM}|${orderNumber}`;
+        } else {
+          return;
+        }
+      })
+      .filter((value): value is string => value !== undefined);
+
+    if (orderNumbersWithSystem.length === 0) return; // this really should not happen, all SRs should have an orderNumber
+
+    params.push({
+      name: 'identifier',
+      value: orderNumbersWithSystem.join(','),
+    });
+  } else if (searchBy.search === 'detail') {
+    params.push({
+      name: '_id',
+      value: searchBy.drId,
+    });
+  }
 
   try {
     const resourceSearch = (
       await oystehr.fhir.search<DiagnosticReport | Task | DocumentReference>({
         resourceType: 'DiagnosticReport',
-        params: [
-          {
-            name: 'identifier',
-            value: orderNumbersWithSystem.join(','),
-          },
-          {
-            name: '_tag',
-            value: `${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.reflex},${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.attachment}`,
-          }, // only grab those tagged with reflex or pdfAttachment
-          { name: '_revinclude', value: 'Task:based-on' }, // review task
-          { name: '_revinclude:iterate', value: 'DocumentReference:related' }, // result pdf
-          { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
-          { name: '_include', value: 'DiagnosticReport:encounter' },
-        ],
+        params,
       })
     ).unbundle();
     if (resourceSearch.length) {
@@ -1008,7 +1036,7 @@ export const checkForDiagnosticReportDrivenResults = async (
     }
   } catch (error) {
     console.error(
-      `Failed to fetch DiagnosticReports with identifier search param: ${orderNumbersWithSystem.join(',')}`,
+      `Failed to fetch DiagnosticReports with identifier search: ${JSON.stringify(searchBy)}`,
       JSON.stringify(error, null, 2)
     );
     await sendErrors(error, environment);

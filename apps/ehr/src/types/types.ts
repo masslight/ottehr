@@ -1,5 +1,5 @@
-import { Appointment, Slot } from 'fhir/r4b';
-import { FhirAppointmentType, isTelemedAppointment, PatientFollowupDetails, ScheduleType, ServiceMode } from 'utils';
+import { Slot } from 'fhir/r4b';
+import { FhirAppointmentType, PatientFollowupDetails, ScheduleType, ServiceMode } from 'utils';
 
 // this likely will be consolidated to utils package. doughty conflict resolver, take heed:
 // the important change to include here is that slot is of type "Slot" rather than string
@@ -66,7 +66,6 @@ export enum PersonSex {
   Female = 'female',
   Intersex = 'other',
 }
-
 export const getFhirAppointmentTypeForVisitType = (
   visitType: VisitType | undefined
 ): FhirAppointmentType | undefined => {
@@ -85,20 +84,6 @@ export const fhirAppointmentTypeToVisitType: { [type in FhirAppointmentType]: Vi
   prebook: VisitType.PreBook,
   walkin: VisitType.WalkIn,
   posttelemed: VisitType.PostTelemed,
-};
-
-export const getVisitTypeLabelForAppointment = (appointment: Appointment): string => {
-  const fhirAppointmentType = appointment?.appointmentType?.text as FhirAppointmentType;
-  let visitTypeToLabelEnum = visitTypeToInPersonLabel;
-
-  if (isTelemedAppointment(appointment)) {
-    visitTypeToLabelEnum = visitTypeToTelemedLabel;
-  }
-
-  const visitType = fhirAppointmentTypeToVisitType[fhirAppointmentType];
-  const label = visitTypeToLabelEnum[visitType];
-
-  return label || '-';
 };
 
 export type DOW = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';

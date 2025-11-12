@@ -428,6 +428,7 @@ describe('saving and getting visit details', () => {
 
     const newFirstName = 'Sven';
     const newMiddleName = '';
+    // cSpell:disable-next Stiegson
     const newLastName = 'Stiegson';
 
     let updatedVisitDetails;
@@ -493,7 +494,9 @@ describe('saving and getting visit details', () => {
     expect(visitDetails.patient.name?.[0]).toEqual(originalName);
 
     const newFirstName = 'Anna';
+    // cSpell:disable-next Hedda
     const newMiddleName = 'Hedda';
+    // cSpell:disable-next Anders(s)on
     const newLastName = 'Andersson';
 
     await updateVisitDetails({
@@ -1036,6 +1039,7 @@ describe('saving and getting visit details', () => {
         appointmentId: appointment.id!,
         bookingDetails: {
           patientName: {
+            // cSpell:disable-next Anders(on)
             first: 'Anders',
             middle: '',
             last: '',
