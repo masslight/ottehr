@@ -26,7 +26,7 @@ export const getCanonicalQuestionnaire = async (
   const maybeQuestionnaireFromFile = questionnaires.find((q) => q.url === url && q.version === version);
   // if we found the Q in the local file, return it
   if (maybeQuestionnaireFromFile) {
-    return maybeQuestionnaireFromFile;
+    return JSON.parse(JSON.stringify(maybeQuestionnaireFromFile));
   }
 
   // otherwise, fetch from the FHIR server
