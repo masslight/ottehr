@@ -168,7 +168,7 @@ export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessmen
 export interface ExternalLabResult {
   resultCodeAndDisplay: string;
   loincCodeAndDisplay: string;
-  snowmedDisplay: string;
+  snomedDisplay: string;
   resultInterpretation?: string;
   resultInterpretationDisplay?: string;
   resultValue: string;
