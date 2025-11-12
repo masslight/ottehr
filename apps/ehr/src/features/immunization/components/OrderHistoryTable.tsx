@@ -15,6 +15,7 @@ import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { COLLAPSED_MEDS_COUNT } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { GetImmunizationOrdersRequest } from 'utils/lib/types/data/immunization/types';
 import { useGetImmunizationOrders } from '../../visits/in-person/hooks/useImmunization';
 import { ordersRecentFirstComparator } from '../common';
 import { OrderHistoryTableRow } from './OrderHistoryTableRow';
@@ -23,17 +24,20 @@ import { OrderHistoryTableSkeletonBody } from './OrderHistoryTableSkeletonBody';
 interface Props {
   showActions: boolean;
   administeredOnly?: boolean;
+  immunizationInput?: GetImmunizationOrdersRequest;
 }
 
-export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOnly }) => {
+export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOnly, immunizationInput }) => {
   const [seeMoreOpen, setSeeMoreOpen] = useState(false);
   const { id: appointmentId } = useParams();
 
   const { encounter, isLoading: patientIdLoading } = useAppointmentData(appointmentId);
 
-  const { data: ordersResponse, isLoading: ordersLoading } = useGetImmunizationOrders({
-    encounterId: encounter.id,
-  });
+  const { data: ordersResponse, isLoading: ordersLoading } = useGetImmunizationOrders(
+    immunizationInput ?? {
+      encounterId: encounter.id,
+    }
+  );
 
   const orders = (ordersResponse?.orders ?? [])
     .sort(ordersRecentFirstComparator)
