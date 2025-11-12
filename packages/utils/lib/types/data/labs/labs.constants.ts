@@ -296,8 +296,7 @@ export const OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM =
 
 // Also for LabCorp
 export const LABCORP_SNOMED_CODE_SYSTEM =
-  // cSpell:disable-next should be Snomed but too late now
-  'https://terminology.fhir.oystehr.com/CodeSystem/labcorp-snowmed-value-to-code';
+  'https://terminology.fhir.oystehr.com/CodeSystem/labcorp-snomed-value-to-code';
 
 export const SR_REVOKED_REASON_EXT = {
   url: 'https://extensions.fhir.oystehr.com/reason-sr-revoked',
