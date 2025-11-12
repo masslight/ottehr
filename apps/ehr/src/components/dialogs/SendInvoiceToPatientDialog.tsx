@@ -2,7 +2,7 @@ import LoadingButton from '@mui/lab/LoadingButton';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from '@mui/material';
 import { Task } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useEffect } from 'react';
+import { ReactElement, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { isPhoneNumberValid, parseInvoiceTaskInput, PrefilledInvoiceInfo, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { z } from 'zod';
@@ -36,9 +36,11 @@ export default function SendInvoiceToPatientDialog({
   invoiceTask,
 }: SendInvoiceToPatientDialogProps): ReactElement {
   const emailValidator = z.string().email();
+  const [disableAllFields, setDisableAllFields] = useState(true);
 
   const handleSubmitWrapped = (data: SendInvoiceFormData): void => {
     if (invoiceTask && invoiceTask?.id) {
+      setDisableAllFields(true);
       const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
       if (invoiceTaskInput) {
         // getting disabled fields from initial input
@@ -65,6 +67,7 @@ export default function SendInvoiceToPatientDialog({
 
   useEffect(() => {
     if (invoiceTask) {
+      setDisableAllFields(false);
       const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
       if (invoiceTaskInput) {
         reset({
@@ -171,6 +174,7 @@ export default function SendInvoiceToPatientDialog({
                 control={control}
                 rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
                 component="Picker"
+                disabled={disableAllFields}
               />
             </Box>
 
@@ -180,6 +184,7 @@ export default function SendInvoiceToPatientDialog({
               rules={{
                 required: REQUIRED_FIELD_ERROR_MESSAGE,
               }}
+              disabled={disableAllFields}
               render={({ field }) => (
                 <TextField
                   {...field}
@@ -199,6 +204,7 @@ export default function SendInvoiceToPatientDialog({
               rules={{
                 required: REQUIRED_FIELD_ERROR_MESSAGE,
               }}
+              disabled={disableAllFields}
               render={({ field }) => (
                 <TextField
                   {...field}
@@ -215,11 +221,11 @@ export default function SendInvoiceToPatientDialog({
         </DialogContent>
 
         <DialogActions>
-          <Button variant="text" onClick={handleClose} size="medium">
+          <Button variant="text" onClick={handleClose} size="medium" disabled={disableAllFields}>
             Cancel
           </Button>
           <LoadingButton
-            disabled={isSubmitting}
+            disabled={disableAllFields}
             loading={isSubmitting}
             form="send-invoice-form"
             type="submit"
