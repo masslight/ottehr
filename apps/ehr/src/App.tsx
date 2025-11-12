@@ -27,6 +27,7 @@ import AppointmentsPage from './pages/Appointments';
 import Data from './pages/Data';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeesPage from './pages/Employees';
+import FileDownload from './pages/FileDownload';
 import GroupPage from './pages/GroupPage';
 import Logout from './pages/Logout';
 import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
@@ -173,6 +174,7 @@ function App(): ReactElement {
               {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager]) && (
                 <>
                   <Route path="/" element={<Navigate to="/visits" />} />
+                  <Route path="/report/:token" element={<FileDownload />} />
                   <Route path="/logout" element={<Logout />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/visits" element={<AppointmentsPage />} />

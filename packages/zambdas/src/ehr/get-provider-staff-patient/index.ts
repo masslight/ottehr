@@ -17,7 +17,7 @@ export const index = wrapHandler(
           requestBody = typeof requestBody.body === 'string' ? JSON.parse(requestBody.body) : requestBody.body;
         }
       } catch (e) {
-        console.error('Failed to parse body:', e);
+        // console.error('Failed to parse body:', e);
         throw new Error('Invalid request body format');
       }
 
@@ -47,7 +47,7 @@ export const index = wrapHandler(
         const resources = (await getResourcesFromBatchInlineRequests(oystehr, [
           `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,name`,
         ])) as Resource[];
-        console.log('Provider Resource:', JSON.stringify(resources, null, 2));
+        // console.log('Provider Resource:', JSON.stringify(resources, null, 2));
         providerList = providerList.map((user) => {
           const practitioner = resources.find((r) => r.id === user.profile.split('/')[1]) as Practitioner | undefined;
           return {
@@ -91,23 +91,14 @@ export const index = wrapHandler(
           staffList,
         });
       } else if (resourceType === 'Patient') {
-        const roles = (await oystehr.role.list()).filter((x: any) => ['Patient'].includes(x.name));
         let patientList: any[] = [];
-        for (const role of roles) {
-          const users = await fetchUsers(oystehrToken, PROJECT_ID, role.id);
-          patientList = [...patientList, ...users.data];
-        }
-        patientList = getUniqueById(patientList);
-
-        const patientIds = patientList.map((u) => u.profile.split('/')[1]);
-        const resources = (await getResourcesFromBatchInlineRequests(oystehr, [
-          `Patient?_id=${patientIds.join(',')}&_elements=id,name`,
-        ])) as Resource[];
-        console.log('Patient Resource:', JSON.stringify(resources, null, 2));
-        patientList = patientList.map((user) => {
-          const patient = resources.find((r) => r.id === user.profile.split('/')[1]) as any;
+        const searchResult = await oystehr.fhir.search({
+          resourceType: 'Patient',
+        });
+        const patients = searchResult.unbundle() as any[];
+        patientList = patients.map((patient) => {
           return {
-            ...user,
+            id: patient?.id,
             firstName: patient?.name?.[0]?.given?.join(' ') ?? '',
             lastName: patient?.name?.[0]?.family ?? '',
             patientId: patient?.id,
@@ -116,6 +107,7 @@ export const index = wrapHandler(
 
         return lambdaResponse(200, {
           message: `Successfully retrieved patients`,
+          total: patientList.length,
           patientList,
         });
       } else {

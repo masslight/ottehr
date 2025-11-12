@@ -5,19 +5,12 @@ import {
   Button,
   Card,
   CardContent,
-  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
   IconButton,
-  InputLabel,
-  ListItemText,
-  MenuItem,
-  OutlinedInput,
-  Select,
   Snackbar,
   Stack,
   Switch,
@@ -32,6 +25,7 @@ import {
   fetchPatientSettings,
   savePatientSettings,
 } from '../../../../packages/zambdas/src/services/patientSettings';
+import { AutoCompleteDropdown } from './AutoCompleteDropdown';
 
 interface Option {
   id: string;
@@ -126,17 +120,6 @@ interface NotificationModalState {
   currentValue: boolean;
   type: 'notification' | 'report';
 }
-
-const ITEM_HEIGHT = 48;
-const ITEM_PADDING_TOP = 8;
-const MenuProps = {
-  PaperProps: {
-    style: {
-      maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
-      width: 250,
-    },
-  },
-};
 
 export const NotificationHierarchy = (): JSX.Element => {
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -867,27 +850,16 @@ export const NotificationHierarchy = (): JSX.Element => {
           )}
 
           {showProviderDropdown && (
-            <FormControl size="small" sx={{ width: 300 }}>
-              {isLoading ? (
-                <CircularProgress size={20} />
-              ) : (
-                <Select displayEmpty defaultValue="" onChange={(e) => handleProviderSelect(e.target.value)}>
-                  <MenuItem value="" disabled>
-                    Select Provider
-                  </MenuItem>
-                  {getAvailableProviderOptions().map((p) => (
-                    <MenuItem key={p.id} value={p.id}>
-                      {p.name} (Provider)
-                    </MenuItem>
-                  ))}
-                  {getAvailableProviderOptions().length === 0 && (
-                    <MenuItem value="" disabled>
-                      No more providers available
-                    </MenuItem>
-                  )}
-                </Select>
-              )}
-            </FormControl>
+            <AutoCompleteDropdown
+              options={getAvailableProviderOptions()}
+              selectedValues=""
+              onChange={(value) => handleProviderSelect(value as string)}
+              label="Select Provider"
+              multiple={false}
+              disabled={isLoading}
+              placeholder="Search providers..."
+              sx={{ width: 300 }}
+            />
           )}
 
           {providers.map((provider) => {
@@ -920,31 +892,16 @@ export const NotificationHierarchy = (): JSX.Element => {
                   )}
 
                   {showStaffDropdown[provider.id] && (
-                    <FormControl size="small" sx={{ width: 300, mt: 2 }}>
-                      {isLoading ? (
-                        <CircularProgress size={20} />
-                      ) : (
-                        <Select
-                          displayEmpty
-                          defaultValue=""
-                          onChange={(e) => handleStaffSelect(provider.id, e.target.value)}
-                        >
-                          <MenuItem value="" disabled>
-                            Select MA
-                          </MenuItem>
-                          {availableStaffOptions.map((s) => (
-                            <MenuItem key={s.id} value={s.id}>
-                              {s.name} (MA)
-                            </MenuItem>
-                          ))}
-                          {availableStaffOptions.length === 0 && (
-                            <MenuItem value="" disabled>
-                              No more MA available
-                            </MenuItem>
-                          )}
-                        </Select>
-                      )}
-                    </FormControl>
+                    <AutoCompleteDropdown
+                      options={getAvailableStaffOptions(provider.id)}
+                      selectedValues=""
+                      onChange={(value) => handleStaffSelect(provider.id, value as string)}
+                      label="Select MA"
+                      multiple={false}
+                      disabled={isLoading}
+                      placeholder="Search MAs..."
+                      sx={{ width: 300, mt: 2 }}
+                    />
                   )}
 
                   <Stack spacing={2} mt={2}>
@@ -979,37 +936,16 @@ export const NotificationHierarchy = (): JSX.Element => {
 
                             {showPatientDropdown[staff.id] && (
                               <Box sx={{ mt: 2 }}>
-                                <FormControl size="small" sx={{ width: 300 }}>
-                                  <InputLabel>Select Patients</InputLabel>
-                                  <Select
-                                    multiple
-                                    value={selectedPatientIds[staff.id] || []}
-                                    onChange={(e) => handlePatientSelectionChange(staff.id, e.target.value as string[])}
-                                    input={<OutlinedInput label="Select Patients" />}
-                                    renderValue={(selected) => {
-                                      const selectedNames = selected.map((id) => {
-                                        const patient = patientOptions.global?.find((p) => p.id === id);
-                                        return patient ? `${patient.name} (Patient)` : '';
-                                      });
-                                      return selectedNames.length > 0
-                                        ? `${selectedNames.length} patient(s) selected`
-                                        : 'Select Patients';
-                                    }}
-                                    MenuProps={MenuProps}
-                                  >
-                                    {availablePatientOptions.map((pt) => (
-                                      <MenuItem key={pt.id} value={pt.id}>
-                                        <Checkbox checked={(selectedPatientIds[staff.id] || []).includes(pt.id)} />
-                                        <ListItemText primary={`${pt.name} (Patient)`} />
-                                      </MenuItem>
-                                    ))}
-                                    {availablePatientOptions.length === 0 && (
-                                      <MenuItem value="" disabled>
-                                        No more patients available
-                                      </MenuItem>
-                                    )}
-                                  </Select>
-                                </FormControl>
+                                <AutoCompleteDropdown
+                                  options={getAvailablePatientOptions(provider.id, staff.id)}
+                                  selectedValues={selectedPatientIds[staff.id] || []}
+                                  onChange={(value) => handlePatientSelectionChange(staff.id, value as string[])}
+                                  label="Select Patients"
+                                  multiple={true}
+                                  disabled={isLoading}
+                                  placeholder="Search patients..."
+                                  sx={{ width: 300 }}
+                                />
 
                                 <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                                   <Button

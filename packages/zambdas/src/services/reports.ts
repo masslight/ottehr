@@ -153,3 +153,20 @@ export const fetchReportSettings = async (): Promise<any> => {
     return { reports: [], total: 0 };
   }
 };
+
+export const fetchReportDownloadURL = async (token: string): Promise<any> => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/reports/file/${token}`, {
+      headers: {
+        token: `${API_TOKEN}`,
+        'project-id': `${PROJECT_ID}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Error fetching reports:', error);
+    return { reports: [], total: 0 };
+  }
+};
