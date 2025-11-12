@@ -138,7 +138,7 @@ export function useInHouseMedicationsOptions(encounterId: string): {
     inHouseMedicationsOptions: (data?.orders ?? []).map((order) => {
       return {
         label: order.medicationName,
-        value: order.medicationId ?? '',
+        value: order.id ?? '',
       };
     }),
   };
