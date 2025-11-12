@@ -210,8 +210,10 @@ export const AutomateReport = (): JSX.Element => {
       setToastMessage(result?.message || 'Automate report saved.');
       setToastOpen(true);
       void fetchSettings();
-    } catch (error) {
-      setToastMessage('Error saving report.');
+    } catch (error: any) {
+      console.log('Err: ', error?.response.data);
+      console.log('Err: ');
+      setToastMessage(error?.response.data.errors[0].title || 'Error saving report.');
       setToastSeverity('warning');
       setToastOpen(true);
     } finally {
@@ -274,11 +276,17 @@ export const AutomateReport = (): JSX.Element => {
 
               <TextField
                 label="Report Name / Title"
+                required
                 value={reportName}
                 onChange={(e) => setReportName(e.target.value)}
                 fullWidth
                 error={!!errors.reportName}
                 helperText={errors.reportName}
+                sx={{
+                  '& .MuiFormLabel-asterisk': {
+                    color: 'red',
+                  },
+                }}
               />
 
               <Box>
