@@ -43,11 +43,13 @@ locals {
 }
 
 module "infra" {
-  source                = "./infra/no-cloud"
-  count                 = local.not_local_env_resource_count
-  project_id            = var.project_id
-  ehr_domain            = var.ehr_domain
-  patient_portal_domain = var.patient_portal_domain
+  source                     = "./infra/no-cloud"
+  count                      = local.not_local_env_resource_count
+  project_id                 = var.project_id
+  ehr_domain                 = var.ehr_domain
+  ehr_cert_domain            = var.ehr_cert_domain
+  patient_portal_domain      = var.patient_portal_domain
+  patient_portal_cert_domain = var.patient_portal_cert_domain
 }
 
 module "sendgrid" {
