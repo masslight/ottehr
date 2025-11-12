@@ -29,6 +29,7 @@ import {
   PatientAccountResponse,
   pruneEmptySections,
 } from 'utils';
+import ehrInsuranceUpdateFormJson from '../../../../config/oystehr/ehr-insurance-update-questionnaire.json';
 import { CustomDialog } from '../components/dialogs';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
@@ -38,7 +39,6 @@ import {
   useGetPatient,
   useGetPatientAccount,
   useGetPatientCoverages,
-  useGetPatientDetailsUpdateForm,
   useRemovePatientCoverage,
   useUpdatePatientAccount,
 } from '../hooks/useGetPatient';
@@ -149,7 +149,6 @@ const usePatientData = (
   isFetching: boolean;
   defaultFormVals: any;
   coveragesFetching: boolean;
-  questionnaireFetching: boolean;
 } => {
   const apiClient = useOystehrAPIClient();
 
@@ -163,7 +162,16 @@ const usePatientData = (
     patientId: id ?? null,
   });
 
-  const { isFetching: questionnaireFetching, data: questionnaire } = useGetPatientDetailsUpdateForm();
+  const maybeQuestionnaire = Object.values(ehrInsuranceUpdateFormJson.fhirResources).find(
+    (q) =>
+      q.resource.resourceType === 'Questionnaire' &&
+      q.resource.status === 'active' &&
+      q.resource.url.includes('ehr-insurance-update-questionnaire')
+  )?.resource as Questionnaire | undefined;
+  if (!maybeQuestionnaire) {
+    throw new Error('Could not find insurance update questionnaire in config');
+  }
+  const questionnaire = maybeQuestionnaire;
 
   const coverages: CoverageWithPriority[] = useMemo(() => {
     if (!insuranceData?.coverages) return [];
@@ -181,7 +189,7 @@ const usePatientData = (
 
   const { patient, isFetching, defaultFormVals } = useMemo(() => {
     const patient = accountData?.patient;
-    const isFetching = accountFetching || questionnaireFetching;
+    const isFetching = accountFetching;
 
     let defaultFormVals: any;
     if (!isFetching && accountData && questionnaire) {
@@ -195,7 +203,7 @@ const usePatientData = (
     }
 
     return { patient, isFetching, defaultFormVals };
-  }, [accountData, questionnaire, questionnaireFetching, accountFetching]);
+  }, [accountData, questionnaire, accountFetching]);
 
   return {
     accountData,
@@ -206,7 +214,6 @@ const usePatientData = (
     isFetching,
     defaultFormVals,
     coveragesFetching,
-    questionnaireFetching,
   };
 };
 
@@ -309,7 +316,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     isFetching,
     defaultFormVals,
     coveragesFetching,
-    questionnaireFetching,
   } = usePatientData(id);
 
   const { methods, coveragesFormValues } = useFormData(
@@ -408,7 +414,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     }
   };
 
-  if ((isFetching || questionnaireFetching || coveragesFetching) && !patient) {
+  if ((isFetching || coveragesFetching) && !patient) {
     return loadingComponent;
   }
 

@@ -9,7 +9,6 @@ import {
   Location,
   Organization,
   Patient,
-  Questionnaire,
   QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
@@ -32,7 +31,6 @@ import {
   ServiceMode,
   useSuccessQuery,
 } from 'utils';
-import ehrInsuranceUpdateFormJson from '../../../../config/oystehr/ehr-insurance-update-questionnaire.json';
 import { OystehrTelemedAPIClient } from '../features/visits/shared/api/oystehrApi';
 import { getTimezone } from '../helpers/formatDateTime';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
@@ -384,56 +382,6 @@ export const useGetInsurancePlans = (
   const queryResult = useQuery({
     queryKey: ['insurance-plans'],
     queryFn: fetchAllInsurancePlans,
-  });
-
-  useSuccessQuery(queryResult.data, onSuccess);
-
-  return queryResult;
-};
-
-export const useGetPatientDetailsUpdateForm = (
-  onSuccess?: (data: Questionnaire | null) => void
-): UseQueryResult<Questionnaire, Error> => {
-  const { oystehr } = useApiClients();
-
-  const questionnaire = Object.values(ehrInsuranceUpdateFormJson.fhirResources).find(
-    (q) =>
-      q.resource.resourceType === 'Questionnaire' &&
-      q.resource.status === 'active' &&
-      q.resource.url.includes('ehr-insurance-update-questionnaire')
-  );
-
-  const queryResult = useQuery({
-    queryKey: ['patient-update-form'],
-
-    queryFn: async () => {
-      if (oystehr && questionnaire) {
-        const searchResults = (
-          await oystehr.fhir.search<Questionnaire>({
-            resourceType: 'Questionnaire',
-            params: [
-              {
-                name: 'url',
-                value: questionnaire.resource.url,
-              },
-              {
-                name: 'version',
-                value: questionnaire.resource.version,
-              },
-            ],
-          })
-        ).unbundle();
-        const form = searchResults[0];
-        if (!form) {
-          throw new Error('Form not found');
-        }
-        return form;
-      } else {
-        throw new Error('FHIR client not defined');
-      }
-    },
-
-    enabled: Boolean(oystehr) && Boolean(questionnaire),
   });
 
   useSuccessQuery(queryResult.data, onSuccess);

@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import type { Patient } from 'fhir/r4b';
-import { AuditEvent, Bundle, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { AuditEvent, Bundle, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AUDIT_EVENT_OUTCOME_CODE,
   checkBundleOutcomeOk,
   flattenQuestionnaireAnswers,
+  getCanonicalQuestionnaire,
   getSecret,
   getVersionedReferencesFromBundleResources,
   isValidUUID,
@@ -333,21 +334,13 @@ const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promis
     throw NOT_AUTHORIZED;
   }
   const [url, version] = (questionnaireResponse.questionnaire ?? ' | ').split('|');
-  const questionnaire = (
-    await oystehrM2M.fhir.search<Questionnaire>({
-      resourceType: 'Questionnaire',
-      params: [
-        {
-          name: 'url',
-          value: url,
-        },
-        {
-          name: 'version',
-          value: version,
-        },
-      ],
-    })
-  ).unbundle()[0];
+  const questionnaire = await getCanonicalQuestionnaire(
+    {
+      url: url,
+      version: version,
+    },
+    oystehrM2M
+  );
   if (!questionnaire) {
     throw QUESTIONNAIRE_NOT_FOUND_FOR_QR_ERROR;
   }
