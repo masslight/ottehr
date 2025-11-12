@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   fetchReportSettings,
-  getReportDownloadUrl,
+  getImageDownloadUrl,
   saveReportSettings,
 } from '../../../../packages/zambdas/src/services/reports';
 import { RoundedButton } from './RoundedButton';
@@ -89,7 +89,7 @@ export const AutomateReport = (): JSX.Element => {
           setLogoFileName(fileName);
 
           try {
-            const logoUrl = await getReportDownloadUrl(reportSettings.logo);
+            const logoUrl = await getImageDownloadUrl(reportSettings.logo);
             setLogoPreview(logoUrl);
           } catch (error) {
             console.error('Failed to load logo preview:', error);

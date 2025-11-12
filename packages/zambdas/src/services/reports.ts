@@ -76,6 +76,27 @@ export const getReportDownloadUrl = async (path: string): Promise<string | null>
   }
 };
 
+export const getImageDownloadUrl = async (path: string): Promise<string | null> => {
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/reports/download/image`,
+      { path },
+      {
+        headers: {
+          token: `${API_TOKEN}`,
+          'project-id': `${PROJECT_ID}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return response.data?.data?.downloadURL;
+  } catch (err) {
+    console.error('Error fetching signed download URL:', err);
+    return null;
+  }
+};
+
 export const genreateManualReport = async (
   patientId: string,
   startDate: string,
