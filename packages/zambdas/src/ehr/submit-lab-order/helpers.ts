@@ -16,6 +16,8 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  CoverageAndOrg,
+  CoverageOrgRank,
   EXTERNAL_LAB_ERROR,
   getOrderNumber,
   getPresignedURL,
@@ -26,13 +28,13 @@ import {
   ORDER_ITEM_UNKNOWN,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   paymentMethodFromCoverage,
+  PaymentResources,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   Secrets,
 } from 'utils';
 import { createExternalLabsOrderFormPDF, getOrderFormDataConfig } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference, makeRelatedForLabsPDFDocRef } from '../../shared/pdf/labs-results-form-pdf';
 import { PdfInfo } from '../../shared/pdf/pdf-utils';
-import { InsuranceCoverageAndOrgForOrderForm } from '../../shared/pdf/types';
 import {
   AOEDisplayForOrderForm,
   getExternalLabOrderResourcesViaServiceRequest,
@@ -41,21 +43,6 @@ import {
 } from '../shared/labs';
 
 export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
-
-type CoverageAndOrg = { coverage: Coverage; payorOrg: Organization };
-type InsurancePaymentResource = {
-  type: LabPaymentMethod.Insurance;
-  coverageAndOrgs: InsuranceCoverageAndOrgForOrderForm[];
-};
-type ClientBillResource = {
-  type: LabPaymentMethod.ClientBill;
-  coverage: Coverage;
-};
-type SelfPayResource = {
-  type: LabPaymentMethod.SelfPay;
-  coverage?: Coverage;
-};
-export type PaymentResources = InsurancePaymentResource | ClientBillResource | SelfPayResource;
 
 type LabOrderResourcesExtended = LabOrderResources & {
   accountNumber: string;
@@ -619,14 +606,14 @@ function makePaymentResourceConfig(
     const coverageRefToResourcesMap = new Map<string, CoverageAndOrg>(
       coveragesAndOrgs.map((e) => [`Coverage/${e.coverage.id}`, e])
     );
-    const coveragesAndOrgsWithRank: InsuranceCoverageAndOrgForOrderForm[] = sortedCoverages.map((coverage, idx) => {
+    const coveragesAndOrgsWithRank: CoverageOrgRank[] = sortedCoverages.map((coverage, idx) => {
       const coverageAndOrg = coverageRefToResourcesMap.get(`Coverage/${coverage.id}`);
       if (!coverageAndOrg)
         throw EXTERNAL_LAB_ERROR(`Could not map Coverage back to its coverageAndOrg: Coverage/${coverage.id}`);
 
       return {
         coverage: coverageAndOrg.coverage,
-        insuranceOrganization: coverageAndOrg.payorOrg,
+        payorOrg: coverageAndOrg.payorOrg,
         coverageRank: idx + 1,
       };
     });
@@ -636,7 +623,7 @@ function makePaymentResourceConfig(
         coveragesAndOrgsWithRank.map((e) => {
           return {
             coverage: `Coverage/${e.coverage}`,
-            insuranceOrganization: `Organization/${e.insuranceOrganization}`,
+            insuranceOrganization: `Organization/${e.payorOrg}`,
             coverageRank: e.coverageRank,
           };
         })

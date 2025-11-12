@@ -4,27 +4,24 @@ import { min } from 'lodash';
 import { DateTime } from 'luxon';
 import {
   BUCKET_NAMES,
+  CoverageOrgRank,
   FHIR_IDENTIFIER_NPI,
   formatPhoneNumberDisplay,
   getFullestAvailableName,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LabPaymentMethod,
   ORDER_ITEM_UNKNOWN,
+  PaymentResources,
   Secrets,
 } from 'utils';
-import { LABS_DATE_STRING_FORMAT, PaymentResources, resourcesForOrderForm } from '../../ehr/submit-lab-order/helpers';
+import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/submit-lab-order/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { drawFieldLineBoldHeader, getPdfClientForLabsPDFs, LabsPDFTextStyleConfig } from './lab-pdf-utils';
 import { getLabFileName } from './labs-results-form-pdf';
 import { ICON_STYLE, STANDARD_NEW_LINE, SUB_HEADER_FONT_SIZE } from './pdf-consts';
 import { BLACK_LINE_STYLE, PdfInfo, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
-import {
-  ExternalLabOrderFormData,
-  InsuranceCoverageAndOrgForOrderForm,
-  OrderFormInsuranceInfo,
-  PdfClient,
-} from './types';
+import { ExternalLabOrderFormData, OrderFormInsuranceInfo, PdfClient } from './types';
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
   const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
@@ -405,7 +402,7 @@ export function getOrderFormDataConfig(
 }
 
 function getInsuranceDetails(
-  insuranceCoveragesAndOrgs: InsuranceCoverageAndOrgForOrderForm[] | undefined,
+  insuranceCoveragesAndOrgs: CoverageOrgRank[] | undefined,
   patient: Patient,
   oystehr: Oystehr
 ): OrderFormInsuranceInfo[] | undefined {
@@ -413,7 +410,7 @@ function getInsuranceDetails(
 
   const insuranceInfo: OrderFormInsuranceInfo[] = [];
   insuranceCoveragesAndOrgs.forEach((covAndOrg) => {
-    const { coverage, insuranceOrganization, coverageRank } = covAndOrg;
+    const { coverage, payorOrg: insuranceOrganization, coverageRank } = covAndOrg;
     const { insuredName, insuredAddress } = getInsuredInfoFromCoverageSubscriber(coverage, patient);
     insuranceInfo.push({
       insuranceName: insuranceOrganization?.name,

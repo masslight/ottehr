@@ -1,8 +1,10 @@
 // cSpell:ignore RFRT
 import {
+  Coverage,
   DocumentReference,
   Encounter,
   Location,
+  Organization,
   Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
@@ -266,6 +268,24 @@ export type SubmitLabOrderOutput = {
 };
 
 export type CreateLabCoverageInfo = { coverageName: string; coverageId: string; isPrimary: boolean };
+
+export type CoverageAndOrg = { coverage: Coverage; payorOrg: Organization };
+export type CoverageOrgRank = CoverageAndOrg & {
+  coverageRank: number;
+};
+type InsurancePaymentResource = {
+  type: LabPaymentMethod.Insurance;
+  coverageAndOrgs: CoverageOrgRank[];
+};
+type ClientBillResource = {
+  type: LabPaymentMethod.ClientBill;
+  coverage: Coverage;
+};
+type SelfPayResource = {
+  type: LabPaymentMethod.SelfPay;
+  coverage?: Coverage;
+};
+export type PaymentResources = InsurancePaymentResource | ClientBillResource | SelfPayResource;
 
 export enum LabPaymentMethod {
   Insurance = 'insurance',

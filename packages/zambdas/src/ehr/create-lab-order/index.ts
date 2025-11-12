@@ -107,23 +107,16 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
 
     const orgId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
-    const {
-      labOrganization,
-      insuranceCoverages,
-      patient,
-      existingOrderNumber,
-      orderingLocation,
-      clientOrg, // this will only be defined for client bill
-      clientBillCoverage, // this will ever only be defined for client bill (and might still be undefined for that case)
-    } = await getAdditionalResources(
-      orderableItem,
-      encounter,
-      psc,
-      selectedPaymentMethod,
-      oystehr,
-      modifiedOrderingLocation,
-      orgId
-    );
+    const { labOrganization, coverageDetails, patient, existingOrderNumber, orderingLocation } =
+      await getAdditionalResources(
+        orderableItem,
+        encounter,
+        psc,
+        selectedPaymentMethod,
+        oystehr,
+        modifiedOrderingLocation,
+        orgId
+      );
 
     validateLabOrgAndOrderingLocationAndGetAccountNumber(labOrganization, orderingLocation);
 
@@ -218,23 +211,20 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     ];
 
     console.log('selected payment method', selectedPaymentMethod);
-    if (selectedPaymentMethod === LabPaymentMethod.Insurance) {
-      if (insuranceCoverages) {
-        console.log('assigning serviceRequestConfig.insurance');
-        const coverageRefs: Reference[] = insuranceCoverages.map((coverage) => {
-          return {
-            reference: `Coverage/${coverage.id}`,
-          };
-        });
-        serviceRequestConfig.insurance = coverageRefs;
-      } else {
-        console.log('insurance payment method was selected but no coverages were returned from the search');
-      }
-    } else if (selectedPaymentMethod === LabPaymentMethod.ClientBill) {
+    if (coverageDetails.type === LabPaymentMethod.Insurance) {
+      console.log('assigning serviceRequestConfig.insurance');
+      const coverageRefs: Reference[] = coverageDetails.insuranceCoverages.map((coverage) => {
+        return {
+          reference: `Coverage/${coverage.id}`,
+        };
+      });
+      serviceRequestConfig.insurance = coverageRefs;
+    } else if (coverageDetails.type === LabPaymentMethod.ClientBill) {
+      const { clientBillCoverage, clientOrg } = coverageDetails;
       if (clientBillCoverage) {
         console.log(`assigning existing client bill coverage to service request config ${clientBillCoverage.id}`);
         serviceRequestConfig.insurance = [{ reference: `Coverage/${clientBillCoverage.id}` }];
-      } else if (!clientBillCoverage && clientOrg) {
+      } else if (!clientBillCoverage) {
         console.log('getting config for to create a new client bill coverage');
         const clientBillCoverageConfig = getClientBillCoverageConfig(patient, clientOrg, labOrganization);
         const clientBillCoverageFullUrl = `urn:uuid:${randomUUID()}`;
@@ -505,6 +495,10 @@ const getProvenanceConfig = (
   return provenanceConfig;
 };
 
+type CreateLabCoverageDetails =
+  | { type: LabPaymentMethod.Insurance; insuranceCoverages: Coverage[] }
+  | { type: LabPaymentMethod.ClientBill; clientBillCoverage: Coverage | undefined; clientOrg: Organization }
+  | { type: LabPaymentMethod.SelfPay };
 const getAdditionalResources = async (
   orderableItem: OrderableItemSearchResult,
   encounter: Encounter,
@@ -516,11 +510,9 @@ const getAdditionalResources = async (
 ): Promise<{
   labOrganization: Organization;
   patient: Patient;
-  insuranceCoverages: Coverage[] | undefined;
+  coverageDetails: CreateLabCoverageDetails;
   existingOrderNumber: string | undefined;
   orderingLocation: Location;
-  clientOrg: Organization | undefined; // this will only be defined for client bill
-  clientBillCoverage: Coverage | undefined; // this will ever only be defined for client bill (and might still be undefined for that case)
 }> => {
   const labName = orderableItem.lab.labName;
   const labGuid = orderableItem.lab.labGuid;
@@ -583,7 +575,7 @@ const getAdditionalResources = async (
         const labGuidFromClientBillCoverage = getLabGuidFromClientBillCoverage(resource);
         if (labGuidFromClientBillCoverage === labGuid) {
           if (clientBillCoverage) {
-            console.log(`Warning: multiple active client bill coverages exist for this patient / lab relationship`);
+            console.warn(`Warning: multiple active client bill coverages exist for this patient / lab relationship`);
           }
           clientBillCoverage = resource;
         }
@@ -607,6 +599,7 @@ const getAdditionalResources = async (
     }
   });
   console.log('resource parsing complete');
+
   if (draftServiceRequests.length) {
     console.log(
       `>>>>> checking draft service request array for bundle-able orders (${draftServiceRequests.length} will be reviewed)`
@@ -678,20 +671,44 @@ const getAdditionalResources = async (
     throw EXTERNAL_LAB_ERROR(`No location found matching selected office Location id ${modifiedOrderingLocation.id}`);
   }
 
-  if (!clientOrg && paymentMethodIsClientBill) {
-    throw EXTERNAL_LAB_ERROR(
-      `Payment method is client bill but no org was found matching the configured client org id: ${clientOrgId}`
-    );
+  let coverageDetails: CreateLabCoverageDetails | undefined;
+  switch (selectedPaymentMethod) {
+    case LabPaymentMethod.ClientBill:
+      if (!clientOrg) {
+        throw EXTERNAL_LAB_ERROR(
+          `Payment method is client bill but no org was found matching the configured client org id: ${clientOrgId}`
+        );
+      }
+      coverageDetails = {
+        type: LabPaymentMethod.ClientBill,
+        clientBillCoverage,
+        clientOrg,
+      };
+      break;
+    case LabPaymentMethod.Insurance:
+      if (!coveragesSortedByPriority) {
+        throw EXTERNAL_LAB_ERROR(`Payment method is insurance but no insurances were found`);
+      }
+      coverageDetails = {
+        type: LabPaymentMethod.Insurance,
+        insuranceCoverages: coveragesSortedByPriority,
+      };
+      break;
+    case LabPaymentMethod.SelfPay:
+      coverageDetails = {
+        type: LabPaymentMethod.SelfPay,
+      };
+      break;
+    default:
+      throw EXTERNAL_LAB_ERROR(`Unknown selected payment method ${selectedPaymentMethod}`);
   }
 
   return {
     labOrganization,
     patient,
-    insuranceCoverages: coveragesSortedByPriority,
+    coverageDetails,
     existingOrderNumber,
     orderingLocation,
-    clientOrg,
-    clientBillCoverage,
   };
 };
 
