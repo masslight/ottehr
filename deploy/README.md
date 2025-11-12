@@ -48,9 +48,9 @@ There are npm scripts for deploying to local, staging, and production, as well a
 - Install Terraform [as discussed above](#terraform)
 - Create an Oystehr project in the [Oystehr developer console](https://console.oystehr.com).
 - Create an M2M Client with full access rights in your Oystehr project; you can use the default M2M created during project setup.
-- Configure your Terraform Backend (`deploy/backend.config`).
-- Configure your local Terraform variables (`deploy/${env}.tfvars`).
-- Configure your application variables (`packages/zambda/.env/${env}.json`).
+- Configure your Terraform Backend ([`deploy/backend.config`](/deploy/backend.config.template)).
+- Configure your local Terraform variables ([`deploy/${env}.tfvars`](/deploy/terraform.tfvars.template)).
+- Configure your application variables ([`packages/zambda/.env/${env}.json`](/packages/zambdas/.env/local.template.json)).
 
 All three of those configuration files have examples with the `.template` extension that you can copy to start.
 
@@ -83,8 +83,6 @@ Using S3 as a backend allows you to share state between developers and between a
 The Terraform variables stored in `deploy/${env}.tfvars` are used by Terraform providers for Oystehr, AWS, and GCP to provide access to the projects or accounts you want to deploy to. There is an example file available in [`deploy/terraform.tfvars.template`](/deploy/terraform.tfvars.template).
 
 All providers need both an account or project identifier and credentials, which are provided either explicitly in this config file or implicitly through some other part of your environment. For example, the Oystehr Terraform provider requires `project_id`, `client_id`, and `client_secret` variables in this file, whereas the AWS provider requires only a profile that must be configured on your system with credentials associated with an AWS account.
-
-Once set up, you should always use the same values for a given environment, otherwise you risk orphaning the managed resources. If you need to move from one account to another for a given provider, you should destroy all managed resources in the current account using `terraform destroy -target ...` before changing the `tfvars` values. The target should be whatever is appropriate for the provider you're trying to switch accounts for. For example, AWS is used in the `apps_upload` and `infra` modules, and Oystehr is used in the `oystehr` module. The Terraform docs contain more information about [resource targeting](https://developer.hashicorp.com/terraform/cli/commands/plan#resource-targeting). After cleaning up existing resources and changing to the new account, the next apply will create new resources.
 
 Each environment will have its own `tfvars` file because Oystehr projects cannot be used for more than one environment at a time.
 
@@ -144,6 +142,10 @@ patient_portal_domain      = "patient.ottehr.com"
 ```
 
 You must have previously authenticated with Google Cloud Platform using their command-line utility.
+
+#### Changing Terraform Variables
+
+Once set up, you should always use the same values for a given environment, otherwise you risk orphaning the managed resources. If you need to move from one account to another for a given provider, you should destroy all managed resources in the current account using `terraform destroy -target ...` before changing the `tfvars` values. The target should be whatever is appropriate for the provider you're trying to switch accounts for. For example, AWS is used in the `apps_upload` and `infra` modules, and Oystehr is used in the `oystehr` module. The Terraform docs contain more information about [resource targeting](https://developer.hashicorp.com/terraform/cli/commands/plan#resource-targeting). After cleaning up existing resources and changing to the new account, the next apply will create new resources.
 
 ### Application Variables
 
