@@ -860,8 +860,14 @@ describe('tests for getting the visit history for a patient', () => {
         expect(followUpVisit.dateTime).toBeDefined();
         const followUpDateTime = DateTime.fromISO(followUpVisit.dateTime!, { setZone: true });
         expect(followUpDateTime.isValid).toBe(true);
-        const now = DateTime.now().setZone(inPersonSchedule.timezone);
-        expect(followUpDateTime.zoneName).toBe(now.zoneName);
+        const fuvInTimeZone = DateTime.fromISO(followUpVisit.dateTime!).setZone(inPersonSchedule.timezone);
+        expect(followUpDateTime.year).toEqual(fuvInTimeZone.year);
+        expect(followUpDateTime.month).toEqual(fuvInTimeZone.month);
+        expect(followUpDateTime.day).toEqual(fuvInTimeZone.day);
+        expect(followUpDateTime.hour).toEqual(fuvInTimeZone.hour);
+        expect(followUpDateTime.minute).toEqual(fuvInTimeZone.minute);
+        expect(followUpDateTime.second).toEqual(fuvInTimeZone.second);
+
         // cutting these tests a bit short because much of the current behavior seems likely to change, or serves no
         // real purpose right now
       }
