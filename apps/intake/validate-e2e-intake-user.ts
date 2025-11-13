@@ -4,12 +4,28 @@ import { pathToFileURL } from 'url';
 const USER_FILE_LOCATION = 'apps/intake/playwright/user.json';
 const TOKEN_VALIDITY_THRESHOLD_MINUTES = 60;
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const validateE2EIntakeUser = (fileLocation) => {
-  const expiries = [];
+interface LocalStorageItem {
+  name: string;
+  value: string;
+}
+
+interface Origin {
+  localStorage?: LocalStorageItem[];
+}
+
+interface UserFile {
+  origins?: Origin[];
+}
+
+interface Auth0Token {
+  expiresAt: number;
+}
+
+export const validateE2EIntakeUser = (fileLocation: string): void => {
+  const expiries: number[] = [];
 
   try {
-    const userFile = JSON.parse(fs.readFileSync(fileLocation, 'utf8'));
+    const userFile: UserFile = JSON.parse(fs.readFileSync(fileLocation, 'utf8'));
     if (!userFile) {
       throw new Error('Could not find user.json file');
     }
@@ -18,22 +34,25 @@ export const validateE2EIntakeUser = (fileLocation) => {
     // const cookies = userFile.cookies?.map((cookie) => cookie.expires);
     // expiries.push(...cookies);
 
-    const authItem = userFile.origins?.flatMap((origin) =>
-      origin.localStorage?.find(
-        (item) =>
-          // cSpell:disable-next spa js?
-          item.name?.includes('@@auth0spajs@@') && !item.name?.includes('@@user@@') && item.value?.includes('expiresAt')
-      )
+    const authItem = userFile.origins?.flatMap(
+      (origin) =>
+        origin.localStorage?.find(
+          (item) =>
+            // cSpell:disable-next spa js?
+            item.name?.includes('@@auth0spajs@@') &&
+            !item.name?.includes('@@user@@') &&
+            item.value?.includes('expiresAt')
+        )
     )[0];
     if (!authItem) {
       throw new Error('Could not find Auth0 token');
     }
     console.log('Found Auth0 token');
 
-    const expiresAt = JSON.parse(authItem.value).expiresAt;
+    const expiresAt = (JSON.parse(authItem.value) as Auth0Token).expiresAt;
     expiries.push(expiresAt);
   } catch (e) {
-    console.error('Failed token check:', e.message);
+    console.error('Failed token check:', (e as Error).message);
     throw new Error('Failed token check');
   }
 
@@ -44,8 +63,7 @@ export const validateE2EIntakeUser = (fileLocation) => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const doesTokenLastMoreThanNeeded = (expiresAt) => {
+const doesTokenLastMoreThanNeeded = (expiresAt: number): boolean => {
   const timeLeft = (expiresAt * 1000 - Date.now()) / (1000 * 60);
   console.log(`Time left: ${timeLeft.toFixed(1)} minutes`);
   return timeLeft > TOKEN_VALIDITY_THRESHOLD_MINUTES;
