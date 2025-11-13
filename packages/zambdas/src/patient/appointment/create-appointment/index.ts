@@ -560,11 +560,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     JSON.stringify(item)
   );
 
-  const questionnaireID = questionnaire.id;
-  if (!questionnaireID) {
-    throw new Error('Missing questionnaire id');
-  }
-
   const questionnaireResponseResource: QuestionnaireResponse = {
     resourceType: 'QuestionnaireResponse',
     questionnaire: `${questionnaire.url}|${questionnaire.version}`,
