@@ -96,6 +96,7 @@ export const createDocumentsSection = <TData extends { documents?: Documents }>(
         key: value.title,
       }));
   },
+  preferredWidth: 'full',
   render: async (client, documents, styles, assets) => {
     if (!assets?.images) return;
     const { images } = assets;

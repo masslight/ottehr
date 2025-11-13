@@ -441,7 +441,7 @@ export interface ImageReference {
 export interface PdfHeaderSection<TData extends PdfData, TSectionData = any> {
   dataSelector: (data: TData) => TSectionData | undefined;
   shouldRender?: (data: TSectionData) => boolean;
-  render: (client: PdfClient, data: TSectionData, styles: PdfStyles, assets: PdfAssets, token: string) => void;
+  render: (client: PdfClient, data: TSectionData, styles: PdfStyles, assets: PdfAssets) => void;
 }
 
 export interface PdfSection<TData, TSectionData> {
@@ -450,7 +450,7 @@ export interface PdfSection<TData, TSectionData> {
   shouldRender?: (sectionData: TSectionData) => boolean;
   preferredWidth?: 'full' | 'column';
   extractImages?: (sectionData: TSectionData) => ImageReference[];
-  render: (client: PdfClient, sectionData: TSectionData, styles: PdfStyles, assets: PdfAssets, token: string) => void;
+  render: (client: PdfClient, sectionData: TSectionData, styles: PdfStyles, assets: PdfAssets) => void;
 }
 
 export interface VisitInfo extends PdfData {

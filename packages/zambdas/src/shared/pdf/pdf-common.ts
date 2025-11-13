@@ -107,8 +107,7 @@ const renderPdfHeader = <TData extends PdfData>(
   data: TData,
   config: PdfHeaderConfig<TData>,
   styles: PdfStyles,
-  assets: PdfAssets,
-  token: string
+  assets: PdfAssets
 ): void => {
   const headerStartY = pdfClient.getY();
   const pageWidth = pdfClient.getRightBound() - pdfClient.getLeftBound();
@@ -135,7 +134,8 @@ const renderPdfHeader = <TData extends PdfData>(
       const shouldRender = config.rightSection.shouldRender ? config.rightSection.shouldRender(rightData) : true;
 
       if (shouldRender) {
-        config.rightSection.render(pdfClient, rightData, styles, assets, token);
+        const rightAlignedStyles = createRightAlignedStyles(styles);
+        config.rightSection.render(pdfClient, rightData, rightAlignedStyles, assets);
       }
     }
   }
@@ -153,7 +153,7 @@ const renderPdfHeader = <TData extends PdfData>(
         pdfClient.setRightBound(leftX + columnWidth - 10);
         pdfClient.setY(headerStartY);
 
-        config.leftSection.render(pdfClient, leftData, styles, assets, token);
+        config.leftSection.render(pdfClient, leftData, styles, assets);
 
         leftHeight = pdfClient.getY() - headerStartY;
       }
@@ -167,6 +167,22 @@ const renderPdfHeader = <TData extends PdfData>(
   pdfClient.setY(headerStartY + maxHeight);
 
   pdfClient.drawSeparatedLine(styles.lineStyles.separator);
+};
+
+const createRightAlignedStyles = (styles: PdfStyles): PdfStyles => {
+  const rightAlignedTextStyles: Record<string, any> = {};
+
+  for (const [key, style] of Object.entries(styles.textStyles)) {
+    rightAlignedTextStyles[key] = {
+      ...style,
+      side: 'right' as const,
+    };
+  }
+
+  return {
+    ...styles,
+    textStyles: rightAlignedTextStyles,
+  };
 };
 
 const renderPdf = async <TData extends PdfData>(
@@ -199,9 +215,30 @@ const renderPdf = async <TData extends PdfData>(
 
   const styles = config.styleFactory(assets);
 
-  renderPdfHeader(pdfClient, data, config.header, styles, assets, token);
+  renderPdfHeader(pdfClient, data, config.header, styles, assets);
 
-  for (const section of config.sections) {
+  renderBodySections(pdfClient, data, config.sections, styles, assets);
+
+  return await pdfClient.save();
+};
+
+const renderBodySections = <TData extends PdfData>(
+  pdfClient: PdfClient,
+  data: TData,
+  sections: PdfSection<TData, any>[],
+  styles: PdfStyles,
+  assets: PdfAssets
+): void => {
+  const originalLeft = pdfClient.getLeftBound();
+  const originalRight = pdfClient.getRightBound();
+  const pageWidth = originalRight - originalLeft;
+  const columnWidth = pageWidth / 2;
+
+  let currentColumn: 'left' | 'right' = 'left';
+  let leftColumnY = pdfClient.getY();
+  let rightColumnY = pdfClient.getY();
+
+  for (const section of sections) {
     const sectionData = section.dataSelector(data);
 
     if (sectionData === undefined) continue;
@@ -210,11 +247,55 @@ const renderPdf = async <TData extends PdfData>(
       continue;
     }
 
-    if (section.title) pdfClient.drawText(section.title, styles.textStyles.subHeader);
-    section.render(pdfClient, sectionData, styles, assets, token);
+    const layout = section.preferredWidth || 'full';
+
+    if (layout === 'full') {
+      const maxY = Math.max(leftColumnY, rightColumnY);
+      pdfClient.setY(maxY);
+      pdfClient.setLeftBound(originalLeft);
+      pdfClient.setRightBound(originalRight);
+
+      if (section.title) {
+        pdfClient.drawText(section.title, styles.textStyles.subHeader);
+      }
+      section.render(pdfClient, sectionData, styles, assets);
+
+      leftColumnY = pdfClient.getY();
+      rightColumnY = pdfClient.getY();
+      currentColumn = 'left';
+    } else if (layout === 'column') {
+      if (currentColumn === 'left') {
+        pdfClient.setLeftBound(originalLeft);
+        pdfClient.setRightBound(originalLeft + columnWidth - 10); // 10px padding
+        pdfClient.setY(leftColumnY);
+
+        if (section.title) {
+          pdfClient.drawText(section.title, styles.textStyles.subHeader);
+        }
+        section.render(pdfClient, sectionData, styles, assets);
+
+        leftColumnY = pdfClient.getY();
+        currentColumn = 'right';
+      } else {
+        pdfClient.setLeftBound(originalLeft + columnWidth + 10); // 10px padding
+        pdfClient.setRightBound(originalRight);
+        pdfClient.setY(rightColumnY);
+
+        if (section.title) {
+          pdfClient.drawText(section.title, styles.textStyles.subHeader);
+        }
+        section.render(pdfClient, sectionData, styles, assets);
+
+        rightColumnY = pdfClient.getY();
+        currentColumn = 'left';
+      }
+    }
   }
 
-  return await pdfClient.save();
+  pdfClient.setLeftBound(originalLeft);
+  pdfClient.setRightBound(originalRight);
+  const finalY = Math.max(leftColumnY, rightColumnY);
+  pdfClient.setY(finalY);
 };
 
 const loadPdfAssets = async (pdfClient: PdfClient, paths: AssetPaths): Promise<PdfAssets> => {
