@@ -10,9 +10,9 @@ import {
   useTheme,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
+import { DesktopDateTimePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateTime } from 'luxon';
 import React from 'react';
@@ -81,7 +81,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
 
     return (
       <LocalizationProvider dateAdapter={AdapterLuxon}>
-        <DateTimePicker
+        <DesktopDateTimePicker
           data-testid={dataTestIds.orderMedicationPage.inputField(field)}
           label={label}
           value={dateTimeValue}
