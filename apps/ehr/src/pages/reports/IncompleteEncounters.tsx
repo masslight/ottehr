@@ -25,7 +25,7 @@ import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { VisitStatusLabel } from 'utils';
+import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches, VisitStatusLabel } from 'utils';
 import { getIncompleteEncountersReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
@@ -86,13 +86,73 @@ const useIncompleteEncounters = (
         throw new Error('Oystehr client not available');
       }
 
-      // Call the Zambda function to get incomplete encounters
-      const response = await getIncompleteEncountersReport(oystehrZambda, {
-        dateRange: { start, end },
+      // Calculate the date range in days
+      const startDate = DateTime.fromISO(start);
+      const endDate = DateTime.fromISO(end);
+      const daysDifference = endDate.diff(startDate, 'days').days;
+
+      console.log(`Date range is ${daysDifference.toFixed(2)} days`);
+
+      // If the date range is <= DEFAULT_BATCH_DAYS days, make a single request
+      if (daysDifference <= DEFAULT_BATCH_DAYS) {
+        console.log('Making single request for date range');
+        const response = await getIncompleteEncountersReport(oystehrZambda, {
+          dateRange: { start, end },
+        });
+
+        // Transform the response to match our display requirements
+        const processedEncounters: IncompleteEncounterRow[] = response.encounters.map((encounter) => {
+          const appointmentTime = encounter.appointmentStart
+            ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
+            : 'Unknown';
+
+          return {
+            id: encounter.appointmentId,
+            appointmentId: encounter.appointmentId,
+            patientId: encounter.patientId,
+            patientName: encounter.patientName,
+            dateOfBirth: encounter.dateOfBirth,
+            visitStatus: encounter.visitStatus as VisitStatusLabel,
+            appointmentTime,
+            appointmentStart: encounter.appointmentStart,
+            location: encounter.location,
+            locationId: encounter.locationId,
+            attendingProvider: encounter.attendingProvider,
+            visitType: encounter.visitType,
+            reason: encounter.reason,
+          };
+        });
+
+        return processedEncounters.sort((a, b) => {
+          const aTime = a.appointmentStart;
+          const bTime = b.appointmentStart;
+          return DateTime.fromISO(aTime).toMillis() - DateTime.fromISO(bTime).toMillis();
+        });
+      }
+
+      // Split the date range into DEFAULT_BATCH_DAYS-day batches
+      const batches = splitDateRangeIntoBatches(start, end, DEFAULT_BATCH_DAYS);
+      console.log(`Splitting date range into ${batches.length} batches of up to ${DEFAULT_BATCH_DAYS} days each`);
+
+      // Fetch data for each batch in parallel
+      const batchPromises = batches.map(async (batch, index) => {
+        console.log(`Fetching batch ${index + 1}/${batches.length}: ${batch.start} to ${batch.end}`);
+        const response = await getIncompleteEncountersReport(oystehrZambda, {
+          dateRange: batch,
+        });
+        console.log(`Batch ${index + 1} returned ${response.encounters.length} encounters`);
+        return response.encounters;
       });
 
-      // Transform the response to match our display requirements
-      const processedEncounters: IncompleteEncounterRow[] = response.encounters.map((encounter) => {
+      // Wait for all batches to complete
+      const batchResults = await Promise.all(batchPromises);
+
+      // Combine all encounters from all batches
+      const allEncounters = batchResults.flat();
+      console.log(`Total encounters across all batches: ${allEncounters.length}`);
+
+      // Transform the combined response to match our display requirements
+      const processedEncounters: IncompleteEncounterRow[] = allEncounters.map((encounter) => {
         const appointmentTime = encounter.appointmentStart
           ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
           : 'Unknown';
@@ -114,7 +174,10 @@ const useIncompleteEncounters = (
         };
       });
 
-      return processedEncounters.sort((a, b) => {
+      // Deduplicate by appointmentId (in case there are overlaps at batch boundaries)
+      const uniqueEncounters = Array.from(new Map(processedEncounters.map((enc) => [enc.appointmentId, enc])).values());
+
+      return uniqueEncounters.sort((a, b) => {
         const aTime = a.appointmentStart;
         const bTime = b.appointmentStart;
         return DateTime.fromISO(aTime).toMillis() - DateTime.fromISO(bTime).toMillis();
@@ -377,6 +440,7 @@ export default function IncompleteEncounters(): React.ReactElement {
           <DataGridPro
             rows={encounters}
             columns={columns}
+            getRowId={(row) => row.appointmentId}
             loading={isLoading}
             initialState={{
               pagination: {

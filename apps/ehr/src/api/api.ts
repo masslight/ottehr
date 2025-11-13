@@ -1,11 +1,15 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Schedule, Slot } from 'fhir/r4b';
 import {
+  AiAssistedEncountersReportZambdaInput,
+  AiAssistedEncountersReportZambdaOutput,
   apiErrorToThrow,
   ApplyTemplateZambdaInput,
   ApplyTemplateZambdaOutput,
   AssignPractitionerInput,
   AssignPractitionerResponse,
+  BulkUpdateInsuranceStatusInput,
+  BulkUpdateInsuranceStatusResponse,
   CancelAppointmentZambdaInput,
   CancelAppointmentZambdaOutput,
   CancelRadiologyOrderZambdaInput,
@@ -56,6 +60,7 @@ import {
   GetLabOrdersParameters,
   GetNursingOrdersInput,
   GetOrUploadPatientProfilePhotoZambdaResponse,
+  GetPresignedFileURLInput,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
   GetScheduleParams,
@@ -80,6 +85,7 @@ import {
   PaginatedResponse,
   PaperworkToPDFInput,
   PendingSupervisorApprovalInput,
+  PresignUploadUrlResponse,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
   SaveFollowupEncounterZambdaInput,
@@ -91,12 +97,14 @@ import {
   SubmitLabOrderOutput,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
+  UpdateInvoiceTaskZambdaInput,
   UpdateLabOrderResourcesInput,
   UpdateNursingOrderInput,
   UpdateScheduleParams,
   UpdateUserParams,
   UpdateUserZambdaOutput,
   UpdateVisitDetailsInput,
+  UpdateVisitFilesInput,
   UploadPatientProfilePhotoInput,
   UserActivationZambdaInput,
   UserActivationZambdaOutput,
@@ -116,6 +124,7 @@ const VITE_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
 const SUBMIT_LAB_ORDER_ZAMBDA_ID = 'submit-lab-order';
 const GET_APPOINTMENTS_ZAMBDA_ID = 'get-appointments';
 const INCOMPLETE_ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
+const AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID = 'ai-assisted-encounters-report';
 const DAILY_PAYMENTS_REPORT_ZAMBDA_ID = 'daily-payments-report';
 const VISITS_OVERVIEW_REPORT_ZAMBDA_ID = 'visits-overview-report';
 const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
@@ -162,6 +171,8 @@ const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
 const INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID = 'invoiceable-patients-report';
+const BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID = 'bulk-update-insurance-status';
+const UPDATE_INVOICE_TASK_ZAMBDA_ID = 'update-invoice-task';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -300,6 +311,26 @@ export const getIncompleteEncountersReport = async (
 
     const response = await oystehr.zambda.execute({
       id: INCOMPLETE_ENCOUNTERS_REPORT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getAiAssistedEncountersReport = async (
+  oystehr: Oystehr,
+  parameters: AiAssistedEncountersReportZambdaInput
+): Promise<AiAssistedEncountersReportZambdaOutput> => {
+  try {
+    if (AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID == null) {
+      throw new Error('ai-assisted encounters report environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: AI_ASSISTED_ENCOUNTERS_REPORT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
@@ -1271,6 +1302,18 @@ export const updatePatientVisitDetails = async (
   }
 };
 
+export const updateVisitFiles = async (oystehr: Oystehr, parameters: UpdateVisitFilesInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'update-visit-files',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const invoiceablePatientsReport = async (oystehr: Oystehr): Promise<void> => {
   try {
     const response = await oystehr.zambda.execute({
@@ -1280,5 +1323,95 @@ export const invoiceablePatientsReport = async (oystehr: Oystehr): Promise<void>
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const bulkUpdateInsuranceStatus = async (
+  oystehr: Oystehr,
+  parameters: BulkUpdateInsuranceStatusInput
+): Promise<BulkUpdateInsuranceStatusResponse> => {
+  try {
+    if (BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID == null) {
+      throw new Error('bulk update insurance status zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+const getPresignedFileURL = async (
+  params: GetPresignedFileURLInput,
+  oystehr: Oystehr
+): Promise<PresignUploadUrlResponse> => {
+  try {
+    const { appointmentID, fileType, fileFormat } = params;
+
+    const response = await oystehr.zambda.executePublic({
+      id: 'get-presigned-file-url',
+      appointmentID,
+      fileType,
+      fileFormat,
+    });
+    const jsonToUse = chooseJson(response);
+    return jsonToUse;
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
+interface CreateZ3ObjectParams {
+  appointmentID: string;
+  fileType: GetPresignedFileURLInput['fileType'];
+  fileFormat: GetPresignedFileURLInput['fileFormat'];
+  file: File;
+}
+
+export const createZ3Object = async (input: CreateZ3ObjectParams, oystehr: Oystehr): Promise<string> => {
+  const { appointmentID, fileType, fileFormat, file } = input;
+  try {
+    const presignedURLRequest = await getPresignedFileURL(
+      {
+        appointmentID,
+        fileType,
+        fileFormat,
+      },
+      oystehr
+    );
+
+    // const presignedURLResponse = await presignedURLRequest.json();
+    // Upload the file to S3
+    const uploadResponse = await fetch(presignedURLRequest.presignedURL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': file.type,
+      },
+      body: file,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error('Failed to upload file');
+    }
+
+    return presignedURLRequest.z3URL;
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const updateInvoiceTask = async (oystehr: Oystehr, parameters: UpdateInvoiceTaskZambdaInput): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: UPDATE_INVOICE_TASK_ZAMBDA_ID,
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };

@@ -40,6 +40,8 @@ import { DateTime } from 'luxon';
 import {
   addOperation,
   CODE_SYSTEM_COVERAGE_CLASS,
+  docRefIsLabGeneratedResult,
+  docRefIsOgHl7Transmission,
   findExistingListByDocumentTypeCode,
   getMimeType,
   getPatchOperationsForNewMetaTags,
@@ -278,9 +280,12 @@ export async function createFilesDocumentReferences(
           return doc.content[0]?.attachment.title === file.title;
         } else {
           console.log('isLabsResultDoc');
-          // any docRefs for the related DR should be superseded
-          // there should only be one current docRef per DR
-          return true;
+          const isLabGeneratedDocRef = docRefIsLabGeneratedResult(doc);
+          console.log('isLabGeneratedDocRef:', isLabGeneratedDocRef);
+          const isOgTransmissionDocRef = docRefIsOgHl7Transmission(doc);
+          console.log('isOgTransmissionDocRef:', isOgTransmissionDocRef);
+          const docShouldBeSuperseded = !isLabGeneratedDocRef && !isOgTransmissionDocRef;
+          return docShouldBeSuperseded;
         }
       });
       if (oldDoc) {
@@ -634,12 +639,16 @@ export async function getRecentQrsQuestionnaireResponse(
 export const CRITICAL_CHANGE_SYSTEM = 'critical-update-by'; // exists in ehr as well
 export const STATUS_UPDATE_TAG_SYSTEM = 'status-update';
 
-export const getCriticalUpdateTagOp = (resource: Resource, updateBy: string): Operation => {
-  const recordUpdateByTag = {
+export const createCriticalUpdateTag = (updateBy: string): Coding => {
+  return {
     system: CRITICAL_CHANGE_SYSTEM,
     display: updateBy,
     version: DateTime.now().toISO() || '',
   };
+};
+
+export const getCriticalUpdateTagOp = (resource: Resource, updateBy: string): Operation => {
+  const recordUpdateByTag = createCriticalUpdateTag(updateBy);
 
   if (!resource.meta?.tag) {
     return {
@@ -1470,3 +1479,7 @@ export const getInsuranceNameFromCoverage = (coverage: Coverage): string | undef
     (cls) => cls.type.coding?.find((coding) => coding.system === CODE_SYSTEM_COVERAGE_CLASS && coding.code === 'plan')
   )?.name;
 };
+
+export function getPatientReferenceFromAccount(account: Account): string | undefined {
+  return account.subject?.find((subj) => subj.reference?.includes('Patient/'))?.reference;
+}

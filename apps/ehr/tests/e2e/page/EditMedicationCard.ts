@@ -22,6 +22,9 @@ const FIELD_TO_TEST_ID = new Map<Field, string>()
   .set(Field.INSTRUCTIONS, dataTestIds.orderMedicationPage.inputField('instructions'))
   .set(Field.ORDERED_BY, dataTestIds.orderMedicationPage.inputField('providerId'));
 
+export const DIAGNOSIS_EMPTY_VALUE = 'Select Associated Dx';
+export const ORDERED_BY_EMPTY_VALUE = 'Select Ordered By';
+
 export class EditMedicationCard {
   #page: Page;
 
@@ -56,8 +59,12 @@ export class EditMedicationCard {
   async selectAssociatedDx(diagnosis: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ASSOCIATED_DX);
     await this.#page.getByTestId(dataTestId).click();
-    await this.#page.getByRole('option', { name: diagnosis }).waitFor({ state: 'visible' });
-    await this.#page.getByRole('option', { name: diagnosis }).click();
+    await this.chooseOption(diagnosis);
+  }
+
+  async chooseOption(optionName: string, exact: boolean = false): Promise<void> {
+    await this.#page.getByRole('option', { name: optionName, exact }).waitFor({ state: 'visible' });
+    await this.#page.getByRole('option', { name: optionName, exact }).click();
   }
 
   async selectOrderedBy(orderedBy: string): Promise<void> {
@@ -69,8 +76,29 @@ export class EditMedicationCard {
     });
 
     await this.#page.getByTestId(dataTestId).click();
-    await this.#page.getByRole('option', { name: orderedBy }).waitFor({ state: 'visible' });
-    await this.#page.getByRole('option', { name: orderedBy }).click();
+    await this.chooseOption(orderedBy);
+  }
+
+  async selectFirstNonEmptyOrderedBy(): Promise<void> {
+    const dataTestId = this.getDataTestId(Field.ORDERED_BY);
+
+    // mui set tabindex 0 to enabled element
+    await this.#page.locator(`[data-testid="${dataTestId}"] [role="combobox"][tabindex="0"]`).waitFor({
+      timeout: 30000,
+    });
+
+    await this.#page.getByTestId(dataTestId).click();
+    const options = await this.#page.getByRole('option').all();
+    for (const option of options) {
+      const text = await option.textContent();
+      if (text && text.trim() !== ORDERED_BY_EMPTY_VALUE) {
+        const dataValue = await option.getAttribute('data-value');
+        if (dataValue && dataValue !== '') {
+          await option.click();
+          break;
+        }
+      }
+    }
   }
 
   async verifyAssociatedDx(diagnosis: string): Promise<void> {
@@ -88,6 +116,7 @@ export class EditMedicationCard {
   async verifyDiagnosisNotAllowed(diagnosis: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ASSOCIATED_DX);
     await this.#page.getByTestId(dataTestId).click();
+    await this.#page.getByRole('option', { name: DIAGNOSIS_EMPTY_VALUE }).waitFor({ state: 'visible' });
     await this.#page.getByText(diagnosis).locator('input').isHidden();
   }
 
@@ -109,7 +138,7 @@ export class EditMedicationCard {
   async selectUnits(units: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.UNITS);
     await this.#page.getByTestId(dataTestId).click();
-    await this.#page.getByText(units, { exact: true }).click();
+    await this.chooseOption(units, true);
   }
 
   async verifyUnits(units: string): Promise<void> {
@@ -135,7 +164,7 @@ export class EditMedicationCard {
   async selectRoute(route: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ROUTE);
     await this.#page.getByTestId(dataTestId).click();
-    await this.#page.getByText(route, { exact: true }).click();
+    await this.chooseOption(route, true);
   }
 
   async verifyRoute(route: string): Promise<void> {
@@ -170,5 +199,9 @@ export class EditMedicationCard {
   async verifyValidationErrorNotShown(field: Field): Promise<void> {
     const dataTestId = this.getDataTestId(field);
     await expect(this.#page.getByTestId(dataTestId).locator('p:text("This field is required")')).toBeHidden();
+  }
+
+  async expectSaved(): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.orderMedicationPage.fillOrderToSaveButton)).toHaveText('Saved');
   }
 }

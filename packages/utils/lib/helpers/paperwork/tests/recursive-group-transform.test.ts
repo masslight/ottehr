@@ -2028,7 +2028,7 @@ const BASE_QUESTIONNAIRE: Questionnaire = {
             },
             {
               linkId: 'insurance-card-front-2',
-              text: 'Front side of the insurance card',
+              text: 'Front side of the insurance card (optional)',
               type: 'attachment',
               extension: [
                 {

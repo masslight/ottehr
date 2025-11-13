@@ -1,7 +1,9 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Extension, Location, Organization } from 'fhir/r4b';
+import { bulkUpdateInsuranceStatus } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  BulkUpdateInsuranceStatusInput,
   FHIR_EXTENSION,
   INSURANCE_SETTINGS_MAP,
   isLocationVirtual,
@@ -145,13 +147,16 @@ export const useInsuranceMutation = (
             ],
           },
         ],
+        identifier: insurancePlan?.identifier,
+        address: insurancePlan?.address,
       };
-      if (!requirementSettingsExistingExtensions) {
-        resourceExtensions?.push({
-          url: FHIR_EXTENSION.InsurancePlan.insuranceRequirements.url,
-          extension: requirementSettingsNewExtensions,
-        });
-      }
+      // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
+      // if (!requirementSettingsExistingExtensions) {
+      //   resourceExtensions?.push({
+      //     url: FHIR_EXTENSION.InsurancePlan.insuranceRequirements.url,
+      //     extension: requirementSettingsNewExtensions,
+      //   });
+      // }
       resource.extension = resourceExtensions;
 
       if (!oystehr) throw new Error('Oystehr is not defined');
@@ -189,5 +194,19 @@ export const useInsuranceOrganizationsQuery = (): UseQueryResult<Organization[],
     },
 
     enabled: !!oystehr,
+  });
+};
+
+export const useBulkInsuranceStatusMutation = (): UseMutationResult<void, Error, BulkUpdateInsuranceStatusInput> => {
+  const { oystehrZambda } = useApiClients();
+
+  return useMutation({
+    mutationKey: ['bulk-insurance-status'],
+
+    mutationFn: async (data: BulkUpdateInsuranceStatusInput) => {
+      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
+
+      await bulkUpdateInsuranceStatus(oystehrZambda, data);
+    },
   });
 };

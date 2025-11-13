@@ -1,4 +1,4 @@
-import { CodeableConcept, Coding, Task, TaskInput } from 'fhir/r4b';
+import { CodeableConcept, Coding, Reference, Task, TaskInput as FhirTaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { undefinedIfEmptyArray } from 'utils';
 import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
@@ -6,28 +6,42 @@ import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/syst
 export const TASK_TYPE_SYSTEM = ottehrCodeSystemUrl('task-type');
 const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
 
-export function createTask(data: {
-  category: string;
-  code:
-    | {
-        system: string;
-        code: string;
-      }
-    | CodeableConcept;
-  encounterId?: string;
-  locationId?: string;
-  input?: { type: string; value?: string }[] | TaskInput[];
-  basedOn?: string[];
-}): Task {
-  const tag: Coding[] = [
-    {
+export interface TaskInput {
+  type: string;
+  valueString?: string;
+  valueReference?: Reference;
+}
+
+export function createTask(
+  data: {
+    category: string;
+    code?:
+      | {
+          system: string;
+          code: string;
+        }
+      | CodeableConcept;
+    encounterId?: string;
+    location?: {
+      id: string;
+      name?: string;
+    };
+    input?: TaskInput[] | FhirTaskInput[];
+    basedOn?: string[];
+  },
+  showOnBoard = true
+): Task {
+  const tag: Coding[] = [];
+  if (showOnBoard) {
+    tag.push({
       code: 'task',
-    },
-  ];
-  if (data.locationId != null) {
+    });
+  }
+  if (data.location != null) {
     tag.push({
       system: TASK_LOCATION_SYSTEM,
-      code: data.locationId,
+      code: data.location.id,
+      display: data.location?.name,
     });
   }
   return {
@@ -37,16 +51,18 @@ export function createTask(data: {
       system: ottehrIdentifierSystem('task-category'),
       value: data.category,
     },
-    code: isCodeableConcept(data.code)
-      ? data.code
-      : {
-          coding: [
-            {
-              system: data.code.system,
-              code: data.code.code,
-            },
-          ],
-        },
+    code: data.code
+      ? isCodeableConcept(data.code)
+        ? data.code
+        : {
+            coding: [
+              {
+                system: data.code.system,
+                code: data.code.code,
+              },
+            ],
+          }
+      : undefined,
     encounter: data.encounterId ? { reference: `Encounter/${data.encounterId}` } : undefined,
     authoredOn: DateTime.now().toISO(),
     intent: 'order',
@@ -60,7 +76,7 @@ export function createTask(data: {
     input: undefinedIfEmptyArray(
       (data.input ?? [])
         .map((input) => {
-          if (isTaskInput(input)) {
+          if (isFhirTaskInput(input)) {
             return input;
           }
           return {
@@ -72,22 +88,39 @@ export function createTask(data: {
                 },
               ],
             },
-            valueString: input.value,
+            valueString: input.valueString,
+            valueReference: input.valueReference,
           };
         })
-        .filter((input) => input.valueString != null)
+        .filter((input) => input.valueString || input.valueReference)
     ),
-    meta: {
-      tag,
-    },
+    location: data.location
+      ? {
+          reference: 'Location/' + data.location.id,
+          display: data.location.name,
+        }
+      : undefined,
+    meta:
+      tag.length > 0
+        ? {
+            tag,
+          }
+        : undefined,
   };
 }
 
-export function getTaskLocationId(task: Task): string | undefined {
-  return task.meta?.tag?.find((coding) => coding.system === TASK_LOCATION_SYSTEM)?.code;
+export function getTaskLocation(task: Task): { id: string; name?: string } | undefined {
+  const locationCoding = task.meta?.tag?.find((coding) => coding.system === TASK_LOCATION_SYSTEM);
+  if (locationCoding?.code) {
+    return {
+      id: locationCoding.code,
+      name: locationCoding.display,
+    };
+  }
+  return undefined;
 }
 
-function isTaskInput(input: { type: string; value?: string } | TaskInput): input is TaskInput {
+function isFhirTaskInput(input: TaskInput | FhirTaskInput): input is FhirTaskInput {
   return typeof input.type === 'object';
 }
 

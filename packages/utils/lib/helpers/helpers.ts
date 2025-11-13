@@ -174,7 +174,11 @@ export const isNPIValid = (npi: string): boolean => {
   return npiRegex.test(npi);
 };
 
-export function formatPhoneNumberDisplay(phoneNumber: string): string {
+export function formatPhoneNumberDisplay(phoneNumber?: string): string {
+  if (!phoneNumber) {
+    return '';
+  }
+
   const cleaned = ('' + phoneNumber.slice(-10)).replace(/\D/g, '');
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
 
@@ -1418,4 +1422,32 @@ export function getAppointmentType(appointment: Appointment): { type: string } {
   const type = subType ? `${baseType} ${subType}` : baseType;
 
   return { type };
+}
+
+/**
+ * Formats a nine digit zipcode with a dash. Can consume the zipcode or the fhirAddress.
+ * Assumes zip is at the end of the string. Returns string unchanged if no nine digit zip match is found.
+ * e.g. 191472314 -> 19147-2314
+ * e.g. TestLab Burlington 2314 York Court, Burlington, NC, 272153361 ->
+ *      TestLab Burlington 2314 York Court, Burlington, NC, 27215-3361
+ * @param addressOrZip
+ * @returns
+ */
+export function formatZipcodeForDisplay(addressOrZip: string): string {
+  const regexPattern = /\b(\d{5})(\d{4})$/;
+  const zipMatch = addressOrZip.match(regexPattern);
+  console.log(`This is zipMatch ${JSON.stringify(zipMatch)}`);
+  if (!zipMatch) return addressOrZip;
+  return addressOrZip.replace(regexPattern, `${zipMatch[1]}-${zipMatch[2]}`);
+}
+
+export interface TemplateVariables {
+  [key: string]: string | number;
+}
+
+// <key> syntax
+export function replaceTemplateVariablesArrows(template: string, variables: TemplateVariables): string {
+  return template.replace(/<([\w-]+)>/g, (match, key) => {
+    return variables[key]?.toString() || match;
+  });
 }

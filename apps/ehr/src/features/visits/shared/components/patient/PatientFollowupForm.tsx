@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEmployees, saveFollowup } from 'src/api/api';
 import LocationSelect from 'src/components/LocationSelect';
+import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import {
@@ -178,7 +179,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
             return {
               id: encounter.id,
               typeLabel: appointment?.appointmentType?.text || 'Visit',
-              dateTime: appointment?.start || encounter.period?.start,
+              dateTime: appointment?.start,
               appointment: appointment!,
               encounter: encounter,
             };
@@ -420,9 +421,7 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
               fullWidth
               size="small"
               getOptionLabel={(option) => {
-                const dateTime = option.dateTime
-                  ? DateTime.fromISO(option.dateTime).toFormat('MM/dd/yyyy h:mm a')
-                  : 'Unknown date/time';
+                const dateTime = option.dateTime ? formatISOStringToDateAndTime(option.dateTime) : 'Unknown date/time';
                 const type = option.typeLabel || 'Visit';
                 return `${dateTime} - ${type}`;
               }}

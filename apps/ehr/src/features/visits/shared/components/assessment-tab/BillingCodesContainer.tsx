@@ -5,15 +5,13 @@ import { ActionsList } from 'src/components/ActionsList';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
 import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
-import { TooltipWrapper } from 'src/components/WithTooltip';
-import { CPT_TOOLTIP_PROPS } from 'src/components/WithTooltip';
+import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { APIErrorCode } from 'utils';
+import { APIErrorCode, CPTCodeOption, emCodeOptions } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useGetIcd10Search } from '../../stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
-import { CPTCodeOption, emCodeOptions } from './EMCodeField';
 
 export const BillingCodesContainer: FC = () => {
   const { chartData, setPartialChartData } = useChartData();
@@ -79,6 +77,7 @@ export const BillingCodesContainer: FC = () => {
   const onDelete = (resourceId: string): void => {
     let localCodes = cptCodes;
     const preparedValue = localCodes.find((item) => item.resourceId === resourceId)!;
+    const prevCodes = [...localCodes];
 
     deleteCPTChartData(
       {
@@ -87,13 +86,15 @@ export const BillingCodesContainer: FC = () => {
       {
         onSuccess: () => {
           localCodes = localCodes.filter((item) => item.resourceId !== resourceId);
-          setPartialChartData({ cptCodes: localCodes });
+          setPartialChartData({ cptCodes: [...localCodes] });
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting CPT code. Please try again.', { variant: 'error' });
+          setPartialChartData({ cptCodes: prevCodes });
         },
       }
     );
+    setPartialChartData({ cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) });
   };
 
   const onEMCodeChange = (value: CPTCodeOption | null): void => {
@@ -119,7 +120,19 @@ export const BillingCodesContainer: FC = () => {
       );
       setPartialChartData({ emCode: value });
     } else if (emCode) {
-      deleteEMChartData({ emCode });
+      const prevValue = { ...emCode };
+      deleteEMChartData(
+        { emCode },
+        {
+          onSuccess: async () => {
+            setPartialChartData({ emCode: undefined });
+          },
+          onError: () => {
+            enqueueSnackbar('An error has occurred while deleting E&M code. Please try again.', { variant: 'error' });
+            setPartialChartData({ emCode: prevValue });
+          },
+        }
+      );
       setPartialChartData({ emCode: undefined });
     }
   };
