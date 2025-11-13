@@ -438,6 +438,12 @@ export interface ImageReference {
   key: string;
 }
 
+export interface PdfHeaderSection<TData extends PdfData, TSectionData = any> {
+  dataSelector: (data: TData) => TSectionData | undefined;
+  shouldRender?: (data: TSectionData) => boolean;
+  render: (client: PdfClient, data: TSectionData, styles: PdfStyles, assets: PdfAssets, token: string) => void;
+}
+
 export interface PdfSection<TData, TSectionData> {
   title?: string;
   dataSelector: (data: TData) => TSectionData | undefined;

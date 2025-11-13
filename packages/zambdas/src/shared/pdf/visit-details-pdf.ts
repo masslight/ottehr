@@ -70,7 +70,7 @@ const createVisitDetailsStyles: StyleFactory = (assets) => ({
       newLineAfter: true,
     },
     regular: {
-      fontSize: 12,
+      fontSize: 11,
       font: assets.fonts.regular,
       spacing: 2,
       newLineAfter: true,
@@ -92,12 +92,14 @@ const createVisitDetailsStyles: StyleFactory = (assets) => ({
 });
 
 const visitDetailsRenderConfig: PdfRenderConfig<VisitDetailsData> = {
-  title: 'VISIT DETAILS',
+  header: {
+    title: 'VISIT DETAILS',
+    leftSection: createPatientHeader(),
+    rightSection: createVisitInfoSection(),
+  },
   assetPaths: visitDetailsAssetPaths,
   styleFactory: createVisitDetailsStyles,
   sections: [
-    createVisitInfoSection(),
-    createPatientHeader(),
     createPatientInfoSection(),
     createContactInfoSection(),
     createPatientDetailsSection(),

@@ -10,6 +10,7 @@ import {
   PdfAssets,
   PdfClient,
   PdfData,
+  PdfHeaderSection,
   PdfResult,
   PdfSection,
   PdfStyles,
@@ -20,8 +21,14 @@ export type DataComposer<TInput, TOutput extends PdfData> = (input: TInput) => T
 
 export type StyleFactory = (assets: PdfAssets) => PdfStyles;
 
-export interface PdfRenderConfig<TData extends PdfData> {
+export interface PdfHeaderConfig<TData extends PdfData> {
   title: string;
+  leftSection?: PdfHeaderSection<TData, any>;
+  rightSection?: PdfHeaderSection<TData, any>;
+}
+
+export interface PdfRenderConfig<TData extends PdfData> {
+  header: PdfHeaderConfig<TData>;
   assetPaths: AssetPaths;
   styleFactory: StyleFactory;
   sections: PdfSection<TData, any>[];
@@ -95,6 +102,73 @@ const loadAndEmbedImages = async (
   return images;
 };
 
+const renderPdfHeader = <TData extends PdfData>(
+  pdfClient: PdfClient,
+  data: TData,
+  config: PdfHeaderConfig<TData>,
+  styles: PdfStyles,
+  assets: PdfAssets,
+  token: string
+): void => {
+  const headerStartY = pdfClient.getY();
+  const pageWidth = pdfClient.getRightBound() - pdfClient.getLeftBound();
+  const columnWidth = pageWidth / 2;
+  const leftX = pdfClient.getLeftBound();
+  const rightX = leftX + columnWidth;
+
+  let leftHeight = 0;
+  let rightHeight = 0;
+
+  const originalLeft = pdfClient.getLeftBound();
+  const originalRight = pdfClient.getRightBound();
+
+  pdfClient.setLeftBound(rightX + 10);
+  pdfClient.setRightBound(originalRight);
+  pdfClient.setY(headerStartY);
+
+  pdfClient.drawText(config.title, styles.textStyles.header);
+
+  if (config.rightSection) {
+    const rightData = config.rightSection.dataSelector(data);
+
+    if (rightData !== undefined) {
+      const shouldRender = config.rightSection.shouldRender ? config.rightSection.shouldRender(rightData) : true;
+
+      if (shouldRender) {
+        config.rightSection.render(pdfClient, rightData, styles, assets, token);
+      }
+    }
+  }
+
+  rightHeight = pdfClient.getY() - headerStartY;
+
+  if (config.leftSection) {
+    const leftData = config.leftSection.dataSelector(data);
+
+    if (leftData !== undefined) {
+      const shouldRender = config.leftSection.shouldRender ? config.leftSection.shouldRender(leftData) : true;
+
+      if (shouldRender) {
+        pdfClient.setLeftBound(leftX);
+        pdfClient.setRightBound(leftX + columnWidth - 10);
+        pdfClient.setY(headerStartY);
+
+        config.leftSection.render(pdfClient, leftData, styles, assets, token);
+
+        leftHeight = pdfClient.getY() - headerStartY;
+      }
+    }
+  }
+
+  pdfClient.setLeftBound(originalLeft);
+  pdfClient.setRightBound(originalRight);
+
+  const maxHeight = Math.max(leftHeight, rightHeight);
+  pdfClient.setY(headerStartY + maxHeight);
+
+  pdfClient.drawSeparatedLine(styles.lineStyles.separator);
+};
+
 const renderPdf = async <TData extends PdfData>(
   data: TData,
   config: PdfRenderConfig<TData>,
@@ -104,7 +178,12 @@ const renderPdf = async <TData extends PdfData>(
 
   const baseAssets = await loadPdfAssets(pdfClient, config.assetPaths);
 
-  const imageRefs = collectImageReferences(data, config.sections);
+  const allSections = [
+    ...(config.header.leftSection ? [config.header.leftSection] : []),
+    ...(config.header.rightSection ? [config.header.rightSection] : []),
+    ...config.sections,
+  ];
+  const imageRefs = collectImageReferences(data, allSections);
 
   let images: Record<string, PDFImage> = {};
   if (imageRefs.length > 0 && token) {
@@ -120,8 +199,7 @@ const renderPdf = async <TData extends PdfData>(
 
   const styles = config.styleFactory(assets);
 
-  pdfClient.drawText(config.title, styles.textStyles.header);
-  pdfClient.drawSeparatedLine(styles.lineStyles.separator);
+  renderPdfHeader(pdfClient, data, config.header, styles, assets, token);
 
   for (const section of config.sections) {
     const sectionData = section.dataSelector(data);

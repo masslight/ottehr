@@ -18,9 +18,9 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
 
 export const createPatientHeader = <TData extends { patient?: PatientInfo }>(): PdfSection<TData, PatientInfo> => ({
   dataSelector: (data) => data.patient,
-  render: (ctx, patientInfo, styles) => {
-    ctx.drawText(patientInfo.fullName, styles.textStyles.patientName);
-    ctx.drawText(`PID: ${patientInfo.id}`, styles.textStyles.regular);
+  render: (client, patientInfo, styles) => {
+    client.drawText(patientInfo.fullName, styles.textStyles.patientName);
+    client.drawText(`PID: ${patientInfo.id}`, styles.textStyles.regular);
   },
 });
 
