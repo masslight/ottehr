@@ -3,6 +3,7 @@ import { Operation } from 'fast-json-patch';
 import {
   DiagnosticReport,
   DocumentReference,
+  Practitioner,
   Provenance,
   QuestionnaireResponse,
   ServiceRequest,
@@ -14,6 +15,7 @@ import { uuid } from 'short-uuid';
 import {
   DynamicAOEInput,
   EXTERNAL_LAB_ERROR,
+  getFullestAvailableName,
   getPatchBinary,
   LAB_DR_TYPE_TAG,
   OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
@@ -21,6 +23,7 @@ import {
   SpecimenCollectionDateConfig,
   SR_REVOKED_REASON_EXT,
 } from 'utils';
+import { createOwnerReference } from '../../shared/tasks';
 import { docRefIsAbnAndCurrent, parseAccessionNumberFromDr, populateQuestionnaireResponseItems } from '../shared/labs';
 
 export const getSpecimenPatchAndMostRecentCollectionDate = (
@@ -121,12 +124,13 @@ export const makeQrPatchRequest = async (
   };
 };
 
-export const makePstCompletePatchRequests = (
+export const makePstCompletePatchRequests = async (
+  oystehr: Oystehr,
   pstTask: Task,
   sr: ServiceRequest,
   practitionerIdFromCurrentUser: string,
   now: DateTime<true>
-): BatchInputRequest<Provenance | Task>[] => {
+): Promise<BatchInputRequest<Provenance | Task>[]> => {
   const curUserReference = { reference: `Practitioner/${practitionerIdFromCurrentUser}` };
   const provenanceFhirUrl = `urn:uuid:${uuid()}`;
 
@@ -145,6 +149,38 @@ export const makePstCompletePatchRequests = (
     },
   };
 
+  const pstTaskOperations: Operation[] = [
+    {
+      op: 'add',
+      path: '/relevantHistory',
+      value: [
+        {
+          reference: provenanceFhirUrl,
+        },
+      ],
+    },
+    {
+      op: 'replace',
+      path: '/status',
+      value: 'completed',
+    },
+  ];
+
+  if (!pstTask.owner) {
+    const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: practitionerIdFromCurrentUser,
+    });
+    pstTaskOperations.push({
+      path: '/owner',
+      op: 'add',
+      value: createOwnerReference(
+        practitionerIdFromCurrentUser,
+        getFullestAvailableName(currentUserPractitioner) ?? ''
+      ),
+    });
+  }
+
   const requests: BatchInputRequest<Provenance | Task>[] = [
     {
       method: 'POST',
@@ -155,22 +191,7 @@ export const makePstCompletePatchRequests = (
     getPatchBinary({
       resourceType: 'Task',
       resourceId: pstTask.id || 'unknown',
-      patchOperations: [
-        {
-          op: 'add',
-          path: '/relevantHistory',
-          value: [
-            {
-              reference: provenanceFhirUrl,
-            },
-          ],
-        },
-        {
-          op: 'replace',
-          path: '/status',
-          value: 'completed',
-        },
-      ],
+      patchOperations: pstTaskOperations,
     }),
   ];
 
@@ -190,12 +211,14 @@ export const handleMatchUnsolicitedRequest = async ({
   taskId,
   diagnosticReportId,
   patientToMatchId,
+  practitionerIdFromCurrentUser,
   srToMatchId,
 }: {
   oystehr: Oystehr;
   taskId: string;
   diagnosticReportId: string;
   patientToMatchId: string;
+  practitionerIdFromCurrentUser: string;
   srToMatchId?: string;
 }): Promise<void> => {
   console.log('getting the diagnostic report', diagnosticReportId);
@@ -237,10 +260,32 @@ export const handleMatchUnsolicitedRequest = async ({
   }
 
   console.log('formatting fhir patch requests to handle matching unsolicited results');
+  const task = await oystehr.fhir.get<Task>({
+    resourceType: 'Task',
+    id: taskId,
+  });
+
+  const taskOperations: Operation[] = [{ op: 'replace', path: '/status', value: 'completed' }];
+
+  if (!task.owner) {
+    const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: practitionerIdFromCurrentUser,
+    });
+    taskOperations.push({
+      path: '/owner',
+      op: 'add',
+      value: createOwnerReference(
+        practitionerIdFromCurrentUser,
+        getFullestAvailableName(currentUserPractitioner) ?? ''
+      ),
+    });
+  }
+
   const markTaskAsCompleteRequest: BatchInputPatchRequest<Task> = {
     method: 'PATCH',
     url: `Task/${taskId}`,
-    operations: [{ op: 'replace', path: '/status', value: 'completed' }],
+    operations: taskOperations,
   };
 
   const updatedDiagnosticReport: DiagnosticReport = { ...diagnosticReportResource };
