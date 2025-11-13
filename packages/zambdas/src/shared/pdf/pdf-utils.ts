@@ -436,17 +436,24 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       dividerMargin?: number;
       defaultValue?: string;
       spacing?: number;
+      labelValueGap?: number;
     }
   ): void => {
     const drawDivider = options?.drawDivider ?? false;
-    const dividerMargin = options?.dividerMargin ?? 8;
+    const dividerMargin = options?.dividerMargin ?? 4;
     const defaultValue = options?.defaultValue ?? '-';
     const spacing = options?.spacing ?? Math.max(labelStyle.spacing ?? 0, valueStyle.spacing ?? 0);
+    const labelValueGap = options?.labelValueGap ?? 10;
 
     const displayValue = !value || value.trim() === '' ? defaultValue : value;
 
-    const labelLines = splitLongStringToPageSize(label, labelStyle.font, labelStyle.fontSize, pageTextWidth());
-    const valueLines = splitLongStringToPageSize(displayValue, valueStyle.font, valueStyle.fontSize, pageTextWidth());
+    const availableWidth = pageRightBound - pageLeftBound;
+
+    const maxLabelWidth = availableWidth * 0.5;
+    const maxValueWidth = availableWidth * 0.5 - labelValueGap;
+
+    const labelLines = splitLongStringToPageSize(label, labelStyle.font, labelStyle.fontSize, maxLabelWidth);
+    const valueLines = splitLongStringToPageSize(displayValue, valueStyle.font, valueStyle.fontSize, maxValueWidth);
 
     const labelHeight = labelStyle.font.heightAtSize(labelStyle.fontSize) * labelLines.length;
     const valueHeight = valueStyle.font.heightAtSize(valueStyle.fontSize) * valueLines.length;
@@ -478,10 +485,13 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       const line = valueLines[i];
       const lineWidth = valueStyle.font.widthOfTextAtSize(line, valueStyle.fontSize);
       const yPos = valueY - valueStyle.font.heightAtSize(valueStyle.fontSize, { descender: false });
+
+      const valueX = pageRightBound - lineWidth;
+
       page.drawText(line, {
         font: valueStyle.font,
         size: valueStyle.fontSize,
-        x: pageRightBound - lineWidth,
+        x: valueX,
         y: yPos,
         color: valueStyle.color,
       });
@@ -782,6 +792,11 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     }
   };
 
+  const getPageTopY = (): number => {
+    const { height } = page.getSize();
+    return height - (pageStyles.pageMargins.top ?? 0) - Y_POS_GAP;
+  };
+
   return {
     addNewPage,
     drawText,
@@ -792,6 +807,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     newLine,
     getX,
     getY,
+    getPageTopY,
     setX,
     setY,
     save,

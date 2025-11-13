@@ -101,6 +101,7 @@ export interface PdfClient {
   newLine: (yDrop: number) => void;
   getX: () => number;
   getY: () => number;
+  getPageTopY: () => number;
   setX: (x: number) => void;
   setY: (y: number) => void;
   save: () => Promise<Uint8Array>;

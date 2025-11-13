@@ -36,7 +36,7 @@ export interface PdfRenderConfig<TData extends PdfData> {
 
 interface ImageLoader {
   loadImage: (url: string) => Promise<ArrayBuffer>;
-  embedImage: (client: PdfClient, imageData: ArrayBuffer) => Promise<PDFImage>;
+  embedImage: (client: PdfClient, imageData: ArrayBuffer, url: string) => Promise<PDFImage>;
 }
 
 const createImageLoader = (token: string): ImageLoader => ({
@@ -49,8 +49,26 @@ const createImageLoader = (token: string): ImageLoader => ({
     return await res.arrayBuffer();
   },
 
-  embedImage: async (client: PdfClient, imageData: ArrayBuffer): Promise<PDFImage> => {
-    return await client.embedJpg(Buffer.from(imageData));
+  embedImage: async (client: PdfClient, imageData: ArrayBuffer, url: string): Promise<PDFImage> => {
+    const urlLower = url.toLowerCase();
+    const isPng = urlLower.endsWith('.png');
+    const isJpeg = urlLower.endsWith('.jpg') || urlLower.endsWith('.jpeg');
+
+    if (isPng) {
+      console.log(`Embedding PNG image from ${url}`);
+      return await client.embedImage(Buffer.from(imageData));
+    } else if (isJpeg) {
+      console.log(`Embedding JPEG image from ${url}`);
+      return await client.embedJpg(Buffer.from(imageData));
+    } else {
+      console.warn(`Unknown image extension for ${url}, attempting JPEG`);
+      try {
+        return await client.embedJpg(Buffer.from(imageData));
+      } catch {
+        console.warn(`Failed as JPEG, trying PNG for ${url}`);
+        return await client.embedImage(Buffer.from(imageData));
+      }
+    }
   },
 });
 
@@ -88,7 +106,7 @@ const loadAndEmbedImages = async (
     uniqueRefs.map(async (ref) => {
       try {
         const imageData = await imageLoader.loadImage(ref.url);
-        const embeddedImage = await imageLoader.embedImage(pdfClient, imageData);
+        const embeddedImage = await imageLoader.embedImage(pdfClient, imageData, ref.url);
         images[ref.key] = embeddedImage;
         console.log(`Successfully loaded image: ${ref.key}`);
       } catch (error) {
@@ -237,6 +255,8 @@ const renderBodySections = <TData extends PdfData>(
   let currentColumn: 'left' | 'right' = 'left';
   let leftColumnY = pdfClient.getY();
   let rightColumnY = pdfClient.getY();
+  let leftColumnPage = pdfClient.getCurrentPageIndex();
+  let rightColumnPage = pdfClient.getCurrentPageIndex();
 
   for (const section of sections) {
     const sectionData = section.dataSelector(data);
@@ -250,8 +270,19 @@ const renderBodySections = <TData extends PdfData>(
     const layout = section.preferredWidth || 'full';
 
     if (layout === 'full') {
-      const maxY = Math.max(leftColumnY, rightColumnY);
-      pdfClient.setY(maxY);
+      const maxPage = Math.max(leftColumnPage, rightColumnPage);
+      pdfClient.setPageByIndex(maxPage);
+
+      let targetY;
+      if (leftColumnPage === rightColumnPage) {
+        targetY = Math.max(leftColumnY, rightColumnY);
+      } else if (leftColumnPage > rightColumnPage) {
+        targetY = leftColumnY;
+      } else {
+        targetY = rightColumnY;
+      }
+
+      pdfClient.setY(targetY);
       pdfClient.setLeftBound(originalLeft);
       pdfClient.setRightBound(originalRight);
 
@@ -262,11 +293,14 @@ const renderBodySections = <TData extends PdfData>(
 
       leftColumnY = pdfClient.getY();
       rightColumnY = pdfClient.getY();
+      leftColumnPage = pdfClient.getCurrentPageIndex();
+      rightColumnPage = pdfClient.getCurrentPageIndex();
       currentColumn = 'left';
     } else if (layout === 'column') {
       if (currentColumn === 'left') {
+        pdfClient.setPageByIndex(leftColumnPage);
         pdfClient.setLeftBound(originalLeft);
-        pdfClient.setRightBound(originalLeft + columnWidth - 10); // 10px padding
+        pdfClient.setRightBound(originalLeft + columnWidth - 10);
         pdfClient.setY(leftColumnY);
 
         if (section.title) {
@@ -274,10 +308,20 @@ const renderBodySections = <TData extends PdfData>(
         }
         section.render(pdfClient, sectionData, styles, assets);
 
+        const newLeftColumnPage = pdfClient.getCurrentPageIndex();
         leftColumnY = pdfClient.getY();
+
+        if (newLeftColumnPage > leftColumnPage) {
+          rightColumnPage = newLeftColumnPage;
+          pdfClient.setPageByIndex(rightColumnPage);
+          rightColumnY = pdfClient.getPageTopY();
+        }
+
+        leftColumnPage = newLeftColumnPage;
         currentColumn = 'right';
       } else {
-        pdfClient.setLeftBound(originalLeft + columnWidth + 10); // 10px padding
+        pdfClient.setPageByIndex(rightColumnPage);
+        pdfClient.setLeftBound(originalLeft + columnWidth + 10);
         pdfClient.setRightBound(originalRight);
         pdfClient.setY(rightColumnY);
 
@@ -286,7 +330,16 @@ const renderBodySections = <TData extends PdfData>(
         }
         section.render(pdfClient, sectionData, styles, assets);
 
+        const newRightColumnPage = pdfClient.getCurrentPageIndex();
         rightColumnY = pdfClient.getY();
+
+        if (newRightColumnPage > rightColumnPage) {
+          leftColumnPage = newRightColumnPage;
+          pdfClient.setPageByIndex(leftColumnPage);
+          leftColumnY = pdfClient.getPageTopY();
+        }
+
+        rightColumnPage = newRightColumnPage;
         currentColumn = 'left';
       }
     }
@@ -294,7 +347,19 @@ const renderBodySections = <TData extends PdfData>(
 
   pdfClient.setLeftBound(originalLeft);
   pdfClient.setRightBound(originalRight);
-  const finalY = Math.max(leftColumnY, rightColumnY);
+
+  const maxPage = Math.max(leftColumnPage, rightColumnPage);
+  pdfClient.setPageByIndex(maxPage);
+
+  let finalY;
+  if (leftColumnPage === rightColumnPage) {
+    finalY = Math.max(leftColumnY, rightColumnY);
+  } else if (leftColumnPage > rightColumnPage) {
+    finalY = leftColumnY;
+  } else {
+    finalY = rightColumnY;
+  }
+
   pdfClient.setY(finalY);
 };
 
