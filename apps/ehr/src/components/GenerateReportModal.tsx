@@ -73,6 +73,15 @@ export const GenerateReportModal: React.FC<GenerateReportModalProps> = ({ open, 
       const res = (await genreateManualReport(patientId, startDate, endDate, 'csv', apiReportType)) as any;
 
       const responseMessage = res?.message;
+
+      if (responseMessage === 'No vitals data found for the selected date range.') {
+        setToastMessage('No vitals data found for the selected date range.');
+        setToastSeverity('warning');
+        setToastOpen(true);
+        setLoading(false);
+        return;
+      }
+
       if (
         responseMessage === 'Time report created successfully.' ||
         responseMessage === 'Vital report created successfully.'
@@ -82,7 +91,7 @@ export const GenerateReportModal: React.FC<GenerateReportModalProps> = ({ open, 
         setToastSeverity('warning');
       }
 
-      setToastMessage(responseMessage || 'Report generated.');
+      setToastMessage(responseMessage || 'Falied to generate report.');
       setToastOpen(true);
       resetForm();
       loadReports();

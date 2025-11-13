@@ -809,16 +809,8 @@ export const NotificationHierarchy = (): JSX.Element => {
     saveSettingsMutation.mutate(settingsData);
   };
 
-  const handleCancel = (): void => {
-    if (savedSettingsData?.settings) {
-      transformSavedSettingsToHierarchy(savedSettingsData.settings);
-    } else {
-      setProviders([]);
-    }
-    setShowProviderDropdown(false);
-    setShowStaffDropdown({});
-    setShowPatientDropdown({});
-    showSnackbar('Changes cancelled', 'info');
+  const handleCancel = async (): Promise<any> => {
+    await refetchSettings();
   };
 
   const isLoading = providerLoading || staffLoading || patientLoading || settingsLoading;
@@ -1057,7 +1049,7 @@ export const NotificationHierarchy = (): JSX.Element => {
                 {isSaving ? 'Saving...' : 'Save'}
               </Button>
               <Button variant="outlined" onClick={handleCancel} disabled={isSaving}>
-                Cancel
+                Reset
               </Button>
             </Stack>
           )}

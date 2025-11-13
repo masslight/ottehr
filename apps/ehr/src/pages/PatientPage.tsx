@@ -155,14 +155,13 @@ export default function PatientPage(): JSX.Element {
             sx={{
               display: 'flex',
               justifyContent: 'space-between',
-              flexDirection: { xs: 'column', sm: 'row', md: 'row' },
+              flexDirection: { xs: 'column', sm: 'column', md: 'column', lg: 'row' },
               alignItems: { xs: 'stretch', md: 'center' },
-              flexWrap: { xs: 'wrap', sm: 'wrap', md: 'nowrap' },
-              gap: 7,
+              flexWrap: { xs: 'wrap', sm: 'wrap', md: 'wrap', lg: 'nowrap' },
               p: 3,
             }}
           >
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
+            <Box sx={{ display: 'flex', width: '100%', justifyContent: 'start', alignItems: 'center', gap: 4 }}>
               <PatientAvatar id={id} />
 
               <Box sx={{ flexGrow: 1, maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: 1 }}>

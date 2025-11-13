@@ -5,7 +5,6 @@ import {
   AlertColor,
   Box,
   Paper,
-  Skeleton,
   Snackbar,
   Table,
   TableBody,
@@ -128,13 +127,13 @@ export function ThresholdsTable(): ReactElement {
     setToastOpen(false);
   }, []);
 
-  const { isFetching } = useQuery(
+  const { data } = useQuery(
     ['get-patient-baselines', { oystehrZambda, patientId }],
     () => (oystehrZambda ? getPatientBaselines({ patientId }, oystehrZambda) : null),
     {
       enabled: !!oystehrZambda && !!patientId,
       onSuccess: (response: any): void => {
-        console.log('Here is the success', response);
+        console.log('Here is the success', data);
         if (response) {
           const component = response.observations[0].component;
           console.log('component');
@@ -228,9 +227,7 @@ export function ThresholdsTable(): ReactElement {
         row.critical !== originalRows[i]?.critical
     );
 
-    if (!hasChanges) {
-      return;
-    }
+    if (!hasChanges) return;
 
     const allFieldsValid = rows.every((row) => {
       const baselineNum = parseFloat(row.baseline);
@@ -240,18 +237,27 @@ export function ThresholdsTable(): ReactElement {
 
       const isBaselineValid =
         row.baseline !== '' && !isNaN(baselineNum) && baselineNum >= rules.min && baselineNum <= rules.max;
-
       const isVarianceValid = row.variance !== '' && !isNaN(varianceNum) && varianceNum >= 0 && varianceNum <= 100;
-
       const isCriticalValid = row.critical !== '' && !isNaN(criticalNum) && criticalNum >= 0 && criticalNum <= 100;
 
       return isBaselineValid && isVarianceValid && isCriticalValid;
     });
 
-    if (allFieldsValid) {
-      const componentArray = buildComponentArray(rows);
-      updateMutation.mutate(componentArray);
+    if (!allFieldsValid) return;
+
+    const invalidVarianceRows = rows.filter((row) => {
+      const varianceNum = parseFloat(row.variance);
+      const criticalNum = parseFloat(row.critical);
+      return !isNaN(varianceNum) && !isNaN(criticalNum) && criticalNum <= varianceNum;
+    });
+
+    if (invalidVarianceRows.length > 0) {
+      showToast('Critical variance must be greater than warning variance for all metrics', 'error');
+      return;
     }
+
+    const componentArray = buildComponentArray(rows);
+    updateMutation.mutate(componentArray);
   };
 
   const VALIDATION_RULES: Record<Metric, { min: number; max: number; message: string }> = {
@@ -285,190 +291,157 @@ export function ThresholdsTable(): ReactElement {
 
   return (
     <>
-      <Box sx={{ display: 'flex', maxWidth: '900px', justifyContent: 'center', alignItems: 'center' }}>
-        {isFetching ? (
-          <TableContainer component={Paper} sx={{ border: 'none', boxShadow: 'none' }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Vitals</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Warning Variance (%)</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Warning Range</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Critical Variance (%)</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Critical Range</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {[1, 2, 3, 4].map((i) => (
-                  <TableRow key={i}>
+      <Box sx={{ overflowX: 'auto' }}>
+        <TableContainer
+          component={Paper}
+          sx={{
+            border: 'none',
+            width: { xs: '350px', sm: 'calc(100% - 250px)', md: 'calc(100% - 100px)', lg: '100%' },
+            overflowX: 'auto',
+            boxShadow: 'none',
+          }}
+        >
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Vitals</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>
+                  Warning <br />
+                  Variance (%)
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Warning Range</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>
+                  Critical <br />
+                  Variance (%)
+                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Critical Range</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((row, index): JSX.Element => {
+                const baselineNum = parseFloat(row.baseline);
+                const varianceNum = parseFloat(row.variance);
+                const criticalNum = parseFloat(row.critical);
+                const rules = VALIDATION_RULES[row.metric];
+
+                const hasBaselineError =
+                  touched[index]?.baseline &&
+                  (row.baseline === '' || isNaN(baselineNum) || baselineNum < rules.min || baselineNum > rules.max);
+
+                const hasVarianceError =
+                  touched[index]?.variance &&
+                  (row.variance === '' || isNaN(varianceNum) || varianceNum < 0 || varianceNum > 100);
+
+                const hasCriticalError =
+                  touched[index]?.critical &&
+                  (row.critical === '' || isNaN(criticalNum) || criticalNum < 0 || criticalNum > 100);
+
+                return (
+                  <TableRow key={row.metric}>
                     <TableCell sx={{ py: 0.7, px: 2 }}>
-                      <Skeleton width={10} />
+                      <IconButton onClick={(e) => handleViewVitals(e, row)}>
+                        <VisibilityIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                      </IconButton>
                     </TableCell>
+
+                    <TableCell sx={{ py: 0.7, px: 2 }}>{row.metric}</TableCell>
+
                     <TableCell sx={{ py: 0.7, px: 2 }}>
-                      <Skeleton width={120} />
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <TextField
+                          type="number"
+                          size="small"
+                          sx={{ minWidth: 90 }}
+                          placeholder={`${row.metric}`}
+                          value={row.baseline}
+                          inputProps={{ min: 0 }}
+                          error={hasBaselineError}
+                          onChange={(e) => handleChange(index, 'baseline', e.target.value)}
+                          onBlur={() => handleBlur(index, 'baseline')}
+                        />
+                        {hasBaselineError && (
+                          <Tooltip title={row.baseline === '' ? 'Baseline value is required' : rules.message}>
+                            <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
+
                     <TableCell sx={{ py: 0.7, px: 2 }}>
-                      <Skeleton width={100} height={40} />
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <TextField
+                          type="number"
+                          size="small"
+                          inputProps={{ min: 0, max: 100 }}
+                          placeholder="Variance"
+                          value={row.variance}
+                          sx={{ minWidth: 90 }}
+                          error={hasVarianceError}
+                          onChange={(e) => {
+                            const newValue = e.target.value;
+                            if (newValue === '' || (/^\d+$/.test(newValue) && +newValue >= 0 && +newValue <= 100)) {
+                              handleChange(index, 'variance', newValue);
+                            }
+                          }}
+                          onBlur={() => handleBlur(index, 'variance')}
+                        />
+                        {hasVarianceError && (
+                          <Tooltip
+                            title={
+                              row.variance === '' ? 'Variance value is required' : 'Variance must be between 0–100%'
+                            }
+                          >
+                            <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
+
+                    <TableCell sx={{ py: 0.7, px: 2, minWidth: 120 }}>{getRange(row.baseline, row.variance)}</TableCell>
+
                     <TableCell sx={{ py: 0.7, px: 2 }}>
-                      <Skeleton width={100} height={40} />
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <TextField
+                          type="number"
+                          size="small"
+                          inputProps={{ min: 0, max: 100 }}
+                          placeholder="Critical Variance"
+                          value={row.critical}
+                          sx={{ minWidth: 90 }}
+                          error={hasCriticalError}
+                          onChange={(e) => {
+                            const newValue = e.target.value;
+                            if (newValue === '' || (/^\d+$/.test(newValue) && +newValue >= 0 && +newValue <= 100)) {
+                              handleChange(index, 'critical', newValue);
+                            }
+                          }}
+                          onBlur={() => handleBlur(index, 'critical')}
+                        />
+                        {hasCriticalError && (
+                          <Tooltip
+                            title={
+                              row.critical === ''
+                                ? 'Critical variance value is required'
+                                : 'Critical variance must be between 0–100%'
+                            }
+                          >
+                            <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
-                    <TableCell sx={{ py: 0.7, px: 2 }}>
-                      <Skeleton width={140} />
-                    </TableCell>
-                    <TableCell sx={{ py: 0.7, px: 2 }}>
-                      <Skeleton width={100} height={40} />
-                    </TableCell>
-                    <TableCell sx={{ py: 0.7, px: 2 }}>
-                      <Skeleton width={140} />
+
+                    <TableCell sx={{ py: 0.7, px: 2, minWidth: 120 }}>
+                      {getCriticalRange(row.baseline, row.critical)}
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        ) : (
-          <TableContainer component={Paper} sx={{ border: 'none', boxShadow: 'none' }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Vitals</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Warning Variance (%)</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Warning Range</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Critical Variance (%)</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Critical Range</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.map((row, index): JSX.Element => {
-                  const baselineNum = parseFloat(row.baseline);
-                  const varianceNum = parseFloat(row.variance);
-                  const criticalNum = parseFloat(row.critical);
-                  const rules = VALIDATION_RULES[row.metric];
-
-                  const hasBaselineError =
-                    touched[index]?.baseline &&
-                    (row.baseline === '' || isNaN(baselineNum) || baselineNum < rules.min || baselineNum > rules.max);
-
-                  const hasVarianceError =
-                    touched[index]?.variance &&
-                    (row.variance === '' || isNaN(varianceNum) || varianceNum < 0 || varianceNum > 100);
-
-                  const hasCriticalError =
-                    touched[index]?.critical &&
-                    (row.critical === '' || isNaN(criticalNum) || criticalNum < 0 || criticalNum > 100);
-
-                  return (
-                    <TableRow key={row.metric}>
-                      <TableCell sx={{ py: 0.7, px: 2 }}>
-                        <IconButton onClick={(e) => handleViewVitals(e, row)}>
-                          <VisibilityIcon fontSize="small" sx={{ color: 'primary.main' }} />
-                        </IconButton>
-                      </TableCell>
-
-                      <TableCell sx={{ py: 0.7, px: 2 }}>{row.metric}</TableCell>
-
-                      <TableCell sx={{ py: 0.7, px: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <TextField
-                            type="number"
-                            size="small"
-                            sx={{ maxWidth: 180 }}
-                            placeholder={`${row.metric}`}
-                            value={row.baseline}
-                            inputProps={{ min: 0 }}
-                            error={hasBaselineError}
-                            onChange={(e) => handleChange(index, 'baseline', e.target.value)}
-                            onBlur={() => handleBlur(index, 'baseline')}
-                          />
-                          {hasBaselineError && (
-                            <Tooltip title={row.baseline === '' ? 'Baseline value is required' : rules.message}>
-                              <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
-
-                      <TableCell sx={{ py: 0.7, px: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <TextField
-                            type="number"
-                            size="small"
-                            inputProps={{ min: 0, max: 100 }}
-                            placeholder="Variance"
-                            value={row.variance}
-                            sx={{ minWidth: 120 }}
-                            error={hasVarianceError}
-                            onChange={(e) => {
-                              const newValue = e.target.value;
-                              if (newValue === '' || (/^\d+$/.test(newValue) && +newValue >= 0 && +newValue <= 100)) {
-                                handleChange(index, 'variance', newValue);
-                              }
-                            }}
-                            onBlur={() => handleBlur(index, 'variance')}
-                          />
-                          {hasVarianceError && (
-                            <Tooltip
-                              title={
-                                row.variance === '' ? 'Variance value is required' : 'Variance must be between 0–100%'
-                              }
-                            >
-                              <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
-
-                      <TableCell sx={{ py: 0.7, px: 2, minWidth: 120 }}>
-                        {getRange(row.baseline, row.variance)}
-                      </TableCell>
-
-                      <TableCell sx={{ py: 0.7, px: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <TextField
-                            type="number"
-                            size="small"
-                            inputProps={{ min: 0, max: 100 }}
-                            placeholder="Critical Variance"
-                            value={row.critical}
-                            sx={{ minWidth: 120 }}
-                            error={hasCriticalError}
-                            onChange={(e) => {
-                              const newValue = e.target.value;
-                              if (newValue === '' || (/^\d+$/.test(newValue) && +newValue >= 0 && +newValue <= 100)) {
-                                handleChange(index, 'critical', newValue);
-                              }
-                            }}
-                            onBlur={() => handleBlur(index, 'critical')}
-                          />
-                          {hasCriticalError && (
-                            <Tooltip
-                              title={
-                                row.critical === ''
-                                  ? 'Critical variance value is required'
-                                  : 'Critical variance must be between 0–100%'
-                              }
-                            >
-                              <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
-
-                      <TableCell sx={{ py: 0.7, px: 2, minWidth: 120 }}>
-                        {getCriticalRange(row.baseline, row.critical)}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Box>
 
       <DeviceVitalsModal

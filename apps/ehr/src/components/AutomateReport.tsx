@@ -2,6 +2,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import {
   Alert,
   Box,
+  Button,
   CircularProgress,
   FormControl,
   FormControlLabel,
@@ -14,7 +15,6 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   fetchReportSettings,
   getImageDownloadUrl,
@@ -42,6 +42,7 @@ export const AutomateReport = (): JSX.Element => {
   const [reportTemplate, setReportTemplate] = useState<string>('');
   const [frequency, setFrequency] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [branding, setBranding] = useState<BrandingData>({
     logoFile: null,
     header: '',
@@ -62,7 +63,15 @@ export const AutomateReport = (): JSX.Element => {
   const [toastMessage, setToastMessage] = useState<string>('');
   const [toastSeverity, setToastSeverity] = useState<'success' | 'warning'>('warning');
   const [nextTriggerDates, setNextTriggerDates] = useState<string[]>([]);
-  const navigate = useNavigate();
+  const [fieldTouched, setFieldTouched] = useState<{
+    reportName: boolean;
+    header: boolean;
+    footer: boolean;
+  }>({
+    reportName: false,
+    header: false,
+    footer: false,
+  });
 
   const fetchSettings = async (): Promise<void> => {
     setLoading(true);
@@ -121,6 +130,10 @@ export const AutomateReport = (): JSX.Element => {
     }
   }, [frequency]);
 
+  const handleCancel = async (): Promise<any> => {
+    await fetchSettings();
+  };
+
   const handleCloseToast = (): void => setToastOpen(false);
 
   const validateLogoFile = (file: File): string | null => {
@@ -136,6 +149,70 @@ export const AutomateReport = (): JSX.Element => {
     }
 
     return null;
+  };
+
+  const validateReportTitle = (title: string): string | undefined => {
+    if (!title.trim()) {
+      return 'Report title is required';
+    }
+
+    const titleWithoutSpaces = title.replace(/\s/g, '');
+    if (titleWithoutSpaces.length > 255) {
+      return 'Report title must not exceed 255 characters (excluding spaces)';
+    }
+
+    return undefined;
+  };
+
+  const validateCharacterLimit = (text: string, fieldName: string): string | undefined => {
+    const textWithoutSpaces = text.replace(/\s/g, '');
+    if (textWithoutSpaces.length > 255) {
+      return `${fieldName} must not exceed 255 characters (excluding spaces)`;
+    }
+    return undefined;
+  };
+
+  const handleReportTitleChange = (value: string): void => {
+    setReportName(value);
+    if (fieldTouched.reportName) {
+      const error = validateReportTitle(value);
+      setErrors((prev) => ({ ...prev, reportName: error }));
+    }
+  };
+
+  const handleHeaderChange = (value: string): void => {
+    setBranding((prev) => ({ ...prev, header: value }));
+    if (fieldTouched.header) {
+      const error = validateCharacterLimit(value, 'Header');
+      setErrors((prev) => ({ ...prev, header: error }));
+    }
+  };
+
+  const handleFooterChange = (value: string): void => {
+    setBranding((prev) => ({ ...prev, footer: value }));
+    if (fieldTouched.footer) {
+      const error = validateCharacterLimit(value, 'Footer');
+      setErrors((prev) => ({ ...prev, footer: error }));
+    }
+  };
+
+  const handleFieldBlur = (fieldName: keyof typeof fieldTouched): void => {
+    setFieldTouched((prev) => ({ ...prev, [fieldName]: true }));
+
+    if (fieldName === 'reportName') {
+      const error = validateReportTitle(reportName);
+      setErrors((prev) => ({ ...prev, reportName: error }));
+    } else if (fieldName === 'header') {
+      const error = validateCharacterLimit(branding.header, 'Header');
+      setErrors((prev) => ({ ...prev, header: error }));
+    } else if (fieldName === 'footer') {
+      const error = validateCharacterLimit(branding.footer, 'Footer');
+      setErrors((prev) => ({ ...prev, footer: error }));
+    }
+  };
+
+  const getCharacterCount = (text: string): number => {
+    return text.replace(/\s/g, '').length;
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -195,7 +272,34 @@ export const AutomateReport = (): JSX.Element => {
   };
 
   const handleSubmit = async (): Promise<void> => {
-    setLoading(true);
+    setFieldTouched({
+      reportName: true,
+      header: true,
+      footer: true,
+    });
+
+    const reportNameError = validateReportTitle(reportName);
+    const headerError = validateCharacterLimit(branding.header, 'Header');
+    const footerError = validateCharacterLimit(branding.footer, 'Footer');
+
+    const newErrors = {
+      reportName: reportNameError,
+      header: headerError,
+      footer: footerError,
+    };
+
+    setErrors(newErrors);
+
+    const hasErrors = Object.values(newErrors).some((error) => error !== undefined);
+
+    if (hasErrors) {
+      setToastMessage('Please fix validation errors before saving.');
+      setToastSeverity('warning');
+      setToastOpen(true);
+      return;
+    }
+
+    setIsSaving(true);
     try {
       const result = await saveReportSettings({
         title: reportName,
@@ -209,15 +313,13 @@ export const AutomateReport = (): JSX.Element => {
       setToastSeverity('success');
       setToastMessage(result?.message || 'Automate report saved.');
       setToastOpen(true);
-      void fetchSettings();
     } catch (error: any) {
       console.log('Err: ', error?.response.data);
-      console.log('Err: ');
       setToastMessage(error?.response.data.errors[0].title || 'Error saving report.');
       setToastSeverity('warning');
       setToastOpen(true);
     } finally {
-      setLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -278,10 +380,11 @@ export const AutomateReport = (): JSX.Element => {
                 label="Report Name / Title"
                 required
                 value={reportName}
-                onChange={(e) => setReportName(e.target.value)}
+                onChange={(e) => handleReportTitleChange(e.target.value)}
+                onBlur={() => handleFieldBlur('reportName')}
                 fullWidth
                 error={!!errors.reportName}
-                helperText={errors.reportName}
+                helperText={errors.reportName || `${getCharacterCount(reportName)}/255 characters (excluding spaces)`}
                 sx={{
                   '& .MuiFormLabel-asterisk': {
                     color: 'red',
@@ -361,30 +464,42 @@ export const AutomateReport = (): JSX.Element => {
                 <TextField
                   label="Header Text"
                   value={branding.header}
-                  onChange={(e) => setBranding({ ...branding, header: e.target.value })}
+                  onChange={(e) => handleHeaderChange(e.target.value)}
+                  onBlur={() => handleFieldBlur('header')}
                   fullWidth
                   error={!!errors.header}
-                  helperText={errors.header}
+                  helperText={
+                    errors.header || `${getCharacterCount(branding.header)}/255 characters (excluding spaces)`
+                  }
                 />
+
                 <TextField
                   label="Footer Text"
                   value={branding.footer}
-                  onChange={(e) => setBranding({ ...branding, footer: e.target.value })}
+                  onChange={(e) => handleFooterChange(e.target.value)}
+                  onBlur={() => handleFieldBlur('footer')}
                   fullWidth
                   error={!!errors.footer}
-                  helperText={errors.footer}
+                  helperText={
+                    errors.footer || `${getCharacterCount(branding.footer)}/255 characters (excluding spaces)`
+                  }
                 />
               </Box>
             </>
           )}
 
           <Box sx={{ display: 'flex', justifyContent: 'end', gap: 1, mt: 2 }}>
-            <RoundedButton variant="contained" onClick={handleSubmit} disabled={loading}>
-              {loading ? 'Saving...' : 'Save'}
-            </RoundedButton>
-            <RoundedButton onClick={() => navigate(-1)} variant="outlined" disabled={loading}>
-              Cancel
-            </RoundedButton>
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              disabled={isSaving}
+              startIcon={isSaving ? <CircularProgress size={16} /> : null}
+            >
+              {isSaving ? 'Saving...' : 'Save'}
+            </Button>
+            <Button onClick={handleCancel} variant="outlined" disabled={loading}>
+              Reset
+            </Button>
           </Box>
 
           <Snackbar
