@@ -1,6 +1,6 @@
 import { CodeableConcept, Coding, Reference, Task, TaskInput as FhirTaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { undefinedIfEmptyArray } from 'utils';
+import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL, undefinedIfEmptyArray } from 'utils';
 import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 
 export const TASK_TYPE_SYSTEM = ottehrCodeSystemUrl('task-type');
@@ -118,6 +118,18 @@ export function getTaskLocation(task: Task): { id: string; name?: string } | und
     };
   }
   return undefined;
+}
+export function createOwnerReference(id: string, name: string): Reference {
+  return {
+    reference: 'Practitioner/' + id,
+    display: name,
+    extension: [
+      {
+        url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+        valueDateTime: DateTime.now().toISO(),
+      },
+    ],
+  };
 }
 
 function isFhirTaskInput(input: TaskInput | FhirTaskInput): input is FhirTaskInput {
