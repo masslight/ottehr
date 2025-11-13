@@ -1,6 +1,6 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Account, Appointment, Encounter, Location, Patient, Practitioner, Slot, Task } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, Practitioner, Slot, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AppointmentHistoryRow,
@@ -46,7 +46,6 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
@@ -66,7 +65,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const secrets = input.secrets;
-    const { patientId } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -78,13 +76,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
-
-    const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehrClient);
-    const account: Account | undefined = accountResources.account;
-
-    if (!account?.id) {
-      throw FHIR_RESOURCE_NOT_FOUND('Account');
-    }
 
     const effectInput = await complexValidation(
       {
@@ -228,7 +219,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
     let timezone = TIMEZONES[0]; // default timezone
     if (slot && slot.start) {
       // we can just grab the tz from the slot rather than getting the schedule resource
-      const slotDateTime = DateTime.fromISO(slot.start);
+      const slotDateTime = DateTime.fromISO(slot.start, { setZone: true });
       if (slotDateTime.isValid) {
         timezone = slotDateTime.zoneName;
       }
@@ -358,6 +349,14 @@ const validateRequestParameters = (input: ZambdaInput): EffectInput & { secrets:
     throw INVALID_INPUT_ERROR('"to" must be a valid ISO date string.');
   } else if (to && typeof to !== 'string') {
     throw INVALID_INPUT_ERROR('"to" must be a valid ISO date string.');
+  }
+
+  if (from && to) {
+    const fromDateTime = DateTime.fromISO(from);
+    const toDateTime = DateTime.fromISO(to);
+    if (fromDateTime >= toDateTime) {
+      throw INVALID_INPUT_ERROR('The "from" date must be earlier than the "to" date.');
+    }
   }
 
   if (type) {
