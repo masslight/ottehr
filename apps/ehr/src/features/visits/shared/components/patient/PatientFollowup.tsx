@@ -7,16 +7,14 @@ import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatient } from 'src/hooks/useGetPatient';
 import PageContainer from 'src/layout/PageContainer';
-import { formatFhirEncounterToPatientFollowupDetails, getFullName, PatientFollowupDetails } from 'utils';
-import { getFollowupStatusChip } from './PatientFollowupEncountersGrid';
-import PatientFollowupForm from './PatientFollowupForm';
+import { formatFhirEncounterToPatientFollowupDetails, getFullName } from 'utils';
+import OldFollowupView, { OldPatientFollowupDetails } from './OldFollowupView';
 
 export default function PatientFollowup(): JSX.Element {
   const { id, encounterId } = useParams();
   const { patient } = useGetPatient(id);
   const { oystehr } = useApiClients();
-  const [followupDetails, setFollowupDetails] = useState<PatientFollowupDetails | undefined>(undefined);
-  const [followupStatus, setFollowupStatus] = useState<'OPEN' | 'RESOLVED' | undefined>(undefined);
+  const [followupDetails, setFollowupDetails] = useState<OldPatientFollowupDetails | undefined>(undefined);
 
   const fullName = patient ? getFullName(patient) : '';
 
@@ -46,8 +44,7 @@ export default function PatientFollowup(): JSX.Element {
       const fhirLocation = fhirResources.find((resource) => resource.resourceType === 'Location') as Location;
 
       const formatted = formatFhirEncounterToPatientFollowupDetails(fhirEncounter, patientId, fhirLocation);
-      setFollowupDetails(formatted);
-      setFollowupStatus(formatted?.resolved ? 'RESOLVED' : 'OPEN');
+      setFollowupDetails(formatted as unknown as OldPatientFollowupDetails);
     };
     if (encounterId && oystehr && patient?.id) {
       void getAndSetEncounterDetails(oystehr, encounterId, patient.id);
@@ -59,7 +56,7 @@ export default function PatientFollowup(): JSX.Element {
       <Grid container direction="row">
         <Grid item xs={3.5} />
         <Grid item xs={5}>
-          {!followupStatus || !followupDetails || !patient ? (
+          {!followupDetails || !patient ? (
             <Box sx={{ justifyContent: 'left' }}>
               <CircularProgress />
             </Box>
@@ -90,14 +87,8 @@ export default function PatientFollowup(): JSX.Element {
                 <Typography variant="h3" marginTop={1} color={'primary.dark'}>
                   Patient Follow-up
                 </Typography>
-                {getFollowupStatusChip(followupStatus)}
               </Box>
-              <PatientFollowupForm
-                patient={patient}
-                followupDetails={followupDetails}
-                followupStatus={followupStatus}
-                setFollowupStatus={setFollowupStatus}
-              ></PatientFollowupForm>
+              <OldFollowupView patient={patient} followupDetails={followupDetails} />
             </>
           )}
         </Grid>

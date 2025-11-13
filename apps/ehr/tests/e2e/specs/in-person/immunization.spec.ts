@@ -77,7 +77,7 @@ const ADMINISTRATION_DETAILS: AdministrationDetails = {
 const PENDING = 'PENDING';
 const ADMINISTERED = 'ADMINISTERED';
 const PARTLY_ADMINISTERED = 'PARTLY-ADMINISTERED';
-const NOT_ADMINISTRED = 'NOT-ADMINISTERED';
+const NOT_ADMINISTERED = 'NOT-ADMINISTERED';
 const CANCELLED = 'CANCELLED';
 const PATIENT_REFUSED = 'Patient refused';
 
@@ -85,12 +85,8 @@ const resourceHandler = new ResourceHandler(`immunization-mutating-${DateTime.no
 
 test.describe('Immunization Page mutating tests', () => {
   test.beforeEach(async ({ page }) => {
-    if (process.env.INTEGRATION_TEST === 'true') {
-      await resourceHandler.setResourcesFast();
-    } else {
-      await resourceHandler.setResources();
-      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-    }
+    await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
     await setupPractitioners(page);
   });
 
@@ -210,7 +206,7 @@ test.describe('Immunization Page mutating tests', () => {
     await marTab.verifyVaccinePresent({
       ...VACCINE_A,
       givenPerson: await getCurrentPractitionerName(),
-      status: NOT_ADMINISTRED,
+      status: NOT_ADMINISTERED,
       reason: PATIENT_REFUSED,
     });
   });

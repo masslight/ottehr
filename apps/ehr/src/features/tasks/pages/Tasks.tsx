@@ -1,4 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
+import AddIcon from '@mui/icons-material/Add';
+import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PersonAddIcon from '@mui/icons-material/PersonAddOutlined';
 import PriorityHighOutlinedIcon from '@mui/icons-material/PriorityHighOutlined';
@@ -27,24 +29,27 @@ import React, { ReactElement, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { GenericToolTip } from 'src/components/GenericToolTip';
+import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { Option } from 'src/components/input/Option';
-import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
 import {
+  formatDate,
   Task,
   TASKS_PAGE_SIZE,
   useAssignTask,
+  useCompleteTask,
   useGetTasks,
   useUnassignTask,
 } from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
-import { formatDate } from '../common';
+import { TASK_CATEGORY_LABEL } from '../common';
 import { AssignTaskDialog } from '../components/AssignTaskDialog';
-import { CategoryChip, TASK_CATEGORY_LABEL } from '../components/CategoryChip';
+import { CategoryChip } from '../components/CategoryChip';
+import { CreateTaskDialog } from '../components/CreateTaskDialog';
 
 const LOCAL_STORAGE_FILTERS_KEY = 'tasks.filters';
 const UNKNOWN = 'Unknown';
@@ -54,10 +59,21 @@ const TASK_STATUS_LABEL: Record<string, string> = {
   'in-progress': 'in progress',
   completed: 'completed',
 };
-const CATEGORY_OPTIONS: Option[] = Object.entries(TASK_CATEGORY_LABEL).map((entry) => {
+const CATEGORY_OPTIONS: Option[] = Object.entries(
+  Object.entries(TASK_CATEGORY_LABEL).reduce<Record<string, string>>((previousValue, entry) => {
+    const category = entry[0];
+    const label = entry[1];
+    if (previousValue[label]) {
+      previousValue[label] += ',' + category;
+    } else {
+      previousValue[label] = category;
+    }
+    return previousValue;
+  }, {})
+).map((entry) => {
   return {
-    label: entry[1],
-    value: entry[0],
+    label: entry[0],
+    value: entry[1],
   };
 });
 const STATUS_OPTIONS: Option[] = Object.entries(TASK_STATUS_LABEL).map((entry) => {
@@ -69,8 +85,9 @@ const STATUS_OPTIONS: Option[] = Object.entries(TASK_STATUS_LABEL).map((entry) =
 
 export const Tasks: React.FC = () => {
   const navigate = useNavigate();
-  const { mutateAsync: assignTask, isPending: isAssigning } = useAssignTask();
+  const { mutateAsync: assignTask } = useAssignTask();
   const { mutateAsync: unassignTask } = useUnassignTask();
+  const { mutateAsync: completeTask } = useCompleteTask();
   const currentUser = useEvolveUser();
   const currentUserProviderId = currentUser?.profile?.split('/')[1];
 
@@ -84,35 +101,21 @@ export const Tasks: React.FC = () => {
     if (task.status === COMPLETED) {
       return null;
     }
-    if (!task.assignee) {
+    if (task.action) {
       return (
-        <RoundedButton
-          variant="outlined"
-          onClick={async () => {
-            if (currentUserProviderId && currentUser?.name) {
-              await assignTask({
-                taskId: task.id,
-                assignee: {
-                  id: currentUserProviderId,
-                  name: currentUser.userName,
-                },
-              });
-            }
-          }}
-          loading={isAssigning}
-        >
-          Assign Me
+        <RoundedButton variant="contained" onClick={() => window.open(task.action?.link, '_blank')}>
+          {task.action.name}
         </RoundedButton>
       );
     }
-    if (task.action) {
+    return null;
+  };
+
+  const renderCompleteButton = (task: Task): ReactElement | null => {
+    if (task.status !== COMPLETED && currentUserProviderId === task.assignee?.id && task.completable) {
       return (
-        <RoundedButton
-          variant="contained"
-          onClick={() => navigate(task.action?.link ?? '#')}
-          disabled={currentUserProviderId !== task.assignee?.id}
-        >
-          {task.action.name}
+        <RoundedButton variant="contained" onClick={async () => await completeTask({ taskId: task.id })}>
+          Complete
         </RoundedButton>
       );
     }
@@ -193,15 +196,25 @@ export const Tasks: React.FC = () => {
     }
   }, [searchParams, setSearchParams]);
 
-  const [pageNumber, setPageNumber] = React.useState(0);
+  const setPage = (page: number): void => {
+    searchParams.set('page', page.toString());
+    setSearchParams(searchParams);
+  };
+
+  const page = Number(searchParams.get('page') ?? '0');
 
   const { data: tasksData, isLoading: isTasksLoading } = useGetTasks({
     assignedTo: searchParams.get('assignedTo'),
     category: searchParams.get('category'),
     location: searchParams.get('location'),
     status: searchParams.get('status'),
-    page: pageNumber,
+    page: page,
   });
+
+  const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
+  const onNewTaskClick = (): void => {
+    setShowCreateTaskDialog(true);
+  };
 
   return (
     <PageContainer>
@@ -211,8 +224,11 @@ export const Tasks: React.FC = () => {
             <Stack direction="row" spacing={2} padding="8px">
               <LocationSelectInput name="location" label="Location" />
               <SelectInput name="category" label="Category" options={CATEGORY_OPTIONS} />
-              <ProviderSelectInput name="assignedTo" label="Asigned to" />
+              <EmployeeSelectInput name="assignedTo" label="Assigned to" />
               <SelectInput name="status" label="Status" options={STATUS_OPTIONS} />
+              <RoundedButton variant="contained" onClick={onNewTaskClick} startIcon={<AddIcon />}>
+                New Task
+              </RoundedButton>
             </Stack>
           </Paper>
         </FormProvider>
@@ -245,6 +261,7 @@ export const Tasks: React.FC = () => {
                     Action
                   </Typography>
                 </TableCell>
+                <TableCell style={{ width: '50px' }}></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -305,7 +322,8 @@ export const Tasks: React.FC = () => {
                             </GenericToolTip>
                           ) : null}
                         </Box>
-                        <Typography variant="body2" display="inline" style={{ color: '#00000099' }}>
+                        {task.details ? <Typography variant="body2">{task.details}</Typography> : null}
+                        <Typography variant="body2" style={{ color: '#00000099' }}>
                           {task.subtitle}
                         </Typography>
                       </TableCell>
@@ -322,7 +340,7 @@ export const Tasks: React.FC = () => {
                             </Typography>
                           </>
                         ) : (
-                          'Not Assigned'
+                          'Unassigned'
                         )}
                       </TableCell>
                       <TableCell>
@@ -335,12 +353,13 @@ export const Tasks: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         {task.status !== COMPLETED ? (
-                          <Stack direction="row" justifyContent="space-between">
+                          <Stack direction="row" justifyContent="space-between" spacing={1}>
                             {renderActionButton(task)}
-                            {renderMoreButton(task)}
+                            {renderCompleteButton(task)}
                           </Stack>
                         ) : null}
                       </TableCell>
+                      <TableCell>{task.status !== COMPLETED ? renderMoreButton(task) : null}</TableCell>
                     </TableRow>
                   );
                 })}
@@ -351,9 +370,9 @@ export const Tasks: React.FC = () => {
             component="div"
             count={tasksData?.total ?? -1}
             rowsPerPage={TASKS_PAGE_SIZE}
-            page={pageNumber}
+            page={page}
             onPageChange={(_e, newPageNumber) => {
-              setPageNumber(newPageNumber);
+              setPage(newPageNumber);
             }}
           />
         </Paper>
@@ -385,24 +404,55 @@ export const Tasks: React.FC = () => {
                   </ListItemButton>
                 </ListItem>
               ) : (
-                <ListItem disablePadding>
-                  <ListItemButton
-                    onClick={() => {
-                      setTaskToAssign(moreActionsPopoverData.task);
-                      closeMoreActionsPopover();
-                    }}
-                  >
-                    <ListItemIcon>
-                      <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
-                    </ListItemIcon>
-                    <ListItemText primary="Assign to someone else" />
-                  </ListItemButton>
-                </ListItem>
+                <>
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      onClick={async () => {
+                        if (currentUserProviderId && currentUser?.name) {
+                          await assignTask({
+                            taskId: moreActionsPopoverData.task.id,
+                            assignee: {
+                              id: currentUserProviderId,
+                              name: currentUser.userName,
+                            },
+                          });
+                          closeMoreActionsPopover();
+                        }
+                      }}
+                    >
+                      <ListItemIcon>
+                        <HowToRegOutlinedIcon color="primary" />
+                      </ListItemIcon>
+                      <ListItemText primary="Assign me" />
+                    </ListItemButton>
+                  </ListItem>
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      onClick={() => {
+                        setTaskToAssign(moreActionsPopoverData.task);
+                        closeMoreActionsPopover();
+                      }}
+                    >
+                      <ListItemIcon>
+                        <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
+                      </ListItemIcon>
+                      <ListItemText primary="Assign to someone else" />
+                    </ListItemButton>
+                  </ListItem>
+                </>
               )}
             </List>
           </Popover>
         ) : null}
         {taskToAssign ? <AssignTaskDialog task={taskToAssign} handleClose={() => setTaskToAssign(null)} /> : null}
+        {showCreateTaskDialog ? (
+          <CreateTaskDialog
+            open={true}
+            handleClose={(): void => {
+              setShowCreateTaskDialog(false);
+            }}
+          />
+        ) : null}
       </Stack>
     </PageContainer>
   );

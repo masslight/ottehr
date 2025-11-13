@@ -9,6 +9,7 @@ import {
   OTTEHR_MODULE,
   PatientFilterType,
 } from 'utils';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { joinLocationsIdsForFhirSearch } from './helpers';
 import { mapStatesToLocationIds, mapTelemedStatusToEncounterAndAppointment } from './mappers';
 import { LocationIdToStateAbbreviationMap } from './types';
@@ -39,7 +40,6 @@ export const getAllResourcesFromFhir = async (
         name: '_sort',
         value: 'date',
       },
-      { name: '_count', value: '1000' },
       {
         name: '_include',
         value: 'Appointment:patient',
@@ -47,10 +47,6 @@ export const getAllResourcesFromFhir = async (
       {
         name: '_revinclude:iterate',
         value: 'RelatedPerson:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Encounter:participant',
       },
       {
         name: '_include:iterate',
@@ -61,7 +57,7 @@ export const getAllResourcesFromFhir = async (
         value: 'Appointment:location',
       },
       {
-        name: '_revinclude:iterate',
+        name: '_revinclude',
         value: 'Encounter:appointment',
       },
       {
@@ -95,9 +91,9 @@ export const getAllResourcesFromFhir = async (
     ],
   };
 
-  return (await oystehr.fhir.search<FhirResource>(fhirSearchParams))
-    .unbundle()
-    .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
+  return (await getAllFhirSearchPages<FhirResource>(fhirSearchParams, oystehr, 100)).filter(
+    (resource) => isNonPaperworkQuestionnaireResponse(resource) === false
+  );
 };
 
 export const getPractitionerLicensesLocationsAbbreviations = async (oystehr: Oystehr): Promise<string[]> => {

@@ -53,6 +53,7 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
   patientLabItems: PatientLabItem[];
   groupedLabOrdersForChartTable: LabOrderListPageDTOGrouped | undefined;
+  handleRejectedAbn: (serviceRequestId: string) => Promise<void>;
 }
 
 export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
@@ -246,6 +247,18 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     deleteOrder: handleDeleteLabOrder,
   });
 
+  const handleRejectedAbn = useCallback(
+    async (serviceRequestId: string): Promise<void> => {
+      if (!oystehrZambda) throw Error('oystehrZambda missing');
+      await updateLabOrderResources(oystehrZambda, {
+        event: 'rejectedAbn',
+        serviceRequestId: serviceRequestId,
+      });
+      setSearchParams({ pageNumber: 1 });
+    },
+    [oystehrZambda, setSearchParams]
+  );
+
   const markTaskAsReviewed = useCallback(
     async ({
       taskId,
@@ -311,6 +324,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     saveSpecimenDate,
     patientLabItems,
     groupedLabOrdersForChartTable,
+    handleRejectedAbn,
   };
 };
 

@@ -29,7 +29,9 @@ import {
   APIError,
   APIErrorCode,
   CancelMatchUnsolicitedResultTask,
+  CPTCodeDTO,
   createSmsModel,
+  DiagnosisDTO,
   filterResources,
   FinalizeUnsolicitedResultMatch,
   GetCreateLabOrderResources,
@@ -498,12 +500,14 @@ export function useFinalizeUnsolicitedResultMatch(): UseMutationResult<void, Err
   return useMutation({
     mutationFn: async (input: FinalizeUnsolicitedResultMatch) => {
       const data = await apiClient?.updateLabOrderResources(input);
-
       if (data && 'possibleRelatedSRsWithVisitDate' in data) {
         return data;
       }
-
       return;
+    },
+    onSuccess: async () => {
+      // slight delay so that the subscription zambda has time to run and when the tasks are reloaded the new ones will be there
+      await new Promise((res) => setTimeout(res, 800));
     },
   });
 }
@@ -536,6 +540,20 @@ export const useGetIcd10Search = ({
   }, [queryResult.error]);
 
   return queryResult;
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useRecommendBillingSuggestions = () => {
+  const apiClient = useOystehrAPIClient();
+  return useMutation({
+    mutationFn: (props: { diagnoses: DiagnosisDTO[] | undefined; billing: CPTCodeDTO[] | undefined }) => {
+      if (!apiClient) {
+        throw new Error('api client is not defined');
+      }
+      return apiClient.recommendBillingSuggestions(props);
+    },
+    retry: 2,
+  });
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type

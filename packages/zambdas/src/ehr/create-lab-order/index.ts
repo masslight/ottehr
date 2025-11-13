@@ -244,32 +244,36 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         code: LAB_ORDER_TASK.code.preSubmission,
       },
       encounterId: encounter.id ?? '',
-      locationId: orderingLocation.id,
+      location: orderingLocation.id
+        ? {
+            id: orderingLocation.id,
+          }
+        : undefined,
       basedOn: [serviceRequestFullUrl],
       input: [
         {
           type: LAB_ORDER_TASK.input.testName,
-          value: activityDefinitionToContain.name,
+          valueString: activityDefinitionToContain.name,
         },
         {
           type: LAB_ORDER_TASK.input.labName,
-          value: labOrganization.name,
+          valueString: labOrganization.name,
         },
         {
           type: LAB_ORDER_TASK.input.patientName,
-          value: getFullestAvailableName(patient),
+          valueString: getFullestAvailableName(patient),
         },
         {
           type: LAB_ORDER_TASK.input.providerName,
-          value: getFullestAvailableName(currentUserPractitioner),
+          valueString: getFullestAvailableName(currentUserPractitioner),
         },
         {
           type: LAB_ORDER_TASK.input.orderDate,
-          value: serviceRequestConfig.authoredOn,
+          valueString: serviceRequestConfig.authoredOn,
         },
         {
           type: LAB_ORDER_TASK.input.appointmentId,
-          value: encounter.appointment?.[0]?.reference?.split('/')?.[1],
+          valueString: encounter.appointment?.[0]?.reference?.split('/')?.[1],
         },
       ],
     });
@@ -549,7 +553,7 @@ const getAdditionalResources = async (
         const curSrIsPsc = isPSCOrder(resource);
         if (curSrIsPsc === psc) {
           // we bundled psc orders separately, so if the current test being submitted is psc
-          // it should only be bundled under the same requsition number if there are other psc orders for this lab
+          // it should only be bundled under the same requisition number if there are other psc orders for this lab
           serviceRequestsForBundle.push(resource);
         }
       }
@@ -692,7 +696,7 @@ function validateLabOrgAndOrderingLocationAndGetAccountNumber(
 
   if (!orderingLocationLabInfo) {
     console.error(
-      `Ordering Location/${orderingLocation.id} is not configured to order labs from Oragnization/${labOrganization.id}`
+      `Ordering Location/${orderingLocation.id} is not configured to order labs from Organization/${labOrganization.id}`
     );
     throw EXTERNAL_LAB_ERROR(
       `The '${orderingLocation.name}' location is not configured to order labs from ${labOrganization.name}`
@@ -701,7 +705,7 @@ function validateLabOrgAndOrderingLocationAndGetAccountNumber(
 
   if (!orderingLocationLabInfo.value) {
     console.error(
-      `Ordering Location/${orderingLocation.id} missing account number for Oragnization/${labOrganization.id}`
+      `Ordering Location/${orderingLocation.id} missing account number for Organization/${labOrganization.id}`
     );
     throw EXTERNAL_LAB_ERROR(
       `No account number found for ${labOrganization.name} for the ${orderingLocation.name} location`

@@ -9,9 +9,11 @@ import {
   EHRVisitDetails,
   FHIR_EXTENSION,
   getAttestedConsentFromEncounter,
+  getReasonForVisitAndAdditionalDetailsFromAppointment,
   getReasonForVisitFromAppointment,
   getUnconfirmedDOBIdx,
   isValidUUID,
+  REASON_ADDITIONAL_MAX_CHAR,
   UpdateVisitDetailsInput,
 } from 'utils';
 import { assert, inject } from 'vitest';
@@ -244,6 +246,100 @@ describe('saving and getting visit details', () => {
     expect(newReasonForVisit).toBeDefined();
     expect(newReasonForVisit).toEqual(reasonText);
   });
+  test.concurrent('can save and retrieve additionalDetails', async () => {
+    if (!oystehr || !processId) {
+      throw new Error('oystehr or processId is null! could not run test!');
+    }
+    const { encounter, appointment } = await makeTestResources({
+      processId,
+      oystehr,
+      patientAge: { units: 'years', value: 30 },
+      patientSex: 'male',
+    });
+    expect(encounter).toBeDefined();
+    expect(appointment).toBeDefined();
+
+    const visitDetails = await getVisitDetails(appointment.id!);
+    expect(visitDetails).toBeDefined();
+    expect(visitDetails.encounter).toBeDefined();
+    expect(visitDetails.appointment).toBeDefined();
+    const reasonForVisit = getReasonForVisitFromAppointment(appointment);
+    expect(reasonForVisit).toBeUndefined();
+
+    const randomIndex = Math.floor(Math.random() * BOOKING_CONFIG.reasonForVisitOptions.length);
+    const reasonText = BOOKING_CONFIG.reasonForVisitOptions[randomIndex];
+
+    await updateVisitDetails({
+      appointmentId: appointment.id!,
+      bookingDetails: {
+        reasonForVisit: reasonText,
+      },
+    });
+
+    let updatedVisitDetails = await getVisitDetails(appointment.id!);
+    expect(updatedVisitDetails).toBeDefined();
+    expect(updatedVisitDetails.appointment).toBeDefined();
+    const newReasonForVisit = getReasonForVisitFromAppointment(updatedVisitDetails.appointment);
+    expect(newReasonForVisit).toBeDefined();
+    expect(newReasonForVisit).toEqual(reasonText);
+
+    // main reason for visit stays the same when not included in update
+    await updateVisitDetails({
+      appointmentId: appointment.id!,
+      bookingDetails: {
+        additionalDetails: 'Mom says speech a bit slurred',
+      },
+    });
+    updatedVisitDetails = await getVisitDetails(appointment.id!);
+    expect(updatedVisitDetails).toBeDefined();
+    expect(updatedVisitDetails.appointment).toBeDefined();
+    const { reasonForVisit: newReasonForVisit2, additionalDetails: newAdditionalDetails } =
+      getReasonForVisitAndAdditionalDetailsFromAppointment(updatedVisitDetails.appointment);
+    expect(newReasonForVisit2).toBeDefined();
+    expect(newReasonForVisit2).toEqual(newReasonForVisit);
+    expect(newAdditionalDetails).toBeDefined();
+    expect(newAdditionalDetails).toEqual('Mom says speech a bit slurred');
+
+    const randomIndex2 = Math.floor(Math.random() * BOOKING_CONFIG.reasonForVisitOptions.length);
+    const reasonText2 = BOOKING_CONFIG.reasonForVisitOptions[randomIndex2];
+
+    // both main reason for visit and additional details updated when both included
+    await updateVisitDetails({
+      appointmentId: appointment.id!,
+      bookingDetails: {
+        additionalDetails: 'Mom says brother is very sorry',
+        reasonForVisit: reasonText2,
+      },
+    });
+    updatedVisitDetails = await getVisitDetails(appointment.id!);
+
+    expect(updatedVisitDetails).toBeDefined();
+    expect(updatedVisitDetails.appointment).toBeDefined();
+    const { reasonForVisit: newReasonForVisit3, additionalDetails: newAdditionalDetails2 } =
+      getReasonForVisitAndAdditionalDetailsFromAppointment(updatedVisitDetails.appointment);
+    expect(newReasonForVisit3).toBeDefined();
+    expect(newReasonForVisit3).toEqual(reasonText2);
+    expect(newAdditionalDetails2).toBeDefined();
+    expect(newAdditionalDetails2).toEqual('Mom says brother is very sorry');
+
+    // additional details removed when set to empty string
+    await updateVisitDetails({
+      appointmentId: appointment.id!,
+      bookingDetails: {
+        additionalDetails: '',
+        reasonForVisit: reasonText, // set back to original reason
+      },
+    });
+    updatedVisitDetails = await getVisitDetails(appointment.id!);
+
+    expect(updatedVisitDetails).toBeDefined();
+    expect(updatedVisitDetails.appointment).toBeDefined();
+    const { reasonForVisit: newReasonForVisit4, additionalDetails: newAdditionalDetails3 } =
+      getReasonForVisitAndAdditionalDetailsFromAppointment(updatedVisitDetails.appointment);
+    expect(newReasonForVisit4).toBeDefined();
+    expect(newReasonForVisit4).toEqual(reasonText);
+    expect(newAdditionalDetails3).toBeUndefined();
+  });
   test.concurrent('can save and retrieve patient name', async () => {
     if (!oystehr || !processId) {
       throw new Error('oystehr or processId is null! could not run test!');
@@ -301,6 +397,160 @@ describe('saving and getting visit details', () => {
     expect(updatedName?.given?.[1]).toEqual(newMiddleName);
     expect(updatedName?.family).toBeDefined();
     expect(updatedName?.family).toEqual(newLastName);
+  });
+  test.concurrent('can save and retrieve patient name with empty middle name', async () => {
+    if (!oystehr || !processId) {
+      throw new Error('oystehr or processId is null! could not run test!');
+    }
+    const { encounter, appointment, patient } = await makeTestResources({
+      processId,
+      oystehr,
+      patientAge: { units: 'years', value: 30 },
+      patientSex: 'female',
+    });
+    expect(encounter).toBeDefined();
+    expect(appointment).toBeDefined();
+    expect(patient).toBeDefined();
+    expect(patient?.name).toBeDefined();
+    expect(patient?.name?.length).toBeGreaterThan(0);
+    const originalName = patient?.name?.[0];
+    expect(originalName).toBeDefined();
+    expect(originalName?.given).toBeDefined();
+    expect(originalName?.given?.length).toBeGreaterThan(0);
+    const originalFirstName = originalName?.given?.[0];
+    expect(originalFirstName).toBeDefined();
+
+    const visitDetails = await getVisitDetails(appointment.id!);
+    expect(visitDetails).toBeDefined();
+    expect(visitDetails.patient).toBeDefined();
+    expect(visitDetails.patient.name).toBeDefined();
+    expect(visitDetails.patient.name?.[0]).toEqual(originalName);
+
+    const newFirstName = 'Sven';
+    const newMiddleName = '';
+    // cSpell:disable-next Stiegson
+    const newLastName = 'Stiegson';
+
+    let updatedVisitDetails;
+    let errorFound = false;
+    try {
+      await updateVisitDetails({
+        appointmentId: appointment.id!,
+        bookingDetails: {
+          patientName: {
+            first: newFirstName,
+            middle: newMiddleName,
+            last: newLastName,
+          },
+        },
+      });
+      updatedVisitDetails = await getVisitDetails(appointment.id!);
+    } catch {
+      errorFound = true;
+    }
+    expect(errorFound).toBe(false);
+    expect(updatedVisitDetails).toBeDefined();
+    assert(updatedVisitDetails);
+    expect(updatedVisitDetails.appointment).toBeDefined();
+    expect(updatedVisitDetails.patient).toBeDefined();
+    expect(updatedVisitDetails.patient.name).toBeDefined();
+    expect(updatedVisitDetails.patient.name?.length).toBeGreaterThan(0);
+    const updatedName = updatedVisitDetails.patient.name?.[0];
+    expect(updatedName).toBeDefined();
+    expect(updatedName).not.toEqual(originalName);
+    expect(updatedName?.given).toBeDefined();
+    expect(updatedName?.given?.length).toBe(1);
+    expect(updatedName?.given?.[0]).toEqual(newFirstName);
+    expect(updatedName?.given?.[1]).toBeUndefined();
+    expect(updatedName?.family).toBeDefined();
+    expect(updatedName?.family).toEqual(newLastName);
+  });
+  test.concurrent('patient middle name can be removed', async () => {
+    if (!oystehr || !processId) {
+      throw new Error('oystehr or processId is null! could not run test!');
+    }
+    const { encounter, appointment, patient } = await makeTestResources({
+      processId,
+      oystehr,
+      patientAge: { units: 'years', value: 30 },
+      patientSex: 'female',
+    });
+    expect(encounter).toBeDefined();
+    expect(appointment).toBeDefined();
+    expect(patient).toBeDefined();
+    expect(patient?.name).toBeDefined();
+    expect(patient?.name?.length).toBeGreaterThan(0);
+    const originalName = patient?.name?.[0];
+    expect(originalName).toBeDefined();
+    expect(originalName?.given).toBeDefined();
+    expect(originalName?.given?.length).toBeGreaterThan(0);
+    const originalFirstName = originalName?.given?.[0];
+    expect(originalFirstName).toBeDefined();
+
+    const visitDetails = await getVisitDetails(appointment.id!);
+    expect(visitDetails).toBeDefined();
+    expect(visitDetails.patient).toBeDefined();
+    expect(visitDetails.patient.name).toBeDefined();
+    expect(visitDetails.patient.name?.[0]).toEqual(originalName);
+
+    const newFirstName = 'Anna';
+    // cSpell:disable-next Hedda
+    const newMiddleName = 'Hedda';
+    // cSpell:disable-next Anders(s)on
+    const newLastName = 'Andersson';
+
+    await updateVisitDetails({
+      appointmentId: appointment.id!,
+      bookingDetails: {
+        patientName: {
+          first: newFirstName,
+          middle: newMiddleName,
+          last: newLastName,
+        },
+      },
+    });
+
+    let updatedVisitDetails = await getVisitDetails(appointment.id!);
+    expect(updatedVisitDetails).toBeDefined();
+    expect(updatedVisitDetails.appointment).toBeDefined();
+    expect(updatedVisitDetails.patient).toBeDefined();
+    expect(updatedVisitDetails.patient.name).toBeDefined();
+    expect(updatedVisitDetails.patient.name?.length).toBeGreaterThan(0);
+    const updatedName = updatedVisitDetails.patient.name?.[0];
+    expect(updatedName).toBeDefined();
+    expect(updatedName).not.toEqual(originalName);
+    expect(updatedName?.given).toBeDefined();
+    expect(updatedName?.given?.length).toBe(2);
+    expect(updatedName?.given?.[0]).toEqual(newFirstName);
+    expect(updatedName?.given?.[1]).toEqual(newMiddleName);
+    expect(updatedName?.family).toBeDefined();
+    expect(updatedName?.family).toEqual(newLastName);
+
+    await updateVisitDetails({
+      appointmentId: appointment.id!,
+      bookingDetails: {
+        patientName: {
+          first: newFirstName,
+          middle: '',
+          last: newLastName,
+        },
+      },
+    });
+    updatedVisitDetails = await getVisitDetails(appointment.id!);
+    expect(updatedVisitDetails).toBeDefined();
+    expect(updatedVisitDetails.appointment).toBeDefined();
+    expect(updatedVisitDetails.patient).toBeDefined();
+    expect(updatedVisitDetails.patient.name).toBeDefined();
+    expect(updatedVisitDetails.patient.name?.length).toBeGreaterThan(0);
+    const updatedName2 = updatedVisitDetails.patient.name?.[0];
+    expect(updatedName2).toBeDefined();
+    expect(updatedName2).not.toEqual(originalName);
+    expect(updatedName2?.given).toBeDefined();
+    expect(updatedName2?.given?.length).toBe(1);
+    expect(updatedName2?.given?.[0]).toEqual(newFirstName);
+    expect(updatedName2?.given?.[1]).toBeUndefined();
+    expect(updatedName2?.family).toBeDefined();
+    expect(updatedName2?.family).toEqual(newLastName);
   });
   test.concurrent('can save and retrieve confirmed DOB', async () => {
     if (!oystehr || !processId) {
@@ -379,6 +629,19 @@ describe('saving and getting visit details', () => {
     )?.valueString;
     expect(updatedAuthorizedGuardians).toBeDefined();
     expect(updatedAuthorizedGuardians).toEqual(guardiansText);
+
+    await updateVisitDetails({
+      appointmentId: appointment.id!,
+      bookingDetails: {
+        authorizedNonLegalGuardians: '',
+      },
+    });
+    const { patient: updatedPatient2 } = await getVisitDetails(appointment.id!);
+    expect(updatedPatient2).toBeDefined();
+    const updatedAuthorizedGuardians2 = updatedPatient2?.extension?.find(
+      (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+    )?.valueString;
+    expect(updatedAuthorizedGuardians2).toBeUndefined();
   });
   test.concurrent('can save and retrieve consent attestation', async () => {
     if (!oystehr || !processId) {
@@ -614,6 +877,51 @@ describe('saving and getting visit details', () => {
     }
   });
 
+  test.concurrent('fails gracefully when given invalid additional details', async () => {
+    if (!oystehr || !processId) {
+      throw new Error('oystehr or processId is null! could not run test!');
+    }
+    const { appointment } = await makeTestResources({
+      processId,
+      oystehr,
+      patientAge: { units: 'years', value: 3 }, // so we can test DOB changes
+      patientSex: 'female',
+    });
+    expect(appointment).toBeDefined();
+    const randomIndex = Math.floor(Math.random() * BOOKING_CONFIG.reasonForVisitOptions.length);
+    const reasonText = BOOKING_CONFIG.reasonForVisitOptions[randomIndex];
+    let errorFound = false;
+    try {
+      await updateVisitDetails({
+        appointmentId: appointment.id!,
+        bookingDetails: {
+          reasonForVisit: reasonText,
+          additionalDetails: 7 as any,
+        },
+      });
+    } catch (error) {
+      errorFound = true;
+      expect((error as Error).message).toBe(`additionalDetails must be a string`);
+    }
+    expect(errorFound).toBe(true);
+    errorFound = false;
+    try {
+      await updateVisitDetails({
+        appointmentId: appointment.id!,
+        bookingDetails: {
+          reasonForVisit: reasonText,
+          additionalDetails: 'A'.repeat(REASON_ADDITIONAL_MAX_CHAR + 1),
+        },
+      });
+    } catch (error) {
+      errorFound = true;
+      expect((error as Error).message).toBe(
+        `additionalDetails must be at most ${REASON_ADDITIONAL_MAX_CHAR} characters`
+      );
+    }
+    expect(errorFound).toBe(true);
+  });
+
   test.concurrent('fails gracefully when given invalid dob', async () => {
     if (!oystehr || !processId) {
       throw new Error('oystehr or processId is null! could not run test!');
@@ -709,6 +1017,37 @@ describe('saving and getting visit details', () => {
       });
     } catch (error) {
       expect((error as Error).message).toBe(`"patientName" must be an object`);
+    }
+
+    try {
+      await updateVisitDetails({
+        appointmentId: appointment.id!,
+        bookingDetails: {
+          patientName: {
+            first: '',
+            middle: '',
+            last: 'Anderson',
+          },
+        },
+      });
+    } catch (error) {
+      expect((error as Error).message).toBe(`patientName must have a non-empty first name`);
+    }
+
+    try {
+      await updateVisitDetails({
+        appointmentId: appointment.id!,
+        bookingDetails: {
+          patientName: {
+            // cSpell:disable-next Anders(on)
+            first: 'Anders',
+            middle: '',
+            last: '',
+          },
+        },
+      });
+    } catch (error) {
+      expect((error as Error).message).toBe(`patientName must have a non-empty last name`);
     }
   });
   test.concurrent('fails gracefully when given invalid consentForms object', async () => {

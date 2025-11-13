@@ -8,10 +8,19 @@ interface SlotsProps {
   timezone: string;
   selectedSlot: Slot | undefined;
   setSelectedSlot: (slot: Slot | undefined) => void;
+  loading?: boolean;
 }
 
-export function Slots({ slots, timezone, selectedSlot, setSelectedSlot }: SlotsProps): JSX.Element {
+export function Slots({ slots, timezone, selectedSlot, setSelectedSlot, loading }: SlotsProps): JSX.Element {
   const theme = useTheme();
+
+  if (loading) {
+    return (
+      <Typography variant="body2" m={1} textAlign={'center'}>
+        Loading slots...
+      </Typography>
+    );
+  }
 
   if (slots.length === 0) {
     return (

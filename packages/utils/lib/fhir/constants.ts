@@ -27,7 +27,7 @@ import {
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   VISIT_NOTE_SUMMARY_CODE,
 } from '../types';
-import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './helpers';
+import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
 
 // nota bene: some legacy resources could be using 'http' instead of 'https' here, and there are still some string vals out there with http
 export const PRIVATE_EXTENSION_BASE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions';
@@ -631,3 +631,37 @@ export const TASK_CATEGORY_IDENTIFIER = ottehrIdentifierSystem('task-category');
 export const TASK_INPUT_SYSTEM = ottehrCodeSystemUrl('task-input');
 export const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
 export const TASK_ASSIGNED_DATE_TIME_EXTENSION_URL = ottehrExtensionUrl('task-assigned-date-time');
+
+export const RCM_TASK_SYSTEM = ottehrCodeSystemUrl('rcm-task');
+// note: be careful, one of these codes are hardcoded in ottehr-spec.json in SUB-SEND-INVOICE-TO-PATIENT endpoint
+export enum RcmTaskCode {
+  sendInvoiceToPatient = 'send-invoice-to-patient',
+  sendInvoiceOutputInvoiceId = 'send-invoice-output-invoice-Id',
+  sendInvoiceOutputError = 'send-invoice-output-error',
+}
+export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
+  sendInvoiceToPatient: {
+    coding: [
+      {
+        system: RCM_TASK_SYSTEM,
+        code: RcmTaskCode.sendInvoiceToPatient,
+      },
+    ],
+  },
+  sendInvoiceOutputInvoiceId: {
+    coding: [
+      {
+        system: RCM_TASK_SYSTEM,
+        code: RcmTaskCode.sendInvoiceOutputInvoiceId,
+      },
+    ],
+  },
+  sendInvoiceOutputError: {
+    coding: [
+      {
+        system: RCM_TASK_SYSTEM,
+        code: RcmTaskCode.sendInvoiceOutputError,
+      },
+    ],
+  },
+};

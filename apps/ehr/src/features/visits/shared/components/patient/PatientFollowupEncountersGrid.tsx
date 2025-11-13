@@ -155,6 +155,11 @@ export const PatientFollowupEncountersGrid: FC<PatientEncountersGridProps> = (pr
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Prevent concurrent requests - query without patient.id may complete after query with patient.id
+    if (!patient?.id) {
+      return;
+    }
+
     async function getPatientFollowup(oystehr: Oystehr): Promise<void> {
       try {
         const fhirEncounters = (
@@ -172,6 +177,10 @@ export const PatientFollowupEncountersGrid: FC<PatientEncountersGridProps> = (pr
               {
                 name: 'type',
                 value: FOLLOWUP_SYSTEMS.type.code,
+              },
+              {
+                name: 'part-of:missing',
+                value: 'true',
               },
             ],
           })

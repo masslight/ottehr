@@ -19,11 +19,13 @@ export const LAB_ORDER_TASK = {
   category: 'external-lab',
   system: 'external-lab-task',
   code: {
+    // cSpell:disable-next MURT
     matchUnsolicitedResult: 'MURT',
     preSubmission: 'PST',
     reviewPreliminaryResult: 'RPRT',
     reviewFinalResult: 'RFRT',
     reviewCorrectedResult: 'RCRT',
+    // cSpell:disable-next RCANRT
     reviewCancelledResult: 'RCANRT', // cancelled by the lab
   },
   input: {
@@ -166,6 +168,12 @@ export const OYSTEHR_LAB_DOC_CATEGORY_CODING = {
   display: 'Lab ABN Document',
 };
 
+export const OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING = {
+  system: OYSTEHR_LAB_DOC_CATEGORY_SYSTEM,
+  code: 'lab-generated-result-document',
+  display: 'Lab Generated Result Document',
+};
+
 export const OYSTEHR_ABN_DOC_REF_CODING_UNIQUE: Coding = {
   system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
   code: 'external-lab-abn',
@@ -199,6 +207,7 @@ export const PROVENANCE_ACTIVITY_CODES = {
   createOrder: 'CREATE ORDER',
   inputResults: 'INPUT RESULTS',
   completePstTask: 'COMPLETE PST TASK',
+  abnRejected: 'ABN REJECTED',
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
@@ -207,6 +216,7 @@ export const PROVENANCE_ACTIVITY_DISPLAY = {
   createOrder: 'create order',
   inputResults: 'input results',
   completePstTask: 'complete pst task',
+  abnRejected: 'ABN marked rejected',
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -234,6 +244,11 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
   completePstTask: {
     code: PROVENANCE_ACTIVITY_CODES.completePstTask,
     display: PROVENANCE_ACTIVITY_DISPLAY.completePstTask,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  abnRejected: {
+    code: PROVENANCE_ACTIVITY_CODES.abnRejected,
+    display: PROVENANCE_ACTIVITY_DISPLAY.abnRejected,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;
@@ -278,3 +293,12 @@ export const OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM =
 
 export const OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM =
   'https://identifiers.fhir.oystehr.com/lab-result-additional-placer-id';
+
+// Also for LabCorp
+export const LABCORP_SNOMED_CODE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/labcorp-snomed-value-to-code';
+
+export const SR_REVOKED_REASON_EXT = {
+  url: 'https://extensions.fhir.oystehr.com/reason-sr-revoked',
+  valueCode: 'rejected-abn',
+};

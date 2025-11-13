@@ -1,6 +1,6 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { getRandomValues, randomUUID } from 'crypto';
-import { DiagnosticReport, Identifier, Observation, Organization } from 'fhir/r4b';
+import { DiagnosticReport, DocumentReference, Identifier, Observation, Organization } from 'fhir/r4b';
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import {
@@ -11,7 +11,7 @@ import {
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
 import { DR_UNSOLICITED_RESULT_TAG, LAB_PDF_ATTACHMENT_DR_TAG, PDF_ATTACHMENT_CODE } from './lab-script-consts';
-import { createPdfAttachmentObs } from './lab-script-helpers';
+import { createAttachmentDocRef, createPdfAttachmentObs } from './lab-script-helpers';
 
 type PatientDetails = {
   first: string;
@@ -91,7 +91,7 @@ const main = async (): Promise<void> => {
   };
   const labTransmissionAccountId: Identifier = {
     system: 'https://identifiers.fhir.oystehr.com/lab-transmission-account-number',
-    value: 'teset',
+    value: 'test',
     assigner: {
       reference: `Organization/${autoLabOrgId}`,
     },
@@ -110,6 +110,7 @@ const main = async (): Promise<void> => {
   });
   const drFullUrl = `urn:uuid:${randomUUID()}`;
 
+  // old logic, will be phased out soon
   const pdfAttachmentObs = createPdfAttachmentObs();
   const pdfAttachmentObsFullUrl = `urn:uuid:${randomUUID()}`;
   const pdfAttachmentDr = createUnsolicitedPdfAttachmentDr(
@@ -119,10 +120,22 @@ const main = async (): Promise<void> => {
     drFullUrl
   );
 
-  const requests: BatchInputPostRequest<Observation | DiagnosticReport>[] = [
+  // new attachment logic
+  const projectId = envConfig.PROJECT_ID;
+  if (!projectId) throw new Error(`Could not get projectId`);
+  const attachmentDocRef = createAttachmentDocRef({
+    ENV,
+    projectId,
+    relatedDiagnosticReportReferences: [{ reference: drFullUrl }],
+    encounterRef: undefined,
+    patientRef: undefined,
+  });
+
+  const requests: BatchInputPostRequest<Observation | DocumentReference | DiagnosticReport>[] = [
     { method: 'POST', fullUrl: obsFullUrl, url: '/Observation', resource: obs },
     { method: 'POST', fullUrl: drFullUrl, url: '/DiagnosticReport', resource: dr },
     { method: 'POST', fullUrl: pdfAttachmentObsFullUrl, url: '/Observation', resource: pdfAttachmentObs },
+    { method: 'POST', url: '/DocumentReference', resource: attachmentDocRef },
     { method: 'POST', url: '/DiagnosticReport', resource: pdfAttachmentDr },
   ];
 
@@ -270,6 +283,12 @@ const createUnsolicitedResultDr = ({
               },
             ],
           },
+          quantity: {
+            system: 'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-collection-volume',
+            code: '2100',
+            unit: 'mL',
+          },
+          collectedDateTime: DateTime.now().toISO(),
         },
       },
     ],

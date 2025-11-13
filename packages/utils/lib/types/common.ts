@@ -737,3 +737,8 @@ export interface GetVisitDetailsPDFInput {
 export type PersistedFhirResource<T extends FhirResource> = T & {
   id: string;
 };
+
+export type CPTCodeOption = {
+  code: string;
+  display: string;
+};

@@ -213,6 +213,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
                 if (emailClient.getFeatureFlag()) {
                   throw new Error('Address is required to send reminder email');
                 } else {
+                  // cSpell:disable-next Any town
                   address = '123 Main St, Anytown, USA'; // placeholder address for local dev when email sending is disabled
                 }
               }

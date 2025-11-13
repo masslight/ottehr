@@ -1,9 +1,9 @@
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 import { FC } from 'react';
 import { Link } from 'react-router-dom';
-import { formatMinutes, ServiceMode } from 'utils';
+import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils';
+import { AppointmentHistoryRow, formatMinutes, ServiceMode } from 'utils';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
-import { AppointmentHistoryRow } from '../hooks/useGetPatient';
 
 type PastVisitsTableProps = {
   appointments?: AppointmentHistoryRow[];
@@ -38,23 +38,23 @@ export const PastVisitsTable: FC<PastVisitsTableProps> = (props) => {
         {appointments?.map((appointment, idx) => (
           <TableRow key={idx}>
             <TableCell align="left">
-              {appointment.dateTime
-                ? formatISOStringToDateAndTime(appointment.dateTime, appointment.officeTimeZone)
-                : '-'}
+              {appointment.dateTime ? appointment.dateTime && formatISOStringToDateAndTime(appointment.dateTime) : '-'}
             </TableCell>
             <TableCell>
               <Link
                 to={
                   appointment.serviceMode === ServiceMode.virtual
-                    ? `/telemed/appointments/${appointment.id}`
-                    : `/visit/${appointment.id}`
+                    ? `/telemed/appointments/${appointment.appointmentId}`
+                    : `/visit/${appointment.appointmentId}`
                 }
                 target="_blank"
               >
-                {appointment.id || '-'}
+                {appointment.appointmentId || '-'}
               </Link>
             </TableCell>
-            <TableCell align="left">{appointment.typeLabel || '-'}</TableCell>
+            <TableCell align="left">
+              {getVisitTypeLabelForTypeAndServiceMode({ type: appointment.type, serviceMode: appointment.serviceMode })}
+            </TableCell>
             <TableCell align="left">{appointment.office || '-'}</TableCell>
             <TableCell align="left">
               {appointment.length !== undefined

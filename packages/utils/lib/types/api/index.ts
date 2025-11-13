@@ -1,3 +1,4 @@
+export * from './ai-assisted-encounters-report.types';
 export * from './ai-interview.types';
 export * from './appointment.types';
 export * from './assign-practitioner';
@@ -50,4 +51,7 @@ export * from './unlock-appointment';
 export * from './update-user';
 export * from './update-visit-details.types';
 export * from './user.types';
+export * from './patient-visit-history.types';
+export * from './bulk-update-insurance-status.types';
+export * from './update-invoice-task.types';
 export * from './visit-details';

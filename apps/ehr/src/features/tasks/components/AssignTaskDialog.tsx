@@ -1,10 +1,9 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
+import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
-import { Task, useAssignTask } from 'src/features/visits/in-person/hooks/useTasks';
-import { formatDate } from '../common';
+import { formatDate, Task, useAssignTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { CategoryChip } from './CategoryChip';
 
 interface Props {
@@ -53,7 +52,7 @@ export const AssignTaskDialog: React.FC<Props> = ({ task, handleClose }) => {
             <Typography variant="body2" display="inline">
               {task.subtitle}
             </Typography>
-            <ProviderSelectInput name="assignee" label="Assignee" />
+            <EmployeeSelectInput name="assignee" label="Assignee" />
           </Stack>
         </FormProvider>
       }

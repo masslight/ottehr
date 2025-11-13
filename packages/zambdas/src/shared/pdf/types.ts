@@ -14,7 +14,7 @@ import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   ExternalLabOrderResult,
   Gender,
-  InHouseLabResult as IInHouseLabResult,
+  InHouseLabResult as InHouseLabResultPdfData,
   LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   ObservationDTO,
@@ -193,6 +193,7 @@ export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessmen
 export interface ExternalLabResult {
   resultCodeAndDisplay: string;
   loincCodeAndDisplay: string;
+  snomedDisplay: string;
   resultInterpretation?: string;
   resultInterpretationDisplay?: string;
   resultValue: string;
@@ -226,6 +227,7 @@ export type ResultSpecimenInfo = {
   quantityString?: string;
   unit?: string;
   bodySite?: string;
+  collectedDateTime?: string;
 };
 
 export interface LabResultsData
@@ -271,12 +273,9 @@ export interface ExternalLabResultsData extends LabResultsData {
   testItemCode: string;
 }
 
-export type ReflexExternalLabResultsData = Omit<ExternalLabResultsData, 'orderSubmitDate' | 'collectionDate'>;
+export type ReflexExternalLabResultsData = Omit<ExternalLabResultsData, 'orderSubmitDate'>;
 
-export type UnsolicitedExternalLabResultsData = Omit<
-  ExternalLabResultsData,
-  'orderNumber' | 'orderSubmitDate' | 'collectionDate'
->;
+export type UnsolicitedExternalLabResultsData = Omit<ExternalLabResultsData, 'orderNumber' | 'orderSubmitDate'>;
 
 export interface InHouseLabResultsData
   extends Omit<
@@ -320,6 +319,8 @@ export interface VisitNoteData extends PdfExaminationBlockData {
   allergiesNotes?: string[];
   medicalConditions?: string[];
   medicalConditionsNotes?: string[];
+  inHouseLabs?: { orders: LabOrder[]; results: InHouseLabResultPdfData[] };
+  externalLabs?: { orders: LabOrder[]; results: ExternalLabOrderResult[] };
   surgicalHistory?: string[];
   surgicalHistoryNotes?: string[];
   inHouseMedications?: string[];
@@ -617,7 +618,7 @@ export interface DischargeSummaryData extends PdfData {
   currentMedicationsNotes?: string[];
   allergies?: string[];
   allergiesNotes?: string[];
-  inHouseLabs?: { orders: LabOrder[]; results: IInHouseLabResult[] };
+  inHouseLabs?: { orders: LabOrder[]; results: InHouseLabResultPdfData[] };
   externalLabs?: { orders: LabOrder[]; results: ExternalLabOrderResult[] };
   radiology?: {
     name: string;

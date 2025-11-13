@@ -22,15 +22,14 @@ import { useNavigate } from 'react-router-dom';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import {
   useGetCreateExternalLabResources,
   useICD10SearchNew,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
-import {
-  useAppointmentData,
-  useChartData,
-  useSaveChartData,
-} from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   CreateLabPaymentMethod,
@@ -62,10 +61,24 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const navigate = useNavigate();
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const { mutate: saveChartData } = useSaveChartData();
-  const { encounter, appointment, patient, location: apptLocation } = useAppointmentData();
+  const apiClient = useOystehrAPIClient();
+  const {
+    encounter,
+    appointment,
+    patient,
+    location: apptLocation,
+    followUpOriginEncounter: mainEncounter,
+  } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
-  const { diagnosis } = chartData || {};
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
+  const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
+
+  const diagnosis = useMemo<DiagnosisDTO[]>(
+    () => (isFollowup ? mainEncounterChartData?.diagnosis || [] : chartData?.diagnosis || []),
+    [mainEncounterChartData?.diagnosis, chartData?.diagnosis, isFollowup]
+  );
+
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
   const attendingPractitionerId = getAttendingPractitionerId(encounter);
   const patientId = patient?.id || '';
@@ -102,7 +115,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const orderingLocations = createExternalLabResources?.orderingLocations ?? [];
   const orderingLocationIdsStable = (createExternalLabResources?.orderingLocationIds ?? []).join(',');
 
-  const orderingLocationIdToLocationAndLabGuidsMap = useMemo(
+  const orderingLocationIdToLocationAndLabGUIDsMap = useMemo(
     () =>
       new Map<string, LocationMapValue>(
         orderingLocations.map((loc) => [
@@ -119,17 +132,17 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   useEffect(() => {
     if (!apptLocation?.id) return;
 
-    if (orderingLocationIdToLocationAndLabGuidsMap.has(apptLocation.id) && !selectedOfficeId) {
+    if (orderingLocationIdToLocationAndLabGUIDsMap.has(apptLocation.id) && !selectedOfficeId) {
       setSelectedOfficeId(apptLocation.id);
       console.log('we did the state set');
     }
-  }, [apptLocation?.id, selectedOfficeId, orderingLocationIdToLocationAndLabGuidsMap]);
+  }, [apptLocation?.id, selectedOfficeId, orderingLocationIdToLocationAndLabGUIDsMap]);
 
   useEffect(() => {
-    const labOrgIds = orderingLocationIdToLocationAndLabGuidsMap.get(selectedOfficeId)?.labOrgIds ?? '';
+    const labOrgIds = orderingLocationIdToLocationAndLabGUIDsMap.get(selectedOfficeId)?.labOrgIds ?? '';
     console.log(`lab org ids for selectedOfficeId ${selectedOfficeId}`, labOrgIds);
     setLabOrgIdsForSelectedOffice(labOrgIds);
-  }, [selectedOfficeId, orderingLocationIdToLocationAndLabGuidsMap]);
+  }, [selectedOfficeId, orderingLocationIdToLocationAndLabGUIDsMap]);
 
   useEffect(() => {
     if (!apptLocation && !selectedOfficeId) {
@@ -137,7 +150,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       setIsOrderingDisabled(true);
     } else if (
       apptLocation &&
-      (!selectedOfficeId || !orderingLocationIdToLocationAndLabGuidsMap.has(selectedOfficeId))
+      (!selectedOfficeId || !orderingLocationIdToLocationAndLabGUIDsMap.has(selectedOfficeId))
     ) {
       setError(['Office is not configured to order labs. Please select another office']);
       setIsOrderingDisabled(true);
@@ -145,7 +158,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       setError(undefined);
       setIsOrderingDisabled(false);
     }
-  }, [apptLocation, selectedOfficeId, orderingLocationIdToLocationAndLabGuidsMap]);
+  }, [apptLocation, selectedOfficeId, orderingLocationIdToLocationAndLabGUIDsMap]);
 
   useEffect(() => {
     if (coverageInfo) {
@@ -167,7 +180,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       orderDx.length &&
       selectedLab &&
       selectedOfficeId &&
-      orderingLocationIdToLocationAndLabGuidsMap.has(selectedOfficeId) &&
+      orderingLocationIdToLocationAndLabGUIDsMap.has(selectedOfficeId) &&
       selectedPaymentMethod !== '';
     if (oystehrZambda && paramsSatisfied) {
       try {
@@ -177,7 +190,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           encounter,
           orderableItem: selectedLab,
           psc,
-          orderingLocation: orderingLocationIdToLocationAndLabGuidsMap.get(selectedOfficeId)!.location,
+          orderingLocation: orderingLocationIdToLocationAndLabGUIDsMap.get(selectedOfficeId)!.location,
           selectedPaymentMethod: selectedPaymentMethod,
         });
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
@@ -192,7 +205,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!selectedLab) errorMessage.push('Please select a lab to order');
       if (!attendingPractitionerId) errorMessage.push('No attending practitioner has been assigned to this encounter');
-      if (!(selectedOfficeId && orderingLocationIdToLocationAndLabGuidsMap.has(selectedOfficeId)))
+      if (!(selectedOfficeId && orderingLocationIdToLocationAndLabGUIDsMap.has(selectedOfficeId)))
         errorMessage.push('No office selected, or office is not configured to order labs');
       if (errorMessage.length === 0) errorMessage.push('There was an error creating this external lab order');
       setError(errorMessage);
@@ -201,6 +214,14 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   };
 
   const addAdditionalDxToEncounter = async (): Promise<void> => {
+    if (!apiClient) {
+      throw new Error('API client not available');
+    }
+
+    if (!mainEncounter?.id) {
+      throw new Error('Encounter ID not available');
+    }
+
     const dxToAdd: DiagnosisDTO[] = [];
     orderDx.forEach((dx) => {
       const alreadyExistsOnEncounter = diagnosis?.find((d) => d.code === dx.code);
@@ -213,28 +234,19 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       }
     });
     if (dxToAdd.length > 0) {
-      await new Promise<void>((resolve, reject) => {
-        saveChartData(
-          {
-            diagnosis: dxToAdd,
-          },
-          {
-            onSuccess: (data) => {
-              const returnedDiagnosis = data.chartData.diagnosis || [];
-              const allDx = [...returnedDiagnosis, ...(diagnosis || [])];
-              if (allDx) {
-                setPartialChartData({
-                  diagnosis: [...allDx],
-                });
-              }
-              resolve();
-            },
-            onError: (error) => {
-              reject(error);
-            },
-          }
-        );
+      const data = await apiClient.saveChartData({
+        encounterId: mainEncounter?.id,
+        diagnosis: dxToAdd,
       });
+
+      const returnedDiagnosis = data?.chartData?.diagnosis || [];
+      const currentEncounterDiagnoses = chartData?.diagnosis || [];
+      const allDx = [...returnedDiagnosis, ...currentEncounterDiagnoses];
+      if (allDx && !isFollowup) {
+        setPartialChartData({
+          diagnosis: [...allDx],
+        });
+      }
     }
   };
 
@@ -300,7 +312,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                             enqueueSnackbar('Must select an ordering office', {
                               variant: 'error',
                             });
-                          // future TODO: should clear out the selected lab only if the selected lab isn't from the same labguid as what the location supports
+                          // future TODO: should clear out the selected lab only if the selected lab isn't from the same lab guid as what the location supports
                           setSelectedLab(null);
                         }}
                         displayEmpty

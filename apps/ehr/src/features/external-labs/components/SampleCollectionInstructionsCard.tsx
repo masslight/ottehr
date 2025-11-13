@@ -1,4 +1,4 @@
-import { Grid, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Box, Grid, Paper, Stack, TextField, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { useEffect, useState } from 'react';
 import { sampleDTO } from 'utils';
@@ -46,50 +46,52 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
   };
 
   return (
-    <AccordionCard
-      label="Sample Collection Instructions"
-      collapsed={collapsed}
-      withBorder={false}
-      onSwitch={() => setCollapsed((prev) => !prev)}
-    >
-      <Paper sx={{ p: 3 }}>
-        <Stack spacing={1}>
-          <BoldedTitleText title="Container" description={definition.container} />
-          <BoldedTitleText title="Volume" description={definition.volume} />
-          <BoldedTitleText title="Minimum Volume" description={definition.minimumVolume} />
-          <BoldedTitleText title="Storage Requirements" description={definition.storageRequirements} />
-          <BoldedTitleText title="Collection Instructions" description={definition.collectionInstructions} />
-        </Stack>
+    <Box sx={{ mb: 2 }}>
+      <AccordionCard
+        label="Sample Collection Instructions"
+        collapsed={collapsed}
+        withBorder={false}
+        onSwitch={() => setCollapsed((prev) => !prev)}
+      >
+        <Paper sx={{ p: 3 }}>
+          <Stack spacing={1}>
+            <BoldedTitleText title="Container" description={definition.container} />
+            <BoldedTitleText title="Volume" description={definition.volume} />
+            <BoldedTitleText title="Minimum Volume" description={definition.minimumVolume} />
+            <BoldedTitleText title="Storage Requirements" description={definition.storageRequirements} />
+            <BoldedTitleText title="Collection Instructions" description={definition.collectionInstructions} />
+          </Stack>
 
-        <Grid container spacing={2} sx={{ mt: 2 }}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
-              Collection date
-            </Typography>
-            <TextField
-              fullWidth
-              variant="outlined"
-              type="date"
-              value={date.toFormat('yyyy-MM-dd')}
-              onChange={(e) => handleDateChange('collectionDate', e.target.value)}
-              disabled={!isDateEditable}
-            />
+          <Grid container spacing={2} sx={{ mt: 2 }}>
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+                Collection date
+              </Typography>
+              <TextField
+                fullWidth
+                variant="outlined"
+                type="date"
+                value={date.toFormat('yyyy-MM-dd')}
+                onChange={(e) => handleDateChange('collectionDate', e.target.value)}
+                disabled={!isDateEditable}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+                Collection time
+              </Typography>
+              <TextField
+                fullWidth
+                variant="outlined"
+                type="time"
+                value={date.toFormat('HH:mm')}
+                onChange={(e) => handleDateChange('collectionTime', e.target.value)}
+                disabled={!isDateEditable}
+              />
+            </Grid>
           </Grid>
-          <Grid item xs={12} md={6}>
-            <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
-              Collection time
-            </Typography>
-            <TextField
-              fullWidth
-              variant="outlined"
-              type="time"
-              value={date.toFormat('HH:mm')}
-              onChange={(e) => handleDateChange('collectionTime', e.target.value)}
-              disabled={!isDateEditable}
-            />
-          </Grid>
-        </Grid>
-      </Paper>
-    </AccordionCard>
+        </Paper>
+      </AccordionCard>
+    </Box>
   );
 };

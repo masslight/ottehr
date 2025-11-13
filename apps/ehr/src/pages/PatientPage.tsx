@@ -18,6 +18,7 @@ import { RoundedButton } from '../components/RoundedButton';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { useGetPatient } from '../hooks/useGetPatient';
+import { useGetPatientVisitHistory } from '../hooks/useGetPatientVisitHistory';
 import PageContainer from '../layout/PageContainer';
 
 export default function PatientPage(): JSX.Element {
@@ -25,7 +26,7 @@ export default function PatientPage(): JSX.Element {
   const location = useLocation();
   const [tab, setTab] = useState(location.state?.defaultTab || 'encounters');
 
-  const { appointments, loading, patient } = useGetPatient(id);
+  const { loading, patient } = useGetPatient(id);
 
   const { firstName, lastName } = useMemo(() => {
     if (!patient) return {};
@@ -35,6 +36,9 @@ export default function PatientPage(): JSX.Element {
     };
   }, [patient]);
 
+  const { data: visitHistory } = useGetPatientVisitHistory(patient?.id);
+
+  const appointments = visitHistory?.visits || [];
   const latestAppointment = appointments?.[0];
 
   return (
@@ -95,8 +99,8 @@ export default function PatientPage(): JSX.Element {
                   sx={{ width: '100%' }}
                   to={
                     latestAppointment.serviceMode === ServiceMode.virtual
-                      ? `/telemed/appointments/${latestAppointment.id}?tab=sign`
-                      : `/in-person/${latestAppointment.id}/progress-note`
+                      ? `/telemed/appointments/${latestAppointment.appointmentId}?tab=sign`
+                      : `/in-person/${latestAppointment.appointmentId}/progress-note`
                   }
                 >
                   Recent Progress Note
@@ -159,7 +163,11 @@ export default function PatientPage(): JSX.Element {
             </Box>
 
             <TabPanel value="encounters" sx={{ p: 0 }}>
-              <PatientEncountersGrid appointments={appointments} loading={loading} />
+              <PatientEncountersGrid
+                patient={patient}
+                totalCount={appointments.length}
+                latestVisitDate={latestAppointment?.dateTime ?? null}
+              />
             </TabPanel>
             <TabPanel value="followups" sx={{ p: 0 }}>
               <PatientFollowupEncountersGrid patient={patient} loading={loading}></PatientFollowupEncountersGrid>

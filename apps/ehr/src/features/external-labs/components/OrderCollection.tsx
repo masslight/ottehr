@@ -43,6 +43,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     (labOrder.orderStatus === ExternalLabsStatus.pending || labOrder.orderStatus === ExternalLabsStatus.sent);
   const showAOECard = aoe.length > 0;
 
+  // if these are present they will be displayed from ResultItem.tsx so we shouldn't display the SR level requisition number on this component
+  const additionalPlacerIdsMapped = labOrder.resultsDetails.some((result) => result.alternatePlacerId);
+
   const sanitizeFormData = (data: DynamicAOEInput): DynamicAOEInput => {
     const sanitizedData = { ...data };
 
@@ -131,21 +134,23 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           <OrderInformationCard labelPdfUrl={labOrder.labelPdfUrl} orderPdfUrl={labOrder.orderPdfUrl} />
         )}
 
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="body1">
-            <span style={{ fontWeight: 500 }}>Requisition Number: </span> {labOrder.orderNumber}
-          </Typography>
-        </Box>
+        {!additionalPlacerIdsMapped && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body1">
+              <span style={{ fontWeight: 500 }}>Requisition Number: </span> {labOrder.orderNumber}
+            </Typography>
+          </Box>
+        )}
 
         {labOrder.location?.name && (
-          <Box sx={{ mt: 2 }}>
+          <Box sx={{ mb: 2 }}>
             <Typography variant="body1">
               <span style={{ fontWeight: 500 }}>Ordering Office: </span> {labOrder.location.name}
             </Typography>
           </Box>
         )}
 
-        <Box sx={{ mt: 2 }}>
+        <Box sx={{ mb: 2 }}>
           <OrderHistoryCard
             isPSCPerformed={labOrder.isPSC}
             orderHistory={labOrder?.history}
@@ -154,7 +159,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         </Box>
 
         {showActionButtons && (
-          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
             <Link to={`/in-person/${appointmentID}/external-lab-orders`}>
               <Button variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}>
                 Back

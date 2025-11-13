@@ -159,7 +159,7 @@ export const InteractionAlertsDialog: React.FC<Props> = ({
     );
   };
 
-  const redCicrcle = (): ReactElement => {
+  const redCircle = (): ReactElement => {
     return (
       <Box
         style={{
@@ -173,7 +173,7 @@ export const InteractionAlertsDialog: React.FC<Props> = ({
     );
   };
 
-  const emptyCicrcle = (): ReactElement => {
+  const emptyCircle = (): ReactElement => {
     return (
       <Box
         style={{
@@ -191,9 +191,9 @@ export const InteractionAlertsDialog: React.FC<Props> = ({
     const order = SEVERITY_ORDER.indexOf(severity ?? '');
     return (
       <Stack direction="row" spacing="2px" display="flex" alignItems="center">
-        {order < 3 ? redCicrcle() : emptyCicrcle()}
-        {order < 2 ? redCicrcle() : emptyCicrcle()}
-        {order < 1 ? redCicrcle() : emptyCicrcle()}
+        {order < 3 ? redCircle() : emptyCircle()}
+        {order < 2 ? redCircle() : emptyCircle()}
+        {order < 1 ? redCircle() : emptyCircle()}
         <Typography style={{ marginLeft: '8px' }}>{SEVERITY_TO_LABEL[severity ?? 'unknown']}</Typography>
       </Stack>
     );
