@@ -130,7 +130,7 @@ const SlotPicker = ({
 
   const handleChangeTab = useCallback((_: SyntheticEvent, newTab: number) => {
     setCurrentTab(newTab);
-    if (newTab >= 2) setSelectedOtherDate(undefined); // сбрасываем выбранную дату
+    if (newTab >= 2) setSelectedOtherDate(undefined); // reset the selected date
   }, []);
 
   const selectedDate = useMemo(() => {

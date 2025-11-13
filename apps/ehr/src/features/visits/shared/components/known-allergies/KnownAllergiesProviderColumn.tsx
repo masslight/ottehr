@@ -246,7 +246,7 @@ const AddAllergyField: FC = () => {
   const allergiesSearchOptions = useMemo(() => {
     if (!data || isSearching) return [];
 
-    // Process the data to include brandname
+    // Process the data to include brand name
     const allergiesWithBrand = data.map((allergy) => {
       const brandName = allergy.brandName;
       if (brandName && brandName !== allergy.name) {

@@ -579,7 +579,7 @@ export const InPersonExamConfig = {
         },
         'normal-external-rectal-exam': { label: 'Normal external rectal exam', defaultValue: false, type: 'checkbox' },
         'normal-testicular-exam': {
-          label: 'Normal testicular exam, no tenderness, no erythema, creamsteric reflexes present',
+          label: 'Normal testicular exam, no tenderness, no erythema, cremasteric reflexes present',
           defaultValue: false,
           type: 'checkbox',
         },

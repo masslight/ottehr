@@ -21,6 +21,7 @@ export const validateE2EIntakeUser = (fileLocation) => {
     const authItem = userFile.origins?.flatMap((origin) =>
       origin.localStorage?.find(
         (item) =>
+          // cSpell:disable-next spa js?
           item.name?.includes('@@auth0spajs@@') && !item.name?.includes('@@user@@') && item.value?.includes('expiresAt')
       )
     )[0];

@@ -1,3 +1,4 @@
+// cSpell:ignore alertable
 import { CodeableConcept, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {

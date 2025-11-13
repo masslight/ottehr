@@ -2,11 +2,17 @@ import { BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
+import { getFirstName, getLastName } from 'utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { DIAGNOSIS_EMPTY_VALUE, Field, ORDERED_BY_EMPTY_VALUE } from '../../page/EditMedicationCard';
 import { InHouseMedicationsPage } from '../../page/in-person/InHouseMedicationsPage';
 import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
-import { expectEditOrderPage, OrderMedicationPage } from '../../page/OrderMedicationPage';
+import {
+  expectEditOrderPage,
+  expectOrderMedicationPage,
+  openOrderMedicationPage,
+  OrderMedicationPage,
+} from '../../page/OrderMedicationPage';
 
 const PROCESS_ID = `inHouseMedicationsPage.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
@@ -14,13 +20,16 @@ const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 // cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
 const MEDICATION = 'Acetaminophen (80mg Suppository)';
+const MEDICATION_FOR_ADMINISTERED = 'Albuterol';
+const MEDICATION_FOR_PARTLY_ADMINISTERED = 'Amoxicillin';
+const MEDICATION_FOR_NOT_ADMINISTERED = 'Ventolin HFA';
+
 const DOSE = '2';
 const UNITS = 'mg';
 const MANUFACTURER = 'Test';
 const ROUTE = 'Sublingual route';
 const INSTRUCTIONS = 'Instructions';
 
-const NEW_DIAGNOSIS = 'Situational type phobia';
 const NEW_MEDICATION = 'Acetaminophen (325mg Suppository)';
 const NEW_DOSE = '1';
 const NEW_UNITS = 'g';
@@ -28,11 +37,15 @@ const NEW_MANUFACTURER = 'Edited test';
 const NEW_ROUTE = 'Topical route';
 const NEW_INSTRUCTIONS = 'Edited instructions';
 const STATUS = 'pending';
+const CANCELLED = 'Cancelled';
+const ADMINISTERED = 'Administered';
+const PATIENT_REFUSED = 'Patient refused';
+const PARTLY_ADMINISTERED = 'Partly Administered';
+const NOT_ADMINISTERED = 'Not Administered';
 
+test.describe.configure({ mode: 'serial' });
 let page: Page;
 let context: BrowserContext;
-
-let orderMedicationPage: OrderMedicationPage;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -40,18 +53,7 @@ test.beforeAll(async ({ browser }) => {
   await resourceHandler.setResources();
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
-  await page.goto(`in-person/${resourceHandler.appointment.id}`);
-  const inPersonHeader = new InPersonHeader(page);
-  await inPersonHeader.selectIntakePractitioner();
-  await inPersonHeader.selectProviderPractitioner();
-  await inPersonHeader.clickSwitchModeButton('provider');
-  const sideMenu = new SideMenu(page);
-  await sideMenu.clickAssessment();
-  const assessmentPage = await expectAssessmentPage(page);
-  await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
-  await assessmentPage.selectDiagnosis({ diagnosisNamePart: NEW_DIAGNOSIS });
-  const inHouseMedicationsPage = await sideMenu.clickInHouseMedications();
-  orderMedicationPage = await inHouseMedicationsPage.clickOrderButton();
+  await prepareAppointment(page);
 });
 
 test.afterAll(async () => {
@@ -60,49 +62,56 @@ test.afterAll(async () => {
   await context.close();
 });
 
+let editOrderPage: OrderMedicationPage;
+let medicationsPage: InHouseMedicationsPage;
+
 test('In-house medications page', async () => {
-  let editOrderPage: OrderMedicationPage;
-  let medicationsPage: InHouseMedicationsPage;
+  let orderBy: string | undefined = undefined;
+  const orderMedicationPage: OrderMedicationPage = await openOrderMedicationPage(resourceHandler.appointment.id!, page);
 
   await test.step('"Order" button is disabled when all fields are empty', async () => {
+    await orderMedicationPage.editMedicationCard.waitForLoadOrderedBy();
     await orderMedicationPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS_EMPTY_VALUE);
     await orderMedicationPage.editMedicationCard.selectOrderedBy(ORDERED_BY_EMPTY_VALUE);
     await orderMedicationPage.verifyFillOrderToSaveButtonDisabled();
   });
+
   await test.step('Non-selected diagnosis on Assessment page is not present in Order Medication screen on associatedDx dropdown', async () => {
     // cSpell:disable-next Loiasis
     await orderMedicationPage.editMedicationCard.verifyDiagnosisNotAllowed('Loiasis');
   });
 
-  // select diagnosis back
-  await orderMedicationPage.editMedicationCard.chooseOption(DIAGNOSIS);
-  // we have selected dx by default now so we can proceed to verification
-  await orderMedicationPage.clickOrderMedicationButton();
-  await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.MEDICATION);
-  await orderMedicationPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS_EMPTY_VALUE);
-  await orderMedicationPage.editMedicationCard.selectMedication(MEDICATION);
-  await orderMedicationPage.clickOrderMedicationButton();
-  await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.DOSE);
-  await orderMedicationPage.editMedicationCard.enterDose(DOSE);
-  await orderMedicationPage.clickOrderMedicationButton();
-  await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.UNITS);
-  await orderMedicationPage.editMedicationCard.selectUnits(UNITS);
-  await orderMedicationPage.clickOrderMedicationButton();
-  await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.ROUTE);
-  await orderMedicationPage.editMedicationCard.selectRoute(ROUTE);
-  await orderMedicationPage.editMedicationCard.waitForLoadOrderedBy();
-  await orderMedicationPage.editMedicationCard.selectFirstNonEmptyOrderedBy();
-  await orderMedicationPage.clickOrderMedicationButton();
+  await test.step('Verify required fields error validation and save order', async () => {
+    // select diagnosis back
+    await orderMedicationPage.editMedicationCard.chooseOption(DIAGNOSIS);
+    // we have selected dx by default now so we can proceed to verification
+    await orderMedicationPage.clickOrderMedicationButton();
+    await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.MEDICATION);
+    await orderMedicationPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS_EMPTY_VALUE);
+    await orderMedicationPage.editMedicationCard.selectMedication(MEDICATION);
+    await orderMedicationPage.clickOrderMedicationButton();
+    await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.DOSE);
+    await orderMedicationPage.editMedicationCard.enterDose(DOSE);
+    await orderMedicationPage.clickOrderMedicationButton();
+    await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.UNITS);
+    await orderMedicationPage.editMedicationCard.selectUnits(UNITS);
+    await orderMedicationPage.clickOrderMedicationButton();
+    await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.ROUTE);
+    await orderMedicationPage.editMedicationCard.selectRoute(ROUTE);
+    await orderMedicationPage.editMedicationCard.waitForLoadOrderedBy();
+    orderBy = await orderMedicationPage.editMedicationCard.selectFirstNonEmptyOrderedBy();
+    await orderMedicationPage.clickOrderMedicationButton();
 
-  await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.ASSOCIATED_DX);
-  await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.MANUFACTURER);
-  await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.INSTRUCTIONS);
+    await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.ASSOCIATED_DX);
+    await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.MANUFACTURER);
+    await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.INSTRUCTIONS);
 
-  await orderMedicationPage.editMedicationCard.expectSaved();
+    await orderMedicationPage.editMedicationCard.expectSaved();
+  });
 
   await test.step('Non-numeric values can not be entered into "Dose" field', async () => {
     await orderMedicationPage.editMedicationCard.enterDose('abc1dfg');
-    // this is fine since will be transfered as 1 and then after saving will be 1
+    // this is fine since will be transferred as 1 and then after saving will be 1
     await orderMedicationPage.editMedicationCard.verifyDose('01');
   });
 
@@ -134,6 +143,7 @@ test('In-house medications page', async () => {
     await medicationsPage.verifyMedicationPresent({
       medicationName: MEDICATION,
       dose: DOSE,
+      units: UNITS,
       route: ROUTE,
       instructions: INSTRUCTIONS,
       status: STATUS,
@@ -154,7 +164,7 @@ test('In-house medications page', async () => {
     editOrderPage = await expectEditOrderPage(page);
   });
 
-  await test.step('Update order details and save, check on medications tabl', async () => {
+  await test.step('Update order details and save, check on medications table', async () => {
     //Updated values are saved successfully and Order is updated on the "MAR" tab
     await editOrderPage.editMedicationCard.selectMedication(NEW_MEDICATION);
     await editOrderPage.editMedicationCard.enterDose(NEW_DOSE);
@@ -178,9 +188,211 @@ test('In-house medications page', async () => {
     await medicationsPage.verifyMedicationPresent({
       medicationName: NEW_MEDICATION,
       dose: NEW_DOSE,
+      units: NEW_UNITS,
       route: NEW_ROUTE,
       instructions: NEW_INSTRUCTIONS,
       status: STATUS,
     });
+
+    const progressNotePage = await medicationsPage.sideMenu().clickProgressNote();
+    await progressNotePage.verifyInHouseMedication({
+      medication: NEW_MEDICATION,
+      dose: NEW_DOSE,
+      units: NEW_UNITS,
+      route: NEW_ROUTE,
+      instructions: NEW_INSTRUCTIONS,
+      status: 'Pending',
+    });
+  });
+
+  await test.step('Delete the order', async () => {
+    const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
+    const deleteDialog = await inHouseMedicationsPage.clickDeleteButton(NEW_MEDICATION);
+    await deleteDialog.verifyTitle('Delete Medication');
+    await deleteDialog.verifyMessage('Are you sure you want to delete the medication ' + '"' + NEW_MEDICATION + '"?');
+    await deleteDialog.clickProceedButton();
+    await inHouseMedicationsPage.verifyMedicationPresent({
+      medicationName: NEW_MEDICATION,
+      dose: NEW_DOSE,
+      units: NEW_UNITS,
+      route: NEW_ROUTE,
+      orderedBy: orderBy,
+      instructions: NEW_INSTRUCTIONS,
+      status: CANCELLED,
+    });
   });
 });
+
+test('Making in-house medication order Administered happy path', async () => {
+  await medicationsPage.sideMenu().clickInHouseMedications();
+  await medicationsPage.clickOrderButton();
+
+  await createOrderForAdministration(MEDICATION_FOR_ADMINISTERED, page);
+
+  const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickAdministeredButton();
+  await administrationConfirmationDialog.verifyTitle('Medication Administered');
+  await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
+  await administrationConfirmationDialog.verifyMedication({
+    medication: MEDICATION_FOR_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+  });
+  await administrationConfirmationDialog.verifyMessage(
+    'Please confirm that you want to mark this medication order as Administered.'
+  );
+  await administrationConfirmationDialog.clickMarkAsAdministeredButton();
+  const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
+  await inHouseMedicationsPage.verifyMedicationPresent({
+    medicationName: MEDICATION_FOR_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+    orderedBy: await getCurrentPractitionerFirstLastName(),
+    givenBy: await getCurrentPractitionerFirstLastName(),
+    instructions: INSTRUCTIONS,
+    status: ADMINISTERED,
+  });
+  const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
+  await inHouseMedicationsPage.verifyMedicationInMedicationHistoryTable({
+    medication: MEDICATION_FOR_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    type: 'In-house medication',
+    whoAdded: getLastName(testUserPractitioner) + ', ' + getFirstName(testUserPractitioner),
+  });
+  const progressNotePage = await medicationsPage.sideMenu().clickProgressNote();
+  await progressNotePage.verifyInHouseMedication({
+    medication: MEDICATION_FOR_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+    givenBy: await getCurrentPractitionerFirstLastName(),
+    instructions: INSTRUCTIONS,
+    status: ADMINISTERED,
+  });
+});
+
+test('Making in-house medication order Partly Administered happy path', async () => {
+  await medicationsPage.sideMenu().clickInHouseMedications();
+  await medicationsPage.clickOrderButton();
+
+  await createOrderForAdministration(MEDICATION_FOR_PARTLY_ADMINISTERED, page);
+
+  const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickPartlyAdministeredButton();
+  await administrationConfirmationDialog.verifyTitle('Medication Partly Administered');
+  await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
+  await administrationConfirmationDialog.verifyMedication({
+    medication: MEDICATION_FOR_PARTLY_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+  });
+  await administrationConfirmationDialog.verifyMessage(
+    'Please confirm that you want to mark this medication order as Partly Administered and select the reason.'
+  );
+  await administrationConfirmationDialog.selectReason(PATIENT_REFUSED);
+  await administrationConfirmationDialog.clickMarkAsAdministeredButton();
+  const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
+  await inHouseMedicationsPage.verifyMedicationPresent({
+    medicationName: MEDICATION_FOR_PARTLY_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+    orderedBy: await getCurrentPractitionerFirstLastName(),
+    givenBy: await getCurrentPractitionerFirstLastName(),
+    instructions: INSTRUCTIONS,
+    status: PARTLY_ADMINISTERED,
+    reason: PATIENT_REFUSED,
+  });
+  const progressNotePage = await medicationsPage.sideMenu().clickProgressNote();
+  await progressNotePage.verifyInHouseMedication({
+    medication: MEDICATION_FOR_PARTLY_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+    givenBy: await getCurrentPractitionerFirstLastName(),
+    instructions: INSTRUCTIONS,
+    status: PARTLY_ADMINISTERED,
+  });
+});
+
+test('Making in-house medication order Not Administered happy path', async () => {
+  await medicationsPage.sideMenu().clickInHouseMedications();
+  await medicationsPage.clickOrderButton();
+
+  await createOrderForAdministration(MEDICATION_FOR_NOT_ADMINISTERED, page);
+
+  const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickNotAdministeredButton();
+  await administrationConfirmationDialog.verifyTitle('Medication Not Administered');
+  await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
+  await administrationConfirmationDialog.verifyMedication({
+    medication: MEDICATION_FOR_NOT_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+  });
+  await administrationConfirmationDialog.verifyMessage(
+    'Please confirm that you want to mark this medication order as Not Administered and select the reason.'
+  );
+  await administrationConfirmationDialog.selectReason(PATIENT_REFUSED);
+  await administrationConfirmationDialog.clickMarkAsAdministeredButton();
+  const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
+  await inHouseMedicationsPage.verifyMedicationPresent({
+    medicationName: MEDICATION_FOR_NOT_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+    orderedBy: await getCurrentPractitionerFirstLastName(),
+    givenBy: await getCurrentPractitionerFirstLastName(),
+    instructions: INSTRUCTIONS,
+    status: NOT_ADMINISTERED,
+    reason: PATIENT_REFUSED,
+  });
+  const progressNotePage = await medicationsPage.sideMenu().clickProgressNote();
+  await progressNotePage.verifyInHouseMedication({
+    medication: MEDICATION_FOR_NOT_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    route: ROUTE,
+    givenBy: await getCurrentPractitionerFirstLastName(),
+    instructions: INSTRUCTIONS,
+    status: NOT_ADMINISTERED,
+  });
+});
+
+async function prepareAppointment(page: Page): Promise<void> {
+  await page.goto(`in-person/${resourceHandler.appointment.id}`);
+  const inPersonHeader = new InPersonHeader(page);
+  await inPersonHeader.selectIntakePractitioner();
+  await inPersonHeader.selectProviderPractitioner();
+  await inPersonHeader.clickSwitchModeButton('provider');
+  const sideMenu = new SideMenu(page);
+  await sideMenu.clickAssessment();
+  const assessmentPage = await expectAssessmentPage(page);
+  await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
+}
+
+async function createOrderForAdministration(medication: string, page: Page): Promise<InHouseMedicationsPage> {
+  const createOrderPage = await expectOrderMedicationPage(page);
+  await createOrderPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
+  await createOrderPage.editMedicationCard.selectMedication(medication);
+  await createOrderPage.editMedicationCard.enterDose(DOSE);
+  await createOrderPage.editMedicationCard.selectUnits(UNITS);
+  await createOrderPage.editMedicationCard.enterManufacturer(MANUFACTURER);
+  await createOrderPage.editMedicationCard.selectRoute(ROUTE);
+  await createOrderPage.editMedicationCard.enterInstructions(INSTRUCTIONS);
+  await createOrderPage.editMedicationCard.waitForLoadOrderedBy();
+  await createOrderPage.clickOrderMedicationButton();
+  const editOrderPage = await expectEditOrderPage(page);
+  const medicationsPage = await editOrderPage.clickBackButton();
+  await medicationsPage.clickMedicationDetailsTab();
+  await medicationsPage.medicationDetails().enterLotNumber('1234567');
+  await medicationsPage.medicationDetails().enterExpiratrionDate('2100-10-10');
+  return medicationsPage;
+}
+
+async function getCurrentPractitionerFirstLastName(): Promise<string> {
+  const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
+  return getFirstName(testUserPractitioner) + ' ' + getLastName(testUserPractitioner);
+}

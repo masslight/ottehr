@@ -163,12 +163,13 @@ export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessmen
   billClass: string;
   testDetails: testDataForOrderForm[];
   insuranceDetails?: OrderFormInsuranceInfo[];
+  clientOrgName?: string;
 }
 
 export interface ExternalLabResult {
   resultCodeAndDisplay: string;
   loincCodeAndDisplay: string;
-  snowmedDisplay: string;
+  snomedDisplay: string;
   resultInterpretation?: string;
   resultInterpretationDisplay?: string;
   resultValue: string;

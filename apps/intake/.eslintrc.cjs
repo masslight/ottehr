@@ -12,6 +12,6 @@ module.exports = {
     'playwright-report',
     'playwright-report-login',
     'setup-test-deps.js',
-    'validate-e2e-intake-user.js',
+    // 'validate-e2e-intake-user.js',
   ],
 };

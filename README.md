@@ -9,29 +9,30 @@
 <p align="center">The production-ready, open-source EHR</p>
 
 <p align="center">
-    <a href="https://www.ottehr.com/"><b>Ottehr.com</b></a>
+    <a target="_blank" href="https://www.ottehr.com/"><b>Ottehr.com</b></a>
 </p>
 
 <div align="center">
 
-[![Last Commit](https://badgen.net/github/last-commit/masslight/ottehr)](https://github.com/masslight/ottehr/commits/develop)
+[![Latest Version](https://badgen.net/github/release/masslight/ottehr)](https://github.com/masslight/ottehr/releases)
 [![Code Size](https://img.shields.io/github/languages/code-size/masslight/ottehr)](https://github.com/masslight/ottehr)
 [![Contributors](https://badgen.net/github/contributors/masslight/ottehr)](https://github.com/masslight/ottehr/graphs/contributors)
-[![GitHub Issues](https://badgen.net/github/issues/masslight/ottehr)](https://github.com/masslight/ottehr/issues)
+[![GitHub Issues](https://badgen.net/github/open-issues/masslight/ottehr)](https://github.com/masslight/ottehr/issues)
 [![GitHub Stars](https://badgen.net/github/stars/masslight/ottehr)](https://github.com/masslight/ottehr/stargazers)
-[![GitHub Pull Requests](https://badgen.net/github/prs/masslight/ottehr)](https://github.com/masslight/ottehr/pulls)
-![GitHub Pull Requests Closed](https://img.shields.io/github/issues-pr-closed/masslight/ottehr)
+[![GitHub Pull Requests](https://badgen.net/github/open-prs/masslight/ottehr)](https://github.com/masslight/ottehr/pulls)
+[![GitHub Pull Requests Closed](https://badgen.net/github/merged-prs/masslight/ottehr)](https://github.com/masslight/ottehr/pulls)
 
 </div>
 
 # Ottehr
 
-[Ottehr](https://www.ottehr.com/) is a modern, modular EHR that began as a reference implementation for [Oystehr](https://oystehr.com/). It quickly outgrew "sample EHR" status and became the foundation for large-scale production EHR installations. Ottehr uses Oystehr for back-end service endpoints, and requires a free Oystehr account to run as-is, but you are welcome to modify and use a third-party service vendor or build your own service architecture. Ottehr is designed for developers, hopefully making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.
+[Ottehr](https://www.ottehr.com/) is a modern, modular EHR used as the foundation for large-scale production EHR installations. Ottehr uses the headless EHR [Oystehr](https://www.oystehr.com) as a service provider and to host its backend service endpoints. Ottehr requires  a [free Oystehr account](https://docs.oystehr.com/oystehr/getting-started/quickstart/) to run as-is, but you are welcome to modify it to use a third-party service vendor or build your own service architecture. Ottehr is designed for developers, making it easy to fork, white-label, and build entire new classes of EHRs and health-tech products with a fraction of the effort of starting from scratch.
 
-Ottehr consists of two apps,
+Ottehr consists of three components:
 
-- **[Ottehr Patient Portal](apps/intake)** &mdash; A patient-facing registration website for creating appointments, initiating telemedicine calls, with features including rescheduling, checking in, completing intake paperwork, text messages and emails, and listing appointments for an account.
-- **[Ottehr EHR](apps/ehr/)** &mdash; A staff-facing EHR for managing appointments created, with features including checking appointments, managing patient queues, texting patients, updating a location's slots, setting a location's schedule, joining telemedicine calls, HPI and medical history, exam charting, eRx and Assessment, patient plan, coming soon: RCM and claims submission.
+- **[Ottehr Patient Portal](apps/intake)** &mdash; A patient-facing registration website for creating appointments and initiating telemedicine calls, with features including rescheduling, check-in, intake chatbot and paperwork, text messages and emails, and listing appointments for an account.
+- **[Ottehr EHR](apps/ehr/)** &mdash; A staff-facing EHR for managing appointments and completing encounters, with features including checking appointments, managing patient queues, texting patients, updating a location's slots, setting a location's schedule, joining telemedicine calls, HPI and medical history, exam charting, eRx and assessment, patient plan, RCM and claims submission, and more.
+- **[Ottehr Backend](packages/zambdas)** &mdash; The backend for the Patient Portal and EHR apps, it is composed of Function-as-a-Service endpoints deployed as [Oystehr Zambdas](https://docs.oystehr.com/oystehr/services/zambda/).
 
 ## Run Ottehr Locally
 
@@ -46,7 +47,7 @@ To run Ottehr, you'll need a free Oystehr account and Node.js.
 
 Once your request is received, the Oystehr team will promptly create your account and reach out to you via email.
 
-Check out the [Oystehr Technical Documentation](https://docs.oystehr.com) to learn more about the Oystehr platform.
+Check out the [Oystehr Technical Documentation](https://docs.oystehr.com/oystehr/getting-started/) to learn more about the Oystehr platform.
 
 #### Install Node.js
 
@@ -71,21 +72,15 @@ Then, move into the new directory
 cd ottehr
 ```
 
-### Run the Setup Script
+### Configure Your Environment
+
+Follow the instructions on setting up a new project in [`deploy/README.md`](/deploy/README.md#setting-up-a-new-project).
+
+### Run the Application
 
 ```bash
-./scripts/ottehr-setup.sh
+npm run apps:start
 ```
-
-The script will prompt you for the following information:
-
-- Your access token &mdash; Log in to your Oystehr project on the [Oystehr Console](https://console.oystehr.com), and copy the access token from the dashboard.
-- Your project ID &mdash; Listed on the Oystehr Console next to the access token
-- An email address for your first Provider User of the EHR &mdash; Put your email here.
-
-When the setup script finishes, the intake and EHR websites will open automatically, and the email address you provided will receive an invitation to join the EHR.
-
-You only need to run the setup script once. To start the apps going forward, use `npm run apps:start`.
 
 ### Log in and explore the Patient app
 
@@ -103,9 +98,9 @@ To log into the EHR, check the email address you provided during setup for an in
 
 Ottehr includes a suite of end to end tests that can be used to maintain quality as you customize it for your use case.
 
-Ottehr uses the [ClickSend](https://www.clicksend.com/us/) api to send an sms with a confirmation code that is used to login before running the e2e tests. As such, you will need to [create a ClickSend account](https://dashboard.clicksend.com/signup/step1) in order to setup e2e testing.
+Ottehr uses the [ClickSend](https://www.clicksend.com/us/) API to send an SMS with a confirmation code that is used to login before running the E2E tests. As such, you will need to [create a ClickSend account](https://dashboard.clicksend.com/signup/step1) in order to setup e2e testing.
 
-After you have created your ClickSend account, invite a test user to your EHR application by navigating to <https://console.oystehr.com/app/users/new>. Select your EHR application, input the user's email for both "User name" and "Email", set the in-line access policy to
+After you have created your ClickSend account, invite a test user to your EHR application using the [Oystehr console](https://console.oystehr.com/app/users/new). Select your EHR application, input the user's email for both "User name" and "Email", set the in-line access policy to
 
 ```
 {
@@ -115,7 +110,7 @@ After you have created your ClickSend account, invite a test user to your EHR ap
 
 and choose "Administrator" as the role. Then, click "Invite". To set the password, launch the ehr app by running `npm run ehr:start` from the root directory, enter the email you invited, click `Forgot password?` and set a password.
 
-To set the environment files required to run e2e tests, run the following command in the root directory:
+To set the environment files required to run E2E tests, run the following command in the root directory:
 
 ```bash
 ./scripts/e2e-test-setup.sh
@@ -157,7 +152,7 @@ This repository uses a monorepo structure.
 - `apps` &mdash; Frontend web apps
   - intake &mdash; The patient's side
   - ehr &mdash; The provider's side
-- `packages/zambdas` &mdash; The application's backend endpoints, deployed on [Oystehr Zambda](https://docs.oystehr.com/oystehr/services/zambda/).
+- `packages/zambdas` &mdash; The application's backend endpoints, deployed as [Oystehr Zambdas](https://docs.oystehr.com/oystehr/services/zambda/).
 - `packages/{other folders}` &mdash; Other modules that are imported by apps like `utils`, `ui-components`
 
 ## Apps
