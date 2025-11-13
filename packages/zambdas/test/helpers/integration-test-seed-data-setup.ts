@@ -104,7 +104,7 @@ export const getProcessMetaTag = (processId: string): Appointment['meta'] => {
  * @param processId - The process ID for tagging resources
  * @returns The created Patient, RelatedPerson, Appointment, Encounter, and QuestionnaireResponse
  */
-export const insertFullAppointmentBase = async (
+export const insertInPersonAppointmentBase = async (
   oystehr: Oystehr,
   processId: string
 ): Promise<InsertFullAppointmentDataBaseResult> => {
