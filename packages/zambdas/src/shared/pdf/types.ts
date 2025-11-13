@@ -157,6 +157,7 @@ export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessmen
   billClass: string;
   testDetails: testDataForOrderForm[];
   insuranceDetails?: OrderFormInsuranceInfo[];
+  clientOrgName?: string;
 }
 
 export interface ExternalLabResult {

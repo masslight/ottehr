@@ -71,6 +71,7 @@ export type resourcesForOrderForm = {
   testDetails: testDataForOrderForm[];
   accountNumber: string;
   labOrganization: Organization;
+  clientOrganization: Organization;
   provider: Practitioner;
   patient: Patient;
   timezone: string | undefined;
@@ -95,7 +96,8 @@ export async function getBundledOrderResources(
   oystehr: Oystehr,
   m2mToken: string, // needed to get questionnaire via the qr.questionnaire url
   serviceRequestIDs: string[],
-  isManualOrder: boolean
+  isManualOrder: boolean,
+  clientOrgId: string
 ): Promise<OrderResourcesByOrderNumber> {
   const promises = serviceRequestIDs.map((serviceRequestID) =>
     getExternalLabOrderResourcesViaServiceRequest(oystehr, serviceRequestID).then((result) => ({
@@ -166,10 +168,19 @@ export async function getBundledOrderResources(
     };
   });
 
-  const [locationResults, coverageResults, aoeAnswerResults] = await Promise.all([
+  const clientOrgPromise = (() => {
+    console.log('searching for client organization with id:', clientOrgId);
+    return oystehr.fhir.get<Organization>({
+      resourceType: 'Organization',
+      id: clientOrgId,
+    });
+  })();
+
+  const [locationResults, coverageResults, aoeAnswerResults, clientOrganization] = await Promise.all([
     Promise.all(locationPromises),
     Promise.all(coveragePromises),
     Promise.all(aoeAnswerPromises),
+    clientOrgPromise,
   ]);
 
   // Oystehr requires that all the locations be the same. We don't enforce that on the FE yet, so throwing a check here
@@ -268,6 +279,7 @@ export async function getBundledOrderResources(
           accountNumber: allResources.accountNumber,
           encounter: allResources.encounter,
           labOrganization: allResources.labOrganization,
+          clientOrganization,
           provider: allResources.practitioner,
           patient: allResources.patient,
           timezone: allResources.timezone,

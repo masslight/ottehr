@@ -48,20 +48,43 @@ There are npm scripts for deploying to local, staging, and production, as well a
 - Install Terraform [as discussed above](#terraform)
 - Create an Oystehr project in the [Oystehr developer console](https://console.oystehr.com).
 - Create an M2M Client with full access rights in your Oystehr project; you can use the default M2M created during project setup.
-- Configure your local Terraform variables (`.tfvars`).
-- Configure your Terraform Backend.
+- Configure your Terraform Backend ([`deploy/backend.config`](/deploy/backend.config.template)).
+- Configure your local Terraform variables ([`deploy/${env}.tfvars`](/deploy/terraform.tfvars.template)).
+- Configure your application variables ([`packages/zambda/.env/${env}.json`](/packages/zambdas/.env/local.template.json)).
 
-Run only once for all environments:
+All three of those configuration files have examples with the `.template` extension that you can copy to start.
+
+**Run only once for all environments:**
 
 - Run `npm run terraform-setup` to configure remote state and workspaces.
 
-If you need to set up a new environment that wasn't previously set up by that npm script, such as adding a `uat` environment, add a new workspace using the terraform CLI:
+Finally, you're ready to deploy your project. You can either run apply on its own or start the entire application locally, which will apply all needed resource changes:
 
 ```bash
-terraform workspace new uat
+# from deploy/
+npm run apply-local
+
+# from repository root
+npm run apps:start
 ```
 
+The rest of this section will discuss the configuration files in more depth.
+
+### Terraform Backend
+
+The [Terraform backend](https://developer.hashicorp.com/terraform/language/backend) configuration determines where your project's state is stored. The state file is used to track managed resources over time. You will use a single `backend.config` file for all environments in your project. Each environment will be tracked as a separate Terraform workspace.
+
+There is a placeholder [partial configuration](https://developer.hashicorp.com/terraform/language/backend#partial-configuration) for [using AWS S3 as a Terraform backend](https://developer.hashicorp.com/terraform/language/backend/s3) and a template in [`deploy/backend.config.template`](/deploy/backend.config.template).
+
+Using S3 as a backend allows you to share state between developers and between a developer computer and your CI/CD process. If you only need to store state on a single computer and it doesn't need to be shared, you can replace the backend configuration with a [local one](https://developer.hashicorp.com/terraform/language/backend/local). You can also use any of the other state providers listed in the Terraform documentation.
+
 ### Terraform Variables
+
+The Terraform variables stored in `deploy/${env}.tfvars` are used by Terraform providers for Oystehr, AWS, and GCP to provide access to the projects or accounts you want to deploy to. There is an example file available in [`deploy/terraform.tfvars.template`](/deploy/terraform.tfvars.template).
+
+All providers need both an account or project identifier and credentials, which are provided either explicitly in this config file or implicitly through some other part of your environment. For example, the Oystehr Terraform provider requires `project_id`, `client_id`, and `client_secret` variables in this file, whereas the AWS provider requires only a profile that must be configured on your system with credentials associated with an AWS account.
+
+Each environment will have its own `tfvars` file because Oystehr projects cannot be used for more than one environment at a time.
 
 There are a few ways of providing configuration to the deploy process.
 
@@ -120,11 +143,29 @@ patient_portal_domain      = "patient.ottehr.com"
 
 You must have previously authenticated with Google Cloud Platform using their command-line utility.
 
-### Terraform Backend
+#### Changing Terraform Variables
 
-Configure your [Terraform backend](https://developer.hashicorp.com/terraform/language/backend) in `deploy/backend.config`. There is a placeholder [partial configuration](https://developer.hashicorp.com/terraform/language/backend#partial-configuration) for [using AWS S3 as a Terraform backend](https://developer.hashicorp.com/terraform/language/backend/s3) and a template in `deploy/backend.config.template`.
+Once set up, you should always use the same values for a given environment, otherwise you risk orphaning the managed resources. If you need to move from one account to another for a given provider, you should destroy all managed resources in the current account using `terraform destroy -target ...` before changing the `tfvars` values. The target should be whatever is appropriate for the provider you're trying to switch accounts for. For example, AWS is used in the `apps_upload` and `infra` modules, and Oystehr is used in the `oystehr` module. The Terraform docs contain more information about [resource targeting](https://developer.hashicorp.com/terraform/cli/commands/plan#resource-targeting). After cleaning up existing resources and changing to the new account, the next apply will create new resources.
 
-Using S3 as a backend allows you to share state between developers and between a developer computer and your CI/CD process. If you only need to store state on a single computer and it doesn't need to be shared, you can replace the backend configuration with a [local one](https://developer.hashicorp.com/terraform/language/backend/local).
+### Application Variables
+
+The environment file `packages/zambdas/.env/${env}.json` contains configuration values that control how the application works. When you run `npm run generate`, these values are combined with the resource definitions in `config/` to create `.tf.json` files in `deploy/oystehr/`. The values are also used as input for filling in environment variable templates 
+
+Each environment will have its own application configuration file because you will want to use different names, secrets, and API keys in your local, test, and production environments.
+
+There is a sample configuration file stored in [`packages/zambdas/.env/local.template.json`](/packages/zambdas/.env/local.template.json).
+
+You can verify that all required configuration variables have been found by searching `deploy/oystehr` for the string `#{var/` after running `npm run generate`. There will be 0 results when all variable values have been substituted.
+
+### Setting up a New Environment in an Existing Project
+
+If you need to set up a new environment that wasn't previously set up by the `terraform-setup` npm script, you should add a Terraform workspace using the Terraform CLI. For example, to add a `uat` environment:
+
+```bash
+terraform workspace new uat
+```
+
+Then you can either add an `apply-uat` npm script or run `./apply.sh uat` directly to deploy your environment.
 
 ## Modules
 
