@@ -1,16 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
-// @ts-expect-error: Could not find a declaration file for module '../../scripts/setup/setup.utils.mjs'
 import setup from '../../scripts/setup/setup.utils.mjs';
 import { validateE2EIntakeUser } from './validate-e2e-intake-user.js';
 
-const isCI: boolean = Boolean(process.env.CI);
-const playwrightUserFile: string = './playwright/user.json';
-const playwrightUserFileCode: string = JSON.stringify({ cookies: [], origins: [] }, null, 2);
+const isCI = Boolean(process.env.CI);
+const playwrightUserFile = './playwright/user.json';
+const playwrightUserFileCode = JSON.stringify({ cookies: [], origins: [] }, null, 2);
 
 // copy secrets only on local machine; GitHub workflow handles it on its own
 if (!isCI) {
-  void (async (): Promise<void> => {
+  void (async () => {
     await setup.loadEnvFilesFromRepo('git@github.com:masslight/ottehr-secrets.git', [
       {
         localEnvFolder: './env/',
@@ -47,7 +46,7 @@ try {
 
 // Create a blank playwright/user.json file if it doesn't exist or the login is expired
 if (!isUserValid) {
-  const playwrightDir: string = path.dirname(playwrightUserFile);
+  const playwrightDir = path.dirname(playwrightUserFile);
   if (!fs.existsSync(playwrightDir)) {
     fs.mkdirSync(playwrightDir, { recursive: true });
   }

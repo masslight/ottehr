@@ -4,28 +4,11 @@ import { pathToFileURL } from 'url';
 const USER_FILE_LOCATION = 'apps/intake/playwright/user.json';
 const TOKEN_VALIDITY_THRESHOLD_MINUTES = 60;
 
-interface LocalStorageItem {
-  name: string;
-  value: string;
-}
-
-interface Origin {
-  localStorage?: LocalStorageItem[];
-}
-
-interface UserFile {
-  origins?: Origin[];
-}
-
-interface Auth0Token {
-  expiresAt: number;
-}
-
-export const validateE2EIntakeUser = (fileLocation: string): void => {
-  const expiries: number[] = [];
+export const validateE2EIntakeUser = (fileLocation) => {
+  const expiries = [];
 
   try {
-    const userFile: UserFile = JSON.parse(fs.readFileSync(fileLocation, 'utf8'));
+    const userFile = JSON.parse(fs.readFileSync(fileLocation, 'utf8'));
     if (!userFile) {
       throw new Error('Could not find user.json file');
     }
@@ -49,10 +32,10 @@ export const validateE2EIntakeUser = (fileLocation: string): void => {
     }
     console.log('Found Auth0 token');
 
-    const expiresAt = (JSON.parse(authItem.value) as Auth0Token).expiresAt;
+    const expiresAt = JSON.parse(authItem.value).expiresAt;
     expiries.push(expiresAt);
   } catch (e) {
-    console.error('Failed token check:', (e as Error).message);
+    console.error('Failed token check:', e.message);
     throw new Error('Failed token check');
   }
 
@@ -63,7 +46,7 @@ export const validateE2EIntakeUser = (fileLocation: string): void => {
   });
 };
 
-const doesTokenLastMoreThanNeeded = (expiresAt: number): boolean => {
+const doesTokenLastMoreThanNeeded = (expiresAt) => {
   const timeLeft = (expiresAt * 1000 - Date.now()) / (1000 * 60);
   console.log(`Time left: ${timeLeft.toFixed(1)} minutes`);
   return timeLeft > TOKEN_VALIDITY_THRESHOLD_MINUTES;
