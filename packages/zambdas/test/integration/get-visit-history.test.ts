@@ -409,11 +409,6 @@ describe('tests for getting the visit history for a patient', () => {
   };
 
   const changeVirtualAppointmentStatus = async (appointmentId: string, status: TelemedCallStatuses): Promise<void> => {
-    /*export interface ChangeTelemedAppointmentStatusInput {
-        appointmentId: string;
-        newStatus: TelemedCallStatuses;
-        secrets: Secrets | null;
-      }*/
     await oystehr.zambda.execute({
       id: 'change-telemed-appointment-status',
       appointmentId,
@@ -865,7 +860,8 @@ describe('tests for getting the visit history for a patient', () => {
         expect(followUpVisit.dateTime).toBeDefined();
         const followUpDateTime = DateTime.fromISO(followUpVisit.dateTime!, { setZone: true });
         expect(followUpDateTime.isValid).toBe(true);
-        expect(followUpDateTime.zone).toBe(inPersonSchedule.timezone);
+        const now = DateTime.now().setZone(inPersonSchedule.timezone);
+        expect(followUpDateTime.zoneName).toBe(now.zoneName);
         // cutting these tests a bit short because much of the current behavior seems likely to change, or serves no
         // real purpose right now
       }
