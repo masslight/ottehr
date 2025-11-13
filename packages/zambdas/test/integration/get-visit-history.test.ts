@@ -826,8 +826,48 @@ describe('tests for getting the visit history for a patient', () => {
     });
   });
   describe('follow up visits', () => {
-    test.concurrent('follow-up visit is indicated in visit history', async () => {
-      // todo
+    let visitHistoryAfterFollowups: PatientVisitListResponse;
+    beforeAll(async () => {
+      const inPersonVisits = pastAppointments.filter(
+        ({ metadata }) => metadata.serviceMode === ServiceMode['in-person']
+      );
+      const visitHistory = await getVisitHistory({ serviceMode: ServiceMode['in-person'] });
+      for (const { appointment } of inPersonVisits) {
+        const initialVisit = visitHistory.visits.find((visit) => visit.appointmentId === appointment.id);
+        await oystehr.zambda.execute({
+          id: 'save-followup-encounter',
+          encounterDetails: {
+            patientId: testPatient.id!,
+            followupType: 'Follow-up Encounter',
+            start: DateTime.now().setZone(inPersonSchedule.timezone).toISO()!,
+            resolved: false,
+            initialEncounterID: initialVisit?.encounterId,
+            appointmentId: appointment.id!,
+          },
+        });
+      }
+      visitHistoryAfterFollowups = await getVisitHistory({});
+    });
+    test.only('follow up encounters are linked in visit history', async () => {
+      const inPersonVisits = pastAppointments.filter(
+        ({ metadata }) => metadata.serviceMode === ServiceMode['in-person']
+      );
+      for (const { appointment } of inPersonVisits) {
+        const visit = visitHistoryAfterFollowups.visits.find((v) => v.appointmentId === appointment.id);
+        expect(visit).toBeDefined();
+        expect(visit?.followUps).toBeDefined();
+        expect(visit?.followUps?.length).toBe(1);
+        assert(visit?.followUps);
+        const followUpVisit = visit.followUps.find((fuv) => fuv.originalAppointmentId === appointment.id);
+        expect(followUpVisit).toBeDefined();
+        assert(followUpVisit);
+        expect(followUpVisit.type).toEqual('Follow-up Encounter');
+        expect(followUpVisit.dateTime).toBeDefined();
+        const followUpDateTime = DateTime.fromISO(followUpVisit.dateTime!, { setZone: true });
+        expect(followUpDateTime.isValid).toBe(true);
+        expect(followUpDateTime.zone).toBe(inPersonSchedule.timezone);
+        expect(followUpVisit.serviceMode).toBe(ServiceMode.virtual); // follow ups are always virtual
+      }
     });
   });
 });
