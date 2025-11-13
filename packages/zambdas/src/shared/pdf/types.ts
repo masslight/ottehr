@@ -1,4 +1,4 @@
-import { Coverage, Organization, Practitioner } from 'fhir/r4b';
+import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
@@ -143,12 +143,6 @@ interface LabsData {
   isManualOrder: boolean;
   isPscOrder: boolean;
 }
-
-export type CoverageAndOrgForOrderForm = {
-  coverage: Coverage;
-  insuranceOrganization: Organization;
-  coverageRank: number;
-};
 
 export type OrderFormInsuranceInfo = {
   insuranceRank: number;

@@ -302,3 +302,8 @@ export const SR_REVOKED_REASON_EXT = {
   url: 'https://extensions.fhir.oystehr.com/reason-sr-revoked',
   valueCode: 'rejected-abn',
 };
+
+export const LAB_CLIENT_BILL_COVERAGE_TYPE_CODING = {
+  system: 'https://terminology.fhir.oystehr.com/CodeSystem/labs-financial-class',
+  code: 'client-bill',
+};
