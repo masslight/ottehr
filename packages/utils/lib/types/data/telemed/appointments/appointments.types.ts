@@ -40,6 +40,11 @@ export interface PrescribedMedication {
   instructions?: string;
 }
 
+export interface FollowUpDetails {
+  encounterTime: string;
+  documents: FileURLs;
+}
+
 export interface GetVisitDetailsResponse {
   files: FileURLs;
   medications: PrescribedMedication[];
@@ -49,6 +54,7 @@ export interface GetVisitDetailsResponse {
     currency: string;
     date: string;
   };
+  followUps: FollowUpDetails[];
 }
 
 export interface PaymentDataResponse {
