@@ -1,7 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { MedicationStatement } from 'fhir/r4b';
 import { GetChartDataRequest, GetChartDataResponse, SaveChartDataRequest, SaveChartDataResponse } from 'utils';
-import { InsertFullAppointmentDataBaseResult, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
+import {
+  InsertFullAppointmentDataBaseResult,
+  insertInPersonAppointmentBase,
+  setupIntegrationTest,
+} from '../helpers/integration-test-seed-data-setup';
 
 let baseResources: InsertFullAppointmentDataBaseResult;
 
@@ -12,7 +16,7 @@ describe('chart-data integration tests', () => {
   beforeAll(async () => {
     const setup = await setupIntegrationTest('chart-data.test.ts');
     oystehrLocalZambdas = setup.oystehrLocalZambdas;
-    baseResources = setup.baseResources;
+    baseResources = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
     cleanup = setup.cleanup;
   });
 
