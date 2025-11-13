@@ -1,4 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
+import { WarningAmberOutlined } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -46,6 +47,7 @@ import {
 } from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
+import { TaskAlertCode, TaskAlertDisplay } from 'utils';
 import { TASK_CATEGORY_LABEL } from '../common';
 import { AssignTaskDialog } from '../components/AssignTaskDialog';
 import { CategoryChip } from '../components/CategoryChip';
@@ -216,6 +218,34 @@ export const Tasks: React.FC = () => {
     setShowCreateTaskDialog(true);
   };
 
+  const renderAlertIcon = (alertCode: TaskAlertCode): ReactElement | null => {
+    console.log('alertCode', alertCode);
+    const display = TaskAlertDisplay[alertCode] ?? alertCode;
+    let icon: ReactElement = (
+      <PriorityHighOutlinedIcon
+        style={{
+          width: '15px',
+          height: '15px',
+          color: '#FFF',
+          background: otherColors.priorityHighIcon,
+          borderRadius: '4px',
+          padding: '1px 2px',
+          marginLeft: '5px',
+        }}
+      />
+    );
+    switch (alertCode) {
+      case TaskAlertCode.abnormalLabResult:
+        icon = <WarningAmberOutlined style={{ marginLeft: '5px' }} color="warning" />;
+        break;
+    }
+    return (
+      <GenericToolTip title={display} placement="top">
+        {icon}
+      </GenericToolTip>
+    );
+  };
+
   return (
     <PageContainer>
       <Stack spacing={2}>
@@ -306,21 +336,7 @@ export const Tasks: React.FC = () => {
                           >
                             {task.title}
                           </Typography>
-                          {task.alert ? (
-                            <GenericToolTip title={task.alert} placement="top">
-                              <PriorityHighOutlinedIcon
-                                style={{
-                                  width: '15px',
-                                  height: '15px',
-                                  color: '#FFF',
-                                  background: otherColors.priorityHighIcon,
-                                  borderRadius: '4px',
-                                  padding: '1px 2px',
-                                  marginLeft: '5px',
-                                }}
-                              />
-                            </GenericToolTip>
-                          ) : null}
+                          {task.alert ? renderAlertIcon(task.alert) : null}
                         </Box>
                         {task.details ? <Typography variant="body2">{task.details}</Typography> : null}
                         <Typography variant="body2" style={{ color: '#00000099' }}>
