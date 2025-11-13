@@ -48,6 +48,12 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   const methods = useForm();
   const formValue = methods.watch();
 
+  useEffect(() => {
+    if (!open) {
+      methods.reset();
+    }
+  }, [open, methods]);
+
   const { mutateAsync: createManualTask } = useCreateManualTask();
   const handleConfirm = async (): Promise<void> => {
     await createManualTask({
@@ -138,7 +144,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
       });
       methods.setValue('appointment', appointmentId);
     }
-  }, [appointmentId, appointment, methods]);
+  }, [appointmentId, appointment, methods, open]);
 
   useEffect(() => {
     const orderFullUrl = urlParams['*'];
@@ -167,7 +173,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
     methods.setValue('taskDetails', null);
     methods.setValue('assignee', null);
     methods.setValue('location', null);
-  }, [urlParams, methods]);
+  }, [urlParams, methods, open]);
 
   return (
     <InPersonModal
