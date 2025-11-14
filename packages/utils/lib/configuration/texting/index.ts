@@ -1,0 +1,18 @@
+import _ from 'lodash';
+import { TEXTING_OVERRIDES as OVERRIDES } from '../../../.ottehr_config';
+
+const TEXTING_DEFAULTS_BASE = Object.freeze({
+  invoicing: {
+    defaultSmsMessage:
+      'Thank you for visiting <clinic>. You have a balance of <amount> USD. \uD83D\uDCB3 If we have your card on file, it will be billed on <due-date>. To use a different payment method, please pay the invoice before due date: <invoice-link>.',
+    defaultMemoMessage:
+      "Thank you for visiting <clinic>! \uD83D\uDCB3 If we have your card on file, it will be billed on <due-date>, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method within before due date.",
+    defaultDueDateInDays: 30,
+  },
+});
+
+type TextingDefaults = typeof TEXTING_DEFAULTS_BASE;
+
+const overrides: Partial<TextingDefaults> = OVERRIDES || {};
+
+export const textingConfig = _.merge({ ...TEXTING_DEFAULTS_BASE }, { ...overrides });

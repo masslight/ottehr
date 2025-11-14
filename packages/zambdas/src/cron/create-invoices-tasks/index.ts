@@ -13,16 +13,16 @@ import {
   getEmailForIndividual,
   getFullName,
   getPatientReferenceFromAccount,
-  getPhoneNumberForIndividual,
+  getPatientResourceWithVerifiedPhoneNumber,
   getResourcesFromBatchInlineRequests,
   getSecret,
   PrefilledInvoiceInfo,
   RCM_TASK_SYSTEM,
   RcmTaskCode,
   RcmTaskCodings,
-  Secrets,
   SecretsKeys,
   takeContainedOrFind,
+  textingConfig,
 } from 'utils';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import {
@@ -51,7 +51,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const promises: Promise<void>[] = [];
     encountersWithoutATask.forEach((encounter) => {
-      promises.push(createTaskForEncounter(oystehr, encounter, secrets));
+      promises.push(createTaskForEncounter(oystehr, encounter));
     });
     await Promise.all(promises);
 
@@ -66,30 +66,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-async function getPrefilledInvoiceInfo(
-  oystehr: Oystehr,
-  patientId: string,
-  secrets: Secrets | null
-): Promise<PrefilledInvoiceInfo> {
+async function getPrefilledInvoiceInfo(oystehr: Oystehr, patientId: string): Promise<PrefilledInvoiceInfo> {
   try {
-    const fhirResources = await getFhirPatientAndResponsibleParty({ oystehr, patientId });
-    const smsMessageFromSecret = getSecret(SecretsKeys.INVOICING_DEFAULT_SMS_MESSAGE, secrets);
-    const memoFromSecret = getSecret(SecretsKeys.INVOICING_DEFAULT_MEMO_MESSAGE, secrets);
-    const dueDateFromSecret = getSecret(SecretsKeys.INVOICING_DEFAULT_DUE_DATE_IN_DAYS, secrets);
-    if (fhirResources) {
-      const { responsibleParty } = fhirResources;
+    const patientResources = await getFhirPatientResources({ oystehr, patientId });
+    const smsMessageFromSecret = textingConfig.invoicing.defaultSmsMessage;
+    const memoFromSecret = textingConfig.invoicing.defaultMemoMessage;
+    const dueDateFromSecret = textingConfig.invoicing.defaultDueDateInDays;
+    if (patientResources) {
+      const { responsibleParty } = patientResources;
       const email = getEmailForIndividual(responsibleParty);
-      const phoneNumber = getPhoneNumberForIndividual(responsibleParty);
-      if (!email || !phoneNumber) throw new Error('Email or phone number not found for responsible party');
+      if (!email) throw new Error('Email was not found for responsible party');
       return {
         recipientName: getFullName(responsibleParty),
         recipientEmail: email,
-        recipientPhoneNumber: phoneNumber,
+        recipientPhoneNumber: patientResources.phoneNumber,
         smsTextMessage: smsMessageFromSecret,
         memo: memoFromSecret,
-        dueDate: DateTime.now()
-          .plus({ days: parseInt(dueDateFromSecret) })
-          .toISODate(),
+        dueDate: DateTime.now().plus({ days: dueDateFromSecret }).toISODate(),
       };
     }
     throw new Error(`Prefilled info cannot be filled for patient: ${patientId}`);
@@ -99,11 +92,11 @@ async function getPrefilledInvoiceInfo(
   }
 }
 
-async function createTaskForEncounter(oystehr: Oystehr, encounter: Encounter, secrets: Secrets | null): Promise<void> {
+async function createTaskForEncounter(oystehr: Oystehr, encounter: Encounter): Promise<void> {
   try {
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
     if (!patientId) throw new Error('Patient ID not found in encounter: ' + encounter.id);
-    const prefilledInvoiceInfo = await getPrefilledInvoiceInfo(oystehr, patientId, secrets);
+    const prefilledInvoiceInfo = await getPrefilledInvoiceInfo(oystehr, patientId);
 
     const task: Task = {
       resourceType: 'Task',
@@ -215,16 +208,16 @@ async function getEncounterTasksPackages(oystehr: Oystehr, claims: InventoryReco
   return result;
 }
 
-async function getFhirPatientAndResponsibleParty(input: {
+async function getFhirPatientResources(input: {
   oystehr: Oystehr;
   patientId: string;
-}): Promise<{ patient: Patient; responsibleParty: RelatedPerson } | undefined> {
+}): Promise<{ patient: Patient; responsibleParty: RelatedPerson; phoneNumber: string } | undefined> {
+  const { patientId, oystehr } = input;
   try {
-    const { patientId, oystehr } = input;
     console.log('🔍 Fetching FHIR resources for invoiceable patients...');
 
-    const resources = (
-      await oystehr.fhir.search({
+    const [resourcesResponse, patientWithPhoneResponse] = await Promise.all([
+      oystehr.fhir.search({
         resourceType: 'Patient',
         params: [
           {
@@ -236,27 +229,33 @@ async function getFhirPatientAndResponsibleParty(input: {
             value: 'Account:patient',
           },
         ],
-      })
-    ).unbundle();
+      }),
+      getPatientResourceWithVerifiedPhoneNumber(patientId, oystehr),
+    ]);
+    const resources = resourcesResponse.unbundle();
     console.log('Fetched FHIR resources:', resources.length);
+
     const patient = resources.find((resource) => resource.resourceType === 'Patient') as Patient;
     const account = resources.find(
       (resource) =>
         resource.resourceType === 'Account' && getPatientReferenceFromAccount(resource as Account)?.includes(patientId)
     ) as Account;
     if (!patient || !account) return undefined;
+
+    const phoneNumber = patientWithPhoneResponse.verifiedPhoneNumber;
+    if (!phoneNumber) throw new Error(`No verified phone number found for patient: ${patientId}`);
+
     const responsiblePartyRef = getActiveAccountGuarantorReference(account);
-    if (responsiblePartyRef) {
-      const responsibleParty = takeContainedOrFind(responsiblePartyRef, resources as Resource[], account) as
-        | RelatedPerson
-        | undefined;
-      if (patient && responsibleParty) {
-        return { patient, responsibleParty };
-      }
-    }
-    return undefined;
+    if (!responsiblePartyRef) throw new Error(`No responsible party reference found for account: ${account.id}`);
+    const responsibleParty = takeContainedOrFind(responsiblePartyRef, resources as Resource[], account) as
+      | RelatedPerson
+      | undefined;
+    if (!responsibleParty) throw new Error(`No responsible party found for account: ${account.id}`);
+
+    return { patient, responsibleParty, phoneNumber };
   } catch (error) {
-    console.error('Error fetching fhir resources: ', error);
-    throw new Error('Error fetching fhir resources: ' + error);
+    const errorMessage = `Error fetching FHIR resources for patient ${patientId}: ${error}`;
+    console.error(errorMessage);
+    throw new Error(errorMessage);
   }
 }

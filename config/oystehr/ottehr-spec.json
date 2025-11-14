@@ -140,18 +140,6 @@
       "name": "ADVAPACS_VIEWER_USERNAME",
       "value": "#{var/ADVAPACS_VIEWER_USERNAME}"
     },
-    "INVOICING_DEFAULT_SMS_MESSAGE": {
-      "name": "INVOICING_DEFAULT_SMS_MESSAGE",
-      "value": "#{var/INVOICING_DEFAULT_SMS_MESSAGE}"
-    },
-    "INVOICING_DEFAULT_MEMO_MESSAGE": {
-      "name": "INVOICING_DEFAULT_MEMO_MESSAGE",
-      "value": "#{var/INVOICING_DEFAULT_MEMO_MESSAGE}"
-    },
-    "INVOICING_DEFAULT_DUE_DATE_IN_DAYS": {
-      "name": "INVOICING_DEFAULT_DUE_DATE_IN_DAYS",
-      "value": "#{var/INVOICING_DEFAULT_DUE_DATE_IN_DAYS}"
-    },
     "BUSINESS_DISPLAY_NAME": {
       "name": "BUSINESS_DISPLAY_NAME",
       "value": "#{var/BUSINESS_DISPLAY_NAME}"
