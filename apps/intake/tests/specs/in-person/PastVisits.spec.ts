@@ -18,10 +18,8 @@ test.beforeEach(async ({ page }) => {
       }
     }
   });
-});
 
-test.describe.serial('Past Visits - Empty State', () => {
-  test('Should create new patient', async ({ page }) => {
+  await test.step('Create a new patient with an appointment', async () => {
     const homepage = new Homepage(page);
     await homepage.navigate();
 
@@ -40,38 +38,33 @@ test.describe.serial('Past Visits - Empty State', () => {
     await homepage.clickContinue();
     await waitForResponseWithData(page, '/create-appointment/');
   });
+});
 
+test.describe('Past Visits - Empty State', () => {
   test('should show empty state when no past visits exist', async ({ page }) => {
     const homepage = new Homepage(page);
-    await homepage.navigate();
-    await homepage.verifyPastVisitsButton();
-    await homepage.clickPastVisitsButton();
+    let pastVisitsPage: PastVisitsPage;
 
-    const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
-    await patientName.scrollIntoViewIfNeeded();
-    await patientName.click();
+    await test.step('Navigate to Past Visits page', async () => {
+      await homepage.navigate();
+      await homepage.verifyPastVisitsButton();
+      await homepage.clickPastVisitsButton();
 
-    await homepage.clickContinue();
+      const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+      await patientName.scrollIntoViewIfNeeded();
+      await patientName.click();
+      await homepage.clickContinue();
+    });
 
-    const pastVisitsPage = new PastVisitsPage(page);
-    await pastVisitsPage.verifyEmptyState();
-  });
+    await test.step('Verify Past Visits empty state', async () => {
+      pastVisitsPage = new PastVisitsPage(page);
+      await pastVisitsPage.verifyEmptyState();
+    });
 
-  test('should navigate back to homepage when clicking Back to homepage button', async ({ page }) => {
-    const homepage = new Homepage(page);
-    await homepage.navigate();
-    await homepage.verifyPastVisitsButton();
-    await homepage.clickPastVisitsButton();
-
-    const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
-    await patientName.scrollIntoViewIfNeeded();
-    await patientName.click();
-
-    await homepage.clickContinue();
-    const pastVisitsPage = new PastVisitsPage(page);
-
-    await pastVisitsPage.verifyBackButton();
-    await pastVisitsPage.clickBackToHomepageButton();
-    await homepage.verifyPage();
+    await test.step('Navigate back to Homepage', async () => {
+      await pastVisitsPage.verifyBackButton();
+      await pastVisitsPage.clickBackToHomepageButton();
+      await homepage.verifyPage();
+    });
   });
 });
