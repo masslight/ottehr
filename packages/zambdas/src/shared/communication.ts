@@ -264,6 +264,11 @@ export const sendInPersonConfirmationEmail = async (input: InPersonConfirmationE
   await sendEmail(email, templateId, subject, templateInformation, secrets);
 };
 
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
 export async function sendEmail(
   email: string,
   templateID: string,
@@ -281,7 +286,7 @@ export async function sendEmail(
     return;
   }
   sendgrid.setApiKey(SENDGRID_API_KEY);
-  const SENDGRID_EMAIL_BCC = getSecret(SecretsKeys.SENDGRID_EMAIL_BCC, secrets).split(',');
+  const SENDGRID_EMAIL_BCC = getSecret(SecretsKeys.SENDGRID_EMAIL_BCC, secrets).split(',').find(isValidEmail) || [];
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
   subject = `${environmentSubjectPrepend}${subject}`;
@@ -292,7 +297,7 @@ export async function sendEmail(
       email: SENDGRID_FROM_EMAIL,
       name: `${PROJECT_NAME} In Person`,
     },
-    bcc: SENDGRID_EMAIL_BCC,
+    ...(SENDGRID_EMAIL_BCC.length ? { bcc: SENDGRID_EMAIL_BCC } : {}),
     replyTo: SENDGRID_FROM_EMAIL,
     templateId: templateID,
     dynamic_template_data: {
