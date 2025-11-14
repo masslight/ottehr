@@ -1,7 +1,7 @@
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
-import { createOystehrClient, getSecret, GetVisitDetailsResponse, SecretsKeys } from 'utils';
+import { createOystehrClient, getSecret, GetVisitDetailsResponse, isFollowupEncounter, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { getMedications, getPaymentDataRequest, getPresignedURLs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -29,6 +29,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     let encounter = null;
     let appointmentTime = 'unknown date';
+    let allEncounters: Encounter[] = [];
 
     try {
       const encounterResults = (
@@ -46,7 +47,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           ],
         })
       ).unbundle();
-      encounter = encounterResults.find((e) => e.resourceType === 'Encounter') as Encounter;
+      allEncounters = encounterResults.filter((e) => e.resourceType === 'Encounter') as Encounter[];
+      // Find the main encounter (not follow-up)
+      encounter = allEncounters.find((e) => !isFollowupEncounter(e)) as Encounter;
       const appointment = encounterResults.find((e) => e.resourceType === 'Appointment') as Appointment;
       if (!encounter || !encounter.id) {
         throw new Error('Error getting appointment encounter');
@@ -89,6 +92,45 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('getMedications', error);
     }
 
+    let followUps: GetVisitDetailsResponse['followUps'] = [];
+
+    try {
+      if (encounter?.id) {
+        const getEncounterSortValue = (encounterResource: Encounter): number => {
+          const dateString = encounterResource.period?.start ?? encounterResource.period?.end;
+          return dateString ? new Date(dateString).getTime() : Number.POSITIVE_INFINITY;
+        };
+
+        const sortedFollowups = allEncounters
+          .filter((e) => isFollowupEncounter(e))
+          .sort((a, b) => getEncounterSortValue(a) - getEncounterSortValue(b));
+
+        followUps = await Promise.all(
+          sortedFollowups.map(async (followupEncounter) => {
+            let followupDocuments = {};
+            try {
+              if (followupEncounter.id) {
+                followupDocuments = await getPresignedURLs(oystehr, oystehrToken, followupEncounter.id);
+              }
+            } catch (error) {
+              console.log('getPresignedURLs for follow-up', error);
+              captureException(error);
+            }
+
+            const encounterTime = followupEncounter.period?.start ?? followupEncounter.period?.end ?? 'unknown date';
+
+            return {
+              encounterTime,
+              documents: followupDocuments,
+            };
+          })
+        );
+      }
+    } catch (error) {
+      captureException(error);
+      console.log('getFollowUpEncounters', error);
+    }
+
     console.log('building get appointment response');
     const response: GetVisitDetailsResponse = {
       files: documents || {},
@@ -99,6 +141,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         currency: paymentInfo?.currency || '',
         date: paymentInfo?.date || '',
       },
+      followUps,
     };
 
     return {

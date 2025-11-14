@@ -1,6 +1,7 @@
 import { TableCell, TableRow, Typography } from '@mui/material';
 import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { MedicationWithTypeDTO } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { getProviderNameWithProfession, MedicationDTO } from 'utils';
 
@@ -39,17 +40,27 @@ export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = (
   };
 
   return (
-    <TableRow>
+    <TableRow data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableRow}>
       <TableCell>
-        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+        <Typography
+          variant="body2"
+          sx={{ fontWeight: 500 }}
+          data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableMedication}
+        >
           {item.name} ({item.intakeInfo.dose})
         </Typography>
       </TableCell>
       <TableCell>
-        <Typography variant="body2">{getTypeLabel()}</Typography>
+        <Typography variant="body2" data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableType}>
+          {getTypeLabel()}
+        </Typography>
       </TableCell>
       <TableCell>
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+        <Typography
+          variant="body2"
+          sx={{ color: 'text.secondary' }}
+          data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableWhoAdded}
+        >
           {practitioner ? getProviderNameWithProfession(practitioner) : ''}
         </Typography>
       </TableCell>
