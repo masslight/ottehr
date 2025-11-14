@@ -8,6 +8,8 @@ import { uuid } from 'short-uuid';
 import {
   AI_OBSERVATION_META_SYSTEM,
   AiObservationField,
+  DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
+  DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
   fixAndParseJsonObjectFromString,
   getFormatDuration,
   getSecret,
@@ -188,7 +190,7 @@ function createDocumentReference(
         ],
       },
     ],
-    description: z3URL ? 'Summary of visit from audio recording' : 'Summary of visit from chat',
+    description: z3URL ? DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO : DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
     subject: {
       reference: `Patient/${patientID}`,
     },
