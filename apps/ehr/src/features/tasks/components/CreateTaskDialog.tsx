@@ -147,6 +147,9 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   }, [appointmentId, appointment, methods, open]);
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
     const orderFullUrl = urlParams['*'];
     const serviceRequestId = urlParams['serviceRequestID'];
     const procedureId = urlParams['procedureId'];
