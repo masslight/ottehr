@@ -1,10 +1,8 @@
-import { otherColors } from '@ehrTheme/colors';
 import { WarningAmberOutlined } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PersonAddIcon from '@mui/icons-material/PersonAddOutlined';
-import PriorityHighOutlinedIcon from '@mui/icons-material/PriorityHighOutlined';
 import ShortcutIcon from '@mui/icons-material/Shortcut';
 import {
   Box,
@@ -219,29 +217,10 @@ export const Tasks: React.FC = () => {
   };
 
   const renderAlertIcon = (alertCode: TaskAlertCode): ReactElement | null => {
-    console.log('alertCode', alertCode);
     const display = TaskAlertDisplay[alertCode] ?? alertCode;
-    let icon: ReactElement = (
-      <PriorityHighOutlinedIcon
-        style={{
-          width: '15px',
-          height: '15px',
-          color: '#FFF',
-          background: otherColors.priorityHighIcon,
-          borderRadius: '4px',
-          padding: '1px 2px',
-          marginLeft: '5px',
-        }}
-      />
-    );
-    switch (alertCode) {
-      case TaskAlertCode.abnormalLabResult:
-        icon = <WarningAmberOutlined style={{ marginLeft: '5px' }} color="warning" />;
-        break;
-    }
     return (
       <GenericToolTip title={display} placement="top">
-        {icon}
+        <WarningAmberOutlined style={{ marginLeft: '5px' }} color="warning" />
       </GenericToolTip>
     );
   };
