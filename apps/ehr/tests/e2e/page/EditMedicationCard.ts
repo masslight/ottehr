@@ -1,5 +1,9 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
+import {
+  AdministeredDialogue,
+  expectAdministrationConfirmationDialogue,
+} from './in-person/inHouseMedicationsAdministrationDialog';
 
 export enum Field {
   MEDICATION,
@@ -10,6 +14,8 @@ export enum Field {
   ROUTE,
   INSTRUCTIONS,
   ORDERED_BY,
+  LOT_NUMBER,
+  EXP_DATE,
 }
 
 const FIELD_TO_TEST_ID = new Map<Field, string>()
@@ -20,7 +26,9 @@ const FIELD_TO_TEST_ID = new Map<Field, string>()
   .set(Field.MANUFACTURER, dataTestIds.orderMedicationPage.inputField('manufacturer'))
   .set(Field.ROUTE, dataTestIds.orderMedicationPage.inputField('route'))
   .set(Field.INSTRUCTIONS, dataTestIds.orderMedicationPage.inputField('instructions'))
-  .set(Field.ORDERED_BY, dataTestIds.orderMedicationPage.inputField('providerId'));
+  .set(Field.ORDERED_BY, dataTestIds.orderMedicationPage.inputField('providerId'))
+  .set(Field.LOT_NUMBER, dataTestIds.orderMedicationPage.inputField('lotNumber'))
+  .set(Field.EXP_DATE, dataTestIds.orderMedicationPage.inputField('expDate'));
 
 export const DIAGNOSIS_EMPTY_VALUE = 'Select Associated Dx';
 export const ORDERED_BY_EMPTY_VALUE = 'Select Ordered By';
@@ -79,7 +87,7 @@ export class EditMedicationCard {
     await this.chooseOption(orderedBy);
   }
 
-  async selectFirstNonEmptyOrderedBy(): Promise<void> {
+  async selectFirstNonEmptyOrderedBy(): Promise<string> {
     const dataTestId = this.getDataTestId(Field.ORDERED_BY);
 
     // mui set tabindex 0 to enabled element
@@ -95,10 +103,11 @@ export class EditMedicationCard {
         const dataValue = await option.getAttribute('data-value');
         if (dataValue && dataValue !== '') {
           await option.click();
-          break;
+          return text;
         }
       }
     }
+    throw new Error('Failed to select order by');
   }
 
   async verifyAssociatedDx(diagnosis: string): Promise<void> {
@@ -125,6 +134,7 @@ export class EditMedicationCard {
     await this.#page.getByTestId(dataTestId).locator('input').fill('');
     await this.#page.getByTestId(dataTestId).locator('input').pressSequentially(dose);
   }
+
   async clearDose(): Promise<void> {
     const dataTestId = this.getDataTestId(Field.DOSE);
     await this.#page.getByTestId(dataTestId).locator('input').clear();
@@ -203,5 +213,32 @@ export class EditMedicationCard {
 
   async expectSaved(): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.orderMedicationPage.fillOrderToSaveButton)).toHaveText('Saved');
+  }
+
+  async enterLotNumber(lotNumber: string): Promise<void> {
+    const dataTestId = this.getDataTestId(Field.LOT_NUMBER);
+    await this.#page.getByTestId(dataTestId).locator('input').fill('');
+    await this.#page.getByTestId(dataTestId).locator('input').pressSequentially(lotNumber);
+  }
+
+  async enterExpiratrionDate(expirationDate: string): Promise<void> {
+    const dataTestId = this.getDataTestId(Field.EXP_DATE);
+    await this.#page.getByTestId(dataTestId).click();
+    await this.#page.getByTestId(dataTestId).pressSequentially(expirationDate);
+  }
+
+  async clickAdministeredButton(): Promise<AdministeredDialogue> {
+    await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.administeredButton).click();
+    return expectAdministrationConfirmationDialogue(this.#page);
+  }
+
+  async clickPartlyAdministeredButton(): Promise<AdministeredDialogue> {
+    await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.partlyAdministeredButton).click();
+    return expectAdministrationConfirmationDialogue(this.#page);
+  }
+
+  async clickNotAdministeredButton(): Promise<AdministeredDialogue> {
+    await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.notAdministeredButton).click();
+    return expectAdministrationConfirmationDialogue(this.#page);
   }
 }

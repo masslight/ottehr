@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/components/AssessmentTitle';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { createMedicationString, ExtendedMedicationDataForResponse, NoteDTO } from 'utils';
 
 export const InHouseMedicationsContainer: FC<{
@@ -13,7 +14,9 @@ export const InHouseMedicationsContainer: FC<{
         In-House Medications
       </Typography>
       {medications.map((item) => (
-        <Typography key={item.id}>{createMedicationString(item)}</Typography>
+        <Typography key={item.id} data-testid={dataTestIds.progressNotePage.inHouseMedicationItem}>
+          {createMedicationString(item)}
+        </Typography>
       ))}
 
       {notes && notes.length > 0 && (

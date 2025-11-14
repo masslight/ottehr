@@ -26,7 +26,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
   const { id: appointmentId, orderId } = useParams();
 
   const {
-    resources: { encounter },
+    resources: { encounter, patient },
   } = useAppointmentData(appointmentId);
 
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
@@ -131,7 +131,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
             onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
             withBorder={false}
           >
-            <OrderHistoryTable showActions={false} administeredOnly />
+            <OrderHistoryTable showActions={false} administeredOnly immunizationInput={{ patientId: patient?.id }} />
           </AccordionCard>
         </Stack>
       </form>

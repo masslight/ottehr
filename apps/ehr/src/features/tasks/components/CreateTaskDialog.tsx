@@ -16,6 +16,7 @@ import { useGetPatientVisitHistory } from '../../../hooks/useGetPatientVisitHist
 import { getVisitTypeLabelForTypeAndServiceMode } from '../../../shared/utils';
 import {
   getPatientLabel,
+  TASK_CATEGORY_LABEL,
   useExternalLabOrdersOptions,
   useInHouseLabOrdersOptions,
   useInHouseMedicationsOptions,
@@ -24,20 +25,9 @@ import {
   useRadiologyOrdersOptions,
 } from '../common';
 
-export const CATEGORY_OPTIONS = [
-  { value: MANUAL_TASK.category.externalLab, label: 'External Labs' },
-  { value: MANUAL_TASK.category.inHouseLab, label: 'In-house Labs' },
-  { value: MANUAL_TASK.category.inHouseMedications, label: 'In-house Medications' },
-  { value: MANUAL_TASK.category.nursingOrders, label: 'Nursing Orders' },
-  { value: MANUAL_TASK.category.patientFollowUp, label: 'Patient Follow-up' },
-  { value: MANUAL_TASK.category.procedures, label: 'Procedures' },
-  { value: MANUAL_TASK.category.radiology, label: 'Radiology' },
-  { value: MANUAL_TASK.category.erx, label: 'eRx' },
-  { value: MANUAL_TASK.category.charting, label: 'Charting' },
-  { value: MANUAL_TASK.category.coding, label: 'Coding' },
-  { value: MANUAL_TASK.category.billing, label: 'Billing' },
-  { value: MANUAL_TASK.category.other, label: 'Other' },
-];
+const CATEGORY_OPTIONS = Object.values(MANUAL_TASK.category).map((category) => {
+  return { value: category, label: TASK_CATEGORY_LABEL[category] };
+});
 
 interface Props {
   open: boolean;
@@ -47,6 +37,12 @@ interface Props {
 export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   const methods = useForm();
   const formValue = methods.watch();
+
+  useEffect(() => {
+    if (!open) {
+      methods.reset();
+    }
+  }, [open, methods]);
 
   const { mutateAsync: createManualTask } = useCreateManualTask();
   const handleConfirm = async (): Promise<void> => {
@@ -75,8 +71,10 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
     };
   });
 
-  const encounterId =
-    appointments?.find((appointment) => appointment.appointmentId === formValue.appointment)?.encounterId ?? '';
+  const { encounter } = useAppointmentData(
+    appointments?.find((appointment) => appointment.appointmentId === formValue.appointment)?.appointmentId
+  );
+  const encounterId = encounter?.id ?? '';
 
   const { inHouseLabOrdersLoading, inHouseLabOrdersOptions } = useInHouseLabOrdersOptions(encounterId);
   const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId);
@@ -131,16 +129,19 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   const appointmentId = urlParams['id'];
   const appointment = useAppointmentData(appointmentId);
   useEffect(() => {
-    if (appointment.patient) {
+    if (appointment.patient && open) {
       methods.setValue('patient', {
         id: appointment.patient.id,
         name: getPatientLabel(appointment.patient),
       });
       methods.setValue('appointment', appointmentId);
     }
-  }, [appointmentId, appointment, methods]);
+  }, [appointmentId, appointment, methods, open]);
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
     const orderFullUrl = urlParams['*'];
     const serviceRequestId = urlParams['serviceRequestID'];
     const procedureId = urlParams['procedureId'];
@@ -167,7 +168,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
     methods.setValue('taskDetails', null);
     methods.setValue('assignee', null);
     methods.setValue('location', null);
-  }, [urlParams, methods]);
+  }, [urlParams, methods, open]);
 
   return (
     <InPersonModal

@@ -170,12 +170,6 @@ interface LabsData {
   isPscOrder: boolean;
 }
 
-export type CoverageAndOrgForOrderForm = {
-  coverage: Coverage;
-  insuranceOrganization: Organization;
-  coverageRank: number;
-};
-
 export type OrderFormInsuranceInfo = {
   insuranceRank: number;
   insuredName?: string;
@@ -189,6 +183,7 @@ export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessmen
   billClass: string;
   testDetails: testDataForOrderForm[];
   insuranceDetails?: OrderFormInsuranceInfo[];
+  clientOrgName?: string;
 }
 
 export interface ExternalLabResult {

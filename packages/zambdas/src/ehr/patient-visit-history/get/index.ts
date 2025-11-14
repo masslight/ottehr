@@ -211,7 +211,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
     let timezone = TIMEZONES[0]; // default timezone
     if (slot && slot.start) {
       // we can just grab the tz from the slot rather than getting the schedule resource
-      const slotDateTime = DateTime.fromISO(slot.start);
+      const slotDateTime = DateTime.fromISO(slot.start, { setZone: true });
       if (slotDateTime.isValid) {
         timezone = slotDateTime.zoneName;
       }

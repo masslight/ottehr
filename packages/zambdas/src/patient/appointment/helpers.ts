@@ -5,7 +5,6 @@ import {
   getCanonicalQuestionnaire,
   OtherParticipantsExtension,
   PatientAccountResponse,
-  Secrets,
   ServiceMode,
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
@@ -15,7 +14,6 @@ import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtua
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,
-  secrets: Secrets | null,
   oystehrClient: Oystehr
 ): Promise<Questionnaire> => {
   const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
