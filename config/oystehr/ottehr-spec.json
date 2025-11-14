@@ -139,10 +139,6 @@
     "ADVAPACS_VIEWER_USERNAME": {
       "name": "ADVAPACS_VIEWER_USERNAME",
       "value": "#{var/ADVAPACS_VIEWER_USERNAME}"
-    },
-    "BUSINESS_DISPLAY_NAME": {
-      "name": "BUSINESS_DISPLAY_NAME",
-      "value": "#{var/BUSINESS_DISPLAY_NAME}"
     }
   },
   "outputs": {
