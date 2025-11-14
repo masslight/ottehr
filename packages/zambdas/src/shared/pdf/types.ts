@@ -1,6 +1,5 @@
 import {
   Appointment,
-  Coverage,
   DocumentReference,
   Location,
   Organization,
