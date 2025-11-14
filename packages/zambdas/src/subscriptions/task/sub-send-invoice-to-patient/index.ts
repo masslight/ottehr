@@ -7,6 +7,7 @@ import { Account, Encounter, Patient, Task, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
+  BRANDING_CONFIG,
   createCandidApiClient,
   getPatientReferenceFromAccount,
   getSecret,
@@ -46,7 +47,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const stripe = getStripeClient(secrets);
 
     try {
-      const clinicName = getSecret(SecretsKeys.BUSINESS_DISPLAY_NAME, secrets);
+      const clinicName = BRANDING_CONFIG.projectName;
 
       console.log('Fetching fhir resources');
       const fhirResources = await getFhirResources(oystehr, encounterId);

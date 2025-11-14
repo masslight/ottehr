@@ -60,9 +60,5 @@
   "PROVIDER_ALLOWED_URL_3": "https://localhost:4002",
   "PROVIDER_ALLOWED_URL_4": "https://localhost:4002/dashboard",
   "fax-number": "",
-  "project-name": "",
-  "INVOICING_DEFAULT_SMS_MESSAGE": "",
-  "INVOICING_DEFAULT_MEMO_MESSAGE": "",
-  "INVOICING_DEFAULT_DUE_DATE_IN_DAYS": "",
-  "BUSINESS_DISPLAY_NAME": "Business name"
+  "project-name": ""
 }
