@@ -197,7 +197,11 @@ export const getAllPartiallyPreFilteredFhirResources = async (
     return [];
   }
 
-  const dateFilterConverted = dateFilter ? DateTime.fromISO(dateFilter) : undefined;
+  const dateFilterConverted = dateFilter
+    ? DateTime.fromISO(dateFilter, {
+        zone: params.timeZone,
+      })
+    : undefined;
   allResources = await getAllResourcesFromFhir(
     oystehrM2m,
     locationsIdsToSearchWith,

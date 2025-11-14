@@ -87,11 +87,16 @@ describe('get-telemed-appointments integration tests', () => {
       )
     )) as Schedule;
 
-    // Create a Slot
+    // Create a Slot that is right at the end of TOMORROW
+    // We need this Slot to be in the future as it is required by the create-slot endpoint.
     const createSlotParams: CreateSlotParams = {
       scheduleId: schedule.id!,
       serviceModality: ServiceMode.virtual,
-      startISO: DateTime.now().plus({ minute: 5 }).toISO()!,
+      startISO: DateTime.now()
+        .setZone('America/New_York')
+        .startOf('day')
+        .plus({ days: 1, hours: 23, minutes: 45 })
+        .toISO()!,
       lengthInHours: 0,
       lengthInMinutes: 15,
     };
@@ -159,11 +164,13 @@ describe('get-telemed-appointments integration tests', () => {
   });
 
   describe('get-telemed-appointments happy paths', () => {
-    it('should get all telemed appointments with minimal filters -- success', async () => {
+    it('should get all telemed appointments for today with location and date filter -- success', async () => {
       const getTelemedAppointmentsInput: GetTelemedAppointmentsInput = {
         patientFilter: 'all-patients',
         statusesFilter: ['ready', 'pre-video', 'on-video', 'unsigned', 'complete'],
-        dateFilter: DateTime.now().toFormat('yyyy-MM-dd'),
+        locationsIdsFilter: [virtualLocation.id!], // We need the location filter for the location we just made so we don't get stuff from other tests
+        dateFilter: DateTime.now().setZone('America/New_York').toFormat('yyyy-MM-dd'), // "Today" in New York time
+        timeZone: 'America/New_York',
         userToken,
       };
 
@@ -186,14 +193,17 @@ describe('get-telemed-appointments integration tests', () => {
       expect(typedOutput).toHaveProperty('message');
       expect(typedOutput).toHaveProperty('appointments');
       expect(typedOutput.appointments).toBeInstanceOf(Array);
+      expect(typedOutput.appointments.length).toEqual(0);
       expect(typedOutput.message).toBe('Successfully retrieved all appointments');
     });
 
-    it('should validate shape of telemed appointment information -- success', async () => {
+    it('should get appointments for tomorrow and validate shape of telemed appointment information -- success', async () => {
       const getTelemedAppointmentsInput: Omit<GetTelemedAppointmentsInput, 'userToken'> = {
         patientFilter: 'all-patients',
         statusesFilter: ['ready', 'pre-video', 'on-video', 'unsigned', 'complete'],
-        dateFilter: DateTime.now().toFormat('yyyy-MM-dd'),
+        locationsIdsFilter: [virtualLocation.id!],
+        dateFilter: DateTime.now().plus({ days: 1 }).setZone('America/New_York').toFormat('yyyy-MM-dd'),
+        timeZone: 'America/New_York',
       };
 
       let getTelemedAppointmentsOutput: any;
@@ -212,37 +222,39 @@ describe('get-telemed-appointments integration tests', () => {
       expect(getTelemedAppointmentsOutput instanceof Error).toBe(false);
       const typedOutput = getTelemedAppointmentsOutput as GetTelemedAppointmentsResponseEhr;
 
-      if (typedOutput.appointments.length > 0) {
-        const appointment = typedOutput.appointments[0];
-        expect(appointment).toMatchObject({
-          id: expect.any(String),
-          patient: expect.objectContaining({
-            id: expect.any(String),
-            firstName: expect.any(String),
-            lastName: expect.any(String),
-            dateOfBirth: expect.any(String),
-          }),
-          telemedStatus: expect.any(String),
-          telemedStatusHistory: expect.any(Array),
-          appointmentStatus: expect.any(String),
-          locationVirtual: expect.objectContaining({
-            id: expect.any(String),
-            resourceType: 'Location',
-          }),
-          encounterId: expect.any(String),
-        });
+      expect(typedOutput).toBeDefined();
+      expect(typedOutput.appointments).toBeInstanceOf(Array);
+      expect(typedOutput.appointments.length).toEqual(1);
 
-        // Validate telemed status is a valid status
-        const validStatuses: TelemedCallStatuses[] = [
-          'ready',
-          'pre-video',
-          'on-video',
-          'unsigned',
-          'complete',
-          'cancelled',
-        ];
-        expect(validStatuses).toContain(appointment.telemedStatus);
-      }
+      const appointment = typedOutput.appointments[0];
+      expect(appointment).toMatchObject({
+        id: expect.any(String),
+        patient: expect.objectContaining({
+          id: expect.any(String),
+          firstName: expect.any(String),
+          lastName: expect.any(String),
+          dateOfBirth: expect.any(String),
+        }),
+        telemedStatus: expect.any(String),
+        telemedStatusHistory: expect.any(Array),
+        appointmentStatus: expect.any(String),
+        locationVirtual: expect.objectContaining({
+          id: expect.any(String),
+          resourceType: 'Location',
+        }),
+        encounterId: expect.any(String),
+      });
+
+      // Validate telemed status is a valid status
+      const validStatuses: TelemedCallStatuses[] = [
+        'ready',
+        'pre-video',
+        'on-video',
+        'unsigned',
+        'complete',
+        'cancelled',
+      ];
+      expect(validStatuses).toContain(appointment.telemedStatus);
     });
 
     //   it('should filter appointments by specific status -- success', async () => {
