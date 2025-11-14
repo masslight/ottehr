@@ -442,8 +442,6 @@ const followUpVisitHistoryRowFromEncounter = (
     status: encounter.status ?? '-',
     originalEncounterId: originalEncounter.id,
     originalAppointmentId,
-    serviceMode: ServiceMode['in-person'], // is this right? this should be read from somewhere...
-    sendInvoiceTask: undefined,
   };
 };
 

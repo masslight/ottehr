@@ -31,13 +31,21 @@ interface BaseAppointmentHistoryRow {
     | undefined;
 }
 
-export interface FollowUpVisitHistoryRow
-  extends Omit<BaseAppointmentHistoryRow, 'appointmentId' | 'type' | 'status' | 'length'> {
+export interface FollowUpVisitHistoryRow {
   encounterId: string;
   originalEncounterId: string | undefined;
   originalAppointmentId: string | undefined;
   status: Encounter['status'];
   type: string | undefined;
+  dateTime: string | undefined;
+  visitReason: string | undefined;
+  office: string | undefined;
+  provider:
+    | {
+        name: string;
+        id: string;
+      }
+    | undefined;
 }
 
 type InPersonAppointmentHistoryRow = BaseAppointmentHistoryRow & {
