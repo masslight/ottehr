@@ -730,6 +730,10 @@ export interface GetVisitLabelInput {
   encounterId: string;
 }
 
+export interface GetVisitDetailsPDFInput {
+  appointmentId: string;
+}
+
 export type PersistedFhirResource<T extends FhirResource> = T & {
   id: string;
 };

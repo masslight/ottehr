@@ -68,6 +68,7 @@ import {
   GetScheduleResponse,
   GetUserParams,
   GetUserResponse,
+  GetVisitDetailsPDFInput,
   GetVisitLabelInput,
   HandleInHouseLabResultsParameters,
   HandleInHouseLabResultsZambdaOutput,
@@ -168,6 +169,7 @@ const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-a
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
 const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
+const VISIT_DETAILS_TO_PDF_ZAMBDA_ID = 'visit-details-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
 const INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID = 'invoiceable-patients-report';
@@ -1144,6 +1146,22 @@ export const generatePaperworkPdf = async (
   try {
     const response = await oystehr.zambda.execute({
       id: PAPERWORK_TO_PDF_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getOrCreateVisitDetailsPdf = async (
+  oystehr: Oystehr,
+  parameters: GetVisitDetailsPDFInput
+): Promise<{ documentReference: string }> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: VISIT_DETAILS_TO_PDF_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

@@ -2,16 +2,17 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createFilesDocumentReferences } from 'utils';
-import { PdfInfo } from '../pdf-utils';
+import { createFilesDocumentReferences, VISIT_DETAILS_CODE } from 'utils';
+import { PdfInfo } from './pdf-utils';
 
-export async function makeVisitNotePdfDocumentReference(
+export async function makeVisitDetailsPdfDocumentReference(
   oystehr: Oystehr,
   pdfInfo: PdfInfo,
   patientId: string,
   appointmentId: string,
   encounterId: string,
-  listResources: List[]
+  listResources: List[],
+  attached?: string[]
 ): Promise<DocumentReference> {
   const { docRefs } = await createFilesDocumentReferences({
     files: [
@@ -24,11 +25,10 @@ export async function makeVisitNotePdfDocumentReference(
       coding: [
         {
           system: 'http://loinc.org',
-          code: '75498-6',
+          code: VISIT_DETAILS_CODE,
           display: 'Visit details',
         },
       ],
-      text: 'Visit details',
     },
     references: {
       subject: {
@@ -39,6 +39,7 @@ export async function makeVisitNotePdfDocumentReference(
           {
             reference: `Appointment/${appointmentId}`,
           },
+          ...(attached?.map((id) => ({ reference: `DocumentReference/${id}` })) ?? []),
         ],
         encounter: [{ reference: `Encounter/${encounterId}` }],
       },
@@ -46,10 +47,7 @@ export async function makeVisitNotePdfDocumentReference(
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
     oystehr,
     generateUUID: randomUUID,
-    searchParams: [
-      { name: 'encounter', value: `Encounter/${encounterId}` },
-      { name: 'subject', value: `Patient/${patientId}` },
-    ],
+    searchParams: [{ name: 'encounter', value: `Encounter/${encounterId}` }],
     listResources,
   });
   return docRefs[0];
