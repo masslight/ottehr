@@ -46,6 +46,7 @@ export function validateRequestParameters(
 
   return {
     dateFilter,
+    timeZone,
     usStatesFilter,
     patientFilter,
     statusesFilter,

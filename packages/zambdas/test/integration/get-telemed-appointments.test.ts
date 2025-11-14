@@ -25,6 +25,7 @@ describe('get-telemed-appointments integration tests', () => {
   let schedule: Schedule;
   let userToken: string;
   let processId: string;
+  let endOfTomorrowSlotStart: string;
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('get-telemed-appointments.test.ts');
@@ -87,16 +88,18 @@ describe('get-telemed-appointments integration tests', () => {
       )
     )) as Schedule;
 
+    endOfTomorrowSlotStart = DateTime.now()
+      .setZone('America/New_York')
+      .startOf('day')
+      .plus({ days: 1, hours: 23, minutes: 45 })
+      .toISO()!;
+
     // Create a Slot that is right at the end of TOMORROW
     // We need this Slot to be in the future as it is required by the create-slot endpoint.
     const createSlotParams: CreateSlotParams = {
       scheduleId: schedule.id!,
       serviceModality: ServiceMode.virtual,
-      startISO: DateTime.now()
-        .setZone('America/New_York')
-        .startOf('day')
-        .plus({ days: 1, hours: 23, minutes: 45 })
-        .toISO()!,
+      startISO: endOfTomorrowSlotStart,
       lengthInHours: 0,
       lengthInMinutes: 15,
     };
@@ -107,6 +110,10 @@ describe('get-telemed-appointments integration tests', () => {
         ...createSlotParams,
       })
     ).output as Slot;
+
+    // Note that Slot stores start time in timezone specified by caller
+    expect(slot.start).toEqual(DateTime.fromISO(endOfTomorrowSlotStart).toISO());
+
     // Create a Patient
     const patient = await persistTestPatient({ patient: makeTestPatient(), processId }, oystehr);
 
@@ -132,6 +139,13 @@ describe('get-telemed-appointments integration tests', () => {
         ...createAppointmentInputParams,
       })
     ).output as CreateAppointmentResponse;
+
+    // Note that appointment stores start time in UTC
+    expect(createAppointmentResponse).toBeDefined();
+    console.log('appointment start time, ', createAppointmentResponse.resources.appointment.start);
+    expect(createAppointmentResponse.resources.appointment.start).toEqual(
+      DateTime.fromISO(endOfTomorrowSlotStart).setZone('UTC').toISO()
+    );
 
     await oystehr.fhir.update({
       ...addProcessIdMetaTagToResource(createAppointmentResponse.resources.appointment, processId),
@@ -164,7 +178,7 @@ describe('get-telemed-appointments integration tests', () => {
   });
 
   describe('get-telemed-appointments happy paths', () => {
-    it('should get all telemed appointments for today with location and date filter -- success', async () => {
+    it('should get all telemed appointments for today NY time with location and date filter and find zero appointments -- success', async () => {
       const getTelemedAppointmentsInput: GetTelemedAppointmentsInput = {
         patientFilter: 'all-patients',
         statusesFilter: ['ready', 'pre-video', 'on-video', 'unsigned', 'complete'],
@@ -197,7 +211,7 @@ describe('get-telemed-appointments integration tests', () => {
       expect(typedOutput.message).toBe('Successfully retrieved all appointments');
     });
 
-    it('should get appointments for tomorrow and validate shape of telemed appointment information -- success', async () => {
+    it('should get appointments for tomorrow NY time, find one, and validate shape of telemed appointment information -- success', async () => {
       const getTelemedAppointmentsInput: Omit<GetTelemedAppointmentsInput, 'userToken'> = {
         patientFilter: 'all-patients',
         statusesFilter: ['ready', 'pre-video', 'on-video', 'unsigned', 'complete'],
@@ -229,6 +243,7 @@ describe('get-telemed-appointments integration tests', () => {
       const appointment = typedOutput.appointments[0];
       expect(appointment).toMatchObject({
         id: expect.any(String),
+        start: DateTime.fromISO(endOfTomorrowSlotStart).setZone('UTC').toISO(),
         patient: expect.objectContaining({
           id: expect.any(String),
           firstName: expect.any(String),
@@ -255,6 +270,36 @@ describe('get-telemed-appointments integration tests', () => {
         'cancelled',
       ];
       expect(validStatuses).toContain(appointment.telemedStatus);
+    });
+
+    it('should get appointments for tomorrow in Bermuda time and not find any -- success', async () => {
+      const getTelemedAppointmentsInput: Omit<GetTelemedAppointmentsInput, 'userToken'> = {
+        patientFilter: 'all-patients',
+        statusesFilter: ['ready', 'pre-video', 'on-video', 'unsigned', 'complete'],
+        locationsIdsFilter: [virtualLocation.id!],
+        dateFilter: DateTime.now().setZone('America/New_York').startOf('day').plus({ days: 1 }).toFormat('yyyy-MM-dd'),
+        timeZone: 'Atlantic/Bermuda',
+      };
+
+      let getTelemedAppointmentsOutput: any;
+      try {
+        getTelemedAppointmentsOutput = (
+          await oystehrLocalZambdas.zambda.execute({
+            id: 'GET-TELEMED-APPOINTMENTS',
+            ...getTelemedAppointmentsInput,
+          })
+        ).output as GetTelemedAppointmentsResponseEhr;
+      } catch (error) {
+        console.error('Error executing zambda:', error);
+        getTelemedAppointmentsOutput = error as Error;
+      }
+
+      expect(getTelemedAppointmentsOutput instanceof Error).toBe(false);
+      const typedOutput = getTelemedAppointmentsOutput as GetTelemedAppointmentsResponseEhr;
+
+      expect(typedOutput).toBeDefined();
+      expect(typedOutput.appointments).toBeInstanceOf(Array);
+      expect(typedOutput.appointments.length).toEqual(0);
     });
 
     //   it('should filter appointments by specific status -- success', async () => {

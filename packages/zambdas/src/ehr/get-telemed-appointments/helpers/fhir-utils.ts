@@ -72,11 +72,11 @@ export const getAllResourcesFromFhir = async (
         ? [
             {
               name: 'date',
-              value: `ge${searchDate.startOf('day')}`,
+              value: `ge${searchDate.startOf('day').toISO()}`,
             },
             {
               name: 'date',
-              value: `le${searchDate.endOf('day')}`,
+              value: `le${searchDate.endOf('day').toISO()}`,
             },
           ]
         : []),
