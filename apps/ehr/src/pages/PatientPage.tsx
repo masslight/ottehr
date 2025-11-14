@@ -2,6 +2,7 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
 import { IconButton } from '@mui/material';
+import { Alert, Snackbar } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { DeviceVitalsPage } from 'src/components/DeviceVitalsPage';
@@ -30,6 +31,8 @@ export default function PatientPage(): JSX.Element {
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState(location.state?.defaultTab || 'encounters');
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState<boolean>(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   const [selectedDevice, setSelectedDevice] = useState<{
     id: string;
     deviceType: string;
@@ -83,7 +86,11 @@ export default function PatientPage(): JSX.Element {
   }, [patient]);
 
   const handleRingCentralCall = async (): Promise<void> => {
-    if (!patientPhoneNumber) return;
+    if (!patientPhoneNumber) {
+      setSnackbarMessage('This patient does not have a phone number allocated.');
+      setSnackbarOpen(true);
+      return;
+    }
 
     try {
       await loadRingCentralWidget();
@@ -357,6 +364,16 @@ export default function PatientPage(): JSX.Element {
         patientId={id}
         loading={loading}
       />
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert onClose={() => setSnackbarOpen(false)} severity="warning" sx={{ width: '100%' }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

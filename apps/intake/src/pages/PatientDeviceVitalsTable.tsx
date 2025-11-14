@@ -41,6 +41,13 @@ export const PatientDeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ deviceTy
     return vitalsData.observations;
   };
 
+  const formatDateTime = (dateString: string | null | undefined): string => {
+    if (!dateString || dateString === 'null' || dateString === 'undefined') {
+      return '-';
+    }
+    return moment(dateString).isValid() ? moment(dateString).format('L h:mm:ss A') : '-';
+  };
+
   const generateColumns = (): GridColDef[] => {
     let columns: GridColDef[] = [];
     if (deviceType == 'BG') {
@@ -163,9 +170,7 @@ export const PatientDeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ deviceTy
           headerName: 'Upload Time',
           width: 180,
           sortable: false,
-          valueGetter: (params) => {
-            return moment(params.row.issued).isValid() ? moment(params.row.issued).format('L h:mm:ss A') : '-';
-          },
+          valueGetter: (params) => formatDateTime(params.row.issued),
         },
         {
           field: 'glucoserange',
@@ -290,9 +295,7 @@ export const PatientDeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ deviceTy
           headerName: 'Upload Time',
           width: 180,
           sortable: false,
-          valueGetter: (params) => {
-            return moment(params.row.issued).isValid() ? moment(params.row.issued).format('L h:mm:ss A') : '-';
-          },
+          valueGetter: (params) => formatDateTime(params.row.issued),
         },
         {
           field: 'systolicrange',
@@ -405,9 +408,7 @@ export const PatientDeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ deviceTy
           headerName: 'Upload Time',
           width: 180,
           sortable: false,
-          valueGetter: (params) => {
-            return moment(params.row.issued).isValid() ? moment(params.row.issued).format('L h:mm:ss A') : '-';
-          },
+          valueGetter: (params) => formatDateTime(params.row.issued),
         },
         {
           field: 'weightrange',
