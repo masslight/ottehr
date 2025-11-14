@@ -69,9 +69,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function getPrefilledInvoiceInfo(oystehr: Oystehr, patientId: string): Promise<PrefilledInvoiceInfo> {
   try {
     const patientResources = await getFhirPatientResources({ oystehr, patientId });
-    const smsMessageFromSecret = textingConfig.invoicing.defaultSmsMessage;
-    const memoFromSecret = textingConfig.invoicing.defaultMemoMessage;
-    const dueDateFromSecret = textingConfig.invoicing.defaultDueDateInDays;
+    const smsMessageFromSecret = textingConfig.invoicing.smsMessage;
+    const memoFromSecret = textingConfig.invoicing.stripeMemoMessage;
+    const dueDateFromSecret = textingConfig.invoicing.dueDateInDays;
     if (patientResources) {
       const { responsibleParty } = patientResources;
       const email = getEmailForIndividual(responsibleParty);
