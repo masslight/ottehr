@@ -334,7 +334,7 @@ function fhirTaskToTask(task: FhirTask): Task {
       diagnosticReportId &&
       (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
     ) {
-      if (labTypeString === LabType.unsolicited) {
+      if (labTypeString === LabType.unsolicited && !serviceRequestId) {
         const receivedDate = getInputString(LAB_ORDER_TASK.input.receivedDate, task);
         title = `Review unsolicited test results for “${fullTestName}” for ${patientName}`;
         subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
