@@ -445,14 +445,12 @@ export const Tasks: React.FC = () => {
           </Popover>
         ) : null}
         {taskToAssign ? <AssignTaskDialog task={taskToAssign} handleClose={() => setTaskToAssign(null)} /> : null}
-        {showCreateTaskDialog ? (
-          <CreateTaskDialog
-            open={true}
-            handleClose={(): void => {
-              setShowCreateTaskDialog(false);
-            }}
-          />
-        ) : null}
+        <CreateTaskDialog
+          open={showCreateTaskDialog}
+          handleClose={(): void => {
+            setShowCreateTaskDialog(false);
+          }}
+        />
       </Stack>
     </PageContainer>
   );
