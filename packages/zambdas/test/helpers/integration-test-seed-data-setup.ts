@@ -46,7 +46,6 @@ export interface IntegrationTestSetupResult {
   oystehr: Oystehr;
   oystehrLocalZambdas: Oystehr;
   token: string;
-  baseResources: InsertFullAppointmentDataBaseResult;
   processId: string;
   cleanup: () => Promise<void>;
 }
@@ -105,7 +104,7 @@ export const getProcessMetaTag = (processId: string): Appointment['meta'] => {
  * @param processId - The process ID for tagging resources
  * @returns The created Patient, RelatedPerson, Appointment, Encounter, and QuestionnaireResponse
  */
-export const insertFullAppointmentBase = async (
+export const insertInPersonAppointmentBase = async (
   oystehr: Oystehr,
   processId: string
 ): Promise<InsertFullAppointmentDataBaseResult> => {
@@ -243,9 +242,6 @@ export const setupIntegrationTest = async (testFileName: string): Promise<Integr
   // Create unique process ID for this test run
   const processId = createProcessId(testFileName);
 
-  // Insert base appointment data
-  const baseResources = await insertFullAppointmentBase(oystehr, processId);
-
   // Create cleanup function
   const cleanup = async (): Promise<void> => {
     if (!oystehr) {
@@ -258,7 +254,6 @@ export const setupIntegrationTest = async (testFileName: string): Promise<Integr
     oystehr,
     oystehrLocalZambdas,
     token,
-    baseResources,
     processId,
     cleanup,
   };

@@ -46,6 +46,7 @@ export function TrackingBoardTabs(): ReactElement {
       patientFilter: alignment,
       statusesFilter: ApptTabToStatus[value],
       dateFilter,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       visitTypesFilter: visitTypes || undefined,
     },
     (data) => {

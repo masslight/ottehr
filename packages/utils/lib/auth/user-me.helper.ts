@@ -14,7 +14,6 @@ export const userMe = async (token: string, secrets: Secrets | null): Promise<Us
   const oystehr = createOystehrClient(token, fhirAPI, projectAPI);
   const decodedToken = decodeJwt(token);
   if (decodedToken.sub?.includes('@client')) {
-    // TODO helper function for this.
     const m2mClient = await oystehr.m2m.me();
     return {
       id: m2mClient.id,
