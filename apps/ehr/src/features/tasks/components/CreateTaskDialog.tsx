@@ -137,7 +137,7 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
   const appointmentId = urlParams['id'];
   const appointment = useAppointmentData(appointmentId);
   useEffect(() => {
-    if (appointment.patient) {
+    if (appointment.patient && open) {
       methods.setValue('patient', {
         id: appointment.patient.id,
         name: getPatientLabel(appointment.patient),
