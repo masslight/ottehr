@@ -55,6 +55,7 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
+import { createOwnerReference } from '../../shared/tasks';
 import { getServiceRequestsRelatedViaRepeat, getUrlAndVersionForADFromServiceRequest } from '../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -367,7 +368,7 @@ const makeResultEntryRequests = (
     attendingPractitioner
   );
 
-  const irtTaskPatchRequest = makeIrtTaskPatchRequest(irtTask, provenanceFullUrl);
+  const irtTaskPatchRequest = makeIrtTaskPatchRequest(irtTask, provenanceFullUrl, curUser);
 
   const serviceRequestPatchRequest: BatchInputPatchRequest<ServiceRequest> = {
     method: 'PATCH',
@@ -665,27 +666,40 @@ const makeProvenancePostRequest = (
   return { provenancePostRequest, provenanceFullUrl };
 };
 
-const makeIrtTaskPatchRequest = (irtTask: Task, provenanceFullUrl: string): BatchInputPatchRequest<Task> => {
+const makeIrtTaskPatchRequest = (
+  irtTask: Task,
+  provenanceFullUrl: string,
+  curUser: PractitionerConfig
+): BatchInputPatchRequest<Task> => {
   const provRef = {
     reference: provenanceFullUrl,
   };
-  const relevantHistoryOperation: Operation = {
-    path: '/relevantHistory',
-    op: irtTask.relevantHistory ? 'replace' : 'add',
-    value: irtTask.relevantHistory ? [...irtTask.relevantHistory, provRef] : [provRef],
-  };
+
+  const operations: Operation[] = [
+    {
+      path: '/relevantHistory',
+      op: irtTask.relevantHistory ? 'replace' : 'add',
+      value: irtTask.relevantHistory ? [...irtTask.relevantHistory, provRef] : [provRef],
+    },
+    {
+      path: '/status',
+      op: 'replace',
+      value: 'completed',
+    },
+  ];
+
+  if (!irtTask.owner) {
+    operations.push({
+      path: '/owner',
+      op: 'add',
+      value: createOwnerReference(curUser.id, curUser.name ?? ''),
+    });
+  }
 
   const irtTaskPatchRequest: BatchInputPatchRequest<Task> = {
     method: 'PATCH',
     url: `Task/${irtTask.id}`,
-    operations: [
-      {
-        path: '/status',
-        op: 'replace',
-        value: 'completed',
-      },
-      relevantHistoryOperation,
-    ],
+    operations: operations,
   };
   return irtTaskPatchRequest;
 };
