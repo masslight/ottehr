@@ -8,6 +8,7 @@ import {
   Secrets,
   SecretsKeys,
   User,
+  userMe,
   VisitStatusWithoutUnknown,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler } from '../../shared';
@@ -52,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export const complexValidation = async (
   oystehr: Oystehr,
-  params: ChangeInPersonVisitStatusInput
+  params: ChangeInPersonVisitStatusInputValidated
 ): Promise<{
   encounter: Encounter;
   appointment: Appointment;
@@ -60,7 +61,7 @@ export const complexValidation = async (
   user: User;
   updatedStatus: VisitStatusWithoutUnknown;
 }> => {
-  const { encounterId, user, updatedStatus } = params;
+  const { encounterId, userToken, updatedStatus, secrets } = params;
 
   const visitResources = await getVisitResources(oystehr, encounterId);
   if (!visitResources) {
@@ -70,6 +71,11 @@ export const complexValidation = async (
   const { encounter, appointment } = visitResources;
 
   if (!encounter?.id) throw new Error('Encounter not found');
+
+  const user = await userMe(userToken, secrets);
+  if (!user) {
+    throw new Error('user unexpectedly not found');
+  }
 
   return {
     encounter,

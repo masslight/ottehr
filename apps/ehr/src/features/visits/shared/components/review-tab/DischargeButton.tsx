@@ -37,7 +37,7 @@ export const DischargeButton: FC = () => {
     setStatusLoading(true);
 
     try {
-      await handleChangeInPersonVisitStatus({ encounterId, user, updatedStatus: 'discharged' }, oystehrZambda);
+      await handleChangeInPersonVisitStatus({ encounterId, updatedStatus: 'discharged' }, oystehrZambda);
       await appointmentRefetch();
       enqueueSnackbar('Patient discharged successfully', { variant: 'success' });
     } catch (error) {

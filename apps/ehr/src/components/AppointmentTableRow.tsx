@@ -546,7 +546,6 @@ export default function AppointmentTableRow({
       await handleChangeInPersonVisitStatus(
         {
           encounterId: encounterId,
-          user,
           updatedStatus: 'intake',
         },
         oystehrZambda
@@ -678,7 +677,6 @@ export default function AppointmentTableRow({
       await handleChangeInPersonVisitStatus(
         {
           encounterId: encounterId,
-          user,
           updatedStatus: 'discharged',
         },
         oystehrZambda
