@@ -112,7 +112,10 @@ describe('get-telemed-appointments integration tests', () => {
     ).output as Slot;
 
     // Note that Slot stores start time in timezone specified by caller
-    expect(slot.start).toEqual(DateTime.fromISO(endOfTomorrowSlotStart).toISO());
+    const endOfTomorrowSlotStartInTestLocalTime = DateTime.fromISO(endOfTomorrowSlotStart).setZone(
+      Intl.DateTimeFormat().resolvedOptions().timeZone
+    );
+    expect(slot.start).toEqual(endOfTomorrowSlotStartInTestLocalTime.toISO());
 
     // Create a Patient
     const patient = await persistTestPatient({ patient: makeTestPatient(), processId }, oystehr);
