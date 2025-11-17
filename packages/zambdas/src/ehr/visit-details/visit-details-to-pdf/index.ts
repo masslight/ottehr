@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, Secrets, SecretsKeys, VisitDetailsInputValidated, VisitDetailsResponse } from 'utils';
+import { getSecret, Secrets, SecretsKeys, VisitDetailsResponse } from 'utils';
 import { getRelatedResources } from '../../../patient/appointment/helpers';
 import {
   checkOrCreateM2MClientToken,
@@ -21,20 +21,8 @@ let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`${ZAMBDA_NAME} started, input: ${JSON.stringify(input)}`);
 
-  let validatedParameters: VisitDetailsInputValidated;
-
   try {
-    validatedParameters = validateRequestParameters(input);
-  } catch (error: any) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        message: `Invalid request parameters. ${error.message || error}`,
-      }),
-    };
-  }
-
-  try {
+    const validatedParameters = validateRequestParameters(input);
     const { appointmentId, timezone, secrets } = validatedParameters;
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

@@ -1,7 +1,8 @@
-import { CreateDischargeSummaryInputSchema, CreateDischargeSummaryInputValidated } from 'utils';
-import { safeValidate, ZambdaInput } from '../../../shared';
+import { VisitDetailsInputSchema, VisitDetailsInputValidated, VisitDetailsInputValidatedSchema } from 'utils';
+import { ZodError } from 'zod';
+import { formatZodError, ZambdaInput } from '../../../shared';
 
-export function validateRequestParameters(input: ZambdaInput): CreateDischargeSummaryInputValidated {
+export function validateRequestParameters(input: ZambdaInput): VisitDetailsInputValidated {
   console.group('validateRequestParameters');
 
   if (!input.body) {
@@ -14,15 +15,32 @@ export function validateRequestParameters(input: ZambdaInput): CreateDischargeSu
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
-  const parsedJSON = JSON.parse(input.body) as unknown;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(input.body);
+  } catch {
+    throw new Error('Invalid JSON in request body.');
+  }
 
-  const validatedParams = safeValidate(CreateDischargeSummaryInputSchema, parsedJSON);
+  try {
+    const validatedCore = VisitDetailsInputSchema.parse(parsed);
 
-  console.groupEnd();
-  console.debug('validateRequestParameters success');
-  return {
-    ...validatedParams,
-    secrets: input.secrets,
-    userToken,
-  };
+    const validated = VisitDetailsInputValidatedSchema.parse({
+      ...validatedCore,
+      secrets: input.secrets,
+      userToken,
+    });
+
+    console.groupEnd();
+    console.debug('validateRequestParameters success');
+
+    return validated;
+  } catch (err) {
+    console.groupEnd();
+
+    if (err instanceof ZodError) {
+      throw new Error(`Invalid request parameters: ${formatZodError(err)}`);
+    }
+    throw err;
+  }
 }
