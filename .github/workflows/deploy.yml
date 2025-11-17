@@ -3,17 +3,6 @@ name: Deploy to EC2
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      deployment_type:
-        description: 'Which deployment to run'
-        required: true
-        default: 'all'
-        options:
-          - all
-          - ehr_portal
-          - patient_portal
-          - zambdas
 
 jobs:
   deploy:
@@ -36,7 +25,6 @@ jobs:
           sudo su
           cd /opt/ottehr
           git pull
-          echo "Deploying ${{ github.event.inputs.deployment_type }}"
-          # ./scripts/deploy/aws/rebuild.sh
+          ./scripts/deploy/aws/rebuild.sh
           sudo systemctl restart nginx
         EOF
