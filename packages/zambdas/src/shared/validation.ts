@@ -25,3 +25,7 @@ export function safeValidate<T>(schema: ZodSchema<T>, input: unknown): T {
     throw new Error('Unknown validation error');
   }
 }
+
+export function formatZodError(err: ZodError): string {
+  return err.errors.map((e) => `${e.path.length ? e.path.join('.') : '(root)'}: ${e.message}`).join('; ');
+}
