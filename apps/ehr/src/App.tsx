@@ -27,6 +27,7 @@ import AppointmentsPage from './pages/Appointments';
 import Data from './pages/Data';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeesPage from './pages/Employees';
+import FileDownload from './pages/FileDownload';
 import GroupPage from './pages/GroupPage';
 import Logout from './pages/Logout';
 import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
@@ -35,6 +36,7 @@ import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
 import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
+import Settings from './pages/Settings';
 import { TelemedAdminPage } from './pages/TelemedAdminPage';
 import { Claim, Claims } from './rcm';
 import { useNavStore } from './state/nav.store';
@@ -160,6 +162,7 @@ function App(): ReactElement {
               {roleUnknown && (
                 <>
                   <Route path="/logout" element={<Logout />} />
+                  <Route path="/settings" element={<Settings />} />
                   <Route path="*" element={<LoadingScreen />} />
                 </>
               )}
@@ -171,7 +174,9 @@ function App(): ReactElement {
               {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager]) && (
                 <>
                   <Route path="/" element={<Navigate to="/visits" />} />
+                  <Route path="/report/:token" element={<FileDownload />} />
                   <Route path="/logout" element={<Logout />} />
+                  <Route path="/settings" element={<Settings />} />
                   <Route path="/visits" element={<AppointmentsPage />} />
                   <Route path="/visits/add" element={<AddPatient />} />
                   <Route path="/visit/:id" element={<AppointmentPage />} />
@@ -220,6 +225,7 @@ function App(): ReactElement {
                 <>
                   <Route path="/" element={<Navigate to="/visits" />} />
                   <Route path="/logout" element={<Logout />} />
+                  <Route path="/settings" element={<Settings />} />
                   <Route path="/visits" element={<AppointmentsPage />} />
                   <Route path="/visits/add" element={<AddPatient />} />
                   <Route path="/visit/:id" element={<AppointmentPage />} />

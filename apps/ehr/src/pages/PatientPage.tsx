@@ -9,6 +9,7 @@ import { DeviceVitalsPage } from 'src/components/DeviceVitalsPage';
 import { PatientDevicesTab } from 'src/components/PatientDevicesTab';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
+import { PatientReportsTab } from 'src/components/PatientReportsTab';
 import { ThresholdsTable } from 'src/components/ThresholdGrid';
 import { loadRingCentralWidget, postToEmbeddable, waitForRingCentralReady } from 'src/hooks/useRingCentral';
 import { getFirstName, getLastName, ServiceMode } from 'utils';
@@ -161,14 +162,13 @@ export default function PatientPage(): JSX.Element {
             sx={{
               display: 'flex',
               justifyContent: 'space-between',
-              flexDirection: { xs: 'column', sm: 'row', md: 'row' },
+              flexDirection: { xs: 'column', sm: 'column', md: 'column', lg: 'row' },
               alignItems: { xs: 'stretch', md: 'center' },
-              flexWrap: { xs: 'wrap', sm: 'wrap', md: 'nowrap' },
-              gap: 7,
+              flexWrap: { xs: 'wrap', sm: 'wrap', md: 'wrap', lg: 'nowrap' },
               p: 3,
             }}
           >
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 4 }}>
+            <Box sx={{ display: 'flex', width: '100%', justifyContent: 'start', alignItems: 'center', gap: 4 }}>
               <PatientAvatar id={id} />
 
               <Box sx={{ flexGrow: 1, maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -297,6 +297,14 @@ export default function PatientPage(): JSX.Element {
                     }
                   />
                 )}
+                {FEATURE_FLAGS.REPORTS_ENABLED && (
+                  <Tab
+                    value="reports"
+                    label={
+                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>Reports</Typography>
+                    }
+                  />
+                )}
               </TabList>
             </Box>
 
@@ -340,6 +348,11 @@ export default function PatientPage(): JSX.Element {
                     }
                   />
                 )}
+              </TabPanel>
+            )}
+            {FEATURE_FLAGS.REPORTS_ENABLED && (
+              <TabPanel value="reports" sx={{ p: 0 }}>
+                <PatientReportsTab />
               </TabPanel>
             )}
           </TabContext>

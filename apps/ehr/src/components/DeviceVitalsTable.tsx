@@ -126,19 +126,49 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
           renderCell: (params) => {
             const glucoseThreshold = getCmpVal(params.row, 'glucose-threshold');
             const glucoseVariance = getCmpVal(params.row, 'glucose-variance');
+            const glucoseCriticalVariance = getCmpVal(params.row, 'glucose-critical-variance');
             const glucose = getCmpVal(params.row, 'data');
+
             if (glucoseThreshold && glucoseVariance && glucose) {
-              const range = getRange(glucoseThreshold, glucoseVariance);
-              const isExceeding = range.length == 2 ? !(glucose >= range[0] && glucose <= range[1]) : false;
+              const normalRange = getRange(glucoseThreshold, glucoseVariance);
+
+              let isWithinNormal = false;
+              let isWithinCritical = false;
+
+              if (normalRange.length === 2) {
+                isWithinNormal = !(glucose >= normalRange[0] && glucose <= normalRange[1]);
+              }
+
+              if (glucoseCriticalVariance) {
+                const criticalRange = getRange(glucoseThreshold, glucoseCriticalVariance);
+                if (criticalRange.length === 2) {
+                  isWithinCritical = !(glucose >= criticalRange[0] && glucose <= criticalRange[1]);
+                }
+              }
+
+              let color = 'inherit';
+              let fontWeight = 'normal';
+              let fontSize = 'inherit';
+
+              if (isWithinCritical) {
+                color = 'error.main';
+                fontWeight = 'bold';
+                fontSize = '1.1rem';
+              } else if (isWithinNormal) {
+                color = 'warning.main';
+                fontWeight = 'bold';
+                fontSize = '1.05rem';
+              }
+
               return (
                 <Typography
                   sx={{
-                    color: isExceeding ? 'error.main' : 'inherit',
-                    fontWeight: isExceeding ? 'bold' : 'normal',
-                    fontSize: isExceeding ? '1.1rem' : 'inherit',
+                    color: color,
+                    fontWeight: fontWeight,
+                    fontSize: fontSize,
                   }}
                 >
-                  {glucose || '-'}
+                  {glucose}
                 </Typography>
               );
             }
@@ -214,13 +244,27 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
           valueGetter: (params) => formatDateTime(params.row.issued),
         },
         {
-          field: 'glucoserange',
-          headerName: 'Glucose Range',
+          field: 'glucoseRange',
+          headerName: 'Glucose Warning Range',
           width: 180,
           sortable: false,
           valueGetter: (params) => {
             const glucoseThreshold = getCmpVal(params.row, 'glucose-threshold');
             const glucoseVariance = getCmpVal(params.row, 'glucose-variance');
+            if (glucoseThreshold && glucoseVariance) {
+              return displayRange(getRange(glucoseThreshold, glucoseVariance));
+            }
+            return '-';
+          },
+        },
+        {
+          field: 'glucoseCrticalRange',
+          headerName: 'Glucose Critical Range',
+          width: 180,
+          sortable: false,
+          valueGetter: (params) => {
+            const glucoseThreshold = getCmpVal(params.row, 'glucose-threshold');
+            const glucoseVariance = getCmpVal(params.row, 'glucose-critical-variance');
             if (glucoseThreshold && glucoseVariance) {
               return displayRange(getRange(glucoseThreshold, glucoseVariance));
             }
@@ -238,19 +282,49 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
           renderCell: (params) => {
             const systolicThreshold = getCmpVal(params.row, 'systolic-threshold');
             const systolicVariance = getCmpVal(params.row, 'systolic-variance');
+            const systolicCriticalVariance = getCmpVal(params.row, 'systolic-critical-variance');
             const systolic = getCmpVal(params.row, 'sys');
+
             if (systolicThreshold && systolicVariance && systolic) {
-              const range = getRange(systolicThreshold, systolicVariance);
-              const isExceeding = range.length == 2 ? !(systolic >= range[0] && systolic <= range[1]) : false;
+              const normalRange = getRange(systolicThreshold, systolicVariance);
+
+              let isWithinNormal = false;
+              let isWithinCritical = false;
+
+              if (normalRange.length === 2) {
+                isWithinNormal = !(systolic >= normalRange[0] && systolic <= normalRange[1]);
+              }
+
+              if (systolicCriticalVariance) {
+                const criticalRange = getRange(systolicThreshold, systolicCriticalVariance);
+                if (criticalRange.length === 2) {
+                  isWithinCritical = !(systolic >= criticalRange[0] && systolic <= criticalRange[1]);
+                }
+              }
+
+              let color = 'inherit';
+              let fontWeight = 'normal';
+              let fontSize = 'inherit';
+
+              if (isWithinCritical) {
+                color = 'error.main';
+                fontWeight = 'bold';
+                fontSize = '1.1rem';
+              } else if (isWithinNormal) {
+                color = 'warning.main';
+                fontWeight = 'bold';
+                fontSize = '1.05rem';
+              }
+
               return (
                 <Typography
                   sx={{
-                    color: isExceeding ? 'error.main' : 'inherit',
-                    fontWeight: isExceeding ? 'bold' : 'normal',
-                    fontSize: isExceeding ? '1.1rem' : 'inherit',
+                    color: color,
+                    fontWeight: fontWeight,
+                    fontSize: fontSize,
                   }}
                 >
-                  {systolic || '-'}
+                  {systolic}
                 </Typography>
               );
             }
@@ -265,19 +339,49 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
           renderCell: (params) => {
             const diastolicThreshold = getCmpVal(params.row, 'diastolic-threshold');
             const diastolicVariance = getCmpVal(params.row, 'diastolic-variance');
+            const diastolicCriticalVariance = getCmpVal(params.row, 'diastolic-critical-variance');
             const diastolic = getCmpVal(params.row, 'dia');
+
             if (diastolicThreshold && diastolicVariance && diastolic) {
-              const range = getRange(diastolicThreshold, diastolicVariance);
-              const isExceeding = range.length == 2 ? !(diastolic >= range[0] && diastolic <= range[1]) : false;
+              const normalRange = getRange(diastolicThreshold, diastolicVariance);
+
+              let isWithinNormal = false;
+              let isWithinCritical = false;
+
+              if (normalRange.length === 2) {
+                isWithinNormal = !(diastolic >= normalRange[0] && diastolic <= normalRange[1]);
+              }
+
+              if (diastolicCriticalVariance) {
+                const criticalRange = getRange(diastolicThreshold, diastolicCriticalVariance);
+                if (criticalRange.length === 2) {
+                  isWithinCritical = !(diastolic >= criticalRange[0] && diastolic <= criticalRange[1]);
+                }
+              }
+
+              let color = 'inherit';
+              let fontWeight = 'normal';
+              let fontSize = 'inherit';
+
+              if (isWithinCritical) {
+                color = 'error.main';
+                fontWeight = 'bold';
+                fontSize = '1.1rem';
+              } else if (isWithinNormal) {
+                color = 'warning.main';
+                fontWeight = 'bold';
+                fontSize = '1.05rem';
+              }
+
               return (
                 <Typography
                   sx={{
-                    color: isExceeding ? 'error.main' : 'inherit',
-                    fontWeight: isExceeding ? 'bold' : 'normal',
-                    fontSize: isExceeding ? '1.1rem' : 'inherit',
+                    color: color,
+                    fontWeight: fontWeight,
+                    fontSize: fontSize,
                   }}
                 >
-                  {diastolic || '-'}
+                  {diastolic}
                 </Typography>
               );
             }
@@ -339,8 +443,8 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
           valueGetter: (params) => formatDateTime(params.row.issued),
         },
         {
-          field: 'systolicrange',
-          headerName: 'Systolic Range',
+          field: 'systolicRange',
+          headerName: 'Systolic Warning Range',
           width: 180,
           sortable: false,
           valueGetter: (params) => {
@@ -353,8 +457,8 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
           },
         },
         {
-          field: 'diastolicrange',
-          headerName: 'Diastolic Range',
+          field: 'diastolicRange',
+          headerName: 'Diastolic Warning Range',
           width: 180,
           sortable: false,
           valueGetter: (params) => {
@@ -366,35 +470,93 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
             return '-';
           },
         },
+        {
+          field: 'systolicCriticalRange',
+          headerName: 'Systolic Critical Range',
+          width: 180,
+          sortable: false,
+          valueGetter: (params) => {
+            const systolicThreshold = getCmpVal(params.row, 'systolic-threshold');
+            const systolicVariance = getCmpVal(params.row, 'systolic-critical-variance');
+            if (systolicThreshold && systolicVariance) {
+              return displayRange(getRange(systolicThreshold, systolicVariance));
+            }
+            return '-';
+          },
+        },
+        {
+          field: 'diastolicCriticalRange',
+          headerName: 'Diastolic Critical Range',
+          width: 180,
+          sortable: false,
+          valueGetter: (params) => {
+            const diastolicThreshold = getCmpVal(params.row, 'diastolic-threshold');
+            const diastolicVariance = getCmpVal(params.row, 'diastolic-critical-variance');
+            if (diastolicThreshold && diastolicVariance) {
+              return displayRange(getRange(diastolicThreshold, diastolicVariance));
+            }
+            return '-';
+          },
+        },
       ];
     } else if (deviceType == 'WS') {
       columns = [
         {
           field: 'wt',
-          headerName: 'Weight (in pounds)',
+          headerName: 'Weight',
           width: 180,
           sortable: false,
           renderCell: (params) => {
             const weightThreshold = getCmpVal(params.row, 'weight-threshold');
             const weightVariance = getCmpVal(params.row, 'weight-variance');
-            let weight = getCmpVal(params.row, 'wt');
-            weight = weight ? weight * 0.00220462 : null;
+            const weightCriticalVariance = getCmpVal(params.row, 'weight-critical-variance');
+            const weight = getCmpVal(params.row, 'wt');
+
             if (weightThreshold && weightVariance && weight) {
-              const range = getRange(weightThreshold, weightVariance);
-              const isExceeding = range.length == 2 ? !(weight >= range[0] && weight <= range[1]) : false;
+              const convertedWeight = weight ? weight * 0.00220462 : '';
+              const normalRange = getRange(weightThreshold, weightVariance);
+
+              let isWithinNormal = false;
+              let isWithinCritical = false;
+
+              if (normalRange.length === 2) {
+                isWithinNormal = !(convertedWeight >= normalRange[0] && convertedWeight <= normalRange[1]);
+              }
+
+              if (weightCriticalVariance) {
+                const criticalRange = getRange(weightThreshold, weightCriticalVariance);
+                if (criticalRange.length === 2) {
+                  isWithinCritical = !(convertedWeight >= criticalRange[0] && convertedWeight <= criticalRange[1]);
+                }
+              }
+
+              let color = 'inherit';
+              let fontWeight = 'normal';
+              let fontSize = 'inherit';
+
+              if (isWithinCritical) {
+                color = 'error.main';
+                fontWeight = 'bold';
+                fontSize = '1.1rem';
+              } else if (isWithinNormal) {
+                color = 'warning.main';
+                fontWeight = 'bold';
+                fontSize = '1.05rem';
+              }
+
               return (
                 <Typography
                   sx={{
-                    color: isExceeding ? 'error.main' : 'inherit',
-                    fontWeight: isExceeding ? 'bold' : 'normal',
-                    fontSize: isExceeding ? '1.1rem' : 'inherit',
+                    color: color,
+                    fontWeight: fontWeight,
+                    fontSize: fontSize,
                   }}
                 >
-                  {weight ? Number(weight).toFixed(1) : '-'}
+                  {convertedWeight ? convertedWeight.toFixed(2) : '-'}
                 </Typography>
               );
             }
-            return weight ? Number(weight).toFixed(1) : '-';
+            return weight ? (weight * 0.00220462).toFixed(2) : '-';
           },
         },
         {
@@ -452,13 +614,27 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
           valueGetter: (params) => formatDateTime(params.row.issued),
         },
         {
-          field: 'weightrange',
-          headerName: 'Weight Range',
+          field: 'weightCriticalRange',
+          headerName: 'Weight Warning Range',
           width: 180,
           sortable: false,
           valueGetter: (params) => {
             const weightThreshold = getCmpVal(params.row, 'weight-threshold');
             const weightVariance = getCmpVal(params.row, 'weight-variance');
+            if (weightThreshold && weightVariance) {
+              return displayRange(getRange(weightThreshold, weightVariance));
+            }
+            return '-';
+          },
+        },
+        {
+          field: 'weightCriticalRange',
+          headerName: 'Weight Critical Range',
+          width: 180,
+          sortable: false,
+          valueGetter: (params) => {
+            const weightThreshold = getCmpVal(params.row, 'weight-threshold');
+            const weightVariance = getCmpVal(params.row, 'weight-critical-variance');
             if (weightThreshold && weightVariance) {
               return displayRange(getRange(weightThreshold, weightVariance));
             }

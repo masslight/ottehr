@@ -33,6 +33,14 @@
       "name": "PROJECT_API",
       "value": "#var/PROJECT_API"
     },
+    "API_TOKEN": {
+      "name": "API_TOKEN",
+      "value": "#var/API_TOKEN"
+    },
+    "API_BASE_URL": {
+      "name": "API_BASE_URL",
+      "value": "#var/API_BASE_URL"
+    },
     "ENVIRONMENT": {
       "name": "ENVIRONMENT",
       "value": "#var/ENVIRONMENT"
@@ -41,13 +49,13 @@
       "name": "RC_CLIENT_ID",
       "value": "#var/RC_CLIENT_ID"
     },
-    "API_TOKEN": {
-      "name": "API_TOKEN",
-      "value": "#var/API_TOKEN"
-    },
     "SENDGRID_API_KEY": {
       "name": "SENDGRID_API_KEY",
       "value": "#var/SENDGRID_API_KEY"
+    },
+    "SENDGRID_FROM_EMAIL": {
+      "name": "SENDGRID_FROM_EMAIL",
+      "value": "#var/SENDGRID_FROM_EMAIL"
     },
     "VIRTUAL_SENDGRID_EMAIL_BCC": {
       "name": "VIRTUAL_SENDGRID_EMAIL_BCC",
@@ -60,6 +68,10 @@
     "PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID": {
       "name": "PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID",
       "value": "#var/PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID"
+    },
+    "PATIENT_VITAL_WARNING_TEMPLATE_EMAIL_TEMPLATE_ID": {
+      "name": "PATIENT_VITAL_WARNING_TEMPLATE_EMAIL_TEMPLATE_ID",
+      "value": "#var/PATIENT_VITAL_WARNING_TEMPLATE_EMAIL_TEMPLATE_ID"
     },
     "VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID": {
       "name": "VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID",
@@ -367,6 +379,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/get-devices/index",
       "zip": ".dist/zips/get-devices.zip"
+    },
+    "GET-PROVIDER-STAFF-PATIENT": {
+      "name": "GET-PROVIDER-STAFF-PATIENT",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-provider-staff-patient/index",
+      "zip": ".dist/zips/get-provider-staff-patient.zip"
     },
     "GET-SUMMARY": {
       "name": "GET-SUMMARY",

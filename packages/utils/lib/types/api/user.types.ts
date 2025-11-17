@@ -15,6 +15,7 @@ export type User = OystehrUser & {
 export enum RoleType {
   NewUser = 'NewUser',
   Administrator = 'Administrator',
+  Patient = 'Patient',
   AssistantAdmin = 'AssistantAdmin',
   RegionalTelemedLead = 'RegionalTelemedLead',
   CallCentre = 'CallCentre',

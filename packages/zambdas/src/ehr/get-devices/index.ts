@@ -36,19 +36,28 @@ export const index = wrapHandler('get-devices', async (input: ZambdaInput): Prom
         : []),
     ];
 
-    if (body.search) {
-      searchParams.push({ name: 'identifier:contains', value: body.search });
-    }
-
     const locationsResults = await oystehr.fhir.search<any>({
       resourceType: 'Device',
       params: searchParams,
     });
 
+    let devices = locationsResults.unbundle();
+
+    if (body.search) {
+      devices = devices.filter(
+        (device: any) =>
+          device.identifier?.some((id: any) => id.value?.toLowerCase().includes(body.search.toLowerCase()))
+      );
+    }
+
+    if (body.count) {
+      devices = devices.slice(0, Number(body.count));
+    }
+
     const response: Output = {
       message: `Successfully retrieved devices details`,
-      total: Number(locationsResults.total),
-      devices: locationsResults.unbundle(),
+      total: devices.length,
+      devices,
     };
 
     return lambdaResponse(200, response);

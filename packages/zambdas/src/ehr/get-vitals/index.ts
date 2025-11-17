@@ -41,7 +41,7 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
         { name: '_total', value: 'accurate' },
         { name: '_count', value: String(pageSize) },
         { name: '_offset', value: String(offset) },
-        ...(isModal ? [{ name: '_lastUpdated', value: `ge${thirtyDaysAgo}` }] : []),
+        ...(isModal ? [{ name: 'date', value: `ge${thirtyDaysAgo}` }] : []),
       ],
     });
 

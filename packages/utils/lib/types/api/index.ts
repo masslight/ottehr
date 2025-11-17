@@ -42,3 +42,4 @@ export * from './user.types';
 export * from './get-devices';
 export * from './get-vitals';
 export * from './get-summary';
+export * from './get-provider-staff-patient';

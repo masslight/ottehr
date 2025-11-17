@@ -114,7 +114,6 @@ export const LogTimerModal: React.FC<LogTimerModalProps> = ({
       }}
       fullWidth
     >
-      {/* Close Icon Button */}
       <IconButton
         aria-label="close"
         onClick={handleClose}
@@ -124,7 +123,7 @@ export const LogTimerModal: React.FC<LogTimerModalProps> = ({
           right: 8,
           top: 8,
           color: (theme) => theme.palette.grey[500],
-          zIndex: 1300, // Ensure it's above the backdrop
+          zIndex: 1300,
         }}
       >
         <CloseIcon />
