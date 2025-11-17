@@ -62,14 +62,28 @@ export default function Insurances(): ReactElement {
     const newData: Organization[] | undefined = data
       ?.sort((a, b) => a.name?.localeCompare(b.name ?? '') ?? 0)
       .filter((insurance: Organization) => {
-        if (activeFilter === IsActiveStatus.deactivated && insurance.active !== false) {
-          return false;
+        let result = true;
+        if (activeFilter === IsActiveStatus.deactivated && insurance.active === true) {
+          result = false;
         }
-        return searchText ? insurance.name?.toLowerCase().includes(searchText.toLowerCase()) : true;
+        if (activeFilter === IsActiveStatus.active && insurance.active === false) {
+          result = false;
+        }
+        if (searchText && !insurance.name?.toLowerCase().includes(searchText.toLowerCase())) {
+          result = false;
+        }
+        return result;
       });
 
     return newData || [];
   }, [activeFilter, data, searchText]);
+
+  // Reset page number to 0 if current page has no items after filtering
+  React.useEffect(() => {
+    if (filteredInsurances.length === 0 || pageNumber * rowsPerPage >= filteredInsurances.length) {
+      setPageNumber(0);
+    }
+  }, [filteredInsurances.length, pageNumber, rowsPerPage]);
 
   // For pagination, only include the rows that are on the current page
   const currentPagesEntities = React.useMemo(
