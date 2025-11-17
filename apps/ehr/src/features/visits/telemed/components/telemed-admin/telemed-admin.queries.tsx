@@ -136,8 +136,8 @@ export const useInsuranceMutation = (
       const resource: Organization = {
         resourceType: 'Organization',
         active: data.active ?? true,
-        name: insurancePlan?.name || data.displayName,
-        alias: [data.displayName],
+        name: insurancePlan?.name || data.payor?.name,
+        alias: data.displayName ? [data.displayName] : undefined,
         type: [
           {
             coding: [
