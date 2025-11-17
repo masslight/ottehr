@@ -36,6 +36,7 @@ jobs:
           sudo su
           cd /opt/ottehr
           git pull
+          echo "Deploying ${{ github.event.inputs.deployment_type }}"
           # ./scripts/deploy/aws/rebuild.sh
           sudo systemctl restart nginx
         EOF
