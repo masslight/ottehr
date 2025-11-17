@@ -15,6 +15,7 @@ import {
   getPatientReferenceFromAccount,
   getResourcesFromBatchInlineRequests,
   getSecret,
+  getSMSNumberForIndividual,
   PrefilledInvoiceInfo,
   RCM_TASK_SYSTEM,
   RcmTaskCode,
@@ -29,6 +30,7 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
+  getRelatedPersonForPatient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -215,8 +217,8 @@ async function getFhirPatientResources(input: {
   try {
     console.log('🔍 Fetching FHIR resources for invoiceable patients...');
 
-    const resources = (
-      await oystehr.fhir.search({
+    const [resourcesResponse, relatedPerson] = await Promise.all([
+      oystehr.fhir.search({
         resourceType: 'Patient',
         params: [
           {
@@ -228,8 +230,10 @@ async function getFhirPatientResources(input: {
             value: 'Account:patient',
           },
         ],
-      })
-    ).unbundle();
+      }),
+      getRelatedPersonForPatient(patientId, oystehr),
+    ]);
+    const resources = resourcesResponse.unbundle();
     console.log('Fetched FHIR resources:', resources.length);
 
     const patient = resources.find((resource) => resource.resourceType === 'Patient') as Patient;
@@ -239,7 +243,8 @@ async function getFhirPatientResources(input: {
     ) as Account;
     if (!patient || !account) return undefined;
 
-    const phoneNumber = patient?.telecom?.find((obj) => obj.system === 'phone')?.value;
+    if (!relatedPerson) throw new Error(`No related person found for patient: ${patientId}`);
+    const phoneNumber = getSMSNumberForIndividual(relatedPerson);
     if (!phoneNumber) throw new Error(`No verified phone number found for patient: ${patientId}`);
 
     const responsiblePartyRef = getActiveAccountGuarantorReference(account);
