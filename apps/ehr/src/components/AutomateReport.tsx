@@ -152,6 +152,10 @@ export const AutomateReport = (): JSX.Element => {
   };
 
   const validateReportTitle = (title: string): string | undefined => {
+    if (reportTemplate !== 'pdf') {
+      return undefined;
+    }
+
     if (!title.trim()) {
       return 'Report title is required';
     }
@@ -165,6 +169,10 @@ export const AutomateReport = (): JSX.Element => {
   };
 
   const validateCharacterLimit = (text: string, fieldName: string): string | undefined => {
+    if (reportTemplate !== 'pdf') {
+      return undefined;
+    }
+
     const textWithoutSpaces = text.replace(/\s/g, '');
     if (textWithoutSpaces.length > 255) {
       return `${fieldName} must not exceed 255 characters (excluding spaces)`;
@@ -182,7 +190,7 @@ export const AutomateReport = (): JSX.Element => {
 
   const handleHeaderChange = (value: string): void => {
     setBranding((prev) => ({ ...prev, header: value }));
-    if (fieldTouched.header) {
+    if (fieldTouched.header && reportTemplate === 'pdf') {
       const error = validateCharacterLimit(value, 'Header');
       setErrors((prev) => ({ ...prev, header: error }));
     }
@@ -190,7 +198,7 @@ export const AutomateReport = (): JSX.Element => {
 
   const handleFooterChange = (value: string): void => {
     setBranding((prev) => ({ ...prev, footer: value }));
-    if (fieldTouched.footer) {
+    if (fieldTouched.footer && reportTemplate === 'pdf') {
       const error = validateCharacterLimit(value, 'Footer');
       setErrors((prev) => ({ ...prev, footer: error }));
     }
@@ -199,13 +207,13 @@ export const AutomateReport = (): JSX.Element => {
   const handleFieldBlur = (fieldName: keyof typeof fieldTouched): void => {
     setFieldTouched((prev) => ({ ...prev, [fieldName]: true }));
 
-    if (fieldName === 'reportName') {
+    if (fieldName === 'reportName' && reportTemplate === 'pdf') {
       const error = validateReportTitle(reportName);
       setErrors((prev) => ({ ...prev, reportName: error }));
-    } else if (fieldName === 'header') {
+    } else if (fieldName === 'header' && reportTemplate === 'pdf') {
       const error = validateCharacterLimit(branding.header, 'Header');
       setErrors((prev) => ({ ...prev, header: error }));
-    } else if (fieldName === 'footer') {
+    } else if (fieldName === 'footer' && reportTemplate === 'pdf') {
       const error = validateCharacterLimit(branding.footer, 'Footer');
       setErrors((prev) => ({ ...prev, footer: error }));
     }
@@ -278,9 +286,9 @@ export const AutomateReport = (): JSX.Element => {
       footer: true,
     });
 
-    const reportNameError = validateReportTitle(reportName);
-    const headerError = validateCharacterLimit(branding.header, 'Header');
-    const footerError = validateCharacterLimit(branding.footer, 'Footer');
+    const reportNameError = reportTemplate === 'pdf' ? validateReportTitle(reportName) : undefined;
+    const headerError = reportTemplate === 'pdf' ? validateCharacterLimit(branding.header, 'Header') : undefined;
+    const footerError = reportTemplate === 'pdf' ? validateCharacterLimit(branding.footer, 'Footer') : undefined;
 
     const newErrors = {
       reportName: reportNameError,
