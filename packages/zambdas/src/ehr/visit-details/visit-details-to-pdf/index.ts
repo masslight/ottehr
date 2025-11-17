@@ -96,7 +96,7 @@ export const performEffect = async (
     secrets,
     m2mToken
   );
-  if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
+
   console.log(`Creating Visit details PDF Document Reference`);
   const documentReference = await makeVisitDetailsPdfDocumentReference(
     oystehr,
