@@ -13,7 +13,6 @@ import {
   getEmailForIndividual,
   getFullName,
   getPatientReferenceFromAccount,
-  getPatientResourceWithVerifiedPhoneNumber,
   getResourcesFromBatchInlineRequests,
   getSecret,
   PrefilledInvoiceInfo,
@@ -216,8 +215,8 @@ async function getFhirPatientResources(input: {
   try {
     console.log('🔍 Fetching FHIR resources for invoiceable patients...');
 
-    const [resourcesResponse, patientWithPhoneResponse] = await Promise.all([
-      oystehr.fhir.search({
+    const resources = (
+      await oystehr.fhir.search({
         resourceType: 'Patient',
         params: [
           {
@@ -229,10 +228,8 @@ async function getFhirPatientResources(input: {
             value: 'Account:patient',
           },
         ],
-      }),
-      getPatientResourceWithVerifiedPhoneNumber(patientId, oystehr),
-    ]);
-    const resources = resourcesResponse.unbundle();
+      })
+    ).unbundle();
     console.log('Fetched FHIR resources:', resources.length);
 
     const patient = resources.find((resource) => resource.resourceType === 'Patient') as Patient;
@@ -242,7 +239,7 @@ async function getFhirPatientResources(input: {
     ) as Account;
     if (!patient || !account) return undefined;
 
-    const phoneNumber = patientWithPhoneResponse.verifiedPhoneNumber;
+    const phoneNumber = patient?.telecom?.find((obj) => obj.system === 'phone')?.value;
     if (!phoneNumber) throw new Error(`No verified phone number found for patient: ${patientId}`);
 
     const responsiblePartyRef = getActiveAccountGuarantorReference(account);
