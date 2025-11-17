@@ -15,6 +15,7 @@ import {
   Paper,
   Select,
   Skeleton,
+  Stack,
   TextField,
   Typography,
   useMediaQuery,
@@ -31,6 +32,7 @@ import { useParams } from 'react-router-dom';
 import {
   createZ3Object,
   generatePaperworkPdf,
+  getOrCreateVisitDetailsPdf,
   getPatientVisitDetails,
   getPatientVisitFiles,
   updatePatientVisitDetails,
@@ -198,6 +200,7 @@ export default function VisitDetailsPage(): ReactElement {
   const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
   const [paperworkPdfLoading, setPaperworkPdfLoading] = React.useState<boolean>(false);
+  const [visitDetailsPdfLoading, setVisitDetailsPdfLoading] = React.useState<boolean>(false);
 
   const [consentAttested, setConsentAttested] = useState<boolean | null>(null);
 
@@ -736,6 +739,26 @@ export default function VisitDetailsPage(): ReactElement {
     }
   };
 
+  const downloadVisitDetailsPdf = async (): Promise<void> => {
+    if (!appointmentID) {
+      enqueueSnackbar('No appointment ID found.', { variant: 'error' });
+      return;
+    }
+
+    setVisitDetailsPdfLoading(true);
+
+    try {
+      const response = await getOrCreateVisitDetailsPdf(oystehrZambda!, {
+        appointmentId: appointmentID,
+      });
+      await downloadDocument(response.documentReference.split('/')[1]);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('Failed to generate PDF.', { variant: 'error' });
+    } finally {
+      setVisitDetailsPdfLoading(false);
+    }
+  };
   return (
     <PageContainer>
       <>
@@ -767,12 +790,12 @@ export default function VisitDetailsPage(): ReactElement {
                     borderRadius: '20px',
                     textTransform: 'none',
                   }}
-                  loading={paperworkPdfLoading}
+                  loading={visitDetailsPdfLoading}
                   color="primary"
-                  disabled={isLoadingDocuments || !patient?.id}
-                  onClick={downloadPaperworkPdf}
+                  disabled={isLoadingDocuments || !encounter?.id}
+                  onClick={downloadVisitDetailsPdf}
                 >
-                  Paperwork PDF
+                  Visit Details PDF
                 </LoadingButton>
               </Grid>
             </Grid>
@@ -1185,46 +1208,28 @@ export default function VisitDetailsPage(): ReactElement {
                 )}
               </Grid>
             )}
-            <Grid item sx={{ paddingTop: 2, paddingRight: isInPerson ? 3.5 : 0 }}>
-              <>
-                <Button
-                  variant="outlined"
-                  sx={{
-                    alignSelf: 'center',
-                    marginLeft: { xs: 0, sm: isInPerson ? 1 : 0 },
-                    borderRadius: '20px',
-                    textTransform: 'none',
-                  }}
-                  color="error"
-                  onClick={() => setIssueDialogOpen(true)}
-                >
-                  Report Issue
-                </Button>
-                <ReportIssueDialog
-                  open={issueDialogOpen}
-                  handleClose={() => setIssueDialogOpen(false)}
-                  oystehr={oystehr}
-                  patient={patient}
-                  appointment={appointment}
-                  encounter={encounter}
-                  locationId={visitDetailsData.visitLocationId}
-                  setSnackbarOpen={setSnackbarOpen}
-                  setToastType={setToastType}
-                  setToastMessage={setToastMessage}
-                />
-              </>
-            </Grid>
           </Grid>
         )}
         <Grid container direction="row">
           <Grid item sx={{ marginLeft: { xs: 0, sm: 8 }, marginTop: 2, marginBottom: 50 }}>
-            <>
+            <Stack direction="row" spacing={1} useFlexGap>
+              <LoadingButton
+                variant="outlined"
+                sx={{
+                  borderRadius: '20px',
+                  textTransform: 'none',
+                }}
+                loading={paperworkPdfLoading}
+                color="primary"
+                disabled={isLoadingDocuments || !patient?.id}
+                onClick={downloadPaperworkPdf}
+              >
+                Patient Paperwork PDF
+              </LoadingButton>
               <LoadingButton
                 loading={activityLogsLoading}
                 variant="outlined"
                 sx={{
-                  alignSelf: 'center',
-                  marginLeft: 'auto',
                   borderRadius: '20px',
                   textTransform: 'none',
                 }}
@@ -1234,12 +1239,19 @@ export default function VisitDetailsPage(): ReactElement {
               >
                 View activity logs
               </LoadingButton>
-              <ActivityLogDialog
-                open={activityLogDialogOpen}
-                handleClose={() => setActivityLogDialogOpen(false)}
-                logs={activityLogs || []}
-              />
-            </>
+              <LoadingButton
+                loading={loading}
+                variant="outlined"
+                sx={{
+                  borderRadius: '20px',
+                  textTransform: 'none',
+                }}
+                color="error"
+                onClick={() => setIssueDialogOpen(true)}
+              >
+                Report Issue
+              </LoadingButton>
+            </Stack>
           </Grid>
         </Grid>
         {/* Update details modal */}
@@ -1359,6 +1371,25 @@ export default function VisitDetailsPage(): ReactElement {
             ) : undefined
           }
         />
+        <ActivityLogDialog
+          open={activityLogDialogOpen}
+          handleClose={() => setActivityLogDialogOpen(false)}
+          logs={activityLogs || []}
+        />
+        {encounter && (
+          <ReportIssueDialog
+            open={issueDialogOpen}
+            handleClose={() => setIssueDialogOpen(false)}
+            oystehr={oystehr}
+            patient={patient}
+            appointment={appointment}
+            encounter={encounter}
+            locationId={visitDetailsData.visitLocationId}
+            setSnackbarOpen={setSnackbarOpen}
+            setToastType={setToastType}
+            setToastMessage={setToastMessage}
+          />
+        )}
         <Snackbar
           open={snackbarOpen}
           autoHideDuration={6000}

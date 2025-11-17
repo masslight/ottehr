@@ -484,6 +484,13 @@
       "src": "src/ehr/paperwork-to-pdf/index",
       "zip": ".dist/zips/paperwork-to-pdf.zip"
     },
+    "VISIT-DETAILS-TO-PDF": {
+      "name": "visit-details-to-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/visit-details/visit-details-to-pdf/index",
+      "zip": ".dist/zips/visit-details-to-pdf.zip"
+    },
     "GET-PATIENT-ACCOUNT": {
       "name": "get-patient-account",
       "type": "http_auth",
