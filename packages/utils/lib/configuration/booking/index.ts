@@ -1,8 +1,10 @@
 import { Coding, Questionnaire } from 'fhir/r4b';
 import _ from 'lodash';
+import z from 'zod';
 import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import { BOOKING_OVERRIDES } from '../../../.ottehr_config';
+import { OTTEHR_CODE_SYSTEM_BASE_URL } from '../../fhir';
 
 const REASON_FOR_VISIT_OPTIONS = Object.freeze([
   'Cough and/or congestion',
@@ -66,13 +68,13 @@ interface StrongCoding extends Coding {
 }
 
 const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
-  { display: 'Urgent Care', code: 'urgent_care', system: 'https://fhir.ottehr.com/CodeSystem/service-category' },
+  { display: 'Urgent Care', code: 'urgent_care', system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category` },
   {
     display: 'Occupational Medicine',
     code: 'occupational_medicine',
-    system: 'https://fhir.ottehr.com/CodeSystem/service-category',
+    system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category`,
   },
-  { display: 'Workmans Comp', code: 'workmans_comp', system: 'https://fhir.ottehr.com/CodeSystem/service-category' },
+  { display: 'Workmans Comp', code: 'workmans_comp', system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category` },
 ];
 
 const BOOKING_DEFAULTS = Object.freeze({
@@ -97,3 +99,9 @@ export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: st
     ? true
     : false;
 };
+
+export const ServiceCategoryCodeSchema = z.enum(
+  BOOKING_CONFIG.serviceCategories.map((category) => category.code) as [string, ...string[]]
+);
+
+export type ServiceCategoryCode = z.infer<typeof ServiceCategoryCodeSchema>;

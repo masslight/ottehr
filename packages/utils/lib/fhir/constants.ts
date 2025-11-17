@@ -43,6 +43,7 @@ export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/t
 export const ROOM_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/room';
 
 export const FHIR_BASE_URL = 'https://fhir.ottehr.com';
+export const OTTEHR_CODE_SYSTEM_BASE_URL = 'https://fhir.ottehr.com/CodeSystem';
 
 export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
@@ -585,12 +586,22 @@ export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
         system: `${FHIR_BASE_URL}/slot-service-category`,
         code: SlotServiceCategoryCode.virtualServiceMode,
       },
+      // added to avoid confusion with new service category code system
+      // can be removed in the future
+      {
+        system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-mode-service-category`,
+        code: SlotServiceCategoryCode.virtualServiceMode,
+      },
     ],
   },
   inPersonServiceMode: {
     coding: [
       {
         system: `${FHIR_BASE_URL}/slot-service-category`,
+        code: SlotServiceCategoryCode.inPersonServiceMode,
+      },
+      {
+        system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-mode-service-category`,
         code: SlotServiceCategoryCode.inPersonServiceMode,
       },
     ],

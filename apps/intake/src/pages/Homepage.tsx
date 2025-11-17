@@ -95,6 +95,7 @@ const Homepage = (): JSX.Element => {
       visitType: 'prebook',
     });
     let destination = '';
+    console.log('Should select service category:', shouldSelectServiceCategory);
     if (shouldSelectServiceCategory) {
       destination = intakeFlowPageRoute.SelectServiceCategory.path.replace(
         `:${BOOKING_SERVICE_MODE_PARAM}`,
@@ -107,6 +108,7 @@ const Homepage = (): JSX.Element => {
       );
     }
     destination += `?bookingOn=visit-followup-group&scheduleType=group`;
+    console.log('Navigating to:', destination);
     navigate(destination);
   };
 

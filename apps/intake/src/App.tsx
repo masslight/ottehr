@@ -74,6 +74,7 @@ export const BOOKING_SERVICE_MODE_PARAM = 'service_mode';
 export const BOOKING_SCHEDULE_TYPE_QUERY_PARAM = 'scheduleType';
 export const BOOKING_SCHEDULE_ON_QUERY_PARAM = 'bookingOn';
 export const BOOKING_SCHEDULE_SELECTED_SLOT = 'slot';
+export const BOOKING_SERVICE_CATEGORY_PARAM = 'serviceCategory';
 
 export const bookingBasePath = `/book/:${BOOKING_SLOT_ID_PARAM}`;
 export const paperworkBasePath = '/paperwork/:id';
@@ -327,6 +328,10 @@ function App(): JSX.Element {
                 <Route
                   path={intakeFlowPageRoute.PrebookVisitDynamic.path}
                   element={intakeFlowPageRoute.PrebookVisitDynamic.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.SelectServiceCategory.path}
+                  element={intakeFlowPageRoute.SelectServiceCategory.getPage()}
                 />
                 <Route
                   path={intakeFlowPageRoute.StartVirtualVisit.path}

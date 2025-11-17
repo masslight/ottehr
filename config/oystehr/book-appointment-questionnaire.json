@@ -82,7 +82,7 @@
                   {
                     "question": "should-display-ssn-field",
                     "operator": "=",
-                    "answerString": true
+                    "answerBoolean": true
                   }
                 ],
                 "extension": [
