@@ -93,7 +93,7 @@ export const createPatientDetailsSection = <TData extends { details?: PatientDet
     );
     client.drawLabelValueRow(
       'PCP first and last name',
-      details.preferredLanguage,
+      details.pcpName,
       styles.textStyles.regular,
       styles.textStyles.regular,
       {
@@ -117,7 +117,7 @@ export const createPatientDetailsSection = <TData extends { details?: PatientDet
     });
     client.drawLabelValueRow(
       'PCP phone number',
-      details.preferredLanguage,
+      details.pcpPhone,
       styles.textStyles.regular,
       styles.textStyles.regular,
       {
