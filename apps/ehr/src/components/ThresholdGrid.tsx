@@ -32,6 +32,8 @@ interface ThresholdRow {
   critical: string;
 }
 
+type ValidationStatus = 'error' | 'none';
+
 export function ThresholdsTable(): ReactElement {
   const [rows, setRows] = useState<ThresholdRow[]>([
     { metric: 'Systolic', baseline: '', variance: '', critical: '' },
@@ -209,6 +211,18 @@ export function ThresholdsTable(): ReactElement {
 
   const handleChange = (index: number, field: 'baseline' | 'variance' | 'critical', value: string): void => {
     setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+
+    // Trigger validation for related fields when variance or critical changes
+    if (field === 'variance' || field === 'critical') {
+      setTouched((prev) => ({
+        ...prev,
+        [index]: {
+          ...prev[index],
+          variance: true,
+          critical: true,
+        },
+      }));
+    }
   };
 
   const handleBlur = (index: number, field: 'baseline' | 'variance' | 'critical'): void => {
@@ -219,6 +233,26 @@ export function ThresholdsTable(): ReactElement {
         [field]: true,
       },
     }));
+
+    // If variance or critical is touched, also mark the other as touched for cross-validation
+    if (field === 'variance' && rows[index].critical !== '') {
+      setTouched((prev) => ({
+        ...prev,
+        [index]: {
+          ...prev[index],
+          critical: true,
+        },
+      }));
+    }
+    if (field === 'critical' && rows[index].variance !== '') {
+      setTouched((prev) => ({
+        ...prev,
+        [index]: {
+          ...prev[index],
+          variance: true,
+        },
+      }));
+    }
 
     const hasChanges = rows.some(
       (row, i) =>
@@ -252,7 +286,6 @@ export function ThresholdsTable(): ReactElement {
     });
 
     if (invalidVarianceRows.length > 0) {
-      showToast('Critical variance must be greater than warning variance for all metrics', 'error');
       return;
     }
 
@@ -265,6 +298,118 @@ export function ThresholdsTable(): ReactElement {
     Diastolic: { min: 40, max: 150, message: 'Diastolic must be between 40–150 mmHg' },
     Glucose: { min: 50, max: 500, message: 'Glucose must be between 50–500 mg/dL' },
     'Weight (in pounds)': { min: 30, max: 600, message: 'Weight must be between 30–600 lbs' },
+  };
+
+  const getValidationStatus = (
+    value: string,
+    index: number,
+    field: 'baseline' | 'variance' | 'critical',
+    row: ThresholdRow
+  ): { status: ValidationStatus; message: string; icon: ReactElement | null } => {
+    if (!touched[index]?.[field]) {
+      return { status: 'none', message: '', icon: null };
+    }
+
+    const num = parseFloat(value);
+
+    if (field === 'baseline') {
+      const rules = VALIDATION_RULES[row.metric];
+      if (value === '' || isNaN(num)) {
+        return {
+          status: 'error',
+          message: 'Baseline value is required',
+          icon: <ErrorOutlineIcon color="error" fontSize="small" />,
+        };
+      }
+      if (num < rules.min || num > rules.max) {
+        return {
+          status: 'error',
+          message: rules.message,
+          icon: <ErrorOutlineIcon color="error" fontSize="small" />,
+        };
+      }
+      return { status: 'none', message: '', icon: null };
+    }
+
+    if (field === 'variance') {
+      if (value === '' || isNaN(num)) {
+        return {
+          status: 'error',
+          message: 'Warning variance value is required',
+          icon: <ErrorOutlineIcon color="error" fontSize="small" />,
+        };
+      }
+      if (num < 0 || num > 100) {
+        return {
+          status: 'error',
+          message: 'Warning variance must be between 0–100%',
+          icon: <ErrorOutlineIcon color="error" fontSize="small" />,
+        };
+      }
+
+      // Check if variance is greater than or equal to critical
+      const criticalNum = parseFloat(row.critical);
+      if (touched[index]?.critical && !isNaN(criticalNum) && num >= criticalNum) {
+        return {
+          status: 'error',
+          message: 'Warning variance must be smaller than critical variance',
+          icon: <ErrorOutlineIcon color="error" fontSize="small" />,
+        };
+      }
+
+      return { status: 'none', message: '', icon: null };
+    }
+
+    if (field === 'critical') {
+      if (value === '' || isNaN(num)) {
+        return {
+          status: 'error',
+          message: 'Critical variance value is required',
+          icon: <ErrorOutlineIcon color="error" fontSize="small" />,
+        };
+      }
+      if (num < 0 || num > 100) {
+        return {
+          status: 'error',
+          message: 'Critical variance must be between 0–100%',
+          icon: <ErrorOutlineIcon color="error" fontSize="small" />,
+        };
+      }
+
+      // Check if critical is less than or equal to variance
+      const varianceNum = parseFloat(row.variance);
+      if (touched[index]?.variance && !isNaN(varianceNum) && num <= varianceNum) {
+        return {
+          status: 'error',
+          message: 'Critical variance must be greater than warning variance',
+          icon: <ErrorOutlineIcon color="error" fontSize="small" />,
+        };
+      }
+
+      return { status: 'none', message: '', icon: null };
+    }
+
+    return { status: 'none', message: '', icon: null };
+  };
+
+  const getFieldStyles = (status: ValidationStatus): any => {
+    if (status === 'error') {
+      return {
+        '& .MuiOutlinedInput-root': {
+          '& fieldset': {
+            borderColor: 'error.main',
+            borderWidth: 2,
+          },
+          '&:hover fieldset': {
+            borderColor: 'error.main',
+          },
+          '&.Mui-focused fieldset': {
+            borderColor: 'error.main',
+          },
+        },
+      };
+    }
+    return {};
   };
 
   const getRange = (baselineStr: string, varianceStr: string): string => {
@@ -321,22 +466,9 @@ export function ThresholdsTable(): ReactElement {
             </TableHead>
             <TableBody>
               {rows.map((row, index): JSX.Element => {
-                const baselineNum = parseFloat(row.baseline);
-                const varianceNum = parseFloat(row.variance);
-                const criticalNum = parseFloat(row.critical);
-                const rules = VALIDATION_RULES[row.metric];
-
-                const hasBaselineError =
-                  touched[index]?.baseline &&
-                  (row.baseline === '' || isNaN(baselineNum) || baselineNum < rules.min || baselineNum > rules.max);
-
-                const hasVarianceError =
-                  touched[index]?.variance &&
-                  (row.variance === '' || isNaN(varianceNum) || varianceNum < 0 || varianceNum > 100);
-
-                const hasCriticalError =
-                  touched[index]?.critical &&
-                  (row.critical === '' || isNaN(criticalNum) || criticalNum < 0 || criticalNum > 100);
+                const baselineValidation = getValidationStatus(row.baseline, index, 'baseline', row);
+                const varianceValidation = getValidationStatus(row.variance, index, 'variance', row);
+                const criticalValidation = getValidationStatus(row.critical, index, 'critical', row);
 
                 return (
                   <TableRow key={row.metric}>
@@ -349,36 +481,34 @@ export function ThresholdsTable(): ReactElement {
                     <TableCell sx={{ py: 0.7, px: 2 }}>{row.metric}</TableCell>
 
                     <TableCell sx={{ py: 0.7, px: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <TextField
                           type="number"
                           size="small"
-                          sx={{ minWidth: 90 }}
+                          sx={{ minWidth: 90, ...getFieldStyles(baselineValidation.status) }}
                           placeholder={`${row.metric}`}
                           value={row.baseline}
                           inputProps={{ min: 0 }}
-                          error={hasBaselineError}
                           onChange={(e) => handleChange(index, 'baseline', e.target.value)}
                           onBlur={() => handleBlur(index, 'baseline')}
                         />
-                        {hasBaselineError && (
-                          <Tooltip title={row.baseline === '' ? 'Baseline value is required' : rules.message}>
-                            <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
+                        {baselineValidation.icon && (
+                          <Tooltip title={baselineValidation.message}>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>{baselineValidation.icon}</Box>
                           </Tooltip>
                         )}
                       </Box>
                     </TableCell>
 
                     <TableCell sx={{ py: 0.7, px: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <TextField
                           type="number"
                           size="small"
                           inputProps={{ min: 0, max: 100 }}
                           placeholder="Variance"
                           value={row.variance}
-                          sx={{ minWidth: 90 }}
-                          error={hasVarianceError}
+                          sx={{ minWidth: 90, ...getFieldStyles(varianceValidation.status) }}
                           onChange={(e) => {
                             const newValue = e.target.value;
                             if (newValue === '' || (/^\d+$/.test(newValue) && +newValue >= 0 && +newValue <= 100)) {
@@ -387,13 +517,9 @@ export function ThresholdsTable(): ReactElement {
                           }}
                           onBlur={() => handleBlur(index, 'variance')}
                         />
-                        {hasVarianceError && (
-                          <Tooltip
-                            title={
-                              row.variance === '' ? 'Variance value is required' : 'Variance must be between 0–100%'
-                            }
-                          >
-                            <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
+                        {varianceValidation.icon && (
+                          <Tooltip title={varianceValidation.message}>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>{varianceValidation.icon}</Box>
                           </Tooltip>
                         )}
                       </Box>
@@ -402,15 +528,14 @@ export function ThresholdsTable(): ReactElement {
                     <TableCell sx={{ py: 0.7, px: 2, minWidth: 120 }}>{getRange(row.baseline, row.variance)}</TableCell>
 
                     <TableCell sx={{ py: 0.7, px: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <TextField
                           type="number"
                           size="small"
                           inputProps={{ min: 0, max: 100 }}
                           placeholder="Critical Variance"
                           value={row.critical}
-                          sx={{ minWidth: 90 }}
-                          error={hasCriticalError}
+                          sx={{ minWidth: 90, ...getFieldStyles(criticalValidation.status) }}
                           onChange={(e) => {
                             const newValue = e.target.value;
                             if (newValue === '' || (/^\d+$/.test(newValue) && +newValue >= 0 && +newValue <= 100)) {
@@ -419,15 +544,9 @@ export function ThresholdsTable(): ReactElement {
                           }}
                           onBlur={() => handleBlur(index, 'critical')}
                         />
-                        {hasCriticalError && (
-                          <Tooltip
-                            title={
-                              row.critical === ''
-                                ? 'Critical variance value is required'
-                                : 'Critical variance must be between 0–100%'
-                            }
-                          >
-                            <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
+                        {criticalValidation.icon && (
+                          <Tooltip title={criticalValidation.message}>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>{criticalValidation.icon}</Box>
                           </Tooltip>
                         )}
                       </Box>
@@ -451,7 +570,6 @@ export function ThresholdsTable(): ReactElement {
         deviceType={selectedDeviceType || ''}
         patientId={patientId || ''}
       />
-
       <Snackbar
         open={toastOpen}
         autoHideDuration={6000}
