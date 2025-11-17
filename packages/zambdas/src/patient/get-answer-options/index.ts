@@ -133,8 +133,9 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Ques
 };
 
 const formatQueryResult = (result: any, resourceType: FhirResource['resourceType']): QuestionnaireItemAnswerOption => {
-  if (result.name && result.id && typeof result.name === 'string' && typeof result.id === 'string') {
-    return { valueReference: { reference: `${resourceType}/${result.id}`, display: result.name } };
+  const name = resourceType === 'Organization' ? result.alias?.[0] || result.name : result.name;
+  if (name && result.id && typeof name === 'string' && typeof result.id === 'string') {
+    return { valueReference: { reference: `${resourceType}/${result.id}`, display: name } };
   }
   throw ANSWER_OPTION_FROM_RESOURCE_UNDEFINED(resourceType);
 };
