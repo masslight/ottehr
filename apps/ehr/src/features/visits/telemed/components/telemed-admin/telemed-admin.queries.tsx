@@ -148,8 +148,8 @@ export const useInsuranceMutation = (
             ],
           },
         ],
-        identifier: insurancePlan?.identifier,
-        address: insurancePlan?.address,
+        identifier: insurancePlan?.identifier || data?.identifier,
+        address: insurancePlan?.address || data?.address,
       };
       // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
       // if (!requirementSettingsExistingExtensions) {
