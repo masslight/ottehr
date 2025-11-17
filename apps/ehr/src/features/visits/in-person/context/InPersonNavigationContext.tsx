@@ -20,6 +20,7 @@ export interface RouteInPerson {
   text: string;
   iconKey: keyof typeof sidebarMenuIcons;
   isSkippedInNavigation?: boolean;
+  groupLabel?: string;
 }
 
 interface InPersonNavigationContextType {

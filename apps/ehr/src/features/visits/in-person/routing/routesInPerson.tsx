@@ -18,15 +18,16 @@ import { ExamTab } from '../../shared/components/exam-tab/ExamTab';
 import { OttehrAi } from '../../shared/components/OttehrAi';
 import { RouteInPerson } from '../context/InPersonNavigationContext';
 import { Allergies } from '../pages/Allergies';
+import { CCAndIntakeNotes } from '../pages/CCAndIntakeNotes';
 import { ERXPage } from '../pages/ERXPage';
 import { FollowUpNote } from '../pages/FollowUpNote';
+import { HistoryAndTemplates } from '../pages/HistoryAndTemplates';
 import { Hospitalization } from '../pages/Hospitalization';
 import { InHouseMedication } from '../pages/InHouseMedication';
 import { InHouseOrderEdit } from '../pages/InHouseOrderEdit';
 import { InHouseOrderNew } from '../pages/InHouseOrderNew';
 import { MedicalConditions } from '../pages/MedicalConditions';
 import { Medications } from '../pages/Medications';
-import { PatientInfo } from '../pages/PatientInfo';
 import { PatientVitals } from '../pages/PatientVitals';
 import { Plan } from '../pages/Plan';
 import Procedures from '../pages/Procedures';
@@ -36,9 +37,9 @@ import { Screening } from '../pages/Screening';
 import { SurgicalHistory } from '../pages/SurgicalHistory';
 
 export enum ROUTER_PATH {
+  CC_AND_INTAKE_NOTES = 'cc-and-intake-notes',
   PROGRESS_NOTE = 'progress-note',
   FOLLOW_UP_NOTE = 'follow-up-note',
-  PATIENT_INFO = 'patient-info',
   SCREENING = 'screening-questions',
   VITALS = 'vitals',
   ALLERGIES = 'allergies',
@@ -49,6 +50,7 @@ export enum ROUTER_PATH {
   IN_HOUSE_MEDICATION = 'in-house-medication/:tabName',
   IN_HOUSE_ORDER_NEW = 'in-house-medication/order/new',
   IN_HOUSE_ORDER_EDIT = 'in-house-medication/order/edit/:orderId',
+  HISTORY_AND_TEMPLATES = 'history-of-present-illness-and-templates',
   ASSESSMENT = 'assessment',
   EXAMINATION = 'examination',
   PLAN = 'plan',
@@ -82,40 +84,21 @@ export enum ROUTER_PATH {
 }
 
 export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
-  [ROUTER_PATH.PROGRESS_NOTE]: {
-    path: ROUTER_PATH.PROGRESS_NOTE,
-    modes: ['provider', 'readonly'],
-    element: <ProgressNote />,
-    text: 'Progress Note',
-    iconKey: 'Progress Note',
-  },
-  [ROUTER_PATH.FOLLOW_UP_NOTE]: {
-    path: ROUTER_PATH.FOLLOW_UP_NOTE,
-    modes: ['follow-up'],
-    element: <FollowUpNote />,
-    text: 'Follow-up Note',
-    iconKey: 'Progress Note',
-  },
-  [ROUTER_PATH.OTTEHR_AI]: {
-    path: ROUTER_PATH.OTTEHR_AI,
-    modes: ['intake', 'provider', 'readonly'],
-    element: <OttehrAi />,
-    text: 'Oystehr AI',
-    iconKey: 'Oystehr AI',
-  },
-  [ROUTER_PATH.PATIENT_INFO]: {
-    path: ROUTER_PATH.PATIENT_INFO,
-    modes: ['intake', 'readonly'],
-    element: <PatientInfo />,
-    text: 'Patient',
-    iconKey: 'Patient',
+  [ROUTER_PATH.CC_AND_INTAKE_NOTES]: {
+    path: ROUTER_PATH.CC_AND_INTAKE_NOTES,
+    modes: ['provider', 'intake', 'readonly'],
+    element: <CCAndIntakeNotes />,
+    text: 'CC & Intake Notes',
+    iconKey: 'CC & Intake Notes',
+    groupLabel: 'Intake',
   },
   [ROUTER_PATH.SCREENING]: {
     path: ROUTER_PATH.SCREENING,
     modes: ['provider', 'intake', 'readonly'],
     element: <Screening />,
-    text: 'Screening',
+    text: 'Screening Questions',
     iconKey: 'Screening Questions',
+    groupLabel: 'Intake',
   },
   [ROUTER_PATH.VITALS]: {
     path: ROUTER_PATH.VITALS,
@@ -123,6 +106,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <PatientVitals />,
     text: 'Vitals',
     iconKey: 'Vitals',
+    groupLabel: 'Intake',
   },
   [ROUTER_PATH.ALLERGIES]: {
     path: ROUTER_PATH.ALLERGIES,
@@ -130,6 +114,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <Allergies />,
     text: 'Allergies',
     iconKey: 'Allergies',
+    groupLabel: 'Intake',
   },
   [ROUTER_PATH.MEDICATIONS]: {
     path: ROUTER_PATH.MEDICATIONS,
@@ -137,6 +122,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <Medications />,
     text: 'Medications',
     iconKey: 'Medications',
+    groupLabel: 'Intake',
   },
   [ROUTER_PATH.MEDICAL_CONDITIONS]: {
     path: ROUTER_PATH.MEDICAL_CONDITIONS,
@@ -144,6 +130,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <MedicalConditions />,
     text: 'Medical Conditions',
     iconKey: 'Medical Conditions',
+    groupLabel: 'Intake',
   },
   [ROUTER_PATH.SURGICAL_HISTORY]: {
     path: ROUTER_PATH.SURGICAL_HISTORY,
@@ -151,6 +138,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <SurgicalHistory />,
     text: 'Surgical History',
     iconKey: 'Surgical History',
+    groupLabel: 'Intake',
   },
   [ROUTER_PATH.HOSPITALIZATION]: {
     path: ROUTER_PATH.HOSPITALIZATION,
@@ -158,6 +146,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <Hospitalization />,
     text: 'Hospitalization',
     iconKey: 'Hospitalization',
+    groupLabel: 'Intake',
   },
   [ROUTER_PATH.IN_HOUSE_MEDICATION]: {
     path: ROUTER_PATH.IN_HOUSE_MEDICATION,
@@ -167,6 +156,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <InHouseMedication />,
     text: 'In-house Medications',
     iconKey: 'Med. Administration',
+    groupLabel: 'Actions',
   },
   [ROUTER_PATH.IN_HOUSE_ORDER_NEW]: {
     path: ROUTER_PATH.IN_HOUSE_ORDER_NEW,
@@ -176,6 +166,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <InHouseOrderNew />,
     text: 'In-house Medications',
     iconKey: 'Med. Administration',
+    groupLabel: 'Actions',
   },
   [ROUTER_PATH.IN_HOUSE_ORDER_EDIT]: {
     path: ROUTER_PATH.IN_HOUSE_ORDER_EDIT,
@@ -185,6 +176,111 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <InHouseOrderEdit />,
     text: 'In-house Medications',
     iconKey: 'Med. Administration',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.IN_HOUSE_LAB_ORDERS]: {
+    path: ROUTER_PATH.IN_HOUSE_LAB_ORDERS,
+    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabsPage /> : null,
+    text: 'In-House Labs',
+    iconKey: 'In-House Labs',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.IN_HOUSE_LAB_ORDER_CREATE]: {
+    path: ROUTER_PATH.IN_HOUSE_LAB_ORDER_CREATE,
+    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabOrderCreatePage /> : null,
+    text: 'In-House Labs',
+    iconKey: 'In-House Labs',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.IN_HOUSE_LAB_ORDER_DETAILS]: {
+    path: ROUTER_PATH.IN_HOUSE_LAB_ORDER_DETAILS,
+    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabTestDetailsPage /> : null,
+    text: 'In-House Labs',
+    iconKey: 'In-House Labs',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.RADIOLOGY_ORDER]: {
+    path: ROUTER_PATH.RADIOLOGY_ORDER,
+    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <RadiologyOrdersListPage /> : null,
+    text: 'Radiology',
+    iconKey: 'Radiology',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.RADIOLOGY_ORDER_CREATE]: {
+    path: ROUTER_PATH.RADIOLOGY_ORDER_CREATE,
+    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <CreateRadiologyOrder /> : null,
+    text: 'Radiology',
+    iconKey: 'Radiology',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.RADIOLOGY_ORDER_DETAILS]: {
+    path: ROUTER_PATH.RADIOLOGY_ORDER_DETAILS,
+    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <RadiologyOrderDetailsPage /> : null,
+    text: 'Radiology',
+    iconKey: 'Radiology',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.PROCEDURES]: {
+    path: ROUTER_PATH.PROCEDURES,
+    modes: ['provider', 'follow-up'],
+    element: <Procedures />,
+    text: 'Procedures',
+    iconKey: 'Procedures',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.PROCEDURES_NEW]: {
+    path: ROUTER_PATH.PROCEDURES_NEW,
+    modes: ['provider', 'follow-up'],
+    isSkippedInNavigation: true,
+    element: <ProceduresNew />,
+    text: 'Document Procedure ',
+    iconKey: 'Procedures',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.PROCEDURES_EDIT]: {
+    path: ROUTER_PATH.PROCEDURES_EDIT,
+    modes: ['provider', 'follow-up'],
+    isSkippedInNavigation: true,
+    element: <ProceduresNew />,
+    text: 'Edit Procedure ',
+    iconKey: 'Procedures',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.NURSING_ORDERS]: {
+    path: ROUTER_PATH.NURSING_ORDERS,
+    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider', 'follow-up'] : [],
+    element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrdersPage /> : null,
+    text: 'Nursing Orders',
+    iconKey: 'Nursing Orders',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.NURSING_ORDER_CREATE]: {
+    path: ROUTER_PATH.NURSING_ORDER_CREATE,
+    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider', 'follow-up'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrderCreatePage /> : null,
+    text: 'Nursing Orders',
+    iconKey: 'Nursing Orders',
+    groupLabel: 'Actions',
+  },
+  [ROUTER_PATH.NURSING_ORDER_DETAILS]: {
+    path: ROUTER_PATH.NURSING_ORDER_DETAILS,
+    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider', 'follow-up'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrderDetailsPage /> : null,
+    text: 'Nursing Orders',
+    iconKey: 'Nursing Orders',
+    groupLabel: 'Actions',
   },
   [ROUTER_PATH.IMMUNIZATION]: {
     path: ROUTER_PATH.IMMUNIZATION,
@@ -194,6 +290,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <Immunization />,
     text: 'Immunization',
     iconKey: 'Immunization',
+    groupLabel: 'Actions',
   },
   [ROUTER_PATH.IMMUNIZATION_ORDER_CREATE]: {
     path: ROUTER_PATH.IMMUNIZATION_ORDER_CREATE,
@@ -202,6 +299,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <ImmunizationOrderCreateEdit />,
     text: 'Immunization',
     iconKey: 'Immunization',
+    groupLabel: 'Actions',
   },
   [ROUTER_PATH.IMMUNIZATION_ORDER_EDIT]: {
     path: ROUTER_PATH.IMMUNIZATION_ORDER_EDIT,
@@ -210,6 +308,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <ImmunizationOrderCreateEdit />,
     text: 'Immunization',
     iconKey: 'Immunization',
+    groupLabel: 'Actions',
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
@@ -217,6 +316,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <ExternalLabOrdersListPage /> : null,
     text: 'External Labs',
     iconKey: 'External Labs',
+    groupLabel: 'Actions',
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE,
@@ -225,6 +325,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <CreateExternalLabOrder /> : null,
     text: 'Order External Lab',
     iconKey: 'External Labs',
+    groupLabel: 'Actions',
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS,
@@ -233,6 +334,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <OrderDetailsPage /> : null,
     text: 'Order Details',
     iconKey: 'External Labs',
+    groupLabel: 'Actions',
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_REPORT_DETAILS]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_REPORT_DETAILS,
@@ -241,105 +343,15 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <OrderDetailsPage /> : null,
     text: 'Order Details',
     iconKey: 'External Labs',
+    groupLabel: 'Actions',
   },
-  [ROUTER_PATH.RADIOLOGY_ORDER]: {
-    path: ROUTER_PATH.RADIOLOGY_ORDER,
-    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
-    element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <RadiologyOrdersListPage /> : null,
-    text: 'Radiology',
-    iconKey: 'Radiology',
-  },
-  [ROUTER_PATH.RADIOLOGY_ORDER_CREATE]: {
-    path: ROUTER_PATH.RADIOLOGY_ORDER_CREATE,
-    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
-    isSkippedInNavigation: true,
-    element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <CreateRadiologyOrder /> : null,
-    text: 'Radiology',
-    iconKey: 'Radiology',
-  },
-  [ROUTER_PATH.RADIOLOGY_ORDER_DETAILS]: {
-    path: ROUTER_PATH.RADIOLOGY_ORDER_DETAILS,
-    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
-    isSkippedInNavigation: true,
-    element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <RadiologyOrderDetailsPage /> : null,
-    text: 'Radiology',
-    iconKey: 'Radiology',
-  },
-  [ROUTER_PATH.ERX]: {
-    path: ROUTER_PATH.ERX,
-    modes: ['provider', 'readonly', 'follow-up'],
-    element: <ERXPage />,
-    text: 'eRX',
-    iconKey: 'eRX',
-  },
-  [ROUTER_PATH.PROCEDURES]: {
-    path: ROUTER_PATH.PROCEDURES,
-    modes: ['provider', 'follow-up'],
-    element: <Procedures />,
-    text: 'Procedures',
-    iconKey: 'Procedures',
-  },
-  [ROUTER_PATH.PROCEDURES_NEW]: {
-    path: ROUTER_PATH.PROCEDURES_NEW,
-    modes: ['provider', 'follow-up'],
-    isSkippedInNavigation: true,
-    element: <ProceduresNew />,
-    text: 'Document Procedure ',
-    iconKey: 'Procedures',
-  },
-  [ROUTER_PATH.PROCEDURES_EDIT]: {
-    path: ROUTER_PATH.PROCEDURES_EDIT,
-    modes: ['provider', 'follow-up'],
-    isSkippedInNavigation: true,
-    element: <ProceduresNew />,
-    text: 'Edit Procedure ',
-    iconKey: 'Procedures',
-  },
-  [ROUTER_PATH.IN_HOUSE_LAB_ORDERS]: {
-    path: ROUTER_PATH.IN_HOUSE_LAB_ORDERS,
-    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
-    element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabsPage /> : null,
-    text: 'In-House Labs',
-    iconKey: 'In-House Labs',
-  },
-  [ROUTER_PATH.IN_HOUSE_LAB_ORDER_CREATE]: {
-    path: ROUTER_PATH.IN_HOUSE_LAB_ORDER_CREATE,
-    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
-    isSkippedInNavigation: true,
-    element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabOrderCreatePage /> : null,
-    text: 'In-House Labs',
-    iconKey: 'In-House Labs',
-  },
-  [ROUTER_PATH.IN_HOUSE_LAB_ORDER_DETAILS]: {
-    path: ROUTER_PATH.IN_HOUSE_LAB_ORDER_DETAILS,
-    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
-    isSkippedInNavigation: true,
-    element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabTestDetailsPage /> : null,
-    text: 'In-House Labs',
-    iconKey: 'In-House Labs',
-  },
-  [ROUTER_PATH.NURSING_ORDERS]: {
-    path: ROUTER_PATH.NURSING_ORDERS,
-    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider', 'follow-up'] : [],
-    element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrdersPage /> : null,
-    text: 'Nursing Orders',
-    iconKey: 'Nursing Orders',
-  },
-  [ROUTER_PATH.NURSING_ORDER_CREATE]: {
-    path: ROUTER_PATH.NURSING_ORDER_CREATE,
-    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider', 'follow-up'] : [],
-    isSkippedInNavigation: true,
-    element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrderCreatePage /> : null,
-    text: 'Nursing Orders',
-    iconKey: 'Nursing Orders',
-  },
-  [ROUTER_PATH.NURSING_ORDER_DETAILS]: {
-    path: ROUTER_PATH.NURSING_ORDER_DETAILS,
-    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider', 'follow-up'] : [],
-    isSkippedInNavigation: true,
-    element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrderDetailsPage /> : null,
-    text: 'Nursing Orders',
-    iconKey: 'Nursing Orders',
+  [ROUTER_PATH.HISTORY_AND_TEMPLATES]: {
+    path: ROUTER_PATH.HISTORY_AND_TEMPLATES,
+    modes: ['provider', 'readonly'],
+    element: <HistoryAndTemplates />,
+    text: 'HPI/MOI & Templates',
+    iconKey: 'History',
+    groupLabel: 'Provider',
   },
   [ROUTER_PATH.EXAMINATION]: {
     path: ROUTER_PATH.EXAMINATION,
@@ -347,6 +359,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <ExamTab />,
     text: 'Exam',
     iconKey: 'Stethoscope',
+    groupLabel: 'Provider',
   },
   [ROUTER_PATH.ASSESSMENT]: {
     path: ROUTER_PATH.ASSESSMENT,
@@ -354,6 +367,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <AssessmentCard />,
     text: 'Assessment',
     iconKey: 'Prescription',
+    groupLabel: 'Provider',
   },
   [ROUTER_PATH.PLAN]: {
     path: ROUTER_PATH.PLAN,
@@ -361,5 +375,38 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <Plan />,
     text: 'Plan',
     iconKey: 'Lab profile',
+    groupLabel: 'Provider',
+  },
+  [ROUTER_PATH.ERX]: {
+    path: ROUTER_PATH.ERX,
+    modes: ['provider', 'readonly', 'follow-up'],
+    element: <ERXPage />,
+    text: 'eRX',
+    iconKey: 'eRX',
+    groupLabel: 'Provider',
+  },
+  [ROUTER_PATH.PROGRESS_NOTE]: {
+    path: ROUTER_PATH.PROGRESS_NOTE,
+    modes: ['provider', 'readonly'],
+    element: <ProgressNote />,
+    text: 'Review & Sign',
+    iconKey: 'Review & Sign',
+    groupLabel: 'Provider',
+  },
+  [ROUTER_PATH.FOLLOW_UP_NOTE]: {
+    path: ROUTER_PATH.FOLLOW_UP_NOTE,
+    modes: ['follow-up'],
+    element: <FollowUpNote />,
+    text: 'Review & Sign',
+    iconKey: 'Review & Sign',
+    groupLabel: 'Provider',
+  },
+  [ROUTER_PATH.OTTEHR_AI]: {
+    path: ROUTER_PATH.OTTEHR_AI,
+    modes: ['intake', 'provider', 'readonly'],
+    element: <OttehrAi />,
+    text: 'Oystehr AI',
+    iconKey: 'Oystehr AI',
+    groupLabel: 'Additional Resources',
   },
 };
