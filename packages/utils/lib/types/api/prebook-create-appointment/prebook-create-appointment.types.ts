@@ -37,6 +37,7 @@ export interface CreateSlotParams {
   walkin?: boolean;
   postTelemedLabOnly?: boolean;
   originalBookingUrl?: string;
+  serviceCategoryCode?: string;
 }
 
 export interface GetSlotDetailsParams {

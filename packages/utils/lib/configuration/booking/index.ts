@@ -1,4 +1,4 @@
-import { Questionnaire } from 'fhir/r4b';
+import { Coding, Questionnaire } from 'fhir/r4b';
 import _ from 'lodash';
 import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
@@ -59,12 +59,41 @@ const CANCEL_REASON_OPTIONS = Object.freeze([
   'Insurance issue',
 ]);
 
+interface StrongCoding extends Coding {
+  code: string;
+  display: string;
+  system: string;
+}
+
+const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
+  { display: 'Urgent Care', code: 'urgent_care', system: 'https://fhir.ottehr.com/CodeSystem/service-category' },
+  {
+    display: 'Occupational Medicine',
+    code: 'occupational_medicine',
+    system: 'https://fhir.ottehr.com/CodeSystem/service-category',
+  },
+  { display: 'Workmans Comp', code: 'workmans_comp', system: 'https://fhir.ottehr.com/CodeSystem/service-category' },
+];
+
 const BOOKING_DEFAULTS = Object.freeze({
   reasonForVisitOptions: REASON_FOR_VISIT_OPTIONS,
   cancelReasonOptions: CANCEL_REASON_OPTIONS,
+  serviceCategoriesEnabled: {
+    serviceModes: ['in-person', 'virtual'],
+    visitType: ['prebook'],
+  },
+  serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
   intakeQuestionnaires,
 });
 
 const mergedBookingConfig = _.merge({ ...BOOKING_DEFAULTS }, { ...BOOKING_OVERRIDES });
 
 export const BOOKING_CONFIG = Object.freeze(mergedBookingConfig);
+
+export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
+  return BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes.includes(params.serviceMode) &&
+    BOOKING_CONFIG.serviceCategoriesEnabled.visitType.includes(params.visitType) &&
+    BOOKING_CONFIG.serviceCategories.length > 1
+    ? true
+    : false;
+};

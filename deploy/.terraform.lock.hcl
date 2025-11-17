@@ -5,6 +5,7 @@ provider "registry.terraform.io/arslanbekov/sendgrid" {
   version     = "2.0.8"
   constraints = "~> 2.0"
   hashes = [
+    "h1:Ua3bDNra1wrzOOoNiZjcolec6oI0erTEtON8kl7X0ms=",
     "h1:xfumVm2iCyL6+itOLFwNbjax8/wTqoNejy1Qneq+H68=",
     "zh:1397cf92c72d4b3fc384370cfce106ead8a27e511fd3b1365a9a2b6f0fb09e94",
     "zh:223eaf297530bf3ad942859ddea3b7a885660ab87969a5ec40c718051c531fc5",
@@ -23,9 +24,9 @@ provider "registry.terraform.io/arslanbekov/sendgrid" {
 }
 
 provider "registry.terraform.io/hashicorp/aws" {
-  version     = "6.13.0"
-  constraints = "6.13.0"
+  version = "6.13.0"
   hashes = [
+    "h1:H7MGmPOrNU4EhBQRaGnmabk3oCcZrStwirdOwceuu+Q=",
     "h1:ttrrrJkE9bA6LLV3ULxPbYSUgnKjdOOz/p5r5+OPFl4=",
     "zh:033573bcb8f570658f45a449424e30f3a3279621629cb8160db9be4682535587",
     "zh:0f3498c75b128885bf2e02704b0572f46818186c6582f655b49da156f6034292",
@@ -48,6 +49,7 @@ provider "registry.terraform.io/hashicorp/aws" {
 provider "registry.terraform.io/hashicorp/google" {
   version = "7.10.0"
   hashes = [
+    "h1:/em/2vVaWq8XO9AlIm7X+QLzcMe5yBTBpvW3bWoLqbA=",
     "h1:itPAvjmGmV6R8KpBsDGnONKfi9AXPt0LCFThnDF/3+g=",
     "zh:40b90c1e6cc95cccfc935d4af4478590410bf2ce24d2cd7f6b583e7791b9b5b3",
     "zh:56f25840e253ea527ab196ffb5cc3f896ef129c6d0dbe795eb9dd305d84354cd",
@@ -68,6 +70,7 @@ provider "registry.terraform.io/hashicorp/local" {
   version = "2.5.3"
   hashes = [
     "h1:MCzg+hs1/ZQ32u56VzJMWP9ONRQPAAqAjuHuzbyshvI=",
+    "h1:Zy6RilIeIWBXksQWXjCLbqr9Om9R8cWX+axQlLebppM=",
     "zh:284d4b5b572eacd456e605e94372f740f6de27b71b4e1fd49b63745d8ecd4927",
     "zh:40d9dfc9c549e406b5aab73c023aa485633c1b6b730c933d7bcc2fa67fd1ae6e",
     "zh:6243509bb208656eb9dc17d3c525c89acdd27f08def427a0dce22d5db90a4c8b",
@@ -86,6 +89,7 @@ provider "registry.terraform.io/hashicorp/local" {
 provider "registry.terraform.io/hashicorp/null" {
   version = "3.2.4"
   hashes = [
+    "h1:127ts0CG8hFk1bHIfrBsKxcnt9bAYQCq3udWM+AACH8=",
     "h1:L5V05xwp/Gto1leRryuesxjMfgZwjb7oool4WS1UEFQ=",
     "zh:59f6b52ab4ff35739647f9509ee6d93d7c032985d9f8c6237d1f8a59471bbbe2",
     "zh:78d5eefdd9e494defcb3c68d282b8f96630502cac21d1ea161f53cfe9bb483b3",
@@ -107,6 +111,7 @@ provider "registry.terraform.io/masslight/oystehr" {
   constraints = "0.0.17"
   hashes = [
     "h1:0KmDJw9bkG1YzArZeVkyC6yz6wyCFw61hgg+uTrERcw=",
+    "h1:HlKu04HKpCLPwtP2fI8L6xvjMP6n2Nd5QflT1VoVbgY=",
     "zh:0dde99e7b343fa01f8eefc378171fb8621bedb20f59157d6cc8e3d46c738105f",
     "zh:1f094404de4b9c46720fcaaba4d9549b58f0ad659f21c84da57a9d338d258215",
     "zh:2e8fa7749c70269c2cf7a5be92894d4e0287f9354a231a76cfd0bef1b4bc0564",

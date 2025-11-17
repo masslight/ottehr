@@ -26,6 +26,7 @@ import PatientInformation from './pages/PatientInformation';
 import PrebookVisit from './pages/PrebookVisit';
 import Review from './pages/Review';
 import ReviewPaperwork from './pages/ReviewPaperwork';
+import SelectServiceCategoryPage from './pages/SelectServiceCategory';
 import StartVirtualVisit from './pages/StartVirtualVisit';
 import ThankYou from './pages/ThankYou';
 import VisitDetails from './pages/VisitDetails';
@@ -213,6 +214,10 @@ export const intakeFlowPageRoute = {
   PrebookVisitDynamic: {
     path: `/prebook/:${BOOKING_SERVICE_MODE_PARAM}`,
     getPage: () => <PrebookVisit />,
+  },
+  SelectServiceCategory: {
+    path: `/prebook/:${BOOKING_SERVICE_MODE_PARAM}/select-service-category`,
+    getPage: () => <SelectServiceCategoryPage />,
   },
   StartVirtualVisit: {
     path: '/start-virtual',
