@@ -247,7 +247,6 @@ export const useGetInsurancePlans = (
 
     const searchParams = [
       { name: 'type', value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}` },
-      { name: 'active:not', value: 'false' },
       { name: '_count', value: '1000' },
     ];
 
