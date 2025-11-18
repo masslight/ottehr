@@ -16,6 +16,7 @@ import {
   TASK_CATEGORY_IDENTIFIER,
   TASK_INPUT_SYSTEM,
   TASK_LOCATION_SYSTEM,
+  TaskAlertCode,
 } from 'utils';
 
 export const GET_TASKS_KEY = 'get-tasks';
@@ -41,7 +42,7 @@ export interface Task {
     name: string;
     date: string;
   };
-  alert?: string;
+  alert?: TaskAlertCode;
   completable: boolean;
 }
 
@@ -333,7 +334,7 @@ function fhirTaskToTask(task: FhirTask): Task {
       diagnosticReportId &&
       (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
     ) {
-      if (labTypeString === LabType.unsolicited) {
+      if (labTypeString === LabType.unsolicited && !serviceRequestId) {
         const receivedDate = getInputString(LAB_ORDER_TASK.input.receivedDate, task);
         title = `Review unsolicited test results for “${fullTestName}” for ${patientName}`;
         subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
@@ -443,13 +444,21 @@ function fhirTaskToTask(task: FhirTask): Task {
           date: getExtension(task.owner, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime ?? '',
         }
       : undefined,
-    alert: getInputString('alert', task) ?? '',
+    alert: getAlertCode(task),
     completable: category.startsWith('manual'),
   };
 }
 
 function getInputString(code: string, task: FhirTask): string | undefined {
   return getInput(code, task)?.valueString;
+}
+
+function getAlertCode(task: FhirTask): TaskAlertCode | undefined {
+  const code = getInput('alert', task)?.valueString;
+  if (!code) return;
+  const isAlertInputCode = Object.values(TaskAlertCode).includes(code as any);
+  if (isAlertInputCode) return code as TaskAlertCode;
+  return;
 }
 
 function getInputReference(code: string, task: FhirTask): Reference | undefined {

@@ -1,11 +1,11 @@
 {
   "name": "ehr-ui",
-  "version": "1.21.38",
+  "version": "1.22.3",
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=9.0.0"
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
   },
   "browserslist": {
     "production": [

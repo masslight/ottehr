@@ -19,11 +19,13 @@ export const LAB_ORDER_TASK = {
   category: 'external-lab',
   system: 'external-lab-task',
   code: {
+    // cSpell:disable-next MURT
     matchUnsolicitedResult: 'MURT',
     preSubmission: 'PST',
     reviewPreliminaryResult: 'RPRT',
     reviewFinalResult: 'RFRT',
     reviewCorrectedResult: 'RCRT',
+    // cSpell:disable-next RCANRT
     reviewCancelledResult: 'RCANRT', // cancelled by the lab
   },
   input: {
@@ -35,6 +37,7 @@ export const LAB_ORDER_TASK = {
     appointmentId: 'appointment-id',
     receivedDate: 'received-date',
     drTag: 'dr-tag',
+    alert: 'alert',
   },
 } as const;
 export type LabOrderTaskCode = (typeof LAB_ORDER_TASK.code)[keyof typeof LAB_ORDER_TASK.code];
@@ -293,10 +296,17 @@ export const OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM =
   'https://identifiers.fhir.oystehr.com/lab-result-additional-placer-id';
 
 // Also for LabCorp
-export const LABCORP_SNOWMED_CODE_SYSTEM =
-  'https://terminology.fhir.oystehr.com/CodeSystem/labcorp-snowmed-value-to-code';
+export const LABCORP_SNOMED_CODE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/labcorp-snomed-value-to-code';
 
 export const SR_REVOKED_REASON_EXT = {
   url: 'https://extensions.fhir.oystehr.com/reason-sr-revoked',
   valueCode: 'rejected-abn',
 };
+
+export const LAB_CLIENT_BILL_COVERAGE_TYPE_CODING = {
+  system: 'https://terminology.fhir.oystehr.com/CodeSystem/labs-financial-class',
+  code: 'client-bill',
+};
+
+export const LAB_OBS_VALUE_WITH_PRECISION_EXT = 'https://extensions.fhir.oystehr.com/obx-5-quantity-with-precision';

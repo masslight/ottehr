@@ -18,8 +18,8 @@ import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
 import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
 
-const StyledSelect = styled(Select)<{ hasdropdown?: string; arrowcolor: string }>(
-  ({ hasdropdown: hasDropdown, arrowcolor: arrowColor }) => ({
+const StyledSelect = styled(Select)<{ hasDropdown?: string; arrowColor: string }>(
+  ({ hasDropdown: hasDropdown, arrowColor: arrowColor }) => ({
     height: '32px',
     borderRadius: '4px',
     paddingLeft: '12px',
@@ -124,7 +124,6 @@ export const ChangeStatusDropdown = ({
       await handleChangeInPersonVisitStatus(
         {
           encounterId,
-          user,
           updatedStatus: event.target.value as VisitStatusWithoutUnknown,
         },
         oystehrZambda
@@ -154,8 +153,8 @@ export const ChangeStatusDropdown = ({
             data-testid={dataTestIds.inPersonHeader.appointmentStatus}
             id="appointment-status"
             value={status}
-            {...(hasDropdown ? { hasdropdown: 'true' } : {})}
-            arrowcolor={IN_PERSON_CHIP_STATUS_MAP[status].color.primary}
+            {...(hasDropdown ? { hasDropdown: 'true' } : {})}
+            arrowColor={IN_PERSON_CHIP_STATUS_MAP[status].color.primary}
             onChange={updateInPersonVisitStatus}
             sx={{
               border: `1px solid ${IN_PERSON_CHIP_STATUS_MAP[status].color.primary}`,

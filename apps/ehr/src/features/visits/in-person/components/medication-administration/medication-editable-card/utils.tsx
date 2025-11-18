@@ -2,6 +2,7 @@ import { Box, Typography } from '@mui/material';
 import Oystehr, { ErxCheckPrecheckInteractionsResponse } from '@oystehr/sdk';
 import { MedicationRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { MedicationWithTypeDTO } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import {
   AllergyInteraction,
@@ -151,14 +152,14 @@ export const getConfirmSaveModalConfigs = ({
 }): Partial<Record<MedicationOrderStatusesType, ConfirmSaveModalConfig>> => {
   const confirmationModalContentJSX = (
     <Box display="flex" flexDirection="column" gap={1}>
-      <Typography>
+      <Typography data-testid={dataTestIds.inHouseMedicationAdministrationConfirmationDialog.patient}>
         <strong>Patient:</strong> {patientName}
       </Typography>
-      <Typography>
+      <Typography data-testid={dataTestIds.inHouseMedicationAdministrationConfirmationDialog.medication}>
         <strong>Medication:</strong> {medicationName} / {updateRequestInputRef.current?.orderData?.dose}{' '}
         {updateRequestInputRef.current?.orderData?.units} / {routeName}
       </Typography>
-      <Typography>
+      <Typography data-testid={dataTestIds.inHouseMedicationAdministrationConfirmationDialog.message}>
         Please confirm that you want to mark this medication order as{' '}
         {<strong>{medicationStatusDisplayLabelMap[newStatus] || newStatus}</strong>}
         {newStatus !== 'administered' ? ' and select the reason.' : '.'}
@@ -167,7 +168,11 @@ export const getConfirmSaveModalConfigs = ({
   );
 
   const ReasonSelectField = (): React.ReactElement => (
-    <ReasonSelect updateRequestInputRef={updateRequestInputRef} setIsReasonSelected={setIsReasonSelected} />
+    <ReasonSelect
+      dataTestId={dataTestIds.inHouseMedicationAdministrationConfirmationDialog.reasonField}
+      updateRequestInputRef={updateRequestInputRef}
+      setIsReasonSelected={setIsReasonSelected}
+    />
   );
 
   return {
@@ -308,10 +313,10 @@ export const medicationInteractionsFromErxResponse = (
 
 export const findPrescriptionsForInteractions = async (
   patientId: string | undefined,
-  interationsResponse: ErxCheckPrecheckInteractionsResponse,
+  interactionsResponse: ErxCheckPrecheckInteractionsResponse,
   oystehr: Oystehr
 ): Promise<MedicationRequest[]> => {
-  const interactingDrugIds = interationsResponse.medications.flatMap(
+  const interactingDrugIds = interactionsResponse.medications.flatMap(
     (medication) => medication.medications?.map((nestedMedication) => nestedMedication.id.toString()) ?? []
   );
   if (interactingDrugIds.length === 0) {

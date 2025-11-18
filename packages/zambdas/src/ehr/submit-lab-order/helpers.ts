@@ -16,21 +16,25 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  CoverageAndOrg,
+  CoverageOrgRank,
   EXTERNAL_LAB_ERROR,
   getOrderNumber,
   getPresignedURL,
   getTimezone,
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
+  LabPaymentMethod,
   ORDER_ITEM_UNKNOWN,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  paymentMethodFromCoverage,
+  PaymentResources,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   Secrets,
 } from 'utils';
 import { createExternalLabsOrderFormPDF, getOrderFormDataConfig } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference, makeRelatedForLabsPDFDocRef } from '../../shared/pdf/labs-results-form-pdf';
 import { PdfInfo } from '../../shared/pdf/pdf-utils';
-import { CoverageAndOrgForOrderForm } from '../../shared/pdf/types';
 import {
   AOEDisplayForOrderForm,
   getExternalLabOrderResourcesViaServiceRequest,
@@ -39,8 +43,6 @@ import {
 } from '../shared/labs';
 
 export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
-
-type CoverageAndOrg = { coverage: Coverage; insuranceOrganization: Organization };
 
 type LabOrderResourcesExtended = LabOrderResources & {
   accountNumber: string;
@@ -69,12 +71,13 @@ export type resourcesForOrderForm = {
   testDetails: testDataForOrderForm[];
   accountNumber: string;
   labOrganization: Organization;
+  clientOrganization: Organization;
   provider: Practitioner;
   patient: Patient;
   timezone: string | undefined;
   encounter: Encounter;
   location?: Location;
-  coveragesAndOrgs?: CoverageAndOrgForOrderForm[];
+  paymentResources: PaymentResources;
   account: Account;
   labGeneratedEReq?: DocumentReference; // will be generated after submit to oystehr labs IF applicable (right now only for labcorp & quest)
   abnDocRef?: DocumentReference; // will be generated after submit to oystehr labs IF applicable (right now only for labcorp & quest)
@@ -84,7 +87,7 @@ export type OrderResourcesByOrderNumber = {
   [orderNumber: string]: resourcesForOrderForm;
 };
 
-type InsuranceResult = {
+type CoverageResult = {
   serviceRequestID: string;
   coveragesAndOrgs: CoverageAndOrg[] | undefined;
 };
@@ -93,7 +96,8 @@ export async function getBundledOrderResources(
   oystehr: Oystehr,
   m2mToken: string, // needed to get questionnaire via the qr.questionnaire url
   serviceRequestIDs: string[],
-  isManualOrder: boolean
+  isManualOrder: boolean,
+  clientOrgId: string
 ): Promise<OrderResourcesByOrderNumber> {
   const promises = serviceRequestIDs.map((serviceRequestID) =>
     getExternalLabOrderResourcesViaServiceRequest(oystehr, serviceRequestID).then((result) => ({
@@ -114,7 +118,7 @@ export async function getBundledOrderResources(
   } = {};
 
   const locationPromises: Array<Promise<{ serviceRequestID: string; location?: Location }>> = [];
-  const insurancePromises: Array<Promise<InsuranceResult>> = [];
+  const coveragePromises: Array<Promise<CoverageResult>> = [];
   const aoeAnswerPromises: Array<
     Promise<{ serviceRequestID: string; questionsAndAnswers?: AOEDisplayForOrderForm[] }>
   > = [];
@@ -136,8 +140,8 @@ export async function getBundledOrderResources(
         return ins.reference && ins.reference?.startsWith('Coverage/') ? ins.reference : undefined;
       })
       .filter((ref) => ref !== undefined);
-    const insurancePromise = makeInsurancePromise(oystehr, serviceRequestID, patientIDToValidate, insuranceRefs);
-    insurancePromises.push(insurancePromise);
+    const coveragePromise = makeCoveragePromise(oystehr, serviceRequestID, patientIDToValidate, insuranceRefs);
+    coveragePromises.push(coveragePromise);
 
     const questionnaireResponse = result.questionnaireResponse;
     const aoeAnswerPromise = makeQuestionnairePromise(serviceRequestID, questionnaireResponse, m2mToken);
@@ -164,10 +168,19 @@ export async function getBundledOrderResources(
     };
   });
 
-  const [locationResults, insuranceResults, aoeAnswerResults] = await Promise.all([
+  const clientOrgPromise = (() => {
+    console.log('searching for client organization with id:', clientOrgId);
+    return oystehr.fhir.get<Organization>({
+      resourceType: 'Organization',
+      id: clientOrgId,
+    });
+  })();
+
+  const [locationResults, coverageResults, aoeAnswerResults, clientOrganization] = await Promise.all([
     Promise.all(locationPromises),
-    Promise.all(insurancePromises),
+    Promise.all(coveragePromises),
     Promise.all(aoeAnswerPromises),
+    clientOrgPromise,
   ]);
 
   // Oystehr requires that all the locations be the same. We don't enforce that on the FE yet, so throwing a check here
@@ -213,7 +226,7 @@ export async function getBundledOrderResources(
     resourcesByServiceRequest[serviceRequestID] = resourcesWithLocationAndAccountNumber;
   });
 
-  insuranceResults.forEach(({ serviceRequestID, coveragesAndOrgs }) => {
+  coverageResults.forEach(({ serviceRequestID, coveragesAndOrgs }) => {
     const labOrderResourcesForSubmit = resourcesByServiceRequest[serviceRequestID];
     resourcesByServiceRequest[serviceRequestID] = {
       ...labOrderResourcesForSubmit,
@@ -252,8 +265,11 @@ export async function getBundledOrderResources(
       if (bundledOrderResources[orderNumber]) {
         bundledOrderResources[orderNumber].testDetails.push(srTestDetail);
       } else {
-        const coveragesAndOrgs = makeCoveragesAndOrgsForOrderForm(allResources.coveragesAndOrgs, allResources.account);
-
+        const paymentResources = makePaymentResourceConfig(
+          allResources.serviceRequest.id,
+          allResources.coveragesAndOrgs,
+          allResources.account
+        );
         // oystehr labs will validate that all these resources match for each ServiceRequest submitted within
         // a bundled order so there is no need for us to do that validation here, we will just take the resources from the first ServiceRequest for that bundle
         bundledOrderResources[orderNumber] = {
@@ -263,11 +279,12 @@ export async function getBundledOrderResources(
           accountNumber: allResources.accountNumber,
           encounter: allResources.encounter,
           labOrganization: allResources.labOrganization,
+          clientOrganization,
           provider: allResources.practitioner,
           patient: allResources.patient,
           timezone: allResources.timezone,
           location: allResources.location,
-          coveragesAndOrgs,
+          paymentResources,
           account: allResources.account,
         };
       }
@@ -294,12 +311,12 @@ function makeLocationPromise(
     .then((location) => ({ serviceRequestID, location }));
 }
 
-function makeInsurancePromise(
+function makeCoveragePromise(
   oystehr: Oystehr,
   serviceRequestID: string,
   patientIDToValidate: string | undefined,
   insuranceRefs?: string[]
-): Promise<InsuranceResult> {
+): Promise<CoverageResult> {
   // If no insuranceRef, return resolved promise with undefined for coveragesAndOrgs
   if (!insuranceRefs || !insuranceRefs.length) {
     return Promise.resolve({ serviceRequestID, coveragesAndOrgs: undefined });
@@ -344,7 +361,7 @@ function makeInsurancePromise(
         if (!org) throw EXTERNAL_LAB_ERROR(`No payor found for Coverage/${coverage.id}`);
         return {
           coverage,
-          insuranceOrganization: org,
+          payorOrg: org,
         };
       });
 
@@ -565,48 +582,83 @@ export async function makeOrderFormsAndDocRefs(
   return presignedOrderFormURLs;
 }
 
-function makeCoveragesAndOrgsForOrderForm(
+function makePaymentResourceConfig(
+  serviceRequestID: string | undefined,
   coveragesAndOrgs: CoverageAndOrg[] | undefined,
   account: Account
-): CoverageAndOrgForOrderForm[] | undefined {
-  console.log('in makeCoveragesAndOrgsForOrderForm');
+): PaymentResources {
+  console.log('in makePaymentResourceConfig');
   console.log(`These are the coveragesAndOrgs: ${JSON.stringify(coveragesAndOrgs)}`);
-  if (!coveragesAndOrgs || !coveragesAndOrgs.length) return undefined;
+  console.log('For ServiceRequest', serviceRequestID);
+  if (!coveragesAndOrgs || !coveragesAndOrgs.length) return { type: LabPaymentMethod.SelfPay };
 
-  const sortedCoverages = sortCoveragesByPriority(
-    account,
-    coveragesAndOrgs.map((cAndO) => cAndO.coverage)
+  const clientBillCoverageAndOrg = coveragesAndOrgs.find(
+    (data) => paymentMethodFromCoverage(data.coverage) === LabPaymentMethod.ClientBill
+  );
+  const selfPayCoverage = coveragesAndOrgs.find(
+    (data) => paymentMethodFromCoverage(data.coverage) === LabPaymentMethod.SelfPay
   );
 
-  // this should only happen if there are no Coverages passed, which we know there would be
-  if (!sortedCoverages) return undefined;
-  console.log(`These are the sorted sortedCoverages ${JSON.stringify(sortedCoverages.map((e) => `Coverage/${e.id}`))}`);
+  if (clientBillCoverageAndOrg && coveragesAndOrgs.length === 1) {
+    return { type: LabPaymentMethod.ClientBill, coverage: clientBillCoverageAndOrg.coverage };
+  } else if (
+    coveragesAndOrgs.every((data) => paymentMethodFromCoverage(data.coverage) === LabPaymentMethod.Insurance)
+  ) {
+    const sortedCoverages = sortCoveragesByPriority(
+      account,
+      coveragesAndOrgs.map((cAndO) => cAndO.coverage)
+    );
 
-  const coverageRefToResourcesMap = new Map<string, CoverageAndOrg>(
-    coveragesAndOrgs.map((e) => [`Coverage/${e.coverage.id}`, e])
-  );
-  const coveragesAndOrgsForOrderForm = sortedCoverages.map((coverage, idx) => {
-    const coverageAndOrg = coverageRefToResourcesMap.get(`Coverage/${coverage.id}`);
-    if (!coverageAndOrg)
-      throw EXTERNAL_LAB_ERROR(`Could not map Coverage back to its coverageAndOrg: Coverage/${coverage.id}`);
+    // this should only happen if there are no Coverages passed, which we know there would be
+    if (!sortedCoverages) throw new Error('Error sorting coverages in makePaymentResourceConfig, none returned');
+    console.log(
+      `These are the sorted sortedCoverages ${JSON.stringify(sortedCoverages.map((e) => `Coverage/${e.id}`))}`
+    );
 
-    return {
-      ...coverageAndOrg,
-      coverageRank: idx + 1,
-    };
-  });
+    const coverageRefToResourcesMap = new Map<string, CoverageAndOrg>(
+      coveragesAndOrgs.map((e) => [`Coverage/${e.coverage.id}`, e])
+    );
+    const coveragesAndOrgsWithRank: CoverageOrgRank[] = sortedCoverages.map((coverage, idx) => {
+      const coverageAndOrg = coverageRefToResourcesMap.get(`Coverage/${coverage.id}`);
+      if (!coverageAndOrg)
+        throw EXTERNAL_LAB_ERROR(`Could not map Coverage back to its coverageAndOrg: Coverage/${coverage.id}`);
 
-  console.log(
-    `These are the coveragesAndOrgsForOrderForm: ${JSON.stringify(
-      coveragesAndOrgsForOrderForm.map((e) => {
-        return {
-          coverage: `Coverage/${e.coverage}`,
-          insuranceOrganization: `Organization/${e.insuranceOrganization}`,
-          coverageRank: e.coverageRank,
-        };
-      })
-    )}`
-  );
+      return {
+        coverage: coverageAndOrg.coverage,
+        payorOrg: coverageAndOrg.payorOrg,
+        coverageRank: idx + 1,
+      };
+    });
 
-  return coveragesAndOrgsForOrderForm;
+    console.log(
+      `These are the coveragesAndOrgsWithRank: ${JSON.stringify(
+        coveragesAndOrgsWithRank.map((e) => {
+          return {
+            coverage: `Coverage/${e.coverage}`,
+            insuranceOrganization: `Organization/${e.payorOrg}`,
+            coverageRank: e.coverageRank,
+          };
+        })
+      )}`
+    );
+
+    return { type: LabPaymentMethod.Insurance, coverageAndOrgs: coveragesAndOrgsWithRank };
+  } else if (selfPayCoverage && coveragesAndOrgs.length === 1) {
+    return { type: LabPaymentMethod.SelfPay, coverage: selfPayCoverage.coverage };
+  } else {
+    const coverageIdWithPaymentMethod = coveragesAndOrgs.map((data) => ({
+      coverageId: data.coverage.id,
+      paymentMethod: paymentMethodFromCoverage(data.coverage),
+    }));
+    console.log(
+      `coverages parsed have an unexpected combination of payment methods: ${JSON.stringify(
+        coverageIdWithPaymentMethod
+      )}`
+    );
+    // right now labs can only have one type of payment method: self pay or insurance or client bill
+    // possibly in the future we could allow a combo of self pay and insurance (maybe idk) and then this error is not needed
+    throw new Error(
+      `Could not determine the payment method based on coverages linked to this service request ${serviceRequestID}`
+    );
+  }
 }

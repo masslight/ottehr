@@ -2,12 +2,12 @@
   "name": "utils",
   "private": true,
   "type": "module",
-  "version": "1.21.38",
+  "version": "1.22.3",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=9.0.0"
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
   },
   "scripts": {
     "start": "vite",

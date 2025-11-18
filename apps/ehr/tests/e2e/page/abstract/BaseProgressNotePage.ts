@@ -118,5 +118,34 @@ export abstract class BaseProgressNotePage {
       surgery
     );
   }
+  async verifyInHouseMedication(medication: {
+    medication: string;
+    dose: string;
+    units: string;
+    route: string;
+    givenBy?: string;
+    instructions: string;
+    status: string;
+  }): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.inHouseMedicationItem).filter({
+        hasText:
+          medication.medication +
+          ', ' +
+          medication.dose +
+          ' ' +
+          medication.units +
+          ', ' +
+          medication.route +
+          ', ' +
+          (medication.givenBy ? 'given by ' + medication.givenBy + ', ' : '') +
+          'instructions: ' +
+          medication.instructions +
+          ', ' +
+          medication.status,
+      })
+    ).toBeVisible();
+  }
+
   abstract expectLoaded(): Promise<void>;
 }

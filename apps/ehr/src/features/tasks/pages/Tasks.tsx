@@ -1,9 +1,8 @@
-import { otherColors } from '@ehrTheme/colors';
+import { WarningAmberOutlined } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PersonAddIcon from '@mui/icons-material/PersonAddOutlined';
-import PriorityHighOutlinedIcon from '@mui/icons-material/PriorityHighOutlined';
 import ShortcutIcon from '@mui/icons-material/Shortcut';
 import {
   Box,
@@ -46,6 +45,7 @@ import {
 } from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
+import { TaskAlertCode, TaskAlertDisplay } from 'utils';
 import { TASK_CATEGORY_LABEL } from '../common';
 import { AssignTaskDialog } from '../components/AssignTaskDialog';
 import { CategoryChip } from '../components/CategoryChip';
@@ -216,6 +216,15 @@ export const Tasks: React.FC = () => {
     setShowCreateTaskDialog(true);
   };
 
+  const renderAlertIcon = (alertCode: TaskAlertCode): ReactElement | null => {
+    const display = TaskAlertDisplay[alertCode] ?? alertCode;
+    return (
+      <GenericToolTip title={display} placement="top">
+        <WarningAmberOutlined style={{ marginLeft: '5px' }} color="warning" />
+      </GenericToolTip>
+    );
+  };
+
   return (
     <PageContainer>
       <Stack spacing={2}>
@@ -306,21 +315,7 @@ export const Tasks: React.FC = () => {
                           >
                             {task.title}
                           </Typography>
-                          {task.alert ? (
-                            <GenericToolTip title={task.alert} placement="top">
-                              <PriorityHighOutlinedIcon
-                                style={{
-                                  width: '15px',
-                                  height: '15px',
-                                  color: '#FFF',
-                                  background: otherColors.priorityHighIcon,
-                                  borderRadius: '4px',
-                                  padding: '1px 2px',
-                                  marginLeft: '5px',
-                                }}
-                              />
-                            </GenericToolTip>
-                          ) : null}
+                          {task.alert ? renderAlertIcon(task.alert) : null}
                         </Box>
                         {task.details ? <Typography variant="body2">{task.details}</Typography> : null}
                         <Typography variant="body2" style={{ color: '#00000099' }}>
@@ -445,14 +440,12 @@ export const Tasks: React.FC = () => {
           </Popover>
         ) : null}
         {taskToAssign ? <AssignTaskDialog task={taskToAssign} handleClose={() => setTaskToAssign(null)} /> : null}
-        {showCreateTaskDialog ? (
-          <CreateTaskDialog
-            open={true}
-            handleClose={(): void => {
-              setShowCreateTaskDialog(false);
-            }}
-          />
-        ) : null}
+        <CreateTaskDialog
+          open={showCreateTaskDialog}
+          handleClose={(): void => {
+            setShowCreateTaskDialog(false);
+          }}
+        />
       </Stack>
     </PageContainer>
   );

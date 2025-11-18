@@ -91,7 +91,7 @@ const main = async (): Promise<void> => {
   };
   const labTransmissionAccountId: Identifier = {
     system: 'https://identifiers.fhir.oystehr.com/lab-transmission-account-number',
-    value: 'teset',
+    value: 'test',
     assigner: {
       reference: `Organization/${autoLabOrgId}`,
     },

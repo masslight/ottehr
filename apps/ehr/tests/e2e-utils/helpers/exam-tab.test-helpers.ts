@@ -501,12 +501,12 @@ export async function testFormComponent(page: Page, examTable: Locator): Promise
     }
   }
 
-  // Fill textboxes if present
-  const textboxes = formComponent.getByRole('textbox');
-  const textboxCount = await textboxes.count();
+  // Fill text boxes if present
+  const textBoxes = formComponent.getByRole('textbox');
+  const textboxCount = await textBoxes.count();
   if (textboxCount > 0) {
     for (let i = 0; i < textboxCount; i++) {
-      const textbox = textboxes.nth(i);
+      const textbox = textBoxes.nth(i);
       await textbox.fill(`Test text ${i + 1}`);
       await waitForFieldSave(textbox); // Wait for each field to save
     }

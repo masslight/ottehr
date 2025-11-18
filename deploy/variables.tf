@@ -33,14 +33,28 @@ variable "environment" {
 }
 
 variable "ehr_domain" {
-  description = "EHR domain"
+  description = "EHR domain, for example, dev-ehr.ottehr.com"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "ehr_cert_domain" {
+  description = "EHR Certificate domain, for example, *.ottehr.com"
   type        = string
   nullable    = true
   default     = null
 }
 
 variable "patient_portal_domain" {
-  description = "Patient portal domain"
+  description = "Patient portal domain, for example, dev-patient.ottehr.com"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "patient_portal_cert_domain" {
+  description = "Patient portal Certificate domain, for example, *.ottehr.com"
   type        = string
   nullable    = true
   default     = null

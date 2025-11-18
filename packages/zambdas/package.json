@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.21.38",
+  "version": "1.22.3",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -69,8 +69,8 @@
     "reset-lab-order": "tsx src/scripts/labs/reset-lab-order.ts"
   },
   "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=9.0.0"
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.272.0",

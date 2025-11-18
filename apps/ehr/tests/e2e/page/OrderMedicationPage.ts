@@ -54,3 +54,8 @@ export async function expectEditOrderPage(page: Page): Promise<OrderMedicationPa
   await page.waitForURL(new RegExp('/in-person/.*/in-house-medication/order/edit/.*'));
   return new OrderMedicationPage(page);
 }
+
+export async function openOrderMedicationPage(appointmentId: string, page: Page): Promise<OrderMedicationPage> {
+  await page.goto(`/in-person/${appointmentId}/in-house-medication/order/new`);
+  return expectOrderMedicationPage(page);
+}

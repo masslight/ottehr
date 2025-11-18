@@ -741,8 +741,8 @@
   },
   "reviewAndSubmit": {
     "byProceeding": "Al proceder con la visita, reconoce que ha revisado y aceptado nuestra ",
-    "privacyPolicy": "Política de privacidad ",
-    "andPrivacyPolicy": "y los ",
+    "privacyPolicy": "Política de privacidad",
+    "andPrivacyPolicy": " y los ",
     "termsAndConditions": "Términos y condiciones del servicio",
     "contactInfoLabel": "Información de contacto",
     "backButtonReview": "Atrás",

@@ -282,6 +282,7 @@ export const getMedicationInteractions = (
       ?.filter((resource) => {
         return (
           resource.resourceType === 'DetectedIssue' &&
+          // cSpell:disable-next al(ler)gy
           getCoding(resource.code, CODE_SYSTEM_ACT_CODE_V3)?.code === 'ALGY'
         );
       })
@@ -292,13 +293,13 @@ export const getMedicationInteractions = (
           overrideReason: getOverrideReason(issue),
         };
       }) ?? [];
-  const interationUnavailableIssue = medicationRequest?.contained?.find((resource) => {
+  const interactionUnavailableIssue = medicationRequest?.contained?.find((resource) => {
     return (
       resource.resourceType === 'DetectedIssue' &&
       getCoding(resource.code, ISSUE_TYPE_CODE_SYSTEM)?.code === INTERACTIONS_UNAVAILABLE
     );
   });
-  if (interationUnavailableIssue) {
+  if (interactionUnavailableIssue) {
     return undefined;
   }
   return {

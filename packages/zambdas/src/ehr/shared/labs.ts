@@ -577,7 +577,7 @@ export const makeEncounterLabResults = async (
 };
 
 // these tags would be set by oystehr when the DR is created for external labs
-const nonNonNormalTagsContained = (dr: DiagnosticReport): NonNormalResult[] | undefined => {
+export const nonNonNormalTagsContained = (dr: DiagnosticReport): NonNormalResult[] | undefined => {
   const drIsTaggedAbnormal = dr.meta?.tag?.some(
     (tag) => tag.system === ABNORMAL_RESULT_DR_TAG.system && tag.code === ABNORMAL_RESULT_DR_TAG.code
   );

@@ -1,7 +1,10 @@
-import { DiagnosticReport, DocumentReference, Location, Organization, ServiceRequest } from 'fhir/r4b';
+import { Coverage, DiagnosticReport, DocumentReference, Location, Organization, ServiceRequest } from 'fhir/r4b';
 import {
+  CreateLabPaymentMethod,
   LAB_ACCOUNT_NUMBER_SYSTEM,
+  LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LAB_DOC_REF_TAG_hl7_TRANSMISSION,
+  LabPaymentMethod,
   LabsTableColumn,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   ORDER_NUMBER_LEN,
@@ -178,6 +181,40 @@ export const getTestNameOrCodeFromDr = (dr: DiagnosticReport): string => {
   const testDescription = testName || testItemCode || 'missing test name';
   return testDescription;
 };
+
+export function paymentMethodFromCoverage(coverage: Coverage): CreateLabPaymentMethod {
+  let paymentMethod = LabPaymentMethod.Insurance;
+  const coverageTypeFromCoding = coverage.type?.coding?.[0]?.code;
+  switch (coverageTypeFromCoding) {
+    case 'pay':
+      paymentMethod = LabPaymentMethod.SelfPay;
+      break;
+    case LAB_CLIENT_BILL_COVERAGE_TYPE_CODING.code:
+      paymentMethod = LabPaymentMethod.ClientBill;
+      break;
+  }
+  return paymentMethod;
+}
+
+export function serviceRequestPaymentMethod(
+  serviceRequest: ServiceRequest,
+  coverages: Coverage[]
+): CreateLabPaymentMethod | undefined {
+  const insuranceCoverageRef = serviceRequest?.insurance?.find(
+    (insurance) => insurance.reference?.startsWith('Coverage/')
+  );
+  if (!insuranceCoverageRef) return LabPaymentMethod.SelfPay;
+  const coverageId = insuranceCoverageRef.reference?.replace('Coverage/', '');
+  const coverage = coverages.find((coverage) => coverage.id === coverageId);
+  if (!coverage) {
+    console.warn(`Warning: unable to determine the payment method of this service request ${serviceRequest.id}
+      coverages passed: ${coverages.map((coverage) => coverage.id)}`);
+    return;
+  }
+  const paymentMethod = paymentMethodFromCoverage(coverage);
+  console.log('service request payment method and id', paymentMethod, serviceRequest.id);
+  return paymentMethod;
+}
 
 export const docRefIsLabGeneratedResult = (docRef: DocumentReference): boolean => {
   return !!docRef.category?.find(
