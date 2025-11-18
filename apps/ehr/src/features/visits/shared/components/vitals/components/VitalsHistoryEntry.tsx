@@ -7,11 +7,11 @@ import {
   celsiusToFahrenheit,
   cmToFeet,
   cmToInches,
-  examConfig,
   formatDateTimeToLocalTimezone,
   formatWeightKg,
   formatWeightLbs,
   getVisionExtraOptionsFormattedString,
+  vitalsConfig,
   VitalsObservationDTO,
 } from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
@@ -131,7 +131,7 @@ export const getObservationValueElements = (
     case 'vital-weight': {
       const kgStr = formatWeightKg(historyEntry.value) + ' kg';
       const lbsStr = formatWeightLbs(historyEntry.value) + ' lbs';
-      if (examConfig.weightUnit == 'kg') {
+      if (vitalsConfig['vital-weight'].unit == 'kg') {
         return [kgStr, ` = ${lbsStr}`];
       } else {
         return [lbsStr, ` = ${kgStr}`];

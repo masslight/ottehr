@@ -1,4 +1,4 @@
-import { examConfig } from '../../configuration';
+import { vitalsConfig } from '../../configuration';
 import {
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
@@ -62,7 +62,7 @@ export const mapVitalsToDisplay = (
         parsed = observation as VitalsWeightObservationDTO;
         const kgStr = formatWeightKg(parsed.value) + ' kg';
         const lbsStr = formatWeightLbs(parsed.value) + ' lbs';
-        if (examConfig.weightUnit == 'kg') {
+        if (vitalsConfig['vital-weight'].unit == 'kg') {
           text = `${kgStr} = ${lbsStr}`;
         } else {
           text = `${lbsStr} = ${kgStr}`;

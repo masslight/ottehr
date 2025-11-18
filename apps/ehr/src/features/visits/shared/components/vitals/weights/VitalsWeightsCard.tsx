@@ -5,7 +5,6 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import {
-  examConfig,
   formatWeight,
   formatWeightKg,
   formatWeightLbs,
@@ -13,6 +12,7 @@ import {
   roundNumberToDecimalPlaces,
   textToNumericValue,
   VitalFieldNames,
+  vitalsConfig,
   VitalsWeightObservationDTO,
 } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
@@ -89,7 +89,8 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
   };
 
   const title =
-    `Weight (${examConfig.weightUnit}) ` + (latestWeightKg ? formatWeight(latestWeightKg, examConfig.weightUnit) : '');
+    `Weight (${vitalsConfig['vital-weight'].unit}) ` +
+    (latestWeightKg ? formatWeight(latestWeightKg, vitalsConfig['vital-weight'].unit) : '');
 
   return (
     <Box sx={{ mt: 3 }}>
@@ -118,7 +119,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                   <Box
                     sx={{
                       display: 'flex',
-                      flexDirection: examConfig.weightUnit === 'kg' ? 'row' : 'row-reverse',
+                      flexDirection: vitalsConfig['vital-weight'].unit === 'kg' ? 'row' : 'row-reverse',
                       gap: 1,
                     }}
                   >

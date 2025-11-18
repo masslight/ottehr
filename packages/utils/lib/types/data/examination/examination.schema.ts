@@ -151,16 +151,9 @@ const ExamTypeInstanceSchema = z.record(
   })
 );
 
-// Schema for weight unit
-const WeightUnitSchema = z
-  .enum(['kg', 'lbs'] as const)
-  .optional()
-  .default('kg');
-
 const ExamConfigTypeSchema = z.object({
   telemed: ExamTypeInstanceSchema,
   inPerson: ExamTypeInstanceSchema,
-  weightUnit: WeightUnitSchema,
 });
 
 export type ExamSchema = z.infer<typeof ExamConfigTypeSchema>;
