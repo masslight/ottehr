@@ -34,7 +34,7 @@ export const Screening: React.FC<ScreeningProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Screening" showIntakeNotesButton={interactionMode === 'intake'} />
+      <PageTitle label="Screening" showIntakeNotesButton={interactionMode === 'main'} />
       <Questions />
       <AskThePatient />
       <ASQ />

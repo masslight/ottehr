@@ -16,7 +16,7 @@ export const CommonLayoutBreadcrumbs = (): React.ReactElement => {
   const getIsRouteWithoutBreadcrumbs = (): boolean =>
     !routes.find((route) => location.pathname.includes(route.path))?.modes.includes(interactionMode);
 
-  if (interactionMode !== 'intake' || !routesForCurrentMode.length || getIsRouteWithoutBreadcrumbs()) {
+  if (interactionMode !== 'main' || !routesForCurrentMode.length || getIsRouteWithoutBreadcrumbs()) {
     return <></>;
   }
 

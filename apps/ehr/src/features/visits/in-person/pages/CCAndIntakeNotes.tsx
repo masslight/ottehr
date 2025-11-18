@@ -13,7 +13,7 @@ export const CCAndIntakeNotes: React.FC<CCAndIntakeNotesProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="CC & Intake Notes" showIntakeNotesButton={interactionMode === 'provider'} />
+      <PageTitle label="CC & Intake Notes" showIntakeNotesButton={interactionMode === 'main'} />
       <PatientInfo />
     </Stack>
   );
