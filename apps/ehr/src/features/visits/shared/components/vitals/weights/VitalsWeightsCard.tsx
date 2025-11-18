@@ -6,6 +6,7 @@ import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import {
   examConfig,
+  formatWeight,
   formatWeightKg,
   formatWeightLbs,
   LBS_IN_KG,
@@ -87,11 +88,8 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
     );
   };
 
-  const title = latestWeightKg
-    ? examConfig.weightUnit === 'kg'
-      ? `Weight (kg) ${formatWeightKg(latestWeightKg)}`
-      : `Weight (lbs) ${formatWeightLbs(latestWeightKg)}`
-    : '';
+  const title =
+    `Weight (${examConfig.weightUnit}) ` + (latestWeightKg ? formatWeight(latestWeightKg, examConfig.weightUnit) : '');
 
   return (
     <Box sx={{ mt: 3 }}>
