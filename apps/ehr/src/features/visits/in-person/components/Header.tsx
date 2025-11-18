@@ -27,11 +27,9 @@ import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppoint
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
-import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
 import { ChangeStatusDropdown } from './ChangeStatusDropdown';
 import { InternalNotes } from './InternalNotes';
 import { PrintVisitLabelButton } from './PrintVisitLabelButton';
-import { SwitchIntakeModeButton } from './SwitchIntakeModeButton';
 
 const HeaderWrapper = styled(Box)(({ theme }) => ({
   backgroundColor: theme.palette.background.paper,
@@ -184,8 +182,6 @@ export const Header = (): JSX.Element => {
   const reasonForVisit = formatLabelValue(appointment?.description, 'Reason for Visit');
   const userId = formatLabelValue(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
-  const { interactionMode, setInteractionMode } = useInPersonNavigationContext();
-  const nextMode = interactionMode === 'intake' ? 'provider' : 'intake';
   const {
     isEncounterUpdatePending: isUpdatingPractitionerForIntake,
     handleUpdatePractitioner: handleUpdatePractitionerForIntake,
@@ -194,7 +190,7 @@ export const Header = (): JSX.Element => {
     isEncounterUpdatePending: isUpdatingPractitionerForProvider,
     handleUpdatePractitioner: handleUpdatePractitionerForProvider,
   } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Attender);
-  const isEncounterUpdatePending = isUpdatingPractitionerForIntake || isUpdatingPractitionerForProvider;
+
   const { oystehrZambda } = useApiClients();
 
   const { data: employees, isFetching: employeesIsFetching } = useQuery({
@@ -263,18 +259,6 @@ export const Header = (): JSX.Element => {
     } catch (error: any) {
       console.log(error.message);
       enqueueSnackbar(`An error occurred trying to update the provider assignment. Please try again.`, {
-        variant: 'error',
-      });
-    }
-  };
-
-  const handleSwitchMode = async (): Promise<void> => {
-    try {
-      if (!appointmentID) return;
-      setInteractionMode(nextMode, true);
-    } catch (error: any) {
-      console.log(error.message);
-      enqueueSnackbar(`An error occurred trying to switch to ${nextMode} mode. Please try again.`, {
         variant: 'error',
       });
     }
@@ -447,13 +431,6 @@ export const Header = (): JSX.Element => {
                   mt: 0.5,
                 }}
               >
-                {!isFollowup && (
-                  <SwitchIntakeModeButton
-                    isDisabled={!appointmentID || isEncounterUpdatePending}
-                    handleSwitchMode={handleSwitchMode}
-                    nextMode={nextMode}
-                  />
-                )}
                 {encounterId ? <InternalNotes /> : null}
               </Grid>
             </Grid>
