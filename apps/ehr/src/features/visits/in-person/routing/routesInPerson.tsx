@@ -86,7 +86,7 @@ export enum ROUTER_PATH {
 export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   [ROUTER_PATH.CC_AND_INTAKE_NOTES]: {
     path: ROUTER_PATH.CC_AND_INTAKE_NOTES,
-    modes: ['provider', 'intake', 'readonly'],
+    modes: ['main', 'readonly'],
     element: <CCAndIntakeNotes />,
     text: 'CC & Intake Notes',
     iconKey: 'CC & Intake Notes',
@@ -94,7 +94,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.SCREENING]: {
     path: ROUTER_PATH.SCREENING,
-    modes: ['provider', 'intake', 'readonly'],
+    modes: ['main', 'readonly'],
     element: <Screening />,
     text: 'Screening Questions',
     iconKey: 'Screening Questions',
@@ -102,7 +102,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.VITALS]: {
     path: ROUTER_PATH.VITALS,
-    modes: ['provider', 'intake', 'readonly'],
+    modes: ['main', 'readonly'],
     element: <PatientVitals />,
     text: 'Vitals',
     iconKey: 'Vitals',
@@ -110,7 +110,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.ALLERGIES]: {
     path: ROUTER_PATH.ALLERGIES,
-    modes: ['provider', 'intake', 'readonly', 'follow-up'],
+    modes: ['main', 'readonly', 'follow-up'],
     element: <Allergies />,
     text: 'Allergies',
     iconKey: 'Allergies',
@@ -118,7 +118,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.MEDICATIONS]: {
     path: ROUTER_PATH.MEDICATIONS,
-    modes: ['provider', 'intake', 'readonly', 'follow-up'],
+    modes: ['main', 'readonly', 'follow-up'],
     element: <Medications />,
     text: 'Medications',
     iconKey: 'Medications',
@@ -126,7 +126,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.MEDICAL_CONDITIONS]: {
     path: ROUTER_PATH.MEDICAL_CONDITIONS,
-    modes: ['provider', 'intake', 'readonly', 'follow-up'],
+    modes: ['main', 'readonly', 'follow-up'],
     element: <MedicalConditions />,
     text: 'Medical Conditions',
     iconKey: 'Medical Conditions',
@@ -134,7 +134,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.SURGICAL_HISTORY]: {
     path: ROUTER_PATH.SURGICAL_HISTORY,
-    modes: ['provider', 'intake', 'readonly', 'follow-up'],
+    modes: ['main', 'readonly', 'follow-up'],
     element: <SurgicalHistory />,
     text: 'Surgical History',
     iconKey: 'Surgical History',
@@ -142,7 +142,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.HOSPITALIZATION]: {
     path: ROUTER_PATH.HOSPITALIZATION,
-    modes: ['provider', 'intake', 'readonly', 'follow-up'],
+    modes: ['main', 'readonly', 'follow-up'],
     element: <Hospitalization />,
     text: 'Hospitalization',
     iconKey: 'Hospitalization',
@@ -152,7 +152,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     path: ROUTER_PATH.IN_HOUSE_MEDICATION,
     sidebarPath: 'in-house-medication/mar',
     activeCheckPath: 'in-house-medication',
-    modes: ['provider', 'readonly', 'follow-up'],
+    modes: ['main', 'readonly', 'follow-up'],
     element: <InHouseMedication />,
     text: 'In-house Medications',
     iconKey: 'Med. Administration',
@@ -160,7 +160,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IN_HOUSE_ORDER_NEW]: {
     path: ROUTER_PATH.IN_HOUSE_ORDER_NEW,
-    modes: ['provider', 'readonly', 'follow-up'],
+    modes: ['main', 'readonly', 'follow-up'],
     isSkippedInNavigation: true,
     activeCheckPath: 'order/new',
     element: <InHouseOrderNew />,
@@ -170,7 +170,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IN_HOUSE_ORDER_EDIT]: {
     path: ROUTER_PATH.IN_HOUSE_ORDER_EDIT,
-    modes: ['provider', 'readonly', 'follow-up'],
+    modes: ['main', 'readonly', 'follow-up'],
     isSkippedInNavigation: true,
     activeCheckPath: 'order/edit',
     element: <InHouseOrderEdit />,
@@ -180,7 +180,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IN_HOUSE_LAB_ORDERS]: {
     path: ROUTER_PATH.IN_HOUSE_LAB_ORDERS,
-    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabsPage /> : null,
     text: 'In-House Labs',
     iconKey: 'In-House Labs',
@@ -188,7 +188,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IN_HOUSE_LAB_ORDER_CREATE]: {
     path: ROUTER_PATH.IN_HOUSE_LAB_ORDER_CREATE,
-    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabOrderCreatePage /> : null,
     text: 'In-House Labs',
@@ -197,7 +197,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IN_HOUSE_LAB_ORDER_DETAILS]: {
     path: ROUTER_PATH.IN_HOUSE_LAB_ORDER_DETAILS,
-    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabTestDetailsPage /> : null,
     text: 'In-House Labs',
@@ -206,7 +206,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.RADIOLOGY_ORDER]: {
     path: ROUTER_PATH.RADIOLOGY_ORDER,
-    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <RadiologyOrdersListPage /> : null,
     text: 'Radiology',
     iconKey: 'Radiology',
@@ -214,7 +214,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.RADIOLOGY_ORDER_CREATE]: {
     path: ROUTER_PATH.RADIOLOGY_ORDER_CREATE,
-    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <CreateRadiologyOrder /> : null,
     text: 'Radiology',
@@ -223,7 +223,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.RADIOLOGY_ORDER_DETAILS]: {
     path: ROUTER_PATH.RADIOLOGY_ORDER_DETAILS,
-    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <RadiologyOrderDetailsPage /> : null,
     text: 'Radiology',
@@ -232,7 +232,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.PROCEDURES]: {
     path: ROUTER_PATH.PROCEDURES,
-    modes: ['provider', 'follow-up'],
+    modes: ['main', 'follow-up'],
     element: <Procedures />,
     text: 'Procedures',
     iconKey: 'Procedures',
@@ -240,7 +240,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.PROCEDURES_NEW]: {
     path: ROUTER_PATH.PROCEDURES_NEW,
-    modes: ['provider', 'follow-up'],
+    modes: ['main', 'follow-up'],
     isSkippedInNavigation: true,
     element: <ProceduresNew />,
     text: 'Document Procedure ',
@@ -249,7 +249,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.PROCEDURES_EDIT]: {
     path: ROUTER_PATH.PROCEDURES_EDIT,
-    modes: ['provider', 'follow-up'],
+    modes: ['main', 'follow-up'],
     isSkippedInNavigation: true,
     element: <ProceduresNew />,
     text: 'Edit Procedure ',
@@ -258,7 +258,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.NURSING_ORDERS]: {
     path: ROUTER_PATH.NURSING_ORDERS,
-    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider', 'follow-up'] : [],
+    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
     element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrdersPage /> : null,
     text: 'Nursing Orders',
     iconKey: 'Nursing Orders',
@@ -266,7 +266,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.NURSING_ORDER_CREATE]: {
     path: ROUTER_PATH.NURSING_ORDER_CREATE,
-    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider', 'follow-up'] : [],
+    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrderCreatePage /> : null,
     text: 'Nursing Orders',
@@ -275,7 +275,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.NURSING_ORDER_DETAILS]: {
     path: ROUTER_PATH.NURSING_ORDER_DETAILS,
-    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider', 'follow-up'] : [],
+    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrderDetailsPage /> : null,
     text: 'Nursing Orders',
@@ -286,7 +286,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     path: ROUTER_PATH.IMMUNIZATION,
     sidebarPath: 'immunization/mar',
     activeCheckPath: 'immunization',
-    modes: ['provider', 'follow-up'],
+    modes: ['main', 'follow-up'],
     element: <Immunization />,
     text: 'Immunization',
     iconKey: 'Immunization',
@@ -294,7 +294,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IMMUNIZATION_ORDER_CREATE]: {
     path: ROUTER_PATH.IMMUNIZATION_ORDER_CREATE,
-    modes: ['provider', 'follow-up'],
+    modes: ['main', 'follow-up'],
     isSkippedInNavigation: true,
     element: <ImmunizationOrderCreateEdit />,
     text: 'Immunization',
@@ -303,7 +303,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IMMUNIZATION_ORDER_EDIT]: {
     path: ROUTER_PATH.IMMUNIZATION_ORDER_EDIT,
-    modes: ['provider', 'follow-up'],
+    modes: ['main', 'follow-up'],
     isSkippedInNavigation: true,
     element: <ImmunizationOrderCreateEdit />,
     text: 'Immunization',
@@ -312,7 +312,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
-    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <ExternalLabOrdersListPage /> : null,
     text: 'External Labs',
     iconKey: 'External Labs',
@@ -320,7 +320,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE,
-    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <CreateExternalLabOrder /> : null,
     text: 'Order External Lab',
@@ -329,7 +329,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS,
-    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <OrderDetailsPage /> : null,
     text: 'Order Details',
@@ -338,7 +338,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_REPORT_DETAILS]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_REPORT_DETAILS,
-    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly', 'follow-up'] : [],
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <OrderDetailsPage /> : null,
     text: 'Order Details',
@@ -347,7 +347,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.HISTORY_AND_TEMPLATES]: {
     path: ROUTER_PATH.HISTORY_AND_TEMPLATES,
-    modes: ['provider', 'readonly'],
+    modes: ['main', 'readonly'],
     element: <HistoryAndTemplates />,
     text: 'HPI/MOI & Templates',
     iconKey: 'History',
@@ -355,7 +355,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.EXAMINATION]: {
     path: ROUTER_PATH.EXAMINATION,
-    modes: ['provider', 'readonly'],
+    modes: ['main', 'readonly'],
     element: <ExamTab />,
     text: 'Exam',
     iconKey: 'Stethoscope',
@@ -363,7 +363,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.ASSESSMENT]: {
     path: ROUTER_PATH.ASSESSMENT,
-    modes: ['provider', 'readonly'],
+    modes: ['main', 'readonly'],
     element: <AssessmentCard />,
     text: 'Assessment',
     iconKey: 'Prescription',
@@ -371,7 +371,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.PLAN]: {
     path: ROUTER_PATH.PLAN,
-    modes: ['provider', 'readonly'],
+    modes: ['main', 'readonly'],
     element: <Plan />,
     text: 'Plan',
     iconKey: 'Lab profile',
@@ -379,7 +379,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.ERX]: {
     path: ROUTER_PATH.ERX,
-    modes: ['provider', 'readonly', 'follow-up'],
+    modes: ['main', 'readonly', 'follow-up'],
     element: <ERXPage />,
     text: 'eRX',
     iconKey: 'eRX',
@@ -387,7 +387,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.REVIEW_AND_SIGN]: {
     path: ROUTER_PATH.REVIEW_AND_SIGN,
-    modes: ['provider', 'readonly'],
+    modes: ['main', 'readonly'],
     element: <ProgressNote />,
     text: 'Review & Sign',
     iconKey: 'Review & Sign',
@@ -403,7 +403,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.OTTEHR_AI]: {
     path: ROUTER_PATH.OTTEHR_AI,
-    modes: ['intake', 'provider', 'readonly'],
+    modes: ['main', 'readonly'],
     element: <OttehrAi />,
     text: 'Oystehr AI',
     iconKey: 'Oystehr AI',
