@@ -26,6 +26,7 @@ export const ExamConfig = {
       components: InPersonExamConfig,
     },
   },
+  weightUnit: 'lbs',
 };
 
 export enum ExamType {
