@@ -38,7 +38,7 @@ import { SurgicalHistory } from '../pages/SurgicalHistory';
 
 export enum ROUTER_PATH {
   CC_AND_INTAKE_NOTES = 'cc-and-intake-notes',
-  PROGRESS_NOTE = 'progress-note',
+  REVIEW_AND_SIGN = 'review-and-sign',
   FOLLOW_UP_NOTE = 'follow-up-note',
   SCREENING = 'screening-questions',
   VITALS = 'vitals',
@@ -385,8 +385,8 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     iconKey: 'eRX',
     groupLabel: 'Provider',
   },
-  [ROUTER_PATH.PROGRESS_NOTE]: {
-    path: ROUTER_PATH.PROGRESS_NOTE,
+  [ROUTER_PATH.REVIEW_AND_SIGN]: {
+    path: ROUTER_PATH.REVIEW_AND_SIGN,
     modes: ['provider', 'readonly'],
     element: <ProgressNote />,
     text: 'Review & Sign',
