@@ -35,7 +35,6 @@ export const changeInPersonVisitStatusIfPossible = async (
   const updateInPersonEncounterStatusOp = await getUpdateInPersonEncounterStatusOperation(
     resourcesToUpdate.encounter,
     oystehr,
-    user,
     updatedStatus
   );
 
@@ -97,7 +96,7 @@ const getUpdateInPersonAppointmentStatusOperation = async (
   user: User,
   updatedStatus: VisitStatusWithoutUnknown
 ): Promise<Operation[]> => {
-  if (!user || !appointment?.id || !oystehr) {
+  if (!appointment?.id || !oystehr) {
     throw new Error('Missing required data');
   }
 
@@ -197,10 +196,9 @@ const getUpdateInPersonAppointmentStatusOperation = async (
 const getUpdateInPersonEncounterStatusOperation = async (
   encounter: Encounter,
   oystehr: Oystehr,
-  user: User,
   updatedStatus: VisitStatusWithoutUnknown
 ): Promise<Operation[]> => {
-  if (!user || !encounter?.id || !oystehr) {
+  if (!encounter?.id || !oystehr) {
     throw new Error('Missing required data');
   }
 

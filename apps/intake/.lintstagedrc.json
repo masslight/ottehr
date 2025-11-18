@@ -1,5 +1,8 @@
 {
-  "*.(tsx|ts|js|jsx)": [
+  "*.(tsx|ts|jsx)": [
+    "cross-env NODE_OPTIONS='--max-old-space-size=8192' eslint --report-unused-disable-directives --max-warnings 0 --fix"
+  ],
+  "!(setup-test-deps|validate-e2e-intake-user).js": [
     "cross-env NODE_OPTIONS='--max-old-space-size=8192' eslint --report-unused-disable-directives --max-warnings 0 --fix"
   ]
 }

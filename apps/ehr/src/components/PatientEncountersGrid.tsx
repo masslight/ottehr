@@ -25,7 +25,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { Encounter, Location, Patient, Task } from 'fhir/r4b';
+import { Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { FC, ReactElement, useMemo, useState } from 'react';
@@ -37,7 +37,7 @@ import styled from 'styled-components';
 import {
   AppointmentHistoryRow,
   AppointmentType,
-  FOLLOWUP_SYSTEMS,
+  FollowUpVisitHistoryRow,
   formatMinutes,
   PatientVisitListResponse,
   PrefilledInvoiceInfo,
@@ -152,7 +152,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [selectedInvoiceTask, setSelectedInvoiceTask] = useState<Task | undefined>(undefined);
 
-  const { oystehrZambda, oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
 
   const {
@@ -190,65 +190,6 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     },
     enabled: Boolean(patient?.id) && Boolean(oystehrZambda),
   });
-
-  // Fetch follow-up encounters
-  // todo: move this to the visit history zambda
-  const { data: followupData } = useQuery({
-    queryKey: ['followupEncounters', patient?.id],
-    queryFn: async () => {
-      if (!oystehr || !patient?.id) {
-        return { encounters: [], locations: new Map<string, Location>() };
-      }
-      try {
-        const fhirResources = await oystehr.fhir.search({
-          resourceType: 'Encounter',
-          params: [
-            {
-              name: '_sort',
-              value: '-date',
-            },
-            {
-              name: 'subject',
-              value: `Patient/${patient.id}`,
-            },
-            {
-              name: 'type',
-              value: FOLLOWUP_SYSTEMS.type.code,
-            },
-            {
-              name: 'part-of:missing',
-              value: 'false',
-            },
-            {
-              name: '_include',
-              value: 'Encounter:location',
-            },
-          ],
-        });
-
-        const bundle = fhirResources.unbundle();
-
-        const encounters = bundle.filter((resource) => resource.resourceType === 'Encounter') as Encounter[];
-        const locations = bundle.filter((resource) => resource.resourceType === 'Location') as Location[];
-
-        const locationMap = new Map<string, Location>();
-        locations.forEach((location) => {
-          if (location.id) {
-            locationMap.set(location.id, location);
-          }
-        });
-
-        return { encounters, locations: locationMap };
-      } catch (e) {
-        console.error('error loading follow-up encounters', e);
-        return { encounters: [], locations: new Map<string, Location>() };
-      }
-    },
-    enabled: !!oystehr && !!patient?.id,
-  });
-
-  const followupEncounters = followupData?.encounters || [];
-  const followupLocations = followupData?.locations || new Map<string, Location>();
 
   const filtered = useMemo(() => {
     if (!visitHistory) return [];
@@ -312,50 +253,30 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     setPage(0);
   };
 
-  const getFollowupEncountersForRow = (row: AppointmentHistoryRow): Encounter[] => {
-    if (!row.encounterId) return [];
-    return followupEncounters.filter((encounter) => encounter.partOf?.reference?.endsWith(row.encounterId || ''));
-  };
-
-  const renderFollowupCellContent = (encounter: Encounter, columnId: string): React.ReactNode => {
-    const locationReference = encounter.location?.[0]?.location?.reference;
-    const locationId = locationReference?.replace('Location/', '');
-    const location = locationId ? followupLocations.get(locationId) : undefined;
-
+  const renderFollowupCellContent = (encounter: FollowUpVisitHistoryRow, columnId: string): React.ReactNode => {
     switch (columnId) {
       case 'dateTime':
-        return encounter.period?.start ? formatISOStringToDateAndTime(encounter.period.start) : '-';
+        return encounter.dateTime ? formatISOStringToDateAndTime(encounter.dateTime) : '-';
       case 'type': {
-        const typeCoding = encounter.type?.find(
-          (t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
-        );
-        let typeText = '-';
-        if (typeCoding?.text) {
-          typeText = typeCoding.text;
-        }
+        const typeText = encounter.type ?? '-';
         return <Typography variant="body2">{typeText}</Typography>;
       }
       case 'reason':
-        if (!encounter.reasonCode) return '-';
-        return <Typography variant="body2">{encounter.reasonCode[0].text}</Typography>;
+        if (!encounter.visitReason) return '-';
+        return <Typography variant="body2">{encounter.visitReason}</Typography>;
       case 'provider':
-        // todo
-        return <ProviderCell name={undefined} />;
+        return <ProviderCell name={encounter.provider?.name} />;
       case 'office':
-        return location?.address?.state && location?.name
-          ? `${location.address.state.toUpperCase()} - ${location.name}`
-          : '-';
+        return encounter.office ? encounter.office : '-';
       case 'status': {
         if (!encounter.status) return null;
         const statusVal = encounter.status === 'in-progress' ? 'OPEN' : 'RESOLVED';
         return getFollowupStatusChip(statusVal);
       }
       case 'note': {
-        const appointmentId = encounter.appointment?.[0]?.reference?.replace('Appointment/', '');
-        if (!appointmentId) return '-';
-
-        const encounterId = encounter.id;
-        const to = `/in-person/${appointmentId}/follow-up-note`;
+        const { encounterId, originalAppointmentId } = encounter;
+        if (!originalAppointmentId) return '-';
+        const to = `/in-person/${originalAppointmentId}/follow-up-note`;
 
         return (
           <RoundedButton to={to} state={{ encounterId }}>
@@ -597,7 +518,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
             ) : (
               paginatedData.map((row, index) => {
                 const rowId = row.appointmentId || `row-${index}`;
-                const followupEncountersForRow = getFollowupEncountersForRow(row);
+                const followupEncountersForRow = row.followUps ?? [];
                 const hasFollowups = followupEncountersForRow.length > 0;
 
                 return (
@@ -621,7 +542,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                       <>
                         {followupEncountersForRow.map((followupEncounter, followupIndex) => (
                           <TableRow
-                            key={`followup-${followupEncounter.id || followupIndex}`}
+                            key={`followup-${followupEncounter.encounterId || followupIndex}`}
                             sx={{
                               backgroundColor: 'rgba(0, 0, 0, 0.02)',
                               '&:hover': {

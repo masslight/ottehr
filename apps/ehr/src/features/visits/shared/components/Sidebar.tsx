@@ -21,7 +21,6 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
-import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getAdmitterPractitionerId, getInPersonVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeButton';
@@ -256,7 +255,6 @@ export const Sidebar = (): JSX.Element => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
   const { oystehrZambda } = useApiClients();
-  const user = useEvolveUser();
   const { interactionMode } = useInPersonNavigationContext();
   const { id: appointmentID } = useParams();
   const { visitState, appointmentRefetch } = useAppointmentData();
@@ -282,7 +280,6 @@ export const Sidebar = (): JSX.Element => {
         await handleChangeInPersonVisitStatus(
           {
             encounterId: encounter!.id!,
-            user: user!,
             updatedStatus: 'ready for provider',
           },
           oystehrZambda
