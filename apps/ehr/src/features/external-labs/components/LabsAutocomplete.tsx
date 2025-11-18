@@ -40,6 +40,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
       size="small"
       options={labs}
       getOptionLabel={(option) => nameLabTest(option.item.itemName, option.lab.labName, false)}
+      getOptionKey={(lab) => lab.item.uniqueName}
       noOptionsText={
         debouncedLabSearchTerm && labs.length === 0 ? 'No labs based on input' : 'Start typing to load labs'
       }
