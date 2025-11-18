@@ -1,5 +1,6 @@
-import { DetectedIssue, Medication, MedicationAdministration, MedicationRequest } from 'fhir/r4b';
-import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
+import { Coding, DetectedIssue, Extension, Medication, MedicationAdministration, MedicationRequest } from 'fhir/r4b';
+import { VACCINE_ADMINISTRATION_CODES_EXTENSION_URL } from 'zambdas/src/ehr/immunization/common';
+import { CODE_SYSTEM_ACT_CODE_V3, CODE_SYSTEM_NDC } from '../helpers';
 import {
   AllergyInteraction,
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
@@ -336,3 +337,37 @@ export const createMedicationString = (medication: ExtendedMedicationDataForResp
 
   return [name, dose, route, givenBy, instructions, status].filter(Boolean).join(', ');
 };
+
+export function getMedicationFromMA(medicationAdministration: MedicationAdministration): Medication | undefined {
+  return medicationAdministration.contained?.find((res) => res.resourceType === 'Medication') as Medication;
+}
+
+export function getNdcCodeFromMA(medicationAdministration: MedicationAdministration): string | undefined {
+  const extensions = getVaccineAdministrationExtensions(medicationAdministration);
+  return findCoding(extensions, CODE_SYSTEM_NDC)?.code;
+}
+
+export function getCptCodeFromMA(medicationAdministration: MedicationAdministration): string | undefined {
+  const extensions = getVaccineAdministrationExtensions(medicationAdministration);
+  return findCoding(extensions, CODE_SYSTEM_NDC)?.code;
+}
+
+export function getVaccineAdministrationExtensions(medicationAdministration: MedicationAdministration): Extension[] {
+  return (medicationAdministration.extension ?? []).filter(
+    (extension) => extension.url === VACCINE_ADMINISTRATION_CODES_EXTENSION_URL
+  );
+}
+
+export function findCoding(extensions: Extension[], system: string): Coding | undefined {
+  for (const extension of extensions) {
+    const coding = getCoding(extension.valueCodeableConcept, system);
+    if (coding) {
+      return coding;
+    }
+  }
+  return undefined;
+}
+
+export function getDosageFromMA(medicationAdministration: MedicationAdministration): number | undefined {
+  return medicationAdministration.dosage?.dose?.value;
+}
