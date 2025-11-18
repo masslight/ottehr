@@ -61,7 +61,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
 
-  const [requireSupervisorApproval, setRequireSupervisorApproval] = useState(false);
+  const [requireSupervisorApproval, setRequireSupervisorApproval] = useState(true);
 
   const { updateVisitStatusToAwaitSupervisorApproval, loading: isPendingSupervisorApproval } =
     usePendingSupervisorApproval({
