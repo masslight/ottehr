@@ -1,11 +1,13 @@
-import { roundNumberToDecimalPlaces, textToNumericValue } from '../../utils';
+import { roundNumberToDecimalPlaces } from '../../utils';
 
-export const textToWeightNumber = (text: string): number | undefined => {
-  const weightValue = textToNumericValue(text);
-  if (!weightValue) return;
-  return roundVitalWeightValue(weightValue);
-};
+export const LBS_IN_KG = 2.20462;
 
-export const kgToLbs = (kg: number): number => Math.round(kg * 2.20462 * 10) / 10;
+export const kgToLbs = (kg: number): number => Math.round(kg * LBS_IN_KG * 10) / 10;
 
-const roundVitalWeightValue = (weight: number): number => roundNumberToDecimalPlaces(weight, 1);
+export function formatWeightKg(weightKg: number): string {
+  return roundNumberToDecimalPlaces(weightKg, 1).toString();
+}
+
+export function formatWeightLbs(weightKg: number): string {
+  return roundNumberToDecimalPlaces(weightKg * LBS_IN_KG, 1).toString();
+}

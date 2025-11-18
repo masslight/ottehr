@@ -7,9 +7,11 @@ import {
   celsiusToFahrenheit,
   cmToFeet,
   cmToInches,
+  examConfig,
   formatDateTimeToLocalTimezone,
+  formatWeightKg,
+  formatWeightLbs,
   getVisionExtraOptionsFormattedString,
-  kgToLbs,
   VitalsObservationDTO,
 } from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
@@ -126,8 +128,15 @@ export const getObservationValueElements = (
       return [`${historyEntry.systolicPressure}/${historyEntry.diastolicPressure} mm Hg`];
     case 'vital-respiration-rate':
       return [`${historyEntry.value}/min`];
-    case 'vital-weight':
-      return [`${historyEntry.value} kg`, ` = ${kgToLbs(historyEntry.value).toFixed(1)} lb`];
+    case 'vital-weight': {
+      const kgStr = formatWeightKg(historyEntry.value) + ' kg';
+      const lbsStr = formatWeightLbs(historyEntry.value) + ' lbs';
+      if (examConfig.weightUnit == 'kg') {
+        return [kgStr, ` = ${lbsStr}`];
+      } else {
+        return [lbsStr, ` = ${kgStr}`];
+      }
+    }
     case 'vital-height':
       return [
         `${historyEntry.value} cm`,

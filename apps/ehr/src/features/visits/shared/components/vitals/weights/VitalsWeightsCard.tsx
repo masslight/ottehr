@@ -4,7 +4,16 @@ import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { kgToLbs, textToWeightNumber, VitalFieldNames, VitalsWeightObservationDTO } from 'utils';
+import {
+  examConfig,
+  formatWeightKg,
+  formatWeightLbs,
+  LBS_IN_KG,
+  roundNumberToDecimalPlaces,
+  textToNumericValue,
+  VitalFieldNames,
+  VitalsWeightObservationDTO,
+} from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
@@ -18,8 +27,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
   currentObs,
   historicalObs,
 }): JSX.Element => {
-  const [weightValueText, setWeightValueText] = useState('');
-  const [weightValueTextLbs, setWeightValueTextLbs] = useState('');
+  const [weightKg, setWeightKg] = useState<number | undefined>(undefined);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
@@ -27,22 +35,19 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const latestWeightValue = currentObs[0]?.value;
+  const latestWeightKg = currentObs[0]?.value;
 
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveWeightObservation = async (weightValueText: string): Promise<void> => {
-    const weightValueNumber = textToWeightNumber(weightValueText);
-    if (!weightValueNumber) return;
+  const handleSaveWeightObservation = async (weightKg: number): Promise<void> => {
     try {
       setIsSaving(true);
       const vitalObs: VitalsWeightObservationDTO = {
         field: VitalFieldNames.VitalWeight,
-        value: weightValueNumber,
+        value: weightKg,
       };
       await handleSaveVital(vitalObs);
-      setWeightValueText('');
-      setWeightValueTextLbs('');
+      setWeightKg(undefined);
     } catch {
       enqueueSnackbar('Error saving Weight data', { variant: 'error' });
     } finally {
@@ -50,11 +55,17 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
     }
   };
 
-  const handleTextInputChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const weightAsText = e.target.value;
-    setWeightValueText(weightAsText);
-    const weightAsNumber = textToWeightNumber(weightAsText);
-    setWeightValueTextLbs(weightAsNumber ? kgToLbs(weightAsNumber).toString() : '');
+  const handleKgInput = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+    setWeightKg(textToNumericValue(e.target.value));
+  }, []);
+
+  const handleLbsInput = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+    const numericValue = textToNumericValue(e.target.value);
+    if (numericValue) {
+      setWeightKg(roundNumberToDecimalPlaces(numericValue / LBS_IN_KG, 2));
+    } else {
+      setWeightKg(undefined);
+    }
   }, []);
 
   const renderRightColumn = (): JSX.Element => {
@@ -76,13 +87,15 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
     );
   };
 
+  const title = latestWeightKg
+    ? examConfig.weightUnit === 'kg'
+      ? `Weight (kg) ${formatWeightKg(latestWeightKg)}`
+      : `Weight (lbs) ${formatWeightLbs(latestWeightKg)}`
+    : '';
+
   return (
     <Box sx={{ mt: 3 }}>
-      <AccordionCard
-        label={`Weight (kg) ${latestWeightValue ?? ''}`}
-        collapsed={isCollapsed}
-        onSwitch={handleSectionCollapse}
-      >
+      <AccordionCard label={title} collapsed={isCollapsed} onSwitch={handleSectionCollapse}>
         {isReadOnly ? (
           renderRightColumn()
         ) : (
@@ -107,24 +120,24 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                   <Box
                     sx={{
                       display: 'flex',
-                      flexDirection: 'row',
+                      flexDirection: examConfig.weightUnit === 'kg' ? 'row' : 'row-reverse',
                       gap: 1,
                     }}
                   >
                     <VitalsTextInputFiled
                       label="Weight (kg)"
-                      value={weightValueText}
+                      value={weightKg ? formatWeightKg(weightKg) : ''}
                       disabled={isSaving}
                       isInputError={false}
-                      onChange={handleTextInputChange}
+                      onChange={handleKgInput}
                     />
                     <Typography fontSize={25}>=</Typography>
                     <VitalsTextInputFiled
                       label="Weight (lbs)"
-                      value={weightValueTextLbs}
-                      disabled={true}
+                      value={weightKg ? formatWeightLbs(weightKg) : ''}
+                      disabled={isSaving}
                       isInputError={false}
-                      onChange={() => {}}
+                      onChange={handleLbsInput}
                     />
                   </Box>
                 </Grid>
@@ -142,9 +155,9 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                 >
                   <RoundedButton
                     size="small"
-                    disabled={!weightValueText}
+                    disabled={!weightKg}
                     loading={isSaving}
-                    onClick={() => handleSaveWeightObservation(weightValueText)}
+                    onClick={() => weightKg && handleSaveWeightObservation(weightKg)}
                     color="primary"
                     sx={{
                       height: '40px',
