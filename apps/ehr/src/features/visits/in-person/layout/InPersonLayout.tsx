@@ -7,7 +7,6 @@ import { Sidebar } from '../../shared/components/Sidebar';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
-import { CommonLayoutBreadcrumbs } from '../components/breadcrumbs/CommonLayoutBreadcrumbs';
 import { Header } from '../components/Header';
 import { InfoAlert } from '../components/InfoAlert';
 import { RecordAudioContainer } from '../components/progress-note/RecordAudioContainer';
@@ -95,7 +94,6 @@ export const InPersonLayout: React.FC = () => {
           >
             {isFollowup || assignedIntakePerformerId ? (
               <>
-                <CommonLayoutBreadcrumbs />
                 <Outlet />
               </>
             ) : (
