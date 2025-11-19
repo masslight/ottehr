@@ -65,7 +65,6 @@ import {
   getCandidPlanTypeCodeFromCoverage,
   getCptCodeFromMA,
   getDosageFromMA,
-  getMedicationFromMA,
   getNdcCodeFromMA,
   getOptionalSecret,
   getPayerId,
@@ -1279,12 +1278,14 @@ async function candidCreateEncounterFromAppointmentRequest(
   });
 
   if (medications) {
+    console.log(`Adding medications to service lines, medications: ${medications.length}`);
     medications.forEach((medicationAdministration) => {
-      const medication = getMedicationFromMA(medicationAdministration);
+      // const medication = getMedicationFromMA(medicationAdministration);
       const ndc = getNdcCodeFromMA(medicationAdministration);
       const cpt = getCptCodeFromMA(medicationAdministration);
       const dose = getDosageFromMA(medicationAdministration);
-      if (medication && cpt && ndc && dose) {
+      console.log(`medication: ${medicationAdministration?.id}, ndc: ${ndc}, cpt: ${cpt}, dose: ${dose}`);
+      if (cpt && ndc && dose) {
         serviceLines.push({
           procedureCode: cpt, // cpt or HCPCS code here
           quantity: Decimal('1'),
