@@ -15,6 +15,7 @@ import {
   getPatchBinary,
   getSecret,
   getTaskResource,
+  isFollowupEncounter,
   isNonPaperworkQuestionnaireResponse,
   Secrets,
   SecretsKeys,
@@ -110,7 +111,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
       if (resource.resourceType === 'Patient') {
         patient = resource as Patient;
       }
-      if (resource.resourceType === 'Encounter') {
+      if (resource.resourceType === 'Encounter' && !isFollowupEncounter(resource as Encounter)) {
         encounter = resource as Encounter;
       }
       if (resource.resourceType === 'Location') {
