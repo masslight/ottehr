@@ -25,10 +25,10 @@ export async function makeVisitNotePdfDocumentReference(
         {
           system: 'http://loinc.org',
           code: '75498-6',
-          display: 'Telehealth Summary note',
+          display: 'Visit details',
         },
       ],
-      text: 'Telemed document',
+      text: 'Visit details',
     },
     references: {
       subject: {
