@@ -1,7 +1,6 @@
 import {
   Autocomplete,
   Backdrop,
-  Checkbox,
   CircularProgress,
   Divider,
   FormControl,
@@ -16,7 +15,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { Box, Stack, useTheme } from '@mui/system';
+import { Box, Stack } from '@mui/system';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import Oystehr from '@oystehr/sdk';
@@ -25,7 +24,7 @@ import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
@@ -45,7 +44,6 @@ import {
   MEDICATIONS_USED_VALUE_SET_URL,
   PATIENT_RESPONSES_VALUE_SET_URL,
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
-  PROCEDURE_TYPE_CPT_EXTENSION_URL,
   PROCEDURE_TYPES_VALUE_SET_URL,
   ProcedureSuggestion,
   REQUIRED_FIELD_ERROR_MESSAGE,
@@ -100,6 +98,12 @@ interface ProcedureType {
   cpt?: {
     code: string;
     display: string;
+    system?: string;
+  };
+  hcpcs?: {
+    code: string;
+    display: string;
+    system?: string;
   };
 }
 
@@ -145,7 +149,6 @@ const parseWithOther = (rawValue: string | undefined, validOptions: string[] | u
 
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
-  const theme = useTheme();
   const { id: appointmentId, procedureId } = useParams();
   const { oystehr } = useApiClients();
   const { data: selectOptions, isLoading: isSelectOptionsLoading } = useSelectOptions(oystehr);
@@ -644,23 +647,12 @@ export default function ProceduresNew(): ReactElement {
         />
         <AccordionCard>
           <Stack spacing={2} style={{ padding: '24px' }}>
-            <Box style={{ display: 'flex', alignItems: 'center' }}>
-              <Checkbox
-                checked={state.consentObtained ?? false}
-                onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
-                disabled={isReadOnly}
-                data-testid={dataTestIds.documentProcedurePage.consentForProcedure}
-              />
-              <Typography>
-                I have obtained the{' '}
-                <Link target="_blank" to={`/consent_procedure.pdf`} style={{ color: theme.palette.primary.main }}>
-                  Consent for Procedure
-                </Link>
-              </Typography>
-            </Box>
-
-            <Box sx={{ marginTop: '16px', color: '#0F347C' }}>
-              <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>Procedure Type</Typography>
+            <Box sx={{ color: '#0F347C' }}>
+              <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
+                <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
+                  Procedure Type
+                </Typography>
+              </TooltipWrapper>
             </Box>
 
             {dropdown(
@@ -669,12 +661,26 @@ export default function ProceduresNew(): ReactElement {
               state.procedureType,
               (value, state) => {
                 state.procedureType = value;
-                const cpt = selectOptions?.procedureTypes.find((procedureType) => procedureType.name === value)?.cpt;
-                if (cpt != null) {
-                  state.cptCodes = [cpt];
-                } else {
-                  state.cptCodes = [];
+
+                const selected = selectOptions?.procedureTypes.find((procedureType) => procedureType.name === value);
+
+                const newCodes: CPTCodeDTO[] = [];
+
+                if (selected?.cpt) {
+                  newCodes.push({
+                    code: selected.cpt.code,
+                    display: selected.cpt.display,
+                  });
                 }
+
+                if (selected?.hcpcs) {
+                  newCodes.push({
+                    code: selected.hcpcs.code,
+                    display: selected.hcpcs.display,
+                  });
+                }
+
+                state.cptCodes = newCodes;
               },
               dataTestIds.documentProcedurePage.procedureType
             )}
@@ -966,19 +972,32 @@ function getValueSetValues(valueSetUrl: string, valueSets: ValueSet[] | undefine
 }
 
 function getProcedureTypes(valueSets: ValueSet[] | undefined): ProcedureType[] {
-  const valueSet = valueSets?.find((valueSet) => valueSet.url === PROCEDURE_TYPES_VALUE_SET_URL);
-  return (
-    valueSet?.expansion?.contains?.flatMap((item) => {
-      const name = item.display;
-      if (name == null) {
-        return [];
-      }
-      const cptCodeableConcept = item.extension?.find((extension) => extension.url === PROCEDURE_TYPE_CPT_EXTENSION_URL)
-        ?.valueCodeableConcept;
-      const cptCode = cptCodeableConcept?.coding?.[0].code;
-      const cptDisplay = cptCodeableConcept?.coding?.[0].display;
-      const cpt = cptCode != null && cptDisplay != null ? { code: cptCode, display: cptDisplay } : undefined;
-      return [{ name, cpt }];
-    }) ?? []
-  );
+  if (!valueSets) return [];
+
+  const latest = valueSets
+    .filter((vs) => vs.url === PROCEDURE_TYPES_VALUE_SET_URL)
+    .sort((a, b) => (a.version ?? '').localeCompare(b.version ?? ''))
+    .at(-1);
+
+  if (!latest?.expansion?.contains) return [];
+
+  return latest.expansion.contains
+    .map((item): ProcedureType | null => {
+      if (!item.display) return null;
+
+      const getCode = (urlPart: string): { code: string; display: string; system?: string } | undefined => {
+        const coding = item.extension?.find((ext) => ext.url?.includes(urlPart))?.valueCodeableConcept?.coding?.[0];
+
+        return coding?.code && coding?.display
+          ? { code: coding.code, display: coding.display, system: coding.system }
+          : undefined;
+      };
+
+      return {
+        name: item.display,
+        cpt: getCode('procedure-type-cpt'),
+        hcpcs: getCode('procedure-type-hcpcs'),
+      };
+    })
+    .filter((p): p is ProcedureType => p !== null);
 }
