@@ -67,7 +67,6 @@ export function mapResourcesToInvoiceablePatient(input: {
     | RelatedPerson
     | undefined;
   if (!responsibleParty) return logErrorForClaimAndReturn('RelatedPerson', claim);
-  console.log('Responsible party:', JSON.stringify(responsibleParty, null, 2));
 
   const encounter = encounterToCandidIdMap[claim.encounterId];
   if (!encounter) return logErrorForClaimAndReturn('Encounter', claim);
