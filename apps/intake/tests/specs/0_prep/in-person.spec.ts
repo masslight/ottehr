@@ -16,7 +16,7 @@ let fillingInfo: FillingInfo;
 const appointmentIds: string[] = [];
 
 test.beforeAll(
-  'setup patient with telemed (card/self-pay) and in-person (insurance/not-self) appointments',
+  'setup patient with in-person with card/self-pay and insurance/not-self appointments',
   async ({ browser }) => {
     context = await browser.newContext();
     page = await context.newPage();
@@ -83,7 +83,7 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
       dobMonth: bookingData.dobMonth,
       dobDay: bookingData.dobDay,
       dobYear: bookingData.dobYear,
-      appointmentId: appointmentIds[1],
+      appointmentId: appointmentIds[appointmentIds.length - 1],
     };
 
     writeTestData('cardPaymentSelfPatient.json', cardPaymentSelfPatient);
@@ -109,7 +109,7 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
       dobMonth: bookingData.dobMonth,
       dobDay: bookingData.dobDay,
       dobYear: bookingData.dobYear,
-      appointmentId: appointmentIds[1],
+      appointmentId: appointmentIds[appointmentIds.length - 1],
     };
 
     writeTestData('insurancePaymentNotSelfPatient.json', insurancePaymentNotSelfPatient);
