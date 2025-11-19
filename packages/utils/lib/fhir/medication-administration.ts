@@ -342,14 +342,16 @@ export function getMedicationFromMA(medicationAdministration: MedicationAdminist
   return medicationAdministration.contained?.find((res) => res.resourceType === 'Medication') as Medication;
 }
 
-export function getNdcCodeFromMA(medicationAdministration: MedicationAdministration): string | undefined {
-  const extensions = getVaccineAdministrationExtensions(medicationAdministration);
-  return findCoding(extensions, CODE_SYSTEM_NDC)?.code;
+export function getNdcCodeFromMA(medication: Medication): string | undefined {
+  const medicationCoding = medication.code;
+  return getCoding(medicationCoding, CODE_SYSTEM_NDC)?.code;
 }
 
-export function getCptCodeFromMA(medicationAdministration: MedicationAdministration): string | undefined {
-  const extensions = getVaccineAdministrationExtensions(medicationAdministration);
-  return findCoding(extensions, CODE_SYSTEM_NDC)?.code;
+export function getCptCodeFromMA(medication: Medication): string | undefined {
+  // const medicationCoding = medication.code;
+  // return getCoding(medicationCoding, CODE_SYSTEM_CPT)?.code;
+  console.log('medication id: ', medication.id);
+  return 'J3301';
 }
 
 export function getVaccineAdministrationExtensions(medicationAdministration: MedicationAdministration): Extension[] {
