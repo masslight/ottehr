@@ -17,6 +17,7 @@ interface Report {
 export interface ReportSettingsPayload {
   title: string;
   fileFormat: 'pdf' | 'csv';
+  automationTime: string;
   frequency: 'daily' | 'weekly' | 'monthly';
   header?: string;
   footer?: string;
@@ -130,6 +131,7 @@ export const saveReportSettings = async (payload: ReportSettingsPayload): Promis
     formData.append('title', payload.title);
     formData.append('fileFormat', payload.fileFormat);
     formData.append('frequency', payload.frequency);
+    formData.append('automationTime', payload.automationTime);
 
     if (payload.fileFormat === 'pdf') {
       if (payload.header) formData.append('header', payload.header);

@@ -1,12 +1,13 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Tab, Typography } from '@mui/material';
 import { useState } from 'react';
+import { AppSettings } from 'src/components/AppSettings';
 import { AutomateReport } from 'src/components/AutomateReport';
 import { NotificationHierarchy } from 'src/components/NotificationHierarchy';
 import PageContainer from '../layout/PageContainer';
 
 export default function Settings(): JSX.Element {
-  const [tab, setTab] = useState('reports');
+  const [tab, setTab] = useState('appSettings');
 
   return (
     <PageContainer tabTitle="Settings">
@@ -21,6 +22,14 @@ export default function Settings(): JSX.Element {
         <TabContext value={tab}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
             <TabList onChange={(_, newTab) => setTab(newTab)}>
+              <Tab
+                value="appSettings"
+                label={
+                  <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                    App Settings
+                  </Typography>
+                }
+              />
               <Tab
                 value="reports"
                 label={
@@ -39,6 +48,10 @@ export default function Settings(): JSX.Element {
               />
             </TabList>
           </Box>
+
+          <TabPanel value="appSettings" sx={{ p: 2 }}>
+            <AppSettings />
+          </TabPanel>
 
           <TabPanel value="reports" sx={{ p: 2 }}>
             <AutomateReport />

@@ -1,5 +1,7 @@
 import './index.css';
 import { Auth0Provider } from '@auth0/auth0-react';
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ErrorBoundary } from '@sentry/react';
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
@@ -36,7 +38,9 @@ root.render(
         cacheLocation="localstorage"
       >
         <ErrorBoundary fallback={<p>An error has occurred</p>}>
-          <App />
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <App />
+          </LocalizationProvider>
         </ErrorBoundary>
       </Auth0Provider>
     </QueryClientProvider>
