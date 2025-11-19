@@ -56,6 +56,14 @@ export default defineConfig({
   projects: [
     // { name: 'setup', testMatch: /.*\.setup\.ts/ },
     {
+      name: 'in-person-setup',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: './playwright/user.json',
+      },
+      testMatch: /.*in-person\.setup\.ts/,
+    },
+    {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
@@ -63,6 +71,8 @@ export default defineConfig({
         // storageState: './tests/.auth/user.json'
       },
       // dependencies: ['setup'],
+      dependencies: ['in-person-setup'],
+      testIgnore: /.*in-person\.setup\.ts/,
     },
 
     // {
