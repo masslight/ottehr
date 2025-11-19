@@ -268,7 +268,18 @@ export const AppSettings = (): JSX.Element => {
         patientLogo: appSettings.patientLogoFile,
         roundedLogo: appSettings.roundedLogoFile,
       });
+      const newConfig = {
+        projectName: result?.data?.appSetting?.appName,
+        logo: result?.data?.logo,
+        patientlogo: result?.data?.patientLogo,
+        roundLogo: result?.data?.roundLogo,
+      };
 
+      window.APP_CONFIG = newConfig;
+      localStorage.setItem('project_config', JSON.stringify(newConfig));
+      window.location.reload();
+
+      console.log('Updated APP_CONFIG:', window.APP_CONFIG);
       setToastSeverity('success');
       setToastMessage(result?.message || 'App settings success.');
       setToastOpen(true);

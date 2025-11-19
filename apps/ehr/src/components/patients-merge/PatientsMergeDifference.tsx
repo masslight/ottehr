@@ -17,7 +17,6 @@ import {
 import { Patient } from 'fhir/r4';
 import React, { FC, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { PROJECT_NAME } from 'utils';
 import { ConfirmationDialog, ContainedPrimaryToggleButton } from '../../telemed';
 import { RoundedButton } from '../RoundedButton';
 import { useGetPatientsForMerge } from './queries';
@@ -325,7 +324,7 @@ const rows: Row[] = [
     render: (patient) => patient.pcp || '-',
   },
   {
-    title: `How did patient heard about ${PROJECT_NAME}`,
+    title: `How did patient heard about ${window.APP_CONFIG?.projectName ?? ''} `,
     field: 'pointOfDiscovery',
     render: (patient) => patient.pointOfDiscovery || '-',
   },

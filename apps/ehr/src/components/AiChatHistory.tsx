@@ -1,4 +1,3 @@
-import { ottehrDarkBlue } from '@ehrTheme/icons';
 import { Avatar, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
@@ -60,7 +59,9 @@ export const AiChatHistory: FC<AiChatHistoryProps> = ({
             marginBottom: message.author === 'ai' ? '10px' : '18px',
           }}
         >
-          {message.author === 'ai' && <img src={ottehrDarkBlue} style={{ width: '24px', marginRight: '10px' }} />}
+          {message.author === 'ai' && (
+            <img src={window.APP_CONFIG?.roundLogo ?? ''} style={{ width: '24px', marginRight: '10px' }} />
+          )}
           <Typography
             variant="body1"
             key={message.linkId + '-' + message.author}

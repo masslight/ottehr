@@ -2,7 +2,14 @@ import fontkit from '@pdf-lib/fontkit';
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { Color, PageSizes, PDFDocument, PDFFont } from 'pdf-lib';
-import { PdfBulletPointItem, SCHOOL_WORK_NOTE, SchoolWorkNoteExcuseDocDTO, Secrets } from 'utils';
+import {
+  getSecret,
+  PdfBulletPointItem,
+  SCHOOL_WORK_NOTE,
+  SchoolWorkNoteExcuseDocDTO,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { handleBadSpaces, PdfInfo, rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
@@ -96,7 +103,7 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   };
 
   // add Ottehr logo at the top of the PDF
-  const imgPath = './assets/ottehrLogo.png';
+  const imgPath = getSecret(SecretsKeys.PATIENT_LOGO, secrets);
   const imgBytes = fs.readFileSync(imgPath);
   const img = await pdfDoc.embedPng(imgBytes);
   currYPos -= styles.margin.y;

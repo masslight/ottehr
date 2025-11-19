@@ -4,7 +4,11 @@ import { Auth0Provider } from '@auth0/auth0-react';
 import hasOwn from 'object.hasown';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { initializeAppConfig } from '../../config/initConfig';
 import App from './App';
+
+// ⏳ Load config BEFORE anything else (Top-level await)
+await initializeAppConfig();
 
 window.global ||= window; // https://stackoverflow.com/questions/72795666/how-to-fix-vite-build-parser-error-unexpected-token-in-third-party-dependenc
 

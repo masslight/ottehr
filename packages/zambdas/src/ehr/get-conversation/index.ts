@@ -11,7 +11,6 @@ import {
   getMessageFromComm,
   getMessageHasBeenRead,
   getSecret,
-  PROJECT_NAME,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -276,7 +275,7 @@ const getSenderNameFromComm = (communication: Communication, map: Record<string,
       }
     }
   }
-  return `${PROJECT_NAME} Team`;
+  return `Company Team`;
 };
 
 const getReceivedMessages = async (

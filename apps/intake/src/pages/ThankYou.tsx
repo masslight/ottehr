@@ -13,8 +13,6 @@ import {
   Typography,
   useMediaQuery,
 } from '@mui/material';
-import { ottehrLightBlue } from '@theme/icons';
-import { ottehrAiLogo } from '@theme/index';
 import { ContactPoint } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
@@ -27,7 +25,6 @@ import {
   formatPhoneNumberDisplay,
   getSelectors,
   getSlugAndStateFromLocation,
-  PROJECT_NAME,
   UCGetPaperworkResponse,
   VisitType,
 } from 'utils';
@@ -303,7 +300,7 @@ const ThankYou = (): JSX.Element => {
                 Start Chatting
               </Button>
             </Box>
-            <img src={ottehrAiLogo} style={{ width: '80px', marginLeft: '8px' }} />
+            <img src={window.APP_CONFIG?.roundLogo ?? ''} style={{ width: '80px', marginLeft: '8px' }} />
           </Box>
         )}
       </>
@@ -331,16 +328,13 @@ const ThankYou = (): JSX.Element => {
 
   return (
     <PageContainer
-      title={t('thanks.title', { PROJECT_NAME })}
+      title={t('thanks.title', `${window.APP_CONFIG?.projectName ?? ''}`)}
       description={visitType === VisitType.WalkIn ? '' : t('thanks.subtitle')}
     >
       {(!loading && (
         <>
           {visitType !== VisitType.WalkIn && <Divider />}
           <Grid container alignItems="center" marginTop={2} marginBottom={2}>
-            <Grid item xs={12} md={2.5}>
-              <img src={ottehrLightBlue} alt={`${PROJECT_NAME} icon`} width="80px" />
-            </Grid>
             <Grid item xs={12} md={9.5}>
               <Typography variant="subtitle1" color="text.primary">
                 {t('thanks.body1')}

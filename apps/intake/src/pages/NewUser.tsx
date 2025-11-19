@@ -3,7 +3,6 @@ import { ottehrLightBlue } from '@theme/icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { PROJECT_NAME } from 'utils';
 import { BOOKING_SLOT_ID_PARAM, intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
@@ -40,9 +39,9 @@ const NewUser = (): JSX.Element => {
 
   return (
     <PageContainer
-      title={t('newUser.title', { PROJECT_NAME })}
+      title={t('newUser.title', `${window.APP_CONFIG?.projectName ?? ''}`)}
       img={ottehrLightBlue}
-      imgAlt={`${PROJECT_NAME} icon`}
+      imgAlt={`${window.APP_CONFIG?.projectName ?? ''} icon`}
       imgWidth={100}
     >
       <Typography variant="body1" className="user-description">

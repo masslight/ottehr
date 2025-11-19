@@ -7,7 +7,6 @@ import {
   formatPhoneNumberDisplay,
   getSecret,
   isLocationVirtual,
-  PROJECT_NAME,
   Secrets,
   SecretsKeys,
   ServiceMode,
@@ -147,6 +146,7 @@ export async function sendInPersonMessages(
     console.log('email undefined');
   }
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  const APP_NAME = getSecret(SecretsKeys.APP_NAME, secrets);
   const messageAll = `Your check-in time for ${firstName} at ${getNameForOwner(
     scheduleResource
   )} is ${startTime}. Please save time at check-in by completing your pre-visit paperwork`;
@@ -155,7 +155,7 @@ export async function sendInPersonMessages(
       ? `${messageAll}: ${WEBSITE_URL}/paperwork/${appointmentID}`
       : `You're confirmed! ${messageAll}, or modify/cancel your visit: ${WEBSITE_URL}/visit/${appointmentID}`;
   // cSpell:disable-next spanish
-  const messageAllSpanish = `¡Gracias por elegir ${PROJECT_NAME} In Person! Su hora de registro para ${firstName} en ${scheduleResource.name} es el día ${startTime}. Nuestra nueva tecnología requiere que los pacientes nuevos Y los recurrentes completen los formularios y se aseguren de que los registros estén actualizados. Para expediar el proceso, antes de su llegada por favor llene el papeleo`;
+  const messageAllSpanish = `¡Gracias por elegir ${APP_NAME} In Person! Su hora de registro para ${firstName} en ${scheduleResource.name} es el día ${startTime}. Nuestra nueva tecnología requiere que los pacientes nuevos Y los recurrentes completen los formularios y se aseguren de que los registros estén actualizados. Para expediar el proceso, antes de su llegada por favor llene el papeleo`;
   const messageSpanish =
     appointmentType === 'walkin' || appointmentType === 'posttelemed'
       ? `${messageAllSpanish}: ${WEBSITE_URL}/paperwork/${appointmentID}`
@@ -200,6 +200,7 @@ export async function sendInPersonMessages(
 export const sendInPersonConfirmationEmail = async (input: InPersonConfirmationEmailSettings): Promise<void> => {
   const { email, startTime, language, appointmentID, secrets, scheduleResource, appointmentType } = input;
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  const APP_NAME = getSecret(SecretsKeys.APP_NAME, secrets);
   const SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
     SecretsKeys.IN_PERSON_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID,
     secrets
@@ -210,22 +211,22 @@ export const sendInPersonConfirmationEmail = async (input: InPersonConfirmationE
   );
 
   // Translation variables
-  let subject = `Your visit confirmation at ${PROJECT_NAME}`;
+  let subject = `Your visit confirmation at ${APP_NAME}`;
   let templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
 
   // In case of e.g. en-US or en-GB, ignore local dialect
   switch (language?.split('-')?.[0] ?? 'en') {
     case 'es':
       // cSpell:disable-next spanish
-      subject = `Confirmación de su consulta en ${PROJECT_NAME}`;
+      subject = `Confirmación de su consulta en ${APP_NAME}`;
       templateId = SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID;
       break;
     case 'en':
-      subject = `Your visit confirmation at ${PROJECT_NAME}`;
+      subject = `Your visit confirmation at ${APP_NAME}`;
       templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
       break;
     default:
-      subject = `Your visit confirmation at ${PROJECT_NAME}`;
+      subject = `Your visit confirmation at ${APP_NAME}`;
       templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
       break;
   }
@@ -289,13 +290,14 @@ export async function sendEmail(
   const SENDGRID_EMAIL_BCC = getSecret(SecretsKeys.SENDGRID_EMAIL_BCC, secrets).split(',').find(isValidEmail) || [];
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
+  const APP_NAME = getSecret(SecretsKeys.APP_NAME, secrets);
   subject = `${environmentSubjectPrepend}${subject}`;
 
   const emailConfiguration = {
     to: email,
     from: {
       email: SENDGRID_FROM_EMAIL,
-      name: `${PROJECT_NAME} In Person`,
+      name: `${APP_NAME} In Person`,
     },
     ...(SENDGRID_EMAIL_BCC.length ? { bcc: SENDGRID_EMAIL_BCC } : {}),
     replyTo: SENDGRID_FROM_EMAIL,
@@ -323,13 +325,14 @@ export async function sendEmail(
 export const sendVirtualConfirmationEmail = async (input: VirtualConfirmationEmailSettings): Promise<void> => {
   const { toAddress, appointmentID, secrets } = input;
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  const APP_NAME = getSecret(SecretsKeys.APP_NAME, secrets);
   const SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
     SecretsKeys.VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID,
     secrets
   );
 
   // Translation variables
-  const subject = `${PROJECT_NAME} Telemedicine`;
+  const subject = `${APP_NAME} Telemedicine`;
   const templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
   const templateInformation = {
     url: `${WEBSITE_URL}/waiting-room?appointment_id=${appointmentID}`,
@@ -340,11 +343,12 @@ export const sendVirtualConfirmationEmail = async (input: VirtualConfirmationEma
 export const sendVirtualCancellationEmail = async (input: VirtualCancellationEmailSettings): Promise<void> => {
   const { toAddress, secrets } = input;
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  const APP_NAME = getSecret(SecretsKeys.APP_NAME, secrets);
   const SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID = getSecret(
     SecretsKeys.VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID,
     secrets
   );
-  const subject = `${PROJECT_NAME} Telemedicine`;
+  const subject = `${APP_NAME} Telemedicine`;
   const templateId = SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID;
 
   const templateInformation = {
@@ -367,7 +371,8 @@ export const sendVideoChatInvitationEmail = async (input: VideoChatInvitationEma
       SecretsKeys.VIRTUAL_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID,
       secrets
     );
-    const subject = `Invitation to Join a Visit - ${PROJECT_NAME} Telemedicine`;
+    const APP_NAME = getSecret(SecretsKeys.APP_NAME, secrets);
+    const subject = `Invitation to Join a Visit - ${APP_NAME} Telemedicine`;
     const templateId = SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID;
     const templateInformation = {
       inviteUrl: inviteUrl,

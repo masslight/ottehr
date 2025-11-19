@@ -3,7 +3,6 @@ import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { ottehrLightBlue } from '@theme/icons';
 import { useNavigate } from 'react-router-dom';
-import { PROJECT_NAME } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
 import { dataTestIds } from '../../helpers/data-test-ids';
 import { EmergencyBanner } from '../components/EmergencyBanner';
@@ -17,9 +16,9 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
 
   return (
     <CustomContainer
-      title={`Welcome to ${PROJECT_NAME}`}
+      title={`Welcome to ${window.APP_CONFIG?.projectName ?? ''}`}
       img={ottehrLightBlue}
-      imgAlt={`${PROJECT_NAME} icon`}
+      imgAlt={`${window.APP_CONFIG?.projectName ?? ''} icon`}
       imgWidth={150}
       isFirstPage={true}
       outsideCardComponent={showEmergencyBanner ? <EmergencyBanner /> : undefined}

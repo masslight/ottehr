@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import React, { FC, useState } from 'react';
 import { useQueryClient } from 'react-query';
-import { CommunicationDTO, InstructionType, PROJECT_NAME } from 'utils';
+import { CommunicationDTO, InstructionType } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { useDeletePatientInstruction, useGetPatientInstructions } from '../../../../state';
@@ -52,7 +52,9 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
       <DialogTitle component="div" sx={{ p: 3, pb: 2, display: 'flex', alignItems: 'flex-start' }}>
         <Typography variant="h4" color={theme.palette.primary.dark} sx={{ flex: 1 }}>
-          {isMyTemplates ? 'My instruction templates' : `${PROJECT_NAME} instruction templates `}
+          {isMyTemplates
+            ? 'My instruction templates'
+            : `${window.APP_CONFIG?.projectName ?? ''}  instruction templates `}
         </Typography>
         <IconButton size="small" onClick={onClose}>
           <CloseIcon fontSize="small" />

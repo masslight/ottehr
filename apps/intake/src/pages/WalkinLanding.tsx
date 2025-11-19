@@ -6,7 +6,7 @@ import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
 import { useQuery } from 'react-query';
 import { generatePath, Link, useNavigate, useParams } from 'react-router-dom';
-import { APIError, CreateSlotParams, isApiError, PROJECT_NAME, PROJECT_WEBSITE, ServiceMode } from 'utils';
+import { APIError, CreateSlotParams, isApiError, PROJECT_WEBSITE, ServiceMode } from 'utils';
 import { ottehrApi } from '../api';
 import { bookingBasePath } from '../App';
 import { PageContainer } from '../components';
@@ -55,7 +55,7 @@ export const WalkinLanding: FC = () => {
       subtitle={somethingIsLoadingInSomeWay ? '' : data?.scheduleOwnerName ?? ''}
       isFirstPage
       img={ottehrLightBlue}
-      imgAlt={`${PROJECT_NAME} icon`}
+      imgAlt={`${window.APP_CONFIG?.projectName ?? ''} icon`}
       imgWidth={150}
     >
       {!somethingIsLoadingInSomeWay && data ? (
@@ -113,9 +113,9 @@ export const WalkinLanding: FC = () => {
               {t('welcome.errors.closed.description')}
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2.5 }}>
-              <Link to={PROJECT_WEBSITE} aria-label={`${PROJECT_NAME} website`} target="_blank">
+              <Link to={PROJECT_WEBSITE} aria-label={`${window.APP_CONFIG?.projectName ?? ''} website`} target="_blank">
                 <Button variant="contained" color="primary" data-testid="loading-button">
-                  {t('welcome.goToWebsite', { PROJECT_NAME })}
+                  {t('welcome.goToWebsite', `${window.APP_CONFIG?.projectName ?? ''}`)}
                 </Button>
               </Link>
             </Box>

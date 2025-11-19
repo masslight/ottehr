@@ -5,7 +5,6 @@ import {
   DispositionType,
   followUpInOptions,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
-  PROJECT_NAME,
 } from 'utils';
 
 export const dispositionFieldsPerType: { [key in DispositionType]: string[] } = {
@@ -136,28 +135,47 @@ export const SEND_OUT_VIRUS_TEST_LABEL = 'Send out virus test';
 export const labServiceOptions = [
   {
     label: 'COVID PCR',
-    note: `Based on our medical evaluation, you will undergo COVID-19 PCR testing. You will be provided with additional instructions to access your patient portal and view test results during your in-person visit at our office. The ${PROJECT_NAME} Telemedicine app is available daily beginning at 8AM to patients from birth through age 26 for all virtual urgent care needs. The Covid PCR test will be scheduled.`,
+    note: `Based on our medical evaluation, you will undergo COVID-19 PCR testing. You will be provided with additional instructions to access your patient portal and view test results during your in-person visit at our office. The ${
+      window.APP_CONFIG?.projectName ?? ''
+    } Telemedicine app is available daily beginning at 8AM to patients from birth through age 26 for all virtual urgent care needs. The Covid PCR test will be scheduled.`,
   },
   {
     label: 'COVID Rapid Antigen only',
-    note: `Based on our medical evaluation, you will undergo a COVID-19 Rapid Antigen test. You will be provided with additional instructions to access your patient portal and view test results during your in-person visit at our office. The ${PROJECT_NAME} Telemedicine app is available daily beginning at 8AM to patients from birth through age 26 for all virtual urgent care needs. Your Covid Rapid Antigen test will be scheduled.`,
+    note: `Based on our medical evaluation, you will undergo a COVID-19 Rapid Antigen test. You will be provided with additional instructions to access your patient portal and view test results during your in-person visit at our office. The ${
+      window.APP_CONFIG?.projectName ?? ''
+    } Telemedicine app is available daily beginning at 8AM to patients from birth through age 26 for all virtual urgent care needs. Your Covid Rapid Antigen test will be scheduled.`,
   },
   {
     label: 'COVID Rapid Antigen & Reflex PCR',
-    note: `Based on our medical evaluation, you will undergo a COVID-19 Rapid Antigen test. If this rapid test is negative, a more accurate confirmatory “PCR” will be sent to the lab. You will be provided with additional instructions to access your patient portal and view test results during your in-person visit at our office. The ${PROJECT_NAME} Telemedicine app is available daily beginning at 8AM to patients from birth through age 26 for all virtual urgent care needs. The Covid Rapid Antigen Test will be scheduled.`,
+    note: `Based on our medical evaluation, you will undergo a COVID-19 Rapid Antigen test. If this rapid test is negative, a more accurate confirmatory “PCR” will be sent to the lab. You will be provided with additional instructions to access your patient portal and view test results during your in-person visit at our office. The ${
+      window.APP_CONFIG?.projectName ?? ''
+    } Telemedicine app is available daily beginning at 8AM to patients from birth through age 26 for all virtual urgent care needs. The Covid Rapid Antigen Test will be scheduled.`,
   },
-  { label: 'Multiple Tests', note: `For the following tests, please proceed to ${PROJECT_NAME}.` },
+  {
+    label: 'Multiple Tests',
+    note: `For the following tests, please proceed to ${window.APP_CONFIG?.projectName ?? ''}.`,
+  },
   {
     label: 'Rapid Strep/Throat Culture',
-    note: `Based on our medical evaluation, you will undergo a rapid Strep test. If the rapid test is positive, a provider at ${PROJECT_NAME} will be in contact with you within 2 hours and provide a prescription. If the rapid test is negative, a confirmatory test will be sent to the lab and we will notify you if the results indicate a need for treatment. Confirmatory lab results may take up to 5 days to return. All lab results and instructions from your child's provider can be found in your patient portal.`,
+    note: `Based on our medical evaluation, you will undergo a rapid Strep test. If the rapid test is positive, a provider at ${
+      window.APP_CONFIG?.projectName ?? ''
+    } will be in contact with you within 2 hours and provide a prescription. If the rapid test is negative, a confirmatory test will be sent to the lab and we will notify you if the results indicate a need for treatment. Confirmatory lab results may take up to 5 days to return. All lab results and instructions from your child's provider can be found in your patient portal.`,
   },
   {
     label: 'Rapid Strep/Throat Culture & COVID PCR',
-    note: `Based on our medical evaluation, you will undergo a COVID-19 test. Based on our medical evaluation, you will ALSO undergo a rapid Strep test. If the rapid test is positive, a provider at ${PROJECT_NAME} will be in contact with you within 2 hours and provide a prescription. If the rapid test is negative, a confirmatory test will be sent to the lab and we will notify you if the results indicate a need for treatment. Confirmatory lab results may take up to 5 days to return. All lab results and instructions from your child's provider can be found in your patient portal.`,
+    note: `Based on our medical evaluation, you will undergo a COVID-19 test. Based on our medical evaluation, you will ALSO undergo a rapid Strep test. If the rapid test is positive, a provider at ${
+      window.APP_CONFIG?.projectName ?? ''
+    } will be in contact with you within 2 hours and provide a prescription. If the rapid test is negative, a confirmatory test will be sent to the lab and we will notify you if the results indicate a need for treatment. Confirmatory lab results may take up to 5 days to return. All lab results and instructions from your child's provider can be found in your patient portal.`,
   },
   {
     label: 'UA/UCX',
-    note: `Based on our medical evaluation, you will undergo a rapid urine test (urinalysis). Please go to ${PROJECT_NAME} to provide a urine sample. Be sure to drink plenty of fluids prior to coming to the office. The urine sample must be collected on site at ${PROJECT_NAME} using a sterile urine cup. We are unable to accept urine samples taken at home. If the urinalysis is positive, a provider at ${PROJECT_NAME} will be in contact with you within 2 hours and provide a prescription. If the urinalysis is negative, a confirmatory test (urine culture) will be sent to the lab and we will notify you if the results indicate a need for treatment. Urine culture results may take up to 5 days to return. All lab results and instructions from your child's provider can be found in your patient portal.`,
+    note: `Based on our medical evaluation, you will undergo a rapid urine test (urinalysis). Please go to ${
+      window.APP_CONFIG?.projectName ?? ''
+    } to provide a urine sample. Be sure to drink plenty of fluids prior to coming to the office. The urine sample must be collected on site at ${
+      window.APP_CONFIG?.projectName ?? ''
+    } using a sterile urine cup. We are unable to accept urine samples taken at home. If the urinalysis is positive, a provider at ${
+      window.APP_CONFIG?.projectName ?? ''
+    } will be in contact with you within 2 hours and provide a prescription. If the urinalysis is negative, a confirmatory test (urine culture) will be sent to the lab and we will notify you if the results indicate a need for treatment. Urine culture results may take up to 5 days to return. All lab results and instructions from your child's provider can be found in your patient portal.`,
   },
   { label: SEND_OUT_VIRUS_TEST_LABEL },
 ];

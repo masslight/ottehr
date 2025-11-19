@@ -1,11 +1,10 @@
 import { otherColors } from '@ehrTheme/colors';
-import { logo } from '@ehrTheme/icons';
 import { TabList } from '@mui/lab';
 import { AppBar, Container, Tab, Toolbar, useMediaQuery, useTheme } from '@mui/material';
 import { ReactElement, SyntheticEvent, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
-import { PROJECT_NAME, RoleType } from 'utils';
+import { RoleType } from 'utils';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
 import MobileMenu from './MobileMenu';
@@ -113,8 +112,8 @@ export default function Navbar(): ReactElement | null {
         <Toolbar disableGutters variant="dense">
           <Link to="/">
             <img
-              src={logo}
-              alt={`${PROJECT_NAME} logo`}
+              src={window.APP_CONFIG?.logo ?? ''}
+              alt={`${window.APP_CONFIG?.projectName ?? ''} logo`}
               style={{
                 marginRight: 20,
                 marginTop: 10,

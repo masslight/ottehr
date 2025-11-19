@@ -7,7 +7,7 @@ import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { pastVisits } from '@theme/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { PROJECT_NAME, ServiceMode } from 'utils';
+import { ServiceMode } from 'utils';
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
 import HomepageOption from '../components/HomepageOption';
 import { dataTestIds } from '../helpers/data-test-ids';
@@ -100,7 +100,7 @@ const Homepage = (): JSX.Element => {
   };
 
   return (
-    <CustomContainer title={`Welcome to ${PROJECT_NAME}`} description="" isFirstPage={true}>
+    <CustomContainer title={`Welcome to ${window.APP_CONFIG?.projectName ?? ''}`} description="" isFirstPage={true}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {isAppointmentsFetching ? (
           <Skeleton

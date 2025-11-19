@@ -25,6 +25,7 @@ async function createReceiptPdfBytes(data: ReceiptData): Promise<Uint8Array> {
   const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
   const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assetsRubik-Bold.otf'));
   const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./ottehrLogo.png'));
+  // const ottehrLogo = await pdfClient.embedImage(fs.readFileSync( getSecret(SecretsKeys.PATIENT_LOGO, secrets)));
 
   const textStyles: Record<string, TextStyle> = {
     blockHeader: {

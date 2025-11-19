@@ -16,7 +16,7 @@ import { FC, MouseEvent, useCallback, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getPractitionerMissingFields } from 'src/shared/utils';
 import { useCheckPractitionerEnrollment, useConnectPractitionerToERX, useEnrollPractitionerToERX } from 'src/telemed';
-import { getFullestAvailableName, PROJECT_NAME, RoleType } from 'utils';
+import { getFullestAvailableName, RoleType } from 'utils';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { ProviderNotifications } from '../../features';
 import useEvolveUser from '../../hooks/useEvolveUser';
@@ -65,7 +65,9 @@ export const UserMenu: FC = () => {
     }
   }, [connectPractitionerForConfirmation, enrollPractitioner, practitioner]);
 
-  const name = user?.profileResource && (getFullestAvailableName(user.profileResource, true) ?? `${PROJECT_NAME} Team`);
+  const name =
+    user?.profileResource &&
+    (getFullestAvailableName(user.profileResource, true) ?? `${window.APP_CONFIG?.projectName ?? ''} Team`);
   const suffix = user?.profileResource?.name?.[0]?.suffix?.[0];
 
   return (
@@ -93,7 +95,7 @@ export const UserMenu: FC = () => {
       >
         <MenuItem>
           <Box>
-            <Typography variant="body1">{PROJECT_NAME} Admin</Typography>
+            <Typography variant="body1"> {window.APP_CONFIG?.projectName ?? 'Default'} Admin</Typography>
             <Typography variant="caption">{user?.email}</Typography>
           </Box>
         </MenuItem>
