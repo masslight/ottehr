@@ -1145,14 +1145,33 @@ export const createUpdatePharmacyPatchOps = (
   patient: Patient,
   flattenedItems: QuestionnaireResponseItem[]
 ): Operation[] => {
-  const inputPharmacyName = getAnswer('pharmacy-name', flattenedItems)?.valueString;
-  const inputPharmacyAddress = getAnswer('pharmacy-address', flattenedItems)?.valueString;
-  const newContained = (patient.contained ?? []).filter((resource) => resource.id !== PATIENT_CONTAINED_PHARMACY_ID);
-  const newExtensions = (patient.extension ?? []).filter(
-    (extension) => extension.url !== PREFERRED_PHARMACY_EXTENSION_URL
-  );
+  const pharmacyNameAnswer = getAnswer('pharmacy-name', flattenedItems);
+  const pharmacyAddressAnswer = getAnswer('pharmacy-address', flattenedItems);
+
+  // Check if pharmacy fields are present in the questionnaire response
+  const hasPharmacyFields = pharmacyNameAnswer !== undefined || pharmacyAddressAnswer !== undefined;
+
+  // Check if patient currently has pharmacy data
+  const hasExistingPharmacy =
+    patient.contained?.some((resource) => resource.id === PATIENT_CONTAINED_PHARMACY_ID) ||
+    patient.extension?.some((extension) => extension.url === PREFERRED_PHARMACY_EXTENSION_URL);
+
+  // If no pharmacy fields in questionnaire and no existing pharmacy, no action needed
+  if (!hasPharmacyFields && !hasExistingPharmacy) {
+    return [];
+  }
+
+  const inputPharmacyName = pharmacyNameAnswer?.valueString;
+  const inputPharmacyAddress = pharmacyAddressAnswer?.valueString;
+
+  const operations: Operation[] = [];
+
+  const currentContained = patient.contained ?? [];
+  const filteredContained = currentContained.filter((resource) => resource.id !== PATIENT_CONTAINED_PHARMACY_ID);
+
+  // Add new pharmacy if provided
   if (inputPharmacyName || inputPharmacyAddress) {
-    const pharmacy: Organization = {
+    filteredContained.push({
       resourceType: 'Organization',
       id: PATIENT_CONTAINED_PHARMACY_ID,
       name: inputPharmacyName ?? '-',
@@ -1164,31 +1183,58 @@ export const createUpdatePharmacyPatchOps = (
             },
           ]
         : undefined,
-    };
-    newContained.push(pharmacy);
-    newExtensions.push({
+    });
+  }
+
+  // Create contained operation
+  if (patient.contained || filteredContained.length > 0) {
+    if (filteredContained.length === 0) {
+      operations.push({
+        op: 'remove',
+        path: '/contained',
+      });
+    } else {
+      operations.push({
+        op: patient.contained ? 'replace' : 'add',
+        path: '/contained',
+        value: filteredContained,
+      });
+    }
+  }
+
+  // Handle extension
+  const currentExtensions = patient.extension ?? [];
+  const filteredExtensions = currentExtensions.filter(
+    (extension) => extension.url !== PREFERRED_PHARMACY_EXTENSION_URL
+  );
+
+  // Add pharmacy reference if we have pharmacy data
+  if (inputPharmacyName || inputPharmacyAddress) {
+    filteredExtensions.push({
       url: PREFERRED_PHARMACY_EXTENSION_URL,
       valueReference: {
         reference: '#' + PATIENT_CONTAINED_PHARMACY_ID,
       },
     });
-    const containedOp = patient.contained ? 'replace' : 'add';
-    const extensionOp = patient.extension ? 'replace' : 'add';
-    const patchOps: Operation[] = [
-      {
-        op: containedOp,
-        path: '/contained',
-        value: newContained,
-      },
-      {
-        op: extensionOp,
-        path: '/extension',
-        value: newExtensions,
-      },
-    ];
-    return patchOps;
   }
-  return [];
+
+  // Create extension operation
+  if (patient.extension || filteredExtensions.length > 0) {
+    if (filteredExtensions.length === 0) {
+      operations.push({
+        op: 'remove',
+        path: '/extension',
+      });
+    } else {
+      operations.push({
+        op: patient.extension ? 'replace' : 'add',
+        path: '/extension',
+        value: filteredExtensions,
+      });
+    }
+  }
+
+  return operations;
 };
 
 function separateResourceUpdates(
