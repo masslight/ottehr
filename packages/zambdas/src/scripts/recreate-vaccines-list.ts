@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication } from 'fhir/r4b';
-import fs from 'fs';
 import { getMedicationName, getResourcesFromBatchInlineRequests, INVENTORY_VACCINE_TYPE_CODE } from 'utils';
 import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from './helpers';
@@ -23,16 +22,18 @@ const recreateVaccines = async (config: any): Promise<void> => {
     await oystehr.fhir.delete({ resourceType: 'Medication', id: resource.id! });
   }
 
-  console.log('\n--------- Creating new vaccines ---------\n');
+  // Now managed by IaC
 
-  const vaccinesJson = JSON.parse(fs.readFileSync(`../../config/oystehr/vaccines.json`, 'utf8'));
+  // console.log('\n--------- Creating new vaccines ---------\n');
 
-  for (const medicationResourceToCreate of Object.values(vaccinesJson.fhirResources).map(
-    (res) => (res as any).resource
-  ) as Medication[]) {
-    const newResource = await oystehr.fhir.create(medicationResourceToCreate);
-    console.log(`Created FHIR Medication: ${getMedicationName(newResource)}, with id: ${newResource.id}`);
-  }
+  // const vaccinesJson = JSON.parse(fs.readFileSync(`../../config/oystehr/vaccines.json`, 'utf8'));
+
+  // for (const medicationResourceToCreate of Object.values(vaccinesJson.fhirResources).map(
+  //   (res) => (res as any).resource
+  // ) as Medication[]) {
+  //   const newResource = await oystehr.fhir.create(medicationResourceToCreate);
+  //   console.log(`Created FHIR Medication: ${getMedicationName(newResource)}, with id: ${newResource.id}`);
+  // }
 };
 
 const main = async (): Promise<void> => {
