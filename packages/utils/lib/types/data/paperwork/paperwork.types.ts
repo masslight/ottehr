@@ -143,12 +143,15 @@ export type FullAccessPaperworkSupportingInfo = Omit<PaperworkSupportingInfo, 'p
   updateTimestamp: number | undefined;
 };
 
-export interface UCGetPaperworkResponse {
+export interface QAndQRResponse {
+  allItems: IntakeQuestionnaireItem[];
+  questionnaireResponse: QuestionnaireResponse | undefined;
+}
+
+export interface UCGetPaperworkResponse extends QAndQRResponse {
   appointment: AppointmentSummary;
   patient: PaperworkPatient;
   updateTimestamp: number | undefined;
-  allItems: IntakeQuestionnaireItem[];
-  questionnaireResponse: QuestionnaireResponse | undefined;
 }
 export interface IntakeQuestionnaireItem
   extends QuestionnaireItemExtension,

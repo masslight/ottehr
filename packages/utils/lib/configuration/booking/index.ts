@@ -1,6 +1,7 @@
-import { Coding, Questionnaire } from 'fhir/r4b';
+import { Coding, Questionnaire, Slot } from 'fhir/r4b';
 import _ from 'lodash';
 import z from 'zod';
+import bookAppointmentQuestionnaireJson from '../../../../../config/oystehr/book-appointment-questionnaire.json' assert { type: 'json' };
 import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import { BOOKING_OVERRIDES } from '../../../.ottehr_config';
@@ -51,6 +52,20 @@ export const intakeQuestionnaires: Readonly<Array<Questionnaire>> = (() => {
   }
   return questionnaires;
 })();
+
+const bookAppointmentQuestionnaire: {
+  url: string | undefined;
+  version: string | undefined;
+  templateQuestionnaire: Questionnaire | undefined;
+} = (() => {
+  const templateResource = Object.values(bookAppointmentQuestionnaireJson.fhirResources)[0]?.resource;
+  return {
+    url: templateResource?.url,
+    version: templateResource?.version,
+    templateQuestionnaire: templateResource as Questionnaire,
+  };
+})();
+
 const CANCEL_REASON_OPTIONS = Object.freeze([
   'Patient improved',
   'Wait time too long',
@@ -86,6 +101,20 @@ const BOOKING_DEFAULTS = Object.freeze({
   },
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
   intakeQuestionnaires,
+  selectBookingQuestionnaire: (
+    _slot?: Slot
+  ): { url: string; version: string; templateQuestionnaire: Questionnaire } => {
+    // can read properties of slot to determine which questionnaire to return
+    // if desired. by default, we return just a single questionnaire regardless of slot
+    if (
+      bookAppointmentQuestionnaire.url &&
+      bookAppointmentQuestionnaire.version &&
+      bookAppointmentQuestionnaire.templateQuestionnaire
+    ) {
+      return JSON.parse(JSON.stringify(bookAppointmentQuestionnaire));
+    }
+    throw new Error('No booking questionnaire configured');
+  },
 });
 
 const mergedBookingConfig = _.merge({ ...BOOKING_DEFAULTS }, { ...BOOKING_OVERRIDES });

@@ -1,31 +1,23 @@
-import { DateTime } from 'luxon';
-import { useCallback, useMemo, useState } from 'react';
-import { FieldValues } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
+import { QuestionnaireResponseItem } from 'fhir/r4b';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useBeforeUnload, useNavigate } from 'react-router-dom';
+import { Outlet, useBeforeUnload, useNavigate, useParams } from 'react-router-dom';
+import api from 'src/api/ottehrApi';
+import { PaperworkContext, usePaperworkContext } from 'src/features/paperwork/context';
+import PagedQuestionnaire from 'src/features/paperwork/PagedQuestionnaire';
+import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
 import {
-  BOOKING_CONFIG,
-  DateComponents,
+  flattenIntakeQuestionnaireItems,
   getDateComponentsFromISOString,
-  isoStringFromDateComponents,
   PatientInfo,
-  PersonSex,
-  REASON_ADDITIONAL_DISPLAY_CHAR,
-  REASON_ADDITIONAL_MAX_CHAR,
-  ServiceMode,
+  QuestionnaireFormFields,
 } from 'utils';
 import { bookingBasePath } from '../App';
 import { PageContainer } from '../components';
 import { ErrorDialog } from '../components/ErrorDialog';
-import PageForm from '../components/PageForm';
-import {
-  PatientInfoInProgress,
-  PatientInformationKnownPatientFieldsDisplay,
-  PatientSexOptions,
-} from '../features/patients';
-import { getPatientAgeDependentDataWithPatientData } from '../helpers/validation';
+import { PatientInformationKnownPatientFieldsDisplay } from '../features/patients';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
-import { FormInputType } from '../types';
 import { useBookingContext } from './BookingHome';
 
 interface PatientInformation {
@@ -42,306 +34,96 @@ interface ErrorDialogConfig {
   handleContinue?: () => void;
 }
 
+export const PatientInfoCollection: FC = () => {
+  const zambdaClient = useUCZambdaClient({ tokenless: true });
+  const navigate = useNavigate();
+
+  const { slotId } = useParams<{ slotId: string }>();
+  const { patientInfo } = useBookingContext();
+  const {
+    data: questionnaireData,
+    isLoading,
+    isSuccess,
+  } = useQuery({
+    queryKey: ['get-employees', { zambdaClient }],
+    queryFn: async () => {
+      if (!zambdaClient) throw new Error('Zambda client not initialized');
+      const response = await api.getQuestionnaire(
+        {
+          slotId: slotId,
+          patientId: patientInfo?.id,
+        },
+        zambdaClient
+      );
+      return response;
+    },
+    enabled: Boolean(zambdaClient && slotId),
+  });
+
+  const { allItems, questionnaireResponse } = questionnaireData || {};
+
+  const pages = useMemo(() => {
+    return (allItems ?? []).filter((item) => {
+      return item.linkId;
+    });
+  }, [allItems]);
+
+  const outletContext: PaperworkContext = useMemo(() => {
+    return {
+      appointment: undefined,
+      paperwork: [], // todo
+      paperworkInProgress: {}, // todo
+      pageItems: allItems || [],
+      allItems: flattenIntakeQuestionnaireItems(allItems ?? []),
+      pages,
+      questionnaireResponse,
+      patient: undefined,
+      updateTimestamp: undefined,
+      saveButtonDisabled: false,
+      cardsAreLoading: false,
+      paymentMethods: [],
+      paymentMethodStateInitializing: false,
+      stripeSetupData: undefined,
+      refetchPaymentMethods: () => {
+        throw new Error('Function not implemented.');
+      },
+      setSaveButtonDisabled: (_newVal: boolean): void => {
+        // todo
+      },
+      findAnswerWithLinkId: (_linkId: string): QuestionnaireResponseItem | undefined => {
+        // todo
+        return undefined;
+      },
+    };
+  }, [allItems, pages, questionnaireResponse]);
+
+  useEffect(() => {
+    if (isSuccess) {
+      navigate('form');
+    }
+  }, [isSuccess, navigate]);
+
+  console.log('isLoading', isLoading);
+  // todo: render something else when loading, only show outlet when loaded
+
+  return <Outlet context={{ ...outletContext }} />;
+};
+
 const PatientInformation = (): JSX.Element => {
   const navigateInFlow = useNavigateInFlow();
   const [errorDialog, setErrorDialog] = useState<ErrorDialogConfig | undefined>(undefined);
-  const [loading, setLoading] = useState<boolean>(false);
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const { t } = useTranslation();
 
-  const { patients, slotId, patientInfo, unconfirmedDateOfBirth, serviceMode, setPatientInfo } = useBookingContext();
+  const { slotId } = useParams<{ slotId: string }>();
+
+  const { patients, patientInfo, unconfirmedDateOfBirth, setPatientInfo } = useBookingContext();
   const selectPatientPageUrl = `${bookingBasePath}/${slotId}/patients`;
 
-  // console.log('patient info', patientInfo);
+  const { allItems, pages } = usePaperworkContext();
 
-  // compensating for this form design taking away direct access to the form state in order to persist on reload <man-shrugging-emoji>
-  const [formValuesCopy, setFormValuesCopy] = useState<FieldValues | undefined>();
-  // we don't need to select state from the store, we just need it one time on rerender
-  // cause when the patient comes to the PatientInformation component - they will already have
-  // everything needed in the patients state
-  const { defaultEmail } = useMemo(() => {
-    const { dobDay, dobMonth, dobYear, dateOfBirth } = formValuesCopy || {};
-    let formDob: string | undefined = dateOfBirth;
-    if (dobDay && dobMonth && dobYear) {
-      formDob = isoStringFromDateComponents({
-        day: dobDay as string,
-        month: dobMonth as string,
-        year: dobYear as string,
-      });
-    }
-    return getPatientAgeDependentDataWithPatientData(patientInfo, unconfirmedDateOfBirth, formDob);
-  }, [patientInfo, unconfirmedDateOfBirth, formValuesCopy]);
-
-  const middleNameStored = useMemo(() => {
-    const patientInfoStored = patients.find((patient) => patient.id === patientInfo?.id);
-    return !!patientInfoStored?.middleName;
-  }, [patients, patientInfo]);
-
-  const defaultDateComponents: DateComponents = useMemo(() => {
-    return getDateComponentsFromISOString(patientInfo?.dateOfBirth);
-  }, [patientInfo?.dateOfBirth]);
-
-  const formElements: FormInputType[] = useMemo(() => {
-    if (serviceMode === ServiceMode.virtual) {
-      return [
-        {
-          type: 'Text',
-          name: 'firstName',
-          label: 'First name (legal)',
-          placeholder: 'First name',
-          defaultValue: patientInfo?.firstName,
-          required: patientInfo?.newPatient,
-          hidden: !patientInfo?.newPatient,
-        },
-        {
-          type: 'Text',
-          name: 'middleName',
-          label: 'Middle name (legal)',
-          placeholder: 'Middle name',
-          defaultValue: patientInfo?.middleName,
-          hidden: !patientInfo?.newPatient,
-        },
-        {
-          type: 'Text',
-          name: 'lastName',
-          label: 'Last name (legal)',
-          placeholder: 'Last name',
-          defaultValue: patientInfo?.lastName,
-          required: patientInfo?.newPatient,
-          hidden: !patientInfo?.newPatient,
-        },
-        {
-          type: 'Text',
-          name: 'chosenName',
-          label: 'Chosen or preferred name (optional)',
-          placeholder: 'Chosen name',
-          defaultValue: patientInfo?.chosenName,
-        },
-        {
-          type: 'Date',
-          name: 'dateOfBirth',
-          label: t('aboutPatient.birthDate.label'),
-          required: patientInfo?.newPatient,
-          hidden: !patientInfo?.newPatient,
-          fieldMap: {
-            day: 'dobDay',
-            month: 'dobMonth',
-            year: 'dobYear',
-          },
-          fields: [
-            {
-              type: 'Date Year',
-              name: 'dobYear',
-              label: t('aboutPatient.birthDate.labelYear'),
-              defaultValue: patientInfo?.dobYear ?? defaultDateComponents.year,
-              required: patientInfo?.newPatient,
-              hidden: !patientInfo?.newPatient,
-            },
-            {
-              type: 'Date Month',
-              name: 'dobMonth',
-              label: t('aboutPatient.birthDate.labelMonth'),
-              defaultValue: patientInfo?.dobMonth ?? defaultDateComponents.month,
-              required: patientInfo?.newPatient,
-              hidden: !patientInfo?.newPatient,
-            },
-            {
-              type: 'Date Day',
-              name: 'dobDay',
-              label: t('aboutPatient.birthDate.labelDay'),
-              defaultValue: patientInfo?.dobDay ?? defaultDateComponents.day,
-              required: patientInfo?.newPatient,
-              hidden: !patientInfo?.newPatient,
-            },
-          ],
-        },
-        {
-          type: 'Select',
-          name: 'sex',
-          label: "Patient's birth sex",
-          defaultValue: patientInfo?.sex,
-          required: true,
-          hidden: !patientInfo?.newPatient,
-          infoTextSecondary:
-            'Our care team uses this to inform treatment recommendations and share helpful information regarding potential medication side effects, as necessary.',
-          selectOptions: Object.entries(PersonSex).map(([key, value]) => {
-            return {
-              label: key,
-              value: value,
-            };
-          }),
-        },
-        {
-          type: 'Text',
-          format: 'Decimal',
-          name: 'weight',
-          label: 'Patient weight (lbs)',
-          infoTextSecondary: 'Entering correct information in this box will help us with prescription dosing.',
-          defaultValue: patientInfo?.weight,
-          helperText: patientInfo?.newPatient
-            ? undefined
-            : `Weight last updated: ${
-                patientInfo?.weightLastUpdated
-                  ? DateTime.fromFormat(patientInfo.weightLastUpdated, 'yyyy-LL-dd').toFormat('MM/dd/yyyy')
-                  : 'N/A'
-              }`,
-          showHelperTextIcon: false,
-        },
-        {
-          type: 'Text',
-          name: 'email',
-          label: 'Email',
-          format: 'Email',
-          defaultValue: patientInfo?.email,
-          required: true,
-        },
-        {
-          type: 'Select',
-          name: 'reasonForVisit',
-          label: t('aboutPatient.reasonForVisit.label'),
-          defaultValue: patientInfo?.reasonForVisit,
-          selectOptions: BOOKING_CONFIG.reasonForVisitOptions.map((reason) => {
-            return { value: reason, label: t(`paperworkPages.${reason}`) };
-          }),
-          required: true,
-        },
-        {
-          type: 'Text',
-          name: 'authorizedNonLegalGuardians',
-          label: 'Who, besides the parent or legal guardian, is allowed to bring in the patient?',
-          defaultValue: patientInfo?.authorizedNonLegalGuardians,
-          multiline: true,
-          maxRows: 2,
-        },
-      ];
-    } else {
-      return [
-        {
-          type: 'Text',
-          name: 'firstName',
-          label: t('aboutPatient.patientName.legalFirstName'),
-          placeholder: t('aboutPatient.patientName.placeholderFirstName'),
-          defaultValue: patientInfo?.firstName,
-          required: patientInfo?.newPatient,
-          hidden: !patientInfo?.newPatient,
-        },
-        {
-          type: 'Text',
-          name: 'middleName',
-          label: t('aboutPatient.patientName.legalMiddleName'),
-          placeholder: t('aboutPatient.patientName.placeholderMiddleName'),
-          defaultValue: patientInfo?.middleName,
-          required: false,
-          hidden: middleNameStored,
-        },
-        {
-          type: 'Text',
-          name: 'lastName',
-          label: t('aboutPatient.patientName.legalLastName'),
-          placeholder: t('aboutPatient.patientName.placeholderLastName'),
-          defaultValue: patientInfo?.lastName,
-          required: patientInfo?.newPatient,
-          hidden: !patientInfo?.newPatient,
-        },
-        {
-          type: 'Date',
-          name: 'dateOfBirth',
-          label: t('aboutPatient.birthDate.label'),
-          required: patientInfo?.newPatient,
-          hidden: !patientInfo?.newPatient,
-          fieldMap: {
-            day: 'dobDay',
-            month: 'dobMonth',
-            year: 'dobYear',
-          },
-          fields: [
-            {
-              type: 'Date Year',
-              name: 'dobYear',
-              label: t('aboutPatient.birthDate.labelYear'),
-              defaultValue: patientInfo?.dobYear ?? defaultDateComponents.year,
-              required: patientInfo?.newPatient,
-              hidden: !patientInfo?.newPatient,
-            },
-            {
-              type: 'Date Month',
-              name: 'dobMonth',
-              label: t('aboutPatient.birthDate.labelMonth'),
-              defaultValue: patientInfo?.dobMonth ?? defaultDateComponents.month,
-              required: patientInfo?.newPatient,
-              hidden: !patientInfo?.newPatient,
-            },
-            {
-              type: 'Date Day',
-              name: 'dobDay',
-              label: t('aboutPatient.birthDate.labelDay'),
-              defaultValue: patientInfo?.dobDay ?? defaultDateComponents.day,
-              required: patientInfo?.newPatient,
-              hidden: !patientInfo?.newPatient,
-            },
-          ],
-        },
-        {
-          type: 'Select',
-          name: 'sex',
-          label: t('aboutPatient.birthSex.label'),
-          defaultValue: patientInfo?.sex,
-          selectOptions: PatientSexOptions.map((sex) => {
-            return { value: sex, label: t(`paperworkPages.${sex}`) };
-          }),
-          required: true,
-          infoTextSecondary: t('aboutPatient.birthSex.whyAskDescription'),
-        },
-        {
-          type: 'Text',
-          name: 'email',
-          label: t('aboutPatient.email.label'),
-          format: 'Email',
-          defaultValue: defaultEmail,
-          required: true,
-        },
-        {
-          type: 'Select',
-          name: 'reasonForVisit',
-          label: t('aboutPatient.reasonForVisit.label'),
-          defaultValue: patientInfo?.reasonForVisit,
-          selectOptions: BOOKING_CONFIG.reasonForVisitOptions.map((reason) => {
-            return { value: reason, label: t(`paperworkPages.${reason}`) };
-          }),
-          required: true,
-        },
-        {
-          type: 'Text',
-          name: 'reasonAdditional',
-          label: 'Tell us more (optional)',
-          defaultValue: patientInfo?.reasonAdditional,
-          multiline: true,
-          maxRows: 2,
-          maxCharacters: {
-            totalCharacters: REASON_ADDITIONAL_MAX_CHAR,
-            displayCharCount: REASON_ADDITIONAL_DISPLAY_CHAR,
-          },
-        },
-        {
-          type: 'Text',
-          name: 'authorizedNonLegalGuardians',
-          label: 'Who, besides the parent or legal guardian, is allowed to bring in the patient?',
-          defaultValue: patientInfo?.authorizedNonLegalGuardians,
-          multiline: true,
-          maxRows: 2,
-        },
-      ];
-    }
-  }, [
-    serviceMode,
-    patientInfo,
-    t,
-    middleNameStored,
-    defaultDateComponents.year,
-    defaultDateComponents.month,
-    defaultDateComponents.day,
-    defaultEmail,
-  ]);
+  // we assume a single-page questionnaire for now
+  const pageId = pages?.[0]?.linkId;
 
   const confirmDuplicate = useCallback(
     (patient: PatientInfo | undefined, reasonForVisit: string | undefined): void => {
@@ -366,8 +148,9 @@ const PatientInformation = (): JSX.Element => {
   );
 
   const onSubmit = useCallback(
-    async (data: Partial<PatientInfoInProgress>): Promise<void> => {
-      let foundDuplicate: PatientInfo | undefined;
+    async (data: QuestionnaireFormFields): Promise<void> => {
+      console.log('Submitting Patient Information data:', data);
+      /*let foundDuplicate: PatientInfo | undefined;
       // check if a patient with the same data already exists for this user
       let idx = patients.length - 1;
       if (patientInfo?.newPatient && data.firstName && data.lastName && data.dobYear && data.dobMonth && data.dobYear) {
@@ -397,7 +180,6 @@ const PatientInformation = (): JSX.Element => {
           ...patientInfo,
           ...data,
         };
-        setLoading(true);
         // Store DOB in yyyy-mm-dd format for backend validation
         const dateOfBirth = isoStringFromDateComponents({
           year: data.dobYear ?? '',
@@ -409,29 +191,25 @@ const PatientInformation = (): JSX.Element => {
         data.authorizedNonLegalGuardians = data.authorizedNonLegalGuardians ?? patientInfo?.authorizedNonLegalGuardians;
 
         setPatientInfo(data as PatientInfoInProgress);
-
-        setLoading(false);
         navigateInFlow('review');
-      }
+      }*/
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [confirmDuplicate, navigateInFlow, patientInfo, patients, setPatientInfo, t]
   );
   useBeforeUnload(() => {
-    setPatientInfo({
-      ...patientInfo,
-      ...(formValuesCopy as PatientInformation),
-      // 'new-patient' apparently isn't getting into form values
-      id: patientInfo?.id ?? formValuesCopy?.id ?? 'new-patient',
-      authorizedNonLegalGuardians:
-        formValuesCopy?.authorizedNonLegalGuardians ?? patientInfo?.authorizedNonLegalGuardians,
-    });
+    // store the state of the QR
+    console.log('save your data now!');
   });
 
-  const onFormValuesChange = useCallback((formValues: FieldValues): void => {
-    setFormValuesCopy({
-      ...formValues,
-    });
-  }, []);
+  const controlButtons = useMemo(
+    () => ({
+      backButton: false, // this is assumed to be a 1-page Q for now
+      loading: false, // todo
+    }),
+    []
+  );
+
   return (
     <PageContainer title={t('aboutPatient.title')} description={t('aboutPatient.subtitle')}>
       {patientInfo && !patientInfo?.newPatient && (
@@ -441,27 +219,19 @@ const PatientInformation = (): JSX.Element => {
           selectPatientPageUrl={selectPatientPageUrl}
         />
       )}
-      <PageForm
-        formElements={formElements}
-        controlButtons={{
-          loading: loading,
-          submitLabel: t('general.button.continue'),
-          onBack: () => {
-            // this won't work if browser back button is used but is better than nothing
-            setPatientInfo({
-              ...patientInfo,
-              ...(formValuesCopy as PatientInformation),
-              // 'new-patient' apparently isn't getting into form values
-              id: patientInfo?.id ?? formValuesCopy?.id ?? 'new-patient',
-              authorizedNonLegalGuardians:
-                formValuesCopy?.authorizedNonLegalGuardians ?? patientInfo?.authorizedNonLegalGuardians,
-            });
-            navigate(-1);
-          },
-        }}
-        onSubmit={onSubmit}
-        onFormValuesChange={onFormValuesChange}
-      />
+      {pageId && (
+        <PagedQuestionnaire
+          onSubmit={onSubmit}
+          pageId={pageId}
+          options={{ controlButtons }}
+          items={allItems || []}
+          defaultValues={{}}
+          isSaving={false}
+          saveProgress={(data) => {
+            console.log('saving data', data);
+          }}
+        />
+      )}
       <ErrorDialog
         open={!!errorDialog}
         title={errorDialog?.title || ''}

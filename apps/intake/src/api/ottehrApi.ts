@@ -13,6 +13,8 @@ import {
   GetEligibilityParameters,
   GetEligibilityResponse,
   GetPresignedFileURLInput,
+  GetQuestionnaireParams,
+  GetQuestionnaireResponse,
   GetScheduleRequestParams,
   GetScheduleResponse,
   GetSlotDetailsParams,
@@ -443,6 +445,16 @@ class API {
       const response = await zambdaClient.execute(AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID, input);
       const jsonToUse = chooseJson(response);
       return jsonToUse as Consent;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async getQuestionnaire(input: GetQuestionnaireParams, zambdaClient: ZambdaClient): Promise<GetQuestionnaireResponse> {
+    try {
+      const response = await zambdaClient.execute('get-questionnaire-patient', input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as GetQuestionnaireResponse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }

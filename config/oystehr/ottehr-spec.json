@@ -1267,7 +1267,7 @@
     "SUB-SEND-INVOICE-TO-PATIENT": {
       "name": "sub-send-invoice-to-patient",
       "type": "subscription",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/subscriptions/task/sub-send-invoice-to-patient/index",
       "zip": ".dist/zips/sub-send-invoice-to-patient.zip",
       "subscription": {
@@ -1279,7 +1279,7 @@
     "CREATE-INVOICES-TASKS": {
       "name": "create-invoices-tasks",
       "type": "cron",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/cron/create-invoices-tasks/index",
       "zip": ".dist/zips/create-invoices-tasks.zip",
       "schedule": {
@@ -1289,16 +1289,23 @@
     "GET-PATIENT-VISIT-HISTORY": {
       "name": "get-patient-visit-history",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/patient-visit-history/get/index",
       "zip": ".dist/zips/get-patient-visit-history.zip"
     },
     "UPDATE_INVOICE_TASK": {
       "name": "update-invoice-task",
       "type": "http_auth",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "src": "src/ehr/update-invoice-task/index",
       "zip": ".dist/zips/update-invoice-task.zip"
+    },
+    "GET-QUESTIONNAIRE-PATIENT": {
+      "name": "get-questionnaire-patient",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/paperwork/get-questionnaire/index",
+      "zip": ".dist/zips/get-questionnaire-patient.zip"
     }
   },
   "faxNumbers": {

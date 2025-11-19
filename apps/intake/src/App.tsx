@@ -22,7 +22,7 @@ import Homepage from './pages/Homepage';
 import MyPatients from './pages/MyPatients';
 import { PaperworkHome, PaperworkPage } from './pages/PaperworkPage';
 import PastVisits from './pages/PastVisits';
-import PatientInformation from './pages/PatientInformation';
+import PatientInformation, { PatientInfoCollection } from './pages/PatientInformation';
 import PrebookVisit from './pages/PrebookVisit';
 import Review from './pages/Review';
 import ReviewPaperwork from './pages/ReviewPaperwork';
@@ -240,8 +240,12 @@ export const intakeFlowPageRoute = {
     path: `${bookingBasePath}/confirm-date-of-birth`,
     getPage: () => <ConfirmDateOfBirth />,
   },
-  PatientInformation: {
+  PatientInfoCollection: {
     path: `${bookingBasePath}/patient-information`,
+    getPage: () => <PatientInfoCollection />,
+  },
+  PatientInformation: {
+    path: `${bookingBasePath}/patient-information/form`,
     getPage: () => <PatientInformation />,
   },
   Review: {
@@ -376,9 +380,14 @@ function App(): JSX.Element {
                     />
                     <Route path={intakeFlowPageRoute.NewUser.path} element={intakeFlowPageRoute.NewUser.getPage()} />
                     <Route
-                      path={intakeFlowPageRoute.PatientInformation.path}
-                      element={intakeFlowPageRoute.PatientInformation.getPage()}
-                    />
+                      path={intakeFlowPageRoute.PatientInfoCollection.path}
+                      element={intakeFlowPageRoute.PatientInfoCollection.getPage()}
+                    >
+                      <Route
+                        path={intakeFlowPageRoute.PatientInformation.path}
+                        element={intakeFlowPageRoute.PatientInformation.getPage()}
+                      />
+                    </Route>
                     <Route
                       path={intakeFlowPageRoute.ConfirmDateOfBirth.path}
                       element={intakeFlowPageRoute.ConfirmDateOfBirth.getPage()}
