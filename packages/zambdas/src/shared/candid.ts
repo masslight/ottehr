@@ -1289,20 +1289,28 @@ async function candidCreateEncounterFromAppointmentRequest(
       console.log(`medication: ${medicationAdministration?.id}, ndc: ${ndc}, cpt: ${cpt}, dose: ${dose}`);
       if (cpt && ndc && dose) {
         serviceLines.push({
-          procedureCode: cpt, // cpt or HCPCS code here
+          procedureCode: 'J3301', // cpt or HCPCS code here
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
           chargeAmountCents: 5000,
-          diagnosisPointers: [0],
+          modifiers: ['JW'],
+          description: 'description for this medication so candid will accept it',
+          diagnosisPointers: [primaryDiagnosisIndex],
           drugIdentification: {
             // The "N4" qualifier is standard for NDC
             serviceIdQualifier: 'N4',
             // MUST be the 11-digit format (5-4-2) with no hyphens todo our ndc codes have hypens and are only 10 digit long
-            nationalDrugCode: ndc,
+            nationalDrugCode: '50580017001',
             // The specific quantity of the drug liquid/solid (e.g., 2.5 ML)
             nationalDrugUnitCount: Decimal(`${dose}`),
-            measurementUnitCode: MeasurementUnitCode.Milligram, // todo ???
+            measurementUnitCode: MeasurementUnitCode.Milliliters, // todo ???
           },
+          dateOfService:
+            dateOfServiceString ||
+            assertDefined(
+              DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
+              'Service line date'
+            ),
         });
       }
     });

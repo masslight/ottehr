@@ -1,5 +1,5 @@
 import { Coding, DetectedIssue, Extension, Medication, MedicationAdministration, MedicationRequest } from 'fhir/r4b';
-import { CODE_SYSTEM_ACT_CODE_V3, CODE_SYSTEM_NDC } from '../helpers';
+import { CODE_SYSTEM_ACT_CODE_V3, CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from '../helpers';
 import {
   AllergyInteraction,
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
@@ -348,10 +348,8 @@ export function getNdcCodeFromMA(medication: Medication): string | undefined {
 }
 
 export function getCptCodeFromMA(medication: Medication): string | undefined {
-  // const medicationCoding = medication.code;
-  // return getCoding(medicationCoding, CODE_SYSTEM_CPT)?.code;
-  console.log('medication id: ', medication.id);
-  return 'J3301';
+  const medicationCoding = medication.code;
+  return getCoding(medicationCoding, CODE_SYSTEM_CPT)?.code;
 }
 
 export function getVaccineAdministrationExtensions(medicationAdministration: MedicationAdministration): Extension[] {
