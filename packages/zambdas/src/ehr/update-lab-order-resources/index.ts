@@ -52,6 +52,7 @@ import {
   getSpecimenPatchAndMostRecentCollectionDate,
   handleMatchUnsolicitedRequest,
   handleRejectedAbn,
+  handleRejectedUnsolicitedResult,
   makePstCompletePatchRequests,
   makeQrPatchRequest,
   makeSpecimenPatchRequest,
@@ -154,21 +155,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       case LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask: {
         console.log('handling cancel task to match unsolicited result');
         const { taskId } = validatedParameters;
-        await oystehr.fhir.batch({
-          requests: [
-            getPatchBinary({
-              resourceType: 'Task',
-              resourceId: taskId,
-              patchOperations: [
-                {
-                  op: 'replace',
-                  path: '/status',
-                  value: 'cancelled',
-                },
-              ],
-            }),
-          ],
-        });
+        await handleRejectedUnsolicitedResult({ oystehr, taskId });
         return {
           statusCode: 200,
           body: JSON.stringify({
