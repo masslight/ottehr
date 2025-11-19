@@ -1,5 +1,4 @@
 import { Coding, DetectedIssue, Extension, Medication, MedicationAdministration, MedicationRequest } from 'fhir/r4b';
-import { VACCINE_ADMINISTRATION_CODES_EXTENSION_URL } from 'zambdas/src/ehr/immunization/common';
 import { CODE_SYSTEM_ACT_CODE_V3, CODE_SYSTEM_NDC } from '../helpers';
 import {
   AllergyInteraction,
@@ -28,6 +27,7 @@ import {
   PRACTITIONER_ORDERED_MEDICATION_CODE,
   TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
   UpdateMedicationOrderInput,
+  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
 } from '../types';
 import { getCoding } from './helpers';
 
