@@ -61,7 +61,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
       },
-      testMatch: /.*in-person\.setup\.ts/,
+      testMatch: /.*in-person\.spec\.ts/,
     },
     {
       name: 'chromium',
@@ -72,7 +72,7 @@ export default defineConfig({
       },
       // dependencies: ['setup'],
       dependencies: ['in-person-setup'],
-      testIgnore: /.*in-person\.setup\.ts/,
+      testIgnore: /.*in-person\.spec\.ts/,
     },
 
     // {
