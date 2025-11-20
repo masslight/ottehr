@@ -1,6 +1,4 @@
 import {
-  API_BASE_URL,
-  API_TOKEN,
   AUTH0_AUDIENCE,
   AUTH0_CLIENT,
   AUTH0_ENDPOINT,
@@ -9,13 +7,11 @@ import {
   IN_PERSON_PREVISIT_QUESTIONNAIRE,
   PROJECT_API,
   PROJECT_ID,
-  RC_CLIENT_ID,
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
 } from '../../.env/local.json';
 
 export const SECRETS = {
-  API_BASE_URL,
   FHIR_API: FHIR_API,
   AUTH0_ENDPOINT: AUTH0_ENDPOINT,
   AUTH0_AUDIENCE: AUTH0_AUDIENCE,
@@ -24,6 +20,4 @@ export const SECRETS = {
   PROJECT_API: PROJECT_API,
   IN_PERSON_PREVISIT_QUESTIONNAIRE: IN_PERSON_PREVISIT_QUESTIONNAIRE,
   PROJECT_ID,
-  API_TOKEN,
-  RC_CLIENT_ID,
 };

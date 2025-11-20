@@ -1,12 +1,12 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
-import { ottehrLightBlue } from '@theme/icons';
 import { useNavigate } from 'react-router-dom';
 import { intakeFlowPageRoute } from '../../App';
 import { dataTestIds } from '../../helpers/data-test-ids';
 import { EmergencyBanner } from '../components/EmergencyBanner';
 import { CustomContainer } from '../features/common';
+
 const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean }): JSX.Element => {
   const navigate = useNavigate();
 
@@ -17,7 +17,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
   return (
     <CustomContainer
       title={`Welcome to ${window.APP_CONFIG?.projectName ?? ''}`}
-      img={ottehrLightBlue}
+      img={window.APP_CONFIG?.roundLogo}
       imgAlt={`${window.APP_CONFIG?.projectName ?? ''} icon`}
       imgWidth={150}
       isFirstPage={true}

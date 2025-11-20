@@ -112,7 +112,7 @@ export const CustomContainer: FC<ContainerProps> = ({
               component="img"
               sx={{ margin: 1, width: 200, alignSelf: 'center', minHeight: '39px' }}
               alt={alt}
-              src={window.APP_CONFIG?.projectName ?? ''}
+              src={window.APP_CONFIG?.patientlogo ?? ''}
             />
           </Grid>
           {isAuthenticated && (

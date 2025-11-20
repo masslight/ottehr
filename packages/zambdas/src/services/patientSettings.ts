@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { SECRETS } from '../../test/data/secrets';
 
 export interface PatientSettingsPayload {
   provider_id: string;
@@ -17,16 +16,14 @@ export interface DeletePatientSettingsPayload {
   patientId?: string;
 }
 
-const API_BASE_URL = SECRETS.API_BASE_URL;
-const API_TOKEN = SECRETS.API_TOKEN;
-const PROJECT_ID = SECRETS.PROJECT_ID;
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL;
+const API_TOKEN = import.meta.env.VITE_APP_API_TOKEN;
 
 export const savePatientSettings = async (payload: any): Promise<any> => {
   try {
     const response = await axios.post(`${API_BASE_URL}/patient-settings/save`, payload, {
       headers: {
         token: `${API_TOKEN}`,
-        'project-id': `${PROJECT_ID}`,
         'Content-Type': 'application/json',
       },
     });
@@ -46,7 +43,6 @@ export const fetchPatientSettings = async (): Promise<any> => {
       {
         headers: {
           token: `${API_TOKEN}`,
-          'project-id': `${PROJECT_ID}`,
           'Content-Type': 'application/json',
         },
       }
@@ -69,7 +65,6 @@ export const fetchPatientSettingsById = async (patientId: string): Promise<any> 
       {
         headers: {
           token: `${API_TOKEN}`,
-          'project-id': `${PROJECT_ID}`,
           'Content-Type': 'application/json',
         },
       }
@@ -92,7 +87,6 @@ export const deletePatientSettings = async (payload: DeletePatientSettingsPayloa
       {
         headers: {
           token: `${API_TOKEN}`,
-          'project-id': `${PROJECT_ID}`,
           'Content-Type': 'application/json',
         },
       }

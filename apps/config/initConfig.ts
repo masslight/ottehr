@@ -1,10 +1,11 @@
 import axios from "axios";
 
-console.log("meta", import.meta)
-const API_URL = `http://localhost:3006/api/v1/app-settings/fetch`;
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL;
+const API_TOKEN = import.meta.env.VITE_APP_API_TOKEN;
+
+const API_URL = `${API_BASE_URL}/app-settings/fetch`;
 const HEADERS = {
-    token: "XEF+34543TRerg$",
-    "project-id": "1ecf5faf-88d4-44c6-952c-1f4059366997",
+    token: API_TOKEN,
     "Content-Type": "application/json",
 };
 
