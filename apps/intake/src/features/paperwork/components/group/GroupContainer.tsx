@@ -43,19 +43,38 @@ const ContentWrapper: FC<ContentWrapperProps> = ({ type, children }) => {
   );
 };
 
-const GroupContainer: FC<GroupContainerProps> = ({ item, fieldId, parentItem, RenderItems }) => {
+const GroupContainer: FC<GroupContainerProps> = ({
+  item,
+  fieldId,
+  parentItem,
+  RenderItems,
+  aiInterviewQuestionnaireResponse,
+  setAiInterviewQuestionnaireResponse,
+}) => {
   return (
     <ContentWrapper type="default">
       {item.groupType == QuestionnaireItemGroupType.ListWithForm && (
         <>
           <MultiAnswerHeader item={item} parentItem={parentItem} />
           <ContentWrapper type="gray-container-widget">
-            <RenderItems items={item.item ?? []} fieldId={item.linkId} parentItem={item} />
+            <RenderItems
+              items={item.item ?? []}
+              fieldId={item.linkId}
+              parentItem={item}
+              aiInterviewQuestionnaireResponse={aiInterviewQuestionnaireResponse}
+              setAiInterviewQuestionnaireResponse={setAiInterviewQuestionnaireResponse}
+            />
           </ContentWrapper>
         </>
       )}
       {item.groupType != QuestionnaireItemGroupType.ListWithForm && (
-        <RenderItems parentItem={item} items={item.item ?? []} fieldId={fieldId ?? item.linkId} />
+        <RenderItems
+          parentItem={item}
+          items={item.item ?? []}
+          fieldId={fieldId ?? item.linkId}
+          aiInterviewQuestionnaireResponse={aiInterviewQuestionnaireResponse}
+          setAiInterviewQuestionnaireResponse={setAiInterviewQuestionnaireResponse}
+        />
       )}
     </ContentWrapper>
   );

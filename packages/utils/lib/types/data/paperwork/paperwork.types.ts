@@ -49,6 +49,7 @@ const QuestionnaireDataTypes = [
   'Image',
   'PDF',
   'Payment Validation',
+  'Medical History',
   'Call Out',
 ] as const;
 export type QuestionnaireDataType = (typeof QuestionnaireDataTypes)[number];

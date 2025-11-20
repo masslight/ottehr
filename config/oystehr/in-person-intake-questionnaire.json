@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-in-person-previsit-1_0_14": {
+    "questionnaire-in-person-previsit-1_0_15": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-        "version": "1.0.14",
+        "version": "1.0.15",
         "name": "in-person_pre-visit_paperwork",
         "title": "in-person pre-visit paperwork",
         "status": "active",
@@ -3253,6 +3253,23 @@
                   },
                   {
                     "valueString": "Other"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "medical-history-page",
+            "text": "Medical history",
+            "type": "group",
+            "item": [
+              {
+                "linkId": "medical-history-questionnaire",
+                "type": "boolean",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Medical History"
                   }
                 ]
               }
