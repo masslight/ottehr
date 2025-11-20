@@ -1,4 +1,3 @@
-import { ottehrAiIcon } from '@ehrTheme/icons';
 import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
 import { TabContext, TabList } from '@mui/lab';
 import { Box, ListItemIcon, Tab, Typography } from '@mui/material';
@@ -86,7 +85,7 @@ export const AppointmentTabsHeader: FC = () => {
           <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                <img src={ottehrAiIcon} style={{ width: '24px' }} />
+                <img src={window.APP_CONFIG.roundLogo} style={{ width: '24px' }} />
                 <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Oystehr AI</Typography>
               </Box>
             }

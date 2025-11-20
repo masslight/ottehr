@@ -1,5 +1,4 @@
 import { otherColors } from '@ehrTheme/colors';
-import { ottehrAiIcon } from '@ehrTheme/icons';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
 import { alpha, Button, Drawer, IconButton, List, ListItem, ListItemIcon, ListItemText, styled } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
@@ -175,7 +174,7 @@ export const sidebarMenuIcons = {
       />
     </svg>
   ),
-  'Oystehr AI': <img src={ottehrAiIcon} style={{ width: '22px' }} />,
+  'Oystehr AI': <img src={window.APP_CONFIG.roundLogo} style={{ width: '22px' }} />,
   'In-house Labs': (
     <svg width="14" height="20" viewBox="0 0 14 20" xmlns="http://www.w3.org/2000/svg" fill="none">
       <path

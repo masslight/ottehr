@@ -1,5 +1,4 @@
 import { otherColors } from '@ehrTheme/colors';
-import { ottehrAiIcon } from '@ehrTheme/icons';
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import React, { FC, useState } from 'react';
@@ -43,7 +42,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
             alignItems: 'center',
           }}
         >
-          <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
+          <img src={window.APP_CONFIG.roundLogo} style={{ width: '30px', marginRight: '8px' }} />
           <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
             OYSTEHR AI
           </Typography>

@@ -569,7 +569,7 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
     pdfClient.drawText(`${data.patientLastName}, ${data.patientFirstName}`, textStyles.textBold);
   }
 
-  pdfClient.drawText(`Ottehr${data.locationName || ''}`, textStyles.textBoldRight);
+  pdfClient.drawText(`${data.locationName || ''}`, textStyles.textBoldRight);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   const locationCityStateZip = `${data.locationCity?.toUpperCase() || ''}${data.locationCity ? ', ' : ''}${

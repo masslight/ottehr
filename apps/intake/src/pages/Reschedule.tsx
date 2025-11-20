@@ -22,7 +22,6 @@ import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import i18n from '../lib/i18n';
-import { ottehrLightBlue } from '../themes/ottehr/icons';
 import { useVisitContext } from './ThankYou';
 
 const Reschedule = (): JSX.Element => {
@@ -194,7 +193,7 @@ const Reschedule = (): JSX.Element => {
       subtitle={loading ? 'Loading...' : `${location?.name}`}
       subtext={loading ? '' : t('modify.selectNew')}
       isFirstPage
-      img={ottehrLightBlue}
+      img={window.APP_CONFIG.roundLogo}
       imgAlt={`${window.APP_CONFIG?.projectName ?? ''}  icon`}
       imgWidth={150}
     >

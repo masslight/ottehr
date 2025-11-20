@@ -1,5 +1,4 @@
 import { Typography } from '@mui/material';
-import { ottehrLightBlue } from '@theme/icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { generatePath, useNavigate } from 'react-router-dom';
@@ -40,7 +39,7 @@ const NewUser = (): JSX.Element => {
   return (
     <PageContainer
       title={t('newUser.title', `${window.APP_CONFIG?.projectName ?? ''}`)}
-      img={ottehrLightBlue}
+      img={window.APP_CONFIG.roundLogo}
       imgAlt={`${window.APP_CONFIG?.projectName ?? ''} icon`}
       imgWidth={100}
     >

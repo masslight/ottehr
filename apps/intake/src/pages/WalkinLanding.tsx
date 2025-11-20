@@ -1,6 +1,5 @@
 import { Button, CircularProgress, Typography } from '@mui/material';
 import { Box } from '@mui/system';
-import { ottehrLightBlue } from '@theme/icons';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
@@ -54,7 +53,7 @@ export const WalkinLanding: FC = () => {
       title={somethingIsLoadingInSomeWay ? 'Loading...' : 'Welcome to Ottehr'} // todo: get some copy for this
       subtitle={somethingIsLoadingInSomeWay ? '' : data?.scheduleOwnerName ?? ''}
       isFirstPage
-      img={ottehrLightBlue}
+      img={window.APP_CONFIG.roundLogo}
       imgAlt={`${window.APP_CONFIG?.projectName ?? ''} icon`}
       imgWidth={150}
     >

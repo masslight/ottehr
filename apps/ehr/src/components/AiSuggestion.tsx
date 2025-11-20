@@ -1,4 +1,3 @@
-import { ottehrAiIcon } from '@ehrTheme/icons';
 import { Box, Typography } from '@mui/material';
 import React from 'react';
 
@@ -22,7 +21,7 @@ export default function AiSuggestion({ title, content, hideHeader }: AiSuggestio
             alignItems: 'center',
           }}
         >
-          <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
+          <img src={window.APP_CONFIG.roundLogo} style={{ width: '30px', marginRight: '8px' }} />
           <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
             OYSTEHR AI
           </Typography>
