@@ -1194,7 +1194,7 @@ const getResultDetailsBasedOnDr = async (
   const docRefs: DocumentReference[] = [];
   if (resultPdfDocRef) docRefs.push(resultPdfDocRef);
   if (labGeneratedResultPdfDocRef) docRefs.push(labGeneratedResultPdfDocRef);
-  const { resultPdfUrl, labGeneratedResultUrl } = await getResultPDFUrlsBasedOnDrs(docRefs, token);
+  const { resultPdfUrl, labGeneratedResultUrls } = await getResultPDFUrlsBasedOnDrs(docRefs, token);
 
   const testType = diagnosticReportSpecificResultType(diagnosticReport);
   console.log('testType', testType);
@@ -1211,7 +1211,7 @@ const getResultDetailsBasedOnDr = async (
     diagnosticReportId: diagnosticReport.id || '',
     taskId: task.id || '',
     alternatePlacerId: getAdditionalPlacerId(diagnosticReport),
-    labGeneratedResultUrl,
+    labGeneratedResultUrls,
   };
 
   return resultDetail;
@@ -1220,7 +1220,7 @@ const getResultDetailsBasedOnDr = async (
 const getResultPDFUrlsBasedOnDrs = async (
   docRefs: DocumentReference[],
   m2mToken: string
-): Promise<{ resultPdfUrl: string; labGeneratedResultUrl: string | undefined }> => {
+): Promise<{ resultPdfUrl: string; labGeneratedResultUrls: string[] | undefined }> => {
   const documents = await fetchLabDocumentPresignedUrls(docRefs, m2mToken);
   const resultPDFs = documents?.resultPDFs;
   let resultPdfUrl = '';
@@ -1230,13 +1230,11 @@ const getResultPDFUrlsBasedOnDrs = async (
     resultPdfUrl = resultPDFs[0].presignedURL;
   }
   const labGeneratedResults = documents?.labGeneratedResults;
-  let labGeneratedResultUrl: string | undefined;
-  // todo labs need to do some refactoring to make this flexible for the potential for more than one of these lab generated results
-  // for now im just grabbing the first one
+  let labGeneratedResultUrls: string[] | undefined;
   if (labGeneratedResults && labGeneratedResults?.length > 0) {
-    labGeneratedResultUrl = labGeneratedResults[0].presignedURL;
+    labGeneratedResultUrls = labGeneratedResults.map((result) => result.presignedURL);
   }
-  return { resultPdfUrl, labGeneratedResultUrl };
+  return { resultPdfUrl, labGeneratedResultUrls };
 };
 
 export const parseAccessionNumberFromDr = (result: DiagnosticReport): string => {

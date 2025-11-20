@@ -2104,12 +2104,15 @@ export const parseLResultsDetails = (
         compareDates(a.authoredOn, b.authoredOn)
       )[0];
       const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances)?.date || null;
-      const labGeneratedResultUrl = labGeneratedResults.find(
-        (doc) => doc.documentReference.context?.related?.some((ref) => result.id && ref.reference?.includes(result.id))
-      )?.presignedURL;
+      const labGeneratedResultUrls = labGeneratedResults
+        .filter(
+          (doc) =>
+            doc.documentReference.context?.related?.some((ref) => result.id && ref.reference?.includes(result.id))
+        )
+        .map((doc) => doc?.presignedURL);
       const resultPdfUrl = resultPDFs.find((pdf) => pdf.diagnosticReportId === result.id)?.presignedURL || null;
       if (details) {
-        resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl, labGeneratedResultUrl });
+        resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl, labGeneratedResultUrls });
       }
     });
   });

@@ -105,7 +105,7 @@ export type LabOrderResultDetails = {
   reviewedDate: string | null;
   resultPdfUrl: string | null;
   alternatePlacerId: string | undefined; // DR.identifier (system ==== OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM)
-  labGeneratedResultUrl?: string;
+  labGeneratedResultUrls?: string[];
 };
 
 export type QuestionnaireData = {
