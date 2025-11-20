@@ -220,6 +220,7 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
       oystehr
     );
     console.timeEnd('get-questionnaire');
+
     if (!questionnaire.item) {
       questionnaire.item = [];
     }
