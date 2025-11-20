@@ -1,4 +1,4 @@
-// cSpell:ignore networkidle, PPCP, PRPI
+// cSpell:ignore PPCP, PRPI
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';

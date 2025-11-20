@@ -1,4 +1,4 @@
-// cSpell:ignore IPPP, networkidle
+// cSpell:ignore IPPP
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
