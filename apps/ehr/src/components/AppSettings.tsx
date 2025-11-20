@@ -48,8 +48,14 @@ export const AppSettings = (): JSX.Element => {
   const [toastSeverity, setToastSeverity] = useState<'success' | 'warning'>('warning');
   const [fieldTouched, setFieldTouched] = useState<{
     appName: boolean;
+    logoFile: boolean;
+    patientLogoFile: boolean;
+    roundedLogoFile: boolean;
   }>({
     appName: false,
+    logoFile: false,
+    patientLogoFile: false,
+    roundedLogoFile: false,
   });
 
   const loadAppSettings = async (): Promise<void> => {
@@ -127,6 +133,13 @@ export const AppSettings = (): JSX.Element => {
     return null;
   };
 
+  const validateLogoRequired = (logoFile: File | null | undefined, logoPreview: string | null): string | undefined => {
+    if (!logoFile && !logoPreview) {
+      return 'Logo is required';
+    }
+    return undefined;
+  };
+
   const validateAppName = (name: string): string | undefined => {
     if (!name.trim()) {
       return 'App name is required';
@@ -144,6 +157,24 @@ export const AppSettings = (): JSX.Element => {
     return text.replace(/\s/g, '').length;
   };
 
+  const validateAllFields = (): boolean => {
+    const appNameError = validateAppName(appSettings.appName);
+    const logoError = validateLogoRequired(appSettings.logoFile, logoPreview);
+    const patientLogoError = validateLogoRequired(appSettings.patientLogoFile, patientLogoPreview);
+    const roundedLogoError = validateLogoRequired(appSettings.roundedLogoFile, roundedLogoPreview);
+
+    const newErrors = {
+      appName: appNameError,
+      logoFile: logoError,
+      patientLogoFile: patientLogoError,
+      roundedLogoFile: roundedLogoError,
+    };
+
+    setErrors(newErrors);
+
+    return !Object.values(newErrors).some((error) => error !== undefined);
+  };
+
   const handleAppNameChange = (value: string): void => {
     setAppSettings((prev) => ({ ...prev, appName: value }));
     if (fieldTouched.appName) {
@@ -158,6 +189,15 @@ export const AppSettings = (): JSX.Element => {
     if (fieldName === 'appName') {
       const error = validateAppName(appSettings.appName);
       setErrors((prev) => ({ ...prev, appName: error }));
+    } else if (fieldName === 'logoFile') {
+      const error = validateLogoRequired(appSettings.logoFile, logoPreview);
+      setErrors((prev) => ({ ...prev, logoFile: error }));
+    } else if (fieldName === 'patientLogoFile') {
+      const error = validateLogoRequired(appSettings.patientLogoFile, patientLogoPreview);
+      setErrors((prev) => ({ ...prev, patientLogoFile: error }));
+    } else if (fieldName === 'roundedLogoFile') {
+      const error = validateLogoRequired(appSettings.roundedLogoFile, roundedLogoPreview);
+      setErrors((prev) => ({ ...prev, roundedLogoFile: error }));
     }
   };
 
@@ -179,6 +219,9 @@ export const AppSettings = (): JSX.Element => {
     const reader = new FileReader();
     reader.onloadend = (): void => setLogoPreview(reader.result as string);
     reader.readAsDataURL(file);
+
+    // Clear error after successful upload
+    setErrors((prev) => ({ ...prev, logoFile: undefined }));
   };
 
   const handlePatientLogoUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -199,6 +242,9 @@ export const AppSettings = (): JSX.Element => {
     const reader = new FileReader();
     reader.onloadend = (): void => setPatientLogoPreview(reader.result as string);
     reader.readAsDataURL(file);
+
+    // Clear error after successful upload
+    setErrors((prev) => ({ ...prev, patientLogoFile: undefined }));
   };
 
   const handleRoundedLogoUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -219,41 +265,48 @@ export const AppSettings = (): JSX.Element => {
     const reader = new FileReader();
     reader.onloadend = (): void => setRoundedLogoPreview(reader.result as string);
     reader.readAsDataURL(file);
+
+    setErrors((prev) => ({ ...prev, roundedLogoFile: undefined }));
   };
 
   const handleRemoveLogo = (): void => {
     setAppSettings((prev) => ({ ...prev, logoFile: null }));
     setLogoPreview(null);
     setLogoFileName('');
+
+    setErrors((prev) => ({ ...prev, logoFile: 'Dark logo is required' }));
+    setFieldTouched((prev) => ({ ...prev, logoFile: true }));
   };
 
   const handleRemovePatientLogo = (): void => {
     setAppSettings((prev) => ({ ...prev, patientLogoFile: null }));
     setPatientLogoPreview(null);
     setPatientLogoFileName('');
+
+    setErrors((prev) => ({ ...prev, patientLogoFile: 'White logo is required' }));
+    setFieldTouched((prev) => ({ ...prev, patientLogoFile: true }));
   };
 
   const handleRemoveRoundedLogo = (): void => {
     setAppSettings((prev) => ({ ...prev, roundedLogoFile: null }));
     setRoundedLogoPreview(null);
     setRoundedLogoFileName('');
+
+    setErrors((prev) => ({ ...prev, roundedLogoFile: 'Round logo is required' }));
+    setFieldTouched((prev) => ({ ...prev, roundedLogoFile: true }));
   };
 
   const handleSubmit = async (): Promise<void> => {
     setFieldTouched({
       appName: true,
+      logoFile: true,
+      patientLogoFile: true,
+      roundedLogoFile: true,
     });
 
-    const appNameError = validateAppName(appSettings.appName);
-    const newErrors = {
-      appName: appNameError,
-    };
+    const isValid = validateAllFields();
 
-    setErrors(newErrors);
-
-    const hasErrors = Object.values(newErrors).some((error) => error !== undefined);
-
-    if (hasErrors) {
+    if (!isValid) {
       setToastMessage('Please fix validation errors before saving.');
       setToastSeverity('warning');
       setToastOpen(true);
@@ -331,6 +384,7 @@ export const AppSettings = (): JSX.Element => {
             <Box sx={{ flex: 1 }}>
               <Typography variant="h6" gutterBottom>
                 Dark Logo (Max 2MB)
+                <span style={{ color: 'red' }}> *</span>
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <input
@@ -399,6 +453,7 @@ export const AppSettings = (): JSX.Element => {
             <Box sx={{ flex: 1 }}>
               <Typography variant="h6" gutterBottom>
                 White Logo (Max 2MB)
+                <span style={{ color: 'red' }}> *</span>
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <input
@@ -467,6 +522,7 @@ export const AppSettings = (): JSX.Element => {
             <Box sx={{ flex: 1 }}>
               <Typography variant="h6" gutterBottom>
                 Rounded Logo (Max 2MB)
+                <span style={{ color: 'red' }}> *</span>
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <input
@@ -537,7 +593,7 @@ export const AppSettings = (): JSX.Element => {
             <Button
               variant="contained"
               onClick={handleSubmit}
-              disabled={isSaving}
+              disabled={isSaving || Object.values(errors).some((error) => error !== undefined)}
               startIcon={isSaving ? <CircularProgress size={16} /> : null}
             >
               {isSaving ? 'Saving...' : 'Save'}
