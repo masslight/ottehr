@@ -6,7 +6,7 @@ import { Locators } from './locators';
 import { PaperworkTelemed } from './telemed/Paperwork';
 import { UploadDocs } from './UploadDocs';
 
-interface InsuranceRequiredData {
+export interface InsuranceRequiredData {
   firstName: string;
   lastName: string;
   relationship: string;
@@ -19,19 +19,19 @@ interface InsuranceRequiredData {
   paperworkDOB: string;
   insuranceCarrier: string;
 }
-interface InsuranceOptionalData {
+export interface InsuranceOptionalData {
   policyHolderMiddleName: string;
   policyHolderAddressLine2: string;
 }
 
-interface PatientDetailsData {
+export interface PatientDetailsData {
   randomEthnicity: string;
   randomRace: string;
   randomPronoun: string;
   randomPoint: string;
   randomLanguage: string;
 }
-interface PrimaryCarePhysicianData {
+export interface PrimaryCarePhysicianData {
   firstName: string;
   lastName: string;
   pcpAddress: string;
@@ -39,7 +39,7 @@ interface PrimaryCarePhysicianData {
   formattedPhoneNumber: string;
 }
 
-interface ResponsibleParty {
+export interface ResponsibleParty {
   relationship: string;
   birthSex: string;
   firstName: string;

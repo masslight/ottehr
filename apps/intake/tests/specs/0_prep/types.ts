@@ -1,3 +1,11 @@
+import {
+  InsuranceOptionalData,
+  InsuranceRequiredData,
+  PatientDetailsData,
+  PrimaryCarePhysicianData,
+  ResponsibleParty,
+} from 'tests/utils/Paperwork';
+
 export interface InPersonPatientTestData {
   firstName: string;
   lastName: string;
@@ -13,4 +21,19 @@ export interface InPersonPatientTestData {
 
 export interface InPersonPatientSelfTestData extends InPersonPatientTestData {
   state: string;
+}
+
+export interface InPersonPatientNotSelfTestData extends InPersonPatientTestData {
+  state: string;
+  patientDetailsData: PatientDetailsData;
+  pcpData: PrimaryCarePhysicianData;
+  insuranceData: {
+    insuranceRequiredData: InsuranceRequiredData;
+    insuranceOptionalData: InsuranceOptionalData;
+  } | null;
+  secondaryInsuranceData: {
+    insuranceRequiredData: InsuranceRequiredData;
+    insuranceOptionalData: InsuranceOptionalData;
+  } | null;
+  responsiblePartyData: ResponsibleParty;
 }
