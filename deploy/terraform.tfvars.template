@@ -1,3 +1,19 @@
+# Required
 project_id    = ""
 client_id     = ""
 client_secret = ""
+environment   = ""
+
+# Use for AWS deploy
+# aws_profile = ""
+
+# Use for GCP deploy
+# gcp_project = ""
+
+# Domains are optional for AWS and required for GCP
+# ehr_domain = ""
+# patient_portal_domain = ""
+
+# Cert domains are only supported for AWS
+# ehr_cert_domain = ""
+# patient_portal_cert_domain = ""
