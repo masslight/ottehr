@@ -1892,7 +1892,6 @@ const createTelecom = (system: ContactPoint['system'], value?: string): ContactP
   return {
     system,
     value,
-    use: 'work',
   };
 };
 
@@ -1961,7 +1960,6 @@ const buildEmployerOrganization = (details: EmployerInformation, id?: string): O
           given: [details.contactFirstName],
           family: details.contactLastName,
         },
-        telecom,
         purpose: details.contactTitle
           ? {
               text: details.contactTitle,
@@ -3383,7 +3381,7 @@ export const getAccountAndCoverageResourcesForPatient = async (
         },
         {
           name: '_include:iterate',
-          value: 'Account:guarantor',
+          value: 'Account:owner',
         },
         {
           name: '_revinclude',
