@@ -77,7 +77,7 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
     const bookingData = await flowClass.startVisit();
     await page.goto(bookingData.bookingURL);
     await paperwork.clickProceedToPaperwork();
-    await paperwork.fillPaperworkAllFieldsInPerson('card', 'self');
+    const { stateValue } = await paperwork.fillPaperworkAllFieldsInPerson('card', 'self');
     await locator.finishButton.click();
 
     const { slot, location } = await bookAppointmentForExistingPatient(bookingData);
@@ -92,6 +92,7 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
       dobYear: bookingData.dobYear,
       appointmentId: appointmentIds[appointmentIds.length - 1],
       slot,
+      state: stateValue,
       location,
     };
 

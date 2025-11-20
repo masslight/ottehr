@@ -10,3 +10,7 @@ export interface InPersonPatientTestData {
   slot: string | undefined;
   location: string | null;
 }
+
+export interface InPersonPatientSelfTestData extends InPersonPatientTestData {
+  state: string;
+}
