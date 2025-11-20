@@ -38,6 +38,7 @@ import {
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
   IN_HOUSE_LAB_TASK,
   isPSCOrder,
+  LAB_OBS_VALUE_WITH_PRECISION_EXT,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
@@ -1669,9 +1670,17 @@ const parseObservationForPDF = (
   const interpretationDisplay = observation.interpretation?.[0].coding?.[0].display;
   let value = undefined;
   if (observation.valueQuantity) {
-    value = `${observation.valueQuantity?.value !== undefined ? observation.valueQuantity.value : ''} ${
-      observation.valueQuantity?.code || ''
-    }`;
+    const valueWithPrecision = observation.valueQuantity.extension?.find(
+      (ext) => ext.url === LAB_OBS_VALUE_WITH_PRECISION_EXT
+    )?.valueString;
+
+    if (valueWithPrecision !== undefined) {
+      value = `${valueWithPrecision} ${observation.valueQuantity?.code || ''}`;
+    } else {
+      value = `${observation.valueQuantity?.value !== undefined ? observation.valueQuantity.value : ''} ${
+        observation.valueQuantity?.code || ''
+      }`;
+    }
   } else if (observation.valueString) {
     value = observation.valueString;
   } else if (observation.valueCodeableConcept) {

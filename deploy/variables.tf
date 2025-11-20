@@ -24,7 +24,6 @@ variable "sendgrid_api_key" {
   sensitive   = true
 }
 
-# TODO: remove?
 variable "environment" {
   description = "Deployment environment"
   type        = string
