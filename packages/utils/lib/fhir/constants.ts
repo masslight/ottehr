@@ -491,6 +491,16 @@ export const PATIENT_BILLING_ACCOUNT_TYPE: Account['type'] = {
   ],
 };
 
+export const WORKERS_COMP_ACCOUNT_TYPE: Account['type'] = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      code: 'WCOMPACCT',
+      display: 'worker compensation account',
+    },
+  ],
+};
+
 export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   acceptsMultipleAnswers: `${PRIVATE_EXTENSION_BASE_URL}/accepts-multiple-answers`,
   alwaysFilter: `${PRIVATE_EXTENSION_BASE_URL}/always-filter`,
