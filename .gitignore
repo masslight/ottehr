@@ -20,6 +20,8 @@ test-results-login/
 playwright/.cache/
 
 dist
+apps/ehr/public/assets
+apps/intake/public/assets
 packages/ui-components/dist/*
 
 # Sentry Config File

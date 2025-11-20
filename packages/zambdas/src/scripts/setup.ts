@@ -9,8 +9,6 @@ import {
   FOLDERS_CONFIG,
   generateDeployAccountNumber,
   PROJECT_DOMAIN,
-  PROJECT_NAME,
-  PROJECT_NAME_LOWER,
   SCHEDULE_EXTENSION_URL,
   ScheduleStrategyCoding,
   TIMEZONE_EXTENSION_URL,
@@ -156,7 +154,7 @@ export async function setupEHR(
 ): Promise<void> {
   console.log('Starting setup of EHR...');
 
-  const applicationName = `${PROJECT_NAME} EHR`;
+  const applicationName = `EHR`;
   const [applicationId, clientId] = await createApplication(oystehr, applicationName);
   console.log(`Created application "${applicationName}".`);
 
@@ -308,19 +306,20 @@ export async function setupEHR(
   // value of the INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID secret. Then, add the desired recipients
   // to the member array, and save the group.
   let groupId = '';
+
   if (userId1) {
     const groupResource: FhirResource = {
       resourceType: 'Group',
       identifier: [
         {
-          system: `${PROJECT_NAME_LOWER}-internal`,
+          system: `internal`,
           value: 'intake-issue-reports',
         },
       ],
       active: true,
       type: 'practitioner',
       code: {
-        text: `${PROJECT_NAME_LOWER}-admins`,
+        text: `admins`,
       },
       name: 'Issue Report Recipients',
       member: [

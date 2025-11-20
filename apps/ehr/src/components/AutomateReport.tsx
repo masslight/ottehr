@@ -1,4 +1,5 @@
 import CloseIcon from '@mui/icons-material/Close';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import {
   Alert,
   Box,
@@ -8,13 +9,15 @@ import {
   FormControlLabel,
   FormHelperText,
   IconButton,
+  Popover,
   Radio,
   RadioGroup,
   Snackbar,
   TextField,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import { useCallback, useEffect, useState } from 'react';
 import {
   fetchReportSettings,
   getImageDownloadUrl,
@@ -32,6 +35,7 @@ interface ReportSettings {
   title: string;
   reportType: string;
   frequency: string;
+  automationTime?: string;
   logo?: any;
   header: string;
   footer: string;
@@ -41,6 +45,8 @@ export const AutomateReport = (): JSX.Element => {
   const [reportName, setReportName] = useState<string>('');
   const [reportTemplate, setReportTemplate] = useState<string>('');
   const [frequency, setFrequency] = useState<string>('');
+  const [automationTime, setAutomationTime] = useState<string>('');
+  const [selectedTime, setSelectedTime] = useState<Date | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [branding, setBranding] = useState<BrandingData>({
@@ -49,12 +55,12 @@ export const AutomateReport = (): JSX.Element => {
     footer: '',
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [_existingLogoPath, setExistingLogoPath] = useState<string | null>(null);
   const [logoFileName, setLogoFileName] = useState<string>('');
   const [errors, setErrors] = useState<{
     reportName?: string;
     reportTemplate?: string;
     frequency?: string;
+    automationTime?: string;
     header?: string;
     footer?: string;
     logoFile?: string;
@@ -72,8 +78,84 @@ export const AutomateReport = (): JSX.Element => {
     header: false,
     footer: false,
   });
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
-  const fetchSettings = async (): Promise<void> => {
+  // Create a UTC time string in HH:mm:ss format (time only, no date)
+  const createUTCTimeString = useCallback((hours = 0, minutes = 0): string => {
+    const utcHours = hours.toString().padStart(2, '0');
+    const utcMinutes = minutes.toString().padStart(2, '0');
+    return `${utcHours}:${utcMinutes}:00`;
+  }, []);
+
+  // Convert local time to UTC time string (HH:mm:ss)
+  const convertToUTCTimeString = useCallback(
+    (date: Date | null): string => {
+      if (!date) return '00:00:00';
+
+      // Get the local time and convert to UTC
+      const localHours = date.getHours();
+      const localMinutes = date.getMinutes();
+
+      // For UTC time, we use the same hours and minutes (no timezone conversion)
+      // Since we want the exact time in UTC, not converted from local
+      return createUTCTimeString(localHours, localMinutes);
+    },
+    [createUTCTimeString]
+  );
+
+  // Convert UTC time string (HH:mm:ss) to local Date for TimePicker
+  const convertTimeStringToLocalDate = useCallback((timeString: string): Date | null => {
+    if (!timeString) return new Date(); // Return current time if no time provided
+
+    try {
+      const [hours, minutes] = timeString.split(':').map(Number);
+      const date = new Date();
+      // Set the time in local timezone for the TimePicker
+      date.setHours(hours, minutes, 0, 0);
+      return date;
+    } catch (error) {
+      console.error('Error parsing time string:', error);
+      return new Date(); // Return current time as fallback
+    }
+  }, []);
+
+  // Parse time from either ISO string or time string
+  const parseTimeFromBackend = useCallback(
+    (timeValue: string): Date | null => {
+      if (!timeValue) return convertTimeStringToLocalDate('00:00:00');
+
+      try {
+        // Check if it's an ISO string (contains 'T')
+        if (timeValue.includes('T')) {
+          const date = new Date(timeValue);
+          const hours = date.getUTCHours();
+          const minutes = date.getUTCMinutes();
+          return convertTimeStringToLocalDate(createUTCTimeString(hours, minutes));
+        } else {
+          // It's already a time string like "03:20:00"
+          return convertTimeStringToLocalDate(timeValue);
+        }
+      } catch (error) {
+        console.error('Error parsing time from backend:', error);
+        return convertTimeStringToLocalDate('00:00:00');
+      }
+    },
+    [convertTimeStringToLocalDate, createUTCTimeString]
+  );
+
+  useEffect(() => {
+    const convertTimeToStorageFormat = (date: Date | null): string => {
+      if (!date) {
+        return '00:00:00';
+      }
+      return convertToUTCTimeString(date);
+    };
+
+    const newTime = convertTimeToStorageFormat(selectedTime);
+    setAutomationTime(newTime);
+  }, [selectedTime, convertToUTCTimeString]);
+
+  const fetchSettings = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
       const settings = await fetchReportSettings();
@@ -86,6 +168,21 @@ export const AutomateReport = (): JSX.Element => {
         setReportTemplate(reportSettings.reportType || '');
         setFrequency(reportSettings.frequency || '');
 
+        // Set automation time
+        if (reportSettings.automationTime) {
+          const timeValue = reportSettings.automationTime;
+          setAutomationTime(timeValue);
+
+          // Use the new parsing function
+          const timeDate = parseTimeFromBackend(timeValue);
+          setSelectedTime(timeDate);
+        } else {
+          // Set default time if none exists
+          const defaultTime = convertTimeStringToLocalDate('00:00:00');
+          setSelectedTime(defaultTime);
+          setAutomationTime('00:00:00');
+        }
+
         setBranding({
           logoFile: reportSettings.logo || '',
           header: reportSettings.header || '',
@@ -93,7 +190,6 @@ export const AutomateReport = (): JSX.Element => {
         });
 
         if (reportSettings.logo) {
-          setExistingLogoPath(reportSettings.logo);
           const fileName = reportSettings.logo.split('/').pop() || 'uploaded-logo';
           setLogoFileName(fileName);
 
@@ -105,7 +201,6 @@ export const AutomateReport = (): JSX.Element => {
             setLogoPreview(null);
           }
         } else {
-          setExistingLogoPath(null);
           setLogoFileName('');
           setLogoPreview(null);
         }
@@ -118,17 +213,17 @@ export const AutomateReport = (): JSX.Element => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [parseTimeFromBackend, convertTimeStringToLocalDate]);
 
   useEffect(() => {
     void fetchSettings();
-  }, []);
+  }, [fetchSettings]);
 
   useEffect(() => {
-    if (frequency) {
-      setNextTriggerDates(getNextTriggerDates(frequency));
+    if (frequency && automationTime) {
+      setNextTriggerDates(getNextTriggerDates(frequency, automationTime));
     }
-  }, [frequency]);
+  }, [frequency, automationTime, selectedTime]);
 
   const handleCancel = async (): Promise<any> => {
     await fetchSettings();
@@ -237,7 +332,6 @@ export const AutomateReport = (): JSX.Element => {
 
     setBranding({ ...branding, logoFile: file });
     setLogoFileName(file.name);
-    setExistingLogoPath(null);
 
     const reader = new FileReader();
     reader.onloadend = (): void => setLogoPreview(reader.result as string);
@@ -248,12 +342,14 @@ export const AutomateReport = (): JSX.Element => {
     setBranding({ ...branding, logoFile: null });
     setLogoPreview(null);
     setLogoFileName('');
-    setExistingLogoPath(null);
   };
 
-  const getNextTriggerDates = (frequency: string): string[] => {
+  const getNextTriggerDates = (frequency: string, time: string): string[] => {
     const dates: string[] = [];
     const now = new Date();
+
+    // Parse the time string (HH:mm:ss)
+    const [hours, minutes] = time.split(':').map(Number);
 
     for (let i = 1; i <= 10; i++) {
       const next = new Date(now);
@@ -266,7 +362,8 @@ export const AutomateReport = (): JSX.Element => {
         next.setUTCMonth(now.getUTCMonth() + i);
       }
 
-      next.setUTCHours(0, 0, 0, 0);
+      // Set the time from the time string (UTC)
+      next.setUTCHours(hours, minutes, 0, 0);
       dates.push(next.toUTCString().replace('GMT', 'UTC'));
     }
 
@@ -276,7 +373,21 @@ export const AutomateReport = (): JSX.Element => {
   const handleFrequencyChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const value = e.target.value;
     setFrequency(value);
-    setNextTriggerDates(getNextTriggerDates(value));
+    if (automationTime) {
+      setNextTriggerDates(getNextTriggerDates(value, automationTime));
+    }
+  };
+
+  const handleTimeChange = (newValue: Date | null): void => {
+    setSelectedTime(newValue);
+  };
+
+  const handlePopoverOpen = (event: React.MouseEvent<HTMLElement>): void => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handlePopoverClose = (): void => {
+    setAnchorEl(null);
   };
 
   const handleSubmit = async (): Promise<void> => {
@@ -313,6 +424,7 @@ export const AutomateReport = (): JSX.Element => {
         title: reportName,
         fileFormat: reportTemplate as 'pdf' | 'csv',
         frequency: frequency as 'daily' | 'weekly' | 'monthly',
+        automationTime: automationTime, // This will now be just "HH:mm:ss"
         header: branding.header,
         footer: branding.footer,
         logo: branding.logoFile,
@@ -331,6 +443,17 @@ export const AutomateReport = (): JSX.Element => {
     }
   };
 
+  const open = Boolean(anchorEl);
+
+  // Format UTC time for display
+  const formatUTCTimeForDisplay = (date: Date | null): string => {
+    if (!date) return '00:00:00 UTC';
+
+    // Convert to UTC time string
+    const timeString = convertToUTCTimeString(date);
+    return `${timeString} UTC`;
+  };
+
   return (
     <>
       {loading ? (
@@ -343,6 +466,7 @@ export const AutomateReport = (): JSX.Element => {
             Automate Reports
           </Typography>
 
+          {/* ... (rest of your JSX remains exactly the same) */}
           <FormControl error={!!errors.reportTemplate}>
             <Typography variant="h6" gutterBottom>
               Report Template
@@ -355,9 +479,19 @@ export const AutomateReport = (): JSX.Element => {
           </FormControl>
 
           <FormControl error={!!errors.frequency}>
-            <Typography variant="h6" gutterBottom>
-              Automation Frequency
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6" gutterBottom>
+                Automation Frequency
+              </Typography>
+              <IconButton
+                size="small"
+                onMouseEnter={handlePopoverOpen}
+                onMouseLeave={handlePopoverClose}
+                sx={{ color: 'primary.main' }}
+              >
+                <VisibilityIcon />
+              </IconButton>
+            </Box>
             <RadioGroup row value={frequency} onChange={handleFrequencyChange}>
               <FormControlLabel value="daily" control={<Radio />} label="Daily" />
               <FormControlLabel value="weekly" control={<Radio />} label="Weekly" />
@@ -365,19 +499,70 @@ export const AutomateReport = (): JSX.Element => {
             </RadioGroup>
             {errors.frequency && <FormHelperText>{errors.frequency}</FormHelperText>}
           </FormControl>
-          {nextTriggerDates.length > 0 && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                Next 10 trigger date(s)
-              </Typography>
-              {nextTriggerDates.map((date, index) => (
-                <Typography key={index} variant="body2">
-                  {new Date(date).toUTCString().replace('GMT', 'UTC')}
-                </Typography>
-              ))}
-            </Box>
-          )}
 
+          <Popover
+            id="mouse-over-popover"
+            sx={{
+              pointerEvents: 'none',
+            }}
+            open={open}
+            anchorEl={anchorEl}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'left',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'left',
+            }}
+            onClose={handlePopoverClose}
+            disableRestoreFocus
+          >
+            <Box sx={{ p: 2, maxWidth: 400 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Next 10 Trigger Dates
+              </Typography>
+              {nextTriggerDates.length > 0 ? (
+                nextTriggerDates.map((date, index) => (
+                  <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
+                    {new Date(date).toUTCString().replace('GMT', 'UTC')}
+                  </Typography>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  Select frequency and time to see trigger dates
+                </Typography>
+              )}
+            </Box>
+          </Popover>
+
+          <Box>
+            <Typography variant="h6" gutterBottom>
+              Automation Time (UTC)
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+              <TimePicker
+                label="Select Time (Your Local Time)"
+                value={selectedTime}
+                onChange={handleTimeChange}
+                ampm={false} // Use 24-hour format
+                views={['hours', 'minutes']} // Only show hours and minutes
+                format="HH:mm" // 24-hour format
+                slotProps={{
+                  textField: {
+                    sx: { minWidth: 180 },
+                  },
+                }}
+              />
+
+              <Typography variant="body2" color="text.secondary">
+                It Will run at: {formatUTCTimeForDisplay(selectedTime)}
+              </Typography>
+            </Box>
+            {errors.automationTime && <FormHelperText error>{errors.automationTime}</FormHelperText>}
+          </Box>
+
+          {/* ... (rest of your JSX remains exactly the same) */}
           {reportTemplate === 'pdf' && (
             <>
               <Typography variant="h4" color="primary.dark">

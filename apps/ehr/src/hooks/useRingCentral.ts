@@ -1,4 +1,4 @@
-import { SECRETS } from '../../../../packages/zambdas/test/data/secrets';
+const RC_CLIENT_ID = import.meta.env.VITE_APP_RC_CLIENT_ID;
 
 // useRingCentral.tsx
 export async function loadRingCentralWidget(): Promise<void> {
@@ -17,7 +17,7 @@ export async function loadRingCentralWidget(): Promise<void> {
 
     const script = document.createElement('script');
     script.id = 'rc-embeddable-script';
-    script.src = `https://apps.ringcentral.com/integration/ringcentral-embeddable/2.2.0/adapter.js?clientId=${SECRETS.RC_CLIENT_ID}&appServer=https://platform.ringcentral.com`;
+    script.src = `https://apps.ringcentral.com/integration/ringcentral-embeddable/2.2.0/adapter.js?clientId=${RC_CLIENT_ID}&appServer=https://platform.ringcentral.com`;
     script.onload = () => {
       // Hide the widget initially
       setTimeout(() => {

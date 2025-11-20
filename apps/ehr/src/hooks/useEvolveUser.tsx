@@ -9,7 +9,6 @@ import {
   getPatchOperationForNewMetaTag,
   getPractitionerNPIIdentifier,
   initialsFromName,
-  PROJECT_NAME,
   RoleType,
   SyncUserResponse,
   User,
@@ -99,12 +98,15 @@ export default function useEvolveUser(): EvolveUser | undefined {
 
   const { userName, userInitials, lastLogin } = useMemo(() => {
     if (profile) {
-      const userName = getFullestAvailableName(profile) ?? `${PROJECT_NAME} Team`;
+      const userName = getFullestAvailableName(profile) ?? `${window.APP_CONFIG?.projectName ?? ''} Team`;
       const userInitials = initialsFromName(userName);
       const lastLogin = profile.meta?.tag?.find((tag) => tag.system === 'last-login')?.code;
       return { userName, userInitials, lastLogin };
     }
-    return { userName: `${PROJECT_NAME} team`, userInitials: initialsFromName(`${PROJECT_NAME} Team`) };
+    return {
+      userName: `${window.APP_CONFIG?.projectName ?? ''} team`,
+      userInitials: initialsFromName(`${window.APP_CONFIG?.projectName ?? ''} Team`),
+    };
   }, [profile]);
 
   return useMemo(() => {

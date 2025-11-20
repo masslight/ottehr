@@ -36,7 +36,6 @@ import {
   getVisitTotalTime,
   InPersonAppointmentInformation,
   OrdersForTrackingBoardRow,
-  PROJECT_NAME,
   ROOM_EXTENSION_URL,
   VisitStatusLabel,
 } from 'utils';
@@ -549,14 +548,22 @@ export default function AppointmentTableRow({
         spanish: 'Estamos listos para atender al paciente; ingrese al centro.',
       },
       {
-        english: `${PROJECT_NAME} is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
+        english: `${
+          window.APP_CONFIG?.projectName ?? ''
+        } is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
         // cSpell:disable-next Spanish
-        spanish: `${PROJECT_NAME} está intentando comunicarse con usted. Llámenos al ${officePhoneNumber} o responda a este mensaje de texto.`,
+        spanish: `${
+          window.APP_CONFIG?.projectName ?? ''
+        }  está intentando comunicarse con usted. Llámenos al ${officePhoneNumber} o responda a este mensaje de texto.`,
       },
       {
-        english: `${PROJECT_NAME} hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
+        english: `${
+          window.APP_CONFIG?.projectName ?? ''
+        }  hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
         // cSpell:disable-next Spanish
-        spanish: `${PROJECT_NAME} espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
+        spanish: `${
+          window.APP_CONFIG?.projectName ?? ''
+        }  espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
       },
     ];
   }, [appointment.id, appointment.patient.firstName, officePhoneNumber]);

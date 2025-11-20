@@ -11,5 +11,5 @@
       "@ehrDefaultTheme/*": ["src/themes/ottehr/*"]
     }
   },
-  "include": [".", ".eslintrc.cjs"]
+  "include": [".", ".eslintrc.cjs", "../config/initConfig.ts"]
 }

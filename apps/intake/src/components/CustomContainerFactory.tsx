@@ -35,7 +35,6 @@ interface CustomContainerFactoryProps {
   logoutHandler?: () => void;
 }
 export const CustomContainerFactory = ({
-  logo,
   showLanguagePicker,
   alt,
   footer,
@@ -44,7 +43,7 @@ export const CustomContainerFactory = ({
   const CustomContainerWrapped: FC<WrappedContainerProps> = (props) => {
     const passThroughProps = {
       ...props, // factory args will overwrite anything passed through
-      logo,
+      logo: `${window.APP_CONFIG?.projectName ?? ''}`,
       showLanguagePicker,
       alt,
       footer,
@@ -69,7 +68,6 @@ export const CustomContainer: FC<ContainerProps> = ({
   useEmptyBody,
   children,
   // showLanguagePicker,
-  logo,
   alt,
   footer,
   logoutHandler,
@@ -114,7 +112,7 @@ export const CustomContainer: FC<ContainerProps> = ({
               component="img"
               sx={{ margin: 1, width: 200, alignSelf: 'center', minHeight: '39px' }}
               alt={alt}
-              src={logo}
+              src={window.APP_CONFIG?.patientlogo ?? ''}
             />
           </Grid>
           {isAuthenticated && (

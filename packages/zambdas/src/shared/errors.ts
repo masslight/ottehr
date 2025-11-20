@@ -1,7 +1,7 @@
 import sendgrid, { ClientResponse } from '@sendgrid/mail';
 import { captureException } from '@sentry/aws-serverless';
 import { DateTime } from 'luxon';
-import { getSecret, handleUnknownError, PROJECT_NAME, Secrets, SecretsKeys } from 'utils';
+import { getSecret, handleUnknownError, Secrets, SecretsKeys } from 'utils';
 
 export const sendErrors = async (error: any, env: string): Promise<void> => {
   if (['local'].includes(env)) {
@@ -37,6 +37,7 @@ export const sendgridEmail = async (
   message: string
 ): Promise<[ClientResponse, unknown] | undefined> => {
   const SENDGRID_API_KEY = getSecret(SecretsKeys.SENDGRID_API_KEY, secrets);
+  const APP_NAME = getSecret(SecretsKeys.APP_NAME, secrets);
   if (!(SENDGRID_API_KEY && sendgridTemplateId)) {
     console.error(
       "Email message can't be sent because either Sendgrid api key or message template ID variable was not set"
@@ -49,7 +50,7 @@ export const sendgridEmail = async (
     to: toEmail,
     from: {
       email: fromEmail,
-      name: PROJECT_NAME,
+      name: APP_NAME,
     },
     replyTo: fromEmail,
     templateId: sendgridTemplateId,

@@ -2,12 +2,22 @@ import fontkit from '@pdf-lib/fontkit';
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { Color, PageSizes, PDFDocument, PDFFont } from 'pdf-lib';
-import { PdfBulletPointItem, SCHOOL_WORK_NOTE, SchoolWorkNoteExcuseDocDTO, Secrets } from 'utils';
+import {
+  getSecret,
+  PdfBulletPointItem,
+  SCHOOL_WORK_NOTE,
+  SchoolWorkNoteExcuseDocDTO,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { handleBadSpaces, PdfInfo, rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
 
-async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): Promise<Uint8Array> {
+async function createSchoolWorkNotePdfBytes(
+  data: SchoolWorkNoteExcuseDocDTO,
+  secrets: Secrets | null
+): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
   const page = pdfDoc.addPage();
@@ -96,8 +106,9 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   };
 
   // add Ottehr logo at the top of the PDF
-  const imgPath = './assets/ottehrLogo.png';
-  const imgBytes = fs.readFileSync(imgPath);
+  const imgURL = getSecret(SecretsKeys.LOGO, secrets);
+  const response = await fetch(imgURL);
+  const imgBytes = await response.arrayBuffer();
   const img = await pdfDoc.embedPng(imgBytes);
   currYPos -= styles.margin.y;
   page.drawImage(img, {
@@ -142,7 +153,7 @@ export async function createSchoolWorkNotePDF(
     throw new Error('No patient id found for consent items');
   }
 
-  const pdfBytes = await createSchoolWorkNotePdfBytes(input).catch((error) => {
+  const pdfBytes = await createSchoolWorkNotePdfBytes(input, secrets).catch((error) => {
     throw new Error('failed creating pdfBytes: ' + error.message);
   });
   const bucketName = `${SCHOOL_WORK_NOTE}s`;

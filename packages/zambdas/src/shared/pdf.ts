@@ -3,7 +3,7 @@ import { remove as removeDiacritics } from 'diacritics';
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { Color, PageSizes, PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from 'pdf-lib';
-import { ConsentSigner, formatDateTimeToLocaleString, getSecret, Secrets } from 'utils';
+import { ConsentSigner, formatDateTimeToLocaleString, getSecret, Secrets, SecretsKeys } from 'utils';
 import { triggerSlackAlarm } from './lambda';
 
 type PdfInfo = { uploadURL: string; copyFromPath: string; formTitle: string; resourceTitle: string };
@@ -240,8 +240,9 @@ async function drawFirstPage({
   let currYPos = height - styles.margin.y; // top of page. Content starts after this point
 
   // add Ottehr logo at the top of the PDF
-  const imgPath = './assets/ottehrLogo.png';
-  const imgBytes = fs.readFileSync(imgPath);
+  const imgURL = getSecret(SecretsKeys.LOGO, secrets);
+  const response = await fetch(imgURL);
+  const imgBytes = await response.arrayBuffer();
   const img = await pdfDoc.embedPng(imgBytes);
   const imgDimensions = img.scale(0.3);
   currYPos -= imgDimensions.height / 2;

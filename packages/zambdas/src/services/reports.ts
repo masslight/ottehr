@@ -1,6 +1,4 @@
 import axios from 'axios';
-import { SECRETS } from '../../test/data/secrets';
-
 interface Report {
   id: string;
   patientId: string;
@@ -17,15 +15,15 @@ interface Report {
 export interface ReportSettingsPayload {
   title: string;
   fileFormat: 'pdf' | 'csv';
+  automationTime: string;
   frequency: 'daily' | 'weekly' | 'monthly';
   header?: string;
   footer?: string;
   logo?: File | null;
 }
 
-const API_BASE_URL = SECRETS.API_BASE_URL;
-const API_TOKEN = SECRETS.API_TOKEN;
-const PROJECT_ID = SECRETS.PROJECT_ID;
+const API_BASE_URL = import.meta.env.VITE_APP_API_BASE_URL;
+const API_TOKEN = import.meta.env.VITE_APP_API_TOKEN;
 
 export const fetchReports = async (
   patientId: string,
@@ -39,7 +37,6 @@ export const fetchReports = async (
       {
         headers: {
           token: `${API_TOKEN}`,
-          'project-id': `${PROJECT_ID}`,
           'Content-Type': 'application/json',
         },
       }
@@ -63,7 +60,6 @@ export const getReportDownloadUrl = async (path: string): Promise<string | null>
       {
         headers: {
           token: `${API_TOKEN}`,
-          'project-id': `${PROJECT_ID}`,
           'Content-Type': 'application/json',
         },
       }
@@ -84,7 +80,6 @@ export const getImageDownloadUrl = async (path: string): Promise<string | null> 
       {
         headers: {
           token: `${API_TOKEN}`,
-          'project-id': `${PROJECT_ID}`,
           'Content-Type': 'application/json',
         },
       }
@@ -111,7 +106,6 @@ export const genreateManualReport = async (
       {
         headers: {
           token: `${API_TOKEN}`,
-          'project-id': `${PROJECT_ID}`,
           'Content-Type': 'application/json',
         },
       }
@@ -130,6 +124,7 @@ export const saveReportSettings = async (payload: ReportSettingsPayload): Promis
     formData.append('title', payload.title);
     formData.append('fileFormat', payload.fileFormat);
     formData.append('frequency', payload.frequency);
+    formData.append('automationTime', payload.automationTime);
 
     if (payload.fileFormat === 'pdf') {
       if (payload.header) formData.append('header', payload.header);
@@ -140,7 +135,6 @@ export const saveReportSettings = async (payload: ReportSettingsPayload): Promis
     const response = await axios.post(`${API_BASE_URL}/reports/reportSettings`, formData, {
       headers: {
         token: `${API_TOKEN}`,
-        'project-id': `${PROJECT_ID}`,
         'Content-Type': 'multipart/form-data',
       },
     });
@@ -160,7 +154,6 @@ export const fetchReportSettings = async (): Promise<any> => {
       {
         headers: {
           token: `${API_TOKEN}`,
-          'project-id': `${PROJECT_ID}`,
           'Content-Type': 'application/json',
         },
       }
@@ -180,7 +173,6 @@ export const fetchReportDownloadURL = async (token: string): Promise<any> => {
     const response = await axios.get(`${API_BASE_URL}/reports/file/${token}`, {
       headers: {
         token: `${API_TOKEN}`,
-        'project-id': `${PROJECT_ID}`,
         'Content-Type': 'application/json',
       },
     });

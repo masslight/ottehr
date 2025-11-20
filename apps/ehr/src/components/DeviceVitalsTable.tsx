@@ -614,7 +614,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
           valueGetter: (params) => formatDateTime(params.row.issued),
         },
         {
-          field: 'weightCriticalRange',
+          field: 'weightRange',
           headerName: 'Weight Warning Range',
           width: 180,
           sortable: false,

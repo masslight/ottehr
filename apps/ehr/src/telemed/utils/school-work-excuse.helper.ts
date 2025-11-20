@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { PROJECT_NAME, SchoolWorkNoteExcuseDocDTO } from 'utils';
+import { SchoolWorkNoteExcuseDocDTO } from 'utils';
 import { ArrayElement } from '../../shared/types';
 
 export const mapExcuseTypeToFields = {
@@ -164,7 +164,9 @@ export const getDefaultExcuseFormValues = (params: {
     : `${params.patientName || '{Patient name}'},`;
 
   const headerNoteEnding = !params.isSchool && params.isTemplate ? 'They:' : 'They are:';
-  defaultFormValues.headerNote = `To whom it may concern:\n${headerNoteName} was treated by ${PROJECT_NAME} on ${currentDate}. ${headerNoteEnding}`;
+  defaultFormValues.headerNote = `To whom it may concern:\n${headerNoteName} was treated by ${
+    window.APP_CONFIG?.projectName ?? ''
+  } on ${currentDate}. ${headerNoteEnding}`;
 
   if (params.isTemplate) {
     if (params.phoneNumber) {

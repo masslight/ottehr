@@ -5,11 +5,13 @@ import {
   AdditionalBooleanQuestionsFieldsNames,
   ExamObservationFieldItem,
   followUpInOptions,
+  getSecret,
   IN_PERSON_EXAM_CARDS,
   InPersonExamObservationFieldItem,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
   Secrets,
+  SecretsKeys,
   SEEN_IN_LAST_THREE_YEARS_LABEL,
   VitalFieldNames,
 } from 'utils';
@@ -27,7 +29,11 @@ import {
   VisitNoteData,
 } from './types';
 
-async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointment: boolean): Promise<Uint8Array> {
+async function createVisitNotePdfBytes(
+  data: VisitNoteData,
+  isInPersonAppointment: boolean,
+  secrets: Secrets | null
+): Promise<Uint8Array> {
   const pdfClientStyles: PdfClientStyles = {
     initialPage: {
       width: PageSizes.A4[0],
@@ -47,7 +53,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
   const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Bold.otf'));
-  const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./assets/ottehrLogo.png'));
+
+  // read ottehr logo image
+  const imgURL = getSecret(SecretsKeys.LOGO, secrets);
+  const response = await fetch(imgURL);
+  const imgBuffer = Buffer.from(await response.arrayBuffer());
+  const ottehrLogo = await pdfClient.embedImage(imgBuffer);
+
   const redDot = await pdfClient.embedImage(fs.readFileSync('./assets/red-dot.png'));
   const greenDot = await pdfClient.embedImage(fs.readFileSync('./assets/green-dot.png'));
 
@@ -780,7 +792,7 @@ export async function createVisitNotePDF(
   }
 
   console.log('Creating pdf bytes');
-  const pdfBytes = await createVisitNotePdfBytes(input, isInPersonAppointment).catch((error) => {
+  const pdfBytes = await createVisitNotePdfBytes(input, isInPersonAppointment, secrets).catch((error) => {
     throw new Error('failed creating pdfBytes: ' + error.message);
   });
 

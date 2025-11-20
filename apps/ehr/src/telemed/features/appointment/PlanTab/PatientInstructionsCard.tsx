@@ -2,8 +2,8 @@ import AddIcon from '@mui/icons-material/Add';
 import DoneIcon from '@mui/icons-material/Done';
 import { Box, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { FC, useState } from 'react';
-import { CommunicationDTO, PROJECT_NAME } from 'utils';
+import { FC, useState } from 'react';
+import { CommunicationDTO } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, ActionsList, DeleteIconButton } from '../../../components';
@@ -110,7 +110,9 @@ export const PatientInstructionsCard: FC = () => {
                   onChange={(e) => setInstruction(e.target.value)}
                   size="small"
                   label="Instruction"
-                  placeholder={`Enter a new instruction of select from own saved or ${PROJECT_NAME} template`}
+                  placeholder={`Enter a new instruction of select from own saved or ${
+                    window.APP_CONFIG?.projectName ?? ''
+                  }  template`}
                   multiline
                   fullWidth
                 />
@@ -127,7 +129,9 @@ export const PatientInstructionsCard: FC = () => {
               </Box>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <RoundedButton onClick={() => setMyTemplatesOpen(true)}>My templates</RoundedButton>
-                <RoundedButton onClick={() => setDefaultTemplatesOpen(true)}>{PROJECT_NAME} templates</RoundedButton>
+                <RoundedButton onClick={() => setDefaultTemplatesOpen(true)}>
+                  {window.APP_CONFIG?.projectName ?? ''} templates
+                </RoundedButton>
               </Box>
             </>
           )}

@@ -1,4 +1,3 @@
-import { ottehrAiIcon } from '@ehrTheme/icons';
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useParams } from 'react-router-dom';
@@ -52,7 +51,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
               paddingBottom: '8px',
             }}
           >
-            <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
+            <img src={window.APP_CONFIG.roundLogo} style={{ width: '30px', marginRight: '8px' }} />
             <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
               CHAT WITH OYSTEHR AI
             </Typography>
@@ -68,7 +67,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
               alignItems: 'center',
             }}
           >
-            <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
+            <img src={window.APP_CONFIG.roundLogo} style={{ width: '30px', marginRight: '8px' }} />
             <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
               OYSTEHR AI SUGGESTIONS
             </Typography>

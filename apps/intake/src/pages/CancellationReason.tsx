@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
-import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CANT_CANCEL_CHECKED_IN_APT_ERROR, PROJECT_NAME } from 'utils';
+import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CANT_CANCEL_CHECKED_IN_APT_ERROR } from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
@@ -105,7 +105,7 @@ const CancellationReason = (): JSX.Element => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const cancelReasonOptions = useMemo(() => {
     return Object.keys(CancelReasonOptions).map((key) => ({
-      label: t(`cancel.reasons.${key}`, { PROJECT_NAME }),
+      label: t(`cancel.reasons.${key}`, `${window.APP_CONFIG?.projectName ?? ''}`),
       value: CancelReasonOptions[key as keyof typeof CancelReasonOptions],
     }));
   }, [t]);

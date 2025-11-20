@@ -1,8 +1,6 @@
 import { Button, Card, Typography, useTheme } from '@mui/material';
 import { Box, Container } from '@mui/system';
-import { ottehrLightBlue } from '@theme/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PROJECT_NAME } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
 import { CustomContainer } from '../features/common';
 
@@ -33,7 +31,7 @@ const CallEndedPage = (): JSX.Element => {
               gap: 3,
             }}
           >
-            <img alt={`${PROJECT_NAME} icon`} src={ottehrLightBlue} width={120} />
+            <img alt={`${window.APP_CONFIG?.projectName ?? ''} icon`} src={window.APP_CONFIG.roundLogo} width={120} />
 
             <Box>
               <Typography variant="h2" color="primary.main" textAlign="center">
