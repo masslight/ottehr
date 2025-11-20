@@ -133,8 +133,8 @@ export const AppSettings = (): JSX.Element => {
     }
 
     const nameWithoutSpaces = name.replace(/\s/g, '');
-    if (nameWithoutSpaces.length > 255) {
-      return 'App name must not exceed 255 characters (excluding spaces)';
+    if (nameWithoutSpaces.length > 20) {
+      return 'App name must not exceed 20 characters (excluding spaces)';
     }
 
     return undefined;
@@ -284,8 +284,12 @@ export const AppSettings = (): JSX.Element => {
       setToastMessage(result?.message || 'App settings success.');
       setToastOpen(true);
     } catch (error: any) {
-      console.log('Err: ', error);
-      setToastMessage(error?.response?.data?.errors?.[0]?.title || 'Error saving app settings.');
+      const sizeIssue = error?.response?.data?.message?.includes('recommended size');
+      setToastMessage(
+        error?.response?.data?.errors?.[0]?.title || sizeIssue
+          ? 'Dark Logo recommended size: (150x150)'
+          : 'Error saving app settings.'
+      );
       setToastSeverity('warning');
       setToastOpen(true);
     } finally {
