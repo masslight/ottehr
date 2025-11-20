@@ -17,7 +17,6 @@ export function initializeAppConfig() {
     if (cached) {
         const data = JSON.parse(cached);
         window.APP_CONFIG = data;
-        return data;
     }
 
     // 2️⃣ Fetch directly (no external function needed)
