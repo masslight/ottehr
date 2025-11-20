@@ -49,10 +49,13 @@ async function bookAppointmentForExistingPatient(bookingData: {
   dobMonth: string;
   dobDay: string;
   dobYear: string;
-}): Promise<void> {
+}): Promise<{
+  slot: string | undefined;
+  location: string | null;
+}> {
   await page.goto('/home');
   await locator.scheduleInPersonVisitButton.click();
-  await flowClass.additionalStepsForPrebook();
+  const { selectedSlot, location } = await flowClass.additionalStepsForPrebook();
   await page
     .getByRole('heading', { name: new RegExp(`.*${bookingData.firstName} ${bookingData.lastName}.*`, 'i') })
     .click();
@@ -63,6 +66,10 @@ async function bookAppointmentForExistingPatient(bookingData: {
   await locator.continueButton.click();
   await locator.reserveButton.click();
   await paperwork.clickProceedToPaperwork();
+  return {
+    slot: selectedSlot.selectedSlot,
+    location,
+  };
 }
 
 test.describe.parallel('In-Person Setup: Create test patients and appointments', () => {
@@ -73,7 +80,7 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
     await paperwork.fillPaperworkAllFieldsInPerson('card', 'self');
     await locator.finishButton.click();
 
-    await bookAppointmentForExistingPatient(bookingData);
+    const { slot, location } = await bookAppointmentForExistingPatient(bookingData);
 
     const cardPaymentSelfPatient = {
       firstName: bookingData.firstName,
@@ -84,6 +91,8 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
       dobDay: bookingData.dobDay,
       dobYear: bookingData.dobYear,
       appointmentId: appointmentIds[appointmentIds.length - 1],
+      slot,
+      location,
     };
 
     writeTestData('cardPaymentSelfPatient.json', cardPaymentSelfPatient);
@@ -99,7 +108,7 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
     await paperwork.fillPaperworkAllFieldsInPerson('insurance', 'not-self');
     await locator.finishButton.click();
 
-    await bookAppointmentForExistingPatient(bookingData);
+    const { slot, location } = await bookAppointmentForExistingPatient(bookingData);
 
     const insurancePaymentNotSelfPatient = {
       firstName: bookingData.firstName,
@@ -110,6 +119,8 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
       dobDay: bookingData.dobDay,
       dobYear: bookingData.dobYear,
       appointmentId: appointmentIds[appointmentIds.length - 1],
+      slot,
+      location,
     };
 
     writeTestData('insurancePaymentNotSelfPatient.json', insurancePaymentNotSelfPatient);
@@ -117,8 +128,28 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
     console.log('insurancePaymentNotSelfPatient', JSON.stringify(insurancePaymentNotSelfPatient));
   });
 
+  test('Create patient without filling in paperwork', async () => {
+    const bookingData = await flowClass.startVisit();
+    await page.goto(bookingData.bookingURL);
+    await paperwork.clickProceedToPaperwork();
+
+    const patientWithoutPaperwork = {
+      firstName: bookingData.firstName,
+      lastName: bookingData.lastName,
+      email: bookingData.email,
+      birthSex: bookingData.birthSex,
+      dobMonth: bookingData.dobMonth,
+      dobDay: bookingData.dobDay,
+      dobYear: bookingData.dobYear,
+      appointmentId: bookingData.bookingUUID,
+    };
+
+    writeTestData('patientWithoutPaperwork.json', patientWithoutPaperwork);
+
+    console.log('patientWithoutPaperwork', JSON.stringify(patientWithoutPaperwork));
+  });
+
   test('Create patient without appointments', async () => {
-    test.setTimeout(150_000);
     const bookingData = await flowClass.startVisit();
 
     const patientWithoutAppointments = {
