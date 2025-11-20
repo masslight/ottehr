@@ -57,6 +57,8 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
       console.log('already have token');
     }
 
+    const APP_NAME = getSecret(SecretsKeys.APP_NAME, secrets) as string;
+
     const oystehr = createOystehrClient(oystehrToken, secrets);
     const uniqueNumbers = Array.from(new Set(smsNumbers));
     const smsQuery = uniqueNumbers.map((number) => `${number}`).join(',');
@@ -121,7 +123,7 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
         content,
         isRead: true,
         sentWhen: comm.sent ?? '',
-        sender: getSenderNameFromComm(comm, senderMap),
+        sender: getSenderNameFromComm(comm, senderMap, APP_NAME),
         isFromPatient: false,
       };
     });
@@ -259,7 +261,11 @@ const getPatientSenderNameFromComm = (
   return 'Patient, Parent or Guardian';
 };
 
-const getSenderNameFromComm = (communication: Communication, map: Record<string, Device | Practitioner>): string => {
+const getSenderNameFromComm = (
+  communication: Communication,
+  map: Record<string, Device | Practitioner>,
+  appName: string
+): string => {
   const senderRef = communication.sender?.reference;
   if (senderRef && map[senderRef]) {
     const resource = map[senderRef];
@@ -275,7 +281,7 @@ const getSenderNameFromComm = (communication: Communication, map: Record<string,
       }
     }
   }
-  return `Company Team`;
+  return `${appName} Team`;
 };
 
 const getReceivedMessages = async (

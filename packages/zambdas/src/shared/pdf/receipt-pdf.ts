@@ -1,13 +1,13 @@
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { PageSizes } from 'pdf-lib';
-import { Secrets } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { createPdfClient, PdfInfo } from './pdf-utils';
 import { ImageStyle, PdfClientStyles, ReceiptData, TextStyle } from './types';
 
-async function createReceiptPdfBytes(data: ReceiptData): Promise<Uint8Array> {
+async function createReceiptPdfBytes(data: ReceiptData, secrets: Secrets | null): Promise<Uint8Array> {
   const pdfClientStyles: PdfClientStyles = {
     initialPage: {
       width: PageSizes.A4[0],
@@ -21,11 +21,14 @@ async function createReceiptPdfBytes(data: ReceiptData): Promise<Uint8Array> {
     },
   };
   const pdfClient = await createPdfClient(pdfClientStyles);
-
   const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
   const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assetsRubik-Bold.otf'));
-  const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./ottehrLogo.png'));
-  // const ottehrLogo = await pdfClient.embedImage(fs.readFileSync( getSecret(SecretsKeys.PATIENT_LOGO, secrets)));
+
+  // read ottehr logo image
+  const imgURL = getSecret(SecretsKeys.LOGO, secrets);
+  const response = await fetch(imgURL);
+  const imgBuffer = Buffer.from(await response.arrayBuffer());
+  const ottehrLogo = await pdfClient.embedImage(imgBuffer);
 
   const textStyles: Record<string, TextStyle> = {
     blockHeader: {
@@ -102,7 +105,7 @@ export async function createReceiptPdf(
   if (!patient.id) {
     throw new Error('No patient id found for consent items');
   }
-  const pdfBytes = await createReceiptPdfBytes(input).catch((error) => {
+  const pdfBytes = await createReceiptPdfBytes(input, secrets).catch((error) => {
     throw new Error('failed creating pdfBytes: ' + error.message);
   });
 

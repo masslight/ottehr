@@ -95,7 +95,7 @@ export const UserMenu: FC = () => {
       >
         <MenuItem>
           <Box>
-            <Typography variant="body1"> {window.APP_CONFIG?.projectName ?? 'Default'} Admin</Typography>
+            <Typography variant="body1">Admin</Typography>
             <Typography variant="caption">{user?.email}</Typography>
           </Box>
         </MenuItem>

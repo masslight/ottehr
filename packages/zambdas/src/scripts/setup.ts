@@ -11,7 +11,6 @@ import {
   PROJECT_DOMAIN,
   SCHEDULE_EXTENSION_URL,
   ScheduleStrategyCoding,
-  SecretsKeys,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import { inviteUser } from './invite-user';
@@ -307,21 +306,20 @@ export async function setupEHR(
   // value of the INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID secret. Then, add the desired recipients
   // to the member array, and save the group.
   let groupId = '';
-  const projectName = SecretsKeys.APP_NAME;
 
   if (userId1) {
     const groupResource: FhirResource = {
       resourceType: 'Group',
       identifier: [
         {
-          system: `${projectName.toLowerCase()}-internal`,
+          system: `internal`,
           value: 'intake-issue-reports',
         },
       ],
       active: true,
       type: 'practitioner',
       code: {
-        text: `${projectName.toLowerCase()}-admins`,
+        text: `admins`,
       },
       name: 'Issue Report Recipients',
       member: [

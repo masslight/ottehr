@@ -240,8 +240,9 @@ async function drawFirstPage({
   let currYPos = height - styles.margin.y; // top of page. Content starts after this point
 
   // add Ottehr logo at the top of the PDF
-  const imgPath = getSecret(SecretsKeys.PATIENT_LOGO, secrets);
-  const imgBytes = fs.readFileSync(imgPath);
+  const imgURL = getSecret(SecretsKeys.LOGO, secrets);
+  const response = await fetch(imgURL);
+  const imgBytes = await response.arrayBuffer();
   const img = await pdfDoc.embedPng(imgBytes);
   const imgDimensions = img.scale(0.3);
   currYPos -= imgDimensions.height / 2;

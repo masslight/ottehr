@@ -556,7 +556,7 @@ export const AutomateReport = (): JSX.Element => {
               />
 
               <Typography variant="body2" color="text.secondary">
-                Will run at: {formatUTCTimeForDisplay(selectedTime)}
+                It Will run at: {formatUTCTimeForDisplay(selectedTime)}
               </Typography>
             </Box>
             {errors.automationTime && <FormHelperText error>{errors.automationTime}</FormHelperText>}
