@@ -9,6 +9,7 @@ interface FhirResource {
 
 interface InputData {
   fhirResources: Record<string, FhirResource>;
+  'schema-version': string;
   [key: string]: any;
 }
 
@@ -44,7 +45,7 @@ async function main(): Promise<void> {
     } catch {
       console.warn(`Archive file not found at ${archiveFilePath}, a new one will be created.`);
     }
-    let archiveData: InputData = { fhirResources: {} };
+    let archiveData: InputData = { 'schema-version': data['schema-version'], fhirResources: {} };
     if (archiveFileContent) {
       archiveData = JSON.parse(archiveFileContent);
     }
