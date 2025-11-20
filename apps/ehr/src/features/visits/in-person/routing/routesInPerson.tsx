@@ -18,7 +18,7 @@ import { ExamTab } from '../../shared/components/exam-tab/ExamTab';
 import { OttehrAi } from '../../shared/components/OttehrAi';
 import { RouteInPerson } from '../context/InPersonNavigationContext';
 import { Allergies } from '../pages/Allergies';
-import { CCAndIntakeNotes } from '../pages/CCAndIntakeNotes';
+import { ChiefComplaintAndIntakeNotes } from '../pages/ChiefComplaintAndIntakeNotes';
 import { ERXPage } from '../pages/ERXPage';
 import { FollowUpNote } from '../pages/FollowUpNote';
 import { HistoryAndTemplates } from '../pages/HistoryAndTemplates';
@@ -87,7 +87,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   [ROUTER_PATH.CC_AND_INTAKE_NOTES]: {
     path: ROUTER_PATH.CC_AND_INTAKE_NOTES,
     modes: ['main', 'readonly'],
-    element: <CCAndIntakeNotes />,
+    element: <ChiefComplaintAndIntakeNotes />,
     text: 'CC & Intake Notes',
     iconKey: 'CC & Intake Notes',
     groupLabel: 'Intake',
