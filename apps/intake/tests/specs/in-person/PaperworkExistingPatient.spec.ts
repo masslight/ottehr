@@ -49,6 +49,8 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
     await paperwork.clickProceedToPaperwork();
     filledPaperwork = await paperwork.fillPaperworkAllFieldsInPerson('insurance', 'not-self');
     await locator.finishButton.click();
+    await page.waitForTimeout(1_000);
+    await page.waitForLoadState('networkidle');
     await page.goto('/home');
     await locator.scheduleInPersonVisitButton.click();
     await flowClass.additionalStepsForPrebook();

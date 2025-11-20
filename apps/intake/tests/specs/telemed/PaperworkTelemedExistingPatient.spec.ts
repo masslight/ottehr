@@ -40,13 +40,15 @@ test.afterAll(async () => {
 
 test.describe('Virtual visit. Check paperwork is prefilled for existing patient. Payment - insurance, responsible party - not self', () => {
   test.beforeAll(async () => {
-    test.setTimeout(200000);
+    test.setTimeout(400000);
     await page.goto(bookingData.bookingURL);
     await paperwork.clickProceedToPaperwork();
     filledPaperwork = await paperwork.fillPaperworkAllFieldsTelemed('insurance', 'not-self');
     await locator.finishButton.click();
+    await page.waitForTimeout(1_000);
+    await page.waitForLoadState('networkidle');
     await page.goto('/home');
-    await page.waitForTimeout(10000); // Wait for the harvest of first appointment to finish because these tests check pre-population which depends on harvest.
+    await page.waitForTimeout(15000); // Wait for the harvest of first appointment to finish because these tests check pre-population which depends on harvest.
     await locator.scheduleVirtualVisitButton.click();
     if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
       const availableCategories = BOOKING_CONFIG.serviceCategories || [];

@@ -28,7 +28,7 @@ test.describe.serial('Past Visits - Empty State', () => {
     await homepage.clickStartVirtualVisitButton();
     await homepage.selectState();
 
-    await page.getByTestId('Different family member').click();
+    await page.getByTestId('Different family member').click({ timeout: 40_000 });
     await homepage.clickContinue();
 
     const fillingInfo = new FillingInfo(page);

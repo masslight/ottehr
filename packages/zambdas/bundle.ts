@@ -24,7 +24,8 @@ const build = async (
   zambdas: ZambdaSpec[],
   assetsFrom: string[],
   assetsTo: string[],
-  outdir: string
+  outdir: string,
+  isSentryEnabled: boolean
 ): Promise<void> => {
   const sources = zambdas.map((zambda) => `${zambda.src}.ts`);
   await esbuild
@@ -44,20 +45,24 @@ const build = async (
             to: assetsTo,
           },
         }),
-        sentryEsbuildPlugin({
-          authToken: process.env.SENTRY_AUTH_TOKEN,
-          org: process.env.SENTRY_ORG,
-          project: process.env.SENTRY_PROJECT,
-          sourcemaps: {
-            // if enabled, creates unstable js builds, so we will add debug IDs using CLI
-            // see this issue for more information https://github.com/getsentry/sentry-javascript-bundler-plugins/issues/500
-            disable: true,
-          },
-          release: {
-            // if enabled, creates unstable js builds, so we will create releases using CLI
-            inject: false,
-          },
-        }),
+        ...(isSentryEnabled
+          ? [
+              sentryEsbuildPlugin({
+                authToken: process.env.SENTRY_AUTH_TOKEN,
+                org: process.env.SENTRY_ORG,
+                project: process.env.SENTRY_PROJECT,
+                sourcemaps: {
+                  // if enabled, creates unstable js builds, so we will add debug IDs using CLI
+                  // see this issue for more information https://github.com/getsentry/sentry-javascript-bundler-plugins/issues/500
+                  disable: true,
+                },
+                release: {
+                  // if enabled, creates unstable js builds, so we will create releases using CLI
+                  inject: false,
+                },
+              }),
+            ]
+          : []),
       ],
     })
     .catch((error) => {
@@ -136,20 +141,30 @@ const main = async (): Promise<void> => {
   const zambdasWithIcd10Search = ['icd-10-search', 'radiology-create-order'];
   const icd10AssetDir = '.dist/icd-10-cm-tabular';
 
+  const isSentryEnabled = !['local', 'e2e'].includes(process.env.ENV || '');
+
   const icd10SearchZambda = zambdas.filter((zambda) => zambda.name === 'icd-10-search');
-  await build(icd10SearchZambda, ['icd-10-cm-tabular/*'], [icd10AssetDir], '.dist/ehr/icd-10-search');
+  await build(icd10SearchZambda, ['icd-10-cm-tabular/*'], [icd10AssetDir], '.dist/ehr/icd-10-search', isSentryEnabled);
 
   const radiologyCreateOrderZambda = zambdas.filter((zambda) => zambda.name === 'radiology-create-order');
-  await build(radiologyCreateOrderZambda, ['icd-10-cm-tabular/*'], [icd10AssetDir], '.dist/ehr/radiology/create-order');
+  await build(
+    radiologyCreateOrderZambda,
+    ['icd-10-cm-tabular/*'],
+    [icd10AssetDir],
+    '.dist/ehr/radiology/create-order',
+    isSentryEnabled
+  );
 
   const mostZambdas = zambdas.filter((zambda) => !zambdasWithIcd10Search.includes(zambda.name));
   const assetsDir = '.dist/assets';
-  await build(mostZambdas, ['assets/*'], [assetsDir], '.dist');
+  await build(mostZambdas, ['assets/*'], [assetsDir], '.dist', isSentryEnabled);
   console.timeEnd('Bundle time');
-  console.log('Source maps...');
-  console.time('Source maps time');
-  await injectSourceMaps();
-  console.timeEnd('Source maps time');
+  if (isSentryEnabled) {
+    console.log('Source maps...');
+    console.time('Source maps time');
+    await injectSourceMaps();
+    console.timeEnd('Source maps time');
+  }
   console.log('Zipping...');
   console.time('Zip time');
   await zip(icd10SearchZambda, icd10AssetDir, 'icd-10-cm-tabular');

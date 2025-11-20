@@ -56,6 +56,8 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     await paperwork.clickProceedToPaperwork();
     filledPaperwork = await paperwork.fillPaperworkAllFieldsTelemed('card', 'self');
     await locator.finishButton.click();
+    await page.waitForTimeout(1_000);
+    await page.waitForLoadState('networkidle');
     await page.goto('/home');
     await locator.scheduleVirtualVisitButton.click();
     if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
