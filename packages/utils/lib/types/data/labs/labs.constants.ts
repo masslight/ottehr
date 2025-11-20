@@ -37,6 +37,7 @@ export const LAB_ORDER_TASK = {
     appointmentId: 'appointment-id',
     receivedDate: 'received-date',
     drTag: 'dr-tag',
+    alert: 'alert',
   },
 } as const;
 export type LabOrderTaskCode = (typeof LAB_ORDER_TASK.code)[keyof typeof LAB_ORDER_TASK.code];
@@ -307,3 +308,5 @@ export const LAB_CLIENT_BILL_COVERAGE_TYPE_CODING = {
   system: 'https://terminology.fhir.oystehr.com/CodeSystem/labs-financial-class',
   code: 'client-bill',
 };
+
+export const LAB_OBS_VALUE_WITH_PRECISION_EXT = 'https://extensions.fhir.oystehr.com/obx-5-quantity-with-precision';

@@ -124,7 +124,6 @@ export const ChangeStatusDropdown = ({
       await handleChangeInPersonVisitStatus(
         {
           encounterId,
-          user,
           updatedStatus: event.target.value as VisitStatusWithoutUnknown,
         },
         oystehrZambda
