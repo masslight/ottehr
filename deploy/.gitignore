@@ -1,9 +1,15 @@
+# Temp terraform files
 .terraform
 *.tfvars
 *.tfstate
 *.tfstate.backup
+
+# Generated files
 oystehr/*.tf.json
+
+# Secret files populated from elsewhere
 backend.config
+*_import.tf
 
 # Per-cloud overrides
 aws_override.tf
