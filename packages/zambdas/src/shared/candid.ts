@@ -63,10 +63,8 @@ import {
   FHIR_IDENTIFIER_NPI,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
-  getCptCodeFromMA,
   getDosageFromMA,
   getMedicationFromMA,
-  getNdcCodeFromMA,
   getOptionalSecret,
   getPayerId,
   getPaymentVariantFromEncounter,
@@ -1283,13 +1281,15 @@ async function candidCreateEncounterFromAppointmentRequest(
     medications.forEach((medicationAdministration) => {
       const medication = getMedicationFromMA(medicationAdministration);
       if (!medication) return;
-      const ndc = getNdcCodeFromMA(medication);
-      const cpt = getCptCodeFromMA(medication);
+      // const ndc = getNdcCodeFromMA(medication);
+      // const cpt = getCptCodeFromMA(medication);
+      const ndc = '50580017001';
+      const cpt = 'J3301';
       const dose = getDosageFromMA(medicationAdministration);
       console.log(`medication: ${medicationAdministration?.id}, ndc: ${ndc}, cpt: ${cpt}, dose: ${dose}`);
       if (cpt && ndc && dose) {
         serviceLines.push({
-          procedureCode: 'J3301', // cpt or HCPCS code here
+          procedureCode: cpt, // cpt or HCPCS code here
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
           chargeAmountCents: 5000,
@@ -1300,7 +1300,7 @@ async function candidCreateEncounterFromAppointmentRequest(
             // The "N4" qualifier is standard for NDC
             serviceIdQualifier: 'N4',
             // MUST be the 11-digit format (5-4-2) with no hyphens todo our ndc codes have hypens and are only 10 digit long
-            nationalDrugCode: '50580017001',
+            nationalDrugCode: ndc,
             // The specific quantity of the drug liquid/solid (e.g., 2.5 ML)
             nationalDrugUnitCount: Decimal(`${dose}`),
             measurementUnitCode: MeasurementUnitCode.Milliliters, // todo ???
