@@ -39,7 +39,7 @@ test.afterAll(async () => {
 
 test.describe.parallel('In-Person - Prefilled Paperwork, Responsible Party: Self, Payment: Card', () => {
   test('IPPPS-1. Responsible party', async () => {
-    await test.step('IPPPS-1.1. Open responsible party page directly', async () => {
+    await test.step('IPPPS-1.1. Open Responsible party page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/responsible-party`);
       await paperwork.checkCorrectPageOpens('Responsible party information');
     });
@@ -69,7 +69,7 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Responsible Party: Self
   });
 
   test('IPPPS-2. Payment option', async () => {
-    await test.step('IPPPS-2.1. Open payment option page directly', async () => {
+    await test.step('IPPPS-2.1. Open Payment option page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/payment-option`);
       await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
     });
@@ -80,7 +80,7 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Responsible Party: Self
   });
 
   test('IPPPS-3. Card payment', async () => {
-    await test.step('IPPPS-3.1. Open card payment page directly', async () => {
+    await test.step('IPPPS-3.1. Open Card payment page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/card-payment`);
       await paperwork.checkCorrectPageOpens('Credit card details');
     });
