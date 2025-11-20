@@ -9,7 +9,7 @@ const HEADERS = {
     "Content-Type": "application/json",
 };
 
-export async function initializeAppConfig() {
+export function initializeAppConfig() {
     const localKey = "project_config";
 
     // 1️⃣ Check LocalStorage
@@ -21,41 +21,41 @@ export async function initializeAppConfig() {
     }
 
     // 2️⃣ Fetch directly (no external function needed)
-    let appSettings = null;
-
     try {
-        const response = await axios.post(API_URL, {}, { headers: HEADERS });
-        appSettings = response.data.data.appSetting;
+        axios.post(API_URL, {}, { headers: HEADERS }).then((response) => {
+            let appSettings = response.data.data.appSetting;
+
+            console.log("Appsettings in root", appSettings)
+            // 3️⃣ Fall back if API fails
+            if (!appSettings) {
+                const fallback = {
+                    projectName: "Default Project",
+                    logo: "",
+                    patientlogo: "",
+                    roundLogo: "",
+                };
+                window.APP_CONFIG = fallback;
+                return fallback;
+            }
+
+            const config = {
+                projectName: appSettings.appName,
+                logo: appSettings.logo,
+                patientlogo: appSettings.patientLogo,
+                roundLogo: appSettings.roundLogo,
+            };
+
+            // 4️⃣ Save to localStorage
+            localStorage.setItem(localKey, JSON.stringify(config));
+
+            // 5️⃣ Assign globally
+            window.APP_CONFIG = config;
+
+            return config;
+        });
     } catch (e) {
         console.error("Error fetching app settings", e);
     }
-    console.log("Appsettings in root", appSettings)
-    // 3️⃣ Fall back if API fails
-    if (!appSettings) {
-        const fallback = {
-            projectName: "Default Project",
-            logo: "",
-            patientlogo: "",
-            roundLogo: "",
-        };
-        window.APP_CONFIG = fallback;
-        return fallback;
-    }
-
-    const config = {
-        projectName: appSettings.appName,
-        logo: appSettings.logo,
-        patientlogo: appSettings.patientLogo,
-        roundLogo: appSettings.roundLogo,
-    };
-
-    // 4️⃣ Save to localStorage
-    localStorage.setItem(localKey, JSON.stringify(config));
-
-    // 5️⃣ Assign globally
-    window.APP_CONFIG = config;
-
-    return config;
 }
 
 declare global {

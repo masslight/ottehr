@@ -10,7 +10,7 @@ import { initializeAppConfig } from '../../config/initConfig';
 import App from './App';
 
 // ⏳ Load config BEFORE anything else (Top-level await)
-await initializeAppConfig();
+initializeAppConfig();
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
