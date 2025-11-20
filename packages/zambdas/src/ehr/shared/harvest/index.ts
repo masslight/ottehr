@@ -83,7 +83,6 @@ import {
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   isValidUUID,
-  LanguageOption,
   mapBirthSexToGender,
   OrderedCoverages,
   OrderedCoveragesWithSubscribers,
@@ -881,21 +880,23 @@ export function createMasterRecordPatchOperations(
         // Special handler for preferred-language
         if (item.linkId === 'preferred-language') {
           const currentValue = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
-          if (isAnswerEmpty) {
+          const otherItem = flattenedPaperwork.find((item) => item.linkId === 'other-preferred-language');
+          const otherValue = otherItem ? extractValueFromItem(otherItem) : undefined;
+          const newValue = value === 'Other' ? otherValue : value;
+          if (!newValue || newValue === '') {
             if (currentValue) {
               const operation = getPatchOperationToRemovePreferredLanguage(patient);
               if (operation) tempOperations.patient.push(operation);
             }
             return;
-          } else if (value !== currentValue) {
+          } else if (newValue !== currentValue) {
             const operation = getPatchOperationToAddOrUpdatePreferredLanguage(
-              value as LanguageOption,
+              newValue as string,
               path,
               patient,
-              currentValue as LanguageOption | undefined
+              currentValue as string | undefined
             );
-
-            if (operation) tempOperations.patient.push(operation);
+            tempOperations.patient.push(operation);
           }
           return;
         }

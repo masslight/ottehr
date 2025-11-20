@@ -425,11 +425,29 @@ export function getCurrentValue(
 export const LANGUAGE_OPTIONS = {
   English: 'English',
   Spanish: 'Spanish',
+  Chinese: 'Chinese',
+  French: 'French',
+  German: 'German',
+  Tagalog: 'Tagalog',
+  Vietnamese: 'Vietnamese',
+  Italian: 'Italian',
+  Korean: 'Korean',
+  Russian: 'Russian',
+  Polish: 'Polish',
+  Arabic: 'Arabic',
+  Portuguese: 'Portuguese',
+  Japanese: 'Japanese',
+  Greek: 'Greek',
+  Hindi: 'Hindi',
+  Persian: 'Persian',
+  Urdu: 'Urdu',
+  'Sign Language': 'Sign Language',
+  Other: 'Other',
 } as const;
 
 export type LanguageOption = keyof typeof LANGUAGE_OPTIONS;
 
-const LANGUAGE_MAPPING: Record<LanguageOption, Coding> = {
+const LANGUAGE_MAPPING: Record<LanguageOption, Coding | undefined> = {
   [LANGUAGE_OPTIONS.English]: {
     code: 'en',
     display: 'English',
@@ -440,6 +458,24 @@ const LANGUAGE_MAPPING: Record<LanguageOption, Coding> = {
     display: 'Spanish',
     system: 'urn:ietf:bcp:47',
   },
+  Chinese: undefined,
+  French: undefined,
+  German: undefined,
+  Tagalog: undefined,
+  Vietnamese: undefined,
+  Italian: undefined,
+  Korean: undefined,
+  Russian: undefined,
+  Polish: undefined,
+  Arabic: undefined,
+  Portuguese: undefined,
+  Japanese: undefined,
+  Greek: undefined,
+  Hindi: undefined,
+  Persian: undefined,
+  Urdu: undefined,
+  'Sign Language': undefined,
+  Other: undefined,
 };
 
 interface LanguageCommunication {
@@ -447,16 +483,29 @@ interface LanguageCommunication {
   preferred: boolean;
 }
 
-function getLanguageCommunication(value: LanguageOption, preferred = true): LanguageCommunication {
-  const mapping = LANGUAGE_MAPPING[value];
+function getLanguageCommunication(value: string, preferred = true): LanguageCommunication {
+  const mapping = LANGUAGE_MAPPING[value as LanguageOption];
+
+  if (mapping) {
+    return {
+      language: {
+        coding: [
+          {
+            system: mapping.system,
+            code: mapping.code,
+            display: mapping.display,
+          },
+        ],
+      },
+      preferred,
+    };
+  }
 
   return {
     language: {
       coding: [
         {
-          system: mapping.system,
-          code: mapping.code,
-          display: mapping.display,
+          display: value,
         },
       ],
     },
@@ -465,10 +514,10 @@ function getLanguageCommunication(value: LanguageOption, preferred = true): Lang
 }
 
 export function getPatchOperationToAddOrUpdatePreferredLanguage(
-  value: LanguageOption,
+  value: string,
   path: string,
   patient: Patient,
-  currentValue?: LanguageOption
+  currentValue?: string
 ): Operation {
   const communication = getLanguageCommunication(value);
   if (currentValue) {

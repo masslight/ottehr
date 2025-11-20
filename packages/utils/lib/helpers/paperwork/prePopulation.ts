@@ -20,6 +20,8 @@ import {
   getMiddleName,
   getNameSuffix,
   getPronounsFromExtension,
+  LANGUAGE_OPTIONS,
+  LanguageOption,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
 import {
@@ -540,7 +542,16 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
       answer = makeAnswer(patientSendMarketing, 'Boolean');
     }
     if (linkId === 'preferred-language' && patientPreferredLanguage) {
-      answer = makeAnswer(patientPreferredLanguage);
+      if (LANGUAGE_OPTIONS[patientPreferredLanguage as LanguageOption]) {
+        answer = makeAnswer(patientPreferredLanguage);
+      } else {
+        answer = makeAnswer('Other');
+      }
+    }
+    if (linkId === 'other-preferred-language' && patientPreferredLanguage) {
+      if (!LANGUAGE_OPTIONS[patientPreferredLanguage as LanguageOption]) {
+        answer = makeAnswer(patientPreferredLanguage);
+      }
     }
     if (linkId === 'common-well-consent' && patientCommonWellConsent !== undefined) {
       answer = makeAnswer(patientCommonWellConsent, 'Boolean');
