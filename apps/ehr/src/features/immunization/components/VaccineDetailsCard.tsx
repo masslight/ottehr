@@ -16,8 +16,8 @@ import { useAdministerImmunizationOrder } from 'src/features/visits/in-person/ho
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
-import { ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
-import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { ROUTE_OPTIONS } from 'src/shared/utils';
+import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder, REQUIRED_FIELD_ERROR_MESSAGE, UNIT_OPTIONS } from 'utils';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
 import { OrderDetailsSection } from './OrderDetailsSection';

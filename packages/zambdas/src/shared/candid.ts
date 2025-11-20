@@ -39,7 +39,7 @@ import { Sex } from 'candidhealth/api/resources/preEncounter/resources/common/ty
 import { Coverage as CandidPreEncounterCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/Coverage';
 import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/MutableCoverage';
 import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
-import { MeasurementUnitCode, ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
+import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -65,12 +65,14 @@ import {
   getCandidPlanTypeCodeFromCoverage,
   getDosageFromMA,
   getMedicationFromMA,
+  getNdcCodeFromMA,
   getOptionalSecret,
   getPayerId,
   getPaymentVariantFromEncounter,
   getSecret,
   INVALID_INPUT_ERROR,
   isTelemedAppointment,
+  mapMedicationToCandidMeasurement,
   mapOrderStatusToFhir,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
@@ -1281,29 +1283,25 @@ async function candidCreateEncounterFromAppointmentRequest(
     medications.forEach((medicationAdministration) => {
       const medication = getMedicationFromMA(medicationAdministration);
       if (!medication) return;
-      // const ndc = getNdcCodeFromMA(medication);
+      const ndc = getNdcCodeFromMA(medication);
       // const cpt = getCptCodeFromMA(medication);
-      const ndc = '50580017001';
       const cpt = 'J3301';
       const dose = getDosageFromMA(medicationAdministration);
+      if (dose === undefined) return;
+      const candidMeasurement = mapMedicationToCandidMeasurement(dose.units);
       console.log(`medication: ${medicationAdministration?.id}, ndc: ${ndc}, cpt: ${cpt}, dose: ${dose}`);
-      if (cpt && ndc && dose) {
+      if (cpt && ndc && dose && candidMeasurement) {
         serviceLines.push({
           procedureCode: cpt, // cpt or HCPCS code here
-          quantity: Decimal('1'),
-          units: ServiceLineUnits.Un,
-          chargeAmountCents: 5000,
-          modifiers: ['JW'],
-          description: 'description for this medication so candid will accept it',
-          diagnosisPointers: [primaryDiagnosisIndex],
+          quantity: Decimal('1'), // ???
+          units: ServiceLineUnits.Un, // ???
+          diagnosisPointers: [primaryDiagnosisIndex], // ???
           drugIdentification: {
-            // The "N4" qualifier is standard for NDC
-            serviceIdQualifier: 'N4',
-            // MUST be the 11-digit format (5-4-2) with no hyphens todo our ndc codes have hypens and are only 10 digit long
+            serviceIdQualifier: 'N4', // ???
+            // todo check if our ndc is ok and will pass insurance validation
             nationalDrugCode: ndc,
-            // The specific quantity of the drug liquid/solid (e.g., 2.5 ML)
             nationalDrugUnitCount: Decimal(`${dose}`),
-            measurementUnitCode: MeasurementUnitCode.Milliliters, // todo ???
+            measurementUnitCode: candidMeasurement,
           },
           dateOfService:
             dateOfServiceString ||
