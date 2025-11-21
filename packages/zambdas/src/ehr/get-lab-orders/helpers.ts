@@ -31,7 +31,7 @@ import {
   DiagnosisDTO,
   DiagnosticReportDrivenResultDTO,
   docRefIsAbnAndCurrent,
-  docRefIsOrderPDF,
+  docRefIsOrderPDFAndCurrent,
   EMPTY_PAGINATION,
   ExternalLabDocuments,
   externalLabOrderIsManual,
@@ -72,7 +72,7 @@ import {
 } from 'utils';
 import { sendErrors } from '../../shared';
 import {
-  configExternalLabDocuments,
+  configAllExternalLabDocuments,
   diagnosticReportIsReflex,
   diagnosticReportSpecificResultType,
   formatResourcesIntoDiagnosticReportLabDTO,
@@ -624,14 +624,14 @@ export const getLabResources = async (
 
   let labDocuments: ExternalLabDocuments | undefined;
   if (isDetailPageRequest) {
-    labDocuments = await configExternalLabDocuments(documentReferences, serviceRequests, m2mToken);
+    labDocuments = await configAllExternalLabDocuments(documentReferences, serviceRequests, m2mToken);
   } else {
     // we don't need all types of doc refs for the list view page therefore no need to fetch their presigned urls
     const filteredDocRefs = documentReferences.filter((docRef) => {
-      return docRefIsAbnAndCurrent(docRef) || docRefIsOrderPDF(docRef);
+      return docRefIsAbnAndCurrent(docRef) || docRefIsOrderPDFAndCurrent(docRef);
     });
     if (filteredDocRefs.length) {
-      labDocuments = await configExternalLabDocuments(documentReferences, serviceRequests, m2mToken);
+      labDocuments = await configAllExternalLabDocuments(documentReferences, serviceRequests, m2mToken);
     }
   }
 

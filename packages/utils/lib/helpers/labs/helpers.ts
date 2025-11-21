@@ -238,17 +238,21 @@ export const docRefIsOgHl7Transmission = (docRef: DocumentReference): boolean =>
   );
 };
 
-export const docRefIsOrderPDF = (docRef: DocumentReference): boolean => {
-  return !!docRef.type?.coding?.find(
+export const docRefIsOrderPDFAndCurrent = (docRef: DocumentReference): boolean => {
+  const isCurrent = docRef.status === 'current';
+  const isOrderPdf = !!docRef.type?.coding?.find(
     (code) => code.system === LAB_ORDER_DOC_REF_CODING_CODE.system && code.code === LAB_ORDER_DOC_REF_CODING_CODE.code
   );
+  return isCurrent && isOrderPdf;
 };
 
-export const docRefIsLabelPDF = (docRef: DocumentReference): boolean => {
-  return !!docRef.type?.coding?.find(
+export const docRefIsLabelPDFAndCurrent = (docRef: DocumentReference): boolean => {
+  const isCurrent = docRef.status === 'current';
+  const isLabelPdf = !!docRef.type?.coding?.find(
     (code) =>
       code.system === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.system && code.code === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
   );
+  return isCurrent && isLabelPdf;
 };
 
 export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
@@ -263,8 +267,10 @@ export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
   return isCurrent && isAbn;
 };
 
-export const docRefIsOttehrGeneratedResult = (docRef: DocumentReference): boolean => {
-  return !!docRef.type?.coding?.some(
+export const docRefIsOttehrGeneratedResultAndCurrent = (docRef: DocumentReference): boolean => {
+  const isCurrent = docRef.status === 'current';
+  const isResult = !!docRef.type?.coding?.some(
     (c) => c.system === LAB_RESULT_DOC_REF_CODING_CODE.system && c.code === LAB_RESULT_DOC_REF_CODING_CODE.code
   );
+  return isCurrent && isResult;
 };

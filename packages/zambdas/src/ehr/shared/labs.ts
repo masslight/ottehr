@@ -28,10 +28,10 @@ import {
   ABNORMAL_RESULT_DR_TAG,
   DiagnosticReportLabDetailPageDTO,
   docRefIsAbnAndCurrent,
-  docRefIsLabelPDF,
+  docRefIsLabelPDFAndCurrent,
   docRefIsLabGeneratedResult,
-  docRefIsOrderPDF,
-  docRefIsOttehrGeneratedResult,
+  docRefIsOrderPDFAndCurrent,
+  docRefIsOttehrGeneratedResultAndCurrent,
   DynamicAOEInput,
   EncounterExternalLabResult,
   EncounterInHouseLabResult,
@@ -451,7 +451,7 @@ export const makeEncounterLabResults = async (
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'DocumentReference') {
-      const isLabsDocRef = docRefIsOttehrGeneratedResult(resource);
+      const isLabsDocRef = docRefIsOttehrGeneratedResultAndCurrent(resource);
       if (isLabsDocRef) documentReferences.push(resource as DocumentReference);
     }
     if (resource.resourceType === 'ServiceRequest') {
@@ -685,7 +685,14 @@ const getDocRefRelatedId = (
   return reference?.split('/')[1];
 };
 
-export const configExternalLabDocuments = async (
+/**
+ * Gets presigned urls for document references and massages data into a consumable labDocument shape and organizes those labDocuments into the ExternalLabDocuments object
+ * @param documentReferences - all document references for a lab or labs
+ * @param serviceRequests - either one service request (if running from the detail page) or multiple (if running from the list view)
+ * @param m2mToken
+ * @returns ExternalLabDocuments
+ */
+export const configAllExternalLabDocuments = async (
   documentReferences: DocumentReference[],
   serviceRequests: ServiceRequest[],
   m2mToken: string
@@ -741,18 +748,23 @@ const groupLabDocsByRequisition = (
 const docRefType = (docRef: DocumentReference): LabDocumentType | undefined => {
   if (docRefIsLabGeneratedResult(docRef)) {
     return LabDocumentType.labGeneratedResult;
-  } else if (docRefIsOrderPDF(docRef)) {
+  } else if (docRefIsOrderPDFAndCurrent(docRef)) {
     return LabDocumentType.orderPdf;
-  } else if (docRefIsLabelPDF(docRef)) {
+  } else if (docRefIsLabelPDFAndCurrent(docRef)) {
     return LabDocumentType.label;
   } else if (docRefIsAbnAndCurrent(docRef)) {
     return LabDocumentType.abn;
-  } else if (docRefIsOttehrGeneratedResult(docRef)) {
+  } else if (docRefIsOttehrGeneratedResultAndCurrent(docRef)) {
     return LabDocumentType.ottehrGeneratedResult;
   }
   return;
 };
-
+/**
+ * Transforms data relating to any given lab document (usually some pdf) into a consumable shape to be used through the front and backend of the app
+ * @param docRef DocumentReference being configured into the lab document shape
+ * @param presignedURL url to access the document that will be stored in the lab document
+ * @returns LabelPdf | LabDocument | null
+ */
 const configLabDocument = (docRef: DocumentReference, presignedURL: string): LabelPdf | LabDocument | null => {
   if (!docRef.id) return null;
   const baseInfo: LabDocumentBase = { docRefId: docRef.id, presignedURL };
@@ -1094,9 +1106,9 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
         }
       }
     }
-    if (resource.resourceType === 'DocumentReference' && resource.status === 'current') {
-      const isResultPdfDocRef = docRefIsOttehrGeneratedResult(resource);
-      if (isResultPdfDocRef) {
+    if (resource.resourceType === 'DocumentReference') {
+      const isResultPdfDocRefAndCurrent = docRefIsOttehrGeneratedResultAndCurrent(resource);
+      if (isResultPdfDocRefAndCurrent) {
         currentResultPDFDocRefs.push(resource);
       }
     }
