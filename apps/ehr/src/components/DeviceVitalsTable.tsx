@@ -56,7 +56,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
 }) => {
   console.log(deviceType);
   const [paginationModel, setPaginationModel] = useState({
-    pageSize: isModal ? 5 : 10,
+    pageSize: isModal ? 10 : 10,
     page: 0,
   });
   const { oystehrZambda } = useApiClients();
@@ -715,6 +715,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
           rows={rows}
           columns={columns}
           autoHeight
+          paginationMode="server"
           rowCount={vitalsData?.total ?? 0}
           pagination
           paginationModel={paginationModel}

@@ -4,7 +4,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { Box, Button, Card, CardContent, CircularProgress, Typography } from '@mui/material';
 import React, { ReactElement, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { fetchReportDownloadURL } from '../../../../packages/zambdas/src/services/reports';
+import { fetchReportDownloadURL } from '../api/services/reports';
 
 const FileDownload: React.FC = (): ReactElement => {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');

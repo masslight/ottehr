@@ -13,8 +13,7 @@ const API_TOKEN = import.meta.env.VITE_APP_API_TOKEN;
 export const saveAppSettings = async (payload: AppSettingsPayload): Promise<any> => {
   try {
     const formData = new FormData();
-    formData.append('appName', payload.appName);
-
+    if (payload.appName !== undefined) formData.append('appName', payload.appName);
     if (payload.logo) formData.append('logo', payload.logo);
     if (payload.patientLogo) formData.append('patientLogo', payload.patientLogo);
     if (payload.roundedLogo) formData.append('roundedLogo', payload.roundedLogo);

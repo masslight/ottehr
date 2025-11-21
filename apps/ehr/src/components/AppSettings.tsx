@@ -11,7 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { fetchAppSettings, saveAppSettings } from '../../../../packages/zambdas/src/services/appSettings';
+import { fetchAppSettings, saveAppSettings } from '../api/services/appSettings';
 import { RoundedButton } from './RoundedButton';
 
 interface AppSettingsData {
@@ -46,6 +46,7 @@ export const AppSettings = (): JSX.Element => {
   const [toastOpen, setToastOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const [toastSeverity, setToastSeverity] = useState<'success' | 'warning'>('warning');
+  const [originalSettings, setOriginalSettings] = useState<AppSettingsData | null>(null);
   const [fieldTouched, setFieldTouched] = useState<{
     appName: boolean;
     logoFile: boolean;
@@ -69,7 +70,13 @@ export const AppSettings = (): JSX.Element => {
           appName: appSettings.appName || '',
           logoFile: appSettings.logo || null,
           patientLogoFile: appSettings.patientLogo || null,
-          roundedLogoFile: appSettings.roundedLogo || null,
+          roundedLogoFile: appSettings.roundLogo || null,
+        });
+        setOriginalSettings({
+          appName: appSettings.appName || '',
+          logoFile: appSettings.logo || null,
+          patientLogoFile: appSettings.patientLogo || null,
+          roundedLogoFile: appSettings.roundLogo || null,
         });
         if (appSettings.logo) {
           const fileName = appSettings.logo || 'uploaded-logo';
@@ -131,6 +138,48 @@ export const AppSettings = (): JSX.Element => {
     }
 
     return null;
+  };
+
+  const hasChanges = (): boolean => {
+    if (!originalSettings) return false;
+
+    const nameChanged = originalSettings.appName !== appSettings.appName;
+
+    const darkLogoChanged = originalSettings.logoFile !== appSettings.logoFile;
+    const patientLogoChanged = originalSettings.patientLogoFile !== appSettings.patientLogoFile;
+    const roundedLogoChanged = originalSettings.roundedLogoFile !== appSettings.roundedLogoFile;
+
+    return nameChanged || darkLogoChanged || patientLogoChanged || roundedLogoChanged;
+  };
+
+  const getChangedPayload = (): any => {
+    if (!originalSettings) return {};
+
+    const payload: any = {};
+
+    if (originalSettings.appName !== appSettings.appName) {
+      payload.appName = appSettings.appName;
+    }
+
+    if (appSettings.logoFile instanceof File) {
+      payload.logo = appSettings.logoFile;
+    } else if (appSettings.logoFile === null && originalSettings.logoFile !== null) {
+      payload.logo = null;
+    }
+
+    if (appSettings.patientLogoFile instanceof File) {
+      payload.patientLogo = appSettings.patientLogoFile;
+    } else if (appSettings.patientLogoFile === null && originalSettings.patientLogoFile !== null) {
+      payload.patientLogo = null;
+    }
+
+    if (appSettings.roundedLogoFile instanceof File) {
+      payload.roundedLogo = appSettings.roundedLogoFile;
+    } else if (appSettings.roundedLogoFile === null && originalSettings.roundedLogoFile !== null) {
+      payload.roundedLogo = null;
+    }
+
+    return payload;
   };
 
   const validateLogoRequired = (logoFile: File | null | undefined, logoPreview: string | null): string | undefined => {
@@ -313,14 +362,15 @@ export const AppSettings = (): JSX.Element => {
       return;
     }
 
+    const changedPayload = getChangedPayload();
+
+    if (Object.keys(changedPayload).length === 0) {
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const result = await saveAppSettings({
-        appName: appSettings.appName,
-        logo: appSettings.logoFile,
-        patientLogo: appSettings.patientLogoFile,
-        roundedLogo: appSettings.roundedLogoFile,
-      });
+      const result = await saveAppSettings(changedPayload);
       const newConfig = {
         projectName: result?.data?.appSetting?.appName,
         logo: result?.data?.logo,
@@ -593,7 +643,7 @@ export const AppSettings = (): JSX.Element => {
             <Button
               variant="contained"
               onClick={handleSubmit}
-              disabled={isSaving || Object.values(errors).some((error) => error !== undefined)}
+              disabled={isSaving || Object.values(errors).some((error) => error !== undefined) || !hasChanges()}
               startIcon={isSaving ? <CircularProgress size={16} /> : null}
             >
               {isSaving ? 'Saving...' : 'Save'}
