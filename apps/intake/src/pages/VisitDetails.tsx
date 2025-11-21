@@ -107,6 +107,49 @@ const VisitDetailsContent = ({
         ))}
       </Box>
 
+      {data?.followUps && data.followUps.length > 0 && (
+        <>
+          <Divider sx={{ my: 3 }} />
+          <Box>
+            <Typography variant="subtitle1" color="primary.dark" sx={{ mb: 2 }}>
+              Follow-up Visits
+            </Typography>
+            {data.followUps.map((followUp, index) => {
+              const followUpDate = (() => {
+                if (!followUp.encounterTime) {
+                  return '';
+                }
+                const dt = DateTime.fromISO(followUp.encounterTime);
+                return dt.toFormat('MMMM dd, yyyy');
+              })();
+              const hasVisitNote = Boolean(followUp.documents['visit-note']?.presignedUrl);
+
+              return (
+                <Box key={index} sx={{ mb: 3 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body1" color="primary.dark">
+                      {followUpDate}
+                    </Typography>
+                    {hasVisitNote && (
+                      <Button
+                        variant="text"
+                        startIcon={<DownloadIcon />}
+                        onClick={() => {
+                          openExternalLink(followUp.documents['visit-note'].presignedUrl || '');
+                        }}
+                        disabled={!followUp.documents['visit-note']?.presignedUrl}
+                      >
+                        View Follow-up Note
+                      </Button>
+                    )}
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        </>
+      )}
+
       <Divider />
     </>
   );

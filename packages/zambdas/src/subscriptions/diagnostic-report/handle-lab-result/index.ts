@@ -1,6 +1,6 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DiagnosticReport, Task, TaskInput } from 'fhir/r4b';
+import { DiagnosticReport, Task, TaskInput as FhirTaskInput } from 'fhir/r4b';
 import {
   getCoding,
   getFullestAvailableName,
@@ -17,7 +17,7 @@ import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
 } from '../../../shared/pdf/labs-results-form-pdf';
-import { createTask, getTaskLocation } from '../../../shared/tasks';
+import { createTask, getTaskLocation, TaskInput } from '../../../shared/tasks';
 import { fetchRelatedResources, getCodeForNewTask, isUnsolicitedResult } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -97,52 +97,58 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ? appointmentRef?.replace('Appointment/', '')
       : undefined;
 
-    const taskInput: { type: string; value?: string }[] | TaskInput[] | undefined = preSubmissionTask?.input
+    const taskInput: TaskInput[] | FhirTaskInput[] | undefined = preSubmissionTask?.input
       ? preSubmissionTask.input
       : [
           {
             type: LAB_ORDER_TASK.input.testName,
-            value: getTestNameOrCodeFromDr(diagnosticReport),
+            valueString: getTestNameOrCodeFromDr(diagnosticReport),
           },
           {
             type: LAB_ORDER_TASK.input.labName,
-            value: labOrg?.name,
+            valueString: labOrg?.name,
           },
           {
             type: LAB_ORDER_TASK.input.receivedDate,
-            value: diagnosticReport.effectiveDateTime,
+            valueString: diagnosticReport.effectiveDateTime,
           },
           {
             type: LAB_ORDER_TASK.input.patientName,
-            value: patient ? getFullestAvailableName(patient) : undefined,
+            valueString: patient ? getFullestAvailableName(patient) : undefined,
           },
           {
             type: LAB_ORDER_TASK.input.appointmentId,
-            value: appointmentId ? appointmentId : undefined,
+            valueString: appointmentId ? appointmentId : undefined,
           },
         ];
 
     if (specificDrTypeFromTag && taskInput) {
       taskInput.push({
         type: LAB_ORDER_TASK.input.drTag,
-        value: specificDrTypeFromTag,
+        valueString: specificDrTypeFromTag,
       });
     }
 
-    const newTask = createTask({
-      category: LAB_ORDER_TASK.category,
-      code: {
-        system: LAB_ORDER_TASK.system,
-        code: getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched),
+    // Don't show "preliminary" result task on the tasks board
+    const showTaskOnBoard = diagnosticReport.status !== 'preliminary';
+
+    const newTask = createTask(
+      {
+        category: LAB_ORDER_TASK.category,
+        code: {
+          system: LAB_ORDER_TASK.system,
+          code: getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched),
+        },
+        encounterId: preSubmissionTask?.encounter?.reference?.split('/')[1] ?? '',
+        basedOn: [
+          `DiagnosticReport/${diagnosticReport.id}`,
+          ...(serviceRequestId ? [`ServiceRequest/${serviceRequestId}`] : []),
+        ],
+        location: preSubmissionTask ? getTaskLocation(preSubmissionTask) : undefined,
+        input: taskInput,
       },
-      encounterId: preSubmissionTask?.encounter?.reference?.split('/')[1] ?? '',
-      basedOn: [
-        `DiagnosticReport/${diagnosticReport.id}`,
-        ...(serviceRequestId ? [`ServiceRequest/${serviceRequestId}`] : []),
-      ],
-      location: preSubmissionTask ? getTaskLocation(preSubmissionTask) : undefined,
-      input: taskInput,
-    });
+      showTaskOnBoard
+    );
     if (diagnosticReport.status === 'cancelled') {
       newTask.status = 'completed';
     }

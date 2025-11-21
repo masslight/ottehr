@@ -1,8 +1,8 @@
 import Dynamsoft from 'dwt';
 import { DynamsoftEnumsDWT } from 'dwt/dist/types/Dynamsoft.Enum';
+import { rect } from 'dwt/dist/types/RemoteScan.Viewer';
 import { WebTwain } from 'dwt/dist/types/WebTwain';
 import { Device } from 'dwt/dist/types/WebTwain.Acquire';
-import { Area } from 'dwt/dist/types/WebTwain.Viewer';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface ScannerDevice {
@@ -146,15 +146,15 @@ export const useDynamsoftScanner = (containerId: string): UseDynamsoftScannerRes
       });
 
       // Register zone selection events for cropping
-      dwtObject.Viewer.on('pageAreaSelected', (imageIndex: number, rect: Area[]) => {
+      dwtObject.Viewer.on('pageAreaSelected', (imageIndex: number, rect: rect[]) => {
         console.log('Zone selected:', rect);
         if (rect.length > 0) {
           const currentRect = rect[rect.length - 1];
           setSelectedZone({
-            x: currentRect.left,
-            y: currentRect.top,
-            width: currentRect.right - currentRect.left,
-            height: currentRect.bottom - currentRect.top,
+            x: currentRect.x,
+            y: currentRect.y,
+            width: currentRect.width,
+            height: currentRect.height,
           });
         }
       });

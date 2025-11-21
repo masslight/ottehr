@@ -22,7 +22,7 @@ interface UploadComponentProps {
   onScanClick?: () => void;
 }
 
-const FILE_TYPES_ACCEPTED = [MIME_TYPES.PNG, MIME_TYPES.JPEG, MIME_TYPES.JPG, MIME_TYPES.PDF].join(', ');
+const FILE_TYPES_ACCEPTED = [MIME_TYPES.PNG, MIME_TYPES.JPEG, MIME_TYPES.JPG].join(', ');
 
 enum UploadState {
   initial,

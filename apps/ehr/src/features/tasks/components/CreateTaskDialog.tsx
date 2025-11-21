@@ -11,10 +11,12 @@ import { InPersonModal } from 'src/features/visits/in-person/components/InPerson
 import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
-import { useGetPatient } from 'src/hooks/useGetPatient';
 import { MANUAL_TASK } from 'utils';
+import { useGetPatientVisitHistory } from '../../../hooks/useGetPatientVisitHistory';
+import { getVisitTypeLabelForTypeAndServiceMode } from '../../../shared/utils';
 import {
   getPatientLabel,
+  TASK_CATEGORY_LABEL,
   useExternalLabOrdersOptions,
   useInHouseLabOrdersOptions,
   useInHouseMedicationsOptions,
@@ -23,20 +25,9 @@ import {
   useRadiologyOrdersOptions,
 } from '../common';
 
-export const CATEGORY_OPTIONS = [
-  { value: MANUAL_TASK.category.externalLab, label: 'External Labs' },
-  { value: MANUAL_TASK.category.inHouseLab, label: 'In-house Labs' },
-  { value: MANUAL_TASK.category.inHouseMedications, label: 'In-house Medications' },
-  { value: MANUAL_TASK.category.nursingOrders, label: 'Nursing Orders' },
-  { value: MANUAL_TASK.category.patientFollowUp, label: 'Patient Follow-up' },
-  { value: MANUAL_TASK.category.procedures, label: 'Procedures' },
-  { value: MANUAL_TASK.category.radiology, label: 'Radiology' },
-  { value: MANUAL_TASK.category.erx, label: 'eRx' },
-  { value: MANUAL_TASK.category.charting, label: 'Charting' },
-  { value: MANUAL_TASK.category.coding, label: 'Coding' },
-  { value: MANUAL_TASK.category.billing, label: 'Billing' },
-  { value: MANUAL_TASK.category.other, label: 'Other' },
-];
+const CATEGORY_OPTIONS = Object.values(MANUAL_TASK.category).map((category) => {
+  return { value: category, label: TASK_CATEGORY_LABEL[category] };
+});
 
 interface Props {
   open: boolean;
@@ -61,19 +52,23 @@ export const CreateTaskDialog: React.FC<Props> = ({ open, handleClose }) => {
     });
   };
 
-  const { appointments, loading: appointmentsLoading } = useGetPatient(formValue.patient?.id);
+  const { data: visitHistory, isLoading: appointmentsLoading } = useGetPatientVisitHistory(formValue.patient?.id);
+  const appointments = visitHistory?.visits ?? [];
 
   const appointmentOptions = (appointments ?? []).map((appointment) => {
     return {
-      label: `${appointment.typeLabel} ${
-        appointment.dateTime ? formatISOStringToDateAndTime(appointment.dateTime, appointment.officeTimeZone) : ''
-      }`,
-      value: appointment.id ?? '',
+      label: `${getVisitTypeLabelForTypeAndServiceMode({
+        type: appointment.type,
+        serviceMode: appointment.serviceMode,
+      })} ${appointment.dateTime ? formatISOStringToDateAndTime(appointment.dateTime) : ''}`,
+      value: appointment.appointmentId ?? '',
     };
   });
 
-  const encounterId =
-    appointments?.find((appointment) => appointment.id === formValue.appointment)?.encounter?.id ?? '';
+  const { encounter } = useAppointmentData(
+    appointments?.find((appointment) => appointment.appointmentId === formValue.appointment)?.appointmentId
+  );
+  const encounterId = encounter?.id ?? '';
 
   const { inHouseLabOrdersLoading, inHouseLabOrdersOptions } = useInHouseLabOrdersOptions(encounterId);
   const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId);

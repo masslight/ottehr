@@ -1310,3 +1310,7 @@ export const makeBusinessIdentifierForCandidPayment = (candidPaymentId: string):
     value: candidPaymentId,
   };
 };
+
+export function getCandidEncounterIdFromEncounter(encounter: Encounter): string | undefined {
+  return encounter.identifier?.find((idn) => idn.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM)?.value;
+}

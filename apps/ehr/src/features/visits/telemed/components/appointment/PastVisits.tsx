@@ -6,13 +6,17 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useGetPatient } from 'src/hooks/useGetPatient';
 import { getPatientName } from 'src/shared/utils/getPatientName';
+import { useGetPatientVisitHistory } from '../../../../../hooks/useGetPatientVisitHistory';
 
 export const PastVisits: FC = () => {
   const { patient } = useAppointmentData();
-  const { appointments, loading } = useGetPatient(patient?.id);
+  const { loading } = useGetPatient(patient?.id);
   const [open, setOpen] = useState(false);
 
   const patientName = getPatientName(patient?.name).fullDisplayName;
+
+  const { data: visitHistory } = useGetPatientVisitHistory(patient?.id);
+  const appointments = visitHistory?.visits ?? [];
 
   if (loading) {
     return <Skeleton sx={{ display: 'inline-block' }} variant="text" width={100} />;

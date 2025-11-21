@@ -71,8 +71,9 @@ export function getLogoFor(target: Exclude<LogoTarget, 'default'>): string | und
 export function getSupportPhoneFor(locationName?: string): string | undefined {
   const { email } = BRANDING_CONFIG;
 
-  if (locationName) {
-    return email.locationSupportPhoneNumberMap?.[locationName];
+  if (email.locationSupportPhoneNumberMap && locationName) {
+    // if the location exists but for some reason isn't in the map, fall back to the default support phone number
+    return email.locationSupportPhoneNumberMap[locationName] || email.supportPhoneNumber;
   }
 
   return email.supportPhoneNumber;

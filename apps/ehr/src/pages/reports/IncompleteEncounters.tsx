@@ -440,6 +440,7 @@ export default function IncompleteEncounters(): React.ReactElement {
           <DataGridPro
             rows={encounters}
             columns={columns}
+            getRowId={(row) => row.appointmentId}
             loading={isLoading}
             initialState={{
               pagination: {

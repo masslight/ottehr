@@ -11,7 +11,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { Organization } from 'fhir/r4b';
+import { Address, Identifier, Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -50,6 +50,8 @@ export type InsuranceData = InsuranceSettingsBooleans & {
   payor?: PayorOrg;
   displayName: string;
   active: Organization['active'];
+  identifier?: Identifier[];
+  address?: Address[];
 };
 
 type InsuranceForm = Omit<InsuranceData, 'id' | 'active'>;
@@ -99,10 +101,13 @@ export default function EditInsurance(): JSX.Element {
     });
 
   if (insuranceDetails && !didSetInsuranceDetailsForm.current) {
+    const alias = insuranceDetails.alias?.[0];
+
     reset({
       payor: insuranceDetails,
-      displayName: insuranceDetails.name,
-      ...settingsMap,
+      displayName: alias || insuranceDetails.name,
+      // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
+      // ...settingsMap,
     });
     didSetInsuranceDetailsForm.current = true;
   }
@@ -113,10 +118,13 @@ export default function EditInsurance(): JSX.Element {
     setError('');
     event.preventDefault();
     const formData = getValues();
+    const insurance = insuranceOrgsData?.find((org) => org.id === formData.payor?.id);
     const data: InsuranceData = {
       id: insuranceId,
       active: insuranceDetails?.active ?? true,
       ...formData,
+      identifier: insurance?.identifier,
+      address: insurance?.address,
     };
     const submitSnackbarText = isNew
       ? `${data.displayName} was successfully created`
@@ -142,7 +150,7 @@ export default function EditInsurance(): JSX.Element {
       await mutateInsurance({
         id: insuranceId,
         payor: insuranceDetails,
-        displayName: insuranceDetails!.name || '',
+        displayName: insuranceDetails?.alias?.[0] || insuranceDetails?.name || '',
         ...settingsMap,
         active: newStatus,
       });
