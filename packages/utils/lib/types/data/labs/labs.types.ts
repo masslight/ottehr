@@ -440,6 +440,7 @@ export interface LabDocumentRelatedToServiceRequest extends LabDocumentBase {
   serviceRequestId: string;
 }
 export interface LabelPdf {
+  type: LabDocumentType.label;
   documentReference: DocumentReference;
   presignedURL: string;
 }
@@ -447,7 +448,8 @@ export interface LabelPdf {
 export type LabDocument =
   | LabGeneratedResultDocument
   | OttehrGeneratedResultDocument
-  | LabDocumentRelatedToServiceRequest;
+  | LabDocumentRelatedToServiceRequest
+  | LabelPdf;
 
 export interface ExternalLabDocuments {
   labelPDF: LabelPdf | undefined;

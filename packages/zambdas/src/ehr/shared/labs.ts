@@ -763,9 +763,9 @@ const docRefType = (docRef: DocumentReference): LabDocumentType | undefined => {
  * Transforms data relating to any given lab document (usually some pdf) into a consumable shape to be used through the front and backend of the app
  * @param docRef DocumentReference being configured into the lab document shape
  * @param presignedURL url to access the document that will be stored in the lab document
- * @returns LabelPdf | LabDocument | null
+ * @returns LabDocument | null
  */
-const configLabDocument = (docRef: DocumentReference, presignedURL: string): LabelPdf | LabDocument | null => {
+const configLabDocument = (docRef: DocumentReference, presignedURL: string): LabDocument | null => {
   if (!docRef.id) return null;
   const baseInfo: LabDocumentBase = { docRefId: docRef.id, presignedURL };
   const serviceRequestId = getDocRefRelatedId(docRef, 'ServiceRequest');
@@ -786,11 +786,11 @@ const configLabDocument = (docRef: DocumentReference, presignedURL: string): Lab
         return { type, relatedResultReferences, ...baseInfo };
       }
       case LabDocumentType.label: {
-        const labelConfig: LabelPdf = {
+        return {
+          type,
           documentReference: docRef,
           presignedURL,
         };
-        return labelConfig;
       }
       default:
         return null;
