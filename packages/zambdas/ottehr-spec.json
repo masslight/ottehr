@@ -216,22 +216,6 @@
     "MIO_API_KEY": {
       "name": "MIO_API_KEY",
       "value": "#var/MIO_API_KEY"
-    },
-    "APP_NAME": {
-      "name": "APP_NAME",
-      "value": "#var/APP_NAME"
-    },
-    "PATIENT_LOGO": {
-      "name": "PATIENT_LOGO",
-      "value": "#var/PATIENT_LOGO"
-    },
-    "LOGO": {
-      "name": "LOGO",
-      "value": "#var/LOGO"
-    },
-    "ROUND_LOGO": {
-      "name": "ROUND_LOGO",
-      "value": "#var/ROUND_LOGO"
     }
   },
   "zambdas": {
