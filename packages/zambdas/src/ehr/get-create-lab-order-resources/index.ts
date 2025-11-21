@@ -177,6 +177,7 @@ const getLabs = async (
 ): Promise<OrderableItemSearchResult[]> => {
   const labIds = labOrgsGUIDs.join(',');
   let cursor = '';
+  let totalReturn = 0;
   const items: OrderableItemSearchResult[] = [];
 
   do {
@@ -191,8 +192,8 @@ const getLabs = async (
     if (!orderableItemsSearch.ok)
       throw EXTERNAL_LAB_ERROR(`Failed to fetch orderable items: ${orderableItemsSearch.status}`);
 
+    console.log(`orderable item search for search term "${search}"`);
     const response = await orderableItemsSearch.json();
-    console.log(`orderable item search response for search term "${search}": ${JSON.stringify(response)}`);
 
     let orderableItemRes = response.orderableItems;
     if (!Array.isArray(orderableItemRes)) {
@@ -201,11 +202,14 @@ const getLabs = async (
       );
       orderableItemRes = [];
     }
-    console.log('This is orderableItemRes', JSON.stringify(orderableItemRes));
+    const itemsToBeReturned = orderableItemRes.length;
+    console.log('This is orderableItemRes len', itemsToBeReturned);
 
     items.push(...(orderableItemRes as OrderableItemSearchResult[]));
     cursor = response?.metadata?.nextCursor || '';
-  } while (cursor);
+    totalReturn += itemsToBeReturned;
+    console.log('totalReturn:', totalReturn);
+  } while (cursor && totalReturn <= 250); // capping at 250 so that the zambda doesn't fail. (no one is scrolling through that many anyway)
 
   return items;
 };
