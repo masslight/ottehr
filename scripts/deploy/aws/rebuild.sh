@@ -7,11 +7,11 @@ ENV=$environment
 
 npm install
 
-# pushd packages/zambdas
-# ENV=$environment npm run deploy-zambdas $environment
-# ENV=$environment npm run setup-deployed-resources $environment
-# ENV=$environment npm run setup-secrets $environment
-# popd
+pushd packages/zambdas
+ENV=$environment npm run deploy-zambdas $environment
+ENV=$environment npm run setup-deployed-resources $environment
+ENV=$environment npm run setup-secrets $environment
+popd
 
 pushd apps/intake
 npm run build:env --env=$environment
