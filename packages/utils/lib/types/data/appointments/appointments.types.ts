@@ -10,8 +10,16 @@ import {
   QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
+import { z } from 'zod';
 import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
-import { TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../../../main';
+import {
+  FhirAppointmentType,
+  ProviderTypeCode,
+  Secrets,
+  TelemedAppointmentStatusEnum,
+  TelemedCallStatuses,
+  TelemedStatusHistoryElement,
+} from '../../../main';
 import {
   AppointmentMessaging,
   AppointmentType,
@@ -61,6 +69,7 @@ export type GetTelemedAppointmentsResponseEhr = AppointmentsResponse<TelemedAppo
 
 export interface AppointmentLocation {
   reference?: string;
+  name?: string;
   state?: string;
   resourceType: Location['resourceType'];
   id: string;
@@ -111,6 +120,8 @@ export interface InPersonAppointmentInformation
   };
   participants: AppointmentParticipants;
   provider?: string;
+  attenderProviderType?: ProviderTypeCode;
+  approvalDate?: string;
   group?: string;
   room?: string;
   needsDOBConfirmation?: boolean;
@@ -133,6 +144,12 @@ export const appointmentTypeMap: Record<string, string> = {
   [OTTEHR_MODULE.TM]: 'Telemedicine',
 };
 
+export const appointmentTypeLabels: { [type in FhirAppointmentType]: string } = {
+  prebook: 'Pre-booked',
+  walkin: 'Walk-In',
+  posttelemed: 'Post Telemed',
+};
+
 export type PatientFilterType = 'my-patients' | 'all-patients';
 
 export interface GetTelemedAppointmentsInput {
@@ -146,11 +163,6 @@ export interface GetTelemedAppointmentsInput {
   visitTypesFilter?: string[];
   userToken: string;
 }
-
-export const PARTICIPANT_TYPE = {
-  ADMITTER: 'ADM',
-  ATTENDER: 'ATND',
-};
 
 export const PRACTITIONER_CODINGS = {
   Admitter: [
@@ -178,3 +190,16 @@ export type AppointmentRelatedResources =
   | Practitioner
   | RelatedPerson
   | HealthcareService;
+
+export const PendingSupervisorApprovalInputSchema = z.object({
+  encounterId: z.string().uuid(),
+  practitionerId: z.string().uuid(),
+});
+
+export type PendingSupervisorApprovalInput = z.infer<typeof PendingSupervisorApprovalInputSchema>;
+
+export const PendingSupervisorApprovalInputValidatedSchema = PendingSupervisorApprovalInputSchema.extend({
+  secrets: z.custom<Secrets>().nullable(),
+});
+
+export type PendingSupervisorApprovalInputValidated = z.infer<typeof PendingSupervisorApprovalInputValidatedSchema>;

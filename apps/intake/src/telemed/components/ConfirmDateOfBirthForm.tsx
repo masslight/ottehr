@@ -113,7 +113,9 @@ const ConfirmDateOfBirthForm: FC<ConfirmDateOfBirthFormProps> = ({
     if (shouldConfirm) {
       await onConfirmedSubmit(`${year1}-${month1}-${day1}`);
     } else {
-      onUnconfirmedSubmit && onUnconfirmedSubmit(`${year1}-${month1}-${day1}`);
+      if (onUnconfirmedSubmit) {
+        onUnconfirmedSubmit(`${year1}-${month1}-${day1}`);
+      }
       setOpenModal(true);
     }
   };

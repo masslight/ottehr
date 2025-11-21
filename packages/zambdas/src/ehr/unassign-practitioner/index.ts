@@ -1,11 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, PractitionerRole } from 'fhir/r4b';
-import { Secrets, UnassignPractitionerZambdaInput, UnassignPractitionerZambdaOutput } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  getSecret,
+  Secrets,
+  SecretsKeys,
+  UnassignPractitionerZambdaInput,
+  UnassignPractitionerZambdaOutput,
+} from 'utils';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
-import { getMyPractitionerId } from '../../shared/practitioners';
 import { unassignParticipantIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -37,10 +42,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('Stringified error: ' + JSON.stringify(error));
     console.error('Error: ' + error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error un-assigning encounter participant' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 export const complexValidation = async (
@@ -56,11 +58,6 @@ export const complexValidation = async (
 }> => {
   const { encounterId, practitionerId, userRole } = params;
 
-  const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
-
-  if (practitionerId !== practitionerIdFromCurrentUser) {
-    throw new Error(`User ID ${practitionerId} does not match practitioner ID ${practitionerIdFromCurrentUser}.`);
-  }
   // todo: query practitionerRole array for this practitioner and determine if any matches for the encounter location
 
   const visitResources = await getVisitResources(oystehr, encounterId);

@@ -2,7 +2,7 @@ import { BatchInputPostRequest, default as Oystehr } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { FhirResource, Location, Practitioner, Resource, Schedule } from 'fhir/r4b';
 import {
-  AllStatesToVirtualLocationsData,
+  AllStatesToVirtualLocationLabels,
   defaultLocation,
   ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX,
   ELIGIBILITY_PRACTITIONER_TYPES,
@@ -20,9 +20,7 @@ import {
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../shared';
 
-export const virtualDefaultLocations: { state: string; label: string }[] = [
-  ...TELEMED_INITIAL_STATES.map((state) => ({ state, label: state })),
-];
+export const virtualDefaultLocations: { state: string }[] = [...TELEMED_INITIAL_STATES.map((state) => ({ state }))];
 
 export const allPhysicalDefaultLocations: { state: string; city: string; name: string }[] = [
   {
@@ -46,16 +44,19 @@ export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
   });
   console.log('Received all locations from fhir.');
 
-  const telemedStates: string[] = filterVirtualLocations(allLocations.entry as Resource[]).flatMap((location) => {
-    if (location?.address && location.address.state) return [location.address.state];
-    return [];
-  });
+  const telemedExistingVirtualLocationNames = filterVirtualLocations(allLocations.entry as Resource[]).map(
+    (location) => {
+      if (location?.name) return location.name;
+      return '';
+    }
+  );
 
   console.log('Filtered all virtual telemed locations.');
 
-  for (const statePkg of virtualDefaultLocations) {
-    const stateData = AllStatesToVirtualLocationsData[statePkg.state];
-    if (!telemedStates.includes(statePkg.state)) await createTelemedLocation(statePkg, stateData, oystehr);
+  for (const locationPkg of virtualDefaultLocations) {
+    const locationName = AllStatesToVirtualLocationLabels[locationPkg.state];
+    if (!telemedExistingVirtualLocationNames.includes(locationName))
+      await createTelemedLocation({ ...locationPkg, name: locationName }, oystehr);
   }
   console.log('All telemed locations exist');
 
@@ -64,16 +65,12 @@ export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
   }
 };
 
-const createTelemedLocation = async (
-  virtualLocation: { state: string; label: string },
-  stateData: VirtualLocationBody,
-  oystehr: Oystehr
-): Promise<void> => {
+const createTelemedLocation = async (locationData: VirtualLocationBody, oystehr: Oystehr): Promise<void> => {
   const location: Location = {
     resourceType: 'Location',
     status: 'active',
     address: {
-      state: virtualLocation.state,
+      state: locationData.state,
     },
     extension: [
       {
@@ -92,11 +89,11 @@ const createTelemedLocation = async (
     identifier: [
       {
         system: SLUG_SYSTEM,
-        value: stateData.name.replace(/\s/g, ''), // remove whitespace from the name
+        value: locationData.name.replace(/\s/g, ''), // remove whitespace from the name
       },
     ],
     // managing organization will be added later after organizations are created
-    name: stateData.name,
+    name: locationData.name,
   };
   const createLocationRequest: BatchInputPostRequest<Location> = {
     method: 'POST',

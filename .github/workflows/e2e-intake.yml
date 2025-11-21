@@ -1,10 +1,10 @@
 name: Intake E2E Tests
 
 env:
-  NODE_VERSION: 20
+  NODE_VERSION: 22
   TOKEN_VALIDITY_THRESHOLD_MINUTES: 60
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
-  SECRETS_REPO: masslight/ottehr-secrets
+  SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
   USER_JSON_CACHE_KEY: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.run_number }}
   USER_JSON_CACHE_RESTORE_KEYS: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
@@ -40,7 +40,7 @@ jobs:
       skip-reason: ${{ steps.check.outputs.skip-reason }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 2  # Need at least 2 commits to compare
 
@@ -71,7 +71,7 @@ jobs:
     steps:
       - name: Try restore user.json cache
         id: cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ env.USER_JSON_CACHE_KEY }}
@@ -162,16 +162,16 @@ jobs:
     timeout-minutes: 18 # Sometimes SMS takes ~5 minutes to deliver, and with other timeouts, all login tests can take ~9 minutes. Playwright has 2 retries for intake CI, so we need a login job timeout of 18 minutes.
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache node modules
         id: npm-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: node_modules
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
@@ -180,7 +180,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.PLAYWRIGHT_CACHE_PATH }}
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
@@ -188,9 +188,9 @@ jobs:
             ${{ runner.os }}-playwright-         
 
       - name: Check out secrets repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: ${{ env.SECRETS_REPO }}
+          repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           path: 'secrets'
 
@@ -251,14 +251,14 @@ jobs:
 
       - name: Save user.json to cache
         if: steps.validate.outcome == 'success'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ env.USER_JSON_CACHE_KEY }}
 
       - name: Upload login test results
         if: steps.login.outcome == 'success' || steps.login.outcome == 'failure' # log on success needed for investigate false success caces, we can remove it if login will work stable
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report-intake-login-${{ github.event.inputs.environment || 'local' }}
           path: |
@@ -276,19 +276,19 @@ jobs:
         needs.intake-login.result == 'success'
       )
     runs-on: ubuntu-latest-8-cores
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Restore node modules
         id: npm-cache-restore
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: node_modules
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
@@ -300,7 +300,7 @@ jobs:
         run: npm ci
 
       - name: Restore Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.PLAYWRIGHT_CACHE_PATH }}
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
@@ -311,7 +311,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Restore user.json cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ env.USER_JSON_CACHE_KEY }}
@@ -319,9 +319,9 @@ jobs:
           fail-on-cache-miss: ${{ needs.intake-login.result == 'success' }}
 
       - name: Check out secrets repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: ${{ env.SECRETS_REPO }}
+          repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           path: 'secrets'
 
@@ -351,7 +351,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report-intake-${{ github.event.inputs.environment || 'local' }}
           path: |

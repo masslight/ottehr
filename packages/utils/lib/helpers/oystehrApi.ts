@@ -54,7 +54,9 @@ export const getOystehrApiHelpers = <T extends Record<string, string>>(
       // won't be reached, but for TS to give the right return type
       throw Error();
     } catch (error) {
-      additionalErrorHandler && additionalErrorHandler(error);
+      if (additionalErrorHandler) {
+        additionalErrorHandler(error);
+      }
       throw apiErrorToThrow(error);
     }
   };

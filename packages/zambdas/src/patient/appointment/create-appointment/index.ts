@@ -191,11 +191,31 @@ export async function createAppointment(
   const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
     await generatePatientRelatedRequests(user, patient, oystehr);
 
-  let startTime = visitType === VisitType.WalkIn ? DateTime.now().setZone('UTC').toISO() || '' : slot?.start ?? '';
-  startTime = DateTime.fromISO(startTime).setZone('UTC').toISO() || '';
-  const originalDate = DateTime.fromISO(startTime).setZone('UTC');
-  const endTime = originalDate.plus({ minutes: getAppointmentDurationFromSlot(slot) }).toISO() || '';
-  const formattedUserNumber = formatPhoneNumberDisplay(user.name.replace('+1', ''));
+  let startTime: string | null; // iso string in UTC
+  if (visitType === VisitType.WalkIn) {
+    startTime = DateTime.now().setZone('UTC').toISO();
+  } else {
+    if (slot?.start) {
+      startTime = DateTime.fromISO(slot.start).setZone('UTC').toISO();
+    } else {
+      throw new Error('Slot start time is required for pre-book appointments');
+    }
+  }
+
+  if (!startTime) {
+    throw new Error('startTime must be set by this point');
+  }
+
+  const endTime = DateTime.fromISO(startTime)
+    .plus({ minutes: getAppointmentDurationFromSlot(slot) })
+    .setZone('UTC')
+    .toISO();
+
+  if (!endTime) {
+    throw new Error('endTime could not be calculated');
+  }
+
+  const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
   const createdBy = isEHRUser
     ? `Staff ${user?.email}`
     : `${visitType === VisitType.WalkIn ? 'QR - ' : ''}Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
@@ -213,7 +233,7 @@ export async function createAppointment(
       verifiedFormattedPhoneNumber = formatPhoneNumber(patient.phoneNumber);
     } else {
       // User is patient and auth0 already appends a +1 to the phone number
-      verifiedFormattedPhoneNumber = formatPhoneNumber(user.name);
+      verifiedFormattedPhoneNumber = user?.name ? formatPhoneNumber(user.name) : undefined;
     }
   }
 
@@ -240,7 +260,7 @@ export async function createAppointment(
     oystehr: oystehr,
     updatePatientRequest,
     createPatientRequest,
-    performPreProcessing: !isTestUser(user),
+    performPreProcessing: user && !isTestUser(user),
     listRequests,
     unconfirmedDateOfBirth,
     newPatientDob: (createPatientRequest?.resource as Patient | undefined)?.birthDate,
@@ -539,11 +559,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     'prepopulated items for patient questionnaire response before adding previous response',
     JSON.stringify(item)
   );
-
-  const questionnaireID = questionnaire.id;
-  if (!questionnaireID) {
-    throw new Error('Missing questionnaire id');
-  }
 
   const questionnaireResponseResource: QuestionnaireResponse = {
     resourceType: 'QuestionnaireResponse',

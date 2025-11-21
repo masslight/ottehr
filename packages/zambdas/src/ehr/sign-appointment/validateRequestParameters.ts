@@ -8,10 +8,35 @@ export function validateRequestParameters(input: ZambdaInput): SignAppointmentIn
     throw new Error('No request body provided');
   }
 
-  const { appointmentId, timezone } = JSON.parse(input.body);
+  let parsedBody: unknown;
+  try {
+    parsedBody = JSON.parse(input.body);
+  } catch {
+    throw new Error('Invalid JSON in request body');
+  }
+
+  if (!parsedBody || typeof parsedBody !== 'object') {
+    throw new Error('Request body must be a valid JSON object');
+  }
+
+  const body = parsedBody as Record<string, unknown>;
+
+  const { appointmentId, encounterId, timezone } = body;
 
   if (appointmentId === undefined) {
     throw MISSING_REQUIRED_PARAMETERS(['appointmentId']);
+  } else if (typeof appointmentId !== 'string') {
+    throw INVALID_INPUT_ERROR(
+      `Invalid "appointmentId" parameter provided: ${JSON.stringify(appointmentId)}. It must be a string.`
+    );
+  }
+
+  if (encounterId === undefined) {
+    throw MISSING_REQUIRED_PARAMETERS(['encounterId']);
+  } else if (typeof encounterId !== 'string') {
+    throw INVALID_INPUT_ERROR(
+      `Invalid "encounterId" parameter provided: ${JSON.stringify(encounterId)}. It must be a string.`
+    );
   }
 
   if (getSecret(SecretsKeys.PROJECT_API, input.secrets) === undefined) {
@@ -34,13 +59,18 @@ export function validateRequestParameters(input: ZambdaInput): SignAppointmentIn
     throw new Error('Secrets are required for this operation');
   }
 
+  const supervisorApprovalEnabled =
+    typeof body.supervisorApprovalEnabled === 'boolean' ? body.supervisorApprovalEnabled : false;
+
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
   return {
     appointmentId,
+    encounterId,
     secrets: input.secrets,
     timezone: timezone ?? null,
     userToken,
+    supervisorApprovalEnabled,
   };
 }

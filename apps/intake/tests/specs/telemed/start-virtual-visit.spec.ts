@@ -221,6 +221,7 @@ test.describe('Start virtual visit with required information only', async () => 
 
   test('Should fill in current medications as empty', async () => {
     await clickContinueButton();
+    await clickContinueButton();
     await clickContinueButton(); // skip page with no required fields
 
     await paperwork.fillAndCheckEmptyCurrentMedications();
@@ -249,6 +250,9 @@ test.describe('Start virtual visit with required information only', async () => 
     await clickContinueButton(); // skip page with no required fields
 
     await paperwork.fillAndCheckSelfPay();
+  });
+  test('Should add credit card', async () => {
+    await paperwork.fillAndAddCreditCard();
   });
   test('Should fill in responsible party as self', async () => {
     await paperwork.fillAndCheckResponsiblePartyInfoAsSelf({
@@ -434,7 +438,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
 
     // todo use another way to get appointment id
     // await getAppointmentIdFromCreateAppointmentRequest(page);
-    expect(slotId).toBeDefined;
+    expect(slotId).toBeDefined();
     await expect(page.getByText('Contact information')).toBeVisible({ timeout: 30000 });
   });
 
@@ -449,6 +453,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
   });
 
   test('Should fill in current medications', async () => {
+    await clickContinueButton();
     await clickContinueButton();
     await clickContinueButton(); // skip page with no required fields
     await paperwork.fillAndCheckFilledCurrentMedications();
@@ -483,6 +488,11 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
 
     await paperwork.fillAndCheckSelfPay();
   });
+
+  test('Should add credit card', async () => {
+    await paperwork.fillAndAddCreditCard();
+  });
+
   test('Should fill in responsible party as self', async () => {
     await paperwork.fillAndCheckResponsiblePartyInfoAsSelf({
       firstName: patientInfo?.firstName,

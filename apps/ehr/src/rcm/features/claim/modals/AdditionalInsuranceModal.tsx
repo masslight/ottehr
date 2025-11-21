@@ -1,18 +1,18 @@
 import { Grid } from '@mui/material';
-import React, { FC } from 'react';
+import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import {
   ClaimState,
   useClaimStore,
   useEditCoverageInformationMutation,
   useEditRelatedPersonInformationMutation,
-} from '../../../state';
+} from 'src/rcm/state';
 import {
   AdditionalInsuranceFormValues,
   mapAdditionalInsuranceToCoverageResource,
   mapAdditionalInsuranceToRelatedPersonResource,
-} from '../../../utils';
+} from 'src/rcm/utils';
+import { getSelectors } from 'utils';
 import { EditModal, TextFieldController } from './components';
 
 const getDefaultValues = (
@@ -78,7 +78,7 @@ export const AdditionalInsuranceModal: FC = () => {
         title="Additional Insurance"
         onSave={(hideDialog) => handleSubmit((values) => onSave(values, hideDialog))()}
         onShow={() => reset(getDefaultValues(additionalCoverageData))}
-        isSaveLoading={editCoverage.isLoading || editRelatedPerson.isLoading}
+        isSaveLoading={editCoverage.isPending || editRelatedPerson.isPending}
       >
         <Grid container spacing={2}>
           <Grid item xs={4}>

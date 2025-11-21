@@ -82,6 +82,26 @@
               }
             ],
             "resourceType": "Practitioner"
+          },
+          {
+            "address": [
+              {
+                "text": "Test pharmacy address"
+              }
+            ],
+            "id": "pharmacy",
+            "name": "Test pharmacy",
+            "resourceType": "Organization",
+            "type": [
+              {
+                "coding": [
+                  {
+                    "code": "pharmacy",
+                    "system": "http://terminology.hl7.org/CodeSystem/organization-type"
+                  }
+                ]
+              }
+            ]
           }
         ],
         "extension": [
@@ -128,6 +148,12 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/point-of-discovery",
             "valueString": "Friend/Family"
+          },
+          {
+            "url": "https://fhir.ottehr.com/Extension/preferred-pharmacy",
+            "valueReference": {
+              "reference": "#pharmacy"
+            }
           }
         ],
         "resourceType": "Patient",
@@ -179,6 +205,42 @@
               {
                 "code": "user-relatedperson",
                 "system": "https://fhir.zapehr.com/r4/StructureDefinitions/relationship"
+              }
+            ]
+          }
+        ],
+        "resourceType": "RelatedPerson"
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/RelatedPerson"
+      },
+      "fullUrl": "urn:uuid:88e62678-df94-4a4c-a9d5-fa8c9c2d6ae4",
+      "resource": {
+        "name": [
+          {
+            "given": ["Emergen", "C"],
+            "family": "Contact"
+          }
+        ],
+        "patient": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "telecom": [
+          {
+            "value": "+11231231234",
+            "system": "phone"
+          }
+        ],
+        "relationship": [
+          {
+            "coding": [
+              {
+                "code": "EP",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0131",
+                "display": "Spouse"
               }
             ]
           }
@@ -334,6 +396,10 @@
           {
             "url": "patient-info-confirmed",
             "valueBoolean": true
+          },
+          {
+            "url": "https://fhir.ottehr.com/Extension/payment-variant",
+            "valueString": "selfPay"
           }
         ],
         "hospitalization": {
@@ -374,6 +440,11 @@
               "system": "http://loinc.org",
               "code": "59284-0",
               "display": "Consent Documents"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/consent-source",
+              "code": "patient-registration",
+              "display": "Patient Registration Consent"
             }
           ],
           "text": "Consent forms"
@@ -731,6 +802,44 @@
               ]
             },
             "value": "patient-photos"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/List"
+      },
+      "resource": {
+        "resourceType": "List",
+        "status": "current",
+        "mode": "working",
+        "title": "discharge-summaries",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+              "code": "patient-docs-folder",
+              "display": "Discharge Summary"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "UDI",
+                  "display": "Universal Device Identifier"
+                }
+              ]
+            },
+            "value": "discharge-summaries"
           }
         ]
       }
@@ -1117,6 +1226,27 @@
             ]
           },
           {
+            "linkId": "pharmacy-page",
+            "item": [
+              {
+                "linkId": "pharmacy-name",
+                "answer": [
+                  {
+                    "valueString": "Test pharmacy"
+                  }
+                ]
+              },
+              {
+                "linkId": "pharmacy-address",
+                "answer": [
+                  {
+                    "valueString": "Test pharmacy address"
+                  }
+                ]
+              }
+            ]
+          },
+          {
             "linkId": "payment-option-page",
             "item": [
               {
@@ -1275,6 +1405,59 @@
                 "answer": [
                   {
                     "valueString": "(240) 333-3333"
+                  }
+                ]
+              },
+              {
+                "linkId": "responsible-party-email",
+                "answer": [
+                  {
+                    "valueString": "ibenham+test@masslight.com"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "emergency-contact-page",
+            "item": [
+              {
+                "linkId": "emergency-contact-relationship",
+                "answer": [
+                  {
+                    "valueString": "Spouse"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-first-name",
+                "answer": [
+                  {
+                    "valueString": "Emergen"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-middle-name",
+                "answer": [
+                  {
+                    "valueString": "C"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-last-name",
+                "answer": [
+                  {
+                    "valueString": "Contact"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-number",
+                "answer": [
+                  {
+                    "valueString": "(123) 123-1234"
                   }
                 ]
               }
@@ -1449,6 +1632,10 @@
               {
                 "value": "+12403333333",
                 "system": "phone"
+              },
+              {
+                "value": "ibenham+test@masslight.com",
+                "system": "email"
               }
             ],
             "patient": {
@@ -1474,9 +1661,16 @@
               }
             ]
           }
+        ],
+        "identifier": [
+          {
+            "system": "https://api.stripe.com/v1/customers",
+            "value": "SKIP_ME_FOR_VALUE_CHECKING"
+          }
         ]
       }
     },
+
     {
       "request": {
         "method": "POST",
@@ -1493,17 +1687,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Conjunctival injection"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-lungs",
+              "code": "right-eye-conjunctival-injection",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -1526,50 +1715,12 @@
         "status": "final",
         "valueBoolean": true,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Normal appearance of neck"
         },
         "meta": {
           "tag": [
             {
-              "code": "normal-sphincter-tone",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "normal-texture-and-distribution",
+              "code": "normal-appearance-of-neck",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -1592,17 +1743,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Normal dentition"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-rectal",
+              "code": "normal-dentition",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -1624,21 +1770,3172 @@
         },
         "status": "final",
         "valueBoolean": true,
-        "bodySite": {
-          "coding": [
-            {
-              "code": "302548004",
-              "display": "Entire head (body structure)"
-            }
-          ]
-        },
         "code": {
-          "coding": [
+          "text": "Lids and lashes normal"
+        },
+        "meta": {
+          "tag": [
             {
-              "code": "17621005",
-              "display": "Normal (qualifier value)"
+              "code": "lids-and-lashes-normal",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Right middle"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "breath-sounds-right-middle",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Follows verbal commands appropriately"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "follows-verbal-commands-appropriately",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Moist mucous membranes"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "moist-mucous-membranes",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "No obvious injury or swelling"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "no-obvious-injury-or-swelling",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "C/w Lyme ECM"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "cw-lyme-ecm",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "C/w pityriasis rosea"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "cw-pityriasis-rosea",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "TM with fluid"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "left-ear-tm-with-fluid",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Scalp laceration"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "scalp-laceration",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Swelling, tenderness, decreased ROM"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "swelling-tenderness-decreased-rom",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Well-hydrated"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "well-hydrated",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Moves all extremities symmetrically"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "moves-all-extremities-symmetrically",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Denies hallucinations"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "denies-hallucinations",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Tachypnea"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "tachypnea",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Canal impacted cerumen"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "left-ear-canal-impacted-cerumen",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Normal testicular exam, no tenderness, no erythema, cremasteric reflexes present"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "normal-testicular-exam",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Active"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "active",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Poor dentition"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "poor-dentition",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Normal external rectal exam"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "normal-external-rectal-exam",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Pain with hopping"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "pain-with-hopping",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Dehydrated"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "dehydrated",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Right upper"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "crackles-right-upper",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Conjunctival injection"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "left-eye-conjunctival-injection",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Normal strength"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "normal-strength",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Nondistended"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "nondistended",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Normal external genital exam, no lesions / redness / discharge"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "normal-external-genital-exam",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Left lower"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "breath-sounds-left-lower",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Guarding"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "guarding",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Discharge present"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "right-eye-discharge-present",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "C/w tinea capitis"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "cw-tinea-capitis",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Oropharynx clear with no erythema, lesions, or exudate"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "oropharynx-clear-with-no-erythema-lesions-or-exudate",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Uvula midline"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "uvula-midline",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "C/w irritant diaper rash"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "cw-irritant-diaper-rash",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Stridor"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "stridor",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Confused"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "confused",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Normal external ear"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "normal-external-ear",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Left upper"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "breath-sounds-left-upper",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "TM bulging, erythematous"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "right-ear-tm-bulging-erythematous",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "RUQ"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "ruq",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Right lower"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "wheezing-right-lower",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "C/w insect bites"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "cw-insect-bites",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Vesicles or shallow ulcers on the palate/ posterior oropharynx"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "vesicles-or-shallow-ulcers-on-the-palate-posterior-oropharynx",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Hepatomegaly"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "hepatomegaly",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Right side - absent cremasteric reflex"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "right-side-absent-cremasteric-reflex",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Poor judgement"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "poor-judgement",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Left side - absent cremasteric reflex"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "left-side-absent-cremasteric-reflex",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Dry mucous membranes"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "dry-mucous-membranes",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Right cervical node, easily mobile, non-tender, not erythematous"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "right-cervical-node-easily-mobile-non-tender-not-erythematous",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Intercostal"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "intercostal",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Normal sensation"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "normal-sensation",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Extra-ocular movements intact"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "extra-ocular-movements-intact",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Warm and dry"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "warm-and-dry",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "C/w viral exam"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "cw-viral-exam",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "C/w poison ivy contact dermatitis"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "cw-poison-ivy-contact-dermatitis",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "RLQ"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "rlq",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Point tenderness over bone"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "point-tenderness-over-bone",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Left lower"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "wheezing-left-lower",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "I-II/VI holosystolic murmur best at LUSB"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "holosystolic-murmur-best-at-lusb",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Right eye - conjunctiva non-injected, no discharge"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "right-eye-conjunctiva-non-injected-no-discharge",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "No signs of respiratory distress"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "no-signs-of-respiratory-distress",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Canal impacted cerumen"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "right-ear-canal-impacted-cerumen",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Chest is clear to auscultation bilaterally"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "chest-is-clear-to-auscultation-bilaterally",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "No chest wall tenderness"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "no-chest-wall-tenderness",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Left upper"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "wheezing-left-upper",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "C/w atopic dermatitis"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "cw-atopic-dermatitis",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Right upper"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "wheezing-right-upper",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Denies suicidal / homicidal ideation"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "denies-suicidal-homicidal-ideation",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Normal tone"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "normal-tone",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Nasal mucosa normal"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "nasal-mucosa-normal",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Canal with debris and inflamed"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "left-ear-canal-with-debris-and-inflamed",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "C/w Coxsackievirus"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "cw-coxsackievirus",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Hops with no pain; negative Rovsing’s, psoas, and obturator signs; no rebound tenderness; no guarding"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "hops-with-no-pain",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Congestion, rhinorrhea"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "congestion-rhinorrhea",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Subcostal"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "subcostal",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Splenomegaly"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "splenomegaly",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Left lower"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "crackles-left-lower",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Canal with debris and inflamed"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "right-ear-canal-with-debris-and-inflamed",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "TM bulging, erythematous"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "left-ear-tm-bulging-erythematous",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Suprasternal"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "suprasternal",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Chest wall tenderness"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "chest-wall-tenderness",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Right upper"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "breath-sounds-right-upper",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Limited range of motion when turning right"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "limited-range-of-motion-when-turning-right",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Atraumatic"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "atraumatic",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Tongue midline"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "tongue-midline",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Scrotal edema / swelling"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "scrotal-edema-swelling",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Right lower"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "crackles-right-lower",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Left upper"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "crackles-left-upper",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Right middle"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "crackles-right-middle",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Tragus tender"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "left-ear-tragus-tender",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Limited range of motion when turning left"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "limited-range-of-motion-when-turning-left",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Right TM pearly with good light reflex, preserved landmarks"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "right-tm-pearly-with-good-light-reflex-preserved-landmarks",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Left eye - conjunctiva non-injected, no discharge"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "left-eye-conjunctiva-non-injected-no-discharge",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "No effusion"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "no-effusion",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Pupils equal, round, reactive to light and accommodation"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "pupils-equal-round-reactive-to-light-and-accommodation",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Soft"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "soft",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Regular rate and rhythm with no murmur"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "regular-rate-and-rhythm-with-no-murmur",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Tachycardia"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "tachycardia",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "No hepatosplenomegaly"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "no-hepatosplenomegaly",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Tragus tender"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "right-ear-tragus-tender",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "C/w Fifth's disease"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "cw-fifths-disease",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "In no acute distress"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "in-no-acute-distress",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "C/w impetigo"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "cw-impetigo",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Right middle"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "wheezing-right-middle",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Erythematous pharynx"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "erythematous-pharynx",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Cranial nerves II-XII grossly intact"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "cranial-nerves-ii-xii-grossly-intact",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "LUQ"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "luq",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Diffusely"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "diffusely",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Left cervical node, easily mobile, non-tender, not erythematous"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "left-cervical-node-easily-mobile-non-tender-not-erythematous",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "No rash"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "no-rash",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Discharge present"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "left-eye-discharge-present",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "Unsteady gait"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "unsteady-gait",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": false,
+        "code": {
+          "text": "TM with fluid"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "right-ear-tm-with-fluid",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Normal range of motion"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "normal-range-of-motion",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Normocephalic"
         },
         "meta": {
           "tag": [
@@ -1666,50 +4963,12 @@
         "status": "final",
         "valueBoolean": true,
         "code": {
-          "coding": [
-            {
-              "code": "134417007",
-              "display": "Level of mood - normal (finding)"
-            }
-          ]
+          "text": "Good air movement throughout lung fields"
         },
         "meta": {
           "tag": [
             {
-              "code": "general-normal-mood-and-affect",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-gingival-inflammation-or-significant-resorption",
+              "code": "good-air-movement-throughout-lung-fields",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -1732,58 +4991,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Tender, erythematous nodule on eyelid margin"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-abdomen",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "bodySite": {
-          "coding": [
-            {
-              "code": "39937001",
-              "display": "Skin structure (body structure)"
-            }
-          ]
-        },
-        "code": {
-          "coding": [
-            {
-              "code": "225544001",
-              "display": "Skin appearance normal (finding)"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-rash-unusual-bruising-or-prominent-lesions",
+              "code": "right-eye-tender-erythematous-nodule-on-eyelid-margin",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -1806,83 +5019,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Tonsillar exudate"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-pharynx",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "sclera-non-icteric",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "134417007",
-              "display": "Level of mood - normal (finding)"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "psychiatric-normal-mood-and-affect",
+              "code": "tonsillar-exudate",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -1905,281 +5047,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Normal reflexes"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-extremities",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "eacs-clear",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "regular-rate-and-rhythm",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "normal-color-no-deformities",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "pharynx-mucosa-non-inflamed",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "well-appearing",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "there-are-no-wheezing",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "bowel-sounds-normal",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "clear-to-auscultation-and-percussion",
+              "code": "normal-reflexes",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -2202,83 +5075,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Limping, refusal to bear weight"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-musculoskeletal",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-visible-or-palpable-masses-depressions-or-scaring",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "69328002",
-              "display": "Distress (finding)"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "in-no-distress",
+              "code": "limping-refusal-to-bear-weight",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -2301,17 +5103,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Listless"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-neck",
+              "code": "listless",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -2334,17 +5131,12 @@
         "status": "final",
         "valueBoolean": true,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "No generalized lymphadenopathy"
         },
         "meta": {
           "tag": [
             {
-              "code": "cn-2-12-normal",
+              "code": "no-generalized-lymphadenopathy",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -2367,91 +5159,12 @@
         "status": "final",
         "valueBoolean": true,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Normal mental status"
         },
         "meta": {
           "tag": [
             {
-              "code": "ossicles-nl-appearance",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "thyroid-non-enlarged-and-non-tender",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "bodySite": {
-          "coding": [
-            {
-              "code": "71616004",
-              "display": "Skeletal and/or smooth muscle structure (body structure)"
-            }
-          ]
-        },
-        "code": {
-          "coding": [
-            {
-              "code": "8117002",
-              "display": "Gait normal (finding)"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "normal-gait-and-station",
+              "code": "normal-mental-status",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -2474,17 +5187,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Oriented x 3"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-nose",
+              "code": "oriented-x-3",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -2507,157 +5215,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "TMs with no hemotympanum"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-mouth",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "bodySite": {
-          "coding": [
-            {
-              "code": "302548004",
-              "display": "Entire head (body structure)"
-            }
-          ]
-        },
-        "code": {
-          "coding": [
-            {
-              "code": "1149217004",
-              "display": "No traumatic injury (situation)"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "atraumatic",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "ambulating-without-difficulty",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-hemorrhoids-or-masses-palpable",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "perrl",
+              "code": "tms-with-no-hemotympanum",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -2680,17 +5243,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "C/w ringworm"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-head",
+              "code": "cw-ringworm",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -2713,17 +5271,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "C/w paronychia"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-neurologic",
+              "code": "cw-paronychia",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -2746,17 +5299,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Rebound"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-skin",
+              "code": "rebound",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -2779,17 +5327,12 @@
         "status": "final",
         "valueBoolean": true,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Left TM pearly with good light reflex, preserved landmarks"
         },
         "meta": {
           "tag": [
             {
-              "code": "peripheral-pulses-intact",
+              "code": "left-tm-pearly-with-good-light-reflex-preserved-landmarks",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -2812,314 +5355,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Right lower"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-hair",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-cardiomegaly-or-thrills",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-mucosal-lesions",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "oriented-general",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-misalignment",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "intact-recent-and-remote-memory-judgment-and-insight",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "hearing-intact",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "spine-normal-without-deformity-or-tenderness",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "tms-translucent-mobile",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "pulmonary-effort-is-normal",
+              "code": "breath-sounds-right-lower",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -3142,50 +5383,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Suicidal ideation"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-psychiatric",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-exudates-or-hemorrhages",
+              "code": "suicidal-ideation",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -3208,17 +5411,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "C/w urticaria"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-general",
+              "code": "cw-urticaria",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -3241,124 +5439,12 @@
         "status": "final",
         "valueBoolean": true,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Alert"
         },
         "meta": {
           "tag": [
             {
-              "code": "good-turgor",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "oriented-psychiatric",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "nose-mucosa-non-inflamed",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "bodySite": {
-          "coding": [
-            {
-              "code": "818983003",
-              "display": "Structure of abdominopelvic cavity and/or content of abdominopelvic cavity and/or anterior abdominal wall (body structure)"
-            }
-          ]
-        },
-        "code": {
-          "coding": [
-            {
-              "code": "297125009",
-              "display": "Abdominal tenderness absent (situation)"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-tenderness-organomegaly-masses-or-hernia",
+              "code": "alert",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -3381,17 +5467,40 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "LLL"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-teeth",
+              "code": "lll",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Observation"
+      },
+      "resource": {
+        "resourceType": "Observation",
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "encounter": {
+          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
+        },
+        "status": "final",
+        "valueBoolean": true,
+        "code": {
+          "text": "Nontender"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "nontender",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -3414,223 +5523,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Tender, erythematous nodule on eyelid margin"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-heart",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "septum-and-turbinates-normal",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-pathologic-reflexes",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "eom-intact",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-obvious-caries-or-periodontal-disease",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "bodySite": {
-          "coding": [
-            {
-              "code": "45048000",
-              "display": "Neck structure (body structure)"
-            }
-          ]
-        },
-        "code": {
-          "coding": [
-            {
-              "code": "48162006",
-              "display": "Supple (qualifier value)"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "supple",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "sensation-to-pain-touch-and-proprioception-normal",
+              "code": "left-eye-tender-erythematous-nodule-on-eyelid-margin",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -3653,111 +5551,7 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "abnormal-back",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "dtrs-normal-in-upper-and-lower-extremities",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-amputations-or-deformities-cyanosis-edema-or-varicosities",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "No CVA tenderness"
         },
         "meta": {
           "tag": [
@@ -3785,17 +5579,12 @@
         "status": "final",
         "valueBoolean": true,
         "code": {
-          "coding": [
-            {
-              "code": "17326005",
-              "display": "Well in self (finding)"
-            }
-          ]
+          "text": "Extremities are warm and well perfused"
         },
         "meta": {
           "tag": [
             {
-              "code": "mental-status:-the-patient-is-alert",
+              "code": "extremities-are-warm-and-well-perfused",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -3818,50 +5607,12 @@
         "status": "final",
         "valueBoolean": true,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Normal canals"
         },
         "meta": {
           "tag": [
             {
-              "code": "conjunctiva-clear",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-external-lesions",
+              "code": "normal-canals",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -3884,149 +5635,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Decreased breath sounds"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-nails",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "without-lesions-bruits-or-adenopathy",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-respiratory-distress",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "fundi-have-normal-optic-discs-and-vessels",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-bloating",
+              "code": "breath-sounds",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -4049,17 +5663,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Crackles"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-ears",
+              "code": "crackles",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -4082,17 +5691,12 @@
         "status": "final",
         "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Rash"
         },
         "meta": {
           "tag": [
             {
-              "code": "abnormal-eyes",
+              "code": "rash",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -4113,27 +5717,14 @@
           "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
         },
         "status": "final",
-        "valueBoolean": true,
-        "bodySite": {
-          "coding": [
-            {
-              "code": "123851003",
-              "display": "Mouth region structure (body structure)"
-            }
-          ]
-        },
+        "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "276398005",
-              "display": "Moist oral mucosa (finding)"
-            }
-          ]
+          "text": "Retractions"
         },
         "meta": {
           "tag": [
             {
-              "code": "mucous-membranes-moist",
+              "code": "retractions",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -4154,19 +5745,14 @@
           "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
         },
         "status": "final",
-        "valueBoolean": true,
+        "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Tender"
         },
         "meta": {
           "tag": [
             {
-              "code": "visual-acuity-intact",
+              "code": "tender",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -4187,118 +5773,14 @@
           "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
         },
         "status": "final",
-        "valueBoolean": true,
+        "valueBoolean": false,
         "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
+          "text": "Wheezing"
         },
         "meta": {
           "tag": [
             {
-              "code": "no-murmur-or-gallop",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "no-tonsillar-hypertrophy-or-exudate",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "there-are-no-rales",
-              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
-        "url": "/Observation"
-      },
-      "resource": {
-        "resourceType": "Observation",
-        "subject": {
-          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
-        },
-        "encounter": {
-          "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
-        },
-        "status": "final",
-        "valueBoolean": true,
-        "code": {
-          "coding": [
-            {
-              "code": "000000001",
-              "display": "Dummy SNOMED code"
-            }
-          ]
-        },
-        "meta": {
-          "tag": [
-            {
-              "code": "well-nourished",
+              "code": "wheezing",
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
             }
           ]
@@ -4324,9 +5806,11 @@
           "coding": [
             {
               "code": "185389009",
-              "display": "Follow-up visit (procedure)"
+              "display": "Follow-up visit (procedure)",
+              "system": "http://snomed.info/sct"
             }
-          ]
+          ],
+          "text": "Follow-up visit (procedure)"
         },
         "meta": {
           "tag": [

@@ -7,7 +7,7 @@ import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 const formatDateTime = (dateString: string): string => {
   try {
     return DateTime.fromISO(dateString).toFormat("MM/dd/yyyy 'at' h:mm a");
-  } catch (error) {
+  } catch {
     return dateString;
   }
 };

@@ -1,8 +1,10 @@
 // cSpell:ignore olicy
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Appointment, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
   APIErrorCode,
+  BILLING_PROVIDER_RESOURCE_NOT_FOUND,
   BillingProviderDataObject,
   BillingProviderResource,
   flattenItems,
@@ -163,6 +165,7 @@ export const complexInsuranceValidation = async (
         secondaryPolicyHolder = mapResponseItemsToInsurancePolicyHolder(secondaryInsuranceItem?.item ?? [], '-2');
         secondaryInsuranceData = mapResponseItemsToInsuranceData(secondaryInsuranceItem.item ?? [], '-2');
       } catch (e) {
+        captureException(e);
         console.error('Error parsing secondary insurance data', e);
         secondaryPolicyHolder = undefined;
         secondaryInsuranceData = undefined;
@@ -340,14 +343,14 @@ export const getDefaultBillingProviderResource = async (
 ): Promise<BillingProviderResource> => {
   const defaultBillingResource = getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets);
   if (!defaultBillingResource) {
-    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
+    throw BILLING_PROVIDER_RESOURCE_NOT_FOUND;
   }
 
   const defaultBillingResourceType = defaultBillingResource.split('/')[0];
   const defaultBillingResourceId = defaultBillingResource.split('/')[1];
 
   if (defaultBillingResourceType === undefined || defaultBillingResourceId === undefined) {
-    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
+    throw BILLING_PROVIDER_RESOURCE_NOT_FOUND;
   }
 
   const fetchedResources = await oystehrClient.fhir.search<BillingProviderResource>({
@@ -362,7 +365,7 @@ export const getDefaultBillingProviderResource = async (
 
   const billingResource = fetchedResources?.unbundle()[0];
   if (!billingResource) {
-    throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
+    throw BILLING_PROVIDER_RESOURCE_NOT_FOUND;
   }
   return billingResource;
 };

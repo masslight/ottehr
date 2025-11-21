@@ -1,7 +1,9 @@
+import { QueryObserverResult, RefetchOptions } from '@tanstack/react-query';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { useOutletContext } from 'react-router-dom';
 import {
   AppointmentSummary,
+  CreditCardInfo,
   IntakeQuestionnaireItem,
   PaperworkPatient,
   QuestionnaireFormFields,
@@ -17,7 +19,19 @@ export interface PaperworkContext
   appointment: AppointmentSummary | undefined;
   patient: PaperworkPatient | undefined;
   questionnaireResponse: QuestionnaireResponse | undefined;
+  cardsAreLoading: boolean;
+  paymentMethodStateInitializing: boolean;
+  paymentMethods: CreditCardInfo[];
+  stripeSetupData: string | undefined;
   saveButtonDisabled?: boolean;
+  refetchPaymentMethods: (options?: RefetchOptions | undefined) => Promise<
+    QueryObserverResult<
+      {
+        cards: CreditCardInfo[];
+      },
+      Error
+    >
+  >;
   setSaveButtonDisabled: (newVal: boolean) => void;
   findAnswerWithLinkId: (linkId: string) => QuestionnaireResponseItem | undefined;
 }

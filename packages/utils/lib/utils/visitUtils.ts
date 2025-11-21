@@ -2,21 +2,44 @@ import { Appointment, Encounter, EncounterParticipant, EncounterStatusHistory } 
 import { DateTime } from 'luxon';
 import {
   InPersonAppointmentInformation,
+  SupervisorApprovalStatus,
   VisitStatusHistoryEntry,
   VisitStatusHistoryLabel,
   VisitStatusLabel,
 } from 'utils';
+import { FHIR_EXTENSION } from '../fhir/constants';
+
+export const STATUSES_WITHOUT_TIME_TRACKER: VisitStatusHistoryLabel[] = [
+  'pending',
+  'no show',
+  'cancelled',
+  'completed',
+  'discharged',
+];
 
 export const getDurationOfStatus = (statusEntry: VisitStatusHistoryEntry, dateTimeNow: DateTime): number => {
   if (statusEntry.period.start && statusEntry.period.end) {
-    return DateTime.fromISO(statusEntry.period.end).diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes;
+    return Math.floor(
+      DateTime.fromISO(statusEntry.period.end).diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes
+    );
   } else if (statusEntry.period.start) {
-    const stopCountingForStatus: VisitStatusHistoryLabel[] = ['cancelled', 'no show', 'completed'];
-    if (!stopCountingForStatus.includes(statusEntry.status)) {
-      return dateTimeNow.diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes;
+    if (!STATUSES_WITHOUT_TIME_TRACKER.includes(statusEntry.status)) {
+      return Math.floor(dateTimeNow.diff(DateTime.fromISO(statusEntry.period.start), 'minutes').minutes);
     }
   }
   return 0;
+};
+
+export const getTelemedLength = (history?: EncounterStatusHistory[]): number => {
+  const value = history?.find((item) => item.status === 'in-progress');
+  if (!value || !value.period.start) {
+    return 0;
+  }
+
+  const { start, end } = value.period;
+  const duration = DateTime.fromISO(start).diff(end ? DateTime.fromISO(end) : DateTime.now(), ['minute']);
+
+  return Math.abs(duration.minutes);
 };
 
 export const getVisitTotalTime = (
@@ -26,7 +49,7 @@ export const getVisitTotalTime = (
 ): number => {
   if (appointment.start) {
     return visitStatusHistory
-      .filter((status) => status.status !== 'pending')
+      .filter((status) => !STATUSES_WITHOUT_TIME_TRACKER.includes(status.status))
       .reduce((accumulator, statusTemp) => {
         return accumulator + getDurationOfStatus(statusTemp, dateTimeNow);
       }, 0);
@@ -38,7 +61,11 @@ export const formatMinutes = (minutes: number): string => {
   return minutes.toLocaleString('en', { maximumFractionDigits: 0 });
 };
 
-export const getVisitStatus = (appointment: Appointment, encounter: Encounter): VisitStatusLabel => {
+export const getInPersonVisitStatus = (
+  appointment: Appointment,
+  encounter: Encounter,
+  supervisorApprovalEnabled = false
+): VisitStatusLabel => {
   const admitterParticipant = encounter.participant?.find(
     (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ADM'))
   );
@@ -50,11 +77,13 @@ export const getVisitStatus = (appointment: Appointment, encounter: Encounter): 
     return 'pending';
   } else if (appointment.status === 'arrived') {
     return 'arrived';
+  } else if (appointment.status === 'checked-in' && encounter.status === 'in-progress') {
+    return 'intake';
   } else if (appointment.status === 'checked-in') {
     return 'ready';
   } else if (encounter.status === 'in-progress') {
     if (attenderParticipant?.period?.end) {
-      return 'ready for discharge';
+      return 'discharged';
     } else if (attenderParticipant?.period?.start) {
       return 'provider';
     } else if (admitterParticipant?.period?.end) {
@@ -62,13 +91,19 @@ export const getVisitStatus = (appointment: Appointment, encounter: Encounter): 
     } else {
       return 'intake';
     }
-  } else if (encounter.status === 'arrived' && appointment.status === 'fulfilled') {
-    return 'intake';
   } else if (appointment.status === 'cancelled' || encounter.status === 'cancelled') {
     return 'cancelled';
   } else if (appointment.status === 'noshow') {
     return 'no show';
   } else if (encounter.status === 'finished') {
+    const awaitingSupervisorApproval = encounter.extension?.some(
+      (extension) => extension.url === 'awaiting-supervisor-approval' && extension.valueBoolean === true
+    );
+
+    if (supervisorApprovalEnabled && awaitingSupervisorApproval) {
+      return 'awaiting supervisor approval';
+    }
+
     return 'completed';
   }
 
@@ -79,12 +114,24 @@ export const getVisitStatusHistory = (encounter: Encounter): VisitStatusHistoryE
   const visitHistory: VisitStatusHistoryEntry[] = [];
 
   encounter?.statusHistory?.forEach((statusHist: EncounterStatusHistory) => {
-    if (statusHist.status === 'in-progress') {
-      if (encounter?.participant) {
-        const inProgressHistories = getInProgressVisitHistories(statusHist, encounter.participant);
-        visitHistory.push(...inProgressHistories);
-      }
+    const ottehrStatusFromExtension = statusHist.extension?.find(
+      (ext) => ext.url === FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url
+    )?.valueCode;
+
+    if (ottehrStatusFromExtension) {
+      visitHistory.push({
+        status: ottehrStatusFromExtension as VisitStatusHistoryLabel,
+        period: {
+          ...(statusHist.period.start && { start: statusHist.period.start }),
+          ...(statusHist.period.end && { end: statusHist.period.end }),
+        },
+      });
+    } else if (statusHist.status === 'in-progress' && encounter?.participant) {
+      // fallback: that's old logic, but that's wrong, because we need to compare with history participants, not with current ones
+      const inProgressHistories = getInProgressVisitHistories(statusHist, encounter.participant);
+      visitHistory.push(...inProgressHistories);
     } else {
+      // fallback to old logic
       const curVisitHistory: any = {};
       if (statusHist.status === 'planned') {
         curVisitHistory.status = 'pending';
@@ -95,13 +142,17 @@ export const getVisitStatusHistory = (encounter: Encounter): VisitStatusHistoryE
       } else if (statusHist.status === 'finished') {
         curVisitHistory.status = 'completed';
       }
-      curVisitHistory.period = statusHist.period;
-      visitHistory.push(curVisitHistory);
+
+      if (curVisitHistory.status) {
+        curVisitHistory.period = statusHist.period;
+        visitHistory.push(curVisitHistory);
+      }
     }
   });
   return visitHistory;
 };
 
+// for backward compatibility
 const getInProgressVisitHistories = (
   statusHistory: EncounterStatusHistory,
   participantArray: EncounterParticipant[]
@@ -129,10 +180,10 @@ const getInProgressVisitHistories = (
         status: 'provider',
         period: participantDetails.period,
       });
-      // add a status history for 'ready for discharge' with a start time == provider end time
+      // add a status history for 'discharged' with a start time == provider end time
       if (participantDetails.period?.end) {
         const readyForDischarge: VisitStatusHistoryEntry = {
-          status: 'ready for discharge',
+          status: 'discharged',
           period: { start: participantDetails.period.end },
         };
         acc.push(readyForDischarge);
@@ -167,4 +218,23 @@ const getInProgressVisitHistories = (
   }
 
   return histories;
+};
+
+export const getSupervisorApprovalStatus = (
+  appointment?: Appointment,
+  encounter?: Encounter
+): SupervisorApprovalStatus => {
+  if (!appointment || !encounter) {
+    return 'loading';
+  }
+
+  const visitStatus = getInPersonVisitStatus(appointment, encounter, true);
+
+  if (visitStatus === 'awaiting supervisor approval') {
+    return 'waiting-for-approval';
+  } else if (visitStatus === 'completed') {
+    return 'approved';
+  }
+
+  return 'unknown';
 };

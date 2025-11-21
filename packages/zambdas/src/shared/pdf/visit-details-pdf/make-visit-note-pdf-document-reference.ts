@@ -25,10 +25,10 @@ export async function makeVisitNotePdfDocumentReference(
         {
           system: 'http://loinc.org',
           code: '75498-6',
-          display: 'Telehealth Summary note',
+          display: 'Visit details',
         },
       ],
-      text: 'Telemed document',
+      text: 'Visit details',
     },
     references: {
       subject: {
@@ -46,7 +46,10 @@ export async function makeVisitNotePdfDocumentReference(
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
     oystehr,
     generateUUID: randomUUID,
-    searchParams: [],
+    searchParams: [
+      { name: 'encounter', value: `Encounter/${encounterId}` },
+      { name: 'subject', value: `Patient/${patientId}` },
+    ],
     listResources,
   });
   return docRefs[0];

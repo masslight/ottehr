@@ -1,6 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { CssHeader } from './CssHeader';
+import { InPersonHeader } from './InPersonHeader';
 import { SideMenu } from './SideMenu';
 
 export class HospitalizationPage {
@@ -10,8 +10,8 @@ export class HospitalizationPage {
     this.#page = page;
   }
 
-  cssHeader(): CssHeader {
-    return new CssHeader(this.#page);
+  inPersonHeader(): InPersonHeader {
+    return new InPersonHeader(this.#page);
   }
 
   sideMenu(): SideMenu {
@@ -20,6 +20,7 @@ export class HospitalizationPage {
 
   async clickCompleteIntakeButton(): Promise<void> {
     await this.#page.locator('button:text("Confirmed No Hospitalization AND Complete Intake")').click();
+    await this.sideMenu().clickCompleteIntakeButton();
   }
 }
 

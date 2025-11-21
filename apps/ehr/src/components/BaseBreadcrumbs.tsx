@@ -40,7 +40,7 @@ export const BaseBreadcrumbs: FC<BaseBreadcrumbsProps> = ({ sectionName, baseCru
         sx={{ display: 'flex' }}
       >
         {baseCrumb.path ? (
-          <MuiLink component={Link} to={baseCrumb.path} color="text.secondary">
+          <MuiLink component={Link} to={baseCrumb.path} color="text.secondary" style={{ textDecoration: 'none' }}>
             {baseCrumb.label}
           </MuiLink>
         ) : (

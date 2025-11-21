@@ -34,7 +34,9 @@ export default function PhoneSearch({ phoneFilter, setPhoneFilter, onClear }: Ph
               <IconButton
                 aria-label="clear phone search"
                 onClick={() => {
-                  onClear && onClear();
+                  if (onClear) {
+                    onClear();
+                  }
                   setPhoneFilter(null);
                 }}
                 onMouseDown={(event) => event.preventDefault()}
@@ -50,7 +52,11 @@ export default function PhoneSearch({ phoneFilter, setPhoneFilter, onClear }: Ph
         onChange={(e) => {
           const phone = e.target.value.replace(/\D/g, '');
           setPhoneFilter(phone);
-          isPhoneNumberValid(phone) ? setError(true) : setError(false);
+          if (isPhoneNumberValid(phone)) {
+            setError(true);
+          } else {
+            setError(false);
+          }
         }}
         error={error}
         notched

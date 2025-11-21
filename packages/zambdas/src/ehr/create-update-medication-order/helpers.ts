@@ -6,6 +6,7 @@ import {
   getResourcesFromBatchInlineRequests,
   INVENTORY_MEDICATION_TYPE_CODE,
   MedicationData,
+  MedicationOrderStatuses,
   OrderPackage,
   removePrefix,
   searchMedicationLocation,
@@ -19,7 +20,11 @@ export function getPerformerId(medicationAdministration: MedicationAdministratio
   return medicationAdministration.performer?.find((perf) => perf.actor.reference)?.actor.reference;
 }
 
-export function createMedicationCopy(inventoryMedication: Medication, orderData: MedicationData): Medication {
+export function createMedicationCopy(
+  inventoryMedication: Medication,
+  orderData: { lotNumber?: string; expDate?: string; manufacturer?: string },
+  newStatus?: string
+): Medication {
   const resourceCopy = { ...inventoryMedication };
   delete resourceCopy.id;
   delete resourceCopy.meta;
@@ -27,7 +32,7 @@ export function createMedicationCopy(inventoryMedication: Medication, orderData:
   const typeIdentifierArrId =
     resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE) ?? -1;
   if (typeIdentifierArrId >= 0) resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
-  if (orderData.lotNumber || orderData.expDate) {
+  if (newStatus !== MedicationOrderStatuses['administered-not'] && (orderData.lotNumber || orderData.expDate)) {
     resourceCopy.batch = {
       lotNumber: orderData.lotNumber,
       expirationDate: orderData.expDate,
@@ -80,9 +85,10 @@ export function updateMedicationAdministrationData(data: {
   orderData: MedicationData;
   orderResources: OrderPackage;
   administeredProviderId?: string;
+  orderedByProviderId?: string;
   medicationResource: Medication;
 }): MedicationAdministration {
-  const { orderResources, orderData, administeredProviderId, medicationResource } = data;
+  const { orderResources, orderData, administeredProviderId, orderedByProviderId, medicationResource } = data;
   const routeCode = orderData.route
     ? orderData.route
     : getDosageUnitsAndRouteOfMedication(orderResources.medicationAdministration).route;
@@ -103,6 +109,7 @@ export function updateMedicationAdministrationData(data: {
     location: locationCoding,
     existedMA: orderResources.medicationAdministration,
     administeredProviderId,
+    orderedByProviderId,
     medicationResource,
   });
   newMA.id = orderResources.medicationAdministration.id;

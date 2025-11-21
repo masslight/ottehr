@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputPutRequest, User } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
+import { Encounter, Patient, Practitioner, Procedure, ServiceRequest } from 'fhir/r4b';
 import { ServiceRequest as ServiceRequestR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
 import randomstring from 'randomstring';
@@ -11,8 +12,16 @@ import {
   RoleType,
   Secrets,
   SecretsKeys,
+  userMe,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  fillMeta,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
@@ -23,6 +32,10 @@ import {
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_PLACER_ORDER_NUMBER,
   ORDER_TYPE_CODE_SYSTEM,
   PLACER_ORDER_NUMBER_CODE_SYSTEM,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
 } from '../shared';
 import { validateInput, validateSecrets } from './validation';
@@ -56,14 +69,6 @@ export interface EnhancedBody
 // cSpell:disable-next date format
 const DATE_FORMAT = 'yyyyMMddhhmmssuu';
 const PERSON_IDENTIFIER_CODE_SYSTEM = 'https://fhir.ottehr.com/Identifier/person-uuid';
-const SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL =
-  'https://fhir.ottehr.com/Extension/service-request-order-detail-pre-release';
-const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL =
-  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release';
-const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL =
-  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-code';
-const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL =
-  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-value-string';
 const ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL =
   'http://advapacs.com/fhir/servicerequest-orderdetail-parameter-code';
 
@@ -91,11 +96,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
       body: JSON.stringify({ output }),
     };
   } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
   }
 });
 
@@ -109,8 +110,7 @@ const accessCheck = async (callerUser: User): Promise<void> => {
 };
 
 const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
-  const oystehr = createOystehrClient(token, secrets);
-  return await oystehr.user.me();
+  return userMe(token, secrets);
 };
 
 const performEffect = async (
@@ -133,10 +133,13 @@ const performEffect = async (
     throw new Error('Error creating service request, id is missing');
   }
 
+  await writeOurProcedure(ourServiceRequest, secrets, oystehr);
+
   // Send the order to AdvaPACS
   try {
     await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, secrets, oystehr);
   } catch (error) {
+    captureException(error);
     console.error('Error sending order to AdvaPACS: ', error);
     await rollbackOurServiceRequest(ourServiceRequest, oystehr);
   }
@@ -151,7 +154,7 @@ const writeOurServiceRequest = (
   practitionerRelativeReference: string,
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
-  const { encounter, diagnosis, cpt, stat } = validatedBody;
+  const { encounter, diagnosis, cpt, stat, clinicalHistory } = validatedBody;
   const now = DateTime.now();
 
   const fillerAndPlacerOrderNumber = randomstring.generate({
@@ -278,12 +281,57 @@ const writeOurServiceRequest = (
         ],
       },
       {
+        url: SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
+        extension: [
+          {
+            url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
+            extension: [
+              {
+                url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
+                valueCodeableConcept: {
+                  coding: [
+                    {
+                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                      code: 'clinical-history',
+                    },
+                  ],
+                },
+              },
+              {
+                url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
+                valueString: clinicalHistory,
+              },
+            ],
+          },
+        ],
+      },
+      {
         url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
         valueDateTime: now.toISO(),
       },
     ],
   };
   return oystehr.fhir.create<ServiceRequest>(serviceRequest);
+};
+
+// This Procedure holds the CPT code for billing purposes
+const writeOurProcedure = async (
+  ourServiceRequest: ServiceRequest,
+  secrets: Secrets,
+  oystehr: Oystehr
+): Promise<void> => {
+  const procedureConfig: Procedure = {
+    resourceType: 'Procedure',
+    status: 'completed',
+    subject: ourServiceRequest.subject,
+    encounter: ourServiceRequest.encounter,
+    performer: ourServiceRequest.performer?.map((performer) => ({
+      actor: performer,
+    })),
+    code: ourServiceRequest.code,
+    meta: fillMeta('cpt-code', 'cpt-code'), // This is necessary to get the Assessment part of the chart showing the CPT codes. It is some kind of save-chart-data feature that this meta is used to find and save the CPT codes instead of just looking at the FHIR Procedure resources code values.
+  };
+  await oystehr.fhir.create<Procedure>(procedureConfig);
 };
 
 const writeAdvaPacsTransaction = async (
@@ -372,7 +420,41 @@ const writeAdvaPacsTransaction = async (
                   ],
                 },
                 valueString: ourServiceRequest.extension
-                  ?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
+                  ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
+                  ?.find((orderDetailExt) => {
+                    const parameterExt = orderDetailExt.extension?.find(
+                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
+                    );
+                    const codeExt = parameterExt?.extension?.find(
+                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
+                    );
+                    return codeExt?.valueCodeableConcept?.coding?.[0]?.code === 'modality';
+                  })
+                  ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL)
+                  ?.extension?.find(
+                    (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL
+                  )?.valueString,
+              },
+              {
+                code: {
+                  coding: [
+                    {
+                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                      code: 'clinical-history',
+                    },
+                  ],
+                },
+                valueString: ourServiceRequest.extension
+                  ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
+                  ?.find((orderDetailExt) => {
+                    const parameterExt = orderDetailExt.extension?.find(
+                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
+                    );
+                    const codeExt = parameterExt?.extension?.find(
+                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
+                    );
+                    return codeExt?.valueCodeableConcept?.coding?.[0]?.code === 'clinical-history';
+                  })
                   ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL)
                   ?.extension?.find(
                     (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL
@@ -434,7 +516,7 @@ const getOurSubject = async (patientRelativeReference: string, oystehr: Oystehr)
       resourceType: 'Patient',
       id: patientRelativeReference.split('/')[1],
     });
-  } catch (error) {
+  } catch {
     throw new Error('Error while trying to fetch our subject patient');
   }
 };

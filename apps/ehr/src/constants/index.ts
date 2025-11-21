@@ -1,27 +1,4 @@
-import { AdditionalBooleanQuestion, AdditionalBooleanQuestionsFieldsNames } from 'utils';
-
-export const REASON_FOR_VISIT_OPTIONS: string[] = [
-  'Cough and/or congestion',
-  'Throat pain',
-  'Eye concern',
-  'Fever',
-  'Ear pain',
-  'Vomiting and/or diarrhea',
-  'Abdominal (belly) pain',
-  'Rash or skin issue',
-  'Urinary problem',
-  'Breathing problem',
-  'Injury to arm',
-  'Injury to leg',
-  'Injury to head',
-  'Injury (Other)',
-  'Cut to arm or leg',
-  'Cut to face or head',
-  'Removal of sutures/stitches/staples',
-  'Choked or swallowed something',
-  'Allergic reaction to medication or food',
-  'Other',
-];
+import { patientScreeningQuestionsConfig } from 'utils';
 
 export const PHONE_NUMBER_REGEX = /^\d{10}$/;
 export const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
@@ -40,22 +17,10 @@ export enum LANGUAGES {
   english = 'english',
 }
 
-export const ADDITIONAL_QUESTIONS: AdditionalBooleanQuestion[] = [
-  {
-    label: 'Do you have any COVID symptoms?',
-    field: AdditionalBooleanQuestionsFieldsNames.CovidSymptoms,
-  },
-  {
-    label: 'Have you tested positive for COVID?',
-    field: AdditionalBooleanQuestionsFieldsNames.TestedPositiveCovid,
-  },
-  {
-    label: 'Have you traveled out of the USA in the last 2 weeks?',
-    field: AdditionalBooleanQuestionsFieldsNames.TravelUsa,
-  },
-];
+export const QUERY_STALE_TIME = 5 * 60 * 1000;
 
-export const QUERY_STALE_TIME = 1000 * 60;
+export const CHART_DATA_QUERY_KEY = 'chart-data-query-key'; // useChartData uses this key
+export const CHART_FIELDS_QUERY_KEY = 'chart-fields-query-key'; // useChartField uses this key
 
 export const FLAGGED_REASONS_FOR_VISIT: string[] = [
   'Breathing problem',
@@ -76,17 +41,18 @@ export const MOBILE_MODAL_STYLE = {
   p: 4,
 };
 
-export const TYPE_WIDTH_MIN = '120px';
-export const TIME_WIDTH_MIN = '96px';
-export const PATIENT_AND_REASON_WIDTH_MIN = '180px';
-export const ROOM_WIDTH_MIN = '42px';
-export const PROVIDER_WIDTH_MIN = '120px';
-export const VISIT_ICONS_WIDTH_MIN = '150px';
-export const NOTES_WIDTH_MIN = '150px';
-export const CHAT_WIDTH_MIN = '42px';
-export const GO_TO_ONE_BUTTON_WIDTH_MIN = '90px';
-export const GO_TO_MANY_BUTTONS_WIDTH_MIN = '270px';
-export const ACTION_WIDTH_MIN = '110px';
+export const TYPE_WIDTH_MIN = '160px';
+export const TIME_WIDTH_MIN = '140px';
+export const PATIENT_AND_REASON_WIDTH_MIN = '300px';
+export const ROOM_WIDTH_MIN = '120px';
+export const PROVIDER_WIDTH_MIN = '140px';
+export const VISIT_ICONS_WIDTH_MIN = '160px';
+export const VITALS_ICON_WIDTH_MIN = '90px';
+export const NOTES_WIDTH_MIN = '220px';
+export const CHAT_WIDTH_MIN = '80px';
+export const GO_TO_ONE_BUTTON_WIDTH_MIN = '160px';
+export const GO_TO_MANY_BUTTONS_WIDTH_MIN = '400px';
+export const ACTION_WIDTH_MIN = '130px';
 
 // Constants for default page sizes. Could also consider adding constants for the page size options
 export const LOCATION_ROWS_PER_PAGE = 25;
@@ -385,6 +351,25 @@ export const RELATIONSHIP_OPTIONS = [
   },
 ];
 
+export const EMERGENCY_CONTACT_RELATIONSHIP_OPTIONS = [
+  {
+    label: 'Spouse',
+    value: 'Spouse',
+  },
+  {
+    label: 'Parent',
+    value: 'Parent',
+  },
+  {
+    label: 'Legal Guardian',
+    value: 'Legal Guardian',
+  },
+  {
+    label: 'Other',
+    value: 'Other',
+  },
+];
+
 export const ETHNICITY_OPTIONS = [
   {
     label: 'Hispanic or Latino',
@@ -594,6 +579,7 @@ export const FormFields = {
     {
       insurancePriority: { key: 'insurance-priority', type: 'String' },
       insuranceCarrier: { key: 'insurance-carrier', type: 'Reference' },
+      insurancePlanType: { key: 'insurance-plan-type', type: 'String' },
       memberId: { key: 'insurance-member-id', type: 'String' },
       firstName: { key: 'policy-holder-first-name', type: 'String' },
       middleName: { key: 'policy-holder-middle-name', type: 'String' },
@@ -612,6 +598,7 @@ export const FormFields = {
     {
       insurancePriority: { key: 'insurance-priority-2', type: 'String' },
       insuranceCarrier: { key: 'insurance-carrier-2', type: 'Reference' },
+      insurancePlanType: { key: 'insurance-plan-type-2', type: 'String' },
       memberId: { key: 'insurance-member-id-2', type: 'String' },
       firstName: { key: 'policy-holder-first-name-2', type: 'String' },
       middleName: { key: 'policy-holder-middle-name-2', type: 'String' },
@@ -643,11 +630,23 @@ export const FormFields = {
     birthDate: { key: 'responsible-party-date-of-birth', type: 'String', label: 'Date of birth' },
     birthSex: { key: 'responsible-party-birth-sex', type: 'String', label: 'Birth sex' },
     phone: { key: 'responsible-party-number', type: 'String', label: 'Phone' },
+    email: { key: 'responsible-party-email', type: 'String', label: 'Email' },
     addressLine1: { key: 'responsible-party-address', type: 'String', label: 'Street Address' },
     addressLine2: { key: 'responsible-party-address-2', type: 'String', label: 'Address line 2' },
     city: { key: 'responsible-party-city', type: 'String', label: 'City' },
     state: { key: 'responsible-party-state', type: 'String', label: 'State' },
     zip: { key: 'responsible-party-zip', type: 'String', label: 'Zip' },
+  },
+  emergencyContact: {
+    relationship: { key: 'emergency-contact-relationship', type: 'String', label: 'Relationship to the patient' },
+    firstName: { key: 'emergency-contact-first-name', type: 'String', label: 'First name' },
+    middleName: { key: 'emergency-contact-middle-name', type: 'String', label: 'Middle name' },
+    lastName: { key: 'emergency-contact-last-name', type: 'String', label: 'Last name' },
+    phone: { key: 'emergency-contact-number', type: 'String', label: 'Phone' },
+  },
+  preferredPharmacy: {
+    name: { key: 'pharmacy-name', type: 'String', label: 'Pharmacy name' },
+    address: { key: 'pharmacy-address', type: 'String', label: 'Pharmacy address' },
   },
 };
 
@@ -679,3 +678,13 @@ export const InsurancePriorityOptions = [
   FormFields.insurance[0].insurancePriority.key,
   FormFields.insurance[1].insurancePriority.key,
 ];
+
+// Generate additional questions from configuration
+// Only include fields that exist in questionnaire (for now, assuming all are boolean)
+// TODO: only boolean fields are supported for now, add support for other field types when needed
+const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+
+export const ADDITIONAL_QUESTIONS = questionnaireFields.map((field) => ({
+  label: field.question,
+  field: field.fhirField,
+}));

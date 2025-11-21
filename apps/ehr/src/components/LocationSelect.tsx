@@ -14,6 +14,7 @@ type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: a
 interface LocationSelectProps {
   location?: LocationWithWalkinSchedule | undefined;
   setLocation: (location: LocationWithWalkinSchedule | undefined) => void;
+  setLocations?: (locations: LocationWithWalkinSchedule[]) => void;
   updateURL?: boolean;
   storeLocationInLocalStorage?: boolean;
   required?: boolean;
@@ -33,6 +34,7 @@ export default function LocationSelect({
   location,
   handleSubmit,
   setLocation,
+  setLocations: setExternalLocations,
   updateURL,
   storeLocationInLocalStorage,
   required,
@@ -82,6 +84,7 @@ export default function LocationSelect({
           return { ...location, walkinSchedule: schedule };
         });
         setLocations(mappedLocations);
+        setExternalLocations?.(mappedLocations);
       } catch (e) {
         console.error('error loading locations', e);
       } finally {
@@ -92,12 +95,20 @@ export default function LocationSelect({
     if (oystehr && loadingState === LoadingState.initial) {
       void getLocationsResults(oystehr);
     }
-  }, [oystehr, loadingState]);
+  }, [oystehr, loadingState, setExternalLocations]);
+
+  const getLocationLabel = (location: LocationWithWalkinSchedule): string => {
+    if (!location.name) {
+      console.log('Location name is undefined', location);
+      return 'Unknown Location';
+    }
+    return location.address?.state ? `${location.address.state.toUpperCase()} - ${location.name}` : location.name;
+  };
 
   const options = useMemo(() => {
     const allLocations = locations.map((location) => {
       return {
-        label: location.address?.state ? `${location.address.state.toUpperCase()} - ${location.name}` : location.name,
+        label: getLocationLabel(location),
         value: location.id,
       };
     });
@@ -129,8 +140,14 @@ export default function LocationSelect({
     <Autocomplete
       data-testid={dataTestIds.dashboard.locationSelect}
       disabled={renderInputProps?.disabled}
+      size={renderInputProps?.size}
       value={
-        location ? { label: `${location.address?.state?.toUpperCase()} - ${location.name}`, value: location?.id } : null
+        location
+          ? {
+              label: getLocationLabel(location),
+              value: location?.id,
+            }
+          : null
       }
       onChange={handleLocationChange}
       isOptionEqualToValue={(option, tempValue) => option.value === tempValue.value}

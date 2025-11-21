@@ -4,6 +4,7 @@ import Oystehr, {
   BatchInputPutRequest,
   BatchInputRequest,
 } from '@oystehr/sdk';
+import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import { randomUUID } from 'crypto';
 import { Operation, RemoveOperation } from 'fast-json-patch';
 import {
@@ -26,6 +27,7 @@ import {
   Practitioner,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
+  QuestionnaireResponseItemAnswer,
   Reference,
   RelatedPerson,
   Task,
@@ -34,7 +36,8 @@ import _ from 'lodash';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
-  CONSENT_CODE,
+  CANDID_PLAN_TYPE_SYSTEM,
+  codeableConcept,
   ConsentSigner,
   consolidateOperations,
   ContactTelecomConfig,
@@ -49,7 +52,6 @@ import {
   deduplicateContactPoints,
   deduplicateIdentifiers,
   deduplicateObjectsByStrictKeyValEquality,
-  deduplicateUnbundledResources,
   extractResourceTypeAndPath,
   FHIR_BASE_URL,
   FHIR_EXTENSION,
@@ -58,6 +60,7 @@ import {
   flattenItems,
   formatPhoneNumber,
   getArrayInfo,
+  getConsentAndRelatedDocRefsForAppointment,
   getCurrentValue,
   getEmailForIndividual,
   getFullName,
@@ -70,13 +73,13 @@ import {
   getPayerId,
   getPhoneNumberForIndividual,
   getSecret,
-  getStripeCustomerIdFromAccount,
+  INSURANCE_CANDID_PLAN_TYPE_CODES,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_CODE,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
-  INSURANCE_COVERAGE_CODING,
+  InsurancePlanTypes,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   isValidUUID,
@@ -85,6 +88,8 @@ import {
   OrderedCoverages,
   OrderedCoveragesWithSubscribers,
   OTTEHR_MODULE,
+  PAPERWORK_CONSENT_CODE_UNIQUE,
+  PAPERWORK_CONSENT_CODING_LOINC,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PATIENT_NOT_FOUND_ERROR,
   PATIENT_PHOTO_CODE,
@@ -96,6 +101,7 @@ import {
   PHOTO_ID_BACK_ID,
   PHOTO_ID_CARD_CODE,
   PHOTO_ID_FRONT_ID,
+  PREFERRED_PHARMACY_EXTENSION_URL,
   PRIVACY_POLICY_CODE,
   PRIVATE_EXTENSION_BASE_URL,
   relatedPersonFieldPaths,
@@ -109,10 +115,14 @@ import {
   takeContainedOrFind,
   uploadPDF,
 } from 'utils';
+import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
-import { createPdfBytes } from '../../../shared';
+import { createPdfBytes, ensureStripeCustomerId } from '../../../shared';
+
+export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
+// const PATIENT_UPDATE_MAX_RETRIES = 3;
 
 interface ResponsiblePartyContact {
   birthSex: 'Male' | 'Female' | 'Intersex';
@@ -121,8 +131,16 @@ interface ResponsiblePartyContact {
   lastName: string;
   relationship: 'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
   address: Address;
-
+  email: string;
   number?: string;
+}
+
+interface EmergencyContact {
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  relationship: 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
+  number: string;
 }
 
 interface PolicyHolder {
@@ -196,44 +214,16 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   // Search for existing consent DocumentReferences for the appointment
   let oldConsentDocRefs: DocumentReference[] | undefined = undefined;
   let oldConsentResources: Consent[] | undefined = undefined;
-  if (questionnaireResponse) {
-    console.log('searching for old consent doc refs');
-    oldConsentDocRefs = (
-      await oystehr.fhir.search<DocumentReference>({
-        resourceType: 'DocumentReference',
-        params: [
-          {
-            name: 'status',
-            value: 'current',
-          },
-          {
-            name: 'type',
-            value: CONSENT_CODE,
-          },
-          {
-            name: 'subject',
-            value: `Patient/${patientResource.id}`,
-          },
-          {
-            name: 'related',
-            value: `Appointment/${appointmentId}`,
-          },
-        ],
-      })
-    ).unbundle();
-    if (oldConsentDocRefs?.[0]?.id) {
-      console.log('searching for old consent resources');
-      oldConsentResources = (
-        await oystehr.fhir.search<Consent>({
-          resourceType: 'Consent',
-          params: [
-            { name: 'patient', value: `Patient/${patientResource.id}` },
-            { name: 'status', value: 'active' },
-            { name: 'source-reference', value: `DocumentReference/${oldConsentDocRefs?.[0]?.id}` }, // todo check this is right
-          ],
-        })
-      ).unbundle();
-    }
+  if (questionnaireResponse && patientResource.id) {
+    const { consents, docRefs } = await getConsentAndRelatedDocRefsForAppointment(
+      {
+        appointmentId,
+        patientId: patientResource.id,
+      },
+      oystehr
+    );
+    oldConsentResources = consents;
+    oldConsentDocRefs = docRefs;
   }
 
   // Create consent PDF, DocumentReference, and Consent resource if there are none or signer information changes
@@ -293,13 +283,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
       resourceTitle: 'Consent forms',
       type: {
-        coding: [
-          {
-            system: 'http://loinc.org',
-            code: CONSENT_CODE,
-            display: 'Consent Documents',
-          },
-        ],
+        coding: [PAPERWORK_CONSENT_CODING_LOINC, PAPERWORK_CONSENT_CODE_UNIQUE],
         text: 'Consent forms',
       },
     },
@@ -323,7 +307,17 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
 
   const pdfGroups: Record<string, typeof pdfsToCreate> = {};
   for (const pdfInfo of pdfsToCreate) {
-    const typeCode = pdfInfo.type.coding[0].code;
+    let typeCode = pdfInfo.type.coding[0].code;
+    if (pdfInfo.type.coding.length > 1) {
+      // Case of consent form with multiple type codings
+      typeCode = pdfInfo.type.coding.find(
+        (coding) =>
+          coding.system === PAPERWORK_CONSENT_CODE_UNIQUE.system && coding.code === PAPERWORK_CONSENT_CODE_UNIQUE.code
+      )?.code;
+    }
+    if (!typeCode) {
+      throw new Error('Unexpectedly could not find type code for PAPERWORK_CONSENT_CODE_UNIQUE');
+    }
     if (!pdfGroups[typeCode]) {
       pdfGroups[typeCode] = [];
     }
@@ -398,7 +392,16 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       },
       generateUUID: randomUUID,
       listResources,
-      searchParams: [],
+      searchParams: [
+        {
+          name: 'subject',
+          value: `Patient/${patientResource.id}`,
+        },
+        {
+          name: 'related',
+          value: `Appointment/${appointmentId}`,
+        },
+      ],
       meta: {
         // for backward compatibility. TODO: remove this
         tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
@@ -409,17 +412,75 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   }
 
   for (const pdfInfo of pdfsToCreate) {
-    const typeCode = pdfInfo.type.coding[0].code;
+    let typeCode = pdfInfo.type.coding[0].code;
+    // only in the case of Consent DRs, we have introduced multiple codings so we can tell different kinds of Consents apart (labs vs paperwork)
+    if (pdfInfo.type.coding.length > 1) {
+      const maybePaperworkTypeCoding = pdfInfo.type.coding.find(
+        (coding) =>
+          coding.system === PAPERWORK_CONSENT_CODE_UNIQUE.system && coding.code === PAPERWORK_CONSENT_CODE_UNIQUE.code
+      );
+      if (maybePaperworkTypeCoding) {
+        typeCode = maybePaperworkTypeCoding.code;
+      }
+    }
+    if (!typeCode) {
+      throw new Error('Unexpectedly could not find type code for PAPERWORK_CONSENT_CODE_UNIQUE');
+    }
     const groupRefs = allDocRefsByType[typeCode] || [];
     const matchingRef = groupRefs.find((dr) => dr.content[0]?.attachment.title === pdfInfo.formTitle);
     if (!matchingRef?.id) {
       throw new Error(`DocumentReference for "${pdfInfo.formTitle}" not found`);
     }
 
-    if (typeCode === CONSENT_CODE) {
+    if (typeCode === PAPERWORK_CONSENT_CODE_UNIQUE.code) {
       await createConsentResource(patientResource.id!, matchingRef.id, nowIso, oystehr);
     }
   }
+}
+
+const getAttachment = (flattenedPaperwork: QuestionnaireResponseItem[], linkId: string): Attachment | undefined =>
+  flattenedPaperwork.find((item) => item.linkId === linkId)?.answer?.[0]?.valueAttachment;
+
+function isNewAttachment(attachment: Attachment, existing: Set<string>): boolean {
+  return !!attachment.url && !existing.has(attachment.url);
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
+}
+
+function filterNewAttachments(attachments: (Attachment | undefined)[], existing: Set<string>): Attachment[] {
+  return attachments.filter(isDefined).filter((a) => isNewAttachment(a as Attachment, existing));
+}
+
+function buildDocToSave({
+  code,
+  attachments,
+  subject,
+  context,
+  display,
+  text,
+}: {
+  code: string;
+  attachments: Attachment[];
+  subject: string;
+  context: string;
+  display: string;
+  text: string;
+}): DocToSaveData {
+  const sorted = sortAttachmentsByCreationTime(attachments);
+  const dateCreated = sorted[0]?.creation ?? '';
+  return {
+    code,
+    files: sorted.map(({ url = '', title = '' }) => ({ url, title })),
+    references: {
+      subject: { reference: subject },
+      context: { related: [{ reference: context }] },
+    },
+    display,
+    text,
+    dateCreated,
+  };
 }
 
 export async function createDocumentResources(
@@ -427,8 +488,18 @@ export async function createDocumentResources(
   patientID: string,
   appointmentID: string,
   oystehr: Oystehr,
-  listResources: List[]
+  listResources: List[],
+  documentReferenceResources: DocumentReference[]
 ): Promise<void> {
+  const existingAttachments = new Set<string>();
+
+  for (const doc of documentReferenceResources) {
+    doc.content?.forEach((content) => {
+      const url = content.attachment?.url;
+      if (url) existingAttachments.add(url);
+    });
+  }
+
   console.log('reviewing insurance cards and photo id cards');
 
   const docsToSave: DocToSaveData[] = [];
@@ -436,160 +507,80 @@ export async function createDocumentResources(
   const items = (questionnaireResponse.item as IntakeQuestionnaireItem[]) ?? [];
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(items) as QuestionnaireResponseItem[];
 
-  const photoIdFront = flattenedPaperwork.find((item) => {
-    return item.linkId === PHOTO_ID_FRONT_ID;
-  })?.answer?.[0]?.valueAttachment;
-  const photoIdBack = flattenedPaperwork.find((item) => {
-    return item.linkId === PHOTO_ID_BACK_ID;
-  })?.answer?.[0]?.valueAttachment;
+  const photoIdFront = getAttachment(flattenedPaperwork, PHOTO_ID_FRONT_ID);
+  const photoIdBack = getAttachment(flattenedPaperwork, PHOTO_ID_BACK_ID);
+  const insuranceCardFront = getAttachment(flattenedPaperwork, INSURANCE_CARD_FRONT_ID);
+  const insuranceCardBack = getAttachment(flattenedPaperwork, INSURANCE_CARD_BACK_ID);
+  const insuranceCardFrontSecondary = getAttachment(flattenedPaperwork, INSURANCE_CARD_FRONT_2_ID);
+  const insuranceCardBackSecondary = getAttachment(flattenedPaperwork, INSURANCE_CARD_BACK_2_ID);
+  const patientConditionPhoto = getAttachment(flattenedPaperwork, `${PATIENT_PHOTO_ID_PREFIX}s`);
+  const schoolNote = getAttachment(flattenedPaperwork, SCHOOL_WORK_NOTE_SCHOOL_ID);
+  const workNote = getAttachment(flattenedPaperwork, SCHOOL_WORK_NOTE_WORK_ID);
 
-  const insuranceCardFront = flattenedPaperwork.find((item) => {
-    return item.linkId === INSURANCE_CARD_FRONT_ID;
-  })?.answer?.[0]?.valueAttachment;
-  const insuranceCardBack = flattenedPaperwork.find((item) => {
-    return item.linkId === INSURANCE_CARD_BACK_ID;
-  })?.answer?.[0]?.valueAttachment;
-
-  const insuranceCardFrontSecondary = flattenedPaperwork.find((item) => {
-    return item.linkId === INSURANCE_CARD_FRONT_2_ID;
-  })?.answer?.[0]?.valueAttachment;
-  const insuranceCardBackSecondary = flattenedPaperwork.find((item) => {
-    return item.linkId === INSURANCE_CARD_BACK_2_ID;
-  })?.answer?.[0]?.valueAttachment;
-
-  const patientConditionPhoto = flattenedPaperwork.find((item) => {
-    return item.linkId === `${PATIENT_PHOTO_ID_PREFIX}s`;
-  })?.answer?.[0]?.valueAttachment;
-
-  const schoolNote = flattenedPaperwork.find((item) => {
-    return item.linkId === SCHOOL_WORK_NOTE_SCHOOL_ID;
-  })?.answer?.[0]?.valueAttachment;
-
-  const workNote = flattenedPaperwork.find((item) => {
-    return item.linkId === SCHOOL_WORK_NOTE_WORK_ID;
-  })?.answer?.[0]?.valueAttachment;
-
-  const idCards: Attachment[] = [];
-  if (photoIdBack) {
-    idCards.push(photoIdBack);
-  }
-  if (photoIdFront) {
-    idCards.push(photoIdFront);
-  }
-
-  const insuranceCards: Attachment[] = [];
-  if (insuranceCardFront) {
-    insuranceCards.push(insuranceCardFront);
-  }
-  if (insuranceCardBack) {
-    insuranceCards.push(insuranceCardBack);
-  }
-
-  if (insuranceCardFrontSecondary) {
-    insuranceCards.push(insuranceCardFrontSecondary);
-  }
-  if (insuranceCardBackSecondary) {
-    insuranceCards.push(insuranceCardBackSecondary);
-  }
-
-  const schoolWorkNotes: Attachment[] = [];
-  if (schoolNote) {
-    schoolWorkNotes.push(schoolNote);
-  }
-  if (workNote) {
-    schoolWorkNotes.push(workNote);
-  }
+  const idCards = filterNewAttachments([photoIdFront, photoIdBack], existingAttachments);
+  const insuranceCards = filterNewAttachments(
+    [insuranceCardFront, insuranceCardBack, insuranceCardFrontSecondary, insuranceCardBackSecondary],
+    existingAttachments
+  );
+  const schoolWorkNotes = filterNewAttachments([schoolNote, workNote], existingAttachments);
 
   if (idCards.length) {
-    const sorted = sortAttachmentsByCreationTime(idCards);
-    const dateCreated = sorted[0].creation ?? '';
-    const photoIdDocToSave = {
-      // photo id
-      code: PHOTO_ID_CARD_CODE,
-      files: sorted.map((attachment) => {
-        const { url = '', title = '' } = attachment;
-        return {
-          url,
-          title,
-        };
-      }),
-      references: {
-        subject: { reference: `Patient/${patientID}` },
-        context: { related: [{ reference: `Patient/${patientID}` }] },
-      },
-      display: 'Patient data Document',
-      text: 'Photo ID cards',
-      dateCreated,
-    };
-    docsToSave.push(photoIdDocToSave);
+    docsToSave.push(
+      buildDocToSave({
+        code: PHOTO_ID_CARD_CODE,
+        attachments: idCards,
+        subject: `Patient/${patientID}`,
+        context: `Patient/${patientID}`,
+        display: 'Patient data Document',
+        text: 'Photo ID cards',
+      })
+    );
   }
 
   if (insuranceCards.length) {
-    const sorted = sortAttachmentsByCreationTime(insuranceCards);
-    const dateCreated = sorted[0].creation ?? '';
-    const insuranceDocToSave = {
-      code: INSURANCE_CARD_CODE,
-      files: sorted.map((attachment) => {
-        const { url = '', title = '' } = attachment;
-        return {
-          url,
-          title,
-        };
-      }),
-      references: {
-        subject: { reference: `Patient/${patientID}` },
-        context: { related: [{ reference: `Patient/${patientID}` }] },
-      },
-      display: 'Health insurance card',
-      text: 'Insurance cards',
-      dateCreated,
-    };
-    docsToSave.push(insuranceDocToSave);
+    docsToSave.push(
+      buildDocToSave({
+        code: INSURANCE_CARD_CODE,
+        attachments: insuranceCards,
+        subject: `Patient/${patientID}`,
+        context: `Patient/${patientID}`,
+        display: 'Health insurance card',
+        text: 'Insurance cards',
+      })
+    );
   }
 
   if (patientConditionPhoto) {
-    const dateCreated = patientConditionPhoto.creation ?? '';
-    const conditionPhotosToSave = {
-      code: PATIENT_PHOTO_CODE,
-      files: [patientConditionPhoto].map((attachment) => {
-        const { url = '', title = '' } = attachment;
-        return {
-          url,
-          title,
-        };
-      }),
-      references: {
-        subject: { reference: `Patient/${patientID}` },
-        context: { related: [{ reference: `Appointment/${appointmentID}` }] },
-      },
-      display: 'Patient condition photos',
-      text: 'Patient photos',
-      dateCreated,
-    };
-    docsToSave.push(conditionPhotosToSave);
+    if (!existingAttachments.has(patientConditionPhoto.url ?? '')) {
+      docsToSave.push(
+        buildDocToSave({
+          code: PATIENT_PHOTO_CODE,
+          attachments: [patientConditionPhoto],
+          subject: `Patient/${patientID}`,
+          context: `Appointment/${appointmentID}`,
+          display: 'Patient condition photos',
+          text: 'Patient photos',
+        })
+      );
+    }
   }
 
   if (schoolWorkNotes.length) {
-    const sorted = sortAttachmentsByCreationTime(schoolWorkNotes);
-    const dateCreated = sorted[0].creation ?? '';
-    const schoolWorkNotesToSave = {
-      code: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
-      files: schoolWorkNotes.map((attachment) => {
-        const { url = attachment.url || '', title = attachment.title || '' } = attachment;
-        return {
-          url,
-          title,
-        };
-      }),
-      references: {
-        subject: { reference: `Patient/${patientID}` },
-        context: { related: [{ reference: `Appointment/${appointmentID}` }] },
-      },
-      display: 'Patient status assessment note template',
-      text: 'Patient status assessment note template',
-      dateCreated,
-    };
-    docsToSave.push(schoolWorkNotesToSave);
+    docsToSave.push(
+      buildDocToSave({
+        code: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
+        attachments: schoolWorkNotes,
+        subject: `Patient/${patientID}`,
+        context: `Appointment/${appointmentID}`,
+        display: 'Patient status assessment note template',
+        text: 'Patient status assessment note template',
+      })
+    );
+  }
+
+  if (docsToSave.length === 0) {
+    console.log('No new documents to save. Skipping document creation.');
+    return;
   }
 
   console.log('docsToSave len', docsToSave.length);
@@ -610,12 +601,16 @@ export async function createDocumentResources(
       dateCreated: d.dateCreated,
       searchParams: [
         {
-          name: 'related',
+          name: 'subject',
           value: `Patient/${patientID}`,
         },
         {
           name: 'type',
           value: d.code,
+        },
+        {
+          name: 'related',
+          value: `Appointment/${appointmentID}`,
         },
       ],
       references: d.references,
@@ -780,11 +775,11 @@ export interface PatientMasterRecordResources {
 }
 
 export function createMasterRecordPatchOperations(
-  questionnaireResponse: QuestionnaireResponse,
+  questionnaireResponseItems: QuestionnaireResponseItem[],
   patient: Patient
 ): MasterRecordPatchOperations {
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    questionnaireResponse.item as IntakeQuestionnaireItem[]
+    questionnaireResponseItems as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
 
   const result: MasterRecordPatchOperations = {
@@ -806,7 +801,9 @@ export function createMasterRecordPatchOperations(
     'guardian-number': { system: 'phone' },
     'guardian-email': { system: 'email' },
     'responsible-party-number': { system: 'phone', use: 'mobile' },
+    'responsible-party-email': { system: 'email' },
     'pcp-number': { system: 'phone' },
+    'emergency-contact-number': { system: 'phone' },
   };
 
   const pcpItems: QuestionnaireResponseItem[] = [];
@@ -1142,6 +1139,56 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
     }
   }
   return operations;
+};
+
+export const createUpdatePharmacyPatchOps = (
+  patient: Patient,
+  flattenedItems: QuestionnaireResponseItem[]
+): Operation[] => {
+  const inputPharmacyName = getAnswer('pharmacy-name', flattenedItems)?.valueString;
+  const inputPharmacyAddress = getAnswer('pharmacy-address', flattenedItems)?.valueString;
+  const newContained = (patient.contained ?? []).filter((resource) => resource.id !== PATIENT_CONTAINED_PHARMACY_ID);
+  const newExtensions = (patient.extension ?? []).filter(
+    (extension) => extension.url !== PREFERRED_PHARMACY_EXTENSION_URL
+  );
+  if (inputPharmacyName || inputPharmacyAddress) {
+    const pharmacy: Organization = {
+      resourceType: 'Organization',
+      id: PATIENT_CONTAINED_PHARMACY_ID,
+      name: inputPharmacyName ?? '-',
+      type: [codeableConcept('pharmacy', FHIR_EXTENSION.Organization.organizationType.url)],
+      address: inputPharmacyAddress
+        ? [
+            {
+              text: inputPharmacyAddress,
+            },
+          ]
+        : undefined,
+    };
+    newContained.push(pharmacy);
+    newExtensions.push({
+      url: PREFERRED_PHARMACY_EXTENSION_URL,
+      valueReference: {
+        reference: '#' + PATIENT_CONTAINED_PHARMACY_ID,
+      },
+    });
+    const containedOp = patient.contained ? 'replace' : 'add';
+    const extensionOp = patient.extension ? 'replace' : 'add';
+    const patchOps: Operation[] = [
+      {
+        op: containedOp,
+        path: '/contained',
+        value: newContained,
+      },
+      {
+        op: extensionOp,
+        path: '/extension',
+        value: newExtensions,
+      },
+    ];
+    return patchOps;
+  }
+  return [];
 };
 
 function separateResourceUpdates(
@@ -1729,6 +1776,7 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
       | 'Legal Guardian'
       | 'Other',
     address: guarantorAddress,
+    email: findAnswer('responsible-party-email') ?? '',
     number: findAnswer('responsible-party-number'),
   };
 
@@ -1738,10 +1786,29 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
   return undefined;
 }
 
+export function extractEmergencyContact(items: QuestionnaireResponseItem[]): EmergencyContact | undefined {
+  const findAnswer = (linkId: string): string | undefined =>
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+
+  const contact: EmergencyContact = {
+    middleName: findAnswer('emergency-contact-middle-name') ?? '',
+    firstName: findAnswer('emergency-contact-first-name') ?? '',
+    lastName: findAnswer('emergency-contact-last-name') ?? '',
+    relationship: findAnswer('emergency-contact-relationship') as 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other',
+    number: findAnswer('emergency-contact-number') ?? '',
+  };
+
+  if (contact.firstName && contact.lastName && contact.number && contact.relationship) {
+    return contact;
+  }
+  return undefined;
+}
+
 // note: this function assumes items have been flattened before being passed in
 interface InsuranceDetails {
   org: Organization;
   additionalInformation?: string;
+  typeCode?: NetworkType;
 }
 function getInsuranceDetailsFromAnswers(
   answers: QuestionnaireResponseItem[],
@@ -1756,10 +1823,16 @@ function getInsuranceDetailsFromAnswers(
   const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insuranceOrgReference.reference);
   if (!org) return undefined;
 
+  const qType = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]?.valueString;
+  let typeCode: NetworkType | undefined = undefined;
+  if (qType && INSURANCE_CANDID_PLAN_TYPE_CODES.includes(qType)) {
+    typeCode = qType as NetworkType;
+  }
+
   const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
     ?.answer?.[0]?.valueString;
 
-  return { org, additionalInformation };
+  return { org, additionalInformation, typeCode };
 }
 
 interface CreateCoverageResourceInput {
@@ -1769,11 +1842,12 @@ interface CreateCoverageResourceInput {
     org: Organization;
     policyHolder: PolicyHolder;
     additionalInformation?: string;
+    typeCode?: NetworkType;
   };
 }
 const createCoverageResource = (input: CreateCoverageResourceInput): Coverage => {
   const { patientId, insurance } = input;
-  const { org, policyHolder, additionalInformation } = insurance;
+  const { org, policyHolder, additionalInformation, typeCode } = insurance;
   const memberId = policyHolder.memberId;
 
   const payerId = getPayerId(org);
@@ -1827,9 +1901,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       type: 'Patient',
       reference: `Patient/${patientId}`,
     },
-    type: {
-      coding: [INSURANCE_COVERAGE_CODING],
-    },
+    type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
     payor: [{ reference: `Organization/${org.id}` }],
     subscriberId: policyHolder.memberId,
     relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
@@ -1848,6 +1920,8 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
   };
+  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === typeCode)?.coverageCoding;
+  if (coverageTypeCoding) coverage.type?.coding?.push(coverageTypeCoding);
 
   if (additionalInformation) {
     coverage.extension = [
@@ -1944,13 +2018,15 @@ export interface GetAccountOperationsInput {
   existingGuarantorResource?: RelatedPerson | Patient;
   existingAccount?: Account;
   preserveOmittedCoverages?: boolean;
+  existingEmergencyContact?: RelatedPerson;
 }
 
 export interface GetAccountOperationsOutput {
   coveragePosts: BatchInputPostRequest<Coverage>[];
   patch: BatchInputPatchRequest<Coverage | RelatedPerson>[];
-  put: BatchInputPutRequest<Account>[];
+  put: BatchInputPutRequest<Account | RelatedPerson>[];
   accountPost?: Account;
+  emergencyContactPost?: BatchInputPostRequest<RelatedPerson>;
 }
 
 // this function is exported for testing purposes
@@ -1963,6 +2039,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     organizationResources,
     existingAccount,
     preserveOmittedCoverages,
+    existingEmergencyContact,
   } = input;
 
   if (!patient.id) {
@@ -1972,6 +2049,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   const flattenedItems = flattenItems(questionnaireResponseItem ?? []);
 
   const guarantorData = extractAccountGuarantor(flattenedItems);
+
+  const emergencyContactData = extractEmergencyContact(flattenedItems);
   /*console.log(
     'insurance plan resources',
     JSON.stringify(insurancePlanResources, null, 2),
@@ -1991,13 +2070,15 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
 
   const patch: BatchInputPatchRequest<Coverage | RelatedPerson | Account>[] = [];
   const coveragePosts: BatchInputPostRequest<Coverage>[] = [];
-  const put: BatchInputPutRequest<Account>[] = [];
+  const puts: BatchInputPutRequest<Account | RelatedPerson>[] = [];
   let accountPost: Account | undefined;
+  let emergencyContactPost: BatchInputPostRequest<RelatedPerson> | undefined;
 
   console.log(
-    'getting account operations for patient, guarantorData, coverages, account',
+    'getting account operations for patient, guarantorData, emergencyContactData, coverages, account',
     JSON.stringify(patient, null, 2),
     JSON.stringify(guarantorData, null, 2),
+    JSON.stringify(emergencyContactData, null, 2),
     JSON.stringify(existingCoverages, null, 2),
     JSON.stringify(existingAccount, null, 2)
   );
@@ -2087,18 +2168,97 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       coverage: suggestedNewCoverageObject,
     };
 
-    put.push({
+    puts.push({
       method: 'PUT',
       url: `Account/${existingAccount.id}`,
       resource: updatedAccount,
     });
   }
 
+  // Emergency Contact
+  if (existingEmergencyContact && emergencyContactData) {
+    const emergencyContactResourceToPut: RelatedPerson = {
+      ...existingEmergencyContact,
+    };
+    const givenNames = [emergencyContactData?.firstName];
+    if (emergencyContactData?.middleName) {
+      givenNames.push(emergencyContactData.middleName);
+    }
+    emergencyContactResourceToPut.name = [
+      {
+        given: givenNames,
+        family: emergencyContactData?.lastName,
+      },
+    ];
+    emergencyContactResourceToPut.telecom = [
+      {
+        value: formatPhoneNumber(emergencyContactData?.number),
+        system: 'phone',
+      },
+    ];
+    emergencyContactResourceToPut.relationship = [
+      {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+            code: 'EP',
+            display: emergencyContactData.relationship,
+          },
+        ],
+      },
+    ];
+    puts.push({
+      method: 'PUT',
+      url: `RelatedPerson/${existingEmergencyContact.id}`,
+      resource: emergencyContactResourceToPut,
+    });
+  } else if (emergencyContactData) {
+    const emergencyContactResourceToCreate: RelatedPerson = {
+      resourceType: 'RelatedPerson',
+      patient: {
+        reference: `Patient/${patient.id}`,
+      },
+      relationship: [
+        {
+          coding: [
+            {
+              system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
+              code: 'EP',
+              display: emergencyContactData.relationship,
+            },
+          ],
+        },
+      ],
+    };
+    const givenNames = [emergencyContactData?.firstName];
+    if (emergencyContactData?.middleName) {
+      givenNames.push(emergencyContactData.middleName);
+    }
+    emergencyContactResourceToCreate.name = [
+      {
+        given: givenNames,
+        family: emergencyContactData?.lastName,
+      },
+    ];
+    emergencyContactResourceToCreate.telecom = [
+      {
+        value: formatPhoneNumber(emergencyContactData?.number),
+        system: 'phone',
+      },
+    ];
+    emergencyContactPost = {
+      method: 'POST',
+      url: 'RelatedPerson',
+      resource: emergencyContactResourceToCreate,
+    };
+  }
+
   return {
     coveragePosts,
     accountPost,
     patch,
-    put,
+    put: puts,
+    emergencyContactPost,
   };
 };
 
@@ -2628,6 +2788,12 @@ const patchOpsForCoverage = (input: GetCoveragePatchOpsInput): Operation[] => {
         path: `/${key}`,
       });
     }
+    if (key === 'type' && sourceValue === undefined && targetValue !== undefined) {
+      ops.push({
+        op: 'remove',
+        path: `/${key}`,
+      });
+    }
     if (sourceValue && !_.isEqual(sourceValue, targetValue) && targetValue === undefined) {
       ops.push({
         op: 'add',
@@ -2706,14 +2872,22 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
   const policyHolderName = createFhirHumanName(guarantor.firstName, undefined, guarantor.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[guarantor.relationship] || 'other';
   const number = guarantor.number;
+  const email = guarantor.email;
   let telecom: RelatedPerson['telecom'];
+  if (number || email) {
+    telecom = [];
+  }
   if (number) {
-    telecom = [
-      {
-        value: formatPhoneNumber(number),
-        system: 'phone',
-      },
-    ];
+    telecom?.push({
+      value: formatPhoneNumber(number),
+      system: 'phone',
+    });
+  }
+  if (email) {
+    telecom?.push({
+      value: email,
+      system: 'email',
+    });
   }
   return {
     resourceType: 'RelatedPerson',
@@ -2863,12 +3037,25 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     (res): res is Organization => res.resourceType === 'Organization'
   );
 
+  const emergencyContactResource = resources.find(
+    (res): res is RelatedPerson =>
+      (res.resourceType === 'RelatedPerson' &&
+        res.relationship?.some(
+          (rel) =>
+            rel.coding?.some(
+              (coding) => coding.code === 'EP' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131'
+            )
+        )) ||
+      false
+  );
+
   return {
     patient,
     account: existingAccount,
     coverages: existingCoverages,
     insuranceOrgs,
     guarantorResource: existingGuarantorResource,
+    emergencyContactResource,
   };
 };
 
@@ -2970,25 +3157,8 @@ export const updatePatientAccountFromQuestionnaire = async (
     coverages: existingCoverages,
     account: existingAccount,
     guarantorResource: existingGuarantorResource,
+    emergencyContactResource: existingEmergencyContact,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
-
-  const patientPatchOps = createMasterRecordPatchOperations(
-    { item: questionnaireResponseItem } as QuestionnaireResponse,
-    patient
-  );
-  console.time('patching patient resource');
-  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
-    try {
-      await oystehr.fhir.patch({
-        resourceType: 'Patient',
-        id: patient.id!,
-        operations: patientPatchOps.patient.patchOpsForDirectUpdate,
-      });
-    } catch (error: unknown) {
-      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
-    }
-  }
-  console.timeEnd('patching patient resource');
 
   /*
   console.log('existing coverages', JSON.stringify(existingCoverages, null, 2));
@@ -3003,11 +3173,12 @@ export const updatePatientAccountFromQuestionnaire = async (
     existingAccount,
     existingGuarantorResource,
     preserveOmittedCoverages,
+    existingEmergencyContact,
   });
 
   console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
 
-  const { patch, accountPost, put, coveragePosts } = accountOperations;
+  const { patch, accountPost, put, coveragePosts, emergencyContactPost } = accountOperations;
 
   const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient>[] = [
     ...coveragePosts,
@@ -3020,6 +3191,9 @@ export const updatePatientAccountFromQuestionnaire = async (
       method: 'POST',
       resource: accountPost,
     });
+  }
+  if (emergencyContactPost) {
+    transactionRequests.push(emergencyContactPost);
   }
 
   try {
@@ -3039,17 +3213,33 @@ interface UpdateStripeCustomerInput {
   guarantorResource: RelatedPerson | Patient;
   stripeClient: Stripe;
 }
-export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Promise<void> => {
-  const { guarantorResource, account } = input;
-  const stripeCustomerId = getStripeCustomerIdFromAccount(account);
+export const updateStripeCustomer = async (input: UpdateStripeCustomerInput, oystehr: Oystehr): Promise<void> => {
+  const { guarantorResource, account, stripeClient } = input;
+  console.log('updating Stripe customer for account', account.id);
+  console.log('guarantor resource:', `${guarantorResource?.resourceType}/${guarantorResource?.id}`);
+  const { customerId: stripeCustomerId } = await ensureStripeCustomerId(
+    {
+      patientId: account.subject?.[0]?.reference?.split('/')[1] || '',
+      account,
+      guarantorResource,
+      stripeClient,
+    },
+    oystehr
+  );
   const email = getEmailForIndividual(guarantorResource);
   const name = getFullName(guarantorResource);
+  const phone = getPhoneNumberForIndividual(guarantorResource);
   if (stripeCustomerId) {
-    await input.stripeClient.customers.update(stripeCustomerId, {
+    await stripeClient.customers.update(stripeCustomerId, {
       email,
       name,
+      phone,
     });
   } else {
     throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
   }
 };
+
+function getAnswer(linkId: string, items: QuestionnaireResponseItem[]): QuestionnaireResponseItemAnswer | undefined {
+  return items.find((data) => data.linkId === linkId)?.answer?.[0];
+}

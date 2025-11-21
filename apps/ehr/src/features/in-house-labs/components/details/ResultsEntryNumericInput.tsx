@@ -1,6 +1,6 @@
 import { TextField, useTheme } from '@mui/material';
-// import InputMask from 'src/components/InputMask';
 import { Controller, useFormContext } from 'react-hook-form';
+import InputMask from 'src/components/InputMask';
 import { TestItemComponent } from 'utils';
 
 interface ResultEntryNumericInputProps {
@@ -67,11 +67,11 @@ export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = (
           }}
           size="small"
           InputProps={{
-            // inputComponent: InputMask as any,
+            inputComponent: InputMask as any,
             inputProps: {
               mask: Number,
+              scale: 5,
               radix: '.',
-              padFractionalZeros: true,
             },
           }}
           defaultValue={''}

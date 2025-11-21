@@ -1,25 +1,27 @@
-import AddIcon from '@mui/icons-material/Add';
+import ScannerIcon from '@mui/icons-material/Scanner';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { Box, debounce, Grid, IconButton, Paper, Stack, TextField, Typography, useTheme } from '@mui/material';
 import { styled } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import {
+  PatientDocumentFoldersColumn,
+  PatientDocumentFoldersColumnSkeleton,
+} from 'src/features/visits/shared/components/patient/docs/PatientDocumentFoldersColumn';
+import {
+  DocumentTableActions,
+  PatientDocumentsExplorerTable,
+} from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable';
+import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { getFullName } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch, { CustomFormEventHandler } from '../components/DateSearch';
 import { LoadingScreen } from '../components/LoadingScreen';
-import { Header } from '../components/patient';
-import {
-  PatientDocumentFoldersColumn,
-  PatientDocumentFoldersColumnSkeleton,
-} from '../components/patient/docs/PatientDocumentFoldersColumn';
-import {
-  DocumentTableActions,
-  PatientDocumentsExplorerTable,
-} from '../components/patient/docs/PatientDocumentsExplorerTable';
 import { RoundedButton } from '../components/RoundedButton';
+import { ScannerModal } from '../components/ScannerModal';
 import { useGetPatient } from '../hooks/useGetPatient';
 import { PatientDocumentsFilters, PatientDocumentsFolder, useGetPatientDocs } from '../hooks/useGetPatientDocs';
 import { usePatientStore } from '../state/patient.store';
@@ -64,6 +66,7 @@ const PatientDocumentsExplorerPage: FC = () => {
   const [docNameTextDebounced, setDocNameTextDebounced] = useState<string>('');
   const [searchDocAddedDate, setSearchDocAddedDate] = useState<DateTime | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>(undefined);
+  const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
 
   const shouldShowClearFilters = searchDocNameFieldValue.trim().length > 0 || searchDocAddedDate || selectedFolder;
 
@@ -139,6 +142,49 @@ const PatientDocumentsExplorerPage: FC = () => {
     searchDocuments({});
   }, [searchDocuments]);
 
+  const handleOpenScanModal = useCallback(() => {
+    setIsScanModalOpen(true);
+  }, []);
+
+  const handleCloseScanModal = useCallback(() => {
+    setIsScanModalOpen(false);
+  }, []);
+
+  const handleScanComplete = useCallback(
+    async (fileBlob: Blob | Blob[], fileName: string): Promise<void> => {
+      const folderId = selectedFolder?.id;
+      if (!folderId) {
+        enqueueSnackbar('No folder selected', { variant: 'error' });
+        return;
+      }
+
+      try {
+        // Since this page uses PDF format (default), fileBlob should be a single Blob
+        if (Array.isArray(fileBlob)) {
+          console.error('Unexpected array of blobs for PDF output format');
+          enqueueSnackbar('Failed to upload scanned document', { variant: 'error' });
+          return;
+        }
+
+        // Ensure fileName ends with .pdf extension
+        const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+        const file = new File([fileBlob], finalFileName, { type: 'application/pdf' });
+
+        await documentActions.uploadDocumentAction({
+          docFile: file,
+          fileName: finalFileName,
+          fileFolderId: folderId,
+        });
+
+        enqueueSnackbar('Successfully uploaded scanned document', { variant: 'success' });
+      } catch (error) {
+        console.error('Error uploading scanned document:', error);
+        enqueueSnackbar('Failed to upload scanned document', { variant: 'error' });
+      }
+    },
+    [documentActions, selectedFolder?.id]
+  );
+
   const handleDocumentUploadInputChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
       const { files } = event.target;
@@ -207,7 +253,7 @@ const PatientDocumentsExplorerPage: FC = () => {
               },
               {
                 link: '#',
-                children: `Patient Information`,
+                children: `Patient Profile`,
               },
             ]}
           />
@@ -322,17 +368,27 @@ const PatientDocumentsExplorerPage: FC = () => {
 
                   <RoundedButton
                     disabled={!selectedFolder || documentActions.isUploading}
+                    loading={documentActions.isUploading}
                     component="label"
                     target="_blank"
                     variant="outlined"
-                    startIcon={<AddIcon fontSize="small" />}
+                    startIcon={<UploadFileIcon fontSize="small" />}
                   >
-                    Upload New Doc
+                    Upload
                     <FileAttachmentHiddenInput
                       onChange={handleDocumentUploadInputChange}
                       type="file"
                       capture="environment"
                     />
+                  </RoundedButton>
+
+                  <RoundedButton
+                    disabled={!selectedFolder}
+                    variant="outlined"
+                    startIcon={<ScannerIcon fontSize="small" />}
+                    onClick={handleOpenScanModal}
+                  >
+                    Scan
                   </RoundedButton>
                 </Box>
 
@@ -346,6 +402,8 @@ const PatientDocumentsExplorerPage: FC = () => {
           </Paper>
         </Box>
       </Box>
+
+      <ScannerModal open={isScanModalOpen} onClose={handleCloseScanModal} onScanComplete={handleScanComplete} />
     </Box>
   );
 };

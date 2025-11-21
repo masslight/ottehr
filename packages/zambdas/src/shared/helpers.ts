@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputRequest, OystehrConfig } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -10,18 +11,21 @@ import {
   QuestionnaireResponse,
   RelatedPerson,
   Resource,
+  Schedule,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   EncounterVirtualServiceExtension,
   findQuestionnaireResponseItemLinkId,
   getSecret,
+  getTimezone,
   pickFirstValueFromAnswerItem,
   PRIVATE_EXTENSION_BASE_URL,
   PUBLIC_EXTENSION_BASE_URL,
   Secrets,
   SecretsKeys,
   TELEMED_VIDEO_ROOM_CODE,
+  TIMEZONES,
 } from 'utils';
 import { ZambdaInput } from './types';
 
@@ -119,7 +123,7 @@ export function getPatchBinary<F extends FhirResource>(input: GetPatchBinaryInpu
 
 export function logTime(): void {
   if (process.env.IS_OFFLINE === 'true') {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('console-stamp')(console, 'HH:MM:ss.l');
   }
 }
@@ -163,7 +167,7 @@ export function validateJsonBody(input: ZambdaInput): any {
   }
   try {
     return JSON.parse(input.body);
-  } catch (_error) {
+  } catch {
     throw new Error('Invalid JSON in request body');
   }
 }
@@ -208,8 +212,9 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
   let parsedExtValue: { display: string; url: string }[] = [];
   try {
     parsedExtValue = JSON.parse(rawExtensionValue);
-  } catch (_) {
+  } catch (e) {
     console.log('Location other-offices extension is formatted incorrectly');
+    captureException(e);
     return [];
   }
 
@@ -228,4 +233,14 @@ export function checkPaperworkComplete(questionnaireResponse: QuestionnaireRespo
     }
   }
   return false;
+}
+
+export function resolveTimezone(schedule?: Schedule, location?: Location, fallback: string = TIMEZONES[0]): string {
+  if (schedule) {
+    return getTimezone(schedule);
+  }
+  if (location) {
+    return getTimezone(location);
+  }
+  return fallback;
 }

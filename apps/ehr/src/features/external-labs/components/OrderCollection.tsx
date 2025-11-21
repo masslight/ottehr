@@ -1,12 +1,11 @@
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, Stack } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import { Box, Button, Stack, Typography } from '@mui/material';
+import Oystehr from '@oystehr/sdk';
 import React, { useMemo, useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CustomDialog } from 'src/components/dialogs';
-import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
-import { submitLabOrder } from '../../../api/api';
+import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO, LabQuestionnaireResponse, openPdf } from 'utils';
+import { updateLabOrderResources } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { AOECard } from './AOECard';
 import { OrderHistoryCard } from './OrderHistoryCard';
@@ -18,10 +17,6 @@ interface SampleCollectionProps {
   showActionButtons?: boolean;
   showOrderInfo?: boolean;
   isAOECollapsed?: boolean;
-}
-
-export async function openPdf(url: string): Promise<void> {
-  window.open(url, '_blank');
 }
 
 export const OrderCollection: React.FC<SampleCollectionProps> = ({
@@ -42,12 +37,14 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
-  const [errorDialogOpen, setErrorDialogOpen] = useState<boolean>(false);
   const [specimensData, setSpecimensData] = useState<{ [specimenId: string]: { date: string } }>({});
   const shouldShowSampleCollectionInstructions =
     !labOrder.isPSC &&
     (labOrder.orderStatus === ExternalLabsStatus.pending || labOrder.orderStatus === ExternalLabsStatus.sent);
   const showAOECard = aoe.length > 0;
+
+  // if these are present they will be displayed from ResultItem.tsx so we shouldn't display the SR level requisition number on this component
+  const additionalPlacerIdsMapped = labOrder.resultsDetails.some((result) => result.alternatePlacerId);
 
   const sanitizeFormData = (data: DynamicAOEInput): DynamicAOEInput => {
     const sanitizedData = { ...data };
@@ -68,7 +65,6 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           sanitizedData[item] = false;
         }
       }
-      console.log(sanitizedData[item]);
       if (question && (question.type === 'integer' || question.type === 'decimal')) {
         sanitizedData[item] = Number(sanitizedData[item]);
       }
@@ -77,56 +73,40 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     return sanitizedData;
   };
 
-  const submitOrder = async ({ data, manualOrder }: { data: DynamicAOEInput; manualOrder: boolean }): Promise<void> => {
+  const markOrderAsReady: SubmitHandler<DynamicAOEInput> = async (data): Promise<void> => {
     setSubmitLoading(true);
+    setError(undefined);
 
     if (!oystehr) {
       setError(['Oystehr client is undefined']);
-      setErrorDialogOpen(true);
       return;
     }
 
     const sanitizedData = sanitizeFormData(data);
-
+    console.log('specimensData', specimensData);
     try {
-      const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
-        serviceRequestID: labOrder.serviceRequestId,
-        accountNumber: labOrder.accountNumber,
-        manualOrder,
+      const result = await updateLabOrderResources(oystehr, {
+        event: 'saveOrderCollectionData',
+        serviceRequestId: labOrder.serviceRequestId,
         data: sanitizedData,
-        ...(!labOrder.isPSC && { specimens: specimensData }), // non PSC orders require specimens, validation is handled in the zambda
+        ...(!labOrder.isPSC && { specimenCollectionDates: specimensData }), // non PSC orders require specimens
       });
-
-      if (labelPdfUrl) await openPdf(labelPdfUrl);
-      await openPdf(orderPdfUrl);
-
-      setSubmitLoading(false);
-      setError(undefined);
+      if (result.presignedLabelURL) await openPdf(result.presignedLabelURL);
       navigate(`/in-person/${appointmentID}/external-lab-orders`);
     } catch (e) {
-      const oyError = e as OystehrSdkError;
-      console.log('error creating external lab order1', oyError.code, oyError.message);
-      const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
+      const sdkError = e as Oystehr.OystehrSdkError;
+      console.log('error updating collection data and marking as ready', sdkError.code, sdkError.message);
+      const errorMessage = [sdkError.message];
       setError(errorMessage);
-      setErrorDialogOpen(true);
-      setSubmitLoading(false);
     }
 
-    console.log(`data at submit: ${JSON.stringify(sanitizedData)}`);
-  };
-
-  const handleAutomatedSubmit: SubmitHandler<DynamicAOEInput> = async (data) => {
-    await submitOrder({ data, manualOrder: false });
-  };
-
-  const handleManualSubmit = async (): Promise<void> => {
-    const data = methods.getValues();
-    await submitOrder({ data, manualOrder: true });
+    setSubmitLoading(false);
+    console.log(`data at mark as ready: ${JSON.stringify(sanitizedData)}`);
   };
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(handleAutomatedSubmit)}>
+      <form onSubmit={methods.handleSubmit(markOrderAsReady)}>
         {showAOECard && (
           <AOECard
             questions={aoe}
@@ -141,20 +121,36 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             <Box sx={{ marginTop: showAOECard ? 2 : 0 }} key={`sample-card-${sample.specimen.id}`}>
               <SampleCollectionInstructionsCard
                 sample={sample}
-                serviceRequestId={labOrder.serviceRequestId}
                 timezone={labOrder.encounterTimezone}
                 setSpecimenData={(specimenId: string, date: string) =>
                   setSpecimensData((prev) => ({ ...prev, [specimenId]: { date } }))
                 }
-                printLabelVisible={orderStatus === 'sent'}
                 isDateEditable={orderStatus === 'pending'}
               />
             </Box>
           ))}
 
-        {showOrderInfo && <OrderInformationCard orderPdfUrl={labOrder.orderPdfUrl} />}
+        {showOrderInfo && (
+          <OrderInformationCard labelPdfUrl={labOrder.labelPdfUrl} orderPdfUrl={labOrder.orderPdfUrl} />
+        )}
 
-        <Box sx={{ mt: 2 }}>
+        {!additionalPlacerIdsMapped && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body1">
+              <span style={{ fontWeight: 500 }}>Requisition Number: </span> {labOrder.orderNumber}
+            </Typography>
+          </Box>
+        )}
+
+        {labOrder.location?.name && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body1">
+              <span style={{ fontWeight: 500 }}>Ordering Office: </span> {labOrder.location.name}
+            </Typography>
+          </Box>
+        )}
+
+        <Box sx={{ mb: 2 }}>
           <OrderHistoryCard
             isPSCPerformed={labOrder.isPSC}
             orderHistory={labOrder?.history}
@@ -163,7 +159,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         </Box>
 
         {showActionButtons && (
-          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
             <Link to={`/in-person/${appointmentID}/external-lab-orders`}>
               <Button variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}>
                 Back
@@ -177,22 +173,17 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                   sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                   type="submit"
                 >
-                  Submit & Print Order{!labOrder.isPSC ? ' and Label' : ''}
+                  Mark as Ready{!labOrder.isPSC ? ' & Print Label' : ''}
                 </LoadingButton>
               </Stack>
             )}
           </Stack>
         )}
-        <CustomDialog
-          open={errorDialogOpen}
-          confirmLoading={submitLoading}
-          handleConfirm={() => handleManualSubmit()}
-          confirmText="Manually submit lab order"
-          handleClose={() => setErrorDialogOpen(false)}
-          title="Error submitting lab order"
-          description={error?.join(',') || 'Error submitting lab order'}
-          closeButtonText="cancel"
-        />
+        {error && (
+          <Box>
+            <Typography color="error">{error.join(', ')}</Typography>
+          </Box>
+        )}
       </form>
     </FormProvider>
   );

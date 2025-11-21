@@ -1,11 +1,18 @@
 import { LoadingButton } from '@mui/lab';
-import { Button, Grid, Paper, Skeleton, Typography } from '@mui/material';
+import { Box, Button, Grid, Paper, Skeleton, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
-import { FHIR_IDENTIFIER_NPI, PractitionerLicense, PractitionerQualificationCode, RoleType, User } from 'utils';
+import {
+  FHIR_IDENTIFIER_NPI,
+  PractitionerLicense,
+  PractitionerQualificationCode,
+  PROVIDER_TYPE_EXTENSION_URL,
+  RoleType,
+  User,
+} from 'utils';
 import { updateUser } from '../../api/api';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -101,18 +108,15 @@ export default function EmployeeInformationForm({
       let firstName = '';
       let middleName = '';
       let lastName = '';
-      let nameSuffix = '';
       if (existingUser.profileResource?.name && existingUser.profileResource?.name.length > 0) {
         const name = existingUser.profileResource?.name[0];
         firstName = name.given?.[0] ?? '';
         middleName = name.given?.length && name.given.length > 1 ? name.given.slice(1).join(' ') : '';
         lastName = name.family ?? '';
-        nameSuffix = name.suffix?.join(' ') ?? '';
       }
       setValue('firstName', firstName);
       setValue('middleName', middleName);
       setValue('lastName', lastName);
-      setValue('nameSuffix', nameSuffix);
 
       if (existingUser?.profileResource?.telecom) {
         const phone = existingUser.profileResource.telecom.find((tel) => tel.system === 'phone')?.value;
@@ -151,6 +155,25 @@ export default function EmployeeInformationForm({
           setValue('npi', npi.value || 'n/a');
         }
       }
+
+      if (existingUser.profileResource?.extension) {
+        const providerTypeExt = existingUser.profileResource.extension.find(
+          (ext) => ext.url === PROVIDER_TYPE_EXTENSION_URL
+        );
+
+        if (providerTypeExt?.valueCodeableConcept) {
+          const coding = providerTypeExt.valueCodeableConcept.coding?.[0];
+          const code = coding?.code;
+          const text = providerTypeExt.valueCodeableConcept.text;
+
+          if (code) {
+            setValue('providerType', code as EmployeeForm['providerType']);
+            if (code === 'other' && text) {
+              setValue('providerTypeText', text);
+            }
+          }
+        }
+      }
     }
   }, [existingUser, setValue]);
 
@@ -186,7 +209,8 @@ export default function EmployeeInformationForm({
         firstName: data.firstName,
         middleName: data.middleName,
         lastName: data.lastName,
-        nameSuffix: data.nameSuffix,
+        providerType: data.providerType,
+        providerTypeText: data.providerTypeText,
         selectedRoles: data.roles,
         licenses: newLicenses,
         phoneNumber: data.phoneNumber,
@@ -277,29 +301,31 @@ export default function EmployeeInformationForm({
   ) : (
     <Paper sx={{ padding: 3 }}>
       <form onSubmit={handleSubmit(updateUserRequest)} data-testid={dataTestIds.employeesPage.informationForm}>
-        <BasicInformation control={control} existingUser={existingUser} errors={errors} />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <BasicInformation control={control} existingUser={existingUser} errors={errors} isActive={isActive} />
 
-        <RoleSelection
-          control={control}
-          errors={errors}
-          isActive={isActive}
-          getValues={getValues}
-          setValue={setValue}
-        />
+          <RoleSelection
+            control={control}
+            errors={errors}
+            isActive={isActive}
+            getValues={getValues}
+            setValue={setValue}
+          />
 
-        {isProviderRoleSelected && (
-          <>
-            <ProviderDetails control={control} photoSrc={photoSrc} roles={getValues('roles')} />
+          {isProviderRoleSelected && (
+            <Box>
+              <ProviderDetails control={control} setValue={setValue} photoSrc={photoSrc} roles={getValues('roles')} />
 
-            <ProviderQualifications
-              newLicenses={newLicenses}
-              setNewLicenses={setNewLicenses}
-              control={control}
-              errors={errors}
-              handleAddLicense={handleAddLicense}
-            />
-          </>
-        )}
+              <ProviderQualifications
+                newLicenses={newLicenses}
+                setNewLicenses={setNewLicenses}
+                control={control}
+                errors={errors}
+                handleAddLicense={handleAddLicense}
+              />
+            </Box>
+          )}
+        </Box>
 
         {errors.submit && (
           <Typography color="error" variant="body2" mt={1}>

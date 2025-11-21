@@ -3,8 +3,8 @@ import { Box, Button, Chip, Grid, Paper, Skeleton, Typography } from '@mui/mater
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { allLicensesForPractitioner, PractitionerLicense, RoleType, User } from 'utils';
-import { deactivateUser, getUserDetails, updateUser } from '../api/api';
+import { allLicensesForPractitioner, PractitionerLicense, User, UserActivationMode } from 'utils';
+import { getUserDetails, userActivation } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import EmployeeInformationForm from '../components/EmployeeInformation';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -16,6 +16,7 @@ export default function EditEmployeePage(): JSX.Element {
   const { oystehr, oystehrZambda } = useApiClients();
   const [isActive, setIsActive] = useState<boolean>();
   const [user, setUser] = useState<User>();
+  const [scheduleId, setScheduleId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({ submit: '' });
 
@@ -46,7 +47,8 @@ export default function EditEmployeePage(): JSX.Element {
           userId: id,
         });
         if (loading) {
-          const appUser = res.user;
+          const { user: appUser, userScheduleId } = res;
+          setScheduleId(userScheduleId);
           setUser(appUser);
           setIsActive(checkUserIsActive(appUser));
           loading = false;
@@ -75,7 +77,7 @@ export default function EditEmployeePage(): JSX.Element {
     setIsActive(checkUserIsActive(userTemp));
   }
 
-  const handleUserActivation = async (mode: 'activate' | 'deactivate'): Promise<void> => {
+  const handleUserActivation = async (mode: UserActivationMode): Promise<void> => {
     setLoading(true);
     if (!oystehrZambda) {
       throw new Error('Zambda Client not found');
@@ -87,14 +89,12 @@ export default function EditEmployeePage(): JSX.Element {
     }
 
     try {
-      mode === 'deactivate'
-        ? await deactivateUser(oystehrZambda, { user: user })
-        : await updateUser(oystehrZambda, { userId: user.id, selectedRoles: [RoleType.Staff] });
+      await userActivation(oystehrZambda, { userId: user.id, mode });
       await getUserAndUpdatePage();
       enqueueSnackbar(`User was ${mode}d successfully`, {
         variant: 'success',
       });
-    } catch (error) {
+    } catch {
       const errorString = `Failed to ${mode} user. Please try again`;
       setErrors((prev) => ({ ...prev, submit: `${errorString}` }));
       enqueueSnackbar(`${errorString}`, {
@@ -151,11 +151,19 @@ export default function EditEmployeePage(): JSX.Element {
                   <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
                     Provider schedule
                   </Typography>
-                  <Link to={`/schedule/provider/${user?.profileResource?.id}`}>
-                    <Button variant="contained" sx={{ marginTop: 1 }}>
-                      Edit schedule
-                    </Button>
-                  </Link>
+                  {scheduleId ? (
+                    <Link to={`/schedule/id/${scheduleId}`}>
+                      <Button variant="contained" sx={{ marginTop: 1 }}>
+                        Edit schedule
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Link to={`/schedule/new/provider/${user?.profileResource?.id}`}>
+                      <Button variant="contained" sx={{ marginTop: 1 }}>
+                        Create schedule
+                      </Button>
+                    </Link>
+                  )}
                 </Paper>
               )}
 

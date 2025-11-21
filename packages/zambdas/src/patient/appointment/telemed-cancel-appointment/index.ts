@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { BatchInputGetRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter } from 'fhir/r4b';
+import { Appointment, Encounter, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
@@ -12,20 +12,25 @@ import {
   createOystehrClient,
   FHIR_ZAPEHR_URL,
   getAppointmentResourceById,
+  getLocationIdFromAppointment,
+  getLocationResource,
   getPatchBinary,
   getPatientContactEmail,
   getRelatedPersonForPatient,
   getSecret,
+  getSupportPhoneFor,
   Secrets,
   SecretsKeys,
+  TelemedCancelationTemplateData,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
   checkOrCreateM2MClientToken,
   createAuditEvent,
+  getEmailClient,
   getVideoEncounterForAppointment,
   sendSms,
-  sendVirtualCancellationEmail,
+  topLevelCatch,
   validateBundleAndExtractAppointment,
   wrapHandler,
   ZambdaInput,
@@ -53,10 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return response;
   } catch (error: any) {
     console.log(`Error: ${error} Error stringified: `, JSON.stringify(error, null, 4));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
@@ -152,7 +154,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   }
   const transactionBundle = await oystehr.fhir.transaction<Appointment | Encounter>({ requests: requests });
   console.log('getting appointment from transaction bundle');
-  const { appointment, scheduleResource, patient } = validateBundleAndExtractAppointment(transactionBundle);
+  const { appointment, patient } = validateBundleAndExtractAppointment(transactionBundle);
 
   console.groupEnd();
   console.debug('gettingEmailProps success');
@@ -175,18 +177,27 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   const response: CancelTelemedAppointmentZambdaOutput = {};
 
   console.group('sendCancellationEmail');
+  const locationId = getLocationIdFromAppointment(appointment);
+  let location: Location | undefined;
+  if (locationId) location = await getLocationResource(locationId, oystehr);
+  const locationName = location?.name as string;
   try {
     const email = getPatientContactEmail(patient);
     if (email) {
-      await sendVirtualCancellationEmail({
-        toAddress: email,
-        secrets,
-      });
+      const emailClient = getEmailClient(secrets);
+      const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+
+      const templateData: TelemedCancelationTemplateData = {
+        'book-again-url': `${WEBSITE_URL}/welcome`,
+        location: locationName!,
+      };
+      await emailClient.sendVirtualCancelationEmail(email, templateData);
     } else {
       throw Error('no email found');
     }
   } catch (error: any) {
     console.error('error sending cancellation email', error);
+    captureException(error);
   }
   console.groupEnd();
 
@@ -194,7 +205,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
 
   const relatedPerson = await getRelatedPersonForPatient(patient.id || '', oystehr);
   if (relatedPerson) {
-    const message = `Sorry to see you go. Questions? Call 202-555-1212 `;
+    const message = `Sorry to see you go. Questions? Call ${getSupportPhoneFor(locationName)} `;
 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     await sendSms(message, `RelatedPerson/${relatedPerson.id}`, oystehr, ENVIRONMENT);

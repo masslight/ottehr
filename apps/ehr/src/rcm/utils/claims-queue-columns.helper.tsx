@@ -3,9 +3,8 @@ import { GridColDef } from '@mui/x-data-grid-pro';
 import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { ClaimsQueueItem, ClaimsQueueItemStatus, ClaimsQueueType } from 'utils';
-import { getSelectors } from '../../shared/store/getSelectors';
-import { getPatientName } from '../../telemed/utils';
+import { getPatientName } from 'src/shared/utils';
+import { ClaimsQueueItem, ClaimsQueueItemStatus, ClaimsQueueType, getSelectors } from 'utils';
 import { ClaimStatusChip, EligibilityStatusChip } from '../features';
 import { useClaimsQueueStore } from '../state';
 import { getDateFromFormat } from './resources.helper';
@@ -47,7 +46,7 @@ export const ClaimsQueueColumns: Record<string, GridColDef<ClaimsQueueItem, any,
       // const statuses = useMemo(
       //   () =>
       //     encounter.statusHistory && appointment?.status
-      //       ? mapEncounterStatusHistory(encounter.statusHistory, appointment.status)
+      //       ? getTelemedEncounterStatusHistory(encounter.statusHistory, appointment.status)
       //       : undefined,
       //   [encounter.statusHistory, appointment?.status]
       // );

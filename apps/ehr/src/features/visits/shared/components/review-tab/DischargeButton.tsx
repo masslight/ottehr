@@ -1,0 +1,65 @@
+import CheckIcon from '@mui/icons-material/Check';
+import { Box, Skeleton } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useMemo, useState } from 'react';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
+import { useApiClients } from 'src/hooks/useAppClients';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { getInPersonVisitStatus } from 'utils';
+import { useAppointmentData } from '../../stores/appointment/appointment.store';
+
+export const DischargeButton: FC = () => {
+  const { appointment, encounter, appointmentRefetch } = useAppointmentData();
+  const { oystehrZambda } = useApiClients();
+  const user = useEvolveUser();
+  const [statusLoading, setStatusLoading] = useState<boolean>(false);
+
+  const inPersonStatus = useMemo(
+    () => appointment && getInPersonVisitStatus(appointment, encounter),
+    [appointment, encounter]
+  );
+
+  const isAlreadyDischarged = inPersonStatus === 'discharged' || inPersonStatus === 'completed';
+
+  if (!user || !encounter?.id) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'end' }}>
+        <Skeleton variant="rectangular" width={120} height={36} sx={{ borderRadius: '20px' }} />
+      </Box>
+    );
+  }
+
+  const encounterId: string = encounter.id;
+
+  const handleDischarge = async (): Promise<void> => {
+    setStatusLoading(true);
+
+    try {
+      await handleChangeInPersonVisitStatus({ encounterId, updatedStatus: 'discharged' }, oystehrZambda);
+      await appointmentRefetch();
+      enqueueSnackbar('Patient discharged successfully', { variant: 'success' });
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'end' }}>
+      <RoundedButton
+        disabled={statusLoading || isAlreadyDischarged}
+        loading={statusLoading}
+        variant="contained"
+        onClick={handleDischarge}
+        startIcon={isAlreadyDischarged ? <CheckIcon color="inherit" /> : undefined}
+        data-testid={dataTestIds.progressNotePage.dischargeButton}
+      >
+        {isAlreadyDischarged ? 'Discharged' : 'Discharge'}
+      </RoundedButton>
+    </Box>
+  );
+};

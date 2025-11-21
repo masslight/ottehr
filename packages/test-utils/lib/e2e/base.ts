@@ -1,5 +1,5 @@
 // https://github.com/mxschmitt/playwright-test-coverage/tree/main
-import { test as baseTest } from '@playwright/test';
+import { BrowserContext, test as baseTest } from '@playwright/test';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -7,8 +7,8 @@ const istanbulCLIOutput = path.join(process.cwd(), '.nyc_output');
 export function generateUUID(): string {
   return crypto.randomBytes(16).toString('hex');
 }
-export const test = baseTest.extend({
-  context: async ({ context }, use) => {
+export const test = baseTest.extend<{ context: BrowserContext }>({
+  context: async ({ context }: { context: BrowserContext }, use: (context: BrowserContext) => Promise<void>) => {
     await context.addInitScript(() =>
       window.addEventListener('beforeunload', () =>
         (window as any).collectIstanbulCoverage(JSON.stringify((window as any).__coverage__))

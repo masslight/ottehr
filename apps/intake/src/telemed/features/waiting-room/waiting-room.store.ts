@@ -11,7 +11,7 @@ export interface WaitingRoomState {
   invites?: InvitedParticipantInfo[];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface WaitingRoomStoreActions {}
 
 const WAITING_ROOM_STATE_INITIAL: WaitingRoomState = {

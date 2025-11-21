@@ -1,13 +1,14 @@
 import { useMemo } from 'react';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
-import { getInHouseLabsUrl } from 'src/features/css-module/routing/helpers';
-import { useAppointmentStore } from 'src/telemed';
+import { getInHouseLabsUrl } from 'src/features/visits/in-person/routing/helpers';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 
 export const InHouseLabsBreadcrumbs: React.FC<{ children: React.ReactNode; pageName: string }> = ({
   children,
   pageName,
 }) => {
-  const appointmentId = useAppointmentStore((state) => state.appointment?.id);
+  const { appointment } = useAppointmentData();
+  const appointmentId = appointment?.id;
 
   const baseCrumb = useMemo(() => {
     return {

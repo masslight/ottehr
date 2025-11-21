@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Coverage, CoverageEligibilityResponse, InsurancePlan, PaymentReconciliation } from 'fhir/r4b';
-import { CODE_SYSTEM_COVERAGE_CLASS, getResourcesFromBatchInlineRequests } from 'utils';
+import { getInsuranceNameFromCoverage, getResourcesFromBatchInlineRequests } from 'utils';
 import {
   AppointmentInsuranceRelatedResRefs,
   getInsuranceRelatedRefsFromAppointmentExtension,
@@ -81,10 +81,4 @@ export async function addInsuranceToResultPackages(oystehr: Oystehr, packages: C
       ) as InsurancePlan;
     }
   });
-}
-
-export function getInsuranceNameFromCoverage(coverage: Coverage): string | undefined {
-  return coverage?.class?.find(
-    (cls) => cls.type.coding?.find((coding) => coding.system === CODE_SYSTEM_COVERAGE_CLASS && coding.code === 'plan')
-  )?.name;
 }

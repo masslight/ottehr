@@ -1,5 +1,6 @@
 import { CodeableConcept, Observation, ObservationComponent } from 'fhir/r4b';
 import {
+  getVitalObservationFhirComponentInterpretations,
   ObservationDTO,
   VitalBloodPressureObservationMethod,
   VitalFieldNames,
@@ -26,6 +27,7 @@ export const VITAL_TEMPERATURE_OBS_METHOD_CODE_ORAL = '89003005';
 export const VITAL_TEMPERATURE_OBS_METHOD_CODE_RECTAL = '18649001';
 export const VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_AXILLARY = '8328-7';
 export const VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_TEMPORAL = '75539-7';
+export const VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_EAR = '76011-6';
 
 export const VITAL_HEARTBEAT_OBS_METHOD_CODE_SITTING = '33586001';
 export const VITAL_HEARTBEAT_OBS_METHOD_CODE_STANDING = '10904000';
@@ -103,6 +105,18 @@ export const getTempObservationMethodCodable = (
     };
   }
 
+  if (obsMethod === VitalTemperatureObservationMethod.Ear) {
+    return {
+      coding: [
+        {
+          system: LOINC_SYSTEM,
+          code: VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_EAR,
+          display: 'Ear temperature',
+        },
+      ],
+    };
+  }
+
   return undefined;
 };
 
@@ -126,6 +140,10 @@ export const extractTemperatureObservationMethod = (
 
   if (obsMethodCode === VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_TEMPORAL) {
     return VitalTemperatureObservationMethod.Temporal;
+  }
+
+  if (obsMethodCode === VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_EAR) {
+    return VitalTemperatureObservationMethod.Ear;
   }
 
   return undefined;
@@ -173,9 +191,18 @@ export const getHeartbeatObservationMethodCodable = (
 };
 
 export const getBloodPressureObservationComponents = (
-  bloodPressureDTO: VitalsBloodPressureObservationDTO
+  bloodPressureDTO: VitalsBloodPressureObservationDTO,
+  patientDOB?: string
 ): ObservationComponent[] => {
   const result: ObservationComponent[] = [];
+
+  const componentAlerts = patientDOB
+    ? getVitalObservationFhirComponentInterpretations({
+        vitalsObservation: bloodPressureDTO,
+        patientDOB,
+        patientSex: undefined,
+      })
+    : {};
 
   const systolicPressure = bloodPressureDTO.systolicPressure;
   if (systolicPressure) {
@@ -193,9 +220,11 @@ export const getBloodPressureObservationComponents = (
         },
       ],
     };
+    const systolicInterpretation = componentAlerts?.['systolic-pressure'];
     const systolicComponent: ObservationComponent = {
       code: systolicCode,
       valueQuantity: { value: systolicPressure, system: 'http://unitsofmeasure.org', unit: 'mmHg' },
+      interpretation: systolicInterpretation && systolicInterpretation.length > 0 ? systolicInterpretation : undefined,
     };
 
     result.push(systolicComponent);
@@ -212,9 +241,12 @@ export const getBloodPressureObservationComponents = (
         },
       ],
     };
+    const diastolicInterpretation = componentAlerts?.['diastolic-pressure'];
     const diastolicComponent: ObservationComponent = {
       code: diastolicCode,
       valueQuantity: { value: diastolicPressure, system: 'http://unitsofmeasure.org', unit: 'mmHg' },
+      interpretation:
+        diastolicInterpretation && diastolicInterpretation.length > 0 ? diastolicInterpretation : undefined,
     };
 
     result.push(diastolicComponent);
@@ -588,7 +620,11 @@ export function toVitalOxygenSatObservationMethod(
   return undefined;
 }
 
-export function fillVitalObservationAttributes(baseResource: Observation, vitalDTO: VitalsObservationDTO): Observation {
+export function fillVitalObservationAttributes(
+  baseResource: Observation,
+  vitalDTO: VitalsObservationDTO,
+  patientDOB?: string
+): Observation {
   if (isTemperatureVitalObservation(vitalDTO)) {
     const temperatureDTO = vitalDTO as VitalsTemperatureObservationDTO;
     return {
@@ -611,7 +647,7 @@ export function fillVitalObservationAttributes(baseResource: Observation, vitalD
     const bloodPressureDTO = vitalDTO as VitalsBloodPressureObservationDTO;
     return {
       ...baseResource,
-      component: getBloodPressureObservationComponents(bloodPressureDTO),
+      component: getBloodPressureObservationComponents(bloodPressureDTO, patientDOB),
       method: getBloodPressureObservationMethodCodable(bloodPressureDTO),
     };
   }

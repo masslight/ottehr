@@ -3,6 +3,8 @@ import { HumanName, Practitioner } from 'fhir/r4b';
 import {
   FHIR_IDENTIFIER_NPI,
   getSecret,
+  getSuffixFromProviderTypeExtension,
+  makeProviderTypeExtension,
   makeQualificationForPractitioner,
   SecretsKeys,
   UpdateUserZambdaOutput,
@@ -25,7 +27,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       firstName,
       middleName,
       lastName,
-      nameSuffix,
+      providerType,
+      providerTypeText,
       selectedRoles,
       licenses,
       phoneNumber,
@@ -92,12 +95,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           throw new Error(`Failed to get Practitioner: ${JSON.stringify(error)}`);
         }
       }
+      const providerTypeExtension = makeProviderTypeExtension(providerType, providerTypeText);
 
       let name: HumanName | undefined = {};
       if (firstName) name.given = [firstName];
       if (middleName) (name.given ??= []).push(middleName);
       if (lastName) name.family = lastName;
-      if (nameSuffix) name.suffix = [nameSuffix];
+      const suffix = getSuffixFromProviderTypeExtension(providerTypeExtension);
+      if (suffix) name.suffix = suffix;
       if (Object.keys(name).length === 0) name = undefined;
 
       if (!existingPractitionerResource) {
@@ -106,6 +111,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           id: practitionerId,
           name: name ? [name] : undefined,
           qualification: practitionerQualificationExtension,
+          extension: providerTypeExtension,
           telecom: phoneNumber
             ? [
                 { system: 'sms', value: phoneNumber },
@@ -205,6 +211,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           photo: existingPractitionerResource.photo,
           name: name ? [name] : undefined,
           qualification: practitionerQualificationExtension,
+          extension: providerTypeExtension,
           telecom: updatedTelecom.length > 0 ? updatedTelecom : undefined,
           address: updatedAddress.length > 0 ? updatedAddress : undefined,
           birthDate: birthDate ? birthDate : undefined,
@@ -227,10 +234,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-update-user', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+    return topLevelCatch('admin-update-user', error, ENVIRONMENT);
   }
 });

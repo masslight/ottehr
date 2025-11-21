@@ -15,7 +15,7 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaInHouseO
 
   try {
     params = JSON.parse(input.body) as GetInHouseOrdersParameters;
-  } catch (error) {
+  } catch {
     throw new Error('Invalid JSON in request body');
   }
 

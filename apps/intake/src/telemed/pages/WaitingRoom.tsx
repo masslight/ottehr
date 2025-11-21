@@ -5,11 +5,11 @@ import { ottehrLightBlue } from '@theme/icons';
 import { Duration } from 'luxon';
 import { useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { getSelectors } from 'utils';
+import { AppointmentType, getSelectors } from 'utils';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { intakeFlowPageRoute } from '../../App';
 import { StyledListItemWithButton } from '../../components/StyledListItemWithButton';
 import { IntakeThemeContext } from '../../contexts';
-import { safelyCaptureException } from '../../helpers/sentry';
 import { CallSettings, CancelVisitDialog } from '../components';
 import { useAppointmentStore } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
@@ -35,6 +35,7 @@ const WaitingRoom = (): JSX.Element => {
   const [isCancelVisitDialogOpen, setCancelVisitDialogOpen] = useState<boolean>(false);
   const [isAppointmentJustCanceled, setIsAppointmentJustCanceled] = useState<boolean>(false);
   const [isCallSettingsOpen, setIsCallSettingsOpen] = useState(false);
+  const [appointmentType, setAppointmentType] = useState<AppointmentType | undefined>(undefined);
 
   useEffect(() => {
     if (urlAppointmentID && urlAppointmentID !== persistedAppointmentId) {
@@ -46,6 +47,10 @@ const WaitingRoom = (): JSX.Element => {
 
   useGetWaitStatus(
     (data) => {
+      if (!data) {
+        return;
+      }
+      setAppointmentType(data.appointmentType);
       useWaitingRoomStore.setState(data);
       if (data.status == 'on-video') {
         if (isIOSApp && currentAppointmentId) {
@@ -87,25 +92,27 @@ const WaitingRoom = (): JSX.Element => {
       imgWidth={80}
       subtext="Please wait, call will start automatically. A provider expert will connect with you soon."
     >
-      <Box
-        sx={{
-          backgroundColor: otherColors.lightBlue,
-          color: theme.palette.secondary.main,
-          padding: 2,
-          marginBottom: 3,
-          marginTop: 3,
-          borderRadius: '8px',
-          display: 'flex',
-          gap: 3,
-        }}
-      >
-        <Typography variant="subtitle1" color={theme.palette.primary.main}>
-          Approx. wait time - {estimatedTime ? Duration.fromMillis(estimatedTime).toFormat("mm'mins'") : '...mins'}
-        </Typography>
-        <Typography variant="subtitle1" color={theme.palette.primary.main}>
-          Number in line - {numberInLine || '...'}
-        </Typography>
-      </Box>
+      {appointmentType && appointmentType !== 'pre-booked' && (
+        <Box
+          sx={{
+            backgroundColor: otherColors.lightBlue,
+            color: theme.palette.secondary.main,
+            padding: 2,
+            marginBottom: 3,
+            marginTop: 3,
+            borderRadius: '8px',
+            display: 'flex',
+            gap: 3,
+          }}
+        >
+          <Typography variant="subtitle1" color={theme.palette.primary.main}>
+            Approx. wait time - {estimatedTime ? Duration.fromMillis(estimatedTime).toFormat("mm'mins'") : '...mins'}
+          </Typography>
+          <Typography variant="subtitle1" color={theme.palette.primary.main}>
+            Number in line - {numberInLine || '...'}
+          </Typography>
+        </Box>
+      )}
 
       <List sx={{ p: 0 }}>
         {!isInvitedParticipant && (

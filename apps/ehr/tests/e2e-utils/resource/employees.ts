@@ -4,16 +4,20 @@ import Oystehr, { UserInviteParams } from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
 import {
   allLicensesForPractitioner,
+  createFetchClientWithOystehrAuth,
   getFirstName,
   getLastName,
   getMiddleName,
   getPractitionerNPIIdentifier,
-  getSuffix,
+  getSuffixFromProviderTypeExtension,
+  isProviderTypeCode,
+  makeProviderTypeExtension,
   makeQualificationForPractitioner,
   PractitionerLicense,
+  PROVIDER_TYPE_EXTENSION_URL,
+  ProviderTypeCode,
   RoleType,
 } from 'utils';
-import { fetchWithOystehrAuth } from '../helpers/tests-utils';
 
 export interface TestEmployeeInviteParams {
   userName?: string;
@@ -23,7 +27,8 @@ export interface TestEmployeeInviteParams {
   familyName?: string;
   telecomPhone: string;
   npi: string;
-  credentials: string;
+  providerType: ProviderTypeCode;
+  providerTypeText?: string;
   roles: RoleType[];
   qualification: PractitionerLicense[];
 }
@@ -59,7 +64,8 @@ export const TEST_EMPLOYEE_1: TestEmployeeInviteParams = {
   middleName: 'middle',
   telecomPhone: '0734324300',
   npi: '1111111111',
-  credentials: 'credentials',
+  providerType: 'other',
+  providerTypeText: 'credentials',
   roles: [RoleType.Provider],
   qualification: [
     {
@@ -83,7 +89,8 @@ export const TEST_EMPLOYEE_1_UPDATED_INFO: TestEmployeeInviteParams = {
   givenName: `new ${testEmployeeGivenNamePattern}`,
   middleName: 'new middle',
   telecomPhone: '0734324301',
-  credentials: 'new credentials',
+  providerType: 'other',
+  providerTypeText: 'new credentials',
   npi: '2222222222',
   roles: [RoleType.Provider, RoleType.Staff],
   qualification: [
@@ -116,7 +123,8 @@ export const TEST_EMPLOYEE_2: TestEmployeeInviteParams = {
   middleName: 'middle2',
   telecomPhone: '0734324300',
   npi: '1111111111',
-  credentials: 'credentials',
+  providerType: 'other',
+  providerTypeText: 'credentials',
   roles: [RoleType.Provider],
   qualification: [
     {
@@ -131,6 +139,9 @@ export function invitationParamsForEmployee(employee: TestEmployeeInviteParams, 
   if (!process.env.EHR_APPLICATION_ID) throw new Error('EHR_APPLICATION_ID is not set');
   const uuid = randomUUID();
   const uniqueLastName = randomUUID();
+
+  const providerTypeExtension = makeProviderTypeExtension(employee.providerType, employee.providerTypeText);
+  const suffix = getSuffixFromProviderTypeExtension(providerTypeExtension);
 
   return {
     username: employee.userName ?? `${testEmployeeUsernamePattern}${uuid}`,
@@ -150,7 +161,7 @@ export function invitationParamsForEmployee(employee: TestEmployeeInviteParams, 
         {
           family: employee.familyName ?? uniqueLastName,
           given: [employee.givenName, employee.middleName],
-          suffix: [employee.credentials],
+          suffix,
         },
       ],
       telecom: [
@@ -164,6 +175,7 @@ export function invitationParamsForEmployee(employee: TestEmployeeInviteParams, 
         },
       ],
       qualification: employee.qualification.map((qualification) => makeQualificationForPractitioner(qualification)),
+      ...(providerTypeExtension ? { extension: providerTypeExtension } : {}),
     },
   };
 }
@@ -173,17 +185,18 @@ export async function inviteTestEmployeeUser(
   oystehr: Oystehr,
   authToken: string
 ): Promise<TestEmployee | undefined> {
-  const rolesRaw = await fetchWithOystehrAuth<{ id: string; name: string }[]>(
+  const oystehrProjectId = process.env.PROJECT_ID;
+  if (!oystehrProjectId) throw new Error('secret PROJECT_ID is not set');
+  const { oystehrFetch } = createFetchClientWithOystehrAuth({ authToken, projectId: oystehrProjectId });
+  const rolesRaw = await oystehrFetch<{ id: string; name: string }[]>(
     'GET',
-    'https://project-api.zapehr.com/v1/iam/role',
-    authToken
+    'https://project-api.zapehr.com/v1/iam/role'
   );
   const providerRoleId = rolesRaw.find((role) => role.name === RoleType.Provider)?.id;
   if (!providerRoleId) throw new Error(`Didn't found any role with name: ${RoleType.Provider}`);
-  const response = await fetchWithOystehrAuth<UserResponse>(
+  const response = await oystehrFetch<UserResponse>(
     'POST',
     'https://project-api.zapehr.com/v1/user/invite',
-    authToken,
     invitationParamsForEmployee(employee, [providerRoleId])
   );
   return await parseTestUser(response, oystehr);
@@ -195,7 +208,10 @@ export async function removeUser(
   oystehr: Oystehr,
   authToken: string
 ): Promise<void> {
-  const removeUser = fetchWithOystehrAuth('DELETE', `https://project-api.zapehr.com/v1/user/${userId}`, authToken);
+  const oystehrProjectId = process.env.PROJECT_ID;
+  if (!oystehrProjectId) throw new Error('secret PROJECT_ID is not set');
+  const { oystehrFetch } = createFetchClientWithOystehrAuth({ authToken, projectId: oystehrProjectId });
+  const removeUser = oystehrFetch('DELETE', `https://project-api.zapehr.com/v1/user/${userId}`);
   const removeUserPractitioner = oystehr.fhir.delete({ resourceType: 'Practitioner', id: practitionerId });
   await Promise.all([removeUser, removeUserPractitioner]);
 
@@ -212,14 +228,23 @@ async function parseTestUser(user: UserResponse, oystehr: Oystehr): Promise<Test
   const firstName = getFirstName(practitioner);
   const middleName = getMiddleName(practitioner);
   const lastName = getLastName(practitioner);
-  if (!firstName || !middleName || !lastName) throw new Error(`Error parsing user full name: ${user.id}`);
+  if (!firstName || !middleName || !lastName) {
+    throw new Error(`Error parsing user full name: ${user.id}`);
+  }
+
   const phone = practitioner.telecom?.find((telecom) => telecom.system === 'sms')?.value;
   const npi = getPractitionerNPIIdentifier(practitioner)?.value;
   const qualification = allLicensesForPractitioner(practitioner);
-  const credentials = getSuffix(practitioner);
+
+  const providerTypeExtension = practitioner.extension?.find((e) => e.url === PROVIDER_TYPE_EXTENSION_URL);
+
+  const providerType = providerTypeExtension?.valueCodeableConcept?.coding?.[0]?.code as ProviderTypeCode | undefined;
+  const providerTypeText = providerTypeExtension?.valueCodeableConcept?.text;
+
   if (!phone) throw new Error(`No phone for this user: ${user.id}`);
   if (!npi) throw new Error(`No npi for this user: ${user.id}`);
-  if (!credentials) throw new Error(`No credentials for this user: ${user.id}`);
+  if (!providerType || isProviderTypeCode(providerType)) throw new Error(`No providerType for this user: ${user.id}`);
+
   return {
     id: user.id,
     userName: user.name,
@@ -232,7 +257,8 @@ async function parseTestUser(user: UserResponse, oystehr: Oystehr): Promise<Test
     familyName: lastName,
     telecomPhone: phone,
     npi,
-    credentials,
+    providerType,
+    providerTypeText,
     roles: user.roles.map((role) => role.name) as RoleType[],
     qualification,
   };

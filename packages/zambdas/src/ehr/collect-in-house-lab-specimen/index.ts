@@ -1,14 +1,14 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Encounter, FhirResource, ServiceRequest, Specimen, Task } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { Encounter, FhirResource, Practitioner, ServiceRequest, Specimen, Task } from 'fhir/r4b';
 import {
   CollectInHouseLabSpecimenParameters,
   CollectInHouseLabSpecimenZambdaOutput,
+  getAttendingPractitionerId,
+  getFullestAvailableName,
   getSecret,
   IN_HOUSE_LAB_TASK,
-  PRACTITIONER_CODINGS,
   Secrets,
   SecretsKeys,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
@@ -21,6 +21,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { createOwnerReference, createTask, getTaskLocation } from '../../shared/tasks';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'collect-in-house-lab-specimen';
@@ -51,7 +52,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const { encounterId, serviceRequestId, data } = validatedParameters;
 
-    const [serviceRequestResources, tasksCSTResources, userPractitionerId, encounter] = await Promise.all([
+    const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+
+    const [serviceRequestResources, tasksCSTResources, userPractitioner, encounter] = await Promise.all([
       oystehr.fhir.get<ServiceRequest>({
         resourceType: 'ServiceRequest',
         id: serviceRequestId,
@@ -71,21 +74,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           ],
         })
         .then((bundle) => bundle.unbundle()),
-      getMyPractitionerId(oystehrCurrentUser),
+      oystehr.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: userPractitionerId,
+      }),
       oystehr.fhir.get<Encounter>({
         resourceType: 'Encounter',
         id: encounterId,
       }),
     ]);
 
-    const practitionerFromEncounterId = encounter.participant
-      ?.find(
-        (participant) =>
-          participant.type?.find(
-            (type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system)
-          )
-      )
-      ?.individual?.reference?.replace('Practitioner/', '');
+    const practitionerFromEncounterId = getAttendingPractitionerId(encounter);
 
     if (
       practitionerFromEncounterId !== validatedParameters.data.specimen.collectedBy.id &&
@@ -107,10 +106,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw Error(`Expected 1 collection task, found ${tasksCSTResources.length}`);
     }
 
+    console.log('These are the tasksCSTResources', JSON.stringify(tasksCSTResources));
     const collectionTask = tasksCSTResources[0];
 
     if (!collectionTask.id) {
       throw Error('Collection task has no ID');
+    }
+
+    if (collectionTask.status === 'completed') {
+      console.error('Detected completed CST task');
+      throw Error('Collection task has already been completed. Refresh the page before continuing.');
     }
 
     const specimenFullUrl = `urn:uuid:${randomUUID()}`;
@@ -153,25 +158,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const collectionTaskUpdateConfig: Task = {
       ...collectionTask,
       status: 'completed',
+      owner: collectionTask.owner
+        ? collectionTask.owner
+        : createOwnerReference(userPractitioner.id ?? '', getFullestAvailableName(userPractitioner) ?? ''),
     };
 
-    const inputResultTaskConfig: Task = {
-      resourceType: 'Task',
-      status: 'ready',
-      intent: 'order',
+    const inputResultTaskConfig = createTask({
+      category: IN_HOUSE_LAB_TASK.category,
       code: {
-        coding: [
-          {
-            system: IN_HOUSE_LAB_TASK.system,
-            code: IN_HOUSE_LAB_TASK.code.inputResultsTask,
-          },
-        ],
+        system: IN_HOUSE_LAB_TASK.system,
+        code: IN_HOUSE_LAB_TASK.code.inputResultsTask,
       },
-      basedOn: [{ reference: `ServiceRequest/${serviceRequestId}` }],
-      encounter: { reference: `Encounter/${encounterId}` },
-      authoredOn: DateTime.now().toISO(),
-      ...(collectionTask.location && { location: collectionTask.location }),
-    };
+      encounterId: encounterId,
+      location: getTaskLocation(collectionTask),
+      input: collectionTask.input,
+      basedOn: [`ServiceRequest/${serviceRequestId}`],
+    });
 
     const transactionResponse = await oystehr.fhir.transaction({
       requests: [
@@ -212,12 +214,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('Error collecting in-house lab specimen:', error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('collect-in-house-lab-specimen', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: `Error processing request: ${error.message || error}`,
-      }),
-    };
+    return topLevelCatch('collect-in-house-lab-specimen', error, ENVIRONMENT);
   }
 });

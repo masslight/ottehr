@@ -16,6 +16,7 @@ import {
   getMedicationName,
   getMedicationTypeCode,
   getPatchBinary,
+  getSecret,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
   INVENTORY_MEDICATION_TYPE_CODE,
   mapFhirToOrderStatus,
@@ -28,9 +29,16 @@ import {
   replaceOperation,
   searchMedicationLocation,
   searchRouteByCode,
+  SecretsKeys,
   UpdateMedicationOrderInput,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import {
   createMedicationAdministrationResource,
   createMedicationRequest,
@@ -67,10 +75,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.log('Error: ', error);
     console.log('Stringified error: ', JSON.stringify(error));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: `Error creating/updating order: ${JSON.stringify(error)}` }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
@@ -137,7 +142,7 @@ async function updateOrder(
   } else if (existingMedicationCopy) {
     console.log('Updating existing copy for order');
     // during copy process we also update lotNumber, expDate etc.
-    newMedicationCopy = createMedicationCopy(existingMedicationCopy, orderData);
+    newMedicationCopy = createMedicationCopy(existingMedicationCopy, orderData, newStatus);
   }
 
   const transactionRequests: BatchInputRequest<FhirResource>[] = [];
@@ -153,6 +158,7 @@ async function updateOrder(
       orderData,
       orderResources,
       administeredProviderId: newStatus !== undefined ? practitionerIdCalledZambda : undefined,
+      orderedByProviderId: orderData.providerId,
       medicationResource: newMedicationCopy,
     });
   }
@@ -282,6 +288,7 @@ async function createOrder(
     route: routeCoding,
     location: locationCoding,
     createdProviderId: practitionerIdCalledZambda,
+    orderedByProviderId: orderData.providerId, // NEW: add initial provider to history
     dateTimeCreated: DateTime.now().toISO(),
     medicationResource: medicationCopy,
   });

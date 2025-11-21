@@ -4,7 +4,7 @@ import { mdyStringFromISOString } from 'utils';
 export const yupDateTransform = (d: any): string => {
   try {
     return mdyStringFromISOString(d || '');
-  } catch (e) {
+  } catch {
     return d;
   }
 };

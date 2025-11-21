@@ -34,6 +34,14 @@ export const ExternalLabsStatusPalette: {
       primary: '#616161',
     },
   },
+  ready: {
+    background: {
+      primary: '#FFE0B2',
+    },
+    color: {
+      primary: '#EF6C00',
+    },
+  },
   sent: {
     background: {
       primary: '#D1C4E9',
@@ -107,6 +115,14 @@ export const ExternalLabsStatusPalette: {
     },
   },
   'cancelled by lab': {
+    background: {
+      primary: '#FFCDD2',
+    },
+    color: {
+      primary: '#D32F2F',
+    },
+  },
+  'rejected abn': {
     background: {
       primary: '#FFCDD2',
     },

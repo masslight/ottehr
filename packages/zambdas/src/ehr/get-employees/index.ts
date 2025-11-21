@@ -22,7 +22,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 // For local development it makes it easier to track performance
 if (process.env.IS_OFFLINE === 'true') {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('console-stamp')(console, { pattern: 'HH:MM:ss.l' });
 }
 
@@ -55,8 +55,9 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
 
     const inactiveRoleId = existingRoles.find((role: any) => role.name === RoleType.Inactive)?.id;
     const providerRoleId = existingRoles.find((role: any) => role.name === RoleType.Provider)?.id;
-    if (!inactiveRoleId || !providerRoleId) {
-      throw new Error('Error searching for Inactive or Provider role.');
+    const customerSupportRoleId = existingRoles.find((role: any) => role.name === RoleType.CustomerSupport)?.id;
+    if (!inactiveRoleId || !providerRoleId || !customerSupportRoleId) {
+      throw new Error('Error searching for Inactive, Provider or CustomerSupport role.');
     }
 
     console.log('Preparing the FHIR batch request.');
@@ -64,7 +65,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     const practitionerIds = allEmployees.map((employee) => employee.profile.split('/')[1]);
     const encounterCutDate = DateTime.now().minus({ minutes: 30 }).toFormat("yyyy-MM-dd'T'HH:mm");
     const getResourcesRequest = getResourcesFromBatchInlineRequests(oystehr, [
-      `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension`,
+      `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension,telecom`,
       `Encounter?status=in-progress&_elements=id,participant`,
       `Encounter?status=finished&date=gt${encounterCutDate}&_elements=id,participant`,
     ]);
@@ -74,11 +75,13 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     const mixedPromises = [
       getRoleMembers(inactiveRoleId, oystehr),
       getRoleMembers(providerRoleId, oystehr),
+      getRoleMembers(customerSupportRoleId, oystehr),
       getResourcesRequest,
     ];
 
-    const [inactiveRoleMembers, providerRoleMembers, resources] = <
+    const [inactiveRoleMembers, providerRoleMembers, customerSupportRoleMembers, resources] = <
       [
+        PromiseInnerType<ReturnType<typeof getRoleMembers>>,
         PromiseInnerType<ReturnType<typeof getRoleMembers>>,
         PromiseInnerType<ReturnType<typeof getRoleMembers>>,
         Resource[],
@@ -86,12 +89,13 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     >await Promise.all(mixedPromises);
 
     console.log(
-      `Fetched ${inactiveRoleMembers.length} Inactive and ${providerRoleMembers.length} Provider role members.`
+      `Fetched ${inactiveRoleMembers.length} Inactive, ${providerRoleMembers.length} Provider and ${customerSupportRoleMembers.length} CustomerSupport role members.`
     );
 
     const inactiveMemberIds =
       inactiveRoleMembers.length > 0 ? inactiveRoleMembers?.map((member: { id: string }) => member.id) : undefined;
     const providerMemberIds = providerRoleMembers.map((member: { id: string }) => member.id);
+    const customerSupportMemberIds = customerSupportRoleMembers.map((member: { id: string }) => member.id);
 
     const recentlyActivePractitioners: string[] = extractParticipantsRefsFromResources(resources as FhirResource[]);
 
@@ -102,7 +106,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       const practitionerId = employee.profile.split('/')[1];
       const practitioner = resources.find((resource) => resource.id === practitionerId) as Practitioner | undefined;
 
-      const phone = practitioner?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+      const phone = practitioner?.telecom?.find((telecom) => telecom.system === 'sms')?.value;
 
       const licenses: PractitionerLicense[] = [];
       if (practitioner?.qualification) {
@@ -128,6 +132,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
         email: employee.email,
         status: status,
         isProvider: Boolean(providerMemberIds.includes(employee.id)),
+        isCustomerSupport: Boolean(customerSupportMemberIds.includes(employee.id)),
         lastLogin: practitioner?.meta?.tag?.find((tag) => tag.system === 'last-login')?.code ?? '',
         firstName: practitioner?.name?.[0].given?.join(' ') ?? '',
         lastName: practitioner?.name?.[0].family ?? '',
@@ -146,9 +151,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     return lambdaResponse(200, response);
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-get-employee-details', error, ENVIRONMENT);
-    console.log('Error: ', JSON.stringify(error.message));
-    return lambdaResponse(500, error.message);
+    return topLevelCatch('admin-get-employee-details', error, ENVIRONMENT);
   }
 });
 

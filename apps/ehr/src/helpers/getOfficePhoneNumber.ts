@@ -10,7 +10,7 @@ export const getOfficePhoneNumber = (location: Location | undefined): string => 
     if (storedLoc) {
       try {
         locationToUse = JSON.parse(storedLoc) as Location;
-      } catch (_e) {
+      } catch {
         console.error('location could not be parsed from local storage');
       }
     }

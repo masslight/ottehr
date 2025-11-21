@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage, CoverageEligibilityResponse, Practitioner } from 'fhir/r4b';
 import {
   CoverageCheckWithDetails,
+  getPreferredPharmacyFromPatient,
   getSecret,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
@@ -45,17 +46,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('get-patient-account', error, ENVIRONMENT);
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
 
 const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAccountResponse> => {
   const { patientId } = input;
+  console.log('performing effect for patient account get');
+  console.time('getAccountAndCoverageResourcesForPatient');
   const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+  console.timeEnd('getAccountAndCoverageResourcesForPatient');
   const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
-  const eligibilityCheckResults = (
+  // due to really huge CEResponses causing response-too-large errors, we need to chop our querying for the CEResponses into
+  // manageable chunks. We'll do this by first querying for just the IDs of the CEResponses, then querying for the full resources in parallel.
+  // Even just two resources returned in a query can still result in response-too-large errors based on prod data we've encountered.
+  console.time('fetching CER IDs');
+  const eligibilityCheckIds = (
     await oystehr.fhir.search<CoverageEligibilityResponse>({
       resourceType: 'CoverageEligibilityResponse',
       params: [
@@ -67,9 +75,28 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
           name: '_sort',
           value: '-created',
         },
+        {
+          name: '_elements',
+          value: 'id',
+        },
+        {
+          name: '_count', // we shouldn't need more than the most recent 10 eligibility checks
+          value: '10',
+        },
       ],
     })
-  ).unbundle();
+  )
+    .unbundle()
+    .map((cer) => cer.id)
+    .filter((id): id is string => !!id);
+  console.log('fetching the following CERs:', JSON.stringify(eligibilityCheckIds));
+
+  const eligibilityCheckResults: CoverageEligibilityResponse[] = await Promise.all(
+    eligibilityCheckIds.map((id) =>
+      oystehr.fhir.get<CoverageEligibilityResponse>({ resourceType: 'CoverageEligibilityResponse', id })
+    )
+  );
+
   const coverageIdsToFetch = eligibilityCheckResults.flatMap((ecr) => {
     if (ecr.insurance?.[0]?.coverage?.reference) {
       const [resourceType, id] = ecr.insurance[0].coverage.reference.split('/');
@@ -107,10 +134,14 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
       } as CoverageCheckWithDetails;
     })
     .filter((result) => result !== null) as CoverageCheckWithDetails[];
+  console.timeEnd('fetching CER IDs');
+  const { patient } = accountAndCoverages;
+  const pharmacy = getPreferredPharmacyFromPatient(patient);
   return {
     ...accountAndCoverages,
     primaryCarePhysician,
     coverageChecks: mapped,
+    pharmacy,
   };
 };
 

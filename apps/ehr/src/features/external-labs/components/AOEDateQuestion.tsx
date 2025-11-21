@@ -1,5 +1,6 @@
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
-import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 import { Extension } from 'fhir/r4b';
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
 
@@ -21,11 +22,11 @@ export const AOEDateQuestion: React.FC<DateQuestionProps> = (props) => {
 
   return (
     <>
-      <LocalizationProvider dateAdapter={AdapterLuxon}>
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
         <DatePicker
           {...field}
           label={questionText}
-          format={'MM/dd/yyyy'}
+          value={field.value ? dayjs(field.value) : null}
           slotProps={{
             textField: {
               style: { width: '100%' },
@@ -34,6 +35,14 @@ export const AOEDateQuestion: React.FC<DateQuestionProps> = (props) => {
               error: !!errors[linkId],
             },
             actionBar: { actions: ['today'] },
+          }}
+          onChange={(date) => {
+            if (date) {
+              const dateStr = date ? date.format('YYYY-MM-DD') : '';
+              field.onChange(dateStr);
+            } else {
+              field.onChange(null);
+            }
           }}
           readOnly={isReadOnly}
         />

@@ -1125,7 +1125,7 @@
       "item": [
         {
           "linkId": "photo-id-page-caption",
-          "text": "Please upload a picture of a Photo ID, Drivers License or Passport of the patient's legal guardian (ie: Patient or Parent/Guardian)",
+          "text": "Please upload a Photo ID, Driver's License, or Passport for an adult, either yourself or the parent/guardian when accompanying a child",
           "type": "display",
           "extension": [
             {

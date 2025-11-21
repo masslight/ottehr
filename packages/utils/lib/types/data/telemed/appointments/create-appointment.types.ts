@@ -41,6 +41,7 @@ export type PatientInfo = PatientBaseInfo & {
   reasonAdditional?: string;
   phoneNumber?: string;
   pointOfDiscovery?: boolean;
+  authorizedNonLegalGuardians?: string;
   telecom?: {
     system: string;
     value: string;

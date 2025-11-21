@@ -13,6 +13,11 @@ export class InPersonAssessmentPage extends BaseAssessmentPage {
     await this.#page.getByTestId(dataTestIds.assessmentCard.cptCodeField).locator('input').fill(code);
     await this.#page.getByRole('option').filter({ hasText: code }).first().waitFor();
     await this.#page.getByRole('option').filter({ hasText: code }).first().click();
+
+    // Find the specific CPT code entry and verify its delete button is enabled to ensure the code is saved
+    const cptCodeEntry = this.#page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(code));
+    await expect(cptCodeEntry).toBeVisible();
+    await expect(this.#page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(code))).toBeEnabled();
   }
 
   async selectEmCode(code: string): Promise<void> {
@@ -20,6 +25,9 @@ export class InPersonAssessmentPage extends BaseAssessmentPage {
     await this.#page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown).locator('input').fill(code);
     await this.#page.getByRole('option').first().waitFor();
     await this.#page.getByRole('option').first().click();
+
+    // Verify that the delete button is enabled to ensure the code is saved
+    await expect(this.#page.getByTestId(dataTestIds.billingContainer.deleteButton)).toBeEnabled();
   }
 }
 

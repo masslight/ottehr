@@ -1,11 +1,23 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, getPatientContactEmail, getSecret, Secrets, SecretsKeys, TaskStatus } from 'utils';
+import {
+  DATETIME_FULL_NO_YEAR,
+  getAddressStringForScheduleResource,
+  getNameFromScheduleResource,
+  getPatientContactEmail,
+  getSecret,
+  isTelemedAppointment,
+  Secrets,
+  SecretsKeys,
+  TaskStatus,
+  TelemedCancelationTemplateData,
+} from 'utils';
 import {
   createOystehrClient,
   getAuth0Token,
-  sendInPersonCancellationEmail,
+  getEmailClient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -98,29 +110,51 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const timezone = fhirLocation.extension?.find(
       (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
     )?.valueString;
-    const startTime = DateTime.fromISO(fhirAppointment?.start || '')
-      .setZone(timezone)
-      .toFormat(DATETIME_FULL_NO_YEAR);
-    const visitType = fhirAppointment.appointmentType?.text ?? 'Unknown';
-    console.log('info', email, timezone, startTime, visitType);
-
+    const startTime = DateTime.fromISO(fhirAppointment?.start || '').setZone(timezone);
     if (email) {
       console.group('sendCancellationEmail');
       try {
-        await sendInPersonCancellationEmail({
-          email,
-          startTime,
-          secrets,
-          scheduleResource: fhirLocation,
-          visitType,
-          language: 'en',
-        });
+        const emailClient = getEmailClient(secrets);
+        const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+        const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
+
+        const address = getAddressStringForScheduleResource(fhirLocation);
+        if (!address) {
+          throw new Error('Address is required to send reminder email');
+        }
+        const location = getNameFromScheduleResource(fhirLocation);
+        if (!location) {
+          throw new Error('Location is required to send reminder email');
+        }
+
+        const isVirtual = isTelemedAppointment(fhirAppointment);
+
+        if (isVirtual) {
+          const locationName = fhirLocation?.name as string;
+          const templateData: TelemedCancelationTemplateData = {
+            'book-again-url': `${WEBSITE_URL}/welcome`,
+            location: locationName!,
+          };
+          await emailClient.sendVirtualCancelationEmail(email, templateData);
+        } else {
+          const templateData = {
+            time: readableTime,
+            location,
+            address,
+            'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
+            'book-again-url': `${WEBSITE_URL}/home`,
+          };
+          await emailClient.sendInPersonCancelationEmail(email, templateData);
+        }
         taskStatusToUpdate = 'completed';
         statusReasonToUpdate = 'email sent successfully';
         console.groupEnd();
       } catch (error: any) {
+        taskStatusToUpdate = 'failed';
+        statusReasonToUpdate = error.message ? `error received: ${error.message}` : 'unknown error';
         console.error('error sending email', error);
         console.groupEnd();
+        captureException(error);
       }
     } else {
       taskStatusToUpdate = 'failed';

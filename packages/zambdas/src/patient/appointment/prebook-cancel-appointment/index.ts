@@ -1,4 +1,5 @@
 import { BatchInputDeleteRequest, BatchInputGetRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, HealthcareService, Location, Patient, Practitioner, Schedule } from 'fhir/r4b';
@@ -12,15 +13,17 @@ import {
   DATETIME_FULL_NO_YEAR,
   FHIR_ZAPEHR_URL,
   formatPhoneNumberDisplay,
+  getAddressStringForScheduleResource,
+  getAppointmentMetaTagOpForStatusUpdate,
   getAppointmentResourceById,
-  getCriticalUpdateTagOp,
+  getNameFromScheduleResource,
   getPatchBinary,
   getPatientContactEmail,
   getPatientFirstName,
   getRelatedPersonForPatient,
   getSecret,
-  isAppointmentVirtual,
   isPostTelemedAppointment,
+  isTelemedAppointment,
   POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
   ScheduleOwnerFhirResource,
   Secrets,
@@ -40,14 +43,14 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { sendInPersonCancellationEmail } from '../../../shared/communication';
+import { getEmailClient } from '../../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface CancelAppointmentZambdaInputValidated extends CancelAppointmentZambdaInput {
   secrets: Secrets | null;
 }
 interface CancellationDetails {
-  startTime: string;
+  startTime: DateTime;
   email: string | undefined;
   patient: Patient;
   visitType: string;
@@ -62,7 +65,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
     console.log('getting user');
     const userToken = input.headers.Authorization?.replace('Bearer ', '');
     const user = userToken && (await getUser(input.headers.Authorization.replace('Bearer ', ''), input.secrets));
-    const isEHRUser = checkIsEHRUser(user);
+    const isEHRUser = user && checkIsEHRUser(user);
     const validatedParameters = validateRequestParameters(input);
     const { appointmentID, language: languageInput, cancellationReason, silent, secrets } = validatedParameters;
     const language = languageInput || 'en';
@@ -86,14 +89,14 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
       throw APPOINTMENT_NOT_FOUND_ERROR;
     }
 
-    if (!isEHRUser) {
+    if ((user && !isEHRUser) || !user) {
       if (isPostTelemedAppointment(appointment)) {
         throw POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR;
       }
 
       console.log(`checking appointment with id ${appointmentID} is not checked in`);
       if (appointment.status !== 'booked') {
-        if (isAppointmentVirtual(appointment)) {
+        if (isTelemedAppointment(appointment)) {
           // https://github.com/masslight/ottehr/issues/2431
           // todo: remove this once prebooked virtual appointments begin in 'booked' status
           console.log(`appointment is virtual, allowing cancellation`);
@@ -101,19 +104,17 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
           throw CANT_CANCEL_CHECKED_IN_APT_ERROR;
         }
       }
-    } else {
+    } else if (user && isEHRUser) {
       console.log('cancelled by EHR user');
     }
 
     // stamp critical update tag so this event can be surfaced in activity logs
-    const formattedUserNumber = formatPhoneNumberDisplay(user?.name.replace('+1', ''));
-    const cancelledBy = isEHRUser
-      ? `Staff ${user?.email}`
-      : `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
-    const criticalUpdateOp = getCriticalUpdateTagOp(appointment, cancelledBy);
+    const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
+    const cancelledBy =
+      user && isEHRUser ? `Staff ${user?.email}` : `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
 
     const appointmentPatchOperations: Operation[] = [
-      criticalUpdateOp,
+      ...getAppointmentMetaTagOpForStatusUpdate(appointment, 'cancelled', { updatedByOverride: cancelledBy }),
       {
         op: 'replace',
         path: '/status',
@@ -203,7 +204,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
       patient,
     } = validateBundleAndExtractAppointment(transactionBundle);
 
-    const { startTime, email, visitType } = await getCancellationDetails(appointmentUpdated, patient, scheduleResource);
+    const { startTime, email } = await getCancellationDetails(appointmentUpdated, patient, scheduleResource);
     console.groupEnd();
     console.debug('gettingEmailProps success');
 
@@ -214,15 +215,29 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
       if (email) {
         console.group('sendCancellationEmail');
         try {
-          await sendInPersonCancellationEmail({
-            email,
-            startTime,
-            secrets,
-            scheduleResource,
-            visitType,
-            language,
-          });
+          const emailClient = getEmailClient(secrets);
+          const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+          const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
+
+          const address = getAddressStringForScheduleResource(scheduleResource);
+          if (!address) {
+            throw new Error('Address is required to send reminder email');
+          }
+          const location = getNameFromScheduleResource(scheduleResource);
+          if (!location) {
+            throw new Error('Location is required to send reminder email');
+          }
+
+          const templateData = {
+            time: readableTime,
+            location,
+            address,
+            'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
+            'book-again-url': `${WEBSITE_URL}/home`,
+          };
+          await emailClient.sendInPersonCancelationEmail(email, templateData);
         } catch (error: any) {
+          captureException(error);
           console.error('error sending cancellation email', error);
         }
         console.groupEnd();
@@ -307,7 +322,7 @@ const getCancellationDetails = async (
     const visitType = appointment.appointmentType?.text ?? 'Unknown';
 
     return {
-      startTime: DateTime.fromISO(appointment.start).setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
+      startTime: DateTime.fromISO(appointment.start).setZone(timezone),
       email,
       patient,
       visitType,

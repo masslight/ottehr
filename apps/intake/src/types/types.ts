@@ -1,5 +1,4 @@
 import { ReactElement } from 'react';
-import { VisitStatusLabel } from 'utils';
 
 export interface UpdatePaperworkParameters {
   appointmentID: string;
@@ -33,22 +32,6 @@ export interface FileUpload {
     fileData: File | null;
     uploadFailed: boolean;
   };
-}
-
-export interface Appointment {
-  id: string;
-  patientID: string;
-  firstName: string;
-  middleName: string;
-  lastName: string;
-  start: string;
-  status: string;
-  location?: { name: string; slug: string; state: string; timezone: string };
-  paperworkComplete: boolean;
-  checkedIn: boolean;
-  visitType: string;
-  visitStatus: VisitStatusLabel;
-  slotId?: string;
 }
 
 export type EmailUserValue = 'Patient (Self)' | 'Parent/Guardian';

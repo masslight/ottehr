@@ -1,0 +1,617 @@
+{
+  "resourceType": "QuestionnaireResponse",
+  "questionnaire": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.9",
+  "status": "completed",
+  "subject": {
+    "reference": "{{PATIENT_REF}}"
+  },
+  "encounter": {
+    "reference": "{{ENCOUNTER_REF}}"
+  },
+  "item": [
+    {
+      "linkId": "contact-information-page",
+      "item": [
+        {
+          "linkId": "contact-page-address-text"
+        },
+        {
+          "linkId": "patient-street-address",
+          "answer": [
+            {
+              "valueString": "317 R St NW Unit 2"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-street-address-2",
+          "answer": [
+            {
+              "valueString": "conditional-filter-test-1234"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-city",
+          "answer": [
+            {
+              "valueString": "Washington"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-state",
+          "answer": [
+            {
+              "valueString": "DC"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-zip",
+          "answer": [
+            {
+              "valueString": "20001"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-will-be-18",
+          "answer": [
+            {
+              "valueBoolean": false
+            }
+          ]
+        },
+        {
+          "linkId": "is-new-qrs-patient",
+          "answer": [
+            {
+              "valueBoolean": false
+            }
+          ]
+        },
+        {
+          "linkId": "patient-first-name",
+          "answer": [
+            {
+              "valueString": "Duck"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-last-name",
+          "answer": [
+            {
+              "valueString": "OttehrPus"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-birthdate",
+          "answer": [
+            {
+              "valueString": "2020-08-06"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-birth-sex",
+          "answer": [
+            {
+              "valueString": "Male"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-birth-sex-missing"
+        },
+        {
+          "linkId": "patient-contact-additional-caption"
+        },
+        {
+          "linkId": "patient-email",
+          "answer": [
+            {
+              "valueString": "ibenham+dbOttherpus@masslight.com"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-number",
+          "answer": [
+            {
+              "valueString": "(425) 326-8681"
+            }
+          ]
+        },
+        {
+          "linkId": "mobile-opt-in"
+        }
+      ]
+    },
+    {
+      "linkId": "patient-details-page",
+      "item": [
+        {
+          "linkId": "patient-ethnicity",
+          "answer": [
+            {
+              "valueString": "Not Hispanic or Latino"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-race",
+          "answer": [
+            {
+              "valueString": "White"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-pronouns",
+          "answer": [
+            {
+              "valueString": "He/him"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-pronouns-custom"
+        },
+        {
+          "linkId": "patient-details-additional-text"
+        },
+        {
+          "linkId": "patient-point-of-discovery",
+          "answer": [
+            {
+              "valueString": "Internet Search"
+            }
+          ]
+        },
+        {
+          "linkId": "preferred-language",
+          "answer": [
+            {
+              "valueString": "English"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "primary-care-physician-page"
+    },
+    {
+      "linkId": "payment-option-page",
+      "item": [
+        {
+          "linkId": "payment-option",
+          "answer": [
+            {
+              "valueString": "I have insurance"
+            }
+          ]
+        },
+        {
+          "linkId": "card-payment-data"
+        },
+        {
+          "linkId": "insurance-carrier",
+          "answer": [
+            {
+              "valueReference": {
+                "reference": "{{ORGANIZATION_REF}}",
+                "display": "Aetna"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-plan-type",
+          "answer": [{ "valueString": "09" }]
+        },
+        {
+          "linkId": "insurance-member-id",
+          "answer": [
+            {
+              "valueString": "FafOneJwgNdkOetWwe6"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-first-name",
+          "answer": [
+            {
+              "valueString": "Barnabas"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-middle-name",
+          "answer": [
+            {
+              "valueString": "Thaddeus"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-last-name",
+          "answer": [
+            {
+              "valueString": "PicklesWorth"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-date-of-birth",
+          "answer": [
+            {
+              "valueString": "1982-02-23"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-birth-sex",
+          "answer": [
+            {
+              "valueString": "Male"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-address-as-patient"
+        },
+        {
+          "linkId": "policy-holder-address",
+          "answer": [
+            {
+              "valueString": "317 Mustard Street"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-address-additional-line",
+          "answer": [
+            {
+              "valueString": "Unit 2"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-city",
+          "answer": [
+            {
+              "valueString": "DeliciousVilla"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-state",
+          "answer": [
+            {
+              "valueString": "DE"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-zip",
+          "answer": [
+            {
+              "valueString": "20001"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-relationship-to-insured",
+          "answer": [
+            {
+              "valueString": "Child"
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-additional-information",
+          "answer": [
+            {
+              "valueString": "Additional info to primary insurance"
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-card-front",
+          "answer": [
+            {
+              "valueAttachment": {
+                "url": "https://project-api.zapehr.com/v1/z3/0ba6d7a5-a5a6-4c16-a6d9-ce91f300acb4-insurance-cards/099639e6-c89c-4bad-becf-ce15ce010f21/2025-02-23-1740344290487-insurance-card-front.png",
+                "title": "insurance-card-front",
+                "creation": "2025-02-23T15:58:10.979-05:00",
+                "contentType": "image/png"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-card-back",
+          "answer": [
+            {
+              "valueAttachment": {
+                "url": "https://project-api.zapehr.com/v1/z3/0ba6d7a5-a5a6-4c16-a6d9-ce91f300acb4-insurance-cards/099639e6-c89c-4bad-becf-ce15ce010f21/2025-02-23-1740344301743-insurance-card-back.png",
+                "title": "insurance-card-back",
+                "creation": "2025-02-23T15:58:22.405-05:00",
+                "contentType": "image/png"
+              }
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-eligibility-verification-status",
+          "answer": [
+            {
+              "valueString": "eligibility-confirmed"
+            },
+            {
+              "valueString": "eligibility-check-not-supported"
+            }
+          ]
+        },
+        {
+          "linkId": "display-secondary-insurance",
+          "answer": [
+            {
+              "valueBoolean": true
+            }
+          ]
+        },
+        {
+          "item": [
+            {
+              "linkId": "insurance-carrier-2",
+              "answer": [
+                {
+                  "valueReference": {
+                    "reference": "{{ORGANIZATION_REF}}",
+                    "display": "Aetna"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-plan-type-2",
+              "answer": [{ "valueString": "12" }]
+            },
+            {
+              "linkId": "insurance-member-id-2",
+              "answer": [
+                {
+                  "valueString": "FdfDfdFdfDfh7897"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-first-name-2",
+              "answer": [
+                {
+                  "valueString": "Jennifer"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-middle-name-2",
+              "answer": [
+                {
+                  "valueString": "Celeste"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-last-name-2",
+              "answer": [
+                {
+                  "valueString": "PicklesWorth"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-date-of-birth-2",
+              "answer": [
+                {
+                  "valueString": "1983-02-23"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-birth-sex-2",
+              "answer": [
+                {
+                  "valueString": "Female"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address-as-patient-2",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address-2",
+              "answer": [
+                {
+                  "valueString": "317 R St NW Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address-additional-line-2",
+              "answer": [
+                {
+                  "valueString": "conditional-filter-test-1234"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-city-2",
+              "answer": [
+                {
+                  "valueString": "Washington"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-state-2",
+              "answer": [
+                {
+                  "valueString": "DC"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-zip-2",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-relationship-to-insured-2",
+              "answer": [
+                {
+                  "valueString": "Child"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-additional-information-2",
+              "answer": [
+                {
+                  "valueString": "Additional info to secondary insurance"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-front-2"
+            },
+            {
+              "linkId": "insurance-card-back-2"
+            }
+          ],
+          "linkId": "secondary-insurance"
+        }
+      ]
+    },
+    {
+      "linkId": "responsible-party-page",
+      "item": [
+        {
+          "linkId": "responsible-party-first-name",
+          "answer": [
+            {
+              "valueString": "Jane"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-last-name",
+          "answer": [
+            {
+              "valueString": "Doe"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-birth-sex",
+          "answer": [
+            {
+              "valueString": "Female"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-date-of-birth",
+          "answer": [
+            {
+              "valueString": "1983-02-23"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-relationship",
+          "answer": [
+            {
+              "valueString": "Parent"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-address",
+          "answer": [
+            {
+              "valueString": "123 test lane"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-address-2"
+        },
+        {
+          "linkId": "responsible-party-city",
+          "answer": [
+            {
+              "valueString": "fakePlace"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-state",
+          "answer": [
+            {
+              "valueString": "NY"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-zip",
+          "answer": [
+            {
+              "valueString": "11111"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-number",
+          "answer": [
+            {
+              "valueString": "(989) 555-6543"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-email",
+          "answer": [
+            {
+              "valueString": "rowdyroddypiper@hotmail.com"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "photo-id-page"
+    },
+    {
+      "linkId": "consent-forms-page"
+    }
+  ],
+  "id": "e5f86b53-cfc4-49f1-baa7-ac70be95589b",
+  "meta": {
+    "versionId": "78905816-4160-4b62-b3ae-747303788c26",
+    "lastUpdated": "2025-03-03T21:41:51.500Z"
+  },
+  "authored": "2025-03-03T21:41:51.500Z"
+}

@@ -1,5 +1,4 @@
-import { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
-import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
+import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
@@ -8,7 +7,9 @@ import {
   Encounter,
   FhirResource,
   Observation,
+  Practitioner,
   Provenance,
+  QuestionnaireResponse,
   Reference,
   ServiceRequest,
   Specimen,
@@ -16,12 +17,21 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  DYMO_30334_LABEL_CONFIG,
+  getAccountNumberFromLocationAndOrganization,
+  getFullestAvailableName,
+  getOrderNumber,
   getPatchBinary,
+  getPatientFirstName,
+  getPatientLastName,
   getSecret,
+  isPSCOrder,
+  LAB_ORDER_UPDATE_RESOURCES_EVENTS,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
+  SaveOrderCollectionData,
   Secrets,
   SecretsKeys,
-  UpdateLabOrderResourcesParameters,
+  UpdateLabOrderResourcesInput,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -31,7 +41,21 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { createExternalLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
+import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
+import {
+  createExternalLabResultPDF,
+  createExternalLabResultPDFBasedOnDr,
+} from '../../shared/pdf/labs-results-form-pdf';
+import { createOwnerReference } from '../../shared/tasks';
+import { diagnosticReportSpecificResultType, getExternalLabOrderResourcesViaServiceRequest } from '../shared/labs';
+import {
+  getSpecimenPatchAndMostRecentCollectionDate,
+  handleMatchUnsolicitedRequest,
+  handleRejectedAbn,
+  makePstCompletePatchRequests,
+  makeQrPatchRequest,
+  makeSpecimenPatchRequest,
+} from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-lab-order-resources';
@@ -42,7 +66,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`update-lab-order-resources started, input: ${JSON.stringify(input)}`);
 
   let secrets = input.secrets;
-  let validatedParameters: UpdateLabOrderResourcesParameters & { secrets: Secrets | null; userToken: string };
+  let validatedParameters: UpdateLabOrderResourcesInput & { secrets: Secrets | null; userToken: string };
 
   try {
     validatedParameters = validateRequestParameters(input);
@@ -86,7 +110,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           }),
         };
       }
-
       case 'specimenDateChanged': {
         const { serviceRequestId, specimenId, date } = validatedParameters;
 
@@ -106,17 +129,87 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           }),
         };
       }
+      case 'saveOrderCollectionData': {
+        const { serviceRequestId, data, specimenCollectionDates } = validatedParameters;
+        const { presignedLabelURL } = await handleSaveCollectionData(
+          oystehr,
+          m2mToken,
+          secrets,
+          practitionerIdFromCurrentUser,
+          {
+            serviceRequestId,
+            data,
+            specimenCollectionDates,
+          }
+        );
+
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully updated saved order collection data`,
+            presignedLabelURL,
+          }),
+        };
+      }
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask: {
+        console.log('handling cancel task to match unsolicited result');
+        const { taskId } = validatedParameters;
+        await oystehr.fhir.batch({
+          requests: [
+            getPatchBinary({
+              resourceType: 'Task',
+              resourceId: taskId,
+              patchOperations: [
+                {
+                  op: 'replace',
+                  path: '/status',
+                  value: 'cancelled',
+                },
+              ],
+            }),
+          ],
+        });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully cancelled match unsolicited result task with id ${taskId}`,
+          }),
+        };
+      }
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult: {
+        const { taskId, diagnosticReportId, srToMatchId, patientToMatchId } = validatedParameters;
+        console.log('handling match unsolicited result');
+        await handleMatchUnsolicitedRequest({
+          oystehr,
+          taskId,
+          diagnosticReportId,
+          srToMatchId,
+          patientToMatchId,
+          practitionerIdFromCurrentUser,
+        });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully matched unsolicited result`,
+          }),
+        };
+      }
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn: {
+        const { serviceRequestId } = validatedParameters;
+        console.log('handling rejected abn');
+        await handleRejectedAbn({ oystehr, serviceRequestId, practitionerIdFromCurrentUser });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully revoked sr for lab with rejected abn`,
+          }),
+        };
+      }
     }
   } catch (error: any) {
     console.error('Error updating external lab order resource:', error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('update-lab-order-resources', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: `Error handling ${validatedParameters.event} event: ${error.message || error}`,
-      }),
-    };
+    return topLevelCatch('update-lab-order-resources', error, ENVIRONMENT);
   }
 });
 
@@ -131,7 +224,7 @@ const handleReviewedEvent = async ({
   oystehr: Oystehr;
   practitionerIdFromCurrentUser: string;
   taskId: string;
-  serviceRequestId: string;
+  serviceRequestId: string | undefined;
   diagnosticReportId: string;
   secrets: Secrets | null;
 }): Promise<Bundle<FhirResource>> => {
@@ -147,18 +240,26 @@ const handleReviewedEvent = async ({
     })
   ).unbundle();
 
-  const serviceRequest = resources.find(
-    (r) => r.resourceType === 'ServiceRequest' && r.id === serviceRequestId
-  ) as ServiceRequest;
+  let serviceRequest: ServiceRequest | undefined;
+  const maybeServiceRequest = resources.find(
+    (r: any) => r.resourceType === 'ServiceRequest' && r.id === serviceRequestId
+  );
+  if (maybeServiceRequest) {
+    serviceRequest = maybeServiceRequest as ServiceRequest;
+  }
 
   const diagnosticReport = resources.find(
-    (r) => r.resourceType === 'DiagnosticReport' && r.id === diagnosticReportId
+    (r: any) => r.resourceType === 'DiagnosticReport' && r.id === diagnosticReportId
   ) as DiagnosticReport;
+  const specificDrTypeFromTag = diagnosticReportSpecificResultType(diagnosticReport);
+  const resultIsDrDriven = !!specificDrTypeFromTag;
+  console.log('handleReviewedEvent specificDrTypeFromTag', specificDrTypeFromTag);
+  console.log('resultIsDrDriven', resultIsDrDriven);
 
-  const task = resources.find((r) => r.resourceType === 'Task' && r.id === taskId) as Task;
+  const task = resources.find((r: any) => r.resourceType === 'Task' && r.id === taskId) as Task;
 
-  if (!serviceRequest) {
-    throw new Error(`ServiceRequest/${serviceRequestId} not found`);
+  if (!serviceRequest && !resultIsDrDriven) {
+    throw new Error(`ServiceRequest/${serviceRequestId} not found for diagnostic report, ${diagnosticReportId}`);
   }
 
   if (!diagnosticReport) {
@@ -175,20 +276,24 @@ const handleReviewedEvent = async ({
     throw new Error(`Observation Id not found in DiagnosticReport/${diagnosticReportId}`);
   }
 
-  const locationReference = serviceRequest.locationReference?.[0];
+  const locationReference = serviceRequest?.locationReference?.[0];
 
   const tempProvenanceUuid = `urn:uuid:${crypto.randomUUID()}`;
+
+  const target: Reference[] = [
+    { reference: `DiagnosticReport/${diagnosticReport.id}` },
+    { reference: `Observation/${observationId}` },
+  ];
+  if (serviceRequest) {
+    target.push({ reference: `ServiceRequest/${serviceRequest.id}` });
+  }
 
   const provenanceRequest: BatchInputPostRequest<Provenance> = {
     method: 'POST',
     url: '/Provenance',
     resource: {
       resourceType: 'Provenance',
-      target: [
-        { reference: `ServiceRequest/${serviceRequest.id}` },
-        { reference: `DiagnosticReport/${diagnosticReport.id}` },
-        { reference: `Observation/${observationId}` },
-      ],
+      target,
       recorded: DateTime.now().toUTC().toISO(),
       location: locationReference as Reference, // TODO: should we throw error if locationReference is not present?
       agent: [
@@ -214,13 +319,6 @@ const handleReviewedEvent = async ({
       path: '/status',
       value: 'completed',
     },
-    {
-      op: 'add',
-      path: '/owner',
-      value: {
-        reference: `Practitioner/${practitionerIdFromCurrentUser}`,
-      },
-    },
     ...(shouldAddRelevantHistory
       ? [
           {
@@ -236,19 +334,48 @@ const handleReviewedEvent = async ({
       : []),
   ];
 
+  if (!task.owner) {
+    const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: practitionerIdFromCurrentUser,
+    });
+    taskPatchOperations.push({
+      path: '/owner',
+      op: 'add',
+      value: createOwnerReference(
+        practitionerIdFromCurrentUser,
+        getFullestAvailableName(currentUserPractitioner) ?? ''
+      ),
+    });
+  }
+
   const taskPatchRequest = getPatchBinary({
     resourceType: 'Task',
     resourceId: taskId,
     patchOperations: taskPatchOperations,
   });
-
   const requests = shouldAddRelevantHistory ? [provenanceRequest, taskPatchRequest] : [taskPatchRequest];
 
   const updateTransactionRequest = await oystehr.fhir.transaction({
     requests,
   });
 
-  await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mToken);
+  if (specificDrTypeFromTag) {
+    console.log('creating pdf for unsolicited result:', diagnosticReportId);
+    await createExternalLabResultPDFBasedOnDr(
+      oystehr,
+      specificDrTypeFromTag,
+      diagnosticReportId,
+      true,
+      secrets,
+      m2mToken
+    );
+  } else if (serviceRequestId) {
+    console.log('creating pdf for solicited result:', diagnosticReportId);
+    await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mToken);
+  } else {
+    console.log('skipping review pdf re-generation');
+  }
 
   return updateTransactionRequest;
 };
@@ -286,46 +413,112 @@ const handleSpecimenDateChangedEvent = async ({
     throw new Error(`Specimen/${specimenId} not found in ServiceRequest/${serviceRequestId}`);
   }
 
-  const hasSpecimenCollection = specimen.collection;
-  const hasSpecimenDateTime = specimen.collection?.collectedDateTime;
-  const hasSpecimenCollector = specimen.collection?.collector;
-  const specimenCollector = { reference: `Practitioner/${practitionerIdFromCurrentUser}` };
-
-  const operations: Operation[] = [];
-
-  if (hasSpecimenCollection) {
-    operations.push(
-      {
-        op: hasSpecimenCollector ? 'replace' : 'add',
-        path: '/collection/collector',
-        value: specimenCollector,
-      },
-      {
-        op: hasSpecimenDateTime ? 'replace' : 'add',
-        path: '/collection/collectedDateTime',
-        value: date,
-      }
-    );
-  } else {
-    operations.push({
-      path: '/collection',
-      op: 'add',
-      value: {
-        collectedDateTime: date,
-        collector: specimenCollector,
-      },
-    });
-  }
-
-  const specimenPatchRequest: BatchInputPatchRequest<Specimen> = {
-    method: 'PATCH',
-    url: `Specimen/${specimen.id}`,
-    operations: operations,
-  };
+  const specimenPatchRequest = makeSpecimenPatchRequest(
+    specimen,
+    DateTime.fromISO(date),
+    practitionerIdFromCurrentUser
+  );
 
   const updateTransactionRequest = await oystehr.fhir.transaction<Specimen>({
     requests: [specimenPatchRequest],
   });
 
   return updateTransactionRequest;
+};
+
+/**
+ * saves sample collection dates
+ * saves aoe question entry & marks QR as complete
+ * update pre-submission task to complete and create provenance for who did that
+ *  makes specimen label
+ */
+const handleSaveCollectionData = async (
+  oystehr: Oystehr,
+  m2mToken: string,
+  secrets: Secrets | null,
+  practitionerIdFromCurrentUser: string,
+  input: SaveOrderCollectionData
+): Promise<{ presignedLabelURL: string | undefined }> => {
+  console.log('double check input', JSON.stringify(input));
+  const { serviceRequestId, data, specimenCollectionDates } = input;
+  const now = DateTime.now();
+
+  console.log('getting resources needed for saving collection data');
+  const {
+    serviceRequest,
+    patient,
+    questionnaireResponse,
+    preSubmissionTask,
+    encounter,
+    labOrganization,
+    specimens: specimenResources,
+    location,
+  } = await getExternalLabOrderResourcesViaServiceRequest(oystehr, serviceRequestId);
+  console.log('resources retrieved');
+
+  const orderNumber = getOrderNumber(serviceRequest);
+  console.log('orderNumber', orderNumber);
+  if (!orderNumber) throw Error(`requisition number could not be parsed from the service request ${serviceRequest.id}`);
+
+  const requests: BatchInputRequest<Specimen | QuestionnaireResponse | Provenance | Task>[] = [];
+
+  // if there are specimen dates passed update those specimens collection dateTimes
+  let mostRecentSampleCollectionDate: undefined | DateTime; // needed for label
+  console.log('specimenResources', JSON.stringify(specimenResources));
+  console.log('specimenCollectionDates', JSON.stringify(specimenCollectionDates));
+  if (specimenResources.length > 0 && specimenCollectionDates) {
+    const { specimenPatchRequests, mostRecentCollectionDate } = getSpecimenPatchAndMostRecentCollectionDate(
+      specimenResources,
+      specimenCollectionDates,
+      practitionerIdFromCurrentUser
+    );
+    requests.push(...specimenPatchRequests);
+    mostRecentSampleCollectionDate = mostRecentCollectionDate;
+  }
+
+  // if aoe answers (data) are passed, patch the QR & make QR completed
+  // not every order will have an AOE
+  if (questionnaireResponse !== undefined && questionnaireResponse.id) {
+    const qrPatchRequest = await makeQrPatchRequest(questionnaireResponse, data, m2mToken);
+    requests.push(qrPatchRequest);
+  }
+
+  let presignedLabelURL: string | undefined = undefined;
+  // update pst task to complete, add agent and relevant history (provenance created)
+  // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask
+  const pstCompletedRequests = await makePstCompletePatchRequests(
+    oystehr,
+    preSubmissionTask,
+    serviceRequest,
+    practitionerIdFromCurrentUser,
+    now
+  );
+  requests.push(...pstCompletedRequests);
+
+  // make specimen label
+  if (!isPSCOrder(serviceRequest)) {
+    const labelConfig: ExternalLabsLabelConfig = {
+      labelConfig: DYMO_30334_LABEL_CONFIG,
+      content: {
+        patientId: patient.id!,
+        patientFirstName: getPatientFirstName(patient) ?? '',
+        patientLastName: getPatientLastName(patient) ?? '',
+        patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
+        sampleCollectionDate: mostRecentSampleCollectionDate,
+        orderNumber: orderNumber,
+        accountNumber:
+          (labOrganization && location && getAccountNumberFromLocationAndOrganization(location, labOrganization)) || '',
+      },
+    };
+
+    console.log('creating labs order label and getting url');
+    presignedLabelURL = (
+      await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mToken, oystehr)
+    ).presignedURL;
+  }
+
+  console.log('making fhir requests');
+  await oystehr.fhir.transaction({ requests });
+
+  return { presignedLabelURL };
 };

@@ -8,21 +8,17 @@ module.exports = {
   env: {
     browser: true,
     node: true,
+    es2022: true,
   },
   parser: '@typescript-eslint/parser',
   parserOptions: {
     project: './tsconfig.base.json',
     tsconfigRootDir: __dirname,
   },
-  plugins: ['@typescript-eslint', 'simple-import-sort'],
+  plugins: ['@typescript-eslint', 'simple-import-sort', '@tanstack/query'],
   root: true,
   rules: {
-    '@typescript-eslint/explicit-function-return-type': [
-      'error',
-      {
-        allowExpressions: true,
-      },
-    ],
+    '@typescript-eslint/explicit-function-return-type': ['error', { allowExpressions: true }],
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/no-floating-promises': 'error',
@@ -51,12 +47,7 @@ module.exports = {
         tsconfigRootDir: __dirname,
       },
       rules: {
-        '@typescript-eslint/explicit-function-return-type': [
-          'error',
-          {
-            allowExpressions: true,
-          },
-        ],
+        '@typescript-eslint/explicit-function-return-type': ['error', { allowExpressions: true }],
         '@typescript-eslint/explicit-module-boundary-types': 'off',
         '@typescript-eslint/no-explicit-any': 'off',
         '@typescript-eslint/no-floating-promises': 'error',
@@ -69,6 +60,24 @@ module.exports = {
           },
         ],
         'prefer-promise-reject-errors': 'error',
+      },
+    },
+    {
+      files: ['apps/ehr/src/**/*.{ts,tsx}', 'apps/intake/src/**/*.{ts,tsx}', 'packages/ui-components/**/*.{ts,tsx}'],
+      rules: {
+        '@tanstack/query/exhaustive-deps': 'error',
+        '@tanstack/query/stable-query-client': 'error',
+        '@tanstack/query/prefer-query-object-syntax': 'error',
+        '@tanstack/query/no-deprecated-options': 'error',
+        '@tanstack/query/no-rest-destructuring': 'warn',
+      },
+    },
+    {
+      files: ['scripts/**/*.js'],
+      rules: {
+        '@typescript-eslint/no-require-imports': 'off',
+        '@typescript-eslint/explicit-function-return-type': 'off',
+        '@typescript-eslint/no-unused-vars': 'off',
       },
     },
   ],

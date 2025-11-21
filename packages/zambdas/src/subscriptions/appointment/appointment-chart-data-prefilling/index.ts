@@ -5,24 +5,15 @@ import {
   ChartDataResources,
   chunkThings,
   DispositionDTO,
-  examCardsMap,
-  ExamCardsNames,
-  examFieldsMap,
-  ExamFieldsNames,
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
   getDefaultNote,
   getPatchBinary,
   getPatchOperationForNewMetaTag,
   getSecret,
-  inPersonExamCardsMap,
-  InPersonExamCardsNames,
-  inPersonExamFieldsMap,
-  InPersonExamFieldsNames,
+  isInPersonAppointment,
   MDM_FIELD_DEFAULT_TEXT,
-  OTTEHR_MODULE,
   Secrets,
   SecretsKeys,
-  SNOMEDCodeConceptInterface,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -93,9 +84,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ],
       })
     ).unbundle();
+
     console.log('Got Appointment related resources');
 
-    const isInPersonAppointment = !!appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
+    const isInPerson = isInPersonAppointment(appointment);
 
     const patient = resourceBundle?.find((resource: FhirResource) => resource.resourceType === 'Patient') as
       | Patient
@@ -106,40 +98,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const encounter = resourceBundle?.find(
       (resource: FhirResource) =>
-        resource.resourceType === 'Encounter' &&
-        (isInPersonAppointment || Boolean(getVideoRoomResourceExtension(resource)))
+        resource.resourceType === 'Encounter' && (isInPerson || Boolean(getVideoRoomResourceExtension(resource)))
     ) as Encounter | undefined;
+
     if (!encounter?.id) throw new Error('Encounter is missing from resource bundle.');
     // When in forEach, TS forgets this is no longer undefined.
     const encounterId = encounter.id;
 
     // Exam observations
-    const examObservations = createExamObservations(isInPersonAppointment);
+    const examObservations = createExamObservations(isInPerson);
 
     examObservations?.forEach((element) => {
-      const mappedSnomedField = isInPersonAppointment
-        ? inPersonExamFieldsMap[element.field as InPersonExamFieldsNames]
-        : examFieldsMap[element.field as ExamFieldsNames];
-      const mappedSnomedCard = isInPersonAppointment
-        ? inPersonExamCardsMap[element.field as InPersonExamCardsNames]
-        : examCardsMap[element.field as ExamCardsNames];
-      let snomedCode: SNOMEDCodeConceptInterface;
-
-      if (!mappedSnomedField && !mappedSnomedCard)
-        throw new Error('Provided "element.field" property is not recognized.');
-      if (mappedSnomedField && typeof element.value === 'boolean') {
-        snomedCode = mappedSnomedField;
-      } else if (mappedSnomedCard && element.note) {
-        element.value = undefined;
-        snomedCode = mappedSnomedCard;
-      } else {
-        throw new Error(
-          `Exam observation resource must contain string field: 'note', or boolean: 'value', depends on this resource type is exam-field or exam-card. Resource type determines by 'field' prop.`
-        );
-      }
-
+      const { code, bodySite, label, ...rest } = element;
       saveOrUpdateRequests.push(
-        saveResourceRequest(makeExamObservationResource(encounterId, patientId, element, snomedCode))
+        saveResourceRequest(
+          makeExamObservationResource(encounterId, patientId, rest, code ? { code, bodySite } : undefined, label)
+        )
       );
     });
 
@@ -218,10 +192,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-telemedicine-appointment-subscription', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify(error.message),
-    };
+    return topLevelCatch('admin-appointment-chart-data-prefilling', error, ENVIRONMENT);
   }
 });

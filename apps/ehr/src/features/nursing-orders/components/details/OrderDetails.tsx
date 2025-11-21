@@ -1,5 +1,6 @@
 import { Box, Divider, Paper, Typography } from '@mui/material';
-import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
+import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { NursingOrder, NursingOrdersStatus } from 'utils';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 
@@ -9,6 +10,8 @@ interface CollectSampleViewProps {
 }
 
 export const OrderDetails: React.FC<CollectSampleViewProps> = ({ orderDetails, onSubmit }) => {
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+
   const handleMarkAsCollected = (): void => {
     onSubmit({
       status: NursingOrdersStatus.completed,
@@ -29,21 +32,25 @@ export const OrderDetails: React.FC<CollectSampleViewProps> = ({ orderDetails, o
             Order Note
           </Typography>
           <Box>
-            <Typography>{orderDetails.note}</Typography>
+            <Typography style={{ whiteSpace: 'pre-line' }}>{orderDetails.note}</Typography>
           </Box>
         </Box>
-        <Divider />
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 3 }}>
-          <ButtonRounded
-            variant="contained"
-            color="primary"
-            onClick={handleMarkAsCollected}
-            disabled={orderDetails.status === NursingOrdersStatus.completed}
-            sx={{ borderRadius: '50px', px: 4 }}
-          >
-            Mark as Completed
-          </ButtonRounded>
-        </Box>
+        {orderDetails.status === NursingOrdersStatus.pending && (
+          <>
+            <Divider />
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 3 }}>
+              <ButtonRounded
+                variant="contained"
+                color="primary"
+                onClick={handleMarkAsCollected}
+                sx={{ borderRadius: '50px', px: 4 }}
+                disabled={isReadOnly}
+              >
+                Mark as Completed
+              </ButtonRounded>
+            </Box>
+          </>
+        )}
       </Paper>
     </Box>
   );

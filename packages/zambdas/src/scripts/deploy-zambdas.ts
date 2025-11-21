@@ -1,12 +1,14 @@
-import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest, ZambdaCreateParams } from '@oystehr/sdk';
 import { Subscription } from 'fhir/r4b';
 import fs from 'fs';
 import { SubscriptionZambdaDetails } from 'utils';
-import ottehrSpec from '../../ottehr-spec.json';
+import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json';
 import { getAuth0Token } from '../shared';
 
 interface DeployZambda {
   type: 'http_open' | 'http_auth' | 'subscription' | 'cron';
+  runtime: ZambdaCreateParams['runtime'];
+  timeout?: string;
   subscriptionDetails?: SubscriptionZambdaDetails[];
   schedule?: {
     start?: string;
@@ -26,6 +28,8 @@ Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
 
   const zambdaDefinition: DeployZambda = {
     type: spec.type,
+    runtime: spec.runtime as ZambdaCreateParams['runtime'],
+    timeout: (spec as any).timeout,
   };
 
   if (spec.type === 'subscription') {
@@ -161,6 +165,10 @@ const updateZambdas = async (config: any, selectedTriggerMethod: string | undefi
       console.log(`\nZambda ${zambda} is not found, creating it`);
       currentDeployedZambda = await oystehr.zambda.create({
         name: zambdaName,
+        runtime: currentZambda.runtime,
+        triggerMethod: currentZambda.type,
+        schedule: currentZambda.schedule,
+        timeoutInSeconds: currentZambda.timeout ? parseInt(currentZambda.timeout) : undefined,
       });
       console.log(`Zambda ${zambda} with ID ${currentDeployedZambda.id}`);
     }
@@ -277,6 +285,7 @@ async function updateProjectZambda(
       triggerMethod: zambda.type,
       schedule: zambda.schedule,
       name: zambdaName,
+      timeoutInSeconds: zambda.timeout ? parseInt(zambda.timeout) : undefined,
     }),
   });
   if (updateZambda.status !== 200) {

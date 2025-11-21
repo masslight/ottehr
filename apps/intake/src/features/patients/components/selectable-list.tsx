@@ -20,7 +20,7 @@ interface PatientListProps {
 }
 
 const PatientList: React.FC<PatientListProps> = ({
-  patients,
+  patients = [],
   selectedPatient,
   subtitle,
   buttonLoading,

@@ -40,6 +40,11 @@ export interface PrescribedMedication {
   instructions?: string;
 }
 
+export interface FollowUpDetails {
+  encounterTime: string;
+  documents: FileURLs;
+}
+
 export interface GetVisitDetailsResponse {
   files: FileURLs;
   medications: PrescribedMedication[];
@@ -49,6 +54,7 @@ export interface GetVisitDetailsResponse {
     currency: string;
     date: string;
   };
+  followUps: FollowUpDetails[];
 }
 
 export interface PaymentDataResponse {
@@ -91,7 +97,15 @@ export enum TelemedAppointmentStatusEnum {
 export type TelemedAppointmentStatus = `${TelemedAppointmentStatusEnum}`;
 
 export type TelemedCallStatuses = `${TelemedAppointmentStatus}`;
-export const TelemedCallStatusesArr = ['ready', 'pre-video', 'on-video', 'unsigned', 'complete', 'cancelled'];
+
+export const TelemedCallStatusesArr: TelemedAppointmentStatus[] = [
+  'ready',
+  'pre-video',
+  'on-video',
+  'unsigned',
+  'complete',
+  'cancelled',
+];
 
 export interface TelemedStatusHistoryElement {
   start?: string;

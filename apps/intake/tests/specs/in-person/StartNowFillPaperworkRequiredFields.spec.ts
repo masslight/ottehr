@@ -15,6 +15,7 @@ let locator: Locators;
 let paperwork: Paperwork;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
+const locationName = process.env.LOCATION;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -39,8 +40,7 @@ test.afterAll(async () => {
 
 test.describe.serial('Start now In person visit - Paperwork submission flow with only required fields', () => {
   test('SNPRF-1 Fill required contact information', async () => {
-    await page.goto('/home');
-    await locator.startInPersonVisitButton.click();
+    await page.goto(`/walkin/location/${locationName?.replaceAll(' ', '_')}`);
     await locator.clickContinueButton();
     await locator.selectDifferentFamilyMember();
     await locator.clickContinueButton();
@@ -63,6 +63,7 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
 
   test('SNPRF-3 Skip PCP and Select Self-Pay Payment Option', async () => {
     await paperwork.skipPrimaryCarePhysician();
+    await paperwork.skipPreferredPharmacy();
     await paperwork.selectSelfPayPayment();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Credit card details');
@@ -75,15 +76,20 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
   test('SNPRF-5 Fill responsible party details', async () => {
     await paperwork.fillResponsiblePartyDataSelf();
     await commonLocatorsHelper.clickContinue();
+    await expect(locator.flowHeading).toHaveText('Emergency Contact');
+  });
+  test('SNPRF-6 Fill emergency contact details', async () => {
+    await paperwork.fillEmergencyContactInformation();
+    await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Photo ID');
   });
-  test('SNPRF-6 Skip photo ID and complete consent forms', async () => {
+  test('SNPRF-7 Skip photo ID and complete consent forms', async () => {
     await paperwork.skipPhotoID();
     await paperwork.fillConsentForms();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Review and submit');
   });
-  test('SNPRF-7 Submit paperwork', async () => {
+  test('SNPRF-8 Submit paperwork', async () => {
     await commonLocatorsHelper.clickContinue();
     await expect(locator.checkInHeading).toBeVisible();
   });

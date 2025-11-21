@@ -1,29 +1,31 @@
-import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/aws-serverless';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
+import { FhirResource, Provenance } from 'fhir/r4b';
 import {
-  getCriticalUpdateTagOp,
+  extractExtensionValue,
+  findExtensionIndex,
+  getAppointmentLockMetaTagOperations,
+  getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
+  getInPersonVisitStatus,
   getPatchBinary,
-  getProgressNoteChartDataRequestedFields,
-  getVisitStatus,
-  OTTEHR_MODULE,
+  getSecret,
+  getTaskResource,
+  isFollowupEncounter,
+  SecretsKeys,
   SignAppointmentInput,
   SignAppointmentResponse,
-  telemedProgressNoteChartDataRequestedFields,
+  TaskIndicator,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createEncounterFromAppointment } from '../../shared/candid';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
-import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
-import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
-import { getChartData } from '../get-chart-data';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -48,10 +50,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('Stringified error: ' + JSON.stringify(error));
     console.error('Error: ' + error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error changing appointment status and creating a charge.' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
@@ -60,9 +59,9 @@ export const performEffect = async (
   oystehrCurrentUser: Oystehr,
   params: SignAppointmentInput
 ): Promise<SignAppointmentResponse> => {
-  const { appointmentId, timezone, secrets } = params;
+  const { appointmentId, encounterId, timezone, supervisorApprovalEnabled } = params;
 
-  const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
+  const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true, encounterId);
   if (!visitResources) {
     {
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
@@ -73,65 +72,61 @@ export const performEffect = async (
     // this allows the provider to specify their working location in the case of virtual encounters
     visitResources.timezone = timezone;
   }
-  const { encounter, patient, appointment, listResources } = visitResources;
+  const { encounter, patient, appointment } = visitResources;
+  const isFollowup = isFollowupEncounter(encounter);
 
   if (encounter?.subject?.reference === undefined) {
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
   }
-
-  let candidEncounterId: string | undefined;
-  try {
-    candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
-  } catch (error) {
-    console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
-    captureException(error, {
-      tags: {
-        appointmentId,
-        encounterId: encounter.id,
-      },
-    });
+  if (!patient) {
+    throw new Error(`No patient found for encounter ${encounter.id}`);
   }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
-  const currentStatus = getVisitStatus(appointment, encounter);
-  if (currentStatus) {
-    await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, candidEncounterId);
-  }
-  console.debug(`Status has been changed.`);
+  const currentStatus = getInPersonVisitStatus(appointment, encounter);
 
-  const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
+  if (isFollowup) {
+    // For follow-up encounters: only update encounter status and create PDF (no appointment updates, no email)
+    if (currentStatus) {
+      await changeFollowupEncounterStatusToCompleted(
+        oystehr,
+        oystehrCurrentUser,
+        visitResources,
+        supervisorApprovalEnabled
+      );
+    }
+    console.debug(`Follow-up encounter status has been changed.`);
 
-  const chartDataPromise = getChartData(oystehr, m2mToken, visitResources.encounter.id!);
-  const additionalChartDataPromise = getChartData(
-    oystehr,
-    m2mToken,
-    visitResources.encounter.id!,
-    isInPersonAppointment ? getProgressNoteChartDataRequestedFields() : telemedProgressNoteChartDataRequestedFields
-  );
+    if (appointment.id === undefined) {
+      throw new Error('Appointment ID is not defined');
+    }
 
-  const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(
-    (promise) => promise.response
-  );
+    const followupPDFTaskResource = getTaskResource(TaskIndicator.visitNotePDFAndEmail, appointment.id, encounterId);
+    const visitNoteTaskPromise = oystehr.fhir.create(followupPDFTaskResource);
 
-  console.log('Chart data received');
-  try {
-    const pdfInfo = await composeAndCreateVisitNotePdf(
-      { chartData, additionalChartData },
-      visitResources,
-      secrets,
-      m2mToken
-    );
-    if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
-    console.log(`Creating visit note pdf docRef`);
-    await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
-  } catch (error) {
-    console.error(`Error creating visit note pdf: ${error}`);
-    captureException(error, {
-      tags: {
-        appointmentId,
-        encounterId: encounter.id,
-      },
-    });
+    const taskCreationResults = await Promise.all([visitNoteTaskPromise]);
+    console.log('Follow-up task creation results ', taskCreationResults);
+  } else {
+    // For regular encounters: keep existing behavior
+    if (currentStatus) {
+      await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, supervisorApprovalEnabled);
+    }
+    console.debug(`Status has been changed.`);
+
+    if (appointment.id === undefined) {
+      throw new Error('Appointment ID is not defined');
+    }
+
+    // Create Task that will kick off subscription to send the claim
+    const sendClaimTaskResource = getTaskResource(TaskIndicator.sendClaim, appointment.id);
+    const sendClaimTaskPromise = oystehr.fhir.create(sendClaimTaskResource);
+
+    // Create Task that will kick off subscription to create visit-note PDF and send an email to the patient
+    const visitNoteAndEmailTaskResource = getTaskResource(TaskIndicator.visitNotePDFAndEmail, appointment.id);
+    const visitNoteTaskPromise = oystehr.fhir.create(visitNoteAndEmailTaskResource);
+
+    const taskCreationResults = await Promise.all([sendClaimTaskPromise, visitNoteTaskPromise]);
+    console.log('Task creation results ', taskCreationResults);
   }
 
   return {
@@ -139,11 +134,86 @@ export const performEffect = async (
   };
 };
 
+const changeFollowupEncounterStatusToCompleted = async (
+  oystehr: Oystehr,
+  oystehrCurrentUser: Oystehr,
+  resourcesToUpdate: FullAppointmentResourcePackage,
+  supervisorApprovalEnabled?: boolean
+): Promise<void> => {
+  if (!resourcesToUpdate.encounter || !resourcesToUpdate.encounter.id) {
+    throw new Error('Encounter is not defined');
+  }
+
+  const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
+
+  const encounterPatchOps: Operation[] = [
+    {
+      op: 'replace',
+      path: '/status',
+      value: encounterStatus,
+    },
+  ];
+
+  const user = await oystehrCurrentUser.user.me();
+
+  const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
+    resourcesToUpdate.encounter,
+    encounterStatus,
+    'completed'
+  );
+  encounterPatchOps.push(encounterStatusHistoryUpdate);
+
+  let provenanceCreate: BatchInputRequest<Provenance> | undefined;
+
+  if (supervisorApprovalEnabled) {
+    const extensionIndex = findExtensionIndex(
+      resourcesToUpdate.encounter.extension || [],
+      'awaiting-supervisor-approval'
+    );
+
+    if (extensionIndex != null && extensionIndex >= 0) {
+      const awaitingSupervisorApproval = extractExtensionValue(resourcesToUpdate.encounter.extension?.[extensionIndex]);
+      if (awaitingSupervisorApproval) {
+        encounterPatchOps.push({
+          op: 'replace',
+          path: `/extension/${extensionIndex}/valueBoolean`,
+          value: false,
+        });
+        provenanceCreate = {
+          method: 'POST',
+          url: '/Provenance',
+          resource: createProvenanceForEncounter(
+            resourcesToUpdate.encounter.id,
+            user.profile.split('/')[1],
+            'verifier'
+          ),
+        };
+      }
+    }
+  }
+
+  const documentPatch = createPublishExcuseNotesOps(resourcesToUpdate?.documentReferences ?? []);
+
+  const encounterPatch = getPatchBinary({
+    resourceType: 'Encounter',
+    resourceId: resourcesToUpdate.encounter.id,
+    patchOperations: encounterPatchOps,
+  });
+
+  await oystehr.fhir.transaction({
+    requests: [
+      encounterPatch,
+      ...(provenanceCreate ? [provenanceCreate] : []),
+      ...documentPatch,
+    ] as BatchInputRequest<FhirResource>[],
+  });
+};
+
 const changeStatusToCompleted = async (
   oystehr: Oystehr,
   oystehrCurrentUser: Oystehr,
   resourcesToUpdate: FullAppointmentResourcePackage,
-  candidEncounterId: string | undefined
+  supervisorApprovalEnabled?: boolean
 ): Promise<void> => {
   if (!resourcesToUpdate.appointment || !resourcesToUpdate.appointment.id) {
     throw new Error('Appointment is not defined');
@@ -165,11 +235,10 @@ const changeStatusToCompleted = async (
 
   const user = await oystehrCurrentUser.user.me();
 
-  const updateTag = getCriticalUpdateTagOp(
-    resourcesToUpdate.appointment,
-    `Staff ${user?.email ? user.email : `(${user?.id})`}`
-  );
-  patchOps.push(updateTag);
+  patchOps.push(...getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'completed', { user }));
+
+  // Add locked meta tag when appointment is signed/completed
+  patchOps.push(...getAppointmentLockMetaTagOperations(resourcesToUpdate.appointment, true));
 
   const encounterPatchOps: Operation[] = [
     {
@@ -179,23 +248,42 @@ const changeStatusToCompleted = async (
     },
   ];
 
-  if (candidEncounterId != null) {
-    const identifier = {
-      system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-      value: candidEncounterId,
-    };
-    encounterPatchOps.push({
-      op: 'add',
-      path: resourcesToUpdate.encounter.identifier != null ? '/identifier/-' : '/identifier',
-      value: resourcesToUpdate.encounter.identifier != null ? identifier : [identifier],
-    });
-  }
-
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
     resourcesToUpdate.encounter,
-    encounterStatus
+    encounterStatus,
+    'completed'
   );
+
   encounterPatchOps.push(encounterStatusHistoryUpdate);
+
+  let provenanceCreate: BatchInputRequest<Provenance> | undefined;
+
+  if (supervisorApprovalEnabled) {
+    const extensionIndex = findExtensionIndex(
+      resourcesToUpdate.encounter.extension || [],
+      'awaiting-supervisor-approval'
+    );
+
+    if (extensionIndex != null && extensionIndex >= 0) {
+      const awaitingSupervisorApproval = extractExtensionValue(resourcesToUpdate.encounter.extension?.[extensionIndex]);
+      if (awaitingSupervisorApproval) {
+        encounterPatchOps.push({
+          op: 'replace',
+          path: `/extension/${extensionIndex}/valueBoolean`,
+          value: false,
+        });
+        provenanceCreate = {
+          method: 'POST',
+          url: '/Provenance',
+          resource: createProvenanceForEncounter(
+            resourcesToUpdate.encounter.id,
+            user.profile.split('/')[1],
+            'verifier'
+          ),
+        };
+      }
+    }
+  }
 
   const documentPatch = createPublishExcuseNotesOps(resourcesToUpdate?.documentReferences ?? []);
 
@@ -211,6 +299,11 @@ const changeStatusToCompleted = async (
   });
 
   await oystehr.fhir.transaction({
-    requests: [appointmentPatch, encounterPatch, ...documentPatch],
+    requests: [
+      appointmentPatch,
+      encounterPatch,
+      ...(provenanceCreate ? [provenanceCreate] : []),
+      ...documentPatch,
+    ] as BatchInputRequest<FhirResource>[],
   });
 };

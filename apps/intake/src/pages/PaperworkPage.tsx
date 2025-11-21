@@ -13,11 +13,12 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { QuestionnaireResponse, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
+import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { t } from 'i18next';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useGetPaymentMethods, useSetupPaymentMethod } from 'src/telemed/features/paperwork';
 import {
   APIError,
   ComplexValidationResult,
@@ -29,7 +30,6 @@ import {
   findQuestionnaireResponseItemLinkId,
   flattenIntakeQuestionnaireItems,
   getSelectors,
-  InsuranceEligibilityCheckStatus,
   IntakeQuestionnaireItem,
   isApiError,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
@@ -207,6 +207,17 @@ export const PaperworkHome: FC = () => {
     });
   }, [allItems]);
 
+  const { data: stripeSetupData, isFetching: isSetupDataLoading } = useSetupPaymentMethod(patient?.id);
+
+  const {
+    data: cardData,
+    isFetching: cardsAreLoading,
+    refetch: refetchPaymentMethods,
+  } = useGetPaymentMethods({
+    beneficiaryPatientId: patient?.id,
+    setupCompleted: Boolean(stripeSetupData),
+  });
+
   const outletContext: PaperworkContext = useMemo(() => {
     return {
       appointment,
@@ -219,6 +230,12 @@ export const PaperworkHome: FC = () => {
       patient,
       updateTimestamp,
       saveButtonDisabled,
+      cardsAreLoading,
+      paymentMethods: cardData?.cards ?? [],
+      paymentMethodStateInitializing:
+        (stripeSetupData === undefined && isSetupDataLoading) || (cardData?.cards.length === 0 && cardsAreLoading),
+      stripeSetupData,
+      refetchPaymentMethods,
       setSaveButtonDisabled,
       findAnswerWithLinkId: (linkId: string): QuestionnaireResponseItem | undefined => {
         return findQuestionnaireResponseItemLinkId(linkId, completedPaperwork);
@@ -234,6 +251,11 @@ export const PaperworkHome: FC = () => {
     patient,
     updateTimestamp,
     saveButtonDisabled,
+    cardsAreLoading,
+    cardData?.cards,
+    stripeSetupData,
+    isSetupDataLoading,
+    refetchPaymentMethods,
   ]);
 
   const redirectTarget = useMemo(() => {
@@ -271,6 +293,10 @@ export const PaperworkHome: FC = () => {
   }
   return <Outlet context={{ ...outletContext }} />;
 };
+
+function extractPageLinkIds(items: IntakeQuestionnaireItem[] = []): string[] {
+  return items.flatMap((item) => [item.linkId, ...(item.item ? extractPageLinkIds(item.item) : [])]);
+}
 
 export const PaperworkPage: FC = () => {
   const navigate = useNavigate();
@@ -332,13 +358,13 @@ export const PaperworkPage: FC = () => {
       const paperworkValues = convertQRItemToLinkIdMap(qr.item);
       let idx = 1;
       let nextPage = paperworkPages[currentIndex + idx];
-      while (nextPage && !evalEnableWhen(nextPage, allItems, paperworkValues)) {
+      while (nextPage && !evalEnableWhen(nextPage, allItems, paperworkValues, questionnaireResponse)) {
         idx += 1;
         nextPage = paperworkPages[currentIndex + idx];
       }
       return nextPage;
     },
-    [allItems, currentIndex, paperworkPages]
+    [allItems, currentIndex, paperworkPages, questionnaireResponse]
   );
 
   useEffect(() => {
@@ -376,9 +402,13 @@ export const PaperworkPage: FC = () => {
   const finishPaperworkPage = useCallback(
     async (data: QuestionnaireFormFields): Promise<void> => {
       if (data && appointmentID && zambdaClient && currentPage && questionnaireResponseId && paperworkPatient) {
+        const pageLinkIds = extractPageLinkIds(currentPage.item ?? []);
         const raw = (Object.values(data) ?? []) as QuestionnaireResponseItem[];
         const responseItems = raw
           .filter((item) => {
+            if (!pageLinkIds.includes(item.linkId)) {
+              return false;
+            }
             if (item.linkId === undefined || (item.answer === undefined && item.item === undefined)) {
               return false;
             }
@@ -416,12 +446,14 @@ export const PaperworkPage: FC = () => {
         };
         try {
           if (currentPage.complexValidation !== undefined && evalComplexValidationTrigger(currentPage, responseItems)) {
-            setValidationRoadblockConfig({
-              type: 'in-progress',
-              title: 'Hang tight',
-              message: "We're verifying your insurance information. This shouldn't take long...",
-            });
-            const complexValidationResult = await performComplexValidation(
+            if (currentPage.complexValidation.type !== 'insurance eligibility') {
+              setValidationRoadblockConfig({
+                type: 'in-progress',
+                title: 'Hang tight',
+                message: "We're verifying your insurance information. This shouldn't take long...",
+              });
+            }
+            const complexValidationResultPromise = performComplexValidation(
               {
                 appointmentId: appointmentID,
                 patientId: paperworkPatient.id ?? '',
@@ -430,37 +462,41 @@ export const PaperworkPage: FC = () => {
               },
               zambdaClient
             );
-            const { valueEntries } = complexValidationResult;
-            Object.entries(valueEntries).forEach((e) => {
-              const [key, val] = e;
-              const existingIdx = responseItems.findIndex((i) => {
-                return i.linkId === key;
-              });
-              if (existingIdx >= 0) {
-                responseItems[existingIdx] = { linkId: key, answer: val };
-              } else {
-                responseItems.push({ linkId: key, answer: val });
-              }
-            });
 
-            if (complexValidationResult.type === 'failure') {
-              const { attemptCureAction, canProceed } = complexValidationResult;
-              const edConfig: ValidationRoadblockConfig = {
-                ...complexValidationResult,
-              };
-              if (canProceed) {
-                edConfig.onContinueClick = async () => {
-                  setValidationRoadblockConfig(undefined);
-                  await handlePatchPaperwork(responseItems, zambdaClient);
+            if (currentPage.complexValidation.type !== 'insurance eligibility') {
+              const complexValidationResult = await complexValidationResultPromise;
+              const { valueEntries } = complexValidationResult;
+              Object.entries(valueEntries).forEach((e) => {
+                const [key, val] = e;
+                const existingIdx = responseItems.findIndex((i) => {
+                  return i.linkId === key;
+                });
+                if (existingIdx >= 0) {
+                  responseItems[existingIdx] = { linkId: key, answer: val };
+                } else {
+                  responseItems.push({ linkId: key, answer: val });
+                }
+              });
+
+              if (complexValidationResult.type === 'failure') {
+                const { attemptCureAction, canProceed } = complexValidationResult;
+                const edConfig: ValidationRoadblockConfig = {
+                  ...complexValidationResult,
                 };
+                if (canProceed) {
+                  edConfig.onContinueClick = async () => {
+                    setValidationRoadblockConfig(undefined);
+                    await handlePatchPaperwork(responseItems, zambdaClient);
+                  };
+                }
+                if (attemptCureAction) {
+                  edConfig.onRetryClick = () => {
+                    setValidationRoadblockConfig(undefined);
+                  };
+                }
+                setValidationRoadblockConfig(edConfig);
+                return;
               }
-              if (attemptCureAction) {
-                edConfig.onRetryClick = () => {
-                  setValidationRoadblockConfig(undefined);
-                };
-              }
-              setValidationRoadblockConfig(edConfig);
-              return;
             }
           }
           setValidationRoadblockConfig(undefined);
@@ -486,7 +522,12 @@ export const PaperworkPage: FC = () => {
   );
 
   return (
-    <PageContainer title={pageName ?? ''} patientFullName={patientFullName}>
+    <PageContainer
+      title={pageName ?? ''}
+      patientFullName={
+        pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName
+      }
+    >
       {empty ? (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <CircularProgress />
@@ -539,7 +580,7 @@ const performComplexValidation = async (
   const { appointmentId, patientId, responseItems, type } = input;
 
   if (type === 'insurance eligibility') {
-    const eligibilityRes = await api.getEligibility(
+    void api.getEligibility(
       {
         appointmentId,
         patientId,
@@ -549,47 +590,6 @@ const performComplexValidation = async (
       },
       client
     );
-    const { primary, secondary } = eligibilityRes;
-    const valueEntryValues: QuestionnaireResponseItemAnswer[] = [{ valueString: primary!.status }];
-    if (secondary?.status != undefined) {
-      valueEntryValues.push({ valueString: secondary?.status });
-    }
-    if (
-      primary?.status === InsuranceEligibilityCheckStatus.eligibilityConfirmed ||
-      primary?.status === InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported
-    ) {
-      return {
-        type: 'success',
-        valueEntries: {
-          'insurance-eligibility-verification-status': valueEntryValues,
-        },
-      };
-    } else {
-      let message = '';
-      let title = '';
-      let attemptCureAction: string | undefined;
-      if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotChecked) {
-        title = 'Coverage could not be verified';
-        message =
-          'System not responding; unable to verify eligibility. Proceed to the next screen to continue as self-pay.';
-      }
-      if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed) {
-        title = 'Coverage not found';
-        message =
-          'We were unable to verify insurance eligibility. Please select "Try again" to confirm the information was entered correctly or continue as self-pay';
-        attemptCureAction = 'Try again';
-      }
-      return {
-        type: 'failure',
-        title,
-        canProceed: true,
-        message,
-        attemptCureAction,
-        valueEntries: {
-          'insurance-eligibility-verification-status': valueEntryValues,
-        },
-      };
-    }
   }
   return {
     type: 'success',

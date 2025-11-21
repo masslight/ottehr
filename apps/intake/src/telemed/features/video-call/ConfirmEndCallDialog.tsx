@@ -32,6 +32,9 @@ export const ConfirmEndCallDialog: FC<ConfirmEndCallDialogProps> = ({ openModal,
 
   const { isFetching } = useGetWaitStatus(
     async (data) => {
+      if (!data) {
+        return;
+      }
       useWaitingRoomStore.setState(data);
       if (confirmClicked) {
         await disconnect();

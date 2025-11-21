@@ -10,7 +10,14 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  getAuth0Token,
+  topLevelCatch,
+  validateJsonBody,
+  validateString,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 
 const ZAMBDA_NAME = 'persist-consent';
 
@@ -67,11 +74,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(consent),
     };
   } catch (error: any) {
-    console.log('error', error, error.issue);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

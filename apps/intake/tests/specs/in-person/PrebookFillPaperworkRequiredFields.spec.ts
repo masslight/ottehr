@@ -55,6 +55,7 @@ test.describe('Prebook In person visit - Paperwork submission flow with only req
 
   test('PRF-3 Skip PCP and Select Self-Pay Payment Option', async () => {
     await paperwork.skipPrimaryCarePhysician();
+    await paperwork.skipPreferredPharmacy();
     await paperwork.selectSelfPayPayment();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toBeVisible();
@@ -68,15 +69,20 @@ test.describe('Prebook In person visit - Paperwork submission flow with only req
   test('PRF-5 Fill responsible party details', async () => {
     await paperwork.fillResponsiblePartyDataSelf();
     await commonLocatorsHelper.clickContinue();
+    await expect(locator.flowHeading).toHaveText('Emergency Contact');
+  });
+  test('PRF-6 Fill emergency contact details', async () => {
+    await paperwork.fillEmergencyContactInformation();
+    await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Photo ID');
   });
-  test('PRF-6 Skip photo ID and complete consent forms', async () => {
+  test('PRF-7 Skip photo ID and complete consent forms', async () => {
     await paperwork.skipPhotoID();
     await paperwork.fillConsentForms();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Review and submit');
   });
-  test('PRF-7 Submit paperwork', async () => {
+  test('PRF-8 Submit paperwork', async () => {
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toBeVisible();
     await expect(locator.flowHeading).toHaveText('Thank you for choosing Ottehr!');

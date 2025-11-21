@@ -39,7 +39,9 @@ export default function PaperworkFlagIndicator({
   async function dismissAlert(): Promise<void> {
     try {
       setLoading(true);
-      onDismiss && (await onDismiss());
+      if (onDismiss) {
+        await onDismiss();
+      }
     } catch (e) {
       console.log('error dismissing alert: ', JSON.stringify(e));
     } finally {

@@ -1,5 +1,6 @@
 import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
@@ -9,6 +10,7 @@ import {
   Badge,
   Box,
   capitalize,
+  darken,
   Grid,
   IconButton,
   MenuItem,
@@ -27,23 +29,31 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
   formatMinutes,
+  getAbnormalVitals,
   getDurationOfStatus,
   getPatchBinary,
   getVisitTotalTime,
+  GetVitalsResponseData,
   InPersonAppointmentInformation,
+  mdyStringFromISOString,
   OrdersForTrackingBoardRow,
   PROJECT_NAME,
   ROOM_EXTENSION_URL,
-  VisitStatusLabel,
+  STATUSES_WITHOUT_TIME_TRACKER,
 } from 'utils';
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
-import { checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder } from '../helpers';
+import { InfoIconsToolTip } from '../features/visits/shared/components/InfoIconsToolTip';
+import { useOystehrAPIClient } from '../features/visits/shared/hooks/useOystehrAPIClient';
+import { useSignAppointmentMutation } from '../features/visits/shared/stores/tracking-board/tracking-board.queries';
+import { checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder, isEligibleSupervisor } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
@@ -55,7 +65,7 @@ import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
 import { GenericToolTip } from './GenericToolTip';
 import GoToButton from './GoToButton';
-import { InfoIconsToolTip } from './InfoIconsToolTip';
+import { IN_PERSON_CHIP_STATUS_MAP, InPersonAppointmentStatusChip } from './InPersonAppointmentStatusChip';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ReasonsForVisit from './ReasonForVisit';
@@ -70,160 +80,58 @@ interface AppointmentTableRowProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   orders: OrdersForTrackingBoardRow;
+  vitals?: GetVitalsResponseData;
+  table?: 'waiting-room' | 'in-exam';
 }
 
-const VITE_APP_QRS_URL = import.meta.env.VITE_APP_QRS_URL;
-
-export function getAppointmentStatusChip(status: VisitStatusLabel | undefined, count?: number): ReactElement {
-  if (!status) {
-    return <span>todo1</span>;
-  }
-  if (!CHIP_STATUS_MAP[status]) {
-    return <span>todo2</span>;
-  }
-
-  const label = STATUS_LABEL_MAP[status] || status;
-
-  return (
-    <span
-      data-testid={dataTestIds.dashboard.appointmentStatus}
-      style={{
-        fontSize: '12px',
-        borderRadius: '4px',
-        border: `${['pending', 'checked out'].includes(status) ? '1px solid #BFC2C6' : 'none'}`,
-        textTransform: 'uppercase',
-        background: CHIP_STATUS_MAP[status].background.primary,
-        color: CHIP_STATUS_MAP[status].color.primary,
-        display: 'inline-block',
-        padding: '2px 8px 0 8px',
-        verticalAlign: 'middle',
-      }}
-    >
-      {count ? `${label} - ${count}` : label}
-    </span>
-  );
-}
-
-export const CHIP_STATUS_MAP: {
-  [status in VisitStatusLabel]: {
-    background: {
-      primary: string;
-      secondary?: string;
-    };
-    color: {
-      primary: string;
-      secondary?: string;
-    };
-  };
-} = {
-  pending: {
-    background: {
-      primary: '#FFFFFF',
-    },
-    color: {
-      primary: '#546E7A',
-    },
-  },
-  arrived: {
-    background: {
-      primary: '#ECEFF1',
-      secondary: '#9E9E9E',
-    },
-    color: {
-      primary: '#37474F',
-    },
-  },
-  ready: {
-    background: {
-      primary: '#C8E6C9',
-      secondary: '#43A047',
-    },
-    color: {
-      primary: '#1B5E20',
-    },
-  },
-  intake: {
-    background: {
-      primary: '#e0b6fc',
-    },
-    color: {
-      primary: '#412654',
-    },
-  },
-  'ready for provider': {
-    background: {
-      primary: '#D1C4E9',
-      secondary: '#673AB7',
-    },
-    color: {
-      primary: '#311B92',
-    },
-  },
-  provider: {
-    background: {
-      primary: '#B3E5FC',
-    },
-    color: {
-      primary: '#01579B',
-    },
-  },
-  'ready for discharge': {
-    background: {
-      primary: '#B2EBF2',
-    },
-    color: {
-      primary: '#006064',
-    },
-  },
-  completed: {
-    background: {
-      primary: '#FFFFFF',
-    },
-    color: {
-      primary: '#546E7A',
-    },
-  },
-  cancelled: {
-    background: {
-      primary: '#FECDD2',
-    },
-    color: {
-      primary: '#B71C1C',
-    },
-  },
-  'no show': {
-    background: {
-      primary: '#DFE5E9',
-    },
-    color: {
-      primary: '#212121',
-    },
-  },
-  unknown: {
-    background: {
-      primary: '#FFFFFF',
-    },
-    color: {
-      primary: '#000000',
-    },
-  },
-};
-
-const STATUS_LABEL_MAP: Partial<Record<VisitStatusLabel, string>> = {
-  'ready for discharge': 'Discharged',
-};
+const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
 const linkStyle = {
   display: 'contents',
   color: otherColors.tableRow,
 };
 
+const TimeBox = ({
+  time,
+  isHighlighted,
+  theme,
+}: {
+  time: string;
+  isHighlighted: boolean;
+  theme: any;
+}): ReactElement => {
+  return (
+    <Box
+      component="span"
+      sx={{
+        fontWeight: isHighlighted ? '700' : 'normal',
+        ...(isHighlighted && {
+          color: theme.palette.primary.contrastText,
+          backgroundColor: darken(theme.palette.warning.main, 0.08),
+          padding: '2px 4px',
+          borderRadius: '4px',
+        }),
+      }}
+    >
+      {time}
+    </Box>
+  );
+};
+
 const longWaitTimeFlag = (appointment: InPersonAppointmentInformation, statusTime: number): boolean => {
-  if (
-    appointment.status === 'ready for provider' ||
-    appointment.status === 'intake' ||
-    (appointment.status === 'ready' && appointment.appointmentType !== 'walk-in')
-  ) {
+  if (appointment.status === 'arrived' && statusTime > 10) {
+    return true;
+  }
+
+  if (appointment.status === 'ready' && appointment.appointmentType !== 'walk-in' && statusTime > 15) {
+    return true;
+  }
+
+  if (appointment.status === 'intake' && statusTime > 40) {
+    return true;
+  }
+
+  if (appointment.status === 'ready for provider') {
     if (statusTime > 45) {
       return true;
     }
@@ -241,8 +149,11 @@ export default function AppointmentTableRow({
   updateAppointments,
   setEditingComment,
   orders,
-}: AppointmentTableRowProps): ReactElement {
+  vitals,
+  table,
+}: AppointmentTableRowProps): ReactElement | null {
   const { oystehr, oystehrZambda } = useApiClients();
+  const apiClient = useOystehrAPIClient();
   const theme = useTheme();
   const navigate = useNavigate();
   const { encounter } = appointment;
@@ -254,19 +165,12 @@ export default function AppointmentTableRow({
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
 
-  if (!user) {
-    throw new Error('User is not defined');
-  }
-
-  if (!encounter || !encounter.id) {
-    throw new Error('Encounter is not defined');
-  }
-
-  const encounterId: string = encounter.id;
-
   const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
   const [progressNoteButtonLoading, setProgressNoteButtonLoading] = useState(false);
   const [dischargeButtonLoading, setDischargeButtonLoading] = useState(false);
+  const [approveButtonLoading, setApproveButtonLoading] = useState(false);
+
+  const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
 
   const rooms = useMemo(() => {
     return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
@@ -392,7 +296,7 @@ export default function AppointmentTableRow({
     const currentStatusTime = getDurationOfStatus(recentStatus, now);
 
     let statusTimeTemp =
-      tab === ApptTab.cancelled || tab === ApptTab.completed || recentStatus.status === 'ready for discharge'
+      tab === ApptTab.cancelled || tab === ApptTab.completed || recentStatus.status === 'discharged'
         ? `${formatMinutes(totalMinutes)}m`
         : `${formatMinutes(currentStatusTime)}m`;
 
@@ -400,7 +304,7 @@ export default function AppointmentTableRow({
       tab !== ApptTab.cancelled &&
       tab !== ApptTab.completed &&
       statusTimeTemp !== `${formatMinutes(totalMinutes)}m` &&
-      recentStatus.status !== 'ready for discharge' &&
+      recentStatus.status !== 'discharged' &&
       appointment.visitStatusHistory &&
       appointment?.visitStatusHistory.length > 1
     ) {
@@ -416,9 +320,11 @@ export default function AppointmentTableRow({
     ? appointment.unconfirmedDOB
     : appointment.patient?.dateOfBirth;
 
-  const isLongWaitingTime = useMemo(() => {
-    return longWaitTimeFlag(appointment, parseInt(statusTime) || 0);
-  }, [appointment, statusTime]);
+  const isLongWaitingTime = (() => {
+    if (!recentStatus) return false;
+    const currentStatusDuration = getDurationOfStatus(recentStatus, now);
+    return longWaitTimeFlag(appointment, currentStatusDuration);
+  })();
 
   const formattedPriorityHighIcon = (
     <PriorityHighRoundedIcon
@@ -453,63 +359,89 @@ export default function AppointmentTableRow({
     </Box>
   );
 
-  const timeToolTip = (
-    <Grid container sx={{ width: '100%' }}>
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2,
-        }}
-      >
-        {isLongWaitingTime && longWaitFlag}
-        {appointment?.visitStatusHistory?.map((statusTemp, index) => {
-          return (
-            <Box key={index} sx={{ display: 'flex', gap: 1 }}>
-              <Typography
-                variant="body2"
-                color={theme.palette.getContrastText(theme.palette.background.default)}
-                style={{ display: 'inline', marginTop: 1 }}
-              >
-                {formatMinutes(getDurationOfStatus(statusTemp, now))} mins
-              </Typography>
-              {getAppointmentStatusChip(statusTemp.status as VisitStatusLabel)}
-            </Box>
-          );
-        })}
+  const tooltipScrollRef = React.useRef<HTMLDivElement>(null);
 
-        <Typography
-          variant="body2"
-          color={theme.palette.getContrastText(theme.palette.background.default)}
-          style={{ display: 'inline', fontWeight: 500 }}
-        >
-          Total LOS: {formatMinutes(totalMinutes)} mins
-        </Typography>
-        <Typography
-          variant="body2"
-          color={theme.palette.getContrastText(theme.palette.background.default)}
-          style={{ display: 'inline', fontWeight: 500 }}
-          sx={{ whiteSpace: { md: 'nowrap', sm: 'normal' } }}
-        >
-          Estimated wait time at check-in:
-          {waitingMinutesEstimate !== undefined
-            ? ` ${formatMinutes(Math.floor(waitingMinutesEstimate / 5) * 5)} mins`
-            : ''}
-          {/* previous waiting minutes logic
+  const scrollTooltipToBottom = useCallback(() => {
+    // Use setTimeout to ensure the tooltip is fully rendered before scrolling
+    setTimeout(() => {
+      if (tooltipScrollRef.current) {
+        tooltipScrollRef.current.scrollTop = tooltipScrollRef.current.scrollHeight;
+      }
+    }, 0);
+  }, []);
+
+  const timeToolTip = (
+    <Box
+      ref={tooltipScrollRef}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        maxHeight: 'calc(100vh - 200px)',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        width: '100%',
+      }}
+    >
+      {isLongWaitingTime && longWaitFlag}
+      {appointment?.visitStatusHistory?.map((statusTemp, index) => {
+        const statusDuration = getDurationOfStatus(statusTemp, now);
+
+        return (
+          <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography
+              variant="body2"
+              color={theme.palette.getContrastText(theme.palette.background.default)}
+              style={{ display: 'inline', marginTop: 1 }}
+            >
+              {!STATUSES_WITHOUT_TIME_TRACKER.includes(statusTemp.status)
+                ? `${formatMinutes(statusDuration)} mins`
+                : ''}
+            </Typography>
+            <InPersonAppointmentStatusChip status={statusTemp.status} />
+          </Box>
+        );
+      })}
+
+      <Typography
+        variant="body2"
+        color={theme.palette.getContrastText(theme.palette.background.default)}
+        style={{ display: 'inline', fontWeight: 500 }}
+      >
+        Total LOS: {formatMinutes(totalMinutes)} mins
+      </Typography>
+      <Typography
+        variant="body2"
+        color={theme.palette.getContrastText(theme.palette.background.default)}
+        style={{ display: 'inline', fontWeight: 500 }}
+      >
+        Estimated wait time at check-in:
+        {waitingMinutesEstimate !== undefined
+          ? ` ${formatMinutes(Math.floor(waitingMinutesEstimate / 5) * 5)} mins`
+          : ''}
+        {/* previous waiting minutes logic
           {waitingMinutesEstimate
             ? ` ${formatMinutes(waitingMinutesEstimate)} - ${formatMinutes(waitingMinutesEstimate + 15)} mins`
             : ''} */}
-        </Typography>
-      </Box>
-    </Grid>
+      </Typography>
+    </Box>
   );
 
   const statusTimeEl = (
     <>
       <Grid item>{isLongWaitingTime && <PriorityIconWithBorder fill={theme.palette.warning.main} />}</Grid>
       <Grid item sx={{ display: 'flex', alignItems: 'center' }}>
-        <Typography variant="body1" sx={{ display: 'inline', fontWeight: `${isLongWaitingTime ? '700' : ''}` }}>
-          {statusTime}
+        <Typography variant="body1" sx={{ display: 'inline' }}>
+          {statusTime.includes('/') ? (
+            <>
+              <TimeBox time={statusTime.split('/')[0].trim()} isHighlighted={isLongWaitingTime} theme={theme} />
+              <Box component="span" sx={{ ml: 0.5 }}>
+                / {statusTime.split('/')[1].trim()}
+              </Box>
+            </>
+          ) : (
+            <TimeBox time={statusTime} isHighlighted={isLongWaitingTime} theme={theme} />
+          )}
         </Typography>
         {appointment.visitStatusHistory && appointment.visitStatusHistory.length > 1 && (
           <span style={{ color: 'rgba(0, 0, 0, 0.6)', display: 'flex', alignItems: 'center' }}>
@@ -529,13 +461,13 @@ export default function AppointmentTableRow({
     </>
   );
 
-  const quickTexts: { [key in LANGUAGES]: string }[] = useMemo(() => {
+  const quickTexts: { [key in LANGUAGES]: string | undefined }[] = useMemo(() => {
     return [
       // todo need to make url dynamic or pull from location
       {
-        english: `Please complete the paperwork and sign consent forms to avoid a delay in check-in. For ${appointment.patient.firstName}, click here: ${VITE_APP_QRS_URL}/visit/${appointment.id}`,
+        english: `Please complete the paperwork and sign consent forms to avoid a delay in check-in. For ${appointment.patient.firstName}, click here: ${VITE_APP_PATIENT_APP_URL}/visit/${appointment.id}`,
         // cSpell:disable-next Spanish
-        spanish: `Complete la documentación y firme los formularios de consentimiento para evitar demoras en el registro. Para ${appointment.patient.firstName}, haga clic aquí: ${VITE_APP_QRS_URL}/visit/${appointment.id}`,
+        spanish: `Complete la documentación y firme los formularios de consentimiento para evitar demoras en el registro. Para ${appointment.patient.firstName}, haga clic aquí: ${VITE_APP_PATIENT_APP_URL}/visit/${appointment.id}`,
       },
       {
         english:
@@ -564,6 +496,10 @@ export default function AppointmentTableRow({
         // cSpell:disable-next Spanish
         spanish: `${PROJECT_NAME} espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
       },
+      {
+        english: `Please complete a brief AI chat session for ${appointment.patient.firstName} to help your provider prepare for your visit: ${VITE_APP_PATIENT_APP_URL}/visit/${appointment.id}/ai-interview-start`,
+        spanish: undefined,
+      },
     ];
   }, [appointment.id, appointment.patient.firstName, officePhoneNumber]);
 
@@ -584,7 +520,7 @@ export default function AppointmentTableRow({
         tab={tab}
         formattedPriorityHighIcon={formattedPriorityHighIcon}
         statusTime={statusTime}
-        statusChip={getAppointmentStatusChip(appointment.status)}
+        statusChip={<InPersonAppointmentStatusChip status={appointment.status} />}
         isLongWaitingTime={isLongWaitingTime}
         patientDateOfBirth={patientDateOfBirth}
         statusTimeEl={showTime ? statusTimeEl : undefined}
@@ -594,13 +530,22 @@ export default function AppointmentTableRow({
     );
   }
 
+  if (!encounter?.id) {
+    enqueueSnackbar('Encounter is missing.', { variant: 'error' });
+    return null;
+  }
+  const encounterId: string = encounter.id;
+
   const handleStartIntakeButton = async (): Promise<void> => {
     setStartIntakeButtonLoading(true);
+    if (!user) {
+      enqueueSnackbar('User is not available. Cannot start intake.', { variant: 'error' });
+      return;
+    }
     try {
       await handleChangeInPersonVisitStatus(
         {
           encounterId: encounterId,
-          user,
           updatedStatus: 'intake',
         },
         oystehrZambda
@@ -644,8 +589,9 @@ export default function AppointmentTableRow({
     if (
       appointment.status === 'ready for provider' ||
       appointment.status === 'provider' ||
+      appointment.status === 'awaiting supervisor approval' ||
       appointment.status === 'completed' ||
-      appointment.status === 'ready for discharge'
+      appointment.status === 'discharged'
     ) {
       return (
         <GoToButton
@@ -661,14 +607,77 @@ export default function AppointmentTableRow({
     return undefined;
   };
 
+  const handleApprove = async (): Promise<void> => {
+    setApproveButtonLoading(true);
+    if (!apiClient || !appointment?.id) {
+      enqueueSnackbar('API client not defined or appointmentId not provided', { variant: 'error' });
+      setApproveButtonLoading(false);
+      return;
+    }
+
+    try {
+      const tz = DateTime.now().zoneName;
+      await signAppointment({
+        apiClient,
+        appointmentId: appointment.id,
+        timezone: tz,
+        supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
+        encounterId: encounterId,
+      });
+      await updateAppointments();
+      navigate('/visits', { state: { tab: ApptTab.completed } });
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred while approving. Please try again.', { variant: 'error' });
+    }
+    setApproveButtonLoading(false);
+  };
+
+  const renderSupervisorApproval = (): ReactElement | undefined => {
+    if (
+      appointment.status === 'awaiting supervisor approval' &&
+      user?.profileResource &&
+      isEligibleSupervisor(user.profileResource!, appointment.attenderProviderType)
+    ) {
+      return (
+        <GoToButton
+          text="Approve"
+          loading={approveButtonLoading || isSignLoading}
+          onClick={handleApprove}
+          dataTestId={dataTestIds.dashboard.approveButton}
+        >
+          <CheckCircleOutlineIcon />
+        </GoToButton>
+      );
+    } else if (appointment.status === 'completed' && appointment.approvalDate) {
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            color: theme.palette.text.secondary,
+          }}
+        >
+          <Typography align="center">Approved</Typography>
+          <Typography align="center">{mdyStringFromISOString(appointment.approvalDate)}</Typography>
+        </Box>
+      );
+    }
+    return undefined;
+  };
+
   const handleDischargeButton = async (): Promise<void> => {
     setDischargeButtonLoading(true);
+    if (!user) {
+      enqueueSnackbar('User is not available. Cannot discharge patient.', { variant: 'error' });
+      return;
+    }
     try {
       await handleChangeInPersonVisitStatus(
         {
           encounterId: encounterId,
-          user,
-          updatedStatus: 'ready for discharge',
+          updatedStatus: 'discharged',
         },
         oystehrZambda
       );
@@ -711,21 +720,24 @@ export default function AppointmentTableRow({
       data-testid={dataTestIds.dashboard.tableRowWrapper(appointment.id)}
       sx={{
         '&:last-child td, &:last-child th': { border: 0 },
-        '& .MuiTableCell-root': { p: '8px' },
+        '& .MuiTableCell-root': {
+          px: 1.5,
+          py: 1,
+        },
         position: 'relative',
         ...(appointment.next && {
           // borderTop: '2px solid #43A047',
-          boxShadow: `inset 0 0 0 1px ${CHIP_STATUS_MAP[appointment.status].background.secondary}`,
+          boxShadow: `inset 0 0 0 1px ${IN_PERSON_CHIP_STATUS_MAP[appointment.status].background.secondary}`,
         }),
       }}
     >
-      <TableCell sx={{ verticalAlign: 'center', position: 'relative' }}>
+      <TableCell sx={{ verticalAlign: 'center', position: 'relative', p: 0, width: '40px' }}>
         {appointment.next && (
           <Box
             sx={{
-              backgroundColor: CHIP_STATUS_MAP[appointment.status].background.secondary,
+              backgroundColor: IN_PERSON_CHIP_STATUS_MAP[appointment.status].background.secondary,
               position: 'absolute',
-              width: '22px',
+              width: '28px',
               bottom: 0,
               left: '0',
               height: '100%',
@@ -736,11 +748,12 @@ export default function AppointmentTableRow({
           >
             <Typography
               variant="body1"
-              fontSize={14}
+              fontSize={12}
               sx={{
                 writingMode: 'vertical-lr',
                 transform: 'scale(-1)',
                 color: theme.palette.background.paper,
+                fontWeight: 700,
               }}
             >
               NEXT
@@ -748,10 +761,7 @@ export default function AppointmentTableRow({
           </Box>
         )}
       </TableCell>
-      <TableCell
-        sx={{ padding: '8px 8px 8px 23px !important' }}
-        data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}
-      >
+      <TableCell sx={{ verticalAlign: 'center' }} data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}>
         <Typography variant="body1">
           {capitalize?.(
             appointment.appointmentType === 'post-telemed'
@@ -762,7 +772,11 @@ export default function AppointmentTableRow({
         <Typography variant="body1">
           <strong>{start}</strong>
         </Typography>
-        {tab !== ApptTab.prebooked && <Box mt={1}>{getAppointmentStatusChip(appointment.status)}</Box>}
+        {tab !== ApptTab.prebooked && (
+          <Box mt={1}>
+            <InPersonAppointmentStatusChip status={appointment.status} />
+          </Box>
+        )}
       </TableCell>
       {/* placeholder until time stamps for waiting and in exam or something comparable are made */}
       {/* <TableCell sx={{ verticalAlign: 'top' }}><Typography variant="body1" aria-owns={hoverElement ? 'status-popover' : undefined} aria-haspopup='true' sx={{ verticalAlign: 'top' }} onMouseOver={(event) => setHoverElement(event.currentTarget)} onMouseLeave={() => setHoverElement(undefined)}>{statusTime}</Typography></TableCell>
@@ -788,6 +802,7 @@ export default function AppointmentTableRow({
             title={timeToolTip}
             placement="top"
             arrow
+            onOpen={scrollTooltipToBottom}
           >
             <Grid sx={{ display: 'flex', alignItems: 'center', marginTop: '8px' }} gap={1}>
               {statusTimeEl}
@@ -800,7 +815,7 @@ export default function AppointmentTableRow({
           <Link
             to={`/patient/${appointment.patient.id}`}
             style={{ textDecoration: 'none' }}
-            data-testId={dataTestIds.dashboard.patientName}
+            data-testid={dataTestIds.dashboard.patientName}
           >
             <Typography variant="subtitle2" sx={{ fontSize: '16px', color: '#000' }}>
               {patientName}
@@ -870,6 +885,13 @@ export default function AppointmentTableRow({
       <TableCell sx={{ verticalAlign: 'center' }}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
       </TableCell>
+      {((tab === ApptTab['in-office'] && table === 'in-exam') || tab === ApptTab.completed) && (
+        <TableCell sx={{ verticalAlign: 'center' }}>
+          <Typography sx={{ fontSize: 14, display: 'inline' }}>
+            <VitalsIconTooltip appointment={appointment} abnormalVitals={getAbnormalVitals(vitals)} />
+          </Typography>
+        </TableCell>
+      )}
       <TableCell
         sx={{
           verticalAlign: 'center',
@@ -929,7 +951,7 @@ export default function AppointmentTableRow({
                     height: '20px',
                     width: '20px',
                   }}
-                ></ChatOutlineIcon>
+                />
               </Badge>
             ) : (
               <ChatOutlineIcon
@@ -938,7 +960,7 @@ export default function AppointmentTableRow({
                   height: '20px',
                   width: '20px',
                 }}
-              ></ChatOutlineIcon>
+              />
             )}
           </IconButton>
         )}
@@ -955,6 +977,7 @@ export default function AppointmentTableRow({
           {renderStartIntakeButton()}
           {renderProgressNoteButton()}
           {renderDischargeButton()}
+          {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && renderSupervisorApproval()}
         </Stack>
       </TableCell>
       {actionButtons && (

@@ -1,19 +1,30 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  BRANDING_CONFIG,
   DATETIME_FULL_NO_YEAR,
+  getAddressStringForScheduleResource,
+  getNameFromScheduleResource,
   getPatientContactEmail,
   getPatientFirstName,
   getSecret,
+  InPersonConfirmationTemplateData,
+  isTelemedAppointment,
   SecretsKeys,
   TaskStatus,
+  TelemedConfirmationTemplateData,
   VisitType,
 } from 'utils';
 import {
   createOystehrClient,
   getAuth0Token,
-  sendInPersonMessages,
+  getEmailClient,
+  makeCancelVisitUrl,
+  makeJoinVisitUrl,
+  makePaperworkUrl,
+  makeVisitLandingUrl,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -130,39 +141,147 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const visitType = fhirAppointment.appointmentType?.text ?? 'Unknown';
 
     console.log('sending confirmation messages for new appointment');
-    const startTime = visitType === VisitType.WalkIn ? DateTime.now() : DateTime.fromISO(fhirAppointment.start ?? '');
+    const startTime = (
+      visitType === VisitType.WalkIn ? DateTime.now() : DateTime.fromISO(fhirAppointment.start ?? '')
+    ).setZone(timezone);
+    const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
+
+    let emailOutcome: 'success' | 'failed' | 'skipped' = 'skipped';
+    let smsOutcome: 'success' | 'failed' | 'skipped' = 'skipped';
 
     if (fhirAppointment.id && startTime.isValid) {
+      const isTelemed = isTelemedAppointment(fhirAppointment);
+      const patientEmail = getPatientContactEmail(fhirPatient);
+      const firstName = getPatientFirstName(fhirPatient);
+      let ownerName = getNameFromScheduleResource(fhirSchedule);
       try {
-        await sendInPersonMessages(
-          getPatientContactEmail(fhirPatient),
-          getPatientFirstName(fhirPatient),
-          `RelatedPerson/${fhirRelatedPerson?.id}`,
-          startTime.setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
-          secrets,
-          fhirSchedule,
-          fhirAppointment.id,
-          visitType,
-          'en', // todo: pass this in from somewhere
-          oystehrToken
-        );
-        console.log('messages sent successfully');
-        taskStatusToUpdate = 'completed';
-        statusReasonToUpdate = 'messages sent successfully';
+        if (isTelemed) {
+          if (patientEmail) {
+            try {
+              const emailClient = getEmailClient(secrets);
+              if (!ownerName) {
+                if (emailClient.getFeatureFlag()) {
+                  throw new Error('Location is required to send reminder email');
+                } else {
+                  ownerName = 'Test Location'; // placeholder location for local dev when email sending is disabled
+                }
+              }
+              const templateData: TelemedConfirmationTemplateData = {
+                location: ownerName,
+                'cancel-visit-url': makeCancelVisitUrl(fhirAppointment.id, secrets),
+                'paperwork-url': makePaperworkUrl(fhirAppointment.id, secrets),
+                'join-visit-url': makeJoinVisitUrl(fhirAppointment.id, secrets),
+              };
+              await emailClient.sendVirtualConfirmationEmail(patientEmail, templateData);
+              console.log('telemed confirmation email sent');
+              emailOutcome = 'success';
+            } catch (e) {
+              console.log('telemed confirmation email send error: ', JSON.stringify(e));
+              emailOutcome = 'failed';
+              captureException(e);
+            }
+          }
+          try {
+            if (!ownerName) {
+              throw new Error('Location with name is required to send confirmation message');
+            }
+            const url = makeVisitLandingUrl(fhirAppointment.id, secrets);
+            const prep = fhirSchedule.resourceType === 'Location' ? 'at' : 'with';
+            const message = `You're confirmed! Thanks for choosing ${BRANDING_CONFIG.projectName}! Your check-in time for ${firstName} ${prep} ${ownerName} is ${readableTime}. Use this URL ${url} to: 1. Complete your pre-visit paperwork 2. Once you've completed the paperwork, you may join the session.`;
+            const messageRecipient = `RelatedPerson/${fhirRelatedPerson?.id}`;
+            const commId = await oystehr.transactionalSMS.send({
+              message,
+              resource: messageRecipient,
+            });
+            console.log('message send successful', commId);
+            smsOutcome = 'success';
+          } catch (e) {
+            console.log('message send error: ', JSON.stringify(e));
+            smsOutcome = 'failed';
+            captureException(e);
+          }
+        } else {
+          if (patientEmail) {
+            try {
+              console.log('in person confirmation email sent');
+              emailOutcome = 'success';
+              const emailClient = getEmailClient(secrets);
+              const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+              // todo handle these when scheduleResource is a healthcare service or a practitioner
+              let address = getAddressStringForScheduleResource(fhirSchedule);
+              if (!address) {
+                if (emailClient.getFeatureFlag()) {
+                  throw new Error('Address is required to send reminder email');
+                } else {
+                  // cSpell:disable-next Any town
+                  address = '123 Main St, Anytown, USA'; // placeholder address for local dev when email sending is disabled
+                }
+              }
+              if (!ownerName) {
+                if (emailClient.getFeatureFlag()) {
+                  throw new Error('Location is required to send reminder email');
+                } else {
+                  ownerName = 'Test Location'; // placeholder location for local dev when email sending is disabled
+                }
+              }
+
+              const rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule`;
+              const templateData: InPersonConfirmationTemplateData = {
+                time: readableTime,
+                location: ownerName,
+                address,
+                'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
+                'modify-visit-url': rescheduleUrl,
+                'cancel-visit-url': `${WEBSITE_URL}/visit/${appointmentID}/cancel`,
+                'paperwork-url': `${WEBSITE_URL}/paperwork/${appointmentID}`,
+              };
+              await emailClient.sendInPersonConfirmationEmail(patientEmail, templateData);
+            } catch (e) {
+              console.log('in person confirmation email send error: ', JSON.stringify(e));
+              emailOutcome = 'failed';
+              captureException(e);
+            }
+          }
+
+          try {
+            const appointmentType = fhirAppointment.appointmentType?.text || '';
+            const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+            const firstName = getPatientFirstName(fhirPatient);
+            const prep = fhirSchedule.resourceType === 'Location' ? 'at' : 'with';
+            const messageAll = `Thanks for choosing ${BRANDING_CONFIG.projectName}! Your check-in time for ${firstName} ${prep} ${ownerName} is ${readableTime}. Please save time at check-in by completing your pre-visit paperwork`;
+            const message =
+              appointmentType === 'walkin' || appointmentType === 'posttelemed'
+                ? `${messageAll}: ${WEBSITE_URL}/paperwork/${appointmentID}`
+                : `You're confirmed! ${messageAll}, or modify/cancel your visit: ${WEBSITE_URL}/visit/${appointmentID}`;
+
+            const messageRecipient = `RelatedPerson/${fhirRelatedPerson?.id}`;
+            const commId = await oystehr.transactionalSMS.send({
+              message,
+              resource: messageRecipient,
+            });
+            console.log('message send successful', commId);
+            smsOutcome = 'success';
+          } catch (e) {
+            console.log('message send error: ', JSON.stringify(e));
+            smsOutcome = 'failed';
+          }
+        }
+        if (emailOutcome === 'failed' || smsOutcome === 'failed') {
+          taskStatusToUpdate = 'failed';
+        } else {
+          taskStatusToUpdate = 'completed';
+        }
       } catch (err) {
         console.log('failed to send messages', err, JSON.stringify(err));
+        captureException(err);
         taskStatusToUpdate = 'failed';
-        statusReasonToUpdate = 'sending messages failed';
+      } finally {
+        statusReasonToUpdate = `send email status: ${emailOutcome}; send sms status: ${smsOutcome}`;
       }
     } else {
       console.log('invalid appointment ID or start time. skipping sending confirmation messages.');
       taskStatusToUpdate = 'failed';
-      statusReasonToUpdate = 'sending messages failed';
-    }
-    if (!taskStatusToUpdate) {
-      console.log('no task was attempted');
-      taskStatusToUpdate = 'failed';
-      statusReasonToUpdate = 'no task was attempted';
+      statusReasonToUpdate = 'Appointment Id or start time missing/invalid';
     }
 
     // update task status and status reason

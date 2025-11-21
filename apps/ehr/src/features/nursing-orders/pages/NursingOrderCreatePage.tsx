@@ -2,11 +2,10 @@ import { Box, CircularProgress, Divider, Paper, Stack, TextField, Typography } f
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createNursingOrder } from 'src/api/api';
-import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
+import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { CreateNursingOrderInput } from 'utils';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { BreadCrumbs } from '../components/BreadCrumbs';
 
 export const NursingOrderCreatePage: React.FC = () => {
@@ -14,7 +13,7 @@ export const NursingOrderCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [orderNote, setOrderNote] = useState<string>('');
-  const { patient, encounter } = getSelectors(useAppointmentStore, ['patient', 'encounter']);
+  const { patient, encounter } = useAppointmentData();
 
   const handleBack = (): void => {
     navigate(-1);

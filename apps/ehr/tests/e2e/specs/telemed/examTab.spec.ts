@@ -1,80 +1,45 @@
-import { rgbToHex } from '@mui/system';
-import { expect, Locator, Page, test } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { waitForSaveChartDataResponse } from 'test-utils';
-import {
-  ExamFieldsNames,
-  ExamObservationFieldItem,
-  ExamObservationFieldsDetails,
-  examObservationFieldsDetailsArray,
-  ExamTabCardNames,
-  TelemedAppointmentVisitTabs,
-} from 'utils';
+import { TelemedAppointmentVisitTabs } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import {
+  captureAllCheckboxStates,
+  type ComponentTestResult,
+  testCheckboxComponent,
+  testDropdownComponent,
+  testFormComponent,
+  testMultiSelectComponent,
+  testTextComponent,
+  waitForFieldSave,
+} from '../../../e2e-utils/helpers/exam-tab.test-helpers';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
-import { getDropdownOption } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
-async function checkCheckboxValueInLocator(locator: Locator, value: boolean): Promise<void> {
-  if (value) {
-    await expect(locator.locator('input').first()).toBeChecked();
-  } else {
-    await expect(locator.locator('input').first()).not.toBeChecked();
-  }
-}
-
-async function checkRadioButtonValueInLocator(locator: Locator, value: boolean): Promise<void> {
-  if (value) {
-    await expect(locator.locator('input[type="radio"][value="true"]')).toBeChecked();
-    await expect(locator.locator('input[type="radio"][value="false"]')).not.toBeChecked();
-  } else {
-    await expect(locator.locator('input[type="radio"][value="true"]')).not.toBeChecked();
-    await expect(locator.locator('input[type="radio"][value="false"]')).toBeChecked();
-  }
-}
-
-async function checkValuesInCheckboxes(page: Page, examObservationFields: ExamObservationFieldItem[]): Promise<void> {
-  for (const field of examObservationFields) {
-    const fieldLocator = page.getByTestId(dataTestIds.telemedEhrFlow.examTabField(field.field as ExamFieldsNames));
-    await checkCheckboxValueInLocator(fieldLocator, field.defaultValue);
-  }
-}
-
-async function checkValuesInRadioButtons(page: Page, examObservationFields: ExamObservationFieldItem[]): Promise<void> {
-  for (const field of examObservationFields) {
-    const fieldLocator = page.getByTestId(dataTestIds.telemedEhrFlow.examTabField(field.field as ExamFieldsNames));
-    await checkRadioButtonValueInLocator(fieldLocator, field.defaultValue);
-  }
-}
-
-test.describe('Fields tests', async () => {
-  const PROCESS_ID = `examTab.spec.ts-fields-tests-${DateTime.now().toMillis()}`;
+test.describe('Component-based exam tests', async () => {
+  const PROCESS_ID = `telemed_examTab.spec.ts-component-tests-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
   let page: Page;
-  // this color i've found in the palette
-  const greenColorFromPalette = '#2E7D32';
-  const redColorFromPalette = '#D32F2F';
-  const boldFontSize = 600;
-  const defaultUncheckedNormalField = ExamObservationFieldsDetails['playful-and-active'];
-  const defaultUncheckedAbnormalField = ExamObservationFieldsDetails['tired-appearing'];
-  const providerComment = 'Lorem ipsum';
-  const distressDropdownOption = ExamObservationFieldsDetails['moderate-distress'].label;
-  const tenderDropdownOption = ExamObservationFieldsDetails['left-lower-quadrant-abdomen'].label;
-  const rashWithoutDescriptionDropdownOption = ExamObservationFieldsDetails['consistent-with-insect-bites'].label;
-  const rashWithDescriptionDropdownOption = ExamObservationFieldsDetails['consistent-with-impetigo'].label;
-  const rashDescription = 'rash description';
+
+  // Test data - stores results for each component type
+  const testResults: {
+    checkbox?: ComponentTestResult;
+    text?: ComponentTestResult;
+    dropdown?: ComponentTestResult;
+    multiSelect?: ComponentTestResult;
+    form?: ComponentTestResult;
+    comment?: { rowIndex: number; text: string };
+  } = {};
 
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
     page = await context.newPage();
-    await resourceHandler.setResources();
+    await resourceHandler.setResources({ skipPaperwork: true });
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)).toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()).not.toBeVisible();
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.exam)).click();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable)).toBeVisible();
   });
 
   test.afterAll(async () => {
@@ -83,310 +48,332 @@ test.describe('Fields tests', async () => {
 
   test.describe.configure({ mode: 'serial' });
 
-  test('Should check default selected checkboxes', async () => {
-    await test.step("Check 'General' card", async () => {
-      const filteredFields = examObservationFieldsDetailsArray.filter(
-        (field) => field.card === 'general' && ['normal', 'abnormal'].includes(field.group)
-      );
-      await checkValuesInCheckboxes(page, filteredFields);
-    });
+  test('Should test basic checkbox functionality (abnormal and normal)', async () => {
+    const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
 
-    await test.step("Check 'Head' card", async () => {
-      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'head');
-      await checkValuesInCheckboxes(page, filteredFields);
-    });
+    // Find first checkbox component
+    const checkboxComponent = examTable.locator('[data-testid^="exam-component-checkbox-"]').first();
+    const componentExists = await checkboxComponent.count();
 
-    await test.step("Check 'Eyes' card", async () => {
-      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'eyes');
-      await checkValuesInCheckboxes(
-        page,
-        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
-      );
-      await checkValuesInRadioButtons(
-        page,
-        filteredFields.filter((field) => ['rightEye', 'leftEye'].includes(field.group))
-      );
-    });
+    if (componentExists > 0) {
+      testResults.checkbox = await testCheckboxComponent(page, examTable);
+    }
 
-    await test.step("Check 'Nose' card", async () => {
-      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('nose')).click();
-      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'nose');
-      await checkValuesInCheckboxes(
-        page,
-        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
-      );
-    });
-
-    await test.step("Check 'Ears' card", async () => {
-      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('ears')).click();
-      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'ears');
-      await checkValuesInRadioButtons(
-        page,
-        filteredFields.filter((field) => ['rightEar', 'leftEar'].includes(field.group))
-      );
-    });
-
-    await test.step("Check 'Mouth' card", async () => {
-      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('mouth')).click();
-      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'mouth');
-      await checkValuesInCheckboxes(
-        page,
-        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
-      );
-    });
-
-    await test.step("Check 'Neck' card", async () => {
-      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('neck')).click();
-      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'neck');
-      await checkValuesInCheckboxes(page, filteredFields);
-    });
-
-    await test.step("Check 'Chest' card", async () => {
-      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'chest');
-      await checkValuesInCheckboxes(
-        page,
-        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
-      );
-    });
-
-    await test.step("Check 'Back' card", async () => {
-      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('back')).click();
-      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'back');
-      await checkValuesInCheckboxes(
-        page,
-        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
-      );
-    });
-
-    await test.step("Check 'Skin' card", async () => {
-      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'skin');
-      await checkValuesInCheckboxes(
-        page,
-        filteredFields.filter((field) => ['normal'].includes(field.group))
-      );
-    });
-
-    await test.step("Check 'Abdomen' card", async () => {
-      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('abdomen')).click();
-      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'abdomen');
-      await checkValuesInCheckboxes(
-        page,
-        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
-      );
-    });
-
-    await test.step("Check 'Musculoskeletal' card", async () => {
-      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'musculoskeletal');
-      await checkValuesInCheckboxes(
-        page,
-        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
-      );
-    });
-
-    await test.step("Check 'Neurological' card", async () => {
-      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'neurological');
-      await checkValuesInCheckboxes(
-        page,
-        filteredFields.filter((field) => ['normal'].includes(field.group))
-      );
-    });
-
-    await test.step("Check 'Psych' card", async () => {
-      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('psych')).click();
-      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'psych');
-      await checkValuesInCheckboxes(
-        page,
-        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
-      );
-    });
-  });
-
-  test("Should select value from 'Normal' list and verify checkbox become green", async () => {
-    const normalListField = page.getByTestId(
-      dataTestIds.telemedEhrFlow.examTabField(defaultUncheckedNormalField.field)
-    );
-    const checkbox = normalListField.locator('input');
-    await checkbox.click();
-    await expect(checkbox).toBeEnabled();
-    await checkCheckboxValueInLocator(normalListField, true);
-
-    const color = await normalListField
-      .locator('span')
-      .first()
-      .evaluate((el) => {
-        return window.getComputedStyle(el).getPropertyValue('color');
-      });
-
-    expect(rgbToHex(color)).toBe(greenColorFromPalette.toLowerCase());
-  });
-
-  test("Should select value from 'Abnormal' list and verify checkbox become red and text is bold", async () => {
-    const abnormalListField = page.getByTestId(
-      dataTestIds.telemedEhrFlow.examTabField(defaultUncheckedAbnormalField.field)
-    );
-    const checkbox = abnormalListField.locator('input');
-    await checkbox.click();
-    await expect(checkbox).toBeEnabled();
-    await checkCheckboxValueInLocator(abnormalListField, true);
-
-    const color = await abnormalListField
-      .locator('span')
-      .first()
-      .evaluate((el) => {
-        return window.getComputedStyle(el).getPropertyValue('color');
-      });
-
-    await expect(abnormalListField.locator('p')).toHaveCSS('font-weight', `${boldFontSize}`);
-    expect(rgbToHex(color)).toBe(redColorFromPalette.toLowerCase());
-  });
-
-  test("Should enter some text in 'Provider' field", async () => {
-    await page
-      .getByTestId(dataTestIds.telemedEhrFlow.examTabCardsComments('general'))
-      .locator('input')
-      .fill(providerComment);
-    await waitForSaveChartDataResponse(page);
-  });
-
-  test("Should check 'Distress' checkbox and select dropdown option", async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabDistressCheckbox).click();
-    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabDistressDropdown).click();
-    await (await getDropdownOption(page, distressDropdownOption)).click();
-    await waitForSaveChartDataResponse(page);
-  });
-
-  test("Should check 'Tender' checkbox and select dropdown option", async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('abdomen')).click();
-    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabTenderCheckbox).click();
-    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabTenderDropdown).click();
-    await (await getDropdownOption(page, tenderDropdownOption)).click();
-    await waitForSaveChartDataResponse(page);
-  });
-
-  test("Should check 'Rashes' checkbox and rashes form appeared", async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesCheckbox).locator('input').click();
-    await waitForSaveChartDataResponse(page);
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesDropdown)).toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesDescription)).toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAddButton)).toBeVisible();
-  });
-
-  test('Should add skin rash without description', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesDropdown).click();
-    await (await getDropdownOption(page, rashWithoutDescriptionDropdownOption)).click();
-    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAddButton).click();
-    await waitForSaveChartDataResponse(page);
-  });
-
-  test('Should check rash saved in abnormal subsection without description', async () => {
-    const rashesSubsection = page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAbnormalSubsection);
-    await expect(rashesSubsection).toHaveText(rashWithoutDescriptionDropdownOption);
-    await expect(rashesSubsection).not.toHaveText('|'); // it means we don't have description saved
-  });
-
-  test('Should add skin rash with description', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesDropdown).click();
-    await (await getDropdownOption(page, rashWithDescriptionDropdownOption)).click();
-    await page
-      .getByTestId(dataTestIds.telemedEhrFlow.examTabRashesDescription)
-      .locator('textarea')
-      .first()
-      .fill(rashDescription);
-    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAddButton).click();
-    await waitForSaveChartDataResponse(page);
-  });
-
-  test('Should check rash with description is saved', async () => {
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAbnormalSubsection)).toHaveText(
-      new RegExp(`${rashWithDescriptionDropdownOption}|${rashDescription}`)
-    );
-  });
-
-  test('Should check all fields are saved on Review&Sign tab', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-    await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
-    const examinationsContainer = page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabExaminationsContainer);
-
-    await expect(examinationsContainer).toHaveText(new RegExp(defaultUncheckedNormalField.label));
-    await expect(examinationsContainer).toHaveText(new RegExp(defaultUncheckedAbnormalField.label));
-    await expect(examinationsContainer).toHaveText(new RegExp(providerComment));
-
-    await expect(examinationsContainer).toHaveText(new RegExp(distressDropdownOption));
-    await expect(examinationsContainer).toHaveText(new RegExp(tenderDropdownOption));
-    await expect(examinationsContainer).toHaveText(new RegExp(rashWithoutDescriptionDropdownOption));
-    await expect(examinationsContainer).toHaveText(
-      new RegExp(`${rashWithDescriptionDropdownOption}|${rashDescription}`)
-    );
-  });
-
-  test('Should remove rashes and check it removed from abnormal subsection', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.exam)).click();
-    const rashElementDeleteButton = page
-      .getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAbnormalSubsection)
-      .getByTestId(dataTestIds.telemedEhrFlow.examTabRashElementInSubsection)
-      .filter({ hasText: rashWithDescriptionDropdownOption })
-      .locator('button');
-    await rashElementDeleteButton.click();
-    await waitForSaveChartDataResponse(page);
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAbnormalSubsection)).not.toHaveText(
-      rashWithDescriptionDropdownOption
-    );
-  });
-
-  test('Should check rash was removed from Review&Sign tab', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-    await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
-    const examinationsContainer = page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabExaminationsContainer);
-
-    await expect(examinationsContainer).not.toHaveText(rashWithDescriptionDropdownOption);
-    await expect(examinationsContainer).not.toHaveText(rashDescription);
-  });
-});
-
-test.describe('Cards tests', () => {
-  const PROCESS_ID = `examTab.spec.ts-cards-tests-${DateTime.now().toMillis()}`;
-  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
-  const collapsedSections: ExamTabCardNames[] = ['nose', 'ears', 'mouth', 'neck', 'abdomen', 'back', 'psych'];
-  const expandedSections: ExamTabCardNames[] = [
-    'general',
-    'head',
-    'eyes',
-    'chest',
-    'skin',
-    'musculoskeletal',
-    'neurological',
-  ];
-
-  test.beforeAll(async () => {
-    await resourceHandler.setResources();
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
-  });
-
-  test.afterAll(async () => {
-    await resourceHandler.cleanupResources();
-  });
-
-  test.beforeEach(async ({ page }) => {
-    await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-    await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page);
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)).toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()).not.toBeVisible();
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.exam)).click();
-  });
-
-  test('Check that sections are collapsed by default', async ({ page }) => {
-    for (const section of collapsedSections) {
-      const cardLocator = page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards(section));
-      await expect(cardLocator).toBeVisible();
-      await expect(cardLocator.getByTestId(dataTestIds.telemedEhrFlow.examTabCardsComments(section))).not.toBeVisible();
+    // Add a comment if not already added
+    if (testResults.checkbox) {
+      const row = examTable.getByRole('row').nth(testResults.checkbox.rowIndex);
+      const commentCell = row.getByRole('cell').nth(3);
+      const textbox = commentCell.getByRole('textbox');
+      const comment = `Test comment ${DateTime.now().toMillis()}`;
+      await textbox.fill(comment);
+      await waitForFieldSave(textbox);
+      testResults.comment = { rowIndex: testResults.checkbox.rowIndex, text: comment };
     }
   });
 
-  test('Check that sections are expanded by default', async ({ page }) => {
-    for (const section of expandedSections) {
-      const cardLocator = page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards(section));
-      await expect(cardLocator).toBeVisible();
-      await expect(cardLocator.getByTestId(dataTestIds.telemedEhrFlow.examTabCardsComments(section))).toBeVisible();
+  test('Should test text component if present', async () => {
+    const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
+
+    // Find first text component in abnormal column
+    const textComponent = examTable
+      .locator('tbody [role="row"] [role="cell"]:nth-child(3) [data-testid^="exam-component-text-"]')
+      .first();
+    const componentExists = await textComponent.count();
+
+    if (componentExists > 0) {
+      const result = await testTextComponent(page, examTable);
+      if (result) {
+        testResults.text = result;
+      }
     }
+  });
+
+  test('Should test dropdown component if present', async () => {
+    const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
+
+    // Find first dropdown component
+    const dropdownComponent = examTable.locator('[data-testid^="exam-component-dropdown-"]').first();
+    const componentExists = await dropdownComponent.count();
+
+    if (componentExists > 0) {
+      testResults.dropdown = await testDropdownComponent(page, examTable);
+    }
+  });
+
+  test('Should test multi-select component if present', async () => {
+    const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
+
+    // Find first multi-select component
+    const multiSelectComponent = examTable.locator('[data-testid^="exam-component-multi-select-"]').first();
+    const componentExists = await multiSelectComponent.count();
+
+    if (componentExists > 0) {
+      testResults.multiSelect = await testMultiSelectComponent(page, examTable);
+    }
+  });
+
+  test('Should test form component if present', async () => {
+    const examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
+
+    // Find first form component
+    const formComponent = examTable.locator('[data-testid^="exam-component-form-"]').first();
+    const componentExists = await formComponent.count();
+
+    if (componentExists > 0) {
+      testResults.form = await testFormComponent(page, examTable);
+    }
+  });
+
+  test('Should persist all component states after page reload', async () => {
+    let examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
+
+    // Capture current checkbox states BEFORE reload (if checkbox test was run)
+    const preReloadAbnormalStates: boolean[] = [];
+    const preReloadNormalStates: boolean[] = [];
+    if (testResults.checkbox) {
+      const row = examTable.getByRole('row').nth(testResults.checkbox.rowIndex);
+      const abnormalCell = row.getByRole('cell').nth(2);
+      const normalCell = row.getByRole('cell').nth(1);
+
+      const abnormalCheckboxes = abnormalCell.getByRole('checkbox');
+      const abnormalCount = await abnormalCheckboxes.count();
+      for (let i = 0; i < abnormalCount; i++) {
+        preReloadAbnormalStates.push(await abnormalCheckboxes.nth(i).isChecked());
+      }
+
+      const normalCheckboxes = normalCell.getByRole('checkbox');
+      const normalCount = await normalCheckboxes.count();
+      for (let i = 0; i < normalCount; i++) {
+        preReloadNormalStates.push(await normalCheckboxes.nth(i).isChecked());
+      }
+    }
+
+    // Reload the page
+    await page.reload();
+    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.exam)).click();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable)).toBeVisible();
+
+    examTable = page.getByTestId(dataTestIds.telemedEhrFlow.examTabTable);
+
+    // Verify checkbox persistence - independent test step that checks ALL checkboxes in the entire table
+    await test.step('Verify all checkbox states persisted', async () => {
+      const checkboxData = testResults.checkbox;
+      if (!checkboxData) {
+        return;
+      }
+
+      const row = examTable.getByRole('row').nth(checkboxData.rowIndex);
+      const abnormalCell = row.getByRole('cell').nth(2);
+      const normalCell = row.getByRole('cell').nth(1);
+
+      const abnormalCheckboxes = abnormalCell.getByRole('checkbox');
+      const normalCheckboxes = normalCell.getByRole('checkbox');
+
+      // Verify ALL abnormal checkboxes match expected states IN THE TESTED ROW
+      const abnormalCount = await abnormalCheckboxes.count();
+      for (let i = 0; i < abnormalCount; i++) {
+        const checkbox = abnormalCheckboxes.nth(i);
+        const label = (await checkbox.locator('../..').locator('p').textContent()) || `checkbox ${i}`;
+
+        // Compare against the state BEFORE reload (not initial state from checkbox test)
+        const expectedState = preReloadAbnormalStates[i];
+        if (expectedState) {
+          await expect(
+            checkbox,
+            `Abnormal checkbox "${label}" (row ${checkboxData.rowIndex}, index ${i}) should be checked (pre-reload state)`
+          ).toBeChecked();
+        } else {
+          await expect(
+            checkbox,
+            `Abnormal checkbox "${label}" (row ${checkboxData.rowIndex}, index ${i}) should NOT be checked (pre-reload state)`
+          ).not.toBeChecked();
+        }
+      }
+
+      // Verify ALL normal checkboxes match expected states IN THE TESTED ROW
+      const normalCount = await normalCheckboxes.count();
+      for (let i = 0; i < normalCount; i++) {
+        const checkbox = normalCheckboxes.nth(i);
+        const label = (await checkbox.locator('../..').locator('p').textContent()) || `checkbox ${i}`;
+
+        // Compare against the state BEFORE reload (not initial state from checkbox test)
+        const expectedState = preReloadNormalStates[i];
+        if (expectedState) {
+          await expect(
+            checkbox,
+            `Normal checkbox "${label}" (row ${checkboxData.rowIndex}, index ${i}) should be checked (pre-reload state)`
+          ).toBeChecked();
+        } else {
+          await expect(
+            checkbox,
+            `Normal checkbox "${label}" (row ${checkboxData.rowIndex}, index ${i}) should NOT be checked (pre-reload state)`
+          ).not.toBeChecked();
+        }
+      }
+
+      // Now capture ALL checkbox states from the ENTIRE exam table for progress note verification
+      // This must be done AFTER all tests have modified checkboxes, just before going to progress note
+      const allCheckboxStates = await captureAllCheckboxStates(examTable);
+      checkboxData.abnormalCheckboxLabels = allCheckboxStates.abnormalCheckboxLabels;
+      checkboxData.normalCheckboxLabels = allCheckboxStates.normalCheckboxLabels;
+    });
+
+    // Verify comment persistence
+    if (testResults.comment) {
+      const row = examTable.getByRole('row').nth(testResults.comment.rowIndex);
+      const commentCell = row.getByRole('cell').nth(3);
+      const textbox = commentCell.getByRole('textbox');
+      await expect(textbox).toHaveValue(testResults.comment.text);
+    }
+
+    // Verify text component persistence
+    if (testResults.text) {
+      const row = examTable.getByRole('row').nth(testResults.text.rowIndex);
+      const abnormalCell = row.getByRole('cell').nth(2);
+      const textbox = abnormalCell.getByRole('textbox');
+      // Text component should persist its value
+      const textValue = await textbox.inputValue();
+      expect(textValue.length).toBeGreaterThan(0);
+    }
+
+    // Verify multi-select persistence
+    if (testResults.multiSelect) {
+      const row = examTable.getByRole('row').nth(testResults.multiSelect.rowIndex);
+      const abnormalCell = row.getByRole('cell').nth(2);
+
+      // Check that selected options are still visible in the Select component
+      if (testResults.multiSelect.selectedOptions && testResults.multiSelect.selectedOptions.length > 0) {
+        // The multi-select renders selected options in two places:
+        // 1. As comma-separated text in the combobox input
+        // 2. As visible text elements below the combobox with descriptions
+
+        // Wait for combobox to be visible
+        const combobox = abnormalCell.getByRole('combobox');
+        await expect(combobox).toBeVisible();
+
+        // Verify combobox displays all selected options
+        const selectText = await combobox.textContent();
+        for (const option of testResults.multiSelect.selectedOptions) {
+          expect(selectText).toContain(option);
+        }
+
+        // Verify selected options are also displayed as visible text below the combobox
+        // These are rendered as separate elements (not inside the combobox)
+        const multiSelectContainer = abnormalCell.locator('[data-testid^="exam-component-multi-select-"]');
+        for (const option of testResults.multiSelect.selectedOptions) {
+          // Look for the option text outside the combobox/Select component
+          const optionTextElement = multiSelectContainer.locator(`text=${option}`).last();
+          await expect(optionTextElement).toBeVisible();
+        }
+      }
+    }
+
+    // Verify form persistence
+    if (testResults.form) {
+      const row = examTable.getByRole('row').nth(testResults.form.rowIndex);
+      const abnormalCell = row.getByRole('cell').nth(2);
+
+      // Check that form entry is still visible
+      if (testResults.form.formEntryText) {
+        await expect(abnormalCell.locator(`p:has-text("${testResults.form.formEntryText}")`)).toBeVisible();
+      }
+    }
+  });
+
+  test('Should verify all findings on Review and Sign page', async () => {
+    // Navigate to Review and Sign tab
+    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+    await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+
+    const examinationsContainer = page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabExaminationsContainer);
+    await expect(examinationsContainer).toBeVisible();
+
+    const examinationsText = await examinationsContainer.textContent();
+    expect(examinationsText).toBeTruthy();
+
+    // Verify each component type appears in progress note
+    if (testResults.checkbox) {
+      await test.step('Verify checkbox component appears in progress note', async () => {
+        const checkboxData = testResults.checkbox!;
+
+        // Verify checked abnormal checkboxes appear (should have red indicators)
+        if (checkboxData.abnormalCheckboxLabels) {
+          for (const { label, checked } of checkboxData.abnormalCheckboxLabels) {
+            if (checked) {
+              // Checked abnormal MUST appear in progress note
+              expect(examinationsText).toContain(label);
+            } else {
+              // Unchecked abnormal MUST NOT appear in progress note
+              expect(examinationsText).not.toContain(label);
+            }
+          }
+        }
+
+        // Verify checked normal checkboxes appear (should have green indicators)
+        if (checkboxData.normalCheckboxLabels) {
+          for (const { label, checked } of checkboxData.normalCheckboxLabels) {
+            if (checked) {
+              // Checked normal MUST appear in progress note
+              expect(examinationsText).toContain(label);
+            } else {
+              // Unchecked normal MUST NOT appear in progress note
+              expect(examinationsText).not.toContain(label);
+            }
+          }
+        }
+      });
+    }
+
+    if (testResults.text) {
+      await test.step('Verify text component appears in progress note', async () => {
+        // Verify the entered text value appears in progress note
+        if (testResults.text!.textValue) {
+          expect(examinationsText).toContain(testResults.text!.textValue);
+        }
+      });
+    }
+
+    if (testResults.comment) {
+      await test.step('Verify comment appears in progress note', async () => {
+        expect(examinationsText).toContain(testResults.comment!.text);
+      });
+    }
+
+    if (testResults.dropdown) {
+      await test.step('Verify dropdown component appears in progress note', async () => {
+        // Verify the selected dropdown value appears in progress note
+        if (testResults.dropdown!.dropdownValue) {
+          expect(examinationsText).toContain(testResults.dropdown!.dropdownValue);
+        }
+      });
+    }
+
+    if (testResults.multiSelect) {
+      await test.step('Verify multi-select component appears in progress note', async () => {
+        // Multi-select options should appear in examination text
+        if (testResults.multiSelect!.selectedOptions) {
+          for (const option of testResults.multiSelect!.selectedOptions) {
+            expect(examinationsText).toContain(option);
+          }
+        }
+      });
+    }
+
+    if (testResults.form) {
+      await test.step('Verify form component appears in progress note', async () => {
+        // Form entries should appear in examination text
+        // Note: The form entry may have a label prefix (e.g., "Rashes: ") added on the review page
+        if (testResults.form!.formEntryText) {
+          // Split the form entry by '|' and check that each part appears (case-insensitive)
+          const formParts = testResults.form!.formEntryText.split('|').map((part) => part.trim().toLowerCase());
+          for (const part of formParts) {
+            expect(examinationsText?.toLowerCase() || '').toContain(part);
+          }
+        }
+      });
+    }
+
+    // Count tested components
+    // (Previously logged count of tested components; removed console output.)
   });
 });

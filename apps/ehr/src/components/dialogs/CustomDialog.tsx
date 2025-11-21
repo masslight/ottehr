@@ -16,7 +16,7 @@ import { dataTestIds } from '../../constants/data-test-ids';
 
 export interface CustomDialogProps {
   open: boolean;
-  handleClose: any;
+  handleClose: (...args: any[]) => any;
   title: string | ReactElement;
   description: string | ReactElement;
   closeButtonText: string;
@@ -81,6 +81,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
           sx={{
             color: theme.palette.text.primary,
           }}
+          data-testid={dataTestIds.dialog.message}
         >
           {description}
         </DialogContentText>

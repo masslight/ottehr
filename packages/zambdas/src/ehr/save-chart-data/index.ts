@@ -1,26 +1,32 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { CodeableConcept, DocumentReference, Encounter, FhirResource, List, Patient, Practitioner } from 'fhir/r4b';
+import {
+  Appointment,
+  ClinicalImpression,
+  CodeableConcept,
+  Condition,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  List,
+  Patient,
+  Practitioner,
+} from 'fhir/r4b';
 import {
   addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   ChartDataResources,
-  createCodingCode,
+  createCodeableConcept,
   DispositionFollowUpType,
-  examCardsMap,
-  ExamCardsNames,
-  examFieldsMap,
-  ExamFieldsNames,
+  ExamObservationDTO,
   getPatchBinary,
-  inPersonExamCardsMap,
-  InPersonExamCardsNames,
-  inPersonExamFieldsMap,
-  InPersonExamFieldsNames,
-  OTTEHR_MODULE,
+  isInPersonAppointment,
   PATIENT_VITALS_META_SYSTEM,
+  PRIVATE_EXTENSION_BASE_URL,
   SCHOOL_WORK_NOTE,
-  SNOMEDCodeConceptInterface,
+  Secrets,
+  userMe,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -51,8 +57,13 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { generateIcdTenCodesFromNotes } from '../../shared/ai';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
+import {
+  createExamObservationComments,
+  createExamObservations,
+} from '../../subscriptions/appointment/appointment-chart-data-prefilling/helpers';
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
 import {
   filterServiceRequestsFromFhir,
@@ -106,7 +117,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Getting token');
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
-    const oystehrCurrentUser = createOystehrClient(userToken, secrets);
 
     console.timeLog('time', 'before fetching resources');
     // get encounter and resources
@@ -117,9 +127,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     //   getUserPractitioner(oystehr, oystehrCurrentUser),
     //   getChartData(oystehr, encounterId),
     // ]);
+
     const [allResources, currentPractitioner] = await Promise.all([
       getEncounterAndRelatedResources(oystehr, encounterId),
-      getUserPractitioner(oystehr, oystehrCurrentUser),
+      getUserPractitioner(oystehr, userToken, secrets),
     ]);
 
     const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
@@ -167,7 +178,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     medications?.forEach((medication) => {
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
-          makeMedicationResource(encounterId, patient.id!, currentPractitioner, medication, 'current-medication')
+          makeMedicationResource(encounterId, patient.id!, currentPractitioner.id!, medication, 'current-medication')
         )
       );
     });
@@ -208,8 +219,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             encounterId,
             patient.id!,
             currentPractitioner.id!,
+            undefined,
             element,
-            ADDITIONAL_QUESTIONS_META_SYSTEM
+            ADDITIONAL_QUESTIONS_META_SYSTEM,
+            patient.birthDate,
+            patient.gender
           )
         )
       );
@@ -222,40 +236,39 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             encounterId,
             patient.id!,
             currentPractitioner.id!,
+            undefined,
             element,
-            PATIENT_VITALS_META_SYSTEM
+            PATIENT_VITALS_META_SYSTEM,
+            patient.birthDate,
+            patient.gender
           )
         )
       );
     });
 
-    const isInPersonAppointment = !!appointment?.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
+    const isInPerson = isInPersonAppointment(appointment as Appointment);
 
     // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
     examObservations?.forEach((element) => {
-      const mappedSnomedField = isInPersonAppointment
-        ? inPersonExamFieldsMap[element.field as InPersonExamFieldsNames]
-        : examFieldsMap[element.field as ExamFieldsNames];
-      const mappedSnomedCard = isInPersonAppointment
-        ? inPersonExamCardsMap[element.field as InPersonExamCardsNames]
-        : examCardsMap[element.field as ExamCardsNames];
-      let snomedCode: SNOMEDCodeConceptInterface;
+      const examObservations = createExamObservations(isInPerson);
+      const examObservationComments = createExamObservationComments(isInPerson);
 
-      if (!mappedSnomedField && !mappedSnomedCard)
-        throw new Error('Provided "element.field" property is not recognized.');
-      if (mappedSnomedField && typeof element.value === 'boolean') {
-        snomedCode = mappedSnomedField;
-      } else if (mappedSnomedCard && element.note) {
-        element.value = undefined;
-        snomedCode = mappedSnomedCard;
-      } else {
-        throw new Error(
-          `Exam observation resource must contain string field: 'note', or boolean: 'value', depends on this resource type is exam-field or exam-card. Resource type determines by 'field' prop.`
-        );
+      const observation = examObservations.find((observation) => observation.field === element.field);
+      const comment = examObservationComments.find((comment) => comment.field === element.field);
+
+      if (!observation && !comment) {
+        throw new Error(`Exam observation with field ${element.field} not found`);
       }
+      const { code, bodySite, label } = (observation || comment) as ExamObservationDTO & {
+        code?: CodeableConcept;
+        bodySite?: CodeableConcept;
+        label?: string;
+      };
 
       saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeExamObservationResource(encounterId, patient.id!, element, snomedCode))
+        saveOrUpdateResourceRequest(
+          makeExamObservationResource(encounterId, patient.id!, element, code ? { code, bodySite } : undefined, label)
+        )
       );
     });
 
@@ -266,6 +279,85 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           makeClinicalImpressionResource(encounterId, patient.id, medicalDecision, 'medical-decision')
         )
       );
+    }
+
+    // 9.1 Generate AI ICD codes when HPI or MDM is updated
+    const hpiText = chiefComplaint?.text;
+    const mdmText = medicalDecision?.text;
+
+    // If either HPI or MDM is being updated and has meaningful content, generate AI suggestions
+    if (
+      (hpiText || mdmText) &&
+      (chiefComplaint?.createICDRecommendations || medicalDecision?.createICDRecommendations)
+    ) {
+      let hpiTextUpdated = hpiText;
+      let mdmTextUpdated = mdmText;
+      if (!hpiText) {
+        // If HPI text is not provided in this request, try to get it from existing chart data
+        const existingChiefComplaint = allResources.find(
+          (resource) =>
+            resource.resourceType === 'Condition' && resource.meta?.tag?.find((tag) => tag.code === 'chief-complaint')
+        ) as Condition | undefined;
+        if (existingChiefComplaint?.note?.[0].text) {
+          console.log('Using existing chief complaint text');
+          hpiTextUpdated = existingChiefComplaint.note?.[0].text;
+        }
+      }
+      if (!mdmText) {
+        // If MDM text is not provided in this request, try to get it from existing chart data
+        const existingMedicalDecision = allResources.find(
+          (resource) =>
+            resource.resourceType === 'ClinicalImpression' &&
+            resource.meta?.tag?.find((tag) => tag.code === 'medical-decision')
+        ) as ClinicalImpression | undefined;
+        if (existingMedicalDecision?.summary) {
+          console.log('Using existing medical decision text');
+          mdmTextUpdated = existingMedicalDecision.summary;
+        }
+      }
+      try {
+        console.log('Generating ICD-10 codes from clinical notes');
+        const potentialDiagnoses = await generateIcdTenCodesFromNotes(hpiTextUpdated, mdmTextUpdated, secrets);
+        const existingAiDiagnoses: Condition[] = allResources.filter(
+          (resource) =>
+            resource.resourceType === 'Condition' &&
+            resource.meta?.tag?.find((tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/ai-potential-diagnosis`)
+              ?.code === 'ai-potential-diagnosis'
+        ) as Condition[];
+        // suggestions that are not suggested any more
+        existingAiDiagnoses.forEach((existingDiagnosis) => {
+          if (
+            existingDiagnosis.id &&
+            !potentialDiagnoses.some((diagnosis) => diagnosis.icd10 === existingDiagnosis.code?.coding?.[0]?.code)
+          ) {
+            saveOrUpdateRequests.push(deleteResourceRequest('Condition', existingDiagnosis.id));
+          }
+        });
+
+        potentialDiagnoses.forEach((diagnosis) => {
+          // Try to not create duplicate suggestions
+          if (existingAiDiagnoses.some((temp) => temp.code?.coding?.[0]?.code === diagnosis.icd10)) {
+            return;
+          }
+          saveOrUpdateRequests.push(
+            saveOrUpdateResourceRequest(
+              makeDiagnosisConditionResource(
+                encounterId,
+                patient.id!,
+                {
+                  code: diagnosis.icd10,
+                  display: diagnosis.diagnosis,
+                  isPrimary: false,
+                },
+                'ai-potential-diagnosis',
+                'hpi-mdm'
+              )
+            )
+          );
+        });
+      } catch (error) {
+        console.log('Error generating ICD-10 codes', error);
+      }
     }
 
     // 10 convert CPT code to Procedure (FHIR) and preserve FHIR resource IDs
@@ -303,11 +395,29 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       updateEncounterOperations.push(updateEncounterDischargeDisposition(encounter, disposition));
 
       // creating sub followUps for disposition
-      const subFollowUpCode: CodeableConcept = createCodingCode('185389009', 'Follow-up visit (procedure)');
+      const subFollowUpCode: CodeableConcept = createCodeableConcept(
+        [
+          {
+            code: '185389009',
+            display: 'Follow-up visit (procedure)',
+            system: 'http://snomed.info/sct',
+          },
+        ],
+        'Follow-up visit (procedure)'
+      );
       const subFollowUpMetaTag = 'sub-follow-up';
       disposition.followUp?.forEach((followUp) => {
         const followUpPerformer = followUpToPerformerMap[followUp.type];
-        const lurieCtOrderDetail = createCodingCode('77477000', 'Computed tomography (procedure)');
+        const lurieCtOrderDetail = createCodeableConcept(
+          [
+            {
+              code: '77477000',
+              display: 'Computed tomography (procedure)',
+              system: 'http://snomed.info/sct',
+            },
+          ],
+          'Computed tomography (procedure)'
+        );
         const existedSubFollowUpId = filterServiceRequestsFromFhir(
           allResources,
           subFollowUpMetaTag,
@@ -549,18 +659,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 //   return entity;
 // }
 
-async function getUserPractitioner(oystehr: Oystehr, oystehrCurrentUser: Oystehr): Promise<Practitioner> {
+async function getUserPractitioner(
+  oystehr: Oystehr,
+  userToken: string,
+  secrets: Secrets | null
+): Promise<Practitioner> {
   try {
-    const getUserResponse = await oystehrCurrentUser.user.me();
+    const getUserResponse = await userMe(userToken, secrets);
     const userProfile = getUserResponse.profile;
+    console.log(`User Profile: ${JSON.stringify(userProfile)}`);
     const userProfileString = userProfile.split('/');
-
     const practitionerId = userProfileString[1];
     return await oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
       id: practitionerId,
     });
   } catch (error) {
+    console.error(`Failed to get Practitioner: ${JSON.stringify(error)}`);
     throw new Error(`Failed to get Practitioner: ${JSON.stringify(error)}`);
   }
 }

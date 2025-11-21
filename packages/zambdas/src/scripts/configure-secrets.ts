@@ -1,6 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import fs from 'fs';
-import ottehrSpec from '../../ottehr-spec.json';
+import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json';
+import { Schema20250925 } from '../../../spec/src/schema-20250925';
+import { replaceSecretValue } from '../local-server/utils';
 import { getAuth0Token } from '../shared/';
 import { projectApiUrlFromAuth0Audience } from './helpers';
 
@@ -33,22 +35,21 @@ const setupSecrets = async (config: any): Promise<void> => {
   }
 };
 
-const prepareSecretsFromSpecAndEnv = (env: string): Record<string, string> => {
+const prepareSecretsFromSpecAndEnv = async (env: string): Promise<Record<string, string>> => {
   const envFile = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
 
+  const schema = new Schema20250925(
+    [{ path: '../../../../config/oystehr/ottehr-spec.json', spec: ottehrSpec }],
+    envFile,
+    '',
+    ''
+  );
   const secrets: Record<string, string> = {};
-  Object.entries(ottehrSpec.secrets).forEach(([_key, secret]) => {
-    if (secret.value.startsWith('#var/')) {
-      const varName = secret.value.split('#var/')[1];
-      const secretValue = envFile[varName];
-      if (secretValue == null) {
-        throw new Error(`Secret ${secret.name} was not found in the env file.`);
-      }
-      secrets[secret.name] = envFile[varName];
-    } else {
-      secrets[secret.name] = secret.value;
-    }
-  });
+  await Promise.all(
+    Object.entries(ottehrSpec.secrets).map(async ([_key, secret]) => {
+      secrets[secret.name] = await replaceSecretValue(secret, schema);
+    })
+  );
 
   return secrets;
 };
@@ -61,7 +62,7 @@ const main = async (): Promise<void> => {
     throw new Error('Please provide an environment to configure secrets.');
   }
 
-  const secrets = prepareSecretsFromSpecAndEnv(env);
+  const secrets = await prepareSecretsFromSpecAndEnv(env);
   await setupSecrets(secrets);
 };
 

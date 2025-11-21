@@ -17,11 +17,12 @@ import {
   getAuth0Token,
   getVideoEncounterForAppointment,
   lambdaResponse,
+  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { getUser } from '../../../shared/auth';
-import { sendSms, sendVideoChatInvitationEmail } from '../../../shared/communication';
+import { getEmailClient, sendSms } from '../../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -139,11 +140,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const patientChosenName = chosenName || patientResource.name?.[0].given?.[0] || 'Patient';
 
     if (emailAddress) {
-      await sendVideoChatInvitationEmail({
-        toAddress: emailAddress,
-        inviteUrl: inviteUrl,
-        patientName: patientChosenName,
-        secrets: secrets,
+      const emailClient = getEmailClient(secrets);
+      await emailClient.sendVideoChatInvitationEmail(emailAddress, {
+        'join-visit-url': inviteUrl,
+        'patient-name': patientChosenName,
       });
     }
 
@@ -166,7 +166,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return lambdaResponse(200, result);
   } catch (error: any) {
     console.log(error);
-    return lambdaResponse(500, { error: 'Internal error' });
+    return topLevelCatch('create-invite', error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

@@ -3,7 +3,7 @@ import { TelemedCallStatuses } from 'utils';
 import { removePrefix, telemedStatusToEncounter } from '../../../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { telemedStatusToAppointment } from './helpers';
-import { LocationIdToAbbreviationMap } from './types';
+import { LocationIdToStateAbbreviationMap } from './types';
 
 export const mapTelemedStatusToEncounterAndAppointment = (
   telemedStatuses: TelemedCallStatuses[]
@@ -64,12 +64,16 @@ export const mapQuestionnaireToEncountersIds = (allResources: Resource[]): { [ke
 
 export const mapStatesToLocationIds = (
   statesAbbreviations: string[],
-  virtualLocationsMap: LocationIdToAbbreviationMap
+  virtualLocationsMap: LocationIdToStateAbbreviationMap
 ): string[] => {
   const resultIds: string[] = [];
   statesAbbreviations.forEach((abbreviation) => {
-    const location = virtualLocationsMap[abbreviation];
-    if (location) resultIds.push(location.id!);
+    const locations = virtualLocationsMap[abbreviation];
+    if (locations && locations.length > 0) {
+      locations.forEach((location) => {
+        resultIds.push(location.id!);
+      });
+    }
   });
   return resultIds;
 };

@@ -11,37 +11,52 @@ import {
   Location,
   Organization,
   Patient,
+  Practitioner,
   Provenance,
   QuestionnaireResponse,
+  Reference,
   ServiceRequest,
   Specimen,
   SpecimenDefinition,
-  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  APIError,
   CreateLabOrderZambdaOutput,
+  CreateLabPaymentMethod,
+  createOrderNumber,
   EXTERNAL_LAB_ERROR,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
+  getAttendingPractitionerId,
+  getFullestAvailableName,
+  getOrderNumber,
   getSecret,
-  isApiError,
+  isPSCOrder,
+  LAB_ACCOUNT_NUMBER_SYSTEM,
+  LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LAB_ORDER_TASK,
+  LAB_ORG_TYPE_CODING,
+  LabPaymentMethod,
+  ModifiedOrderingLocation,
+  ORDER_NUMBER_LEN,
   OrderableItemSearchResult,
   OrderableItemSpecimen,
+  OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  paymentMethodFromCoverage,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   PSC_HOLD_CONFIG,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
   SecretsKeys,
+  serviceRequestPaymentMethod,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { getAttendingPractitionerId } from '../../shared/practitioner/helpers';
+import { createTask } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types';
-import { getPrimaryInsurance } from '../shared/labs';
+import { sortCoveragesByPriority } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -50,7 +65,15 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { dx, encounter, orderableItem, psc, secrets } = validatedParameters;
+    const {
+      dx,
+      encounter,
+      orderableItem,
+      psc,
+      secrets,
+      orderingLocation: modifiedOrderingLocation,
+      selectedPaymentMethod,
+    } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -62,12 +85,17 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     let curUserPractitionerId: string | undefined;
     try {
       curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
-    } catch (e) {
+    } catch {
       throw EXTERNAL_LAB_ERROR(
         'Resource configuration error - user creating this external lab order must have a Practitioner resource linked'
       );
     }
-    console.log('>>> this is the encounter, ', JSON.stringify(encounter, undefined, 2));
+    const currentUserPractitioner = await oystehrCurrentUser.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: curUserPractitionerId,
+    });
+
+    console.log('>>> this is the encounter,', JSON.stringify(encounter, undefined, 2));
     const attendingPractitionerId = getAttendingPractitionerId(encounter);
 
     if (!attendingPractitionerId) {
@@ -77,12 +105,20 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       );
     }
 
-    console.log('encounter id', encounter.id);
-    const { labOrganization, coverage, location, patientId } = await getAdditionalResources(
-      orderableItem,
-      encounter,
-      oystehr
-    );
+    const orgId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
+
+    const { labOrganization, coverageDetails, patient, existingOrderNumber, orderingLocation } =
+      await getAdditionalResources(
+        orderableItem,
+        encounter,
+        psc,
+        selectedPaymentMethod,
+        oystehr,
+        modifiedOrderingLocation,
+        orgId
+      );
+
+    validateLabOrgAndOrderingLocationAndGetAccountNumber(labOrganization, orderingLocation);
 
     const requests: BatchInputRequest<FhirResource>[] = [];
     const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
@@ -91,12 +127,14 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     const serviceRequestContained: FhirResource[] = [];
 
     const createSpecimenResources = !psc;
-    console.log('createSpecimenResources', createSpecimenResources, psc, orderableItem.item.specimens.length);
+    console.log('is psc:', psc);
+    console.log('createSpecimenResources:', createSpecimenResources);
+    console.log('orderableItem.item.specimens.length:', orderableItem.item.specimens.length);
     const specimenFullUrlArr: string[] = [];
     if (createSpecimenResources) {
       const { specimenDefinitionConfigs, specimenConfigs } = formatSpecimenResources(
         orderableItem,
-        patientId,
+        patient.id ?? '',
         serviceRequestFullUrl
       );
       activityDefinitionToContain.specimenRequirement = specimenDefinitionConfigs.map((sd) => ({
@@ -135,7 +173,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       status: 'draft',
       intent: 'order',
       subject: {
-        reference: `Patient/${patientId}`,
+        reference: `Patient/${patient.id}`,
       },
       encounter: {
         reference: `Encounter/${encounter.id}`,
@@ -146,6 +184,10 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       performer: [
         {
           reference: `Organization/${labOrganization.id}`,
+          identifier: {
+            system: OYSTEHR_LAB_GUID_SYSTEM,
+            value: labOrganization.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value,
+          },
         },
       ],
       authoredOn: DateTime.now().toISO() || undefined,
@@ -154,22 +196,49 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       reasonCode: serviceRequestReasonCode,
       instantiatesCanonical: [`#${activityDefinitionToContain.id}`],
       contained: serviceRequestContained,
+      identifier: [
+        {
+          system: OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+          value: existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN),
+        },
+      ],
     };
-    if (location) {
-      serviceRequestConfig.locationReference = [
-        {
-          type: 'Location',
-          reference: `Location/${location.id}`,
-        },
-      ];
-    }
-    if (coverage) {
-      serviceRequestConfig.insurance = [
-        {
+    serviceRequestConfig.locationReference = [
+      {
+        type: 'Location',
+        reference: `Location/${orderingLocation.id}`,
+      },
+    ];
+
+    console.log('selected payment method', selectedPaymentMethod);
+    if (coverageDetails.type === LabPaymentMethod.Insurance) {
+      console.log('assigning serviceRequestConfig.insurance');
+      const coverageRefs: Reference[] = coverageDetails.insuranceCoverages.map((coverage) => {
+        return {
           reference: `Coverage/${coverage.id}`,
-        },
-      ];
+        };
+      });
+      serviceRequestConfig.insurance = coverageRefs;
+    } else if (coverageDetails.type === LabPaymentMethod.ClientBill) {
+      const { clientBillCoverage, clientOrg } = coverageDetails;
+      if (clientBillCoverage) {
+        console.log(`assigning existing client bill coverage to service request config ${clientBillCoverage.id}`);
+        serviceRequestConfig.insurance = [{ reference: `Coverage/${clientBillCoverage.id}` }];
+      } else if (!clientBillCoverage) {
+        console.log('getting config for to create a new client bill coverage');
+        const clientBillCoverageConfig = getClientBillCoverageConfig(patient, clientOrg, labOrganization);
+        const clientBillCoverageFullUrl = `urn:uuid:${randomUUID()}`;
+        const postClientBillCoverageRequest: BatchInputRequest<Coverage> = {
+          method: 'POST',
+          url: '/Coverage',
+          resource: clientBillCoverageConfig,
+          fullUrl: clientBillCoverageFullUrl,
+        };
+        requests.push(postClientBillCoverageRequest);
+        serviceRequestConfig.insurance = [{ reference: clientBillCoverageFullUrl }];
+      }
     }
+
     if (psc) {
       serviceRequestConfig.orderDetail = [
         {
@@ -191,34 +260,46 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       }));
     }
 
-    const preSubmissionTaskConfig: Task = {
-      resourceType: 'Task',
-      intent: 'order',
-      encounter: {
-        reference: `Encounter/${encounter.id}`,
+    const preSubmissionTaskConfig = createTask({
+      category: LAB_ORDER_TASK.category,
+      code: {
+        system: LAB_ORDER_TASK.system,
+        code: LAB_ORDER_TASK.code.preSubmission,
       },
-      basedOn: [
+      encounterId: encounter.id ?? '',
+      location: orderingLocation.id
+        ? {
+            id: orderingLocation.id,
+          }
+        : undefined,
+      basedOn: [serviceRequestFullUrl],
+      input: [
         {
-          type: 'ServiceRequest',
-          reference: serviceRequestFullUrl,
+          type: LAB_ORDER_TASK.input.testName,
+          valueString: activityDefinitionToContain.name,
+        },
+        {
+          type: LAB_ORDER_TASK.input.labName,
+          valueString: labOrganization.name,
+        },
+        {
+          type: LAB_ORDER_TASK.input.patientName,
+          valueString: getFullestAvailableName(patient),
+        },
+        {
+          type: LAB_ORDER_TASK.input.providerName,
+          valueString: getFullestAvailableName(currentUserPractitioner),
+        },
+        {
+          type: LAB_ORDER_TASK.input.orderDate,
+          valueString: serviceRequestConfig.authoredOn,
+        },
+        {
+          type: LAB_ORDER_TASK.input.appointmentId,
+          valueString: encounter.appointment?.[0]?.reference?.split('/')?.[1],
         },
       ],
-      status: 'ready',
-      authoredOn: DateTime.now().toISO() || undefined,
-      code: {
-        coding: [
-          {
-            system: LAB_ORDER_TASK.system,
-            code: LAB_ORDER_TASK.code.preSubmission,
-          },
-        ],
-      },
-    };
-    if (location) {
-      preSubmissionTaskConfig.location = {
-        reference: `Location/${location.id}`,
-      };
-    }
+    });
 
     const aoeQRConfig = formatAoeQR(serviceRequestFullUrl, encounter.id || '', orderableItem);
     if (aoeQRConfig) {
@@ -241,7 +322,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
     const provenanceConfig = getProvenanceConfig(
       serviceRequestFullUrl,
-      location?.id,
+      orderingLocation.id,
       curUserPractitionerId,
       attendingPractitionerId
     );
@@ -280,16 +361,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('admin-create-lab-order', error, ENVIRONMENT);
-    let body = JSON.stringify({ message: `Error creating external lab order: ${error}` });
-    if (isApiError(error)) {
-      const { code, message } = error as APIError;
-      body = JSON.stringify({ message, code });
-    }
-    return {
-      statusCode: 500,
-      body,
-    };
+    return topLevelCatch('admin-create-lab-order', error, ENVIRONMENT);
   }
 });
 
@@ -423,49 +495,157 @@ const getProvenanceConfig = (
   return provenanceConfig;
 };
 
+type CreateLabCoverageDetails =
+  | { type: LabPaymentMethod.Insurance; insuranceCoverages: Coverage[] }
+  | { type: LabPaymentMethod.ClientBill; clientBillCoverage: Coverage | undefined; clientOrg: Organization }
+  | { type: LabPaymentMethod.SelfPay };
 const getAdditionalResources = async (
   orderableItem: OrderableItemSearchResult,
   encounter: Encounter,
-  oystehr: Oystehr
+  psc: boolean,
+  selectedPaymentMethod: CreateLabPaymentMethod,
+  oystehr: Oystehr,
+  modifiedOrderingLocation: ModifiedOrderingLocation,
+  clientOrgId: string
 ): Promise<{
   labOrganization: Organization;
-  patientId: string;
-  coverage?: Coverage;
-  location?: Location;
+  patient: Patient;
+  coverageDetails: CreateLabCoverageDetails;
+  existingOrderNumber: string | undefined;
+  orderingLocation: Location;
 }> => {
   const labName = orderableItem.lab.labName;
   const labGuid = orderableItem.lab.labGuid;
   const labOrganizationSearchRequest: BatchInputRequest<Organization> = {
     method: 'GET',
-    url: `/Organization?identifier=${labGuid}`,
+    url: `/Organization?type=${LAB_ORG_TYPE_CODING.system}|${LAB_ORG_TYPE_CODING.code}&identifier=${OYSTEHR_LAB_GUID_SYSTEM}|${labGuid}`,
   };
-  const encounterResourceSearch: BatchInputRequest<Patient | Location | Coverage | Account> = {
+  const encounterResourceSearch: BatchInputRequest<Patient | Coverage | Account> = {
     method: 'GET',
-    url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_include=Encounter:location&_revinclude:iterate=Coverage:patient&_revinclude:iterate=Account:patient`,
+    url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_revinclude:iterate=Coverage:patient&_revinclude:iterate=Account:patient&_revinclude:iterate=ServiceRequest:encounter`,
+  };
+  const orderingLocationSearch: BatchInputRequest<Location> = {
+    method: 'GET',
+    url: `/Location?status=active&_id=${modifiedOrderingLocation.id}`,
   };
 
-  console.log('searching for lab org and encounter resources');
-  const searchResults: Bundle<FhirResource> = await oystehr.fhir.batch({
-    requests: [labOrganizationSearchRequest, encounterResourceSearch],
-  });
+  const requests = [labOrganizationSearchRequest, encounterResourceSearch, orderingLocationSearch];
+
+  const paymentMethodIsClientBill = selectedPaymentMethod === LabPaymentMethod.ClientBill;
+  if (paymentMethodIsClientBill) {
+    const clientOrgSearch: BatchInputRequest<Organization> = {
+      method: 'GET',
+      url: `/Organization?_id=${clientOrgId}`,
+    };
+    requests.push(clientOrgSearch);
+  }
+
+  console.log('searching for create lab fhir resources');
+  const searchResults: Bundle<FhirResource> = await oystehr.fhir.transaction({ requests });
 
   const labOrganizationSearchResults: Organization[] = [];
-  const coverageSearchResults: Coverage[] = [];
+  const insuranceCoverageSearchResults: Coverage[] = [];
   const accountSearchResults: Account[] = [];
-  let patientId: string | undefined;
-  let location: Location | undefined;
+  const draftServiceRequests: ServiceRequest[] = [];
+  const serviceRequestsForBundle: ServiceRequest[] = [];
+  const patientSearchResults: Patient[] = [];
+  let orderingLocation: Location | undefined = undefined;
+  let clientOrg: Organization | undefined = undefined;
+  let clientBillCoverage: Coverage | undefined = undefined;
 
-  const resources = flattenBundleResources<Organization | Coverage | Patient | Location | Account>(searchResults);
+  const resources = flattenBundleResources<Organization | Coverage | Patient | Account | ServiceRequest | Location>(
+    searchResults
+  );
 
+  console.log('parsing resources from search');
   resources.forEach((resource) => {
-    if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource as Organization);
-    if (resource.resourceType === 'Coverage' && resource.status === 'active')
-      coverageSearchResults.push(resource as Coverage);
-    if (resource.resourceType === 'Patient') patientId = resource.id;
-    if (resource.resourceType === 'Location') location = resource as Location;
-    if (resource.resourceType === 'Account' && resource.status === 'active')
-      accountSearchResults.push(resource as Account);
+    if (resource.resourceType === 'Organization') {
+      if (resource.id === clientOrgId) {
+        clientOrg = resource;
+      } else if (resource.identifier?.some((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)) {
+        labOrganizationSearchResults.push(resource);
+      }
+    }
+    if (resource.resourceType === 'Coverage' && resource.status === 'active') {
+      const paymentMethod = paymentMethodFromCoverage(resource);
+      console.log('paymentMethod parsed from coverage when organizing resources', paymentMethod, resource.id);
+      if (paymentMethod === LabPaymentMethod.Insurance) {
+        insuranceCoverageSearchResults.push(resource);
+      } else if (paymentMethod === LabPaymentMethod.ClientBill) {
+        const labGuidFromClientBillCoverage = getLabGuidFromClientBillCoverage(resource);
+        if (labGuidFromClientBillCoverage === labGuid) {
+          if (clientBillCoverage) {
+            console.warn(`Warning: multiple active client bill coverages exist for this patient / lab relationship`);
+          }
+          clientBillCoverage = resource;
+        }
+      }
+    }
+    if (resource.resourceType === 'Patient') patientSearchResults.push(resource);
+    if (resource.resourceType === 'Account' && resource.status === 'active') accountSearchResults.push(resource);
+    if (resource.resourceType === 'Location') {
+      if (
+        resource.identifier?.some(
+          (id) => id.system === LAB_ACCOUNT_NUMBER_SYSTEM && id.value && id.assigner && id.assigner?.reference
+        )
+      )
+        orderingLocation = resource;
+    }
+
+    // we will use these to determine if the current order is able to be bundled with any existing
+    // anything past draft status is automatically in a different bundle
+    if (resource.resourceType === 'ServiceRequest' && resource.status === 'draft') {
+      draftServiceRequests.push(resource);
+    }
   });
+  console.log('resource parsing complete');
+
+  if (draftServiceRequests.length) {
+    console.log(
+      `>>>>> checking draft service request array for bundle-able orders (${draftServiceRequests.length} will be reviewed)`
+    );
+    draftServiceRequests.forEach((sr, idx) => {
+      console.log('\n reviewing draft sr at idx', idx);
+      // only requests to the same lab that have not yet been submitted will be bundled
+      const draftSRFillerLab = sr.performer?.find((org) => org.identifier?.system === OYSTEHR_LAB_GUID_SYSTEM)
+        ?.identifier?.value;
+      if (draftSRFillerLab === labGuid) {
+        const allCoverages = [...insuranceCoverageSearchResults];
+        if (clientBillCoverage) allCoverages.push(clientBillCoverage);
+        const resourcePaymentMethod = serviceRequestPaymentMethod(sr, allCoverages);
+        const paymentMethodMatches = selectedPaymentMethod === resourcePaymentMethod;
+
+        // different payment method selection means the order must be in a different bundle,
+        // IN1 (insurance) is shared across all order segments
+        if (paymentMethodMatches) {
+          const curSrIsPsc = isPSCOrder(sr);
+          if (curSrIsPsc === psc) {
+            // we bundled psc orders separately, so if the current test being submitted is psc
+            // it should only be bundled under the same requisition number if there are other psc orders for this lab
+            serviceRequestsForBundle.push(sr);
+          }
+        } else {
+          console.log(`differing payment methods:
+          draft sr payment method: ${resourcePaymentMethod}`);
+        }
+      } else {
+        console.log(`differing labs:
+          draft sr was submitted to lab: ${draftSRFillerLab}
+          lab currently being created is being filled by ${labGuid}`);
+      }
+    });
+    console.log('\n >>>>> done reviewing draft service request array');
+  } else {
+    console.log('no draft service requests parsed');
+  }
+
+  let existingOrderNumber: string | undefined;
+  if (serviceRequestsForBundle.length) {
+    console.log('grabbing the order number from the first service request in serviceRequestsForBundle');
+    existingOrderNumber = getOrderNumber(serviceRequestsForBundle[0]);
+  } else {
+    console.log('no like orders exist, a new bundle will be created');
+  }
 
   if (accountSearchResults.length !== 1)
     throw EXTERNAL_LAB_ERROR(
@@ -473,14 +653,11 @@ const getAdditionalResources = async (
     );
 
   const patientAccount = accountSearchResults[0];
-  const patientPrimaryInsurance = getPrimaryInsurance(patientAccount, coverageSearchResults);
+  const coveragesSortedByPriority = sortCoveragesByPriority(patientAccount, insuranceCoverageSearchResults);
 
-  const missingRequiredResources: string[] = [];
-  if (!patientId) missingRequiredResources.push('patient');
-  if (!patientId) {
-    throw EXTERNAL_LAB_ERROR(
-      `The following resources could not be found for this encounter: ${missingRequiredResources.join(', ')}`
-    );
+  const patient = patientSearchResults?.[0];
+  if (!patient) {
+    throw EXTERNAL_LAB_ERROR(`Patient resource could not be parsed from fhir search for create external lab`);
   }
 
   const labOrganization = labOrganizationSearchResults?.[0];
@@ -490,11 +667,48 @@ const getAdditionalResources = async (
     );
   }
 
+  if (!orderingLocation) {
+    throw EXTERNAL_LAB_ERROR(`No location found matching selected office Location id ${modifiedOrderingLocation.id}`);
+  }
+
+  let coverageDetails: CreateLabCoverageDetails | undefined;
+  switch (selectedPaymentMethod) {
+    case LabPaymentMethod.ClientBill:
+      if (!clientOrg) {
+        throw EXTERNAL_LAB_ERROR(
+          `Payment method is client bill but no org was found matching the configured client org id: ${clientOrgId}`
+        );
+      }
+      coverageDetails = {
+        type: LabPaymentMethod.ClientBill,
+        clientBillCoverage,
+        clientOrg,
+      };
+      break;
+    case LabPaymentMethod.Insurance:
+      if (!coveragesSortedByPriority) {
+        throw EXTERNAL_LAB_ERROR(`Payment method is insurance but no insurances were found`);
+      }
+      coverageDetails = {
+        type: LabPaymentMethod.Insurance,
+        insuranceCoverages: coveragesSortedByPriority,
+      };
+      break;
+    case LabPaymentMethod.SelfPay:
+      coverageDetails = {
+        type: LabPaymentMethod.SelfPay,
+      };
+      break;
+    default:
+      throw EXTERNAL_LAB_ERROR(`Unknown selected payment method ${selectedPaymentMethod}`);
+  }
+
   return {
     labOrganization,
-    patientId,
-    coverage: patientPrimaryInsurance,
-    location,
+    patient,
+    coverageDetails,
+    existingOrderNumber,
+    orderingLocation,
   };
 };
 
@@ -573,3 +787,75 @@ const getSpecimenAndSpecimenDefConfig = (
   };
   return { specimenDefinitionConfig, specimenConfig };
 };
+
+/**
+ * Ensures the ordering location is configured to order labs from the Lab Organization determined from the orderable item.
+ * If yes, grabs the order location's account number for that Lab Org. Errors otherwise.
+ * @param labOrganization
+ * @param orderingLocation
+ */
+function validateLabOrgAndOrderingLocationAndGetAccountNumber(
+  labOrganization: Organization,
+  orderingLocation: Location
+): string {
+  console.log('These are the Location identifiers', JSON.stringify(orderingLocation.identifier));
+  const orderingLocationLabInfo = orderingLocation.identifier?.find(
+    (id) => id.system === LAB_ACCOUNT_NUMBER_SYSTEM && id.assigner?.reference === `Organization/${labOrganization.id}`
+  );
+
+  if (!orderingLocationLabInfo) {
+    console.error(
+      `Ordering Location/${orderingLocation.id} is not configured to order labs from Organization/${labOrganization.id}`
+    );
+    throw EXTERNAL_LAB_ERROR(
+      `The '${orderingLocation.name}' location is not configured to order labs from ${labOrganization.name}`
+    );
+  }
+
+  if (!orderingLocationLabInfo.value) {
+    console.error(
+      `Ordering Location/${orderingLocation.id} missing account number for Organization/${labOrganization.id}`
+    );
+    throw EXTERNAL_LAB_ERROR(
+      `No account number found for ${labOrganization.name} for the ${orderingLocation.name} location`
+    );
+  }
+
+  return orderingLocationLabInfo.value;
+}
+
+function getClientBillCoverageConfig(patient: Patient, clientOrg: Organization, labOrg: Organization): Coverage {
+  const clientBillCoverageConfig: Coverage = {
+    resourceType: 'Coverage',
+    status: 'active',
+    beneficiary: {
+      reference: `Patient/${patient.id}`,
+    },
+    subscriber: {
+      reference: `Patient/${patient.id}`,
+    },
+    type: { coding: [LAB_CLIENT_BILL_COVERAGE_TYPE_CODING] },
+    payor: [
+      {
+        reference: `Organization/${clientOrg.id}`,
+      },
+    ],
+    policyHolder: {
+      reference: `Organization/${labOrg.id}`,
+      identifier: {
+        system: OYSTEHR_LAB_GUID_SYSTEM,
+        value: labOrg.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value,
+      },
+    },
+  };
+  return clientBillCoverageConfig;
+}
+
+function getLabGuidFromClientBillCoverage(coverage: Coverage): string | undefined {
+  const clientBillCoverageIdentifier = coverage.policyHolder?.identifier;
+  let labGuidFromClientBillCoverage: string | undefined;
+  if (clientBillCoverageIdentifier?.system === OYSTEHR_LAB_GUID_SYSTEM) {
+    labGuidFromClientBillCoverage = clientBillCoverageIdentifier.value;
+  }
+  return labGuidFromClientBillCoverage;
+}

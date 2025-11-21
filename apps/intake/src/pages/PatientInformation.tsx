@@ -4,6 +4,7 @@ import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useBeforeUnload, useNavigate } from 'react-router-dom';
 import {
+  BOOKING_CONFIG,
   DateComponents,
   getDateComponentsFromISOString,
   isoStringFromDateComponents,
@@ -21,7 +22,6 @@ import {
   PatientInfoInProgress,
   PatientInformationKnownPatientFieldsDisplay,
   PatientSexOptions,
-  ReasonForVisitOptions,
 } from '../features/patients';
 import { getPatientAgeDependentDataWithPatientData } from '../helpers/validation';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
@@ -200,10 +200,18 @@ const PatientInformation = (): JSX.Element => {
           name: 'reasonForVisit',
           label: t('aboutPatient.reasonForVisit.label'),
           defaultValue: patientInfo?.reasonForVisit,
-          selectOptions: ReasonForVisitOptions.map((reason) => {
+          selectOptions: BOOKING_CONFIG.reasonForVisitOptions.map((reason) => {
             return { value: reason, label: t(`paperworkPages.${reason}`) };
           }),
           required: true,
+        },
+        {
+          type: 'Text',
+          name: 'authorizedNonLegalGuardians',
+          label: 'Who, besides the parent or legal guardian, is allowed to bring in the patient?',
+          defaultValue: patientInfo?.authorizedNonLegalGuardians,
+          multiline: true,
+          maxRows: 2,
         },
       ];
     } else {
@@ -297,7 +305,7 @@ const PatientInformation = (): JSX.Element => {
           name: 'reasonForVisit',
           label: t('aboutPatient.reasonForVisit.label'),
           defaultValue: patientInfo?.reasonForVisit,
-          selectOptions: ReasonForVisitOptions.map((reason) => {
+          selectOptions: BOOKING_CONFIG.reasonForVisitOptions.map((reason) => {
             return { value: reason, label: t(`paperworkPages.${reason}`) };
           }),
           required: true,
@@ -313,6 +321,14 @@ const PatientInformation = (): JSX.Element => {
             totalCharacters: REASON_ADDITIONAL_MAX_CHAR,
             displayCharCount: REASON_ADDITIONAL_DISPLAY_CHAR,
           },
+        },
+        {
+          type: 'Text',
+          name: 'authorizedNonLegalGuardians',
+          label: 'Who, besides the parent or legal guardian, is allowed to bring in the patient?',
+          defaultValue: patientInfo?.authorizedNonLegalGuardians,
+          multiline: true,
+          maxRows: 2,
         },
       ];
     }
@@ -343,6 +359,7 @@ const PatientInformation = (): JSX.Element => {
         sex: patient?.sex,
         reasonForVisit: reasonForVisit,
         email: patient?.email,
+        authorizedNonLegalGuardians: patient?.authorizedNonLegalGuardians,
       });
     },
     [setPatientInfo]
@@ -353,7 +370,6 @@ const PatientInformation = (): JSX.Element => {
       let foundDuplicate: PatientInfo | undefined;
       // check if a patient with the same data already exists for this user
       let idx = patients.length - 1;
-      console.log('patient information onSubmit');
       if (patientInfo?.newPatient && data.firstName && data.lastName && data.dobYear && data.dobMonth && data.dobYear) {
         while (!foundDuplicate && idx >= 0) {
           const firstNameMatch = patients[idx].firstName?.toLocaleLowerCase() === data.firstName.toLocaleLowerCase();
@@ -390,6 +406,7 @@ const PatientInformation = (): JSX.Element => {
         });
         data.dateOfBirth = dateOfBirth || 'Unknown';
         data.id = data.id === 'new-patient' ? undefined : data.id;
+        data.authorizedNonLegalGuardians = data.authorizedNonLegalGuardians ?? patientInfo?.authorizedNonLegalGuardians;
 
         setPatientInfo(data as PatientInfoInProgress);
 
@@ -405,6 +422,8 @@ const PatientInformation = (): JSX.Element => {
       ...(formValuesCopy as PatientInformation),
       // 'new-patient' apparently isn't getting into form values
       id: patientInfo?.id ?? formValuesCopy?.id ?? 'new-patient',
+      authorizedNonLegalGuardians:
+        formValuesCopy?.authorizedNonLegalGuardians ?? patientInfo?.authorizedNonLegalGuardians,
     });
   });
 
@@ -434,6 +453,8 @@ const PatientInformation = (): JSX.Element => {
               ...(formValuesCopy as PatientInformation),
               // 'new-patient' apparently isn't getting into form values
               id: patientInfo?.id ?? formValuesCopy?.id ?? 'new-patient',
+              authorizedNonLegalGuardians:
+                formValuesCopy?.authorizedNonLegalGuardians ?? patientInfo?.authorizedNonLegalGuardians,
             });
             navigate(-1);
           },

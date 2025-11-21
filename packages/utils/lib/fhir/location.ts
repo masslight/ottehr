@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, HealthcareService, Location, Practitioner, Resource, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json' assert { type: 'json' };
 import {
   AvailableLocationInformation,
   OVERRIDE_DATE_FORMAT,
@@ -284,3 +285,9 @@ export const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['t
   }
   return undefined;
 };
+
+const DEPLOYED_LOCATIONS = Object.values(ottehrSpec.fhirResources)
+  .filter((res) => 'resource' in res && res.resource.resourceType === 'Location')
+  .map((res) => (res as { resource: Location }).resource);
+
+export const DEPLOYED_TELEMED_LOCATIONS = DEPLOYED_LOCATIONS.filter((location) => isLocationVirtual(location));

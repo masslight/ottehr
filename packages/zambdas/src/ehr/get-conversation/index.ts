@@ -178,11 +178,7 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('get-conversation', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+    return topLevelCatch('get-conversation', error, ENVIRONMENT);
   }
 });
 

@@ -27,14 +27,39 @@ export async function getPatientConditionPhotosStepAnswers({
   appointmentId: string;
   fileName: string;
 }): Promise<PatchPaperworkParameters['answers']> {
-  const getPathToProjectRoot = (currentPath: string): string => {
-    if (currentPath.split('/').at(-1) === 'ottehr') {
-      return currentPath;
+  const getPathToProjectRoot = async (currentPath: string): Promise<string> => {
+    try {
+      const packageJsonPath = join(currentPath, 'package.json');
+      try {
+        await fsPromises.access(packageJsonPath);
+
+        const appsDir = join(currentPath, 'apps');
+        const packagesDir = join(currentPath, 'packages');
+
+        try {
+          await fsPromises.access(appsDir);
+          await fsPromises.access(packagesDir);
+          return currentPath;
+        } catch {
+          // Continue searching if apps/ or packages/ directories don't exist
+        }
+      } catch {
+        // Continue searching if package.json doesn't exist
+      }
+
+      const parentPath = resolve(currentPath, '..');
+
+      if (parentPath === currentPath) {
+        throw new Error('Could not find project root directory');
+      }
+
+      return getPathToProjectRoot(parentPath);
+    } catch (error) {
+      throw new Error(`Error finding project root: ${error}`);
     }
-    return getPathToProjectRoot(resolve(currentPath, '..'));
   };
 
-  const filePath = join(getPathToProjectRoot(__dirname), `apps/intake/images-for-tests/${fileName}`);
+  const filePath = join(await getPathToProjectRoot(__dirname), `apps/intake/images-for-tests/${fileName}`);
   const response = await fsPromises.readFile(filePath, 'binary');
 
   const blob = new Blob([response], { type: 'application/jpg' });

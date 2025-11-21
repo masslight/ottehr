@@ -48,9 +48,17 @@ interface ResponsibleParty {
   address1: string;
   additionalAddress: string;
   phone: string;
+  email: string;
   city: string;
   state: string;
   zip: string;
+}
+
+interface EmergencyContact {
+  relationship: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
 }
 
 interface TelemedPaperworkData {
@@ -70,7 +78,9 @@ export const PATIENT_ADDRESS_LINE_2 = 'Patient address line 2';
 export const PATIENT_CITY = 'PatientCity';
 export const RELATIONSHIP_RESPONSIBLE_PARTY_SELF = 'Self';
 export const PHONE_NUMBER = '1234567890';
+export const EMAIL = 'ibenham+knownothing@masslight.com';
 export const CARD_NUMBER = '4242424242424242';
+export const CARD_NUMBER_OBSCURED = 'XXXX - XXXX - XXXX - 4242';
 export const CARD_CVV = '123';
 export const CARD_EXP_DATE = '11/30';
 
@@ -95,6 +105,7 @@ export class Paperwork {
   private language = ['English', 'Spanish'];
   private relationshipResponsiblePartyNotSelf = ['Legal Guardian', 'Parent', 'Other', 'Spouse'];
   private relationshipConsentForms = ['Legal Guardian', 'Parent', 'Other', 'Spouse', 'Self'];
+  private emergencyContactInformationRelationship = ['Legal Guardian', 'Parent', 'Other', 'Spouse'];
   private birthSex = ['Male', 'Female', 'Intersex'];
   private pronouns = ['He/him', 'She/her', 'They/them', 'My pronouns are not listed'];
   private pointOfDiscovery = [
@@ -154,6 +165,7 @@ export class Paperwork {
       insuranceOptionalData: InsuranceOptionalData;
     } | null;
     responsiblePartyData: ResponsibleParty | null;
+    emergencyContactInformation: EmergencyContact | null;
   }> {
     const { stateValue } = await this.fillContactInformationAllFields();
     await this.locator.clickContinueButton();
@@ -161,6 +173,7 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     const pcpData = await this.fillPrimaryCarePhysician();
     await this.locator.clickContinueButton();
+    await this.locator.clickContinueButton(); // skip Preferred pharmacy page
     let insuranceData: {
       insuranceRequiredData: InsuranceRequiredData;
       insuranceOptionalData: InsuranceOptionalData;
@@ -192,6 +205,9 @@ export class Paperwork {
       responsiblePartyData = await this.fillResponsiblePartyDataNotSelf();
     }
     await this.locator.clickContinueButton();
+    await this.checkCorrectPageOpens('Emergency Contact');
+    const emergencyContactInformation = await this.fillEmergencyContactInformation();
+    await this.locator.clickContinueButton();
     await this.checkCorrectPageOpens('Photo ID');
     await this.uploadPhoto.fillPhotoFrontID();
     await this.uploadPhoto.fillPhotoBackID();
@@ -215,6 +231,7 @@ export class Paperwork {
         formattedPhoneNumber: pcpData.formattedPhoneNumber,
       },
       responsiblePartyData,
+      emergencyContactInformation,
       insuranceData,
       secondaryInsuranceData,
     };
@@ -248,6 +265,7 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     const pcpData = await this.fillPrimaryCarePhysician();
     await this.locator.clickContinueButton();
+    await this.locator.clickContinueButton(); // skip Preferred pharmacy page
     const medicationData = await this.paperworkTelemed.fillAndCheckFilledCurrentMedications();
     await this.locator.clickContinueButton();
     const allergiesData = await this.paperworkTelemed.fillAndCheckFilledCurrentAllergies();
@@ -279,9 +297,8 @@ export class Paperwork {
     } else {
       await this.selectSelfPayPayment();
       await this.locator.clickContinueButton();
-      // Need to uncomment when https://github.com/masslight/ottehr/issues/2043 is fixed
-      //  await this.fillAndAddCreditCard();
     }
+    await this.fillAndAddCreditCard();
     await this.locator.clickContinueButton();
     let responsiblePartyData: ResponsibleParty | null = null;
     if (responsibleParty === 'self') {
@@ -351,6 +368,7 @@ export class Paperwork {
     await this.fillPatientDetailsTelemedAllFields();
     await this.locator.clickContinueButton();
     await this.skipPrimaryCarePhysician();
+    await this.skipPreferredPharmacy();
     await this.locator.clickContinueButton();
     await this.paperworkTelemed.fillAndCheckEmptyCurrentMedications();
     await this.locator.clickContinueButton();
@@ -363,6 +381,8 @@ export class Paperwork {
     await this.paperworkTelemed.fillAndCheckAdditionalQuestions();
     await this.locator.clickContinueButton();
     await this.selectSelfPayPayment();
+    await this.locator.clickContinueButton();
+    await this.fillAndAddCreditCard();
     await this.locator.clickContinueButton();
     await this.fillResponsiblePartyDataSelf();
     await this.locator.clickContinueButton();
@@ -382,12 +402,15 @@ export class Paperwork {
     await this.fillPatientDetailsRequiredFields();
     await this.locator.clickContinueButton();
     await this.skipPrimaryCarePhysician();
+    await this.skipPreferredPharmacy();
     await this.locator.clickContinueButton();
     await this.selectSelfPayPayment();
     await this.locator.clickContinueButton();
     await this.fillAndAddCreditCard();
     await this.locator.clickContinueButton();
     await this.fillResponsiblePartyDataSelf();
+    await this.locator.clickContinueButton();
+    await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
     await this.skipPhotoID();
     await this.locator.clickContinueButton();
@@ -445,8 +468,12 @@ export class Paperwork {
     const formattedPhoneNumber = this.formatPhoneNumber(mobile);
     await expect(this.locator.patientNumber).toHaveValue(formattedPhoneNumber);
   }
-  async checkPatientNameIsDisplayed(firstName: string, lastName: string): Promise<void> {
-    await expect(this.page.getByText(`${firstName} ${lastName}`)).toBeVisible();
+  async checkPatientNameIsDisplayed(firstName: string, lastName: string, isPhotoIdPage?: boolean): Promise<void> {
+    if (isPhotoIdPage) {
+      await expect(this.page.getByText(`Adult Guardian for ${firstName} ${lastName}`)).toBeVisible();
+    } else {
+      await expect(this.page.getByText(`${firstName} ${lastName}`)).toBeVisible();
+    }
   }
   async checkCorrectPageOpens(pageTitle: string): Promise<void> {
     await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
@@ -531,6 +558,9 @@ export class Paperwork {
   async skipPrimaryCarePhysician(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
   }
+  async skipPreferredPharmacy(): Promise<void> {
+    await this.CommonLocatorsHelper.clickContinue();
+  }
   async fillPrimaryCarePhysician(): Promise<{
     firstName: string;
     lastName: string;
@@ -590,6 +620,7 @@ export class Paperwork {
     await this.locator.creditCardCVC.fill(CARD_CVV);
     await this.locator.creditCardExpiry.fill(CARD_EXP_DATE);
     await this.locator.addCardButton.click();
+    await expect(this.page.getByText(CARD_NUMBER_OBSCURED)).toBeVisible();
   }
   async selectInsurancePayment(): Promise<void> {
     await this.locator.insuranceOption.check();
@@ -747,6 +778,7 @@ export class Paperwork {
     city: string;
     state: string;
     zip: string;
+    email: string;
   }> {
     const { relationship } = await this.fillResponsiblePartyNotSelfRelationship();
     const name = await this.fillResponsiblePartyPatientName();
@@ -758,6 +790,7 @@ export class Paperwork {
     const { zip } = await this.fillResponsiblePartyZip();
     const { address: additionalAddress } = await this.fillResponsiblePartyAdditionalAddress();
     const { formattedPhoneNumber: phone } = await this.fillResponsiblePartyPhone();
+    const { email } = await this.fillResponsiblePartyEmail();
     return {
       relationship,
       birthSex,
@@ -770,6 +803,7 @@ export class Paperwork {
       city,
       state,
       zip,
+      email,
     };
   }
   async fillResponsiblePartyPatientName(): Promise<{ firstName: string; lastName: string }> {
@@ -821,6 +855,10 @@ export class Paperwork {
     await this.locator.responsiblePartyNumber.fill(PHONE_NUMBER);
     return { formattedPhoneNumber };
   }
+  async fillResponsiblePartyEmail(): Promise<{ email: string }> {
+    await this.locator.responsiblePartyEmail.fill(EMAIL);
+    return { email: EMAIL };
+  }
   async fillResponsiblePartyAddress(): Promise<{ address: string }> {
     const address = `Address ${this.getRandomString()}`;
     await this.locator.responsiblePartyAddress1.fill(address);
@@ -850,6 +888,48 @@ export class Paperwork {
     await this.locator.responsiblePartyZip.fill(zip);
     return { zip };
   }
+
+  async fillEmergencyContactInformation(): Promise<{
+    relationship: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+  }> {
+    const { relationship } = await this.fillEmergencyContactInformationRelationship();
+    const name = await this.fillEmergencyContactInformationName();
+    const { formattedPhoneNumber: phone } = await this.fillEmergencyContactInformationPhone();
+    return {
+      relationship,
+      firstName: name.firstName,
+      lastName: name.lastName,
+      phone,
+    };
+  }
+  async fillEmergencyContactInformationRelationship(): Promise<{ relationship: string }> {
+    await this.validateAllOptions(
+      this.locator.emergencyContactInformationRelationship,
+      this.emergencyContactInformationRelationship,
+      'emergency contact'
+    );
+    const relationship = 'Parent';
+    await this.page.getByRole('option', { name: relationship }).click();
+    return { relationship };
+  }
+  async fillEmergencyContactInformationName(): Promise<{ firstName: string; lastName: string }> {
+    const firstName = `TA-UserFN${this.getRandomString()}`;
+    const lastName = `TA-UserLN${this.getRandomString()}`;
+    await this.locator.emergencyContactInformationFirstName.click();
+    await this.locator.emergencyContactInformationFirstName.fill(firstName);
+    await this.locator.emergencyContactInformationLastName.click();
+    await this.locator.emergencyContactInformationLastName.fill(lastName);
+    return { firstName, lastName };
+  }
+  async fillEmergencyContactInformationPhone(): Promise<{ formattedPhoneNumber: string }> {
+    const formattedPhoneNumber = this.formatPhoneNumber(PHONE_NUMBER);
+    await this.locator.emergencyContactInformationPhone.fill(PHONE_NUMBER);
+    return { formattedPhoneNumber };
+  }
+
   async checkImagesIsSaved(image: Locator): Promise<void> {
     const today = await this.CommonLocatorsHelper.getToday();
     await expect(image).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);

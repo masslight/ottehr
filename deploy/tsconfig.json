@@ -1,0 +1,16 @@
+{
+  "extends": "tsconfig/base.json",
+  "compilerOptions": {
+    "lib": [
+      "esnext"
+    ]
+  },
+  "exclude": [
+    "node_modules"
+  ],
+  "include": [
+    ".",
+    ".eslintrc.cjs",
+    "../scripts/config/generate-oystehr-resource-imports.ts"
+  ]
+}

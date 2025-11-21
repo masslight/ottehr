@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -7,15 +8,11 @@ import {
   CANT_UPDATE_CANCELED_APT_ERROR,
   CANT_UPDATE_CHECKED_IN_APT_ERROR,
   checkValidBookingTime,
-  DATETIME_FULL_NO_YEAR,
   getAvailableSlotsForSchedules,
-  getPatientContactEmail,
-  getPatientFirstName,
-  getRelatedPersonForPatient,
   getSecret,
-  getSMSNumberForIndividual,
-  isAppointmentVirtual,
+  getTaskResource,
   isPostTelemedAppointment,
+  isTelemedAppointment,
   isValidUUID,
   normalizeSlotToUTC,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
@@ -24,6 +21,7 @@ import {
   ScheduleType,
   Secrets,
   SecretsKeys,
+  TaskIndicator,
   UpdateAppointmentParameters,
 } from 'utils';
 import {
@@ -32,7 +30,6 @@ import {
   createOystehrClient,
   getAuth0Token,
   getParticipantFromAppointment,
-  sendInPersonMessages,
   topLevelCatch,
   updateAppointmentTime,
   wrapHandler,
@@ -51,7 +48,7 @@ export const index = wrapHandler('update-appointment', async (input: ZambdaInput
     console.group('validateRequestParameters');
     // Step 1: Validate input
     const validatedParameters = validateRequestParameters(input);
-    const { appointmentID, language, slot: inputSlot, secrets } = validatedParameters;
+    const { appointmentID, slot: inputSlot, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -107,7 +104,7 @@ export const index = wrapHandler('update-appointment', async (input: ZambdaInput
     console.log(`checking appointment with id ${appointmentID} is not checked in`);
     // https://github.com/masslight/ottehr/issues/2431
     // todo: remove the second condition once virtual prebook appointments begin in 'booked' status
-    if (fhirAppointment.status === 'arrived' && !isAppointmentVirtual(fhirAppointment)) {
+    if (fhirAppointment.status === 'arrived' && !isTelemedAppointment(fhirAppointment)) {
       throw CANT_UPDATE_CHECKED_IN_APT_ERROR;
     } else if (fhirAppointment.status === 'cancelled') {
       throw CANT_UPDATE_CANCELED_APT_ERROR;
@@ -198,33 +195,14 @@ export const index = wrapHandler('update-appointment', async (input: ZambdaInput
       id: getParticipantFromAppointment(updatedAppointment, 'Patient'),
     });
 
-    // const appClient = createAppClient(input.headers.Authorization.replace('Bearer ', ''), secrets);
-    // const user = await appClient.getMe();
-    const relatedPerson = await getRelatedPersonForPatient(fhirPatient.id || '', oystehr);
-    if (relatedPerson) {
-      console.log(`RelatedPerson found for patient: RP/${relatedPerson.id}`);
-      const timezone = scheduleOwner.extension?.find(
-        (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-      )?.valueString;
-      const smsNumber = getSMSNumberForIndividual(relatedPerson);
-      if (smsNumber) {
-        await sendInPersonMessages(
-          getPatientContactEmail(fhirPatient), // todo use the right email
-          getPatientFirstName(fhirPatient),
-          `RelatedPerson/${relatedPerson.id}`,
-          DateTime.fromISO(startTime).setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
-          secrets,
-          scheduleOwner,
-          appointmentID,
-          fhirAppointment.appointmentType?.text || '',
-          language,
-          oystehrToken
-        );
-      } else {
-        console.log(`missing sms number for related person with id ${relatedPerson.id}`);
+    if (fhirAppointment.id) {
+      const confirmationTextTask = getTaskResource(TaskIndicator.confirmationMessages, fhirAppointment.id!);
+      try {
+        await oystehr.fhir.create(confirmationTextTask);
+      } catch (error) {
+        console.error('Error creating confirmation text task:', error);
+        captureException(error);
       }
-    } else {
-      console.log(`No RelatedPerson found for patient ${fhirPatient.id} not sending text message`);
     }
 
     const response = {

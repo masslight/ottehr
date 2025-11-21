@@ -1,4 +1,4 @@
-import { getSecret, SecretsKeys, User, Visit_Status_Array, VisitStatusWithoutUnknown } from 'utils';
+import { getSecret, SecretsKeys, visitStatusArray, VisitStatusWithoutUnknown } from 'utils';
 import { ZambdaInput } from '../../shared/types';
 import { ChangeInPersonVisitStatusInputValidated } from '.';
 
@@ -18,22 +18,11 @@ export function validateRequestParameters(input: ZambdaInput): ChangeInPersonVis
 
   const bodyObj = parsedBody as Record<string, unknown>;
 
-  const { encounterId, user, updatedStatus } = bodyObj;
+  const { encounterId, updatedStatus } = bodyObj;
 
   // Type-safe validation for encounterId
   if (typeof encounterId !== 'string') {
     throw new Error('Field "encounterId" is required and must be a string');
-  }
-
-  // Type-safe validation for user
-  if (typeof user !== 'object' || user === null) {
-    throw new Error('Field "user" is required and must be an object');
-  }
-
-  // Validate user has required properties
-  const userObj = user as Record<string, unknown>;
-  if (typeof userObj.id !== 'string' || typeof userObj.name !== 'string') {
-    throw new Error('Field "user" must have valid "id" and "name" properties');
   }
 
   // Type-safe validation for updatedStatus
@@ -43,7 +32,7 @@ export function validateRequestParameters(input: ZambdaInput): ChangeInPersonVis
 
   // Validate updatedStatus is a valid VisitStatusWithoutUnknown
   // Derive valid statuses from the Visit_Status_Array, excluding 'unknown'
-  const validStatuses = Visit_Status_Array.filter((status) => status !== 'unknown') as VisitStatusWithoutUnknown[];
+  const validStatuses = visitStatusArray.filter((status) => status !== 'unknown') as VisitStatusWithoutUnknown[];
 
   if (!validStatuses.includes(updatedStatus as VisitStatusWithoutUnknown)) {
     throw new Error(`Field "updatedStatus" must be one of: ${validStatuses.join(', ')}`);
@@ -65,14 +54,17 @@ export function validateRequestParameters(input: ZambdaInput): ChangeInPersonVis
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
+  if (!userToken) {
+    throw new Error('No user token provided in Authorization header');
+  }
+
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
   return {
     encounterId,
-    user: user as User,
+    userToken,
     updatedStatus: updatedStatus as VisitStatusWithoutUnknown,
     secrets: typeSafeSecrets,
-    userToken,
   };
 }

@@ -21,6 +21,11 @@ const validateBody = async (input: ZambdaInput): Promise<ValidatedInput> => {
     return {
       resource: maybeFHIRResource,
     };
+  } else if (resourceType === 'ImagingStudy') {
+    // TODO expand to cover ensuring that expected fields are present and have expected values of ImagingStudy
+    return {
+      resource: maybeFHIRResource,
+    };
   }
 
   throw new Error('Invalid webhook input');

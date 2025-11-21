@@ -21,14 +21,15 @@ import Typography from '@mui/material/Typography';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ChangeEvent, memo, ReactElement, UIEvent, useEffect, useMemo, useState } from 'react';
+import { removeHtmlTags } from 'src/features/visits/telemed/utils/removeHtmlTags';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
+import { getPatientName } from 'src/shared/utils/getPatientName';
 import { AppointmentMessaging, ConversationMessage, initialsFromName, markAllMessagesRead, Timezone } from 'utils';
 import { CompleteConfiguration } from '../../components/CompleteConfiguration';
 import { LANGUAGES } from '../../constants';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../../hooks/useEvolveUser';
-import { getPatientName, removeHtmlTags } from '../../telemed/utils';
 import { useFetchChatMessagesQuery, useGetMessagingConfigQuery, useSendMessagesMutation } from './chat.queries';
 
 function scrollToBottomOfChat(): void {
@@ -80,7 +81,7 @@ const ChatModal = memo(
     currentLocation?: LocationWithWalkinSchedule;
     onClose: () => void;
     onMarkAllRead: () => void;
-    quickTexts: { [key in LANGUAGES]: string }[] | string[];
+    quickTexts: { [key in LANGUAGES]: string | undefined }[] | string[];
   }): ReactElement => {
     const theme = useTheme();
     const { oystehr } = useApiClients();
@@ -135,6 +136,9 @@ const ChatModal = memo(
       timezone,
       numbersToSendTo,
       (messages) => {
+        if (!messages) {
+          return;
+        }
         _setMessages(messages);
         setPendingMessageSend(undefined);
       }
@@ -215,7 +219,7 @@ const ChatModal = memo(
       onClose();
     };
 
-    const hasQuickTextTranslations = (quickTexts: any): quickTexts is { [key in LANGUAGES]: string }[] => {
+    const hasQuickTextTranslations = (quickTexts: any): quickTexts is { [key in LANGUAGES]: string | undefined }[] => {
       return typeof quickTexts[0] === 'object';
     };
 
@@ -246,11 +250,15 @@ const ChatModal = memo(
       }
     }, [MessageBodies.length]);
 
-    const { isLoading: isMessagingConfigLoading } = useGetMessagingConfigQuery((data) => {
-      if (!data.transactionalSMSConfig && !data.conversationConfig) {
-        setIsMessagingSetup(false);
-      }
-    });
+    const { isLoading: isMessagingConfigLoading } = useGetMessagingConfigQuery(
+      (data) => {
+        if (!data?.transactionalSMSConfig && !data?.conversationConfig) {
+          setIsMessagingSetup(false);
+        }
+      },
+      // todo: Need to change this when sdk is updated to return code in response instead of 404
+      () => setIsMessagingSetup(false)
+    );
 
     const handleSetup = (): void => {
       window.open('https://docs.oystehr.com/ottehr/setup/messaging/', '_blank');
@@ -330,7 +338,6 @@ const ChatModal = memo(
                 id="patient-message"
                 label="Message to the patient"
                 value={messageText}
-                onPaste={(e) => e.preventDefault()}
                 disabled={pendingMessageSend !== undefined}
                 autoComplete="off"
                 onChange={(event: ChangeEvent<HTMLInputElement>) => setMessageText(event.target.value)}
@@ -436,7 +443,7 @@ const ChatModal = memo(
                               backgroundColor: 'rgba(77, 21, 183, 0.04)',
                               cursor: 'pointer',
                             }}
-                            onClick={() => selectQuickText(text[language])}
+                            onClick={() => selectQuickText(text[language] ?? '')}
                           >
                             <Typography variant="body1">{text[language]}</Typography>
                           </ListItem>

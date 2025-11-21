@@ -129,14 +129,14 @@ const useBookingData = (
   const currentData = serviceMode === ServiceMode['in-person'] ? inPersonData : virtualData;
 
   const isLoading =
-    serviceMode === ServiceMode['in-person'] ? inPersonStatus === 'loading' : virtualStatus === 'loading';
+    serviceMode === ServiceMode['in-person'] ? inPersonStatus === 'pending' : virtualStatus === 'pending';
 
   return {
     bookableItems: currentData?.items ?? [],
     isCategorized: currentData?.categorized ?? false,
     isLoading,
     slotData,
-    isSlotsLoading: slotsStatus === 'loading',
+    isSlotsLoading: slotsStatus === 'pending',
     inPersonData,
   };
 };

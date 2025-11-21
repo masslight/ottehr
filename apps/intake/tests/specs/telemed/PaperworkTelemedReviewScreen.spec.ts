@@ -97,6 +97,7 @@ test.describe('Paperwork.Review and Submit - Check Complete/Missing chips', () =
     await locator.clickContinueButton();
     await locator.clickContinueButton();
     await locator.clickContinueButton();
+    await locator.clickContinueButton();
     await paperwork.checkAllChipsAreCompletedInPerson();
     await expect(locator.finishButton).toBeVisible();
   });
@@ -110,7 +111,6 @@ test.describe('Paperwork.Review and Submit - Check values', () => {
   test.describe.configure({ mode: 'serial' });
   test('PRST-5 Open review page', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/review`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Review and submit');
   });
   test('PRST-6 Check patient name', async () => {
@@ -137,7 +137,6 @@ test.describe('Paperwork.Review and Submit - Check edit icons', () => {
   test.describe.configure({ mode: 'serial' });
   test('PRST-11 Open review page', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/review`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Review and submit');
   });
   test('PRST-12 Edit opens contact information', async () => {

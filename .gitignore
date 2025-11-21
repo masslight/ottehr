@@ -1,3 +1,4 @@
+secrets
 node_modules
 coverage
 .eslintcache
@@ -6,6 +7,7 @@ build
 .idea
 .env
 .serverlessrc
+out.log
 
 # Packages for zambda deployment
 .dist
@@ -28,3 +30,8 @@ packages/ui-components/dist/*
 
 **/vite.config.ts.timestamp-*.mjs
 **/ottehr-secrets/
+config/sendgrid/*
+
+terraform.json
+.test-appointment-id
+.playwright-mcp

@@ -1,0 +1,298 @@
+{
+  "schema-version": "2025-09-25",
+  "fhirResources": {
+    "GlobalTemplatesHolderList": {
+      "resource": {
+        "resourceType": "List",
+        "status": "current",
+        "mode": "working",
+        "title": "Global Templates Holder List",
+        "entry": [
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/LEFT_AOM_ACUTE_OTITIS_MEDIA_WITH_WATCH_AND_WAIT/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/LEFT_AOM/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/RIGHT_AOM_ACUTE_OTITIS_MEDIA_WITH_WATCH_AND_WAIT/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/RIGHT_AOM/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/BILATERAL_AOM/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/VIRAL_ILLNESS_WITH_FEVER/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/VIRAL_ILLNESS_WITHOUT_FEVER/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/CONJUNCTIVITIS_RIGHT_EYE/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/CONJUNCTIVITIS_LEFT_EYE/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/CONJUNCTIVITIS_BILATERAL/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/PHARYNGITIS_VIRAL/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/PHARYNGITIS_STREP/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/SINUSITIS/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/SINUSITIS_WAIT_SEE/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/GASTROENTERITIS/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/GASTROENTERITIS_ZOFRAN/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/ABDOMINAL_PAIN_FOCUS_ON_CONSTIPATION/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/CONSTIPATION/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/INFLUENZA_TAMIFLU/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/INFLUENZA_NO_TAMIFLU/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/INFLUENZA_DECLINED_TAMIFLU/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/CROUP/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/CROUP_RAC_EPI/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/BRONCHIOLITIS/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/PNEUMONIA/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/ASTHMA/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/UTI/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/DYSURIA/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/VAGINITIS/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/OTALGIA_RIGHT/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/OTALGIA_LEFT/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/LACERATION_SCALP/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/LACERATION_FACE_SUTURES/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/LACERATION_FACE_DERMABOND/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/COXSACKIE_RASH_ONLY/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/COXSACKIE_HFM/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/COXSACKIE_HERPANGINA/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/BUG_BITE/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/SPRAIN_STRAIN_WITH_XRAY/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/SPRAIN_STRAIN_NO_XRAY/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/WRIST_SPRAIN_R/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/WRIST_SPRAIN_L/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/ANKLE_SPRAIN_R/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/ANKLE_SPRAIN_L/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/MINOR_HEAD_INJURY_CLOSED_HEAD_INJURY/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/DIAPER_DERMATITIS_CANDID/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/DIAPER_DERMATITIS_IRRITANT/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/ECZEMA/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/IMPETIGO_TOPICAL/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/IMPETIGO_TOPICAL_ORAL_ANTIBIOTICS/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/URTICARIA/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/POISON_IVY/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/PHARYNGITIS/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/HEADACHE/id}"
+            }
+          },
+          {
+            "item": {
+              "reference": "List/#{ref/fhirResources/BAC_SINUSITIS/id}"
+            }
+          }
+        ],
+        "meta": {
+          "tag": [
+            {
+              "code": "global-templates",
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/global-template-list"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

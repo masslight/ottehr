@@ -1,9 +1,15 @@
 import { Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { expectHospitalizationPage, HospitalizationPage } from './HospitalizationPage';
+import { AllergiesPage, expectAllergiesPage } from './in-person/AllergiesPage';
+import { expectInHouseLabsPage, InHouseLabsPage } from './in-person/InHouseLabsPage';
 import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './in-person/InHouseMedicationsPage';
 import { expectAssessmentPage, InPersonAssessmentPage } from './in-person/InPersonAssessmentPage';
+import { expectExamPage, InPersonExamPage } from './in-person/InPersonExamsPage';
 import { expectInPersonProgressNotePage, InPersonProgressNotePage } from './in-person/InPersonProgressNotePage';
+import { expectMedicalConditionsPage, MedicalConditionsPage } from './MedicalConditionsPage';
+import { expectProceduresPage, ProceduresPage } from './ProceduresPage';
+import { expectSurgicalHistoryPage, SurgicalHistoryPage } from './SurgicalHistoryPage';
 
 export class SideMenu {
   #page: Page;
@@ -16,7 +22,22 @@ export class SideMenu {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('in-house-medication/mar')).click();
     return expectInHouseMedicationsPage(this.#page);
   }
-
+  async clickInHouseLabs(): Promise<InHouseLabsPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('in-house-lab-orders')).click();
+    return expectInHouseLabsPage(this.#page);
+  }
+  async clickAllergies(): Promise<AllergiesPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('allergies')).click();
+    return expectAllergiesPage(this.#page);
+  }
+  async clickMedicalConditions(): Promise<MedicalConditionsPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('medical-conditions')).click();
+    return expectMedicalConditionsPage(this.#page);
+  }
+  async clickSurgicalHistory(): Promise<SurgicalHistoryPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('surgical-history')).click();
+    return expectSurgicalHistoryPage(this.#page);
+  }
   async clickHospitalization(): Promise<HospitalizationPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('hospitalization')).click();
     return expectHospitalizationPage(this.#page);
@@ -30,6 +51,16 @@ export class SideMenu {
   async clickAssessment(): Promise<InPersonAssessmentPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('assessment')).click();
     return expectAssessmentPage(this.#page);
+  }
+
+  async clickExam(): Promise<InPersonExamPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('examination')).click();
+    return expectExamPage(this.#page);
+  }
+
+  async clickProcedures(): Promise<ProceduresPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('procedures')).click();
+    return expectProceduresPage(this.#page);
   }
 
   async clickCompleteIntakeButton(): Promise<void> {

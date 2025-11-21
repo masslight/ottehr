@@ -1,19 +1,24 @@
 {
   "name": "intake-ui",
-  "version": "1.12.20",
+  "version": "1.22.6",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "vite --mode ${ENV:-default}",
+    "start": "npm run start:iac",
     "start:local": "ENV=default npm run start",
     "start:demo": "ENV=demo npm run start",
+    "start:labcorp": "ENV=labcorp-local npm run start",
+    "start:iac": "vite --mode ${ENV:-default}",
+    "start:local:iac": "ENV=default npm run start:iac",
+    "start:demo:iac": "ENV=demo npm run start:iac",
     "build": "tsc && vite build --mode default",
     "build:env": "ENV=$npm_config_env ROBOTS_FILE=lowers npm run build-skeleton",
+    "build:local": "npm run build",
     "build:development": "ENV=development ROBOTS_FILE=lowers npm run build-skeleton",
     "build:testing": "ENV=testing ROBOTS_FILE=lowers npm run build-skeleton",
     "build:staging": "ENV=staging ROBOTS_FILE=lowers npm run build-skeleton",
     "build:demo": "ENV=demo ROBOTS_FILE=lowers npm run build-skeleton",
-    "build-skeleton": "tsc && vite build --mode ${ENV} && cp src/themes/ottehr/robots-${ROBOTS_FILE}.txt build/robots.txt",
+    "build-skeleton": "tsc && VITE_APP_ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') vite build --mode ${ENV} && cp src/themes/ottehr/robots-${ROBOTS_FILE}.txt build/robots.txt",
     "ci-deploy:development": "SOURCEMAPS=true VITE_APP_ENV=development VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:development && aws s3 sync build/ s3://ottehr-dee6ce00-3e2f-45bc-bb3f-ab534e660109-intake.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id EE5NJVFS1PRSN --paths '/*' --region us-east-1",
     "ci-deploy:testing": "SOURCEMAPS=true VITE_APP_ENV=testing VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:testing && aws s3 sync build/ s3://ottehr-aa616522-24b3-493b-b730-6cf48089c8bf-intake.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id EJ314KY116TGI --paths '/*' --region us-east-1",
     "ci-deploy:staging": "SOURCEMAPS=true VITE_APP_ENV=staging VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') npm run build:staging && aws s3 sync build/ s3://ottehr-4644976f-3ae4-490c-8c7a-f7ddb22e01e0-intake.ottehr.com --region us-east-1 --delete && aws cloudfront create-invalidation --distribution-id E2IPEEEP9PTTDC --paths '/*' --region us-east-1",
@@ -35,8 +40,8 @@
     "setup-test-deps": "node setup-test-deps.js"
   },
   "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=9.0.0"
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
   },
   "browserslist": {
     "production": [

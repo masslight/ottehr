@@ -4,16 +4,21 @@ import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
+import { PatientAvatar } from 'src/features/visits/shared/components/patient/info/Avatar';
+import Contacts from 'src/features/visits/shared/components/patient/info/Contacts';
+import { FullNameDisplay } from 'src/features/visits/shared/components/patient/info/FullNameDisplay';
+import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
+import Summary from 'src/features/visits/shared/components/patient/info/Summary';
+import { PatientFollowupEncountersGrid } from 'src/features/visits/shared/components/patient/PatientFollowupEncountersGrid';
 import { getFirstName, getLastName, ServiceMode } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
-import { Contacts, FullNameDisplay, IdentifiersRow, PatientAvatar, Summary } from '../components/patient';
-import { PatientFollowupEncountersGrid } from '../components/patient/PatientFollowupEncountersGrid';
 import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
 import { PatientLabsTab } from '../components/PatientLabsTab';
 import { RoundedButton } from '../components/RoundedButton';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { useGetPatient } from '../hooks/useGetPatient';
+import { useGetPatientVisitHistory } from '../hooks/useGetPatientVisitHistory';
 import PageContainer from '../layout/PageContainer';
 
 export default function PatientPage(): JSX.Element {
@@ -21,7 +26,7 @@ export default function PatientPage(): JSX.Element {
   const location = useLocation();
   const [tab, setTab] = useState(location.state?.defaultTab || 'encounters');
 
-  const { appointments, loading, patient } = useGetPatient(id);
+  const { loading, patient } = useGetPatient(id);
 
   const { firstName, lastName } = useMemo(() => {
     if (!patient) return {};
@@ -31,11 +36,14 @@ export default function PatientPage(): JSX.Element {
     };
   }, [patient]);
 
+  const { data: visitHistory } = useGetPatientVisitHistory(patient?.id);
+
+  const appointments = visitHistory?.visits || [];
   const latestAppointment = appointments?.[0];
 
   return (
     <>
-      <PageContainer tabTitle="Patient Information">
+      <PageContainer tabTitle="Patient Profile">
         <Stack spacing={2}>
           <CustomBreadcrumbs
             chain={[
@@ -54,7 +62,7 @@ export default function PatientPage(): JSX.Element {
             ]}
           />
           <Typography variant="subtitle1" color="primary.main">
-            Patient Record
+            Visit History
           </Typography>
 
           <Paper
@@ -79,7 +87,7 @@ export default function PatientPage(): JSX.Element {
                   to={`/patient/${id}/info`}
                   data-testid={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
                 >
-                  See All Patient Info
+                  View Patient Profile
                 </RoundedButton>
               </Box>
             </Box>
@@ -91,8 +99,8 @@ export default function PatientPage(): JSX.Element {
                   sx={{ width: '100%' }}
                   to={
                     latestAppointment.serviceMode === ServiceMode.virtual
-                      ? `/telemed/appointments/${latestAppointment.id}?tab=sign`
-                      : `/in-person/${latestAppointment.id}/progress-note`
+                      ? `/telemed/appointments/${latestAppointment.appointmentId}?tab=sign`
+                      : `/in-person/${latestAppointment.appointmentId}/progress-note`
                   }
                 >
                   Recent Progress Note
@@ -155,7 +163,11 @@ export default function PatientPage(): JSX.Element {
             </Box>
 
             <TabPanel value="encounters" sx={{ p: 0 }}>
-              <PatientEncountersGrid appointments={appointments} loading={loading} />
+              <PatientEncountersGrid
+                patient={patient}
+                totalCount={appointments.length}
+                latestVisitDate={latestAppointment?.dateTime ?? null}
+              />
             </TabPanel>
             <TabPanel value="followups" sx={{ p: 0 }}>
               <PatientFollowupEncountersGrid patient={patient} loading={loading}></PatientFollowupEncountersGrid>
@@ -167,7 +179,7 @@ export default function PatientPage(): JSX.Element {
             )}
             {FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED && (
               <TabPanel value="in-house-labs" sx={{ p: 0 }}>
-                <PatientInHouseLabsTab titleText="In-house Labs" patientId={id || ''} />
+                <PatientInHouseLabsTab titleText="In-House Labs" patientId={id || ''} />
               </TabPanel>
             )}
             {FEATURE_FLAGS.RADIOLOGY_ENABLED && (

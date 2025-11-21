@@ -110,6 +110,17 @@
       "reason6": "Financial responsibility concern",
       "reason7": "Insurance issue"
     },
+    "telemedReasons": {
+      "reason1": "Wait time too long",
+      "reason2": "Going to another company",
+      "reason3": "Going to an emergency department",
+      "reason4": "Cost is too high",
+      "reason5": "Insurance issue",
+      "reason6": "Technical issue",
+      "reason7": "Patient improved",
+      "reason8": "Clicked accidentally",
+      "reason9": "Other"
+    },
     "subtitle": "Cancelation reason",
     "title": "Why are you canceling?"
   },
@@ -612,7 +623,7 @@
     "Clear": "Clear",
     "clear": "Clear",
     "uploading": "Uploading...",
-    "Please upload a picture of a Photo ID, Drivers License or Passport of the patient's legal guardian (ie: Patient or Parent/Guardian)": "Please upload a picture of a Photo ID, Drivers License or Passport of the patient's legal guardian (ie: Patient or Parent/Guardian)",
+    "Please upload a Photo ID, Driver's License, or Passport for an adult, either yourself or the parent/guardian when accompanying a child": "Please upload a Photo ID, Driver's License, or Passport for an adult, either yourself or the parent/guardian when accompanying a child",
     "Take a picture of the front side of your Photo ID (optional)": "Take a picture of the front side of your Photo ID (optional)",
     "Photo ID": "Photo ID",
     "Birth sex": "Birth sex",
@@ -734,8 +745,8 @@
   },
   "reviewAndSubmit": {
     "byProceeding": "By proceeding with a visit, you acknowledge that you have reviewed and accept our ",
-    "privacyPolicy": "Privacy Policy ",
-    "andPrivacyPolicy": "and ",
+    "privacyPolicy": "Privacy Policy",
+    "andPrivacyPolicy": " and ",
     "termsAndConditions": "Terms and Conditions of Service",
     "contactInfoLabel": "Contact information",
     "backButtonReview": "Back",
@@ -823,6 +834,7 @@
     "editPaperwork": "Edit paperwork",
     "modify": "Modify",
     "proceedToPaperwork": "Proceed to paperwork",
+    "goToWaitingRoom": "Go to waiting room",
     "registerAnother": "Register another patient",
     "subtitle": "We look forward to helping you soon!",
     "survey": "1-minute survey",

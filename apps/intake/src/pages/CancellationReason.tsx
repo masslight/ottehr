@@ -3,7 +3,18 @@ import { useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
-import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CANT_CANCEL_CHECKED_IN_APT_ERROR, PROJECT_NAME } from 'utils';
+import { useCancelTelemedAppointmentMutation } from 'src/telemed/features/appointments';
+import { useOystehrAPIClient } from 'src/telemed/utils';
+import {
+  APIError,
+  APPOINTMENT_NOT_FOUND_ERROR,
+  BOOKING_CONFIG,
+  CancellationReasonOptionsTelemed,
+  CANT_CANCEL_CHECKED_IN_APT_ERROR,
+  PROJECT_NAME,
+  ServiceMode,
+} from 'utils';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
@@ -14,22 +25,10 @@ import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { useVisitContext } from './ThankYou';
 
-// these are the options for a patient in the IP intake app and are a product requirement for that app
-// please don't attempt to extract this to a shared util. if another app has similar or even identical options
-// that is fine; enumerate them within that scope and don't sweat any duplication
-enum CancelReasonOptions {
-  'reason1' = 'Patient improved',
-  'reason2' = 'Wait time too long',
-  'reason3' = 'Prefer another provider',
-  'reason4' = 'Changing location',
-  'reason5' = 'Changing to telemedicine',
-  'reason6' = 'Financial responsibility concern',
-  'reason7' = 'Insurance issue',
-}
-
 const CancellationReason = (): JSX.Element => {
   const navigate = useNavigate();
   const zambdaClient = useUCZambdaClient({ tokenless: true });
+  const apiClient = useOystehrAPIClient();
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [cancelErrorDialog, setCancelErrorDialog] = useState<ErrorDialogConfig | undefined>(undefined);
@@ -39,6 +38,8 @@ const CancellationReason = (): JSX.Element => {
   const { appointmentData } = useVisitContext();
   const { t } = useTranslation();
 
+  const cancelTelemedAppointment = useCancelTelemedAppointmentMutation();
+
   const visitType = useMemo(() => {
     return appointmentData?.appointment?.visitType;
   }, [appointmentData?.appointment?.visitType]);
@@ -46,6 +47,10 @@ const CancellationReason = (): JSX.Element => {
   const selectedLocation = useMemo(() => {
     return appointmentData?.appointment?.location;
   }, [appointmentData?.appointment?.location]);
+
+  const isVirtualAppt = useMemo(() => {
+    return appointmentData?.appointment?.serviceMode === ServiceMode.virtual;
+  }, [appointmentData?.appointment?.serviceMode]);
 
   // Track event in Mixpanel
   const eventName = 'Cancellation Reason';
@@ -67,14 +72,50 @@ const CancellationReason = (): JSX.Element => {
       }
       setLoading(true);
 
-      await ottehrApi.cancelAppointment(zambdaClient, {
-        appointmentID: appointmentID,
-        language: 'en', // replace with i18n.language to enable
-        cancellationReason: data.cancellationReason,
-      });
+      if (isVirtualAppt) {
+        if (!apiClient) {
+          throw new Error('apiClient is not defined');
+        }
+        await cancelTelemedAppointment.mutate(
+          {
+            apiClient,
+            appointmentID: appointmentID,
+            cancellationReason: data.cancellationReason,
+          },
+          {
+            onSuccess: async () => {
+              setLoading(false);
+              navigateInFlow('cancellation-confirmation');
+            },
+            onError: (error) => {
+              setLoading(false);
+              if ((error as APIError)?.code === CANT_CANCEL_CHECKED_IN_APT_ERROR.code) {
+                setCancelErrorDialog({
+                  title: t('cancel.errors.checkedIn.title'),
+                  description: t('cancel.errors.checkedIn.description'),
+                  closeButtonText: t('cancel.errors.checkedIn.button'),
+                });
+              } else if ((error as APIError)?.code === APPOINTMENT_NOT_FOUND_ERROR.code) {
+                setNotFound(true);
+              } else {
+                console.error('error', error);
+                alert(t('cancel.errors.errorCanceling'));
+                safelyCaptureException(error);
+              }
+            },
+          }
+        );
+        return;
+      } else {
+        await ottehrApi.cancelAppointment(zambdaClient, {
+          appointmentID: appointmentID,
+          language: 'en', // replace with i18n.language to enable
+          cancellationReason: data.cancellationReason,
+        });
 
-      setLoading(false);
-      navigateInFlow('cancellation-confirmation');
+        setLoading(false);
+        navigateInFlow('cancellation-confirmation');
+      }
     } catch (error: any) {
       if ((error as APIError)?.code === CANT_CANCEL_CHECKED_IN_APT_ERROR.code) {
         setCancelErrorDialog({
@@ -86,6 +127,8 @@ const CancellationReason = (): JSX.Element => {
         setNotFound(true);
       } else {
         console.log('error', error);
+        safelyCaptureException(error);
+        alert(t('cancel.errors.errorCanceling'));
       }
     } finally {
       setLoading(false);
@@ -104,11 +147,18 @@ const CancellationReason = (): JSX.Element => {
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const cancelReasonOptions = useMemo(() => {
-    return Object.keys(CancelReasonOptions).map((key) => ({
-      label: t(`cancel.reasons.${key}`, { PROJECT_NAME }),
-      value: CancelReasonOptions[key as keyof typeof CancelReasonOptions],
-    }));
-  }, [t]);
+    return isVirtualAppt
+      ? Object.keys(CancellationReasonOptionsTelemed).map((key, index) => ({
+          label:
+            t(`cancel.telemedReasons.reason${index + 1}`, { PROJECT_NAME }) ||
+            CancellationReasonOptionsTelemed[key as keyof typeof CancellationReasonOptionsTelemed],
+          value: CancellationReasonOptionsTelemed[key as keyof typeof CancellationReasonOptionsTelemed],
+        }))
+      : Object.keys(BOOKING_CONFIG.cancelReasonOptions).map((key, index) => ({
+          label: t(`cancel.reasons.reason${index + 1}`, { PROJECT_NAME }) || BOOKING_CONFIG.cancelReasonOptions[index],
+          value: BOOKING_CONFIG.cancelReasonOptions[index],
+        }));
+  }, [t, isVirtualAppt]);
 
   return (
     <PageContainer title={t('cancel.title')}>
@@ -123,7 +173,7 @@ const CancellationReason = (): JSX.Element => {
           },
         ]}
         controlButtons={{
-          loading,
+          loading: loading || cancelTelemedAppointment.isPending,
           submitLabel: t('cancel.cancelButton'),
           onBack: () => {
             mixpanel.track(eventName, { patientFlow: visitType });

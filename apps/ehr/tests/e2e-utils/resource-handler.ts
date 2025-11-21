@@ -24,6 +24,7 @@ import { fileURLToPath } from 'url';
 import {
   cleanAppointmentGraph,
   CreateAppointmentResponse,
+  createFetchClientWithOystehrAuth,
   createSampleAppointments,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
@@ -33,9 +34,8 @@ import {
   RelationshipOption,
   ServiceMode,
 } from 'utils';
-import inPersonIntakeQuestionnaire from '../../../../packages/utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json' assert { type: 'json' };
+import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { getAuth0Token } from './auth/getAuth0Token';
-import { fetchWithOystehrAuth } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
@@ -83,6 +83,7 @@ export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTAL_CODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
 
+export const PATIENT_INSURANCE_PLAN_TYPE = '09';
 export const PATIENT_INSURANCE_MEMBER_ID = '123123';
 export const PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME = 'John';
 export const PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME = 'Doe';
@@ -97,6 +98,7 @@ export const PATIENT_INSURANCE_POLICY_HOLDER_STATE = 'CA';
 export const PATIENT_INSURANCE_POLICY_HOLDER_ZIP = '92000';
 export const PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED: RelationshipOption = 'Parent';
 
+export const PATIENT_INSURANCE_PLAN_TYPE_2 = '12';
 export const PATIENT_INSURANCE_MEMBER_ID_2 = '234234';
 export const PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME = 'Jane';
 export const PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME = 'Doe';
@@ -125,15 +127,15 @@ export type CreateTestAppointmentInput = {
   reasonsForVisit?: string;
   telemedLocationState?: string;
   selectedLocationId?: string;
+  skipPaperwork?: boolean;
 };
 
 export class ResourceHandler {
-  #apiClient!: Oystehr;
-  #authToken!: string;
+  #apiClient!: Promise<Oystehr>;
+  #authToken!: Promise<string>;
   #resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
   #createAppointmentZambdaId: string;
   #flow: 'telemed' | 'in-person';
-  #initPromise: Promise<void>;
   #paperworkAnswers?: GetPaperworkAnswers;
   #processId?: string;
 
@@ -150,35 +152,23 @@ export class ResourceHandler {
     return oystehr;
   }
 
-  public get apiClient(): Oystehr {
-    return this.#apiClient;
-  }
-
   constructor(processId: string, flow: 'telemed' | 'in-person' = 'in-person', paperworkAnswers?: GetPaperworkAnswers) {
     this.#flow = flow;
     this.#paperworkAnswers = paperworkAnswers;
-
-    this.#initPromise = this.initApi();
     this.#processId = processId;
-
     this.#createAppointmentZambdaId = 'create-appointment';
-  }
+    this.#authToken = getAuth0Token();
 
-  private async initApi(): Promise<void> {
-    if (this.#apiClient && this.#authToken) {
-      return;
-    }
-    this.#authToken = await getAuth0Token();
-    this.#apiClient = new Oystehr({
-      accessToken: this.#authToken,
-      fhirApiUrl: process.env.FHIR_API,
-      projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
+    this.#apiClient = this.#authToken.then((authToken) => {
+      return new Oystehr({
+        accessToken: authToken,
+        fhirApiUrl: process.env.FHIR_API,
+        projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
+      });
     });
   }
 
   private async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
-    await this.#initPromise;
-
     try {
       const address: Address = {
         city: inputParams?.city ?? PATIENT_CITY,
@@ -217,7 +207,7 @@ export class ResourceHandler {
 
       // Create appointment and related resources using zambda
       const appointmentData = await createSampleAppointments({
-        oystehr: this.#apiClient,
+        oystehr: await this.apiClient,
         authToken: getAccessToken(),
         phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
         createAppointmentZambdaId: this.#createAppointmentZambdaId,
@@ -229,12 +219,11 @@ export class ResourceHandler {
         projectId: process.env.PROJECT_ID!,
         paperworkAnswers: this.#paperworkAnswers,
         appointmentMetadata: getProcessMetaTag(this.#processId!),
+        skipPaperwork: inputParams?.skipPaperwork,
       });
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
       }
-
-      appointmentData.resources;
 
       Object.values(appointmentData.resources).forEach((resource) => {
         console.log(`✅ created ${resource.resourceType}: ${resource.id}`);
@@ -264,14 +253,14 @@ export class ResourceHandler {
   }
 
   public async setResourcesFast(_params?: CreateTestAppointmentInput): Promise<void> {
-    await this.#initPromise;
-
     if (process.env.LOCATION_ID == null) {
       throw new Error('LOCATION_ID is not set');
     }
 
+    const apiClient = await this.apiClient;
+
     const schedule = (
-      await this.#apiClient.fhir.search<Schedule>({
+      await apiClient.fhir.search<Schedule>({
         resourceType: 'Schedule',
         params: [
           {
@@ -282,12 +271,22 @@ export class ResourceHandler {
       })
     ).unbundle()[0] as Schedule;
 
+    const questionnaire = Object.values(inPersonIntakeQuestionnaire.fhirResources).find(
+      (q) =>
+        q.resource.resourceType === 'Questionnaire' &&
+        q.resource.status === 'active' &&
+        q.resource.url.includes('intake-paperwork-inperson')
+    );
+    if (!questionnaire) {
+      throw new Error('Questionnaire not found in local config');
+    }
+
     let seedDataString = JSON.stringify(fastSeedData);
     seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
     seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
     seedDataString = seedDataString.replace(
       /\{\{questionnaireUrl\}\}/g,
-      `${inPersonIntakeQuestionnaire.resource.url}|${inPersonIntakeQuestionnaire.resource.version}`
+      `${questionnaire.resource.url}|${questionnaire.resource.version}`
     );
     seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
 
@@ -297,7 +296,7 @@ export class ResourceHandler {
 
     const createdResources =
       (
-        await this.#apiClient.fhir.transaction<
+        await apiClient.fhir.transaction<
           | Patient
           | RelatedPerson
           | Person
@@ -345,21 +344,23 @@ export class ResourceHandler {
   }
 
   public async cleanupResources(): Promise<void> {
+    console.log('------------------------------------------------------------');
+    console.log('Starting resource cleanup');
     // TODO: here we should change appointment id to encounter id when we'll fix this bug in frontend,
     // because for this moment frontend creates order with appointment id in place of encounter one
     const metaTagCoding = getProcessMetaTag(this.#processId!);
     if (metaTagCoding?.tag?.[0]) {
-      await cleanAppointmentGraph(metaTagCoding.tag[0], this.#apiClient);
+      await cleanAppointmentGraph(metaTagCoding.tag[0], await this.apiClient);
     }
   }
 
   async waitTillAppointmentPreprocessed(id: string): Promise<void> {
-    try {
-      await this.initApi();
+    const apiClient = await this.apiClient;
 
-      for (let i = 0; i < 10; i++) {
+    try {
+      for (let i = 0; i < 50; i++) {
         const appointment = (
-          await this.#apiClient.fhir.search({
+          await apiClient.fhir.search({
             resourceType: 'Appointment',
             params: [
               {
@@ -376,7 +377,7 @@ export class ResourceHandler {
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
       throw new Error("Appointment wasn't preprocessed");
@@ -387,12 +388,12 @@ export class ResourceHandler {
   }
 
   async waitTillHarvestingDone(appointmentId: string): Promise<void> {
-    try {
-      await this.initApi();
+    const apiClient = await this.apiClient;
 
-      for (let i = 0; i < 10; i++) {
+    try {
+      for (let i = 0; i < 50; i++) {
         const appointment = (
-          await this.#apiClient.fhir.search({
+          await apiClient.fhir.search({
             resourceType: 'Appointment',
             params: [
               {
@@ -411,7 +412,7 @@ export class ResourceHandler {
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 6000));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
       throw new Error("Appointment wasn't harvested by sub-intake-harvest module");
@@ -422,11 +423,13 @@ export class ResourceHandler {
   }
 
   async setEmployees(): Promise<void> {
+    const apiClient = await this.apiClient;
+    const authToken = await this.#authToken;
+
     try {
-      await this.#initPromise;
       const [employee1, employee2] = await Promise.all([
-        inviteTestEmployeeUser(TEST_EMPLOYEE_1, this.#apiClient, this.#authToken),
-        inviteTestEmployeeUser(TEST_EMPLOYEE_2, this.#apiClient, this.#authToken),
+        inviteTestEmployeeUser(TEST_EMPLOYEE_1, apiClient, authToken),
+        inviteTestEmployeeUser(TEST_EMPLOYEE_2, apiClient, authToken),
       ]);
 
       this.testEmployee1 = employee1!;
@@ -437,16 +440,23 @@ export class ResourceHandler {
   }
 
   async deleteEmployees(): Promise<void> {
+    const apiClient = await this.apiClient;
+    const authToken = await this.#authToken;
+
     try {
       if (process.env.AUTH0_CLIENT_TESTS && process.env.AUTH0_SECRET_TESTS) {
         await Promise.all([
-          removeUser(this.testEmployee1.id, this.testEmployee1.profile.id!, this.#apiClient, this.#authToken),
-          removeUser(this.testEmployee2.id, this.testEmployee2.profile.id!, this.#apiClient, this.#authToken),
+          removeUser(this.testEmployee1.id, this.testEmployee1.profile.id!, apiClient, authToken),
+          removeUser(this.testEmployee2.id, this.testEmployee2.profile.id!, apiClient, authToken),
         ]);
       } else throw new Error('No "AUTH0_CLIENT_TESTS" or "AUTH0_SECRET_TESTS" secret provided');
     } catch (e) {
       console.error('❌ Failed to delete users: ', e);
     }
+  }
+
+  public get apiClient(): Promise<Oystehr> {
+    return this.#apiClient;
   }
 
   public get patient(): Patient {
@@ -476,7 +486,8 @@ export class ResourceHandler {
   }
 
   async patientIdByAppointmentId(appointmentId: string): Promise<string> {
-    const appointment = await this.#apiClient.fhir.get<Appointment>({
+    const apiClient = await this.apiClient;
+    const appointment = await apiClient.fhir.get<Appointment>({
       resourceType: 'Appointment',
       id: appointmentId,
     });
@@ -495,19 +506,25 @@ export class ResourceHandler {
     email: string;
     practitioner: Practitioner;
   }> {
-    await this.#initPromise;
-    const users = await fetchWithOystehrAuth<
+    const apiClient = await this.apiClient;
+    const oystehrProjectId = process.env.PROJECT_ID;
+    if (!oystehrProjectId) throw new Error('secret PROJECT_ID is not set');
+    const { oystehrFetch } = createFetchClientWithOystehrAuth({
+      authToken: await this.#authToken,
+      projectId: oystehrProjectId,
+    });
+    const users = await oystehrFetch<
       {
         id: string;
         name: string;
         email: string;
         profile: string;
       }[]
-    >('GET', 'https://project-api.zapehr.com/v1/user', this.#authToken);
+    >('GET', 'https://project-api.zapehr.com/v1/user');
 
     const user = users?.find((user) => user.email === process.env.TEXT_USERNAME);
     if (!user) throw new Error('Failed to find authorized user');
-    const practitioner = (await this.#apiClient.fhir.get({
+    const practitioner = (await apiClient.fhir.get({
       resourceType: 'Practitioner',
       id: user.profile.replace('Practitioner/', ''),
     })) as Practitioner;

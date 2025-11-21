@@ -1,9 +1,10 @@
-import { Extension, PractitionerQualification } from 'fhir/r4b';
-import { PractitionerLicense } from '../types';
+import { Encounter, Extension, PractitionerQualification } from 'fhir/r4b';
+import { PRACTITIONER_CODINGS, PractitionerLicense, ProviderTypeCode } from '../types';
 import {
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,
   PRACTITIONER_QUALIFICATION_STATE_SYSTEM,
+  PROVIDER_TYPE_EXTENSION_URL,
 } from './constants';
 
 export function makeQualificationForPractitioner(license: PractitionerLicense): PractitionerQualification {
@@ -56,4 +57,71 @@ export function makeQualificationForPractitioner(license: PractitionerLicense): 
       },
     ],
   };
+}
+
+export function getAttendingPractitionerId(encounter: Encounter): string | undefined {
+  const practitionerId = encounter.participant
+    ?.find(
+      (participant) =>
+        participant.type?.find(
+          (type) =>
+            type.coding?.some(
+              (c) =>
+                c.system === PRACTITIONER_CODINGS.Attender[0].system && c.code === PRACTITIONER_CODINGS.Attender[0].code
+            )
+        )
+    )
+    ?.individual?.reference?.replace('Practitioner/', '');
+
+  return practitionerId;
+}
+
+export function getAdmitterPractitionerId(encounter: Encounter): string | undefined {
+  const practitionerId = encounter.participant
+    ?.find(
+      (participant) =>
+        participant.type?.find(
+          (type) =>
+            type.coding?.some(
+              (c) =>
+                c.system === PRACTITIONER_CODINGS.Admitter[0].system && c.code === PRACTITIONER_CODINGS.Admitter[0].code
+            )
+        )
+    )
+    ?.individual?.reference?.replace('Practitioner/', '');
+
+  return practitionerId;
+}
+
+export function makeProviderTypeExtension(
+  providerType?: ProviderTypeCode,
+  providerTypeText?: string
+): Extension[] | undefined {
+  if (!providerType) return undefined;
+
+  return [
+    {
+      url: PROVIDER_TYPE_EXTENSION_URL,
+      valueCodeableConcept: {
+        coding: [
+          {
+            system: 'provider-type',
+            code: providerType,
+            display: providerType,
+          },
+        ],
+        text: providerTypeText || providerType,
+      },
+    },
+  ];
+}
+
+export function getSuffixFromProviderTypeExtension(providerTypeExtension?: Extension[]): string[] | undefined {
+  if (!providerTypeExtension || providerTypeExtension.length === 0) return undefined;
+
+  const ext = providerTypeExtension.find((e) => e.url === PROVIDER_TYPE_EXTENSION_URL);
+  if (!ext?.valueCodeableConcept) return undefined;
+
+  const cc = ext.valueCodeableConcept;
+  return [cc.text || cc.coding?.[0]?.display || cc.coding?.[0]?.code].filter(Boolean) as string[];
 }

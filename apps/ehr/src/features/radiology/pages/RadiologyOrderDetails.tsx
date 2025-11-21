@@ -4,8 +4,8 @@ import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { radiologyLaunchViewer, savePreliminaryReport } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { CSSPageTitle } from '../../../telemed/components/PageTitle';
-import radiologyIcon from '../../../themes/ottehr/icons/mui-radiology.svg';
+import radiologyIcon from 'src/themes/ottehr/icons/mui-radiology.svg';
+import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCard';
 import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
@@ -106,7 +106,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               variant="outlined"
             />
           ) : null}
-          <CSSPageTitle>{`Radiology: ${order.studyType}`}</CSSPageTitle>
+          <PageTitleStyled>{`Radiology: ${order.studyType}`}</PageTitleStyled>
 
           <Box
             sx={{
@@ -162,6 +162,17 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 </Box>
               )}
 
+              {order.clinicalHistory && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
+                    Clinical History
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    {order.clinicalHistory}
+                  </Typography>
+                </Box>
+              )}
+
               {order.status === 'performed' && (
                 <Box>
                   <TextField
@@ -196,9 +207,14 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               )}
 
               {order.result != null ? (
-                <Typography sx={{ mt: 2 }} variant="body2">
-                  <div dangerouslySetInnerHTML={{ __html: atob(order.result) }} />
-                </Typography>
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
+                    Final Report
+                  </Typography>
+                  <Typography variant="body2">
+                    <div dangerouslySetInnerHTML={{ __html: atob(order.result) }} />
+                  </Typography>
+                </Box>
               ) : (
                 <div />
               )}

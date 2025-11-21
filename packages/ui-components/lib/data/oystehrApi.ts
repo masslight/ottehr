@@ -10,8 +10,6 @@ import {
   chooseJson,
   CreateAppointmentUCTelemedParams,
   CreateAppointmentUCTelemedResponse,
-  CreatePaperworkInput,
-  CreatePaperworkResponse,
   CreditCardInfo,
   GetAnswerOptionsRequest,
   GetAppointmentsRequest,
@@ -50,41 +48,38 @@ import {
 } from 'utils';
 import { GetOystehrAPIParams } from '../main';
 
-enum ZambdaNames {
-  'cancel appointment' = 'cancel appointment',
-  'check in' = 'check in',
-  'create appointment' = 'create appointment',
-  'create paperwork' = 'create paperwork',
-  'delete payment method' = 'delete payment method',
-  'get appointments' = 'get appointments',
-  'get past visits' = 'get past visits',
-  'get eligibility' = 'get eligibility',
-  'get visit details' = 'get visit details',
-  'get answer options' = 'get answer options',
-  'get schedule' = 'get schedule',
-  'get paperwork' = 'get paperwork',
-  'get patients' = 'get patients',
-  'get payment methods' = 'get payment methods',
-  'get presigned file url' = 'get presigned file url',
-  'get telemed states' = 'get telemed states',
-  'get wait status' = 'get wait status',
-  'join call' = 'join call',
-  'setup payment method' = 'setup payment method',
-  'set default payment method' = 'set default payment method',
-  'update appointment' = 'update appointment',
-  'patch paperwork' = 'update paperwork',
-  'submit paperwork' = 'submit paperwork',
-  'video chat cancel invite' = 'video chat cancel invite',
-  'video chat create invite' = 'video chat create invite',
-  'video chat list invites' = 'video chat list invites',
-  'list bookables' = 'list bookables',
-}
+type ZambdaName =
+  | 'cancel appointment'
+  | 'check in'
+  | 'create appointment'
+  | 'delete payment method'
+  | 'get appointments'
+  | 'get past visits'
+  | 'get eligibility'
+  | 'get visit details'
+  | 'get answer options'
+  | 'get schedule'
+  | 'get paperwork'
+  | 'get patients'
+  | 'get payment methods'
+  | 'get presigned file url'
+  | 'get telemed states'
+  | 'get wait status'
+  | 'join call'
+  | 'setup payment method'
+  | 'set default payment method'
+  | 'update appointment'
+  | 'patch paperwork'
+  | 'submit paperwork'
+  | 'video chat cancel invite'
+  | 'video chat create invite'
+  | 'video chat list invites'
+  | 'list bookables';
 
-const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
+const zambdasPublicityMap: Record<ZambdaName, boolean> = {
   'cancel appointment': false,
   'check in': true,
   'create appointment': false,
-  'create paperwork': false,
   'delete payment method': false,
   'get appointments': false,
   'get past visits': false,
@@ -119,7 +114,6 @@ export const getOystehrAPI = (
   cancelAppointment: typeof cancelAppointment;
   checkIn: typeof checkIn;
   createAppointment: typeof createAppointment;
-  createPaperwork: typeof createPaperwork;
   createZ3Object: typeof createZ3Object;
   deletePaymentMethod: typeof deletePaymentMethod;
   getAppointments: typeof getAppointments;
@@ -149,7 +143,6 @@ export const getOystehrAPI = (
     cancelAppointmentZambdaID,
     checkInZambdaID,
     createAppointmentZambdaID,
-    createPaperworkZambdaID,
     deletePaymentMethodZambdaID,
     getAppointmentsZambdaID,
     getPastVisitsZambdaID,
@@ -161,7 +154,7 @@ export const getOystehrAPI = (
     getPatientsZambdaID,
     getPaymentMethodsZambdaID,
     getPresignedFileURLZambdaID,
-    getTelemedStatesZambdaID,
+    getTelemedLocationsZambdaID: getTelemedStatesZambdaID,
     getWaitStatusZambdaID,
     joinCallZambdaID,
     setDefaultPaymentMethodZambdaID,
@@ -175,11 +168,10 @@ export const getOystehrAPI = (
     listBookablesZambdaID,
   } = params;
 
-  const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
+  const zambdasToIdsMap: Record<ZambdaName, string | undefined> = {
     'cancel appointment': cancelAppointmentZambdaID,
     'check in': checkInZambdaID,
     'create appointment': createAppointmentZambdaID,
-    'create paperwork': createPaperworkZambdaID,
     'delete payment method': deletePaymentMethodZambdaID,
     'get appointments': getAppointmentsZambdaID,
     'get past visits': getPastVisitsZambdaID,
@@ -217,7 +209,7 @@ export const getOystehrAPI = (
   };
 
   const makeZapRequest = async <TResponse, TPayload>(
-    zambdaName: keyof typeof ZambdaNames,
+    zambdaName: ZambdaName,
     payload?: TPayload,
     additionalErrorHandler?: (error: unknown) => void
   ): Promise<TResponse> => {
@@ -239,7 +231,9 @@ export const getOystehrAPI = (
       // won't be reached, but for TS to give the right return type
       throw Error();
     } catch (error) {
-      additionalErrorHandler && additionalErrorHandler(error);
+      if (additionalErrorHandler) {
+        additionalErrorHandler(error);
+      }
       throw apiErrorToThrow(error);
     }
   };
@@ -259,21 +253,6 @@ export const getOystehrAPI = (
   ): Promise<CreateAppointmentUCTelemedResponse> => {
     const fhirParams = fhirifyAppointmentInputs({ ...parameters });
     return await makeZapRequest('create appointment', fhirParams);
-  };
-
-  const createPaperwork = async (
-    parameters: Pick<
-      CreatePaperworkInput,
-      'appointmentID' | 'files' | 'paperwork' | 'paperworkComplete' | 'timezone' | 'patientId'
-    >
-  ): Promise<CreatePaperworkResponse> => {
-    const payload = Object.fromEntries(
-      Object.entries(parameters).filter(
-        ([_parameterKey, parameterValue]) =>
-          parameterValue && !Object.values(parameterValue).every((tempValue) => tempValue === undefined)
-      )
-    );
-    return await makeZapRequest('create paperwork', payload);
   };
 
   const createZ3Object = async (
@@ -434,7 +413,6 @@ export const getOystehrAPI = (
     cancelAppointment,
     checkIn,
     createAppointment,
-    createPaperwork,
     createZ3Object,
     deletePaymentMethod,
     getAppointments,

@@ -1,9 +1,14 @@
 import Oystehr from '@oystehr/sdk';
-import { Operation } from 'fast-json-patch';
 import { Appointment, Bundle, Coding, Flag, Patient, Resource } from 'fhir/r4b';
 import { diff, IChange } from 'json-diff-ts';
 import { DateTime } from 'luxon';
-import { CRITICAL_CHANGE_SYSTEM, FhirAppointmentType, getCriticalUpdateTagOp, getFullName } from 'utils';
+import {
+  CRITICAL_CHANGE_SYSTEM,
+  FhirAppointmentType,
+  getCriticalUpdateTagOp,
+  getFullName,
+  STATUS_UPDATE_TAG_SYSTEM,
+} from 'utils';
 import { HOP_QUEUE_URI } from '../constants';
 import { appointmentTypeLabels } from '../types/types';
 import { formatDateUsingSlashes } from './formatDateTime';
@@ -16,6 +21,7 @@ export enum ActivityName {
   dobChange = 'Date of Birth Update',
   movedToNext = 'Moved to next in queue',
   paperworkStarted = 'Paperwork started',
+  statusChange = 'Status Update',
 }
 export interface ActivityLogData {
   activityDateTimeISO: string | undefined;
@@ -33,20 +39,6 @@ export interface NoteHistory {
   note: string;
   noteAddedByAndWhen: string;
 }
-
-export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Operation | undefined => {
-  // going forward we will be using the history of the patient resource so this isn't needed
-  // check if there is a tag to clean up
-  const staffHistoryTagIdx = resource.meta?.tag?.findIndex((tag) => tag.system === `staff-update-history-${field}`);
-  if (staffHistoryTagIdx !== undefined && staffHistoryTagIdx >= 0) {
-    return {
-      op: 'remove',
-      path: `/meta/tag/${staffHistoryTagIdx}`,
-    };
-  } else {
-    return;
-  }
-};
 
 export const getAppointmentAndPatientHistory = async (
   appointment: Appointment | undefined,
@@ -183,6 +175,17 @@ export const formatActivityLogs = (
             };
             logs.push(movedToNextLog);
           }
+          const statusUpdate = tagChanges.find((change) => change.key === STATUS_UPDATE_TAG_SYSTEM); // todo update to const
+          if (statusUpdate) {
+            const statusUpdateLog: ActivityLogData = {
+              activityName: ActivityName.statusChange,
+              activityNameSupplement: getStatusToDisplay(statusUpdate),
+              activityDateTimeISO: curApptHistory.meta?.lastUpdated,
+              activityDateTime: formatActivityDateTime(curApptHistory.meta?.lastUpdated || '', timezone),
+              activityBy: activityBy ? activityBy : 'n/a',
+            };
+            logs.push(statusUpdateLog);
+          }
         }
       }
     });
@@ -251,6 +254,16 @@ const getCriticalUpdateMadeBy = (diff: IChange, resource: Resource): string | un
     }
   }
   return activityBy;
+};
+const getStatusToDisplay = (diff: IChange): string => {
+  let display = '';
+  if (diff?.type === 'UPDATE') {
+    display = diff.changes?.find((change) => change.key === 'display')?.value || '';
+  }
+  if (diff?.type === 'ADD') {
+    display = diff?.value?.display || '';
+  }
+  return display;
 };
 
 export const formatActivityDateTime = (dateTime: string, timezone: string): string => {

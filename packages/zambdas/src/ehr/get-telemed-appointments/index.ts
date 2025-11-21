@@ -4,13 +4,15 @@ import { Appointment } from 'fhir/r4b';
 import {
   appointmentTypeForAppointment,
   createSmsModel,
+  getSecret,
   GetTelemedAppointmentsInput,
   GetTelemedAppointmentsResponseEhr,
   getVisitStatusHistory,
   relatedPersonAndCommunicationMaps,
+  SecretsKeys,
   TelemedAppointmentInformation,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { filterAppointmentsAndCreatePackages, filterPatientForAppointment } from './helpers/fhir-resources-filters';
 import { getAllPartiallyPreFilteredFhirResources, getAllVirtualLocationsMap } from './helpers/fhir-utils';
@@ -18,7 +20,7 @@ import { getPhoneNumberFromQuestionnaire } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 if (process.env.IS_OFFLINE === 'true') {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('console-stamp')(console, { pattern: 'HH:MM:ss.l' });
 }
 
@@ -43,10 +45,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     console.log(error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error getting appointments' }),
-    };
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
 

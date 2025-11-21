@@ -93,6 +93,7 @@ export function BasicDatePicker({
                     field.onChange(dateStr);
                     onChange?.(dateStr);
                   }}
+                  fullWidth
                   disabled={disabled}
                   label={label}
                   slotProps={{

@@ -24,6 +24,7 @@ import {
   DiagnosisDTO,
   EMPTY_PAGINATION,
   fetchDocumentReferencesForDiagnosticReports,
+  getAttendingPractitionerId,
   getFullestAvailableName,
   IN_HOUSE_TEST_CODE_SYSTEM,
   InHouseGetOrdersResponseDTO,
@@ -32,7 +33,6 @@ import {
   isPositiveNumberOrZero,
   LabResultPDF,
   Pagination,
-  PRACTITIONER_CODINGS,
   TestStatus,
 } from 'utils';
 import { createOystehrClient, getMyPractitionerId, sendErrors } from '../../shared';
@@ -45,7 +45,7 @@ import {
   getUrlAndVersionForADFromServiceRequest,
   taskIsBasedOnServiceRequest,
 } from '../shared/in-house-labs';
-import { fetchLabOrderPDFsPresignedUrls, parseTimezoneForAppointmentSchedule } from '../shared/labs';
+import { fetchLabDocumentPresignedUrls, parseTimezoneForAppointmentSchedule } from '../shared/labs';
 import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
 
 // cache for the service request context
@@ -244,8 +244,8 @@ export const getInHouseResources = async (
   oystehr: Oystehr,
   params: GetZambdaInHouseOrdersParams,
   searchBy: InHouseOrdersSearchBy,
-  userToken: string,
-  m2mToken: string
+  m2mToken: string,
+  userToken?: string
 ): Promise<{
   serviceRequests: ServiceRequest[];
   tasks: Task[];
@@ -323,12 +323,17 @@ export const getInHouseResources = async (
 
     if (diagnosticReports.length > 0) {
       const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports); // todo i think we can get this from the big query
-      const pdfs = await fetchLabOrderPDFsPresignedUrls(resultsDocumentReferences, m2mToken);
-      if (pdfs) resultsPDFs = pdfs.resultPDFs;
+      const documents = await fetchLabDocumentPresignedUrls(resultsDocumentReferences, m2mToken);
+      if (documents) resultsPDFs = documents.resultPDFs;
     }
   }
 
-  const practitioners = await fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters);
+  const practitioners = await fetchPractitionersForServiceRequests(
+    oystehr,
+    serviceRequests,
+    encounters,
+    params.secrets.ENVIRONMENT
+  );
 
   return {
     serviceRequests,
@@ -572,7 +577,8 @@ export const extractInHouseResources = (
 export const fetchPractitionersForServiceRequests = async (
   oystehr: Oystehr,
   serviceRequests: ServiceRequest[],
-  encounters: Encounter[]
+  encounters: Encounter[],
+  environment: string
 ): Promise<Practitioner[]> => {
   const practitionerIds = new Set<string>();
 
@@ -582,14 +588,7 @@ export const fetchPractitionersForServiceRequests = async (
   });
 
   encounters.forEach((encounter) => {
-    const attendingPractitionerId = encounter.participant
-      ?.find(
-        (participant) =>
-          participant.type?.find(
-            (type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system)
-          )
-      )
-      ?.individual?.reference?.replace('Practitioner/', '');
+    const attendingPractitionerId = getAttendingPractitionerId(encounter);
 
     if (attendingPractitionerId) practitionerIds.add(attendingPractitionerId);
   });
@@ -612,6 +611,7 @@ export const fetchPractitionersForServiceRequests = async (
       (resource): resource is Practitioner => resource?.resourceType === 'Practitioner'
     );
   } catch (error) {
+    await sendErrors(error, environment);
     console.error('Failed to fetch Practitioners', JSON.stringify(error, null, 2));
     return [];
   }
@@ -671,12 +671,7 @@ export const parseAttendingPractitioner = (
 ): Practitioner | undefined => {
   if (!encounter) return undefined;
 
-  const practitionerId = encounter.participant
-    ?.find(
-      (participant) =>
-        participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
-    )
-    ?.individual?.reference?.replace('Practitioner/', '');
+  const practitionerId = getAttendingPractitionerId(encounter);
 
   if (!practitionerId) return undefined;
 

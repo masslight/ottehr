@@ -1,10 +1,10 @@
 import { Button, CircularProgress, Typography } from '@mui/material';
 import { Box } from '@mui/system';
+import { useQuery } from '@tanstack/react-query';
 import { ottehrLightBlue } from '@theme/icons';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
-import { useQuery } from 'react-query';
 import { generatePath, Link, useNavigate, useParams } from 'react-router-dom';
 import { APIError, CreateSlotParams, isApiError, PROJECT_NAME, PROJECT_WEBSITE, ServiceMode } from 'utils';
 import { ottehrApi } from '../api';
@@ -22,19 +22,15 @@ export const WalkinLanding: FC = () => {
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
 
   const locationName = name ? name.replace('_', ' ') : undefined;
-  const { data, error, isLoading, isFetching, isRefetching } = useQuery(
-    ['walkin-check-availability', { zambdaClient: tokenlessZambdaClient, scheduleId, locationName }],
-    () =>
+  const { data, error, isLoading, isFetching, isRefetching } = useQuery({
+    queryKey: ['walkin-check-availability', scheduleId, locationName],
+    queryFn: () =>
       tokenlessZambdaClient && (scheduleId || locationName)
         ? getWalkinAvailability({ scheduleId, locationName }, tokenlessZambdaClient)
         : null,
-    {
-      onSuccess: (response) => {
-        console.log('Walkin availability response:', response);
-      },
-      enabled: Boolean(scheduleId || locationName) && Boolean(tokenlessZambdaClient),
-    }
-  );
+    enabled: Boolean(scheduleId || locationName) && Boolean(tokenlessZambdaClient),
+  });
+
   const somethingIsLoadingInSomeWay = isLoading || isFetching || isRefetching;
 
   // todo: actually check error type

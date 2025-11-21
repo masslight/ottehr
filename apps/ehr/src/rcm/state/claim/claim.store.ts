@@ -1,6 +1,5 @@
 import {
   Appointment,
-  Bundle,
   Claim,
   Coverage,
   DocumentReference,
@@ -12,7 +11,6 @@ import {
   Patient,
   RelatedPerson,
 } from 'fhir/r4b';
-import { create } from 'zustand';
 import {
   findResourceByType,
   findResourceByTypeAndId,
@@ -20,7 +18,8 @@ import {
   getCoverageData,
   getPatientData,
   PlanOwnedBy,
-} from '../../utils';
+} from 'src/rcm/utils';
+import { create } from 'zustand';
 
 export type ClaimState = {
   claim?: Claim;
@@ -43,7 +42,7 @@ export type ClaimState = {
 };
 
 type ClaimStoreActions = {
-  setResources: (data: Bundle[]) => void;
+  setResources: (data: FhirResource[]) => void;
   setPatientData: (patient?: Patient) => void;
   setCoverageData: (coverage?: Coverage, subscriber?: RelatedPerson) => void;
   setAdditionalCoverageData: (coverage?: Coverage, subscriber?: RelatedPerson) => void;

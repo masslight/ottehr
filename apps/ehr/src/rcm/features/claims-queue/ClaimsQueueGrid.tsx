@@ -1,10 +1,9 @@
 import { DataGridPro } from '@mui/x-data-grid-pro';
 import { FC } from 'react';
-import { ClaimsQueueType } from 'utils';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useOystehrAPIClient } from '../../hooks';
-import { useClaimsQueueStore, useGetClaims } from '../../state';
-import { ClaimsQueueColumns, mapClaimTypeToColumnNames } from '../../utils';
+import { useOystehrRcmApiClient } from 'src/rcm/hooks';
+import { useClaimsQueueStore, useGetClaims } from 'src/rcm/state';
+import { ClaimsQueueColumns, mapClaimTypeToColumnNames } from 'src/rcm/utils';
+import { ClaimsQueueType, getSelectors } from 'utils';
 
 type ClaimsQueueGridProps = {
   type: ClaimsQueueType;
@@ -13,11 +12,12 @@ type ClaimsQueueGridProps = {
 export const ClaimsQueueGrid: FC<ClaimsQueueGridProps> = (props) => {
   const { type } = props;
 
-  const apiClient = useOystehrAPIClient();
+  const apiClient = useOystehrRcmApiClient();
   const { pageSize, selectedRows } = getSelectors(useClaimsQueueStore, ['pageSize', 'selectedRows']);
   const { data, isFetching } = useGetClaims({
     apiClient,
     onSuccess: (data) => {
+      if (!data) return;
       useClaimsQueueStore.setState({ items: data.items });
     },
   });

@@ -14,11 +14,16 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { FC, MouseEvent, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ProviderNotifications } from 'src/features';
+import { UnsolicitedResultsIcon } from 'src/features/external-labs/components/unsolicited-results/UnsolicitedResultsIcon';
+import {
+  useCheckPractitionerEnrollment,
+  useConnectPractitionerToERX,
+  useEnrollPractitionerToERX,
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { getPractitionerMissingFields } from 'src/shared/utils';
-import { useCheckPractitionerEnrollment, useConnectPractitionerToERX, useEnrollPractitionerToERX } from 'src/telemed';
 import { getFullestAvailableName, PROJECT_NAME, RoleType } from 'utils';
 import { dataTestIds } from '../../constants/data-test-ids';
-import { ProviderNotifications } from '../../features';
 import useEvolveUser from '../../hooks/useEvolveUser';
 
 export const UserMenu: FC = () => {
@@ -37,13 +42,13 @@ export const UserMenu: FC = () => {
       enabled: Boolean(practitioner),
     });
 
-  const { mutateAsync: enrollPractitioner, isLoading: isEnrollingPractitioner } = useEnrollPractitionerToERX({
+  const { mutateAsync: enrollPractitioner, isPending: isEnrollingPractitioner } = useEnrollPractitionerToERX({
     onError: () => {
       enqueueSnackbar('Enrolling practitioner to eRx failed', { variant: 'error' });
     },
   });
 
-  const { isLoading: isConnectingPractitionerForConfirmation, mutateAsync: connectPractitionerForConfirmation } =
+  const { isPending: isConnectingPractitionerForConfirmation, mutateAsync: connectPractitionerForConfirmation } =
     useConnectPractitionerToERX({});
 
   const handleConnectPractitioner = useCallback(async () => {
@@ -62,6 +67,7 @@ export const UserMenu: FC = () => {
 
   return (
     <>
+      <UnsolicitedResultsIcon />
       {userIsProvider && <ProviderNotifications />}
       <ListItem disablePadding sx={{ width: 'fit-content' }}>
         <ListItemButton onClick={(event: MouseEvent<HTMLElement>) => setAnchorElement(event.currentTarget)}>

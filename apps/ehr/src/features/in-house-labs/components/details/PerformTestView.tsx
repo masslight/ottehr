@@ -1,10 +1,12 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, Paper, Typography } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import Oystehr from '@oystehr/sdk';
 import React, { useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { handleInHouseLabResults } from 'src/api/api';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, LoadingState, PageName, ResultEntryInput } from 'utils';
 import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
@@ -25,6 +27,7 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
     formState: { isValid },
   } = methods;
   const { oystehrZambda: oystehr } = useApiClients();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const [showDetails, setShowDetails] = useState(false);
   // const [notes, setNotes] = useState(testDetails.notes || '');
@@ -46,9 +49,9 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
       });
       setLoadingState(LoadingState.initial);
     } catch (e) {
-      const oyError = e as OystehrSdkError;
-      console.log('error entering results', oyError.code, oyError.message);
-      const errorMessage = [oyError.message];
+      const sdkError = e as Oystehr.OystehrSdkError;
+      console.log('error entering results', sdkError.code, sdkError.message);
+      const errorMessage = [sdkError.message];
       setError(errorMessage);
     }
     setSubmittingResults(false);
@@ -60,7 +63,12 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
         {getFormattedDiagnoses(testDetails.diagnosesDTO)}
       </Typography>
 
-      <Typography variant="h4" color="primary.dark" sx={{ mb: 3, fontWeight: 'bold' }}>
+      <Typography
+        data-testid={dataTestIds.performTestPage.title}
+        variant="h4"
+        color="primary.dark"
+        sx={{ mb: 3, fontWeight: 'bold' }}
+      >
         Perform Test & Enter Results
       </Typography>
 
@@ -73,6 +81,7 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
                   {testDetails.testItemName}
                 </Typography>
                 <Box
+                  data-testid={dataTestIds.performTestPage.status}
                   sx={{
                     bgcolor: '#E8DEFF',
                     color: '#5E35B1',
@@ -113,10 +122,11 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
             </Button>
 
             <LoadingButton
+              data-testid={dataTestIds.performTestPage.submitButton}
               variant="contained"
               color="primary"
               loading={submittingResults}
-              disabled={!isValid}
+              disabled={!isValid || isReadOnly}
               type="submit"
               sx={{ borderRadius: '50px', px: 4 }}
             >

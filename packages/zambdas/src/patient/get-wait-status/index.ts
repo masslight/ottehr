@@ -3,16 +3,25 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
 import {
+  appointmentTypeForAppointment,
   createOystehrClient,
   getAppointmentResourceById,
   getLocationIdFromAppointment,
   getSecret,
-  mapStatusToTelemed,
+  getTelemedVisitStatus,
   PROJECT_WEBSITE,
   SecretsKeys,
   TelemedAppointmentStatusEnum,
+  WaitingRoomResponse,
 } from 'utils';
-import { getAuth0Token, getUser, getVideoEncounterForAppointment, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  getAuth0Token,
+  getUser,
+  getVideoEncounterForAppointment,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { estimatedTimeStatesGroups } from '../../shared/appointment/constants';
 import { convertStatesAbbreviationsToLocationIds, getAllAppointmentsByLocations } from './utils/fhir';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -107,7 +116,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     }
 
-    const telemedStatus = mapStatusToTelemed(videoEncounter.status, appointment.status);
+    const telemedStatus = getTelemedVisitStatus(videoEncounter.status, appointment.status);
 
     if (telemedStatus === 'ready' || telemedStatus === 'pre-video' || telemedStatus === 'on-video') {
       const appointments = await getAppointmentsForLocation(oystehr, locationId);
@@ -117,11 +126,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       const response = {
         statusCode: 200,
-        body: JSON.stringify({
+        body: JSON.stringify(<WaitingRoomResponse>{
           status: telemedStatus === 'on-video' ? telemedStatus : TelemedAppointmentStatusEnum.ready,
           estimatedTime: estimatedTime,
           numberInLine: numberInLine,
           encounterId: telemedStatus === 'on-video' ? videoEncounter?.id : undefined,
+          appointmentType: appointmentTypeForAppointment(appointment),
         }),
       };
       console.log(JSON.stringify(response, null, 4));
@@ -139,10 +149,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   } catch (error: any) {
     console.log(error, JSON.stringify(error));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

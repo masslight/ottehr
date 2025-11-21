@@ -1,3 +1,4 @@
+// cSpell:ignore algy
 import {
   CodeableConcept,
   DetectedIssue,
@@ -14,8 +15,10 @@ import {
   getCreatedTheOrderProviderId,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
   INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
-  MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
-  MEDICATION_ADMINISTRATION_CSS_RESOURCE_SYSTEM,
+  INTERACTIONS_UNAVAILABLE,
+  ISSUE_TYPE_CODE_SYSTEM,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_REASON_CODE,
@@ -27,6 +30,7 @@ import {
   MedicationData,
   MedicationInteractions,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
 } from 'utils';
 import { fillMeta } from '../../shared';
@@ -37,6 +41,7 @@ export interface MedicationAdministrationData {
   route: MedicationApplianceRoute;
   location?: MedicationApplianceLocation;
   createdProviderId?: string;
+  orderedByProviderId?: string; // NEW: provider to add to the "ordered by" history
   administeredProviderId?: string;
   existedMA?: MedicationAdministration;
   dateTimeCreated?: string;
@@ -50,6 +55,7 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
     route,
     location,
     createdProviderId,
+    orderedByProviderId,
     administeredProviderId,
     existedMA,
     dateTimeCreated,
@@ -69,16 +75,24 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
   resource.meta = {
     tag: [
       {
-        system: MEDICATION_ADMINISTRATION_CSS_RESOURCE_SYSTEM,
-        code: MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
+        system: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
+        code: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
       },
     ],
   };
   if (orderData.patient) resource.subject = { reference: `Patient/${orderData.patient}` };
   if (orderData.encounterId) resource.context = { reference: `Encounter/${orderData.encounterId}` };
+
   if (createdProviderId) {
-    resource.performer = [
-      {
+    // Check if "created" provider already exists, if not add it
+    const hasCreatedProvider = resource.performer?.some(
+      (performer) => performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_MEDICATION_CODE)
+    );
+
+    if (!hasCreatedProvider) {
+      if (!resource.performer) resource.performer = [];
+
+      resource.performer.push({
         actor: { reference: `Practitioner/${createdProviderId}` },
         function: {
           coding: [
@@ -88,9 +102,27 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
             },
           ],
         },
-      },
-    ];
+      });
+    }
   }
+
+  // Add "ordered by" provider to history
+  if (orderedByProviderId) {
+    if (!resource.performer) resource.performer = [];
+
+    resource.performer.push({
+      actor: { reference: `Practitioner/${orderedByProviderId}` },
+      function: {
+        coding: [
+          {
+            system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
+            code: PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+          },
+        ],
+      },
+    });
+  }
+
   if (dateTimeCreated) resource.effectiveDateTime = dateTimeCreated; // todo: check if this is correct, effectiveDateTime is not date of creation, it's date of administration
   if (medicationResource) {
     resource.contained = [{ ...medicationResource, id: IN_HOUSE_CONTAINED_MEDICATION_ID }];
@@ -161,14 +193,19 @@ export function createMedicationRequest(
   interactions: MedicationInteractions | undefined,
   medication: Medication
 ): MedicationRequest {
-  const detectedIssues = [
-    ...(interactions?.drugInteractions?.map((interaction, index) =>
-      createDrugInteractionIssue('drg-' + index, interaction)
-    ) ?? []),
-    ...(interactions?.allergyInteractions?.map((interaction, index) =>
-      createAllergyInteractionIssue('algy-' + index, interaction)
-    ) ?? []),
-  ];
+  let detectedIssues;
+  if (interactions == null) {
+    detectedIssues = [createInteractionsUnavailableIssue()];
+  } else {
+    detectedIssues = [
+      ...interactions.drugInteractions.map((interaction, index) =>
+        createDrugInteractionIssue('drg-' + index, interaction)
+      ),
+      ...interactions.allergyInteractions.map((interaction, index) =>
+        createAllergyInteractionIssue('algy-' + index, interaction)
+      ),
+    ];
+  }
   return {
     resourceType: 'MedicationRequest',
     status: 'active',
@@ -214,21 +251,35 @@ function createDrugInteractionIssue(resourceId: string, interaction: DrugInterac
         },
       },
     ],
-    evidence: interaction.drugs.map((drug) => {
-      return {
-        code: [
-          {
-            coding: [
-              {
-                system: MEDICATION_DISPENSABLE_DRUG_ID,
-                code: drug.id,
-                display: drug.name,
-              },
-            ],
-          },
-        ],
-      };
-    }),
+    evidence: [
+      ...interaction.drugs.map((drug) => {
+        return {
+          code: [
+            {
+              coding: [
+                {
+                  system: MEDICATION_DISPENSABLE_DRUG_ID,
+                  code: drug.id,
+                  display: drug.name,
+                },
+              ],
+            },
+          ],
+        };
+      }),
+      ...(interaction.source
+        ? [
+            {
+              detail: [
+                {
+                  reference: interaction.source.reference,
+                  display: interaction.source.display,
+                },
+              ],
+            },
+          ]
+        : []),
+    ],
   };
 }
 
@@ -259,6 +310,22 @@ function createAllergyInteractionIssue(resourceId: string, interaction: AllergyI
         },
       },
     ],
+  };
+}
+
+function createInteractionsUnavailableIssue(): DetectedIssue {
+  return {
+    resourceType: 'DetectedIssue',
+    id: INTERACTIONS_UNAVAILABLE,
+    status: 'registered',
+    code: {
+      coding: [
+        {
+          system: ISSUE_TYPE_CODE_SYSTEM,
+          code: INTERACTIONS_UNAVAILABLE,
+        },
+      ],
+    },
   };
 }
 

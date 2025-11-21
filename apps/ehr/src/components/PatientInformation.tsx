@@ -1,9 +1,9 @@
 import { Box, Paper, Skeleton, Table, TableBody, TableCell, TableRow, Typography, useTheme } from '@mui/material';
-import { Fragment, ReactElement } from 'react';
+import { Fragment, ReactElement, ReactNode } from 'react';
 import CopyButton from './CopyButton';
 
 export interface PatientProps {
-  [key: string]: string | null | undefined;
+  [key: string]: string | null | undefined | ReactElement;
 }
 
 export interface IconProps {
@@ -23,6 +23,9 @@ interface PatientInformationProps {
   width?: string;
   element?: ReactElement;
   lastModifiedBy?: LastModProps;
+  titleButton?: ReactNode;
+  headerCellContent?: ReactNode;
+  footerCellContent?: ReactNode;
 }
 
 const CopyFields = [
@@ -41,6 +44,7 @@ const CopyFields = [
   "Policy holder's date of birth",
   'Full name',
   'Date of birth',
+  'Email',
 ];
 
 export default function PatientInformation({
@@ -52,6 +56,9 @@ export default function PatientInformation({
   editValue,
   element,
   lastModifiedBy,
+  titleButton,
+  headerCellContent,
+  footerCellContent,
 }: PatientInformationProps): ReactElement {
   const theme = useTheme();
 
@@ -62,12 +69,23 @@ export default function PatientInformation({
         padding: 3,
       }}
     >
-      <Typography variant="h4" color="primary.dark">
-        {title}
-      </Typography>
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4" color="primary.dark">
+          {title}
+        </Typography>
+        {titleButton}
+      </Box>
+
       {patientDetails && (
         <Table size="small" style={{ tableLayout: 'fixed', width: width }}>
           <TableBody>
+            {headerCellContent && (
+              <TableRow>
+                <TableCell colSpan={2} sx={{ padding: 0, borderBottom: 'none' }}>
+                  {headerCellContent}
+                </TableCell>
+              </TableRow>
+            )}
             {Object.keys(patientDetails).map((patientDetailsKey) => {
               const lastMod = lastModifiedBy && lastModifiedBy[patientDetailsKey];
               return (
@@ -99,12 +117,14 @@ export default function PatientInformation({
                           {loading ? (
                             <Skeleton aria-busy="true" width={200} />
                           ) : (
-                            <Box sx={{ display: 'flex', gap: 2, wordBreak: 'break-word' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, wordBreak: 'break-word' }}>
                               {editValue && patientDetails[patientDetailsKey] && editValue[patientDetailsKey]}
                               {patientDetails[patientDetailsKey] || '-'}
-                              {patientDetails[patientDetailsKey] && CopyFields.includes(patientDetailsKey.trim()) && (
-                                <CopyButton text={patientDetails[patientDetailsKey] ?? ''} />
-                              )}
+                              {typeof patientDetails[patientDetailsKey] === 'string' &&
+                                patientDetails[patientDetailsKey] &&
+                                CopyFields.includes(patientDetailsKey.trim()) && (
+                                  <CopyButton text={patientDetails[patientDetailsKey] ?? ''} />
+                                )}
                             </Box>
                           )}
                         </Box>
@@ -130,6 +150,13 @@ export default function PatientInformation({
                 </Fragment>
               );
             })}
+            {footerCellContent && (
+              <TableRow>
+                <TableCell colSpan={2} sx={{ padding: 0, paddingTop: 2, borderBottom: 'none' }}>
+                  {footerCellContent}
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       )}

@@ -1,7 +1,8 @@
 import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Coding, FhirResource, Observation, Patient, Person } from 'fhir/r4b';
-import { chunkThings, getAllFhirSearchPages } from '../fhir';
+import { chunkThings } from '../fhir';
+import { getAllFhirSearchPages } from '../fhir/getAllFhirSearchPages';
 import { sleep } from '../helpers';
 
 export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
@@ -15,9 +16,14 @@ export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Prom
     console.log(`Deleting resources...`);
     const chunkedRequests = chunkThings(deleteRequests, 100);
     for (let i = 0; i < chunkedRequests.length; i++) {
-      const result = await oystehr.fhir.transaction({ requests: [...chunkedRequests[i]] });
-      console.log(`successfully deleted resources, chunk ${i + 1} of ${chunkedRequests.length}`);
-      console.log('delete result:', result?.entry?.[0]?.response?.status);
+      try {
+        const result = await oystehr.fhir.transaction({ requests: [...chunkedRequests[i]] });
+        console.log(`successfully deleted resources, chunk ${i + 1} of ${chunkedRequests.length}`);
+        console.log('delete result:', result?.entry?.[0]?.response?.status);
+      } catch (e) {
+        console.log(`Error deleting resources, chunk ${i + 1} of ${chunkedRequests.length}: ${e}`, JSON.stringify(e));
+        console.log('Continuing with additional requests...');
+      }
       await sleep(250);
     }
     return true;
@@ -28,7 +34,7 @@ export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Prom
 };
 
 // these things are important environment infra rather than ephemeral test data, so leave them alone
-const NEVER_DELETE = [
+export const NEVER_DELETE = [
   'Person',
   'Location',
   'Schedule',
@@ -144,116 +150,128 @@ const patchPerson = async (oystehr: Oystehr, person: Person, allResources: FhirR
   }
 };
 
-const getAppointmentGraphByTag = async (oystehr: Oystehr, tag: Coding): Promise<FhirResource[]> => {
+const getAppointmentGraphByTag = async (
+  oystehr: Oystehr,
+  tag: Coding,
+  includeObservations = false
+): Promise<FhirResource[]> => {
   const { system, code } = tag;
+  const params = [
+    {
+      name: '_tag',
+      value: `${system}|${code}`,
+    },
+    {
+      name: '_sort',
+      value: '-_lastUpdated',
+    },
+    {
+      name: '_include',
+      value: 'Appointment:patient',
+    },
+    {
+      name: '_include',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include',
+      value: 'Appointment:location',
+    },
+    {
+      name: '_revinclude',
+      value: 'Task:focus',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'RelatedPerson:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Encounter:participant',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Encounter:appointment',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'DocumentReference:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'QuestionnaireResponse:encounter',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Person:relatedperson',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Communication:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'MedicationAdministration:context',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'MedicationStatement:part-of',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'ClinicalImpression:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'AuditEvent:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'ServiceRequest:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'DiagnosticReport:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Specimen:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Account:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Coverage:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'MedicationRequest:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Procedure:patient',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Task:based-on',
+    },
+    {
+      name: '_revinclude:iterate',
+      value: 'Task:encounter',
+    },
+  ];
+  if (!code) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    params.push({
+      name: '_lastUpdated',
+      value: `lt${oneHourAgo}`,
+    });
+  }
   const appointmentSearchParams: FhirSearchParams<Appointment | Patient> = {
     resourceType: 'Appointment',
-    params: [
-      {
-        name: '_tag',
-        value: `${system}|${code}`,
-      },
-      {
-        name: '_sort',
-        value: '-_lastUpdated',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:patient',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:slot',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:location',
-      },
-      {
-        name: '_revinclude',
-        value: 'Task:focus',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'RelatedPerson:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Encounter:participant',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Encounter:appointment',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'DocumentReference:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'QuestionnaireResponse:encounter',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Person:relatedperson',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Communication:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'MedicationAdministration:context',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'MedicationStatement:part-of',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'ClinicalImpression:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'AuditEvent:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'ServiceRequest:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'DiagnosticReport:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Specimen:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Account:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Coverage:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'MedicationRequest:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Procedure:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Task:based-on',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Task:encounter',
-      },
-    ],
+    params,
   };
 
   // we limit the matches per search to 20 because the include list is very large and we want to avoid swelling the overall
@@ -264,17 +282,102 @@ const getAppointmentGraphByTag = async (oystehr: Oystehr, tag: Coding): Promise<
     .map((p) => `Patient/${p.id}`);
 
   const allObservations: Observation[] = [];
-  const chunksOfPatients = chunkThings(allPatientRefs, 50);
 
-  for (const chunk of chunksOfPatients) {
-    const chunkParams = [{ name: 'patient', value: chunk.join(',') }];
-    const chunkObservations = await getAllFhirSearchPages<Observation>(
-      { resourceType: 'Observation', params: chunkParams },
-      oystehr
-    );
-    allObservations.push(...chunkObservations);
+  if (includeObservations) {
+    const chunksOfPatients = chunkThings(allPatientRefs, 50);
+
+    for (const chunk of chunksOfPatients) {
+      const chunkParams = [{ name: 'patient', value: chunk.join(',') }];
+      const chunkObservations = await getAllFhirSearchPages<Observation>(
+        { resourceType: 'Observation', params: chunkParams },
+        oystehr
+      );
+      allObservations.push(...chunkObservations);
+    }
+    console.log(`Found ${allResources.length} non-observation resources and ${allObservations.length} observations`);
+  } else {
+    console.log(`Found ${allResources.length} resources to delete`);
   }
+  const beforeDedupe = [...allResources, ...allObservations];
 
-  console.log(`Found ${allResources.length} non-observation resources and ${allObservations.length} observations`);
-  return [...allResources, ...allObservations];
+  const startLength = beforeDedupe.length;
+
+  const resourceIdSet = new Set<string>();
+  const dedupedResources = beforeDedupe.filter((resource) => {
+    const key = `${resource.resourceType}/${resource.id}`;
+    if (resourceIdSet.has(key)) {
+      return false;
+    }
+    resourceIdSet.add(key);
+    return true;
+  });
+  const dedupedLength = dedupedResources.length;
+  console.log(`Removed ${startLength - dedupedLength} duplicate resources`);
+  return dedupedResources;
+};
+
+export const cleanupE2ELocations = async (oystehr: Oystehr, tag: string): Promise<void> => {
+  const params = [
+    {
+      name: '_tag',
+      value: tag,
+    },
+  ];
+  const processId = tag.split('|')[1];
+  if (!processId) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    params.push({
+      name: '_lastUpdated',
+      value: `lt${oneHourAgo}`,
+    });
+  }
+  const locationsToDelete = (
+    await oystehr.fhir.search({
+      resourceType: 'Location',
+      params,
+    })
+  ).unbundle();
+
+  const batchDeleteRequests: BatchInputDeleteRequest[] = locationsToDelete.map((location) => ({
+    method: 'DELETE',
+    url: `Location/${location.id}`,
+  }));
+
+  await oystehr.fhir.batch({
+    requests: batchDeleteRequests,
+  });
+};
+
+export const cleanupIntegrationTestLocations = async (oystehr: Oystehr): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const locationsToDelete = (
+    await oystehr.fhir.search({
+      resourceType: 'Location',
+      params: [
+        {
+          name: 'name',
+          value: 'BusySlotsTestLocation',
+        },
+        {
+          name: '_lastUpdated',
+          value: `lt${oneHourAgo}`,
+        },
+        {
+          name: '_revinclude',
+          value: 'Schedule:actor',
+        },
+      ],
+    })
+  ).unbundle();
+
+  console.log(`Found ${locationsToDelete.length} integration test locations to delete`);
+
+  const batchDeleteRequests: BatchInputDeleteRequest[] = locationsToDelete.map((res) => ({
+    method: 'DELETE',
+    url: `${res.resourceType}/${res.id}`,
+  }));
+
+  await oystehr.fhir.batch({
+    requests: batchDeleteRequests,
+  });
 };

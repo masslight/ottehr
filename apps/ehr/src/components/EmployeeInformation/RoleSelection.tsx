@@ -1,16 +1,33 @@
-import { Box, Checkbox, FormControl, FormControlLabel, FormGroup, FormLabel, Typography } from '@mui/material';
+import {
+  Box,
+  Checkbox,
+  FormControl,
+  FormControlLabel,
+  FormGroup,
+  FormLabel,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { AVAILABLE_EMPLOYEE_ROLES, RoleType } from 'utils';
 import { dataTestIds } from '../../constants/data-test-ids';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { RoleSelectionProps } from './types';
 
 export function RoleSelection({ errors, isActive, getValues, setValue }: RoleSelectionProps): JSX.Element {
+  const theme = useTheme();
   const currentUser = useEvolveUser();
 
   return (
-    <FormControl sx={{ width: '100%' }} error={errors.roles} data-testid={dataTestIds.employeesPage.rolesSection}>
-      <FormLabel sx={{ mb: 1, mt: 2, fontWeight: '600 !important' }}>Role</FormLabel>
-      <FormLabel sx={{ fontWeight: 500, fontSize: '12px' }}>Select role *</FormLabel>
+    <FormControl
+      sx={{ width: '100%' }}
+      error={errors.roles}
+      data-testid={dataTestIds.employeesPage.rolesSection}
+      required
+    >
+      <Typography sx={{ ...theme.typography.h4, color: theme.palette.primary.dark, mb: 2 }}>Role</Typography>
+      <FormLabel component="legend" sx={{ fontWeight: 500, fontSize: '12px' }}>
+        Select role
+      </FormLabel>
       <FormGroup>
         {AVAILABLE_EMPLOYEE_ROLES.map((roleEntry, index) => {
           const roles = getValues('roles') ?? [];
@@ -30,7 +47,7 @@ export function RoleSelection({ errors, isActive, getValues, setValue }: RoleSel
                   setValue('roles', newRoles);
                 }}
                 control={<Checkbox />}
-                disabled={!isActive || !currentUser?.hasRole([RoleType.Administrator])}
+                disabled={!isActive || !currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport])}
                 label={roleEntry.label}
                 sx={{ '.MuiFormControlLabel-asterisk': { display: 'none' } }}
               />

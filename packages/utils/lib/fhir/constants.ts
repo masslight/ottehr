@@ -1,13 +1,24 @@
 // cSpell:ignore videoconference
-import { Account, CodeableConcept, HealthcareService, Identifier, Location, Practitioner, Schedule } from 'fhir/r4b';
+import {
+  Account,
+  CodeableConcept,
+  Coding,
+  HealthcareService,
+  Identifier,
+  Location,
+  Practitioner,
+  Schedule,
+} from 'fhir/r4b';
 import {
   AppointmentType,
-  CONSENT_CODE,
+  DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   INSURANCE_CARD_CODE,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_RESULT_DOC_REF_CODING_CODE,
+  OYSTEHR_ABN_DOC_REF_CODING_UNIQUE,
+  PAPERWORK_CONSENT_CODE_UNIQUE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -16,6 +27,7 @@ import {
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   VISIT_NOTE_SUMMARY_CODE,
 } from '../types';
+import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
 
 // nota bene: some legacy resources could be using 'http' instead of 'https' here, and there are still some string vals out there with http
 export const PRIVATE_EXTENSION_BASE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions';
@@ -24,7 +36,7 @@ export const FHIR_ZAPEHR_URL = 'https://fhir.zapehr.com';
 const TERMINOLOGY_BASE_URL = 'http://terminology.hl7.org/CodeSystem';
 
 export const SCHEDULE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule';
-
+export const PROVIDER_TYPE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/provider-type';
 const RCM_TERMINOLOGY_BASE_URL = 'https://terminology.zapehr.com/rcm/cms1500';
 
 export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';
@@ -37,6 +49,7 @@ export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
+export const FHIR_HL7_ORG_BASE_URL = 'http://hl7.org/fhir/ValueSet';
 
 export const FHIR_EXTENSION = {
   Appointment: {
@@ -59,6 +72,14 @@ export const FHIR_EXTENSION = {
         },
       },
     },
+    attestedConsent: {
+      url: `${PUBLIC_EXTENSION_BASE_URL}/encounter-attested-consent`,
+    },
+  },
+  EncounterStatusHistory: {
+    ottehrVisitStatus: {
+      url: `${PUBLIC_EXTENSION_BASE_URL}/visit-status`,
+    },
   },
   Location: {
     locationFormPreRelease: {
@@ -71,6 +92,9 @@ export const FHIR_EXTENSION = {
     },
     weightLastUpdated: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/weight-last-updated`,
+    },
+    authorizedNonLegalGuardians: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/authorized-non-legal-guardians`,
     },
   },
   Paperwork: {
@@ -196,6 +220,11 @@ export const FHIR_EXTENSION = {
       url: `${PRIVATE_EXTENSION_BASE_URL}/consent-obtained`,
     },
   },
+  RelatedPerson: {
+    responsiblePartyRelationship: {
+      url: `${FHIR_HL7_ORG_BASE_URL}/relatedperson-relationshiptype`,
+    },
+  },
 } as const;
 
 export type FHIR_EXTENSION_TYPE = typeof FHIR_EXTENSION;
@@ -240,6 +269,12 @@ export const FHIR_APPOINTMENT_PREPROCESSED_TAG = {
 export const FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG = {
   system: 'appointment-harvesting-module-status',
   code: 'SUB_INTAKE_HARVEST_TASK_COMPLETE',
+};
+
+export const APPOINTMENT_LOCKED_META_TAG_SYSTEM = 'appointment-locked-status';
+export const APPOINTMENT_LOCKED_META_TAG = {
+  system: APPOINTMENT_LOCKED_META_TAG_SYSTEM,
+  code: 'APPOINTMENT_LOCKED',
 };
 
 export const ERX_MEDICATION_META_TAG_CODE = 'erx-medication';
@@ -332,6 +367,22 @@ export const ScheduleStrategyCoding = {
   },
 };
 
+export const BUCKET_NAMES = {
+  VISIT_NOTES: 'visit-notes',
+  CONSENT_FORMS: 'consent-forms',
+  PRIVACY_POLICY: 'privacy-policy',
+  INSURANCE_CARDS: 'insurance-cards',
+  PHOTO_ID_CARDS: 'photo-id-cards',
+  PATIENT_PHOTOS: 'patient-photos',
+  SCHOOL_WORK_NOTES: 'school-work-notes',
+  SCHOOL_WORK_NOTE_TEMPLATES: 'school-work-note-templates',
+  LABS: 'labs',
+  RECEIPTS: 'receipts',
+  PAPERWORK: 'exported-questionnaires',
+  DISCHARGE_SUMMARIES: 'discharge-summaries',
+} as const;
+
+export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
 export interface ListConfig {
   title: string;
   display: string;
@@ -340,63 +391,69 @@ export interface ListConfig {
 
 export const FOLDERS_CONFIG: ListConfig[] = [
   {
-    title: 'visit-notes',
+    title: BUCKET_NAMES.VISIT_NOTES,
     display: 'Visit Notes',
     documentTypeCode: VISIT_NOTE_SUMMARY_CODE,
   },
   {
-    title: 'consent-forms',
+    title: BUCKET_NAMES.CONSENT_FORMS,
     display: 'Consent Forms',
-    documentTypeCode: CONSENT_CODE,
+    documentTypeCode: PAPERWORK_CONSENT_CODE_UNIQUE.code!,
   },
   {
-    title: 'privacy-policy',
+    title: BUCKET_NAMES.PRIVACY_POLICY,
     display: 'Privacy Policy',
     documentTypeCode: PRIVACY_POLICY_CODE,
   },
   {
-    title: 'insurance-cards',
+    title: BUCKET_NAMES.INSURANCE_CARDS,
     display: 'Insurance Cards',
     documentTypeCode: INSURANCE_CARD_CODE,
   },
   {
-    title: 'photo-id-cards',
+    title: BUCKET_NAMES.PHOTO_ID_CARDS,
     display: 'Photo ID',
     documentTypeCode: PHOTO_ID_CARD_CODE,
   },
   {
-    title: 'patient-photos',
+    title: BUCKET_NAMES.PATIENT_PHOTOS,
     display: 'Photos',
     documentTypeCode: PATIENT_PHOTO_CODE,
   },
   {
-    title: 'school-work-notes',
+    title: BUCKET_NAMES.SCHOOL_WORK_NOTES,
     display: 'School/Work Notes',
     documentTypeCode: SCHOOL_WORK_NOTE_CODE,
   },
   {
-    title: 'school-work-note-templates',
+    title: BUCKET_NAMES.SCHOOL_WORK_NOTE_TEMPLATES,
     display: 'School/Work Note templates',
     documentTypeCode: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   },
   {
-    title: 'labs',
+    title: BUCKET_NAMES.LABS,
     display: 'Labs',
     documentTypeCode: [
       LAB_ORDER_DOC_REF_CODING_CODE.code,
       LAB_RESULT_DOC_REF_CODING_CODE.code,
       EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code,
+      OYSTEHR_ABN_DOC_REF_CODING_UNIQUE.code!,
     ],
   },
   {
-    title: 'receipts',
+    title: BUCKET_NAMES.RECEIPTS,
     display: 'Receipts',
     documentTypeCode: RECEIPT_CODE,
   },
   {
-    title: 'exported-questionnaires',
+    title: BUCKET_NAMES.PAPERWORK,
     display: 'Paperwork',
     documentTypeCode: EXPORTED_QUESTIONNAIRE_CODE,
+  },
+  {
+    title: BUCKET_NAMES.DISCHARGE_SUMMARIES,
+    display: 'Discharge Summary',
+    documentTypeCode: DISCHARGE_SUMMARY_CODE,
   },
 ];
 
@@ -449,6 +506,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   preferredElement: `${PRIVATE_EXTENSION_BASE_URL}/preferred-element`,
   secondaryInfoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text-secondary`,
   validateAgeOver: `${PRIVATE_EXTENSION_BASE_URL}/validate-age-over`,
+  requiredBooleanValue: `${PRIVATE_EXTENSION_BASE_URL}/permissible-value`,
   // complex extensions
   answerLoadingOptions: {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/answer-loading-options`,
@@ -560,3 +618,50 @@ export const PERFORMER_TYPE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/perform
 export const BODY_SITE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/body-site';
 
 export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-method';
+export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
+
+export const ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL = ottehrExtensionUrl('payment-variant');
+
+export const CONSENT_ATTESTATION_SIG_TYPE: Coding = Object.freeze({
+  system: 'http://uri.etsi.org/01903/v1.2.2',
+  code: 'ProofOfReceipt',
+});
+
+export const TASK_CATEGORY_IDENTIFIER = ottehrIdentifierSystem('task-category');
+export const TASK_INPUT_SYSTEM = ottehrCodeSystemUrl('task-input');
+export const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
+export const TASK_ASSIGNED_DATE_TIME_EXTENSION_URL = ottehrExtensionUrl('task-assigned-date-time');
+
+export const RCM_TASK_SYSTEM = ottehrCodeSystemUrl('rcm-task');
+// note: be careful, one of these codes are hardcoded in ottehr-spec.json in SUB-SEND-INVOICE-TO-PATIENT endpoint
+export enum RcmTaskCode {
+  sendInvoiceToPatient = 'send-invoice-to-patient',
+  sendInvoiceOutputInvoiceId = 'send-invoice-output-invoice-Id',
+  sendInvoiceOutputError = 'send-invoice-output-error',
+}
+export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
+  sendInvoiceToPatient: {
+    coding: [
+      {
+        system: RCM_TASK_SYSTEM,
+        code: RcmTaskCode.sendInvoiceToPatient,
+      },
+    ],
+  },
+  sendInvoiceOutputInvoiceId: {
+    coding: [
+      {
+        system: RCM_TASK_SYSTEM,
+        code: RcmTaskCode.sendInvoiceOutputInvoiceId,
+      },
+    ],
+  },
+  sendInvoiceOutputError: {
+    coding: [
+      {
+        system: RCM_TASK_SYSTEM,
+        code: RcmTaskCode.sendInvoiceOutputError,
+      },
+    ],
+  },
+};

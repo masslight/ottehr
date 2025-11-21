@@ -15,6 +15,7 @@ export async function getUser(token: string, secrets: Secrets | null, testProfil
   try {
     user = await oystehr.user.me();
   } catch (error: any) {
+    console.log('error getting user from token', error?.message || error);
     const isTestClient = token && isTestM2MClient(token, secrets) && ENV === 'local';
     console.log('isTestClient', isTestClient);
     if (!isTestClient) {
@@ -84,14 +85,18 @@ export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean
 };
 
 export const isTestUser = (user: User): boolean => {
-  return user.id === TEST_USER_ID;
+  return user && user.id === TEST_USER_ID;
 };
 
-export const checkIsEHRUser = (user: User): boolean => {
-  return !user?.name?.startsWith?.('+') && !isTestUser(user);
+export const checkIsEHRUser = (user: User | undefined): boolean => {
+  return !!user && !user?.name?.startsWith?.('+') && !isTestUser(user);
 };
 
 export async function userHasAccessToPatient(user: User, patientID: string, oystehr: Oystehr): Promise<boolean> {
+  if (!user) {
+    return false;
+  }
+
   // todo: change this to use check user is ehr user utility once branch defining it is merged
   const isEHRUser = checkIsEHRUser(user);
   if (isEHRUser) {

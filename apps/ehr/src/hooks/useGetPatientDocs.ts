@@ -1,17 +1,17 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { SearchParam } from '@oystehr/sdk';
-import { DocumentReference, FhirResource, List, Reference } from 'fhir/r4b';
+import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
+import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
-import { useQuery, useQueryClient } from 'react-query';
-import { chooseJson } from 'utils';
-import { getPresignedFileUrl, parseFileExtension } from '../helpers/files.helper';
+import { getMimeType, useSuccessQuery } from 'utils';
+import { chooseJson, getPresignedURL } from 'utils';
+import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
 
 const PATIENT_FOLDERS_CODE = 'patient-docs-folder';
 
-const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = import.meta.env
-  .VITE_APP_CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID;
+const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = 'create-upload-document-url';
 
 export type PatientDocumentsFolder = {
   id: string;
@@ -27,7 +27,7 @@ export type DocRef = {
 export type PatientDocumentAttachment = {
   title: string;
   fileNameFromUrl?: string;
-  z3Url: string;
+  z3Url?: string;
   presignedUrl?: string;
 };
 
@@ -43,6 +43,7 @@ export type PatientDocumentInfo = {
   //TODO: where to get data for this field?
   whoAdded?: string;
   attachments?: PatientDocumentAttachment[];
+  encounterId?: string;
 };
 
 export type PatientDocumentsFilters = {
@@ -94,17 +95,15 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   const [documents, setDocuments] = useState<PatientDocumentInfo[]>();
   const [documentsFolders, setDocumentsFolders] = useState<PatientDocumentsFolder[]>([]);
   const [currentFilters, setCurrentFilters] = useState<PatientDocumentsFilters | undefined>(filters);
+  const { oystehr } = useApiClients();
 
-  const { isLoading: isLoadingFolders, isFetching: isFetchingFolders } = useGetPatientDocsFolders(
-    { patientId },
-    (docsFolders) => {
-      console.log(`[useGetPatientDocs] Folders data loading SUCCESS size=[${docsFolders.length}]. Content => `);
-      console.log(docsFolders);
-      setDocumentsFolders(docsFolders);
-    }
-  );
+  const { isLoading: isLoadingFolders } = useGetPatientDocsFolders({ patientId }, (docsFolders) => {
+    console.log(`[useGetPatientDocs] Folders data loading SUCCESS size=[${docsFolders.length}]. Content => `);
+    console.log(docsFolders);
+    setDocumentsFolders(docsFolders);
+  });
 
-  const { isLoading: isLoadingDocuments, isFetching: isFetchingDocuments } = useSearchPatientDocuments(
+  const { isLoading: isLoadingDocuments } = useSearchPatientDocuments(
     { patientId: patientId, filters: currentFilters },
     (docs) => {
       console.log(`[useGetPatientDocs] found Docs [${docs.length}] => `);
@@ -133,68 +132,119 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   const downloadDocument = useCallback(
     async (documentId: string): Promise<void> => {
       const authToken = await getAccessTokenSilently();
-      const patientDoc = getDocumentById(documentId);
 
-      const docAttachments = patientDoc?.attachments ?? [];
-      if (docAttachments.length === 0) {
-        console.error(`No attachments found for a docId=[${documentId}]`);
-        return;
+      let patientDoc = getDocumentById(documentId);
+      let documentReferenceResource: DocumentReference | undefined;
+
+      if (!patientDoc && oystehr) {
+        documentReferenceResource = (
+          await oystehr.fhir.search<DocumentReference>({
+            resourceType: 'DocumentReference',
+            params: [{ name: '_id', value: documentId }],
+          })
+        ).unbundle()[0];
+        if (documentReferenceResource) {
+          patientDoc = createDocumentInfo(documentReferenceResource);
+          setDocuments([...(documents ?? []), patientDoc]);
+        }
       }
 
-      const urlSigningRequests = docAttachments.map(async (attachment) => {
-        const presignedUrl = await getPresignedFileUrl(attachment.z3Url, authToken);
-        return {
-          attachment: attachment,
-          presignedUrl: presignedUrl,
-        };
-      });
+      if (!documentReferenceResource && oystehr) {
+        documentReferenceResource = (
+          await oystehr.fhir.search<DocumentReference>({
+            resourceType: 'DocumentReference',
+            params: [{ name: '_id', value: documentId }],
+          })
+        ).unbundle()[0];
+      }
 
-      const filesInfoToDownload = (await Promise.all(urlSigningRequests))
-        .filter((signedAttach) => !!signedAttach.presignedUrl)
-        .map((signedAttach) => {
-          const fileTitle = signedAttach.attachment.title;
-          const fileExt = parseFileExtension(signedAttach.attachment.fileNameFromUrl) ?? 'unknown';
-          const fullFileName = fileTitle.includes('.') ? fileTitle : `${fileTitle}.${fileExt}`;
-          return {
-            fileName: fullFileName,
-            urlToDownload: signedAttach.presignedUrl!,
-          };
+      const openAttachments = async (attachments: PatientDocumentAttachment[]): Promise<void> => {
+        const urlSigningRequests = attachments.map(async (attachment) => {
+          let presignedUrl = undefined;
+          if (attachment.z3Url) {
+            presignedUrl = await getPresignedURL(attachment.z3Url, authToken);
+          }
+          return { attachment, presignedUrl };
         });
 
-      for (const fileToD of filesInfoToDownload) {
-        await fetch(new URL(fileToD.urlToDownload), {
-          method: 'GET',
-          headers: { 'Cache-Control': 'no-cache' },
-        })
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error(`failed to download Document attachment [${fileToD.fileName}]`);
-            }
-            return response.blob();
-          })
-          .then((blob) => {
-            const fileBlob = window.URL.createObjectURL(new Blob([blob]));
-            const link = document.createElement('a');
-            link.href = fileBlob;
-            link.download = fileToD.fileName;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          })
-          .catch((error) => {
-            console.log(error);
+        const filesInfoToDownload = (await Promise.all(urlSigningRequests))
+          .filter((signedAttach) => !!signedAttach.presignedUrl)
+          .map((signedAttach) => {
+            const fileTitle = signedAttach.attachment.title;
+            const fileExt = parseFileExtension(signedAttach.attachment.fileNameFromUrl) ?? 'unknown';
+            const fullFileName = fileTitle.includes('.') ? fileTitle : `${fileTitle}.${fileExt}`;
+            return {
+              fileName: fullFileName,
+              urlToDownload: signedAttach.presignedUrl!,
+            };
           });
+
+        for (const fileInfo of filesInfoToDownload) {
+          await fetch(new URL(fileInfo.urlToDownload), {
+            method: 'GET',
+            headers: { 'Cache-Control': 'no-cache' },
+          })
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error(`failed to download Document attachment [${fileInfo.fileName}]`);
+              }
+              return response.blob();
+            })
+            .then((blob) => {
+              const mimeType = getMimeType(fileInfo.fileName) || blob.type;
+              if (!mimeType) {
+                throw new Error(`Failed to open file: unknown MIME type for file ${fileInfo.fileName}`);
+              }
+              const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
+              window.open(fileBlob, '_blank');
+            })
+            .catch((error) => {
+              console.log(error);
+            });
+        }
+      };
+
+      const docAttachments = patientDoc?.attachments ?? [];
+      if (docAttachments.length > 0) {
+        await openAttachments(docAttachments);
+      } else {
+        console.error(`No attachments found for a docId=[${documentId}]`);
+      }
+
+      const attachedDocumentIds =
+        documentReferenceResource?.context?.related
+          ?.map((r) => r?.reference)
+          .filter((ref): ref is string => typeof ref === 'string')
+          .map((ref) => {
+            const [type, id] = ref.split('/');
+            return type === 'DocumentReference' ? id : undefined;
+          })
+          .filter((id): id is string => !!id && id !== documentId) ?? [];
+
+      for (const attachedDocumentId of attachedDocumentIds) {
+        const attachedDocumentReferenceResource = (
+          await oystehr!.fhir.search<DocumentReference>({
+            resourceType: 'DocumentReference',
+            params: [{ name: '_id', value: attachedDocumentId }],
+          })
+        ).unbundle()[0];
+
+        if (attachedDocumentReferenceResource) {
+          const attachedDocumentInfo = createDocumentInfo(attachedDocumentReferenceResource);
+          if (attachedDocumentInfo.attachments?.length) {
+            await openAttachments(attachedDocumentInfo.attachments);
+          }
+        }
       }
     },
-    [getAccessTokenSilently, getDocumentById]
+    [documents, getAccessTokenSilently, getDocumentById, oystehr, setDocuments]
   );
 
   return {
-    isLoadingDocuments: isLoadingDocuments || isFetchingDocuments,
+    isLoadingDocuments: isLoadingDocuments,
     documents: documents,
     // documentsByFolders: documentsByFolders,
-    isLoadingFolders: isLoadingFolders || isFetchingFolders,
+    isLoadingFolders: isLoadingFolders,
     documentsFolders: documentsFolders,
     searchDocuments: searchDocuments,
     downloadDocument: downloadDocument,
@@ -202,7 +252,6 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   };
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const useGetPatientDocsFolders = (
   {
     patientId,
@@ -210,11 +259,12 @@ const useGetPatientDocsFolders = (
     patientId: string;
   },
   onSuccess: (data: PatientDocumentsFolder[]) => void
-) => {
+): UseQueryResult<FhirResource[], Error> => {
   const { oystehr } = useApiClients();
-  return useQuery(
-    [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
+
+    queryFn: async () => {
       if (!oystehr) {
         throw new Error('useGetDocsFolders() oystehr client not defined');
       }
@@ -234,48 +284,49 @@ const useGetPatientDocsFolders = (
         })
       ).unbundle();
     },
-    {
-      onSuccess: (searchResultsResources: FhirResource[]) => {
-        const listResources =
-          searchResultsResources
-            ?.filter((resource: FhirResource) => resource.resourceType === 'List' && resource.status === 'current')
-            ?.map((listResource: FhirResource) => listResource as List) ?? [];
+  });
 
-        const patientFoldersResources = listResources.filter((listResource: List) =>
-          Boolean(listResource.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE))
-        );
-
-        const docsFolders = patientFoldersResources.map((listRes) => {
-          const folderName = listRes.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE)
-            ?.display;
-          const docRefs: DocRef[] = (listRes.entry ?? []).map(
-            (entry) =>
-              ({
-                reference: entry.item,
-              }) as DocRef
-          );
-
-          return {
-            id: listRes.id!,
-            folderName: folderName,
-            documentsCount: docRefs.length,
-            documentsRefs: docRefs,
-          } as PatientDocumentsFolder;
-        });
-
-        onSuccess(docsFolders);
-      },
-      onError: (err) => {
-        console.error('useGetPatientDocsFolders() ERROR', err);
-      },
+  useSuccessQuery(queryResult.data, (data) => {
+    if (!data) {
+      return;
     }
-  );
+    const searchResultsResources: FhirResource[] = data;
+    const listResources =
+      searchResultsResources
+        ?.filter((resource: FhirResource) => resource.resourceType === 'List' && resource.status === 'current')
+        ?.map((listResource: FhirResource) => listResource as List) ?? [];
+
+    const patientFoldersResources = listResources.filter((listResource: List) =>
+      Boolean(listResource.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE))
+    );
+
+    const docsFolders = patientFoldersResources.map((listRes) => {
+      const folderName = listRes.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE)
+        ?.display;
+      const docRefs: DocRef[] = (listRes.entry ?? []).map(
+        (entry) =>
+          ({
+            reference: entry.item,
+          }) as DocRef
+      );
+
+      return {
+        id: listRes.id!,
+        folderName: folderName,
+        documentsCount: docRefs.length,
+        documentsRefs: docRefs,
+      } as PatientDocumentsFolder;
+    });
+
+    onSuccess?.(docsFolders);
+  });
+
+  return queryResult;
 };
 
 /**
  * [/DocumentReference?subject=Patient/104e4c8c-1866-4c96-a436-88080c691614&_has:List:item:_id=06654560-445a-4499-a5ec-48fae3495781]
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const useSearchPatientDocuments = (
   {
     patientId,
@@ -285,11 +336,11 @@ const useSearchPatientDocuments = (
     filters?: PatientDocumentsFilters;
   },
   onSuccess: (data: PatientDocumentInfo[]) => void
-) => {
+): UseQueryResult<FhirResource[], Error> => {
   const docCreationDate = filters?.dateAdded?.toFormat('yyyy-MM-dd');
   const { oystehr } = useApiClients();
-  return useQuery(
-    [
+  const queryResult = useQuery({
+    queryKey: [
       QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS,
       {
         patientId,
@@ -298,7 +349,8 @@ const useSearchPatientDocuments = (
         docFolderId: filters?.documentsFolder?.id,
       },
     ],
-    async () => {
+
+    queryFn: async () => {
       if (!oystehr) throw new Error('useSearchPatientDocuments() oystehr not defined');
       if (!patientId) throw new Error('useSearchPatientDocuments() patientId not defined');
 
@@ -321,38 +373,44 @@ const useSearchPatientDocuments = (
         })
       ).unbundle();
     },
-    {
-      onSuccess: (searchResultsResources: FhirResource[]) => {
-        console.log(`useSearchPatientDocuments() search results cnt=[${searchResultsResources.length}]`);
+  });
 
-        //&& resource.status === 'current'
-        const docRefsResources =
-          searchResultsResources
-            ?.filter((resource: FhirResource) => resource.resourceType === 'DocumentReference')
-            ?.map((docRefResource: FhirResource) => docRefResource as DocumentReference) ?? [];
+  useSuccessQuery(
+    queryResult.data,
+    (data) => {
+      if (!data) {
+        return;
+      }
+      const searchResultsResources: FhirResource[] = data;
+      console.log(`useSearchPatientDocuments() search results cnt=[${searchResultsResources.length}]`);
 
-        const documents = docRefsResources.map((docRef) => {
-          const docName = debug__createDisplayedDocumentName(docRef);
-          const attachments = extractDocumentAttachments(docRef);
+      //&& resource.status === 'current'
+      const docRefsResources =
+        searchResultsResources
+          ?.filter((resource: FhirResource) => resource.resourceType === 'DocumentReference')
+          ?.map((docRefResource: FhirResource) => docRefResource as DocumentReference) ?? [];
 
-          return {
-            id: docRef.id!,
-            docName: docName,
-            whenAddedDate: docRef.date,
-            attachments: attachments,
-          } as PatientDocumentInfo;
-        });
+      const documents = docRefsResources.map((docRef) => {
+        const docName = debug__createDisplayedDocumentName(docRef);
+        const attachments = extractDocumentAttachments(docRef);
 
-        //TODO: remove when _text search will be available
-        const resultDocuments = debug__mimicTextNarrativeDocumentsFilter(documents, filters);
+        return {
+          id: docRef.id!,
+          docName: docName,
+          whenAddedDate: docRef.date,
+          attachments: attachments,
+        } as PatientDocumentInfo;
+      });
 
-        onSuccess(resultDocuments);
-      },
-      onError: (err) => {
-        console.error('useSearchPatientDocuments() ERROR', err);
-      },
-    }
+      //TODO: remove when _text search will be available
+      const resultDocuments = debug__mimicTextNarrativeDocumentsFilter(documents, filters);
+
+      onSuccess?.(resultDocuments);
+    },
+    [filters]
   );
+
+  return queryResult;
 };
 
 const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentAttachment[] => {
@@ -384,11 +442,7 @@ const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentA
 //TODO: for now its not clear how real doc_name will be created based on the attachments data
 // there is ongoing problem having multiple attachments per single DocumentReference resource
 const debug__createDisplayedDocumentName = (docRef: DocumentReference): string => {
-  const removeTrailingDelimiter = (str: string): string => str.replace(/&$/, '');
-  const docName = (extractDocumentAttachments(docRef) ?? []).reduce((acc: string, item: PatientDocumentAttachment) => {
-    return `${acc}${item.title} & `;
-  }, '');
-  return removeTrailingDelimiter(docName.trim());
+  return (extractDocumentAttachments(docRef) ?? []).map((item) => item.title).join(' & ');
 };
 
 //TODO: OystEHR FHIR backed is going to add support for "_text" search modifier and necessary migration changes is also
@@ -416,10 +470,6 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
       console.log(params);
       const { docFile, ...restParams } = params;
       try {
-        if (!CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID) {
-          throw new Error('Could not find environment variable VITE_APP_CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID');
-        }
-
         if (!oystehrZambda) {
           throw new Error('Could not initialize oystehrZambda client.');
         }
@@ -457,8 +507,12 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         console.log('Z3 file uploading SUCCESS');
 
         await Promise.all([
-          queryClient.refetchQueries([QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }]),
-          queryClient.refetchQueries([QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }]),
+          queryClient.refetchQueries({
+            queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
+          }),
+          queryClient.refetchQueries({
+            queryKey: [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
+          }),
         ]);
 
         return {
@@ -492,3 +546,23 @@ export interface UploadPatientDocumentResponse {
   z3Url: string;
   presignedUrl: string;
 }
+
+const createDocumentInfo = (documentReference: DocumentReference): PatientDocumentInfo => {
+  return {
+    id: documentReference.id!,
+    docName: debug__createDisplayedDocumentName(documentReference),
+    whenAddedDate: documentReference.date,
+    attachments: extractDocumentAttachments(documentReference),
+    encounterId: documentReference.context?.encounter?.[0]?.reference?.split('/')?.[1],
+  };
+};
+
+export const isPaperworkPdfOutdated = (
+  pdf: PatientDocumentInfo,
+  questionnaireResponse: QuestionnaireResponse
+): boolean => {
+  if (!pdf?.whenAddedDate || !questionnaireResponse.meta?.lastUpdated) {
+    throw new Error('Invalid data: missing pdf.whenAddedDate or questionnaireResponse.meta.lastUpdated');
+  }
+  return new Date(pdf.whenAddedDate) < new Date(questionnaireResponse.meta.lastUpdated);
+};

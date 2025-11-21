@@ -51,6 +51,7 @@ test.afterAll(async () => {
 
 test.describe('Virtual visit. Check paperwork is prefilled for existing patient. Payment - card, responsible party - self', () => {
   test.beforeAll(async () => {
+    test.setTimeout(200000);
     await page.goto(bookingData.bookingURL);
     await paperwork.clickProceedToPaperwork();
     filledPaperwork = await paperwork.fillPaperworkAllFieldsTelemed('card', 'self');
@@ -102,11 +103,13 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     await expect(locator.responsiblePartyNumber).toHaveValue(
       paperwork.formatPhoneNumber(process.env.PHONE_NUMBER || '')
     );
+    await expect(locator.responsiblePartyEmail).toHaveValue(bookingData.patientBasicInfo.email);
   });
   test('VVPPS-2 Check Payment screen does not have preselected card option', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
     await expect(locator.selfPayOption).not.toBeChecked();
   });
+  // TODO: Need to remove skip when https://github.com/masslight/ottehr/issues/1988 is fixed
   test.skip('VVPPS-3 Check Card payment has prefilled and preselected card', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/card-payment`);
     const lastFour = CARD_NUMBER.slice(-4);

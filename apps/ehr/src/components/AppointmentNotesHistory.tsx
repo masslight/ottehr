@@ -13,8 +13,8 @@ import {
   useTheme,
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Location } from 'fhir/r4b';
-import { ReactElement, useMemo, useState } from 'react';
+import { Appointment } from 'fhir/r4b';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { formatLastModifiedTag } from '../helpers';
 import { patchAppointmentComment } from '../helpers';
 import { NoteHistory } from '../helpers/activityLogsUtils';
@@ -23,8 +23,8 @@ import { EditPatientInfoDialog } from './dialogs';
 
 interface AppointmentNotesHistoryProps {
   appointment: Appointment | undefined;
-  location: Location;
   curNoteAndHistory: NoteHistory[] | undefined;
+  timezone?: string;
   user: EvolveUser | undefined;
   oystehr: Oystehr | undefined;
   setAppointment: (value: React.SetStateAction<Appointment | undefined>) => void;
@@ -33,8 +33,8 @@ interface AppointmentNotesHistoryProps {
 
 export default function AppointmentNotesHistory({
   appointment,
-  location,
   curNoteAndHistory,
+  timezone,
   user,
   oystehr,
   setAppointment,
@@ -42,11 +42,15 @@ export default function AppointmentNotesHistory({
 }: AppointmentNotesHistoryProps): ReactElement {
   const theme = useTheme();
   // for historical notes (not sure if needed)
-  const noteLastModified = formatLastModifiedTag('comment', appointment, location);
+  const noteLastModified = formatLastModifiedTag('comment', appointment, timezone);
   const [noteEdit, setNoteEdit] = useState<string>(appointment?.comment || '');
   const [editNoteDialogOpen, setEditNoteDialogOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
+
+  useEffect(() => {
+    setNoteEdit(appointment?.comment || '');
+  }, [appointment]);
 
   const handleNoteUpdate = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -218,7 +222,7 @@ export default function AppointmentNotesHistory({
               multiline
               label="Note"
               required
-              sx={{ width: '500px' }}
+              fullWidth
               value={noteEdit}
               onChange={(e) => setNoteEdit(e.target.value.trimStart())}
               inputProps={{ maxLength: 160 }}

@@ -1,15 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import {
-  DiagnosticReport,
-  DiagnosticReport as DiagnosticReportR5,
-  ServiceRequest,
-  ServiceRequest as ServiceRequestR5,
-} from 'fhir/r4b';
+import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
+import { ImagingStudy as ImagingStudyR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
 import { getSecret, Secrets, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
@@ -28,7 +30,7 @@ export interface PacsWebhookBody {
 }
 
 export interface ValidatedInput {
-  resource: ServiceRequestR5 | DiagnosticReportR5;
+  resource: ServiceRequest | DiagnosticReport | ImagingStudyR5;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -57,10 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
   }
 });
 
@@ -82,15 +81,17 @@ const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, s
   }
 
   if (resource.resourceType === 'ServiceRequest') {
-    await handleServiceRequest(resource as ServiceRequestR5, oystehr);
+    await handleServiceRequest(resource as ServiceRequest, oystehr);
   } else if (resource.resourceType === 'DiagnosticReport') {
-    await handleDiagnosticReport(resource as DiagnosticReportR5, oystehr, secrets);
+    await handleDiagnosticReport(resource as DiagnosticReport, oystehr, secrets);
+  } else if (resource.resourceType === 'ImagingStudy') {
+    await handleImagingStudy(resource as ImagingStudyR5, oystehr, secrets);
   } else {
     throw new Error('Unexpected resource type in performEffect');
   }
 };
 
-const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequestR5, oystehr: Oystehr): Promise<void> => {
+const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequest, oystehr: Oystehr): Promise<void> => {
   console.log('processing ServiceRequest');
   const accessionNumber = advaPacsServiceRequest.identifier?.find((i) => {
     return (
@@ -176,7 +177,7 @@ const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequestR5, oy
 };
 
 const handleDiagnosticReport = async (
-  advaPacsDiagnosticReport: DiagnosticReportR5,
+  advaPacsDiagnosticReport: DiagnosticReport,
   oystehr: Oystehr,
   secrets: Secrets
 ): Promise<void> => {
@@ -209,7 +210,7 @@ const handleDiagnosticReport = async (
 };
 
 const handleCreateDiagnosticReport = async (
-  advaPacsDiagnosticReport: DiagnosticReportR5,
+  advaPacsDiagnosticReport: DiagnosticReport,
   oystehr: Oystehr,
   secrets: Secrets
 ): Promise<void> => {
@@ -234,7 +235,7 @@ const handleCreateDiagnosticReport = async (
 };
 
 const handleUpdateDiagnosticReport = async (
-  advaPacsDiagnosticReport: DiagnosticReportR5,
+  advaPacsDiagnosticReport: DiagnosticReport,
   ourDiagnosticReport: DiagnosticReport,
   oystehr: Oystehr
 ): Promise<void> => {
@@ -255,7 +256,22 @@ const handleUpdateDiagnosticReport = async (
     },
   ];
 
-  if (ourDiagnosticReport.status !== advaPacsDiagnosticReport.status && advaPacsDiagnosticReport.status === 'final') {
+  if (advaPacsDiagnosticReport.issued && ourDiagnosticReport.issued == null) {
+    operations.push({
+      op: 'add',
+      path: '/issued',
+      value: advaPacsDiagnosticReport.issued,
+    });
+  } else if (advaPacsDiagnosticReport.issued && ourDiagnosticReport.issued) {
+    operations.push({
+      op: 'replace',
+      path: '/issued',
+      value: advaPacsDiagnosticReport.issued,
+    });
+  } else if (
+    ourDiagnosticReport.status !== advaPacsDiagnosticReport.status &&
+    advaPacsDiagnosticReport.status === 'final'
+  ) {
     operations.push({
       op: 'add',
       path: '/issued',
@@ -273,10 +289,26 @@ const handleUpdateDiagnosticReport = async (
   console.log('DiagnosticReport Patch succeeded: ', JSON.stringify(patchResult, null, 2));
 };
 
+const handleImagingStudy = async (
+  advaPacsImagingStudy: ImagingStudyR5,
+  oystehr: Oystehr,
+  secrets: Secrets
+): Promise<void> => {
+  console.log('Processing ImagingStudy');
+  const accessionNumber = advaPacsImagingStudy.identifier?.find(
+    (identifier) => identifier.system === ACCESSION_NUMBER_CODE_SYSTEM
+  )?.value;
+  if (accessionNumber == null) {
+    throw new Error('The ImagingStudy did not have an accession number');
+  }
+  await updateServiceRequestToCompletedInAdvaPacs(accessionNumber, secrets);
+  console.log('PACS SR PUT succeeded in updating SR to completed');
+};
+
 const getAdvaPacsServiceRequestByID = async (
   serviceRequestRelativeReference: string,
   secrets: Secrets
-): Promise<ServiceRequestR5> => {
+): Promise<ServiceRequest> => {
   try {
     const advapacsClientId = getSecret(SecretsKeys.ADVAPACS_CLIENT_ID, secrets);
     const advapacsClientSecret = getSecret(SecretsKeys.ADVAPACS_CLIENT_SECRET, secrets);
@@ -344,7 +376,7 @@ const getOurServiceRequestByAccessionNumber = async (
 
 const createOurDiagnosticReport = async (
   serviceRequest: ServiceRequest,
-  pacsDiagnosticReport: DiagnosticReportR5,
+  pacsDiagnosticReport: DiagnosticReport,
   oystehr: Oystehr
 ): Promise<void> => {
   const diagnosticReportToCreate: DiagnosticReport = {
@@ -386,4 +418,82 @@ const createOurDiagnosticReport = async (
 
   const createResult = await oystehr.fhir.create<DiagnosticReport>(diagnosticReportToCreate);
   console.log('Created our DiagnosticReport: ', JSON.stringify(createResult, null, 2));
+};
+
+const updateServiceRequestToCompletedInAdvaPacs = async (accessionNumber: string, secrets: Secrets): Promise<void> => {
+  try {
+    const advapacsClientId = getSecret(SecretsKeys.ADVAPACS_CLIENT_ID, secrets);
+    const advapacsClientSecret = getSecret(SecretsKeys.ADVAPACS_CLIENT_SECRET, secrets);
+    const advapacsAuthString = `ID=${advapacsClientId},Secret=${advapacsClientSecret}`;
+
+    if (!accessionNumber) {
+      throw new Error('No accession number found in oystehr service request, cannot update AdvaPACS.');
+    }
+
+    // Advapacs doesn't support PATCH or optimistic locking right now so the best we can do is GET the latest, and PUT back with the status changed.
+    // First, search up the SR in AdvaPACS by the accession number
+    const findServiceRequestResponse = await fetch(
+      `${ADVAPACS_FHIR_BASE_URL}/ServiceRequest?identifier=${ACCESSION_NUMBER_CODE_SYSTEM}%7C${accessionNumber}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/fhir+json',
+          Authorization: advapacsAuthString,
+        },
+      }
+    );
+
+    if (!findServiceRequestResponse.ok) {
+      throw new Error(
+        `advapacs search errored out with statusCode ${findServiceRequestResponse.status}, status text ${
+          findServiceRequestResponse.statusText
+        }, and body ${JSON.stringify(await findServiceRequestResponse.json(), null, 2)}`
+      );
+    }
+
+    const maybeAdvaPACSSr = await findServiceRequestResponse.json();
+
+    if (maybeAdvaPACSSr.resourceType !== 'Bundle') {
+      throw new Error(`Expected response to be Bundle but got ${maybeAdvaPACSSr.resourceType}`);
+    }
+
+    if (maybeAdvaPACSSr.entry.length === 0) {
+      throw new Error(`No service request found in AdvaPACS for accession number ${accessionNumber}`);
+    }
+    if (maybeAdvaPACSSr.entry.length > 1) {
+      throw new Error(
+        `Found multiple service requests in AdvaPACS for accession number ${accessionNumber}, cannot update.`
+      );
+    }
+
+    const advapacsSR = maybeAdvaPACSSr.entry[0].resource as ServiceRequest;
+
+    if (advapacsSR.status === 'completed') {
+      console.log('ServiceRequest is already completed in AdvaPACS, no need to update');
+      return;
+    }
+
+    // Update the AdvaPACS SR now that we have its latest data.
+    const advapacsResponse = await fetch(`${ADVAPACS_FHIR_BASE_URL}/ServiceRequest/${advapacsSR.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/fhir+json',
+        Authorization: advapacsAuthString,
+      },
+      body: JSON.stringify({
+        ...advapacsSR,
+        status: 'completed',
+      }),
+    });
+    if (!advapacsResponse.ok) {
+      throw new Error(
+        `advapacs transaction errored out with statusCode ${advapacsResponse.status}, status text ${
+          advapacsResponse.statusText
+        }, and body ${JSON.stringify(await advapacsResponse.json(), null, 2)}`
+      );
+    }
+  } catch (error) {
+    console.error('Error updating service request to complete in AdvaPacs:', error);
+    throw new Error('Failed to update service request to complete in AdvaPacs');
+  }
 };

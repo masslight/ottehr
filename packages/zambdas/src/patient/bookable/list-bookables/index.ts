@@ -151,7 +151,7 @@ const makeBookableVirtualLocation = (location: Location): BookableItem | undefin
     return undefined;
   }
 
-  const label = stateFullName;
+  const label = location.name ?? stateFullName;
   return {
     label,
     slug,

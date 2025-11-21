@@ -1,0 +1,65 @@
+import { Typography } from '@mui/material';
+import { Box } from '@mui/system';
+import React from 'react';
+
+interface Props {
+  status: string;
+  dataTestId?: string;
+}
+
+interface Colors {
+  bg: string;
+  text: string;
+}
+
+const STATUS_TO_BG_COLOR: Record<string, Colors> = {
+  pending: {
+    bg: '#E6E8EE',
+    text: '#616161',
+  },
+  administered: {
+    bg: '#C8E6C9',
+    text: '#1B5E20',
+  },
+  'administered-partly': {
+    bg: '#B2EBF2',
+    text: '#006064',
+  },
+  'administered-not': {
+    bg: '#FECDD2',
+    text: '#B71C1C',
+  },
+  cancelled: {
+    bg: '#FFF',
+    text: '#616161',
+  },
+};
+
+const STATUS_TO_LABEL: Record<string, string> = {
+  pending: 'PENDING',
+  administered: 'ADMINISTERED',
+  'administered-partly': 'PARTLY-ADMINISTERED',
+  'administered-not': 'NOT-ADMINISTERED',
+  cancelled: 'CANCELLED',
+};
+
+export const OrderStatusChip: React.FC<Props> = ({ status, dataTestId }) => {
+  const colors = STATUS_TO_BG_COLOR[status];
+  return (
+    <Box
+      style={{
+        background: colors.bg,
+        padding: '0px 8px 0px 8px',
+        borderRadius: '4px',
+        height: '20px',
+        border: status === 'cancelled' ? '1px solid #BFC2C6' : 'none',
+      }}
+      display="flex"
+      alignItems="center"
+    >
+      <Typography variant="body2" display="inline" style={{ color: colors.text }} data-testid={dataTestId}>
+        <span style={{ fontWeight: '500' }}>{STATUS_TO_LABEL[status]}</span>
+      </Typography>
+    </Box>
+  );
+};

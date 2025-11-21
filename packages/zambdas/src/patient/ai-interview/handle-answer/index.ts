@@ -6,6 +6,7 @@ import { createOystehrClient, getSecret, HandleAnswerInput, Secrets, SecretsKeys
 import {
   assertDefined,
   getAuth0Token,
+  topLevelCatch,
   validateJsonBody,
   validateString,
   wrapHandler,
@@ -61,11 +62,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(await oystehr.fhir.update(questionnaireResponse)),
     };
   } catch (error: any) {
-    console.log('error', error, error.issue);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 

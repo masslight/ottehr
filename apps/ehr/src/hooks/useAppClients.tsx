@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { useEffect } from 'react';
+import { getSelectors } from 'utils';
 import { create } from 'zustand';
 import { useAuthToken } from './useAuthToken';
 
@@ -13,10 +14,10 @@ const useApiClientsStore = create<ApiClientsState>()(() => ({
   oystehrZambda: undefined,
 }));
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function useApiClients() {
+export function useApiClients(): ApiClientsState {
   const token = useAuthToken();
-  const { oystehr, oystehrZambda } = useApiClientsStore((state) => state);
+  const { oystehr, oystehrZambda } = getSelectors(useApiClientsStore, ['oystehr', 'oystehrZambda']);
+
   useEffect(() => {
     if (!oystehr || oystehr.config.accessToken !== token) {
       useApiClientsStore.setState({
@@ -38,6 +39,9 @@ export function useApiClients() {
           fhirApiUrl: import.meta.env.VITE_APP_FHIR_API_URL,
           projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL,
           projectId: import.meta.env.VITE_APP_PROJECT_ID,
+          retry: {
+            retries: 0,
+          },
         }),
       });
     }

@@ -1,39 +1,34 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Encounter, EncounterStatusHistory, Location } from 'fhir/r4b';
+import { Encounter, EncounterStatusHistory, Extension, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 import {
   FhirEncounterStatus,
-  mapStatusToTelemed,
+  getTelemedVisitStatus,
   PatientFollowupDetails,
   ProviderDetails,
   TelemedStatusHistoryElement,
+  VisitStatusWithoutUnknown,
 } from '../types';
-import { FHIR_BASE_URL } from './constants';
+import { ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL, FHIR_BASE_URL, FHIR_EXTENSION } from './constants';
 
 // follow up encounter consts
-export const FOLLOWUP_TYPES = ['Telephone Encounter', 'Non-Billable'] as const;
+export const FOLLOWUP_TYPES = ['Follow-up Encounter'] as const;
 export type FollowupType = (typeof FOLLOWUP_TYPES)[number];
 
-export const TELEPHONE_REASONS = [
-  'Culture Positive; Group A Strep',
-  'Culture Positive; Other',
-  'Culture Positive; Urine',
-  'Culture Positive; Wound',
-  'Lab Call Back; Change of Antibiotics',
-  'Lab Call Back; Needs Prescription',
-  'Medication Change or Resend',
-  'Medication Refill Request Spilled, ran out too early, etc.',
+export const FOLLOWUP_REASONS = [
+  'Result - Lab',
+  'Result - Radiology',
+  'Order - Lab',
+  'Order - Radiology',
+  'Order - eRX',
+  'Clinical Follow-up',
+  'Splint or DME',
+  'Other',
 ] as const;
-export const NON_BILLABLE_REASONS = [
-  'Presents for Splints/Crutches',
-  'Presents with Specimen',
-  'Adolescent/Adult Discussion',
-] as const;
-type TelephoneReasons = (typeof TELEPHONE_REASONS)[number];
-type NonBillableReasons = (typeof NON_BILLABLE_REASONS)[number];
-export type FollowupReason = TelephoneReasons | NonBillableReasons;
+type FollowupReasons = (typeof FOLLOWUP_REASONS)[number];
+export type FollowupReason = FollowupReasons;
 
 export const FOLLOWUP_SYSTEMS = {
   callerUrl: `${FHIR_BASE_URL}/followup-caller`,
@@ -47,6 +42,26 @@ export const FOLLOWUP_SYSTEMS = {
   },
 };
 
+export const isFollowupEncounter = (encounter: Encounter): boolean => {
+  return (
+    encounter.type?.some(
+      (type) =>
+        type.coding?.some(
+          (coding) => coding.system === FOLLOWUP_SYSTEMS.type.url && coding.code === FOLLOWUP_SYSTEMS.type.code
+        )
+    ) ?? false
+  );
+};
+
+export type EncounterVisitType = 'main' | 'follow-up';
+
+export const getEncounterVisitType = (encounter?: Encounter): EncounterVisitType => {
+  if (encounter && isFollowupEncounter(encounter)) {
+    return 'follow-up';
+  }
+  return 'main';
+};
+
 export const formatFhirEncounterToPatientFollowupDetails = (
   encounter: Encounter,
   patientId: string,
@@ -56,7 +71,8 @@ export const formatFhirEncounterToPatientFollowupDetails = (
     encounter.type?.find(
       (t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
     )?.text || '';
-  const reason = encounter?.reasonCode?.[0].text || '';
+  const reason = encounter?.reasonCode?.[0].coding?.[0].display || '';
+  const otherReason = encounter?.reasonCode?.[0].text;
   const answered =
     encounter?.participant?.find(
       (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.answeredUrl))
@@ -86,6 +102,7 @@ export const formatFhirEncounterToPatientFollowupDetails = (
     patientId,
     followupType: followupType as FollowupType,
     reason: (reason as FollowupReason) || undefined,
+    otherReason,
     answered,
     caller,
     start,
@@ -117,7 +134,7 @@ export const getEncounterForAppointment = async (appointmentID: string, oystehr:
   return encounter;
 };
 
-export const mapEncounterStatusHistory = (
+export const getTelemedEncounterStatusHistory = (
   statusHistory: EncounterStatusHistory[],
   appointmentStatus: string
 ): TelemedStatusHistoryElement[] => {
@@ -127,9 +144,10 @@ export const mapEncounterStatusHistory = (
     result.push({
       start: statusElement.period.start,
       end: statusElement.period.end,
-      status: mapStatusToTelemed(statusElement.status, undefined),
+      status: getTelemedVisitStatus(statusElement.status, undefined),
     });
   });
+
   if (appointmentStatus === 'fulfilled' && result.at(-1)?.status === 'unsigned') {
     result.push({
       start: result.at(-1)?.end,
@@ -156,19 +174,42 @@ export const getSpentTime = (history?: EncounterStatusHistory[]): string | undef
   return `${minutesSpent}`;
 };
 
-export const getEncounterStatusHistoryUpdateOp = (encounter: Encounter, newStatus: FhirEncounterStatus): Operation => {
+export const getEncounterStatusHistoryUpdateOp = (
+  encounter: Encounter,
+  newStatus: FhirEncounterStatus,
+  ottehrVisitStatus: VisitStatusWithoutUnknown
+): Operation => {
   const now = DateTime.now().setZone('UTC').toISO() || '';
+
   const newStatusHistory: EncounterStatusHistory = {
     status: newStatus,
     period: {
       start: now,
     },
   };
+
+  newStatusHistory.extension = [
+    {
+      url: FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url,
+      valueCode: ottehrVisitStatus,
+    },
+  ];
+
   let statusHistory = encounter.statusHistory;
   const op = statusHistory ? 'replace' : 'add';
+
   if (statusHistory) {
     const curStatus = encounter.statusHistory?.find((h) => !h.period.end);
-    if (curStatus && curStatus?.status !== newStatus) {
+
+    const didFhirStatusHistoryChange = curStatus?.status !== newStatus;
+
+    const ottehrHistoryStatusExtension = curStatus?.extension?.find(
+      (ext) => ext.url === FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url
+    );
+
+    const didOttEhrStatusHistoryChange = ottehrHistoryStatusExtension?.valueCode !== ottehrVisitStatus;
+
+    if (curStatus && (didFhirStatusHistoryChange || didOttEhrStatusHistoryChange)) {
       curStatus.period.end = now;
       statusHistory.push(newStatusHistory);
     } else if (!curStatus) {
@@ -193,4 +234,43 @@ export const checkEncounterIsVirtual = (encounter: Encounter): boolean => {
     return false;
   }
   return encounterClass.system === CODE_SYSTEM_ACT_CODE_V3 && encounterClass.code === 'VR';
+};
+
+export enum PaymentVariant {
+  insurance = 'insurance',
+  selfPay = 'selfPay',
+}
+
+export const getPaymentVariantFromEncounter = (encounter: Encounter): PaymentVariant | undefined => {
+  return encounter.extension?.find((ext) => ext.url === ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL)
+    ?.valueString as PaymentVariant;
+};
+
+export const getEncounterPaymentVariantExtension = (paymentVariant: PaymentVariant): Extension => {
+  return {
+    url: ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL,
+    valueString: paymentVariant,
+  };
+};
+
+export const updateEncounterPaymentVariantExtension = (input: Encounter, paymentVariant: PaymentVariant): Encounter => {
+  const encounter = { ...input };
+  if (encounter.extension) {
+    const extIndex = encounter.extension.findIndex((ext) => ext.url === ENCOUNTER_PAYMENT_VARIANT_EXTENSION_URL);
+
+    if (extIndex >= 0) {
+      encounter.extension[extIndex].valueString = paymentVariant;
+    } else {
+      encounter.extension.push(getEncounterPaymentVariantExtension(paymentVariant));
+    }
+  } else {
+    encounter.extension = [getEncounterPaymentVariantExtension(paymentVariant)];
+  }
+  return encounter;
+};
+
+export const isEncounterSelfPay = (encounter?: Encounter): boolean => {
+  if (!encounter) return false;
+  const paymentVariant = getPaymentVariantFromEncounter(encounter);
+  return paymentVariant === PaymentVariant.selfPay;
 };

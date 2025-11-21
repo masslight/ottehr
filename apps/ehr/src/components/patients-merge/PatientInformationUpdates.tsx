@@ -13,9 +13,9 @@ import {
   Typography,
 } from '@mui/material';
 import { Patient, Task } from 'fhir/r4b';
-import React, { FC, useState } from 'react';
+import { FC, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { InnerStateDialog } from '../../telemed';
+import { InnerStateDialog } from 'src/features/visits/shared/components/InnerStateDialog';
 import { RoundedButton } from '../RoundedButton';
 import { useGetPatientForUpdate } from './queries';
 
@@ -50,6 +50,8 @@ export const PatientInformationUpdates: FC<PatientInformationUpdatesProps> = (pr
   const [task, setTask] = useState<Task>();
 
   useGetPatientForUpdate({ patientId }, (data) => {
+    if (!data) return;
+
     const patient = data.find((resource) => (resource as unknown as Patient).resourceType === 'Patient');
     const task = (data as unknown as Task[]).find((item) => item.resourceType === 'Task');
 

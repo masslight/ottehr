@@ -41,6 +41,10 @@ test.afterAll(async () => {
 test.describe('Check paperwork is prefilled for existing patient. Payment - insurance, responsible party - not self', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeAll(async () => {
+    // These tests were flaky because they have no way to wait for harvest to complete.
+    // They start in on registering and doing paperwork again, sometimes before harvesting previous visit has completed.
+    // So we're gonna wait 5 seconds.
+    await page.waitForTimeout(5000);
     await page.goto(bookingData.bookingURL);
     await paperwork.clickProceedToPaperwork();
     filledPaperwork = await paperwork.fillPaperworkAllFieldsInPerson('insurance', 'not-self');
@@ -96,7 +100,6 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
   });
   test('IPPP-5 Check Primary insurance has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
-    await page.waitForLoadState('networkidle');
     await locator.insuranceOption.click();
     await expect(locator.insuranceHeading).toBeVisible();
     await test.step('Primary Insurance cards are prefilled', async () => {
@@ -146,12 +149,9 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
       );
     });
   });
-  // TODO: Need to remove skip when https://github.com/masslight/ottehr/issues/1938 is fixed
-  test.skip('IPPP-6 Check Secondary insurance has prefilled values', async () => {
+  test('IPPP-6 Check Secondary insurance has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
-    await page.waitForLoadState('networkidle');
     await expect(locator.insuranceHeading).toBeVisible();
-    await locator.addSecondaryInsurance.click();
     await test.step('Secondary Insurance cards are prefilled', async () => {
       await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
       await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
@@ -211,6 +211,7 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
     await expect(locator.responsiblePartyAddress1).toHaveValue(filledPaperwork.responsiblePartyData!.address1);
     await expect(locator.responsiblePartyAddress2).toHaveValue(filledPaperwork.responsiblePartyData!.additionalAddress);
     await expect(locator.responsiblePartyNumber).toHaveValue(filledPaperwork.responsiblePartyData!.phone);
+    await expect(locator.responsiblePartyEmail).toHaveValue(filledPaperwork.responsiblePartyData!.email);
   });
   test('IPPP-8 Check Photo ID has prefilled images', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/photo-id`);

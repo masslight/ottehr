@@ -18,20 +18,19 @@ export const index = wrapHandler('assign-practitioner', async (input: ZambdaInpu
     const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
+    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
+    console.log('Created CurrentUser Oystehr client');
+
     const validatedData = await complexValidation(oystehr, validatedParameters);
 
-    const response = await performEffect(oystehr, validatedData);
+    const response = await performEffect(oystehr, oystehrCurrentUser, validatedData);
     return {
       statusCode: 200,
       body: JSON.stringify(response),
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('assign-practitioner', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Error assigning encounter participant' }),
-    };
+    return topLevelCatch('assign-practitioner', error, ENVIRONMENT);
   }
 });
 
@@ -67,6 +66,7 @@ export const complexValidation = async (
 
 export const performEffect = async (
   oystehr: Oystehr,
+  oystehrCurrentUser: Oystehr,
   validatedData: {
     encounter: Encounter;
     appointment: Appointment;
@@ -74,9 +74,10 @@ export const performEffect = async (
     userRole: Coding[];
   }
 ): Promise<AssignPractitionerResponse> => {
-  const { encounter, practitionerId, userRole } = validatedData;
+  const { encounter, appointment, practitionerId, userRole } = validatedData;
 
-  await assignPractitionerIfPossible(oystehr, encounter, practitionerId, userRole);
+  const user = await oystehrCurrentUser.user.me();
+  await assignPractitionerIfPossible(oystehr, encounter, appointment, practitionerId, userRole, user);
 
   return {
     message: `Successfully assigned practitioner with ID ${practitionerId} to encounter ${encounter.id}.`,

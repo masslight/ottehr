@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { APIError, APPOINTMENT_CANT_BE_IN_PAST_ERROR, ServiceMode, VisitType } from 'utils';
+import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 import { ottehrApi } from '../api';
 import { intakeFlowPageRoute } from '../App';
@@ -14,7 +15,6 @@ import PageForm from '../components/PageForm';
 import { useIntakeCommonStore } from '../features/common';
 import { NO_PATIENT_ERROR, PAST_APPT_ERROR } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
-import { safelyCaptureException } from '../helpers/sentry';
 import { useGetFullName } from '../hooks/useGetFullName';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import i18n from '../lib/i18n';
@@ -75,6 +75,16 @@ const Review = (): JSX.Element => {
         throw new Error('zambdaClient is not defined');
       }
       setLoading(true);
+
+      // hotfix for https://github.com/masslight/ottehr/issues/3290
+      // For the case when the time was rescheduled, the payload to the create-appointment zambda
+      // starts including "new-patient" in the id, and that breaks logic in many places
+      // across different zambdas and affects subsequent zambda calls too.
+      // It looks like the working variant is not to send the id for new users, but it looks like
+      // we should handle it in the zambda in a more optimal way.
+      if (patientInfo.newPatient) {
+        patientInfo.id = undefined;
+      }
 
       // Create the appointment
       const res = await ottehrApi.createAppointment(zambdaClient, {

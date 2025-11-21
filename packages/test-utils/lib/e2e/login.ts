@@ -43,7 +43,7 @@ export async function login(page: Page, phone?: string, text_username?: string, 
     await acceptButton.waitFor({ state: 'visible', timeout: 5000 });
     console.log('[INFO] Accepting authorization...');
     await acceptButton.click();
-  } catch (error) {
+  } catch {
     console.log('[INFO] No accept button found, continuing...');
   }
 

@@ -1,4 +1,4 @@
-import { User } from '@oystehr/sdk';
+import { User } from 'utils/lib/types/api/user.types';
 import { PractitionerLicense } from './practitioner.types';
 
 export interface GetUserResponse {
@@ -6,6 +6,7 @@ export interface GetUserResponse {
   user: User & {
     licenses: PractitionerLicense[];
   };
+  userScheduleId: string | undefined;
 }
 
 export interface GetUserParams {

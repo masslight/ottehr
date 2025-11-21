@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { DEPLOYED_TELEMED_LOCATIONS } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { BaseTelemedFlow, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
 
@@ -16,10 +17,11 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     await expect(statesSelector).toBeVisible();
 
     await statesSelector.getByRole('button').click();
-    const locationOption = this.page
-      .locator('[role="option"]')
-      .filter({ hasNot: this.page.locator('[aria-disabled="true"], [disabled]') }) // Exclude disabled options
-      .first();
+    const firstAvailableState = DEPLOYED_TELEMED_LOCATIONS[0]?.name;
+    if (!firstAvailableState) {
+      throw new Error('No deployed telemed locations found');
+    }
+    const locationOption = this.page.locator('[role="option"]').getByText(firstAvailableState, { exact: true });
     const location = (await locationOption.textContent()) ?? undefined;
     await locationOption.click();
     await expect(this.locator.firstAvailableTime).toBeVisible();

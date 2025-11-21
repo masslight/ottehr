@@ -17,10 +17,12 @@ import {
   DEFAULT_APPOINTMENT_LENGTH_MINUTES,
   getFullName,
   getPatchOperationForNewMetaTag,
+  isFollowupEncounter,
   isLocationVirtual,
   makeBookingOriginExtensionEntry,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NUM_DAYS,
+  ScheduleAndOwner,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
   SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
@@ -184,7 +186,9 @@ export async function getWaitingMinutesAtSchedule(
   ).unbundle();
   console.timeEnd('get_longest_waiting_patient');
 
-  const arrivedEncounters = searchForLongestWaitingPatient.filter((resource) => resource.resourceType === 'Encounter');
+  const arrivedEncounters = searchForLongestWaitingPatient.filter(
+    (resource) => resource.resourceType === 'Encounter' && !isFollowupEncounter(resource as Encounter)
+  );
 
   return getWaitingMinutes(nowForTimezone, arrivedEncounters);
 }
@@ -268,13 +272,13 @@ export function getSlotCapacityMapForDayAndSchedule(
   if (closures) {
     for (const closure of closures) {
       if (closure.type === ClosureType.OneDay && closure.start === dayString) {
-        //console.log('closing day', dayString);
         return {};
       } else if (closure.type === ClosureType.Period) {
-        const startClosure = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT).startOf('day');
-        const endClosure = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT).endOf('day');
+        const startClosure = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT, { zone: now.zone }).startOf(
+          'day'
+        );
+        const endClosure = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT, { zone: now.zone }).endOf('day');
         if (now >= startClosure && now <= endClosure) {
-          //console.log('closing day', dayString);
           return {};
         }
       }
@@ -396,13 +400,13 @@ interface GetSlotCapacityMapInput {
 export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCapacityMap => {
   const { now, finishDate, scheduleExtension, timezone } = input;
   const { schedule, scheduleOverrides, closures, slotLength } = scheduleExtension;
-  const nowForTimezone = DateTime.fromFormat(now.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone }).startOf(
-    'day'
-  );
-  const finishDateForTimezone = DateTime.fromFormat(finishDate.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
+  const nowForTimezone = DateTime.fromFormat(now.setZone(timezone).toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
+    zone: timezone,
+  }).startOf('day');
+  const finishDateForTimezone = DateTime.fromFormat(finishDate.setZone(timezone).toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
     zone: timezone,
   });
-  console.log('now for capacity map', nowForTimezone.toISO(), now.toISO());
+
   let currentDayTemp = nowForTimezone;
   let slots = {};
   while (currentDayTemp < finishDateForTimezone) {
@@ -450,9 +454,10 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
   }
   // literally all slots based on open, close, buffers and capacity
   // no appointments or busy slots have been factored in
+  console.log('finish date for available slots:', now.setZone(timezone).startOf('day').plus({ days: numDays }).toISO());
   const slotCapacityMap = getAllSlotsAsCapacityMap({
     now,
-    finishDate: now.startOf('day').plus({ days: numDays }),
+    finishDate: now.setZone(timezone).startOf('day').plus({ days: numDays }),
     scheduleExtension,
     timezone,
   });
@@ -736,6 +741,7 @@ interface GetSlotsInput {
   scheduleList: BookableScheduleData['scheduleList'];
   now: DateTime;
   numDays?: number;
+  selectedDate?: string;
   originalBookingUrl?: string;
   slotExpirationBiasInSeconds?: number; // this is for testing busy-tentative slot expiration
 }
@@ -747,105 +753,169 @@ export const getAvailableSlotsForSchedules = async (
   availableSlots: SlotListItem[];
   telemedAvailable: SlotListItem[];
 }> => {
-  const { now, scheduleList, numDays, originalBookingUrl } = input;
-  let telemedAvailable: SlotListItem[] = [];
-  let availableSlots: SlotListItem[] = [];
+  const { now, scheduleList, numDays, selectedDate, originalBookingUrl } = input;
+  const telemedAvailable: SlotListItem[] = [];
+  const availableSlots: SlotListItem[] = [];
 
-  const getBusySlotsInput: GetSlotsInWindowInput = {
-    scheduleIds: scheduleList.map((scheduleTemp) => scheduleTemp.schedule.id!),
-    fromISO: now.toISO() ?? '',
-    toISO:
-      now
-        .plus({ days: numDays ?? SCHEDULE_NUM_DAYS })
-        .startOf('day')
-        .toISO() ?? '',
-    status: ['busy', 'busy-tentative', 'busy-unavailable'],
-    filter: (slot: Slot) => {
-      const thisMoment = DateTime.now().plus({ seconds: input.slotExpirationBiasInSeconds ?? 0 });
-      if (slot.status === 'busy-tentative') {
-        const lastUpdated = DateTime.fromISO(slot.meta?.lastUpdated || '');
-        if (!lastUpdated.isValid) {
-          return true;
+  const fetchBusySlotsForSchedule = async (scheduleId: string, fromISO: string, toISO: string): Promise<Slot[]> => {
+    const getBusySlotsInput: GetSlotsInWindowInput = {
+      scheduleIds: [scheduleId],
+      fromISO,
+      toISO,
+      status: ['busy', 'busy-tentative', 'busy-unavailable'],
+      filter: (slot: Slot) => {
+        const thisMoment = DateTime.now();
+        if (slot.status === 'busy-tentative') {
+          const lastUpdated = DateTime.fromISO(slot.meta?.lastUpdated || '');
+          if (!lastUpdated.isValid) return true;
+          const minutesSinceLastUpdate = thisMoment.diff(lastUpdated, 'minutes').minutes;
+          return minutesSinceLastUpdate <= SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES;
         }
-        const minutesSinceLastUpdate = lastUpdated.diff(thisMoment, 'minutes').minutes;
-        return minutesSinceLastUpdate <= SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES;
-      }
-      return true;
-    },
+        return true;
+      },
+    };
+
+    const allBusySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
+    return allBusySlots.filter((slot) => {
+      const id = slot.schedule?.reference?.split('/')?.[1];
+      return id === scheduleId && !getSlotIsPostTelemed(slot);
+    });
   };
-  const allBusySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
 
-  scheduleList.forEach((scheduleTemp) => {
-    try {
-      // todo 1.8: find busy / busy-tentative slots
-      const busySlots: Slot[] = allBusySlots.filter((slot) => {
-        const scheduleId = slot.schedule?.reference?.split('/')?.[1];
-        return scheduleId === scheduleTemp.schedule.id && !getSlotIsPostTelemed(slot);
-      });
-      // console.log('getting post telemed slots');
-      // todo: check busy slots for telemed
-      const telemedTimes = getPostTelemedSlots(now, scheduleTemp.schedule, []);
-      const slotStartsForSchedule = getAvailableSlots({
-        now,
-        numDays: numDays ?? SCHEDULE_NUM_DAYS,
-        schedule: scheduleTemp.schedule,
-        busySlots,
-      });
-      availableSlots.push(
-        ...makeSlotListItems({
-          startTimes: slotStartsForSchedule,
-          scheduleId: scheduleTemp.schedule.id!,
-          owner: scheduleTemp.owner,
-          timezone: getTimezone(scheduleTemp.schedule),
-          originalBookingUrl,
-        })
-      );
-      telemedAvailable.push(
-        ...makeSlotListItems({
-          startTimes: telemedTimes,
-          scheduleId: scheduleTemp.schedule.id!,
-          owner: scheduleTemp.owner,
-          timezone: getTimezone(scheduleTemp.schedule),
-          originalBookingUrl,
-        })
-      );
-      // console.log('available slots for schedule:', slotStartsForSchedule);
-    } catch (err) {
-      console.error(
-        `Error trying to get slots for schedule item: Schedule/${scheduleTemp.schedule.id}`,
-        JSON.stringify(err, null, 2),
-        err
-      );
-    }
-  });
+  const generateSlotsForSchedule = (
+    scheduleTemp: ScheduleAndOwner,
+    startTime: DateTime,
+    numDays: number,
+    busySlots: Slot[]
+  ): { available: SlotListItem[]; telemed: SlotListItem[] } => {
+    const schedule = scheduleTemp.schedule;
+    const tz = getTimezone(schedule);
 
-  availableSlots = availableSlots.filter((slot) => {
-    return DateTime.fromISO(slot.slot.start) >= now;
-  });
-  telemedAvailable = telemedAvailable.filter((slot) => {
-    return DateTime.fromISO(slot.slot.start) >= now;
-  });
-
-  // this logic removes duplicate slots even across schedules,
-  const usedSlots: { [time: string]: SlotListItem } = {};
-  console.log('available slots before deduping:', availableSlots.length);
-  const dedupedSlots = availableSlots
-    .sort((a, b) => {
-      const time1 = DateTime.fromISO(a.slot.start);
-      const time2 = DateTime.fromISO(b.slot.start);
-      return time1.diff(time2).toMillis();
-    })
-    .filter((slot) => {
-      if (usedSlots[slot.slot.start]) {
-        return false;
-      }
-      usedSlots[slot.slot.start] = slot;
-      return true;
+    const slotStarts = getAvailableSlots({
+      now: startTime,
+      numDays,
+      schedule,
+      busySlots,
     });
 
-  console.log('available slots after deduping:', dedupedSlots.length);
+    const telemedTimes = getPostTelemedSlots(startTime, schedule, []);
 
-  return { availableSlots: dedupedSlots, telemedAvailable };
+    const available = makeSlotListItems({
+      startTimes: slotStarts,
+      scheduleId: schedule.id!,
+      owner: scheduleTemp.owner,
+      timezone: tz,
+      originalBookingUrl,
+    });
+
+    const telemed = makeSlotListItems({
+      startTimes: telemedTimes,
+      scheduleId: schedule.id!,
+      owner: scheduleTemp.owner,
+      timezone: tz,
+      originalBookingUrl,
+    });
+
+    return { available, telemed };
+  };
+
+  const dedupeSlots = (slots: SlotListItem[]): SlotListItem[] => {
+    const used: Record<string, boolean> = {};
+    return slots
+      .sort((a, b) => DateTime.fromISO(a.slot.start).toMillis() - DateTime.fromISO(b.slot.start).toMillis())
+      .filter((s) => {
+        if (used[s.slot.start]) return false;
+        used[s.slot.start] = true;
+        return true;
+      });
+  };
+
+  if (selectedDate) {
+    for (const scheduleTemp of scheduleList) {
+      try {
+        const schedule = scheduleTemp.schedule;
+        const tz = getTimezone(schedule);
+
+        const dayStart = DateTime.fromISO(selectedDate, { zone: tz }).startOf('day').toUTC();
+        const dayEnd = dayStart.plus({ days: 1 }).toUTC();
+
+        const busySlots = await fetchBusySlotsForSchedule(schedule.id!, dayStart.toISO()!, dayEnd.toISO()!);
+
+        const { available, telemed } = generateSlotsForSchedule(
+          scheduleTemp,
+          DateTime.fromISO(selectedDate, { zone: tz }).startOf('day'),
+          1,
+          busySlots
+        );
+
+        availableSlots.push(...available);
+        telemedAvailable.push(...telemed);
+      } catch (err) {
+        console.error(
+          `Error trying to get slots for schedule item: Schedule/${scheduleTemp.schedule.id}`,
+          JSON.stringify(err, null, 2),
+          err
+        );
+      }
+    }
+
+    return {
+      availableSlots: dedupeSlots(availableSlots),
+      telemedAvailable: dedupeSlots(telemedAvailable),
+    };
+  }
+
+  const fromISO = now.toISO() ?? '';
+  const toISO =
+    now
+      .plus({ days: numDays ?? SCHEDULE_NUM_DAYS })
+      .startOf('day')
+      .toISO() ?? '';
+
+  const allBusy = await getSlotsInWindow(
+    {
+      scheduleIds: scheduleList.map((s) => s.schedule.id!),
+      fromISO,
+      toISO,
+      status: ['busy', 'busy-tentative', 'busy-unavailable'],
+      filter: (slot: Slot) => {
+        const thisMoment = DateTime.now().plus({ seconds: input.slotExpirationBiasInSeconds ?? 0 });
+        if (slot.status === 'busy-tentative') {
+          const lastUpdated = DateTime.fromISO(slot.meta?.lastUpdated || '');
+          if (!lastUpdated.isValid) return true;
+          const minutesSinceLastUpdate = thisMoment.diff(lastUpdated, 'minutes').minutes;
+          return minutesSinceLastUpdate <= SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES;
+        }
+        return true;
+      },
+    },
+    oystehr
+  );
+
+  for (const scheduleTemp of scheduleList) {
+    try {
+      const schedule = scheduleTemp.schedule;
+      const busy = allBusy.filter((slot) => {
+        const id = slot.schedule?.reference?.split('/')?.[1];
+        return id === schedule.id && !getSlotIsPostTelemed(slot);
+      });
+
+      const { available, telemed } = generateSlotsForSchedule(scheduleTemp, now, numDays ?? SCHEDULE_NUM_DAYS, busy);
+
+      availableSlots.push(...available);
+      telemedAvailable.push(...telemed);
+    } catch (err) {
+      console.error(`Error generating slots for Schedule/${scheduleTemp.schedule.id}`, err);
+    }
+  }
+
+  const filteredAvailable = availableSlots.filter((s) => DateTime.fromISO(s.slot.start) >= now);
+  const filteredTelemed = telemedAvailable.filter((s) => DateTime.fromISO(s.slot.start) >= now);
+
+  return {
+    availableSlots: dedupeSlots(filteredAvailable),
+    telemedAvailable: dedupeSlots(filteredTelemed),
+  };
 };
 
 export const getSchedulesForGroup = (

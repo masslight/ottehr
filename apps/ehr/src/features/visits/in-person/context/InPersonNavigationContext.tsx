@@ -1,0 +1,350 @@
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useLocation, useMatch, useNavigate, useParams } from 'react-router-dom';
+import { sidebarMenuIcons } from '../../shared/components/Sidebar';
+import { useChartFields } from '../../shared/hooks/useChartFields';
+import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
+import { InPersonModal } from '../components/InPersonModal';
+import { ROUTER_PATH, routesInPerson } from '../routing/routesInPerson';
+
+export type InteractionMode = 'intake' | 'provider' | 'readonly' | 'follow-up';
+export type CSSValidator = () => React.ReactElement | string;
+export type CSSValidators = Record<string, CSSValidator>;
+
+export interface RouteInPerson {
+  path: ROUTER_PATH;
+  sidebarPath?: string; // used for generating link in sidebar if route has dynamic slug
+  activeCheckPath?: string; // helps to check active path if route contains dynamic slug
+  modes: InteractionMode[];
+  element: React.ReactNode;
+  text: string;
+  iconKey: keyof typeof sidebarMenuIcons;
+  isSkippedInNavigation?: boolean;
+}
+
+interface InPersonNavigationContextType {
+  currentRoute: string | undefined;
+  goToNext: () => void;
+  goToPrevious: () => void;
+  addNextPageValidators: (validators: CSSValidators) => void; // blocks next navigation if validators return non empty string and show modal with this message.
+  addPreviousPageValidators: (validators: CSSValidators) => void; // blocks navigation if validators return non empty string and show modal with this message.
+  resetNavigationState: () => void;
+  setIsNavigationHidden: (hide: boolean) => void;
+  isNavigationHidden: boolean;
+  interactionMode: InteractionMode;
+  setInteractionMode: (mode: InteractionMode, shouldNavigate: boolean) => void;
+  availableRoutes: RouteInPerson[];
+  isFirstPage: boolean;
+  isLastPage: boolean;
+  isNavigationDisabled: boolean;
+  setNavigationDisable: (state: Record<string, boolean>) => void; // disable intake navigation buttons, use case - updating required field
+  nextButtonText: string;
+  isLoading: boolean;
+}
+
+const InPersonNavigationContext = createContext<InPersonNavigationContextType | undefined>(undefined);
+
+// hack for safe using outside context in the telemed components
+export let setNavigationDisable: InPersonNavigationContextType['setNavigationDisable'] = () => {
+  return;
+};
+
+export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { id: appointmentIdFromUrl } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const nextPageValidatorsRef = useRef<CSSValidators>({});
+  const previousPageValidatorsRef = useRef<CSSValidators>({});
+  const [isNavigationHidden, setIsNavigationHidden] = useState(false);
+  const [isModeInitialized, setIsModeInitialized] = useState(false);
+
+  // todo: calc actual initial InteractionMode value; in that case check "Intake Notes" button (or any other usages) in the Telemed works correctly
+  const [interactionMode, _setInteractionMode] = useState<InteractionMode>('intake');
+
+  const [modalContent, setModalContent] = useState<ReturnType<CSSValidator>>();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [_disabledNavigationState, _setDisabledNavigationState] = useState<Record<string, boolean>>({});
+  const { isAppointmentLoading, visitState } = useAppointmentData();
+  const { visitType } = useGetAppointmentAccessibility();
+  const { encounter } = visitState;
+
+  const { chartData, isLoading } = useChartData();
+
+  const { data: chartFields, isLoading: isFieldsLoading } = useChartFields({
+    requestedFields: { episodeOfCare: {} },
+  });
+
+  const isChartDataLoading = isLoading || isFieldsLoading;
+
+  const setInteractionMode = useCallback(
+    (mode: InteractionMode, shouldNavigate: boolean): void => {
+      const basePath = location.pathname.match(/.*?(in-person)\/[^/]*/)?.[0];
+
+      if (!basePath) {
+        return;
+      }
+
+      const firstAvailableRoute = Object.values(routesInPerson).find((route) => route.modes.includes(mode));
+
+      if (!firstAvailableRoute) {
+        return;
+      }
+
+      const routePath = firstAvailableRoute.sidebarPath || firstAvailableRoute.path;
+      const newPath = `${basePath}/${routePath}`;
+      _setInteractionMode(mode);
+      setIsModeInitialized(true);
+
+      if (shouldNavigate) {
+        navigate(newPath);
+      }
+    },
+    [location.pathname, navigate]
+  );
+
+  useEffect(() => {
+    const appointmentIdReferenceFromEncounter = encounter?.appointment?.[0]?.reference?.replace('Appointment/', '');
+
+    if (!appointmentIdReferenceFromEncounter || !appointmentIdFromUrl) {
+      return;
+    }
+
+    const isEncounterLoadedToStore = appointmentIdReferenceFromEncounter === appointmentIdFromUrl;
+
+    if (!isEncounterLoadedToStore) {
+      return;
+    }
+
+    let targetMode: InteractionMode;
+    if (visitType === 'follow-up') {
+      targetMode = 'follow-up';
+    } else if (
+      encounter?.participant?.find(
+        (participant) =>
+          participant.type?.find(
+            (type) =>
+              type.coding?.find(
+                (coding) =>
+                  coding.system === 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType' &&
+                  coding.code === 'ATND'
+              ) != null
+          ) != null
+      )
+    ) {
+      targetMode = 'provider';
+    } else {
+      targetMode = 'intake';
+    }
+
+    if (targetMode === 'follow-up' || !isModeInitialized) {
+      setInteractionMode(targetMode, false);
+    }
+
+    if (encounter?.id) {
+      setIsModeInitialized(true);
+    }
+  }, [
+    encounter?.id,
+    encounter?.participant,
+    setInteractionMode,
+    interactionMode,
+    isModeInitialized,
+    appointmentIdFromUrl,
+    encounter?.appointment,
+    visitType,
+  ]);
+
+  setNavigationDisable = (newState: Record<string, boolean>): void => {
+    let shouldUpdate = false;
+    for (const key of Object.keys(newState)) {
+      if (!!_disabledNavigationState[key] !== !!newState[key]) {
+        shouldUpdate = true;
+        break;
+      }
+    }
+    if (shouldUpdate) {
+      _setDisabledNavigationState({ ..._disabledNavigationState, ...newState });
+    }
+  };
+
+  const isNavigationDisabled = Object.values(_disabledNavigationState).some(Boolean);
+
+  const addNextPageValidators = (newValidators: CSSValidators): void => {
+    nextPageValidatorsRef.current = { ...nextPageValidatorsRef.current, ...newValidators };
+  };
+
+  const addPreviousPageValidators = (newValidators: CSSValidators): void => {
+    previousPageValidatorsRef.current = { ...previousPageValidatorsRef.current, ...newValidators };
+  };
+
+  const closeModal = useCallback(() => {
+    setIsModalOpen(false);
+  }, []);
+
+  const resetNavigationState = (): void => {
+    nextPageValidatorsRef.current = {};
+    previousPageValidatorsRef.current = {};
+    setIsModalOpen(false);
+    setModalContent('');
+    _setDisabledNavigationState({});
+  };
+
+  const availableRoutes = Object.values(routesInPerson).filter(
+    (route) =>
+      !isAppointmentLoading && !isChartDataLoading && isModeInitialized && route.modes.includes(interactionMode)
+  );
+  const availableRoutesForBottomNavigation = availableRoutes.filter((route) => !route.isSkippedInNavigation);
+
+  const availableRoutesPathsForBottomNavigation = availableRoutesForBottomNavigation.map(
+    (route) => route.sidebarPath || route.path
+  );
+
+  const match = useMatch('/in-person/:id/*');
+  const splat = match?.params['*'];
+  const currentRouteIndex = availableRoutesPathsForBottomNavigation.indexOf(splat || '');
+  const currentRoute = availableRoutesPathsForBottomNavigation[currentRouteIndex];
+  const isFirstPage = currentRouteIndex === 0;
+  const isLastPage = currentRouteIndex === availableRoutesPathsForBottomNavigation.length - 1;
+  const nextRoutePath = !isLastPage ? availableRoutesPathsForBottomNavigation?.[currentRouteIndex + 1] : null;
+  const previousRoutePath = !isFirstPage ? availableRoutesPathsForBottomNavigation?.[currentRouteIndex - 1] : null;
+
+  // Hide bottom navigation for pages that shouldn't be accessed through the bottom navigation
+  // These pages will have currentRouteIndex === -1 because they are not in the availableRoutesPathsForBottomNavigation array
+  // Examples: order details, order edit pages
+  const isPageWithHiddenBottomNavigation = currentRouteIndex === -1;
+
+  useEffect(() => {
+    setIsNavigationHidden(isPageWithHiddenBottomNavigation);
+  }, [isPageWithHiddenBottomNavigation]);
+
+  const goToNext = useCallback(() => {
+    if (!nextRoutePath) {
+      return;
+    }
+
+    const validators = Object.values(nextPageValidatorsRef.current);
+
+    for (let i = 0; i < validators.length; i++) {
+      const validationResult = validators[i]();
+
+      if (validationResult) {
+        setModalContent(validationResult);
+        setIsModalOpen(true);
+        return;
+      }
+    }
+
+    navigate(nextRoutePath);
+  }, [nextRoutePath, navigate]);
+
+  const goToPrevious = useCallback(() => {
+    if (!previousRoutePath) {
+      return;
+    }
+
+    const validators = Object.values(previousPageValidatorsRef.current);
+
+    for (let i = 0; i < validators.length; i++) {
+      const validationResult = validators[i]();
+      if (validationResult) {
+        setModalContent(validationResult);
+        setIsModalOpen(true);
+        return;
+      }
+    }
+
+    navigate(previousRoutePath);
+  }, [previousRoutePath, navigate]);
+
+  const nextButtonText = (() => {
+    if (isChartDataLoading) return ' ';
+
+    if (interactionMode === 'intake') {
+      switch (currentRoute) {
+        case 'allergies':
+          return chartData?.allergies?.length ? 'Allergies Confirmed' : 'Confirmed No Known Allergies';
+        case 'medications':
+          return chartData?.medications?.length ? 'Medications Confirmed' : 'Confirmed No Medications';
+        case 'medical-conditions':
+          return chartData?.conditions?.length ? 'Medical Conditions Confirmed' : 'Confirmed No Medical Conditions';
+        case 'surgical-history':
+          return chartData?.surgicalHistory?.length ? 'Surgical History Confirmed' : 'Confirmed No Surgical History';
+        case 'hospitalization':
+          return `${
+            chartFields?.episodeOfCare?.length ? 'Hospitalization Confirmed' : 'Confirmed No Hospitalization'
+          } AND Complete Intake`;
+        default:
+          return isLastPage ? 'Complete' : 'Next';
+      }
+    }
+
+    return 'Next';
+  })();
+
+  return (
+    <InPersonNavigationContext.Provider
+      value={{
+        currentRoute,
+        goToNext,
+        goToPrevious,
+        addNextPageValidators,
+        addPreviousPageValidators,
+        resetNavigationState: resetNavigationState,
+        setIsNavigationHidden,
+        isNavigationHidden,
+        interactionMode,
+        isLoading: isAppointmentLoading || isChartDataLoading || !isModeInitialized,
+        setInteractionMode,
+        availableRoutes,
+        isFirstPage,
+        isLastPage,
+        setNavigationDisable,
+        isNavigationDisabled,
+        nextButtonText,
+      }}
+    >
+      {children}
+      <InPersonModal
+        open={isModalOpen}
+        handleClose={closeModal}
+        title="Validation Error"
+        description={modalContent as React.ReactElement}
+        closeButtonText="Close"
+        confirmText="OK"
+        handleConfirm={closeModal}
+      />
+    </InPersonNavigationContext.Provider>
+  );
+};
+
+// Quick fix for hot reload issue;
+let preContextForDevelopmentUseOnly: InPersonNavigationContextType | undefined;
+const isDevelopment = import.meta.env.VITE_APP_IS_LOCAL;
+
+export const useInPersonNavigationContext = (): InPersonNavigationContextType => {
+  const context = useContext(InPersonNavigationContext);
+
+  // clear state on component unmount
+  useEffect(() => {
+    return () => {
+      context?.resetNavigationState?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // TODO: try to move context higher to wrap routes (required some refactoring) - this should prevent additional
+  // reload after hot reload and this fix can be removed
+  if (isDevelopment) {
+    if (context === undefined) {
+      return preContextForDevelopmentUseOnly as InPersonNavigationContextType;
+    }
+    // context will be broken during hot reload, keep the last context
+    preContextForDevelopmentUseOnly = context;
+  }
+
+  if (context === undefined) {
+    throw new Error('useNavigationContext must be used within a NavigationProvider');
+  }
+
+  return context;
+};

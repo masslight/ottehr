@@ -3,8 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { useAppointmentStore } from 'src/telemed';
-import { getSelectors, InHouseOrderDetailPageItemDTO, LoadingState, MarkAsCollectedData } from 'utils';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { InHouseOrderDetailPageItemDTO, LoadingState, MarkAsCollectedData } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
 import { FinalResultView } from '../components/details/FinalResultView';
@@ -14,7 +14,7 @@ import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
 export const InHouseLabTestDetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter', 'appointment']);
+  const { encounter } = useAppointmentData();
   const [loadingState, setLoadingState] = useState(LoadingState.initial);
   const [testDetails, setTestDetails] = useState<InHouseOrderDetailPageItemDTO | null>(null);
   const [allTestDetails, setAllTestDetails] = useState<InHouseOrderDetailPageItemDTO[] | undefined>(undefined);
@@ -56,8 +56,6 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
   };
 
   const handleCollectSampleSubmit = async (updatedData: MarkAsCollectedData): Promise<void> => {
-    setLoadingState(LoadingState.loading);
-    let loadingError = false;
     try {
       if (!oystehrZambda || !encounter.id || !serviceRequestID) {
         return;
@@ -69,13 +67,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
       });
     } catch (error) {
       console.error('Error submitting test details:', error);
-      loadingError = true;
-    } finally {
-      if (loadingError) {
-        setLoadingState(LoadingState.loadedWithError);
-      } else {
-        setLoadingState(LoadingState.initial);
-      }
+      throw error;
     }
   };
 
@@ -111,7 +103,12 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
           switch (testDetails.status) {
             case 'ORDERED':
               return (
-                <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleCollectSampleSubmit} />
+                <CollectSampleView
+                  testDetails={testDetails}
+                  onBack={handleBack}
+                  onSubmit={handleCollectSampleSubmit}
+                  setLoadingState={setLoadingState}
+                />
               );
             case 'COLLECTED':
               return (

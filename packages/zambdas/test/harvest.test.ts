@@ -112,7 +112,7 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations(QR1 as QuestionnaireResponse, patient1 as Patient);
+    const result = createMasterRecordPatchOperations((QR1 as QuestionnaireResponse).item ?? [], patient1 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -122,7 +122,7 @@ describe('Patient Master Record Tests', () => {
   });
 
   test('should not generate patch operations for a patient with already processed paperwork with the same answers', () => {
-    const result = createMasterRecordPatchOperations(QR1 as QuestionnaireResponse, patient2 as Patient);
+    const result = createMasterRecordPatchOperations((QR1 as QuestionnaireResponse).item ?? [], patient2 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -160,7 +160,7 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations(QR3 as QuestionnaireResponse, patient2 as Patient);
+    const result = createMasterRecordPatchOperations((QR3 as QuestionnaireResponse).item ?? [], patient2 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -169,7 +169,7 @@ describe('Patient Master Record Tests', () => {
     });
   });
   test('should generate correct JSON patch operation to remove patient birth sex value', () => {
-    const result = createMasterRecordPatchOperations(QR2 as QuestionnaireResponse, patient3 as Patient);
+    const result = createMasterRecordPatchOperations((QR2 as QuestionnaireResponse).item ?? [], patient3 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -182,20 +182,43 @@ describe('Patient Master Record Tests', () => {
       { op: 'replace', path: '/name/0/given', value: ['George'] },
       { op: 'remove', path: '/name/0/suffix' },
       { op: 'remove', path: '/name/1' },
-      { op: 'remove', path: '/extension/5' },
       { op: 'replace', path: '/address/0/line', value: ['Lincoln str., 21'] },
-      { op: 'remove', path: '/extension/2' },
-      { op: 'remove', path: '/extension/3' },
-      { op: 'remove', path: '/extension/4' },
       { op: 'remove', path: '/communication' },
-      { op: 'remove', path: '/extension/6' },
-      { op: 'remove', path: '/extension/7' },
-      { op: 'remove', path: '/extension/8' },
+      {
+        op: 'replace',
+        path: '/extension',
+        value: [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/ethnicity',
+            valueCodeableConcept: {
+              coding: [
+                {
+                  code: '2186-5',
+                  system: 'http://terminology.hl7.org/CodeSystem/v3-Ethnicity',
+                  display: 'Not Hispanic or Latino',
+                },
+              ],
+            },
+          },
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/race',
+            valueCodeableConcept: {
+              coding: [
+                {
+                  code: '2028-9',
+                  system: 'http://terminology.hl7.org/CodeSystem/v3-Race',
+                  display: 'Asian',
+                },
+              ],
+            },
+          },
+        ],
+      },
       { op: 'remove', path: '/generalPractitioner' },
       { op: 'remove', path: '/contained' },
     ];
 
-    const result = createMasterRecordPatchOperations(QR4 as QuestionnaireResponse, patient4 as Patient);
+    const result = createMasterRecordPatchOperations((QR4 as QuestionnaireResponse).item ?? [], patient4 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -224,7 +247,7 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations(QR5 as QuestionnaireResponse, patient4 as Patient);
+    const result = createMasterRecordPatchOperations((QR5 as QuestionnaireResponse).item ?? [], patient4 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -253,7 +276,7 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations(QR6 as QuestionnaireResponse, patient4 as Patient);
+    const result = createMasterRecordPatchOperations((QR6 as QuestionnaireResponse).item ?? [], patient4 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -262,7 +285,7 @@ describe('Patient Master Record Tests', () => {
     });
   });
   test('should not generate JSON patch operations in case with no PCP data but active flag set to true', () => {
-    const result = createMasterRecordPatchOperations(QR7 as QuestionnaireResponse, patient1 as Patient);
+    const result = createMasterRecordPatchOperations((QR7 as QuestionnaireResponse).item ?? [], patient1 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -282,7 +305,7 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations(QR8 as QuestionnaireResponse, patient4 as Patient);
+    const result = createMasterRecordPatchOperations((QR8 as QuestionnaireResponse).item ?? [], patient4 as Patient);
 
     expect(result).toEqual({
       coverage: {},

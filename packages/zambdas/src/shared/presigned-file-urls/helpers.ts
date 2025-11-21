@@ -1,6 +1,12 @@
 import { DateTime } from 'luxon';
 import { getSecret, Secrets, SecretsKeys } from 'utils';
 
+type Z3UrlAudioInput = {
+  secrets: Secrets | null;
+  bucketName: string;
+  fileName: string;
+};
+
 type Z3UrlInput =
   | {
       secrets: Secrets | null;
@@ -15,6 +21,17 @@ type Z3UrlInput =
       patientID: string;
       fileName: string;
     };
+
+export const makeZ3UrlForVisitAudio = (input: Z3UrlAudioInput): string => {
+  const { secrets, bucketName } = input;
+  const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
+  const dateTimeNow = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
+  const fileURL = `${getSecret(SecretsKeys.PROJECT_API, secrets)}/z3/${projectId}-${bucketName}/${dateTimeNow}-${
+    input.fileName
+  }`;
+  console.log('created z3 url: ', fileURL);
+  return fileURL;
+};
 
 export const makeZ3Url = (input: Z3UrlInput): string => {
   const { secrets, bucketName, patientID } = input;

@@ -1,0 +1,33 @@
+export type GetOystehrTelemedAPIParams = {
+  isAppLocal?: 'true' | 'false';
+  getTelemedAppointmentsZambdaID?: string;
+  initTelemedSessionZambdaID?: string;
+  getChartDataZambdaID?: string;
+  saveChartDataZambdaID?: string;
+  deleteChartDataZambdaID?: string;
+  changeTelemedAppointmentStatusZambdaID?: string;
+  changeInPersonVisitStatusZambdaID?: string;
+  assignPractitionerZambdaID?: string;
+  unassignPractitionerZambdaID?: string;
+  signAppointmentZambdaID?: string;
+  unlockAppointmentZambdaID?: string;
+  syncUserZambdaID?: string;
+  getPatientInstructionsZambdaID?: string;
+  savePatientInstructionZambdaID?: string;
+  deletePatientInstructionZambdaID?: string;
+  savePatientFollowupZambdaID?: string;
+  icdSearchZambdaId?: string;
+  recommendBillingSuggestionsZambdaID?: string;
+  recommendBillingCodesZambdaID?: string;
+  createUpdateMedicationOrderZambdaID?: string;
+  getMedicationOrdersZambdaID?: string;
+  getPatientAccountZambdaID?: string;
+  updatePatientAccountZambdaID?: string;
+  removePatientCoverageZambdaID?: string;
+  sendFaxZambdaID?: string;
+  externalLabResourceSearchID?: string;
+  getUnsolicitedResultsResourcesID?: string;
+  updateLabOrderResourcesID?: string;
+};
+
+export type { PromiseReturnType } from 'utils';

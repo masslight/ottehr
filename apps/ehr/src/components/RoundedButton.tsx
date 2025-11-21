@@ -1,25 +1,24 @@
-import { Button, ButtonProps, styled, Typography } from '@mui/material';
-import React from 'react';
+import { LoadingButton } from '@mui/lab';
+import { ButtonProps, styled } from '@mui/material';
 import { Link } from 'react-router-dom';
 
 export const RoundedButton = styled(
-  (props: ButtonProps & { to?: string; target?: '_self' | '_blank' | '_parent' | '_top' | string }) => (
-    <Button
+  (
+    props: ButtonProps & {
+      to?: string;
+      target?: '_self' | '_blank' | '_parent' | '_top' | string;
+      loading?: boolean;
+      loadingPosition?: 'start' | 'end' | 'center';
+      state?: any;
+    }
+  ) => (
+    <LoadingButton
       variant="outlined"
       size="large"
+      loadingPosition={props.loadingPosition || 'center'}
       {...props}
-      {...(props.to ? { component: Link, to: props.to, target: props.target } : {})}
-    >
-      <Typography
-        sx={{
-          textTransform: 'none',
-          fontWeight: 500,
-          fontSize: 14,
-        }}
-      >
-        {props.children}
-      </Typography>
-    </Button>
+      {...(props.to ? { component: Link, to: props.to, target: props.target, state: props.state } : {})}
+    />
   )
 )(() => ({
   whiteSpace: 'nowrap',
@@ -31,4 +30,7 @@ export const RoundedButton = styled(
       pointerEvents: 'auto',
     },
   },
+  textTransform: 'none',
+  fontWeight: 500,
+  fontSize: 14,
 }));

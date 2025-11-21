@@ -3,9 +3,11 @@ import { Appointment, Encounter, Extension, FhirResource, HealthcareService, Loc
 import { DateTime } from 'luxon';
 import {
   AppointmentParticipants,
+  getProviderType,
   OTTEHR_MODULE,
-  PARTICIPANT_TYPE,
   ParticipantInfo,
+  PRACTITIONER_CODINGS,
+  ProviderTypeCode,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
 } from 'utils';
@@ -33,16 +35,41 @@ export const parseEncounterParticipants = (
     const participantType = participant.type[0].coding[0].code;
 
     switch (participantType) {
-      case PARTICIPANT_TYPE.ADMITTER:
+      case PRACTITIONER_CODINGS.Admitter[0].code:
         participants.admitter = parseParticipantInfo(practitioner);
         break;
-      case PARTICIPANT_TYPE.ATTENDER:
+      case PRACTITIONER_CODINGS.Attender[0].code:
         participants.attender = parseParticipantInfo(practitioner);
         break;
     }
   });
 
   return participants;
+};
+
+export const parseAttenderProviderType = (
+  encounter: Encounter,
+  participantIdToResourceMap: Record<string, Practitioner>
+): ProviderTypeCode | undefined => {
+  if (!encounter.participant) return;
+
+  for (const participant of encounter.participant) {
+    if (!participant.individual?.reference || !participant.type?.[0]?.coding?.[0]?.code) {
+      continue;
+    }
+
+    const practitioner = participantIdToResourceMap[participant.individual.reference];
+    if (!practitioner) continue;
+
+    const participantType = participant.type[0].coding[0].code;
+    if (participantType === PRACTITIONER_CODINGS.Attender[0].code) {
+      const providerType = getProviderType(practitioner);
+
+      return providerType;
+    }
+  }
+
+  return;
 };
 
 export const mergeResources = <T extends FhirResource>(resources: T[]): T[] => {

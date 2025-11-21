@@ -1,5 +1,6 @@
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -14,40 +15,53 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, MarkAsCollectedData, PageName } from 'utils';
+import {
+  getFormattedDiagnoses,
+  InHouseOrderDetailPageItemDTO,
+  LoadingState,
+  MarkAsCollectedData,
+  PageName,
+} from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
 import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 
 interface CollectSampleViewProps {
   testDetails: InHouseOrderDetailPageItemDTO;
   onBack: () => void;
-  onSubmit: (data: MarkAsCollectedData) => void;
+  onSubmit: (data: MarkAsCollectedData) => Promise<void>;
+  setLoadingState: (loadingState: LoadingState) => void;
 }
 
-export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetails, onBack, onSubmit }) => {
+export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
+  testDetails,
+  onBack,
+  onSubmit,
+  setLoadingState,
+}) => {
+  console.log('Props', testDetails);
   const [showSampleCollection, setShowSampleCollection] = useState(true);
   const [sourceType, setSourceType] = useState('');
   const [collectedById, setCollectedById] = useState('');
-
   const initialDateTime = DateTime.now().setZone(testDetails.timezone);
   const [date, setDate] = useState<DateTime>(initialDateTime);
   const timeValue = date.toFormat('HH:mm');
-
   const [showDetails, setShowDetails] = useState(false);
   const [labelButtonLoading, setLabelButtonLoading] = useState(false);
   const [error, setError] = useState('');
-
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
-
+  const { encounter } = useAppointmentData();
   const currentUser = useEvolveUser();
+  const [loading, setLoading] = useState(false);
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   // set default collected by to current user if no choice made
   useEffect(() => {
@@ -69,19 +83,29 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
     setShowSampleCollection(!showSampleCollection);
   };
 
-  const handleMarkAsCollected = (): void => {
+  const handleMarkAsCollected = async (): Promise<void> => {
+    setLoading(true);
+    setError('');
     const isoDate = date.toISO();
     if (!isoDate) {
       setError('Issue parsing date');
       return;
     }
-    onSubmit({
-      specimen: {
-        source: sourceType,
-        collectedBy: { id: collectedById, name: providers.find((p) => p.id === collectedById)?.name || '' },
-        collectionDate: isoDate,
-      },
-    });
+    try {
+      await onSubmit({
+        specimen: {
+          source: sourceType,
+          collectedBy: { id: collectedById, name: providers.find((p) => p.id === collectedById)?.name || '' },
+          collectionDate: isoDate,
+        },
+      });
+      setLoadingState(LoadingState.initial);
+    } catch (error) {
+      const sdkError = error as Oystehr.OystehrSdkError;
+      setError(sdkError.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleReprintLabel = async (): Promise<void> => {
@@ -152,6 +176,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
           <Box sx={{ p: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
               <Typography
+                data-testid={dataTestIds.collectSamplePage.testName}
                 variant="h5"
                 sx={{
                   fontSize: '1.5rem',
@@ -162,6 +187,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                 {testDetails.testItemName}
               </Typography>
               <Box
+                data-testid={dataTestIds.collectSamplePage.status}
                 sx={{
                   bgcolor: '#E8EAED',
                   color: '#5F6368',
@@ -200,6 +226,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                   <Grid container spacing={2} sx={{ padding: '4px 0 20px 0' }}>
                     <Grid item xs={12}>
                       <TextField
+                        data-testid={dataTestIds.collectSamplePage.source}
                         fullWidth
                         label="Source"
                         value={sourceType}
@@ -243,6 +270,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
 
                     <Grid item xs={12}>
                       <TextField
+                        data-testid={dataTestIds.collectSamplePage.collectedBy}
                         fullWidth
                         select
                         label="Collected by"
@@ -296,6 +324,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
 
                     <Grid item xs={6}>
                       <TextField
+                        data-testid={dataTestIds.collectSamplePage.collectionDate}
                         fullWidth
                         label="Collection date"
                         type="date"
@@ -342,6 +371,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                     <Grid item xs={6}>
                       <FormControl fullWidth>
                         <TextField
+                          data-testid={dataTestIds.collectSamplePage.collectionTime}
                           label="Collection time"
                           type="time"
                           value={timeValue}
@@ -415,10 +445,12 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                 Re-Print Label
               </Button>
 
-              <Button
+              <LoadingButton
+                data-testid={dataTestIds.collectSamplePage.markCollectedButton}
+                loading={loading}
                 variant="contained"
                 onClick={handleMarkAsCollected}
-                disabled={!sourceType || !collectedById || !date.isValid}
+                disabled={!sourceType || !collectedById || !date.isValid || isReadOnly}
                 sx={{
                   borderRadius: '20px',
                   px: 3,
@@ -439,7 +471,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                 }}
               >
                 Mark as Collected
-              </Button>
+              </LoadingButton>
             </Stack>
 
             {!!error && (

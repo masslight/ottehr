@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   FHIR_RESOURCE_NOT_FOUND,
+  GENERIC_STRIPE_PAYMENT_ERROR,
   getSecret,
   getStripeCustomerIdFromAccount,
   INVALID_INPUT_ERROR,
@@ -14,6 +15,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
+  parseStripeError,
   PAYMENT_METHOD_EXTENSION_URL,
   PostPatientPaymentInput,
   Secrets,
@@ -34,6 +36,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { createPatientPaymentReceiptPdf } from '../../../shared/pdf/patient-payment-receipt-pdf';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'post-patient-payment';
@@ -56,7 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw NOT_AUTHORIZED;
     }
 
-    console.group('validateRequestParameters');
+    console.group('patient-payment-post validateRequestParameters');
     let validatedParameters: ReturnType<typeof validateRequestParameters>;
     try {
       validatedParameters = validateRequestParameters(input);
@@ -92,9 +95,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       oystehrClient
     );
 
-    const notice = await performEffect(effectInput, oystehrClient, requiredSecrets);
+    const { notice, paymentIntent } = await performEffect(effectInput, oystehrClient, requiredSecrets);
+    console.time('receipt pdf creation');
+    const receiptPdfInfo = await createPatientPaymentReceiptPdf(
+      encounterId,
+      patientId,
+      secrets,
+      oystehrM2MClientToken,
+      paymentIntent
+    );
+    console.timeEnd('receipt pdf creation');
 
-    return lambdaResponse(200, { notice, patientId, encounterId });
+    return lambdaResponse(200, { notice, patientId, encounterId, receiptInfo: receiptPdfInfo });
   } catch (error: any) {
     console.error(error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
@@ -106,10 +118,11 @@ const performEffect = async (
   input: ComplexValidationOutput,
   oystehrClient: Oystehr,
   requiredSecrets: RequiredSecrets
-): Promise<PaymentNotice> => {
+): Promise<{ notice: PaymentNotice; paymentIntent?: Stripe.PaymentIntent }> => {
   const { encounterId, paymentDetails, organizationId, userProfile } = input;
   const { paymentMethod, amountInCents, description } = paymentDetails;
   const dateTimeIso = DateTime.now().toISO() || '';
+  let paymentIntent: Stripe.Response<Stripe.PaymentIntent> | undefined;
   console.log('dateTimeIso', dateTimeIso);
   const paymentNoticeInput: PaymentNoticeInput = {
     encounterId,
@@ -138,12 +151,14 @@ const performEffect = async (
         allow_redirects: 'never',
       },
     };
-    const paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput);
-
-    if (paymentIntent.status !== 'succeeded') {
-      throw new Error(`The card payment was not successful. Try a different card`);
+    try {
+      paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput);
+    } catch (e) {
+      throw parseStripeError(e);
     }
-
+    if (paymentIntent.status !== 'succeeded') {
+      throw GENERIC_STRIPE_PAYMENT_ERROR;
+    }
     paymentNoticeInput.stripePaymentIntentId = paymentIntent.id;
 
     console.log('Payment Intent created:', JSON.stringify(paymentIntent, null, 2));
@@ -153,6 +168,7 @@ const performEffect = async (
   }
 
   try {
+    console.time('Candid pre-encounter sync');
     await performCandidPreEncounterSync({
       encounterId,
       oystehr: oystehrClient,
@@ -163,11 +179,14 @@ const performEffect = async (
     console.error(`Error during Candid pre-encounter sync: ${error}`);
     captureException(error);
     // We are eating this error to allow the payment to still be recorded even though the Candid sync failed.
+  } finally {
+    console.timeEnd('Candid pre-encounter sync');
   }
 
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);
 
-  return await oystehrClient.fhir.create<PaymentNotice>(noticeToWrite);
+  const paymentNotice = await oystehrClient.fhir.create<PaymentNotice>(noticeToWrite);
+  return { notice: paymentNotice, paymentIntent };
 };
 
 const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput => {
@@ -211,8 +230,13 @@ const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput 
   }
 
   const { paymentMethod, amountInCents, paymentMethodId, description } = paymentDetails;
-  if (paymentMethod !== 'card' && paymentMethod !== 'cash' && paymentMethod !== 'check') {
-    throw INVALID_INPUT_ERROR('"paymentDetails.paymentMethod" must be "card", "cash", or "check".');
+  if (
+    paymentMethod !== 'card' &&
+    paymentMethod !== 'card-reader' &&
+    paymentMethod !== 'cash' &&
+    paymentMethod !== 'check'
+  ) {
+    throw INVALID_INPUT_ERROR('"paymentDetails.paymentMethod" must be "card", "card-reader", "cash", or "check".');
   }
   if (paymentMethod === 'card' && !paymentMethodId) {
     throw INVALID_INPUT_ERROR('"paymentDetails.paymentMethodId" is required for card payments.');
@@ -259,7 +283,7 @@ const validateEnvironmentParameters = (input: ZambdaInput, isCardPayment: boolea
   if (isCardPayment) {
     try {
       stripeKey = getSecret(SecretsKeys.STRIPE_SECRET_KEY, secrets);
-    } catch (error) {
+    } catch {
       throw MISCONFIGURED_ENVIRONMENT_ERROR(
         '"STRIPE_SECRET_KEY" environment variable was not set. Please ensure it is configured in project secrets.'
       );

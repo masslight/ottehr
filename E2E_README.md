@@ -47,7 +47,7 @@ The E2E testing system supports two main applications:
 
 ### Prerequisites
 
-- Node.js version 20+
+- Node.js version 22+
 - Access to secrets repository (you can store secrets in a separate repository or use your preferred secrets management solution)
 - ClickSend credentials (for Intake SMS authentication testing)
 
@@ -910,3 +910,33 @@ npx playwright test tests/e2e/specs/appointments.spec.ts --ui
 - [Turborepo Guide](https://turbo.build/repo/docs)
 - [GitHub Actions Docs](https://docs.github.com/en/actions)
 - [ClickSend API Documentation](https://developers.clicksend.com/)
+
+### Using Playwright MCP server
+
+To use Playwright MCP server install it from here <https://github.com/mcp/microsoft/playwright-mcp> as an extension to the code editor
+
+To use patient app user auth created by running intake e2e tests - add couple of line to the mcp config(mcp.json):
+Arguments --isolated and --storage-state
+
+```JSON
+{
+ "servers": {
+  "microsoft/playwright-mcp": {
+   "type": "stdio",
+   "command": "npx",
+   "args": [
+    "@playwright/mcp@latest",
+    "--isolated",
+    "--storage-state=/path/to/ottehr/project/apps/intake/playwright/user.json"
+   ],
+   "gallery": "https://api.mcp.github.com/2025-09-15/v0/servers/41b79849-7e6c-4fc7-82c0-5a611ea21523",
+   "version": "0.0.1-seed"
+  }
+ },
+ "inputs": []
+}
+```
+
+Add prompt from .github/prompts/generate_test.prompt.md to the chat context for your agent.
+
+Claude Sonnet 4.5 works better than others in this task.

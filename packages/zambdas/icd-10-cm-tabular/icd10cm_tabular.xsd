@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xsd:schema
+    attributeFormDefault="unqualified"
+    elementFormDefault="unqualified"
+    id="tabular"
+    version="1.0"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+    <xsd:annotation>
+        <xsd:documentation>ICD-10 Tabular Document Definition</xsd:documentation>
+        <xsd:documentation>2011-02-07</xsd:documentation>
+    </xsd:annotation>
+
+    <xsd:complexType mixed="true" name="contentType">
+        <xsd:annotation>
+            <xsd:documentation>Allows the new/old tags to identify modifications in the addenda.</xsd:documentation>
+        </xsd:annotation>
+        <xsd:sequence minOccurs="0" maxOccurs="unbounded">
+            <xsd:element ref="diff" minOccurs="0" maxOccurs="1"/>
+            <xsd:element type="xsd:string" minOccurs="0" maxOccurs="1" name="new"/>
+            <xsd:element type="xsd:string" minOccurs="0" maxOccurs="1" name="old"/>
+            <xsd:element type="xsd:string" minOccurs="0" maxOccurs="1" name="unc"/>
+        </xsd:sequence>
+    </xsd:complexType>
+    <xsd:element type="contentType" name="version"/>
+    <xsd:element type="contentType" name="title"/>
+    <xsd:element type="contentType" name="name"/>
+    <xsd:element type="contentType" name="desc"/>
+    <xsd:element type="contentType" name="note"/>
+    <xsd:element type="contentType" name="diff"/>
+
+    <xsd:complexType name="noteType">
+        <xsd:sequence>
+            <xsd:element ref="note" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+    </xsd:complexType>
+    <xsd:element type="noteType" name="inclusionTerm"/>
+    <xsd:element type="noteType" name="sevenChrNote"/>
+    <xsd:element type="noteType" name="includes"/>
+    <xsd:element type="noteType" name="excludes1"/>
+    <xsd:element type="noteType" name="excludes2"/>
+    <xsd:element type="noteType" name="codeFirst"/>
+    <xsd:element type="noteType" name="useAdditionalCode"/>
+    <xsd:element type="noteType" name="codeAlso"/>
+    <xsd:element type="noteType" name="notes"/>
+    <xsd:element type="noteType" name="instruction"/>
+
+    <xsd:complexType name="extensionType">
+        <xsd:complexContent>
+            <xsd:extension base="contentType">
+                <xsd:attribute name="char">
+                    <xsd:simpleType>
+                        <xsd:restriction base="xsd:string">
+                            <xsd:maxLength value="2"/>
+                            <xsd:pattern value="[a-zA-Z0-9]+"/>
+                            <xsd:whiteSpace value="collapse"/>
+                        </xsd:restriction>
+                    </xsd:simpleType>
+                </xsd:attribute>
+            </xsd:extension>
+        </xsd:complexContent>
+    </xsd:complexType>
+    <xsd:element type="extensionType" name="extension"/>
+
+    <xsd:complexType name="sevenChrDefType">
+        <xsd:choice minOccurs="0" maxOccurs="unbounded">
+            <xsd:element ref="extension" minOccurs="0" maxOccurs="unbounded"/>
+            <xsd:element ref="note" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:choice>
+    </xsd:complexType>
+    <xsd:element type="sevenChrDefType" name="sevenChrDef"/>
+
+    <xsd:complexType name="diagnosisType">
+        <xsd:sequence>
+            <xsd:element ref="name" minOccurs="0" maxOccurs="1"/>
+            <xsd:element ref="desc" minOccurs="0" maxOccurs="1"/>
+            <xsd:choice minOccurs="0" maxOccurs="unbounded">
+                <xsd:element ref="inclusionTerm" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="sevenChrNote" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="sevenChrDef" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="includes" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="excludes1" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="excludes2" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="codeFirst" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="useAdditionalCode" minOccurs="0" maxOccurs="unbounded"/>
+                <xsd:element ref="codeAlso" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="notes" minOccurs="0" maxOccurs="unbounded"/>
+                <xsd:element ref="visualImpairment" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="diag" minOccurs="0" maxOccurs="unbounded"/>
+            </xsd:choice>
+        </xsd:sequence>
+        <xsd:attribute name="placeholder">
+            <xsd:simpleType>
+                <xsd:restriction base="xsd:string">
+                    <xsd:enumeration value="true"/>
+                    <xsd:enumeration value="false"/>
+                </xsd:restriction>
+            </xsd:simpleType>
+        </xsd:attribute>
+    </xsd:complexType>
+    <xsd:element type="diagnosisType" name="diag"/>
+
+    <xsd:complexType name="deactivatedType">
+        <xsd:sequence>
+            <xsd:element ref="desc" minOccurs="0" maxOccurs="1"/>
+        </xsd:sequence>
+        <xsd:attribute name="from" type="xsd:string"/>
+        <xsd:attribute name="thru" type="xsd:string"/>
+    </xsd:complexType>
+    <xsd:element type="deactivatedType" name="deactivated"/>
+
+    <xsd:complexType name="sectionType">
+        <xsd:sequence>
+            <xsd:element ref="name" minOccurs="0" maxOccurs="1"/>
+            <xsd:element ref="desc" minOccurs="0" maxOccurs="1"/>
+            <xsd:choice minOccurs="0" maxOccurs="unbounded">
+                <xsd:element ref="inclusionTerm" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="sevenChrNote" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="sevenChrDef" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="includes" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="excludes1" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="excludes2" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="codeFirst" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="useAdditionalCode" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="codeAlso" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="notes" minOccurs="0" maxOccurs="unbounded"/>
+            </xsd:choice>
+            <xsd:choice minOccurs="0" maxOccurs="unbounded">
+                <xsd:element ref="deactivated" minOccurs="0" maxOccurs="unbounded"/>
+                <xsd:element ref="diag" minOccurs="0" maxOccurs="unbounded"/>
+            </xsd:choice>
+        </xsd:sequence>
+        <xsd:attribute name="id" type="xsd:string"/>
+        <xsd:attribute name="oldid" type="xsd:string"/>
+    </xsd:complexType>
+    <xsd:element type="sectionType" name="section"/>
+
+    <xsd:complexType name="sectionIndexType">
+        <xsd:sequence>
+            <xsd:element name="sectionRef" minOccurs="0" maxOccurs="unbounded">
+                <xsd:complexType>
+                    <xsd:simpleContent>
+                        <xsd:extension base="xsd:string">
+                            <xsd:attribute name="first" type="xsd:string"/>
+                            <xsd:attribute name="last" type="xsd:string"/>
+                            <xsd:attribute name="id" type="xsd:string"/>
+                        </xsd:extension>
+                    </xsd:simpleContent>
+                </xsd:complexType>
+            </xsd:element>
+            <!--ADDED 2011-05-24-->
+            <xsd:element ref="note" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+        <xsd:attribute name="id" type="xsd:string"/>
+    </xsd:complexType>
+    <xsd:element type="sectionIndexType" name="sectionIndex"/>
+
+    <xsd:complexType name="chapterType">
+        <xsd:sequence>
+            <xsd:element ref="name" minOccurs="0" maxOccurs="1"/>
+            <xsd:element ref="desc" minOccurs="0" maxOccurs="1"/>
+            <xsd:choice minOccurs="0" maxOccurs="unbounded">
+                <xsd:element ref="inclusionTerm" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="sevenChrNote" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="sevenChrDef" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="includes" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="excludes1" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="excludes2" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="codeFirst" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="useAdditionalCode" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="codeAlso" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="notes" minOccurs="0" maxOccurs="unbounded"/>
+                <xsd:element ref="sectionIndex" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="section" minOccurs="0" maxOccurs="unbounded"/>
+            </xsd:choice>
+        </xsd:sequence>
+    </xsd:complexType>
+    <xsd:element type="chapterType" name="chapter"/>
+
+    <xsd:complexType name="visualImpairmentType">
+        <xsd:sequence>
+            <xsd:element name="visCategory" minOccurs="1" maxOccurs="unbounded">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="heading" minOccurs="0"/>
+                        <xsd:element name="value" minOccurs="0"/>
+                        <xsd:element name="visRange" minOccurs="0" maxOccurs="unbounded">
+                            <xsd:complexType>
+                                <xsd:sequence>
+                                    <xsd:element name="heading" minOccurs="0"/>
+                                    <xsd:element name="visMax" minOccurs="0" maxOccurs="1" type="valueType"/>
+                                    <xsd:element name="visMin" minOccurs="0" maxOccurs="1" type="valueType"/>
+                                </xsd:sequence>
+                            </xsd:complexType>
+                        </xsd:element>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+        </xsd:sequence>
+    </xsd:complexType>
+    <xsd:element type="visualImpairmentType" name="visualImpairment"/>
+
+    <xsd:complexType name="valueType">
+        <xsd:sequence>
+            <xsd:element name="heading" minOccurs="0"/>
+            <xsd:element name="value" minOccurs="0"/>
+        </xsd:sequence>
+    </xsd:complexType>
+
+    <xsd:complexType name="introSectionType">
+        <xsd:sequence>
+            <xsd:element ref="title" minOccurs="0" maxOccurs="1"/>
+            <xsd:element ref="instruction" minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+        <xsd:attribute name="type" type="xsd:string" use="required"/>
+    </xsd:complexType>
+    <xsd:element type="introSectionType" name="introSection"/>
+
+    <xsd:complexType name="introductionType">
+        <xsd:sequence>
+            <xsd:element ref="introSection" minOccurs="1" maxOccurs="unbounded"/>
+        </xsd:sequence>
+    </xsd:complexType>
+    <xsd:element type="introductionType" name="introduction"/>
+
+    <xsd:element name="ICD10CM.tabular">
+        <xsd:annotation>
+            <xsd:documentation>Top level element and direct child-element sequence.</xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+            <xsd:sequence>
+                <xsd:element ref="version" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="title" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="introduction" minOccurs="0" maxOccurs="1"/>
+                <xsd:element ref="chapter" minOccurs="0" maxOccurs="unbounded"/>
+            </xsd:sequence>
+            <xsd:attribute name="isAddenda">
+                <xsd:simpleType>
+                    <xsd:restriction base="xsd:string">
+                        <xsd:enumeration value="true"/>
+                        <xsd:enumeration value="false"/>
+                    </xsd:restriction>
+                </xsd:simpleType>
+            </xsd:attribute>
+        </xsd:complexType>
+    </xsd:element>
+
+</xsd:schema>

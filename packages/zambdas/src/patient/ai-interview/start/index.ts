@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Consent, Encounter, QuestionnaireResponse } from 'fhir/r4b';
 import {
+  AI_QUESTIONNAIRE_ID,
   createOystehrClient,
   FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
   getSecret,
@@ -9,18 +10,28 @@ import {
   SecretsKeys,
   StartInterviewInput,
 } from 'utils';
-import { getAuth0Token, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  getAuth0Token,
+  topLevelCatch,
+  validateJsonBody,
+  validateString,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
 
-const INITIAL_USER_MESSAGE = `Perform a medical history intake session with me by asking me relevant questions.
- Ask no more than 30 questions.
- Ask one question at a time.
- Don't numerate questions.
- When you'll have no new questions to ask just say 
- "No further questions, thanks for chatting. We've sent the information to your nurse or doctor to review. ${INTERVIEW_COMPLETED}"`;
-const QUESTIONNAIRE_ID = 'aiInterviewQuestionnaire';
+const INITIAL_USER_MESSAGE = `Perform a medical history intake session in the manner of a physician  preparing me or my dependent for an urgent care visit, without using a fake name:
+•	Use a friendly and concerned physician's tone
+•	Determine who the patient is
+•	Ask only one question at a time.
+•	Ask no more than 20 questions in total.
+•	Don't number the questions.
+•	Cover all the major domains efficiently: chief complaint, history of present illness, past medical history, past surgical history, medications, allergies, family history, social history, hospitalizations, and relevant review of systems.
+•	Phrase questions in a clear, patient-friendly way that keeps the conversation moving quickly.
+•	If I give vague or incomplete answers, ask a brief follow-up before moving on.
+•	When you have gathered all useful information, end by saying: "No further questions, thanks for chatting. We've sent the information to your nurse or doctor to review. ${INTERVIEW_COMPLETED}"`;
 
 let oystehrToken: string;
 
@@ -53,11 +64,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(questionnaireResponse),
     };
   } catch (error: any) {
-    console.log('error', error, error.issue);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
@@ -128,13 +135,14 @@ async function findAIInterviewQuestionnaireResponse(
         },
         {
           name: 'questionnaire',
-          value: '#' + QUESTIONNAIRE_ID,
+          value: '#' + AI_QUESTIONNAIRE_ID,
         },
       ],
     })
   ).unbundle()[0];
 }
 
+// #aiInterview: start ai interview questionnaire
 async function createQuestionnaireResponse(
   encounterId: string,
   oystehr: Oystehr,
@@ -146,7 +154,7 @@ async function createQuestionnaireResponse(
   return oystehr.fhir.create<QuestionnaireResponse>({
     resourceType: 'QuestionnaireResponse',
     status: 'in-progress',
-    questionnaire: '#' + QUESTIONNAIRE_ID,
+    questionnaire: '#' + AI_QUESTIONNAIRE_ID,
     encounter: {
       reference: 'Encounter/' + encounterId,
     },
@@ -163,7 +171,7 @@ async function createQuestionnaireResponse(
     contained: [
       {
         resourceType: 'Questionnaire',
-        id: QUESTIONNAIRE_ID,
+        id: AI_QUESTIONNAIRE_ID,
         status: 'active',
         item: [
           {

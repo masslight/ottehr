@@ -25,6 +25,7 @@ import { useEffect, useState } from 'react';
 import { PatternFormat } from 'react-number-format';
 import { useNavigate } from 'react-router-dom';
 import {
+  BOOKING_CONFIG,
   CreateAppointmentInputParams,
   CreateSlotParams,
   getAppointmentDurationFromSlot,
@@ -44,7 +45,7 @@ import DateSearch from '../components/DateSearch';
 import { CustomDialog } from '../components/dialogs/CustomDialog';
 import LocationSelect from '../components/LocationSelect';
 import SlotPicker from '../components/SlotPicker';
-import { MAXIMUM_CHARACTER_LIMIT, REASON_FOR_VISIT_OPTIONS } from '../constants';
+import { MAXIMUM_CHARACTER_LIMIT } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
@@ -611,7 +612,7 @@ export default function AddPatient(): JSX.Element {
                           required
                           onChange={(event) => setReasonForVisit(event.target.value)}
                         >
-                          {REASON_FOR_VISIT_OPTIONS.map((reason) => (
+                          {BOOKING_CONFIG.reasonForVisitOptions.map((reason) => (
                             <MenuItem key={reason} value={reason}>
                               {reason}
                             </MenuItem>
@@ -673,6 +674,7 @@ export default function AddPatient(): JSX.Element {
                             : locationWithSlotData?.available?.map((si) => si.slot)
                         }
                         slotsLoading={loadingSlotState.status === 'loading'}
+                        selectedLocation={selectedLocation}
                         timezone={locationWithSlotData?.location?.timezone || 'Undefined'}
                         selectedSlot={slot}
                         setSelectedSlot={setSlot}

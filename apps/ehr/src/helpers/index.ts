@@ -1,20 +1,24 @@
 import Oystehr from '@oystehr/sdk';
 import { Message } from '@twilio/conversations';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, Location, Resource } from 'fhir/r4b';
+import { Appointment, Encounter, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ApptTab } from 'src/components/AppointmentTabs';
 import {
+  getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
+  getPractitionerNPIIdentifier,
   InPersonAppointmentInformation,
+  isPhysician,
+  isPhysicianProviderType,
   OrdersForTrackingBoardRow,
   PROJECT_NAME,
+  ProviderTypeCode,
 } from 'utils';
 import { EvolveUser } from '../hooks/useEvolveUser';
-import { CRITICAL_CHANGE_SYSTEM } from './activityLogsUtils';
 import { getCriticalUpdateTagOp } from './activityLogsUtils';
-import { formatDateUsingSlashes, getTimezone } from './formatDateTime';
+import { formatDateUsingSlashes } from './formatDateTime';
 
 export const classifyAppointments = (appointments: InPersonAppointmentInformation[]): Map<any, any> => {
   const statusCounts = new Map();
@@ -31,36 +35,6 @@ export const messageIsFromPatient = (message: Message): boolean => {
   return message.author?.startsWith('+') ?? false;
 };
 
-const getCheckInNeededTagsPatchOperation = (appointment: Appointment, user: EvolveUser | undefined): Operation => {
-  const criticalUpdateTagCoding = {
-    system: CRITICAL_CHANGE_SYSTEM,
-    display: `Staff ${user?.email ? user.email : `(${user?.id})`}`,
-    version: DateTime.now().toISO() || '',
-  };
-
-  const meta = appointment.meta;
-  if (meta) {
-    let op: 'add' | 'replace' = 'add';
-    const value = (meta.tag ?? []).filter((coding) => coding.system !== CRITICAL_CHANGE_SYSTEM);
-    if (meta.tag != undefined) {
-      op = 'replace';
-    }
-    value.push(criticalUpdateTagCoding);
-    return {
-      op,
-      path: '/meta/tag',
-      value,
-    };
-  } else {
-    const value = { tag: [criticalUpdateTagCoding] };
-    return {
-      op: 'add',
-      path: '/meta',
-      value,
-    };
-  }
-};
-
 export const checkInPatient = async (
   oystehr: Oystehr,
   appointmentId: string,
@@ -75,9 +49,16 @@ export const checkInPatient = async (
     resourceType: 'Encounter',
     id: encounterId,
   });
-  const metaPatchOperation = getCheckInNeededTagsPatchOperation(appointmentToUpdate, user);
+  const checkedInBy = `Staff ${user?.email ? user.email : `(${user?.id})`}`;
+  const metaPatchOperations = getAppointmentMetaTagOpForStatusUpdate(appointmentToUpdate, 'arrived', {
+    updatedByOverride: checkedInBy,
+  });
 
-  const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(encounterToUpdate, 'arrived');
+  const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
+    encounterToUpdate,
+    'arrived',
+    'arrived'
+  );
 
   const patchOp: Operation = {
     op: 'replace',
@@ -90,7 +71,7 @@ export const checkInPatient = async (
       getPatchBinary({
         resourceId: appointmentId,
         resourceType: 'Appointment',
-        patchOperations: [patchOp, metaPatchOperation],
+        patchOperations: [patchOp, ...metaPatchOperations],
       }),
       getPatchBinary({
         resourceId: encounterId,
@@ -128,12 +109,11 @@ export const sortLocationsByLabel = (locations: LocationOptionConfig[]): { label
 export const formatLastModifiedTag = (
   field: string,
   resource: Resource | undefined,
-  location: Location
+  locationTimeZone: string | undefined
 ): string | undefined => {
   if (!resource) return;
   const codeString = resource?.meta?.tag?.find((tag) => tag.system === `staff-update-history-${field}`)?.code;
   if (codeString) {
-    const locationTimeZone = getTimezone(location);
     const codeJson = JSON.parse(codeString) as any;
     const date = DateTime.fromISO(codeJson.lastModifiedDate).setZone(locationTimeZone);
     const timeFormatted = date.toLocaleString(DateTime.TIME_SIMPLE);
@@ -195,3 +175,33 @@ export const displayOrdersToolTip = (appointment: InPersonAppointmentInformation
 export const hasAtLeastOneOrder = (orders: OrdersForTrackingBoardRow): boolean => {
   return Object.values(orders).some((orderList) => Array.isArray(orderList) && orderList.length > 0);
 };
+
+export function isEligibleSupervisor(practitioner: Practitioner, attenderProviderType?: ProviderTypeCode): boolean {
+  if (!practitioner) return false;
+
+  const isAttenderPhysician = isPhysicianProviderType(attenderProviderType);
+  const isPractitionerPhysician = isPhysician(practitioner);
+  const npiIdentifier = getPractitionerNPIIdentifier(practitioner);
+
+  return !isAttenderPhysician && isPractitionerPhysician && Boolean(npiIdentifier?.value);
+}
+
+export function sortByRecencyAndStatus<T extends { lastUpdated?: string; current?: boolean }>(
+  items: T[] = [],
+  newestFirst = false
+): T[] {
+  const sortedByTime = [...items].sort((a, b) => {
+    const aTime = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+    const bTime = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+    return newestFirst ? bTime - aTime : aTime - bTime;
+  });
+
+  const active: T[] = [];
+  const inactive: T[] = [];
+
+  sortedByTime.forEach((item) => {
+    (item.current ? active : inactive).push(item);
+  });
+
+  return [...active, ...inactive];
+}

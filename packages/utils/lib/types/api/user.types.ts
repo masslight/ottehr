@@ -13,19 +13,20 @@ export type User = OystehrUser & {
 };
 
 export enum RoleType {
-  NewUser = 'NewUser',
   Administrator = 'Administrator',
   AssistantAdmin = 'AssistantAdmin',
-  RegionalTelemedLead = 'RegionalTelemedLead',
-  CallCentre = 'CallCentre',
   Billing = 'Billing',
-  Manager = 'Manager',
-  Staff = 'Staff',
-  Provider = 'Provider',
+  CallCentre = 'CallCentre',
+  CustomerSupport = 'Customer Support',
   FrontDesk = 'Front Desk',
   Inactive = 'Inactive',
-  Prescriber = 'Prescriber',
+  Manager = 'Manager',
   // Medical Assistant
+  NewUser = 'NewUser',
+  Prescriber = 'Prescriber',
+  Provider = 'Provider',
+  RegionalTelemedLead = 'RegionalTelemedLead',
+  Staff = 'Staff',
 }
 
 export interface AccessPolicy {
@@ -68,6 +69,11 @@ export const AVAILABLE_EMPLOYEE_ROLES: {
     value: RoleType.Provider,
     label: 'Provider',
     hint: `A clinician, such as a doctor, a PA or an NP`,
+  },
+  {
+    value: RoleType.CustomerSupport,
+    label: 'Customer Support',
+    hint: `A customer support representative`,
   },
   // {
   //   value: RoleType.Prescriber,

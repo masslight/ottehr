@@ -1,12 +1,12 @@
 import { TextField, TextFieldProps } from '@mui/material';
 import React, { ReactElement } from 'react';
-import { Control, Controller, FieldValues, Path, RegisterOptions } from 'react-hook-form';
+import { Control, Controller, FieldValues, Path, UseControllerProps } from 'react-hook-form';
 
 interface FormTextFieldProps<T extends FieldValues> extends Omit<TextFieldProps, 'name'> {
   name: Path<T>;
   control: Control<T>;
   defaultValue?: string;
-  rules?: RegisterOptions;
+  rules?: UseControllerProps<T, Path<T>>['rules'];
   onChangeHandler?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   helperText?: string;
 }

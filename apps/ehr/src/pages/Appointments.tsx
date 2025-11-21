@@ -8,14 +8,18 @@ import { DateTime } from 'luxon';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
-import { useGetMedicationOrders } from 'src/telemed';
+import { useGetVitalsForEncounters } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
+import { useGetMedicationOrders } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   ExtendedMedicationDataForResponse,
   GetRadiologyOrderListZambdaOrder,
+  GetVitalsForListOfEncountersResponseData,
   InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
   LabOrderListPageDTO,
@@ -33,8 +37,7 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { adjustTopForBannerHeight } from '../helpers/misc.helper';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { useDebounce } from '../telemed/hooks';
-import { VisitType, VisitTypeToLabel } from '../types/types';
+import { VisitType, visitTypeToInPersonLabel } from '../types/types';
 import { LocationWithWalkinSchedule } from './AddPatient';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
@@ -188,13 +191,17 @@ export default function Appointments(): ReactElement {
     radiologyOrdersByAppointmentId,
   };
 
+  const { data: vitals } = useGetVitalsForEncounters({
+    encounterIds: [...inOfficeEncounterIds, ...completedEncounterIds],
+  });
+
   useEffect(() => {
     const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');
     if (selectedVisitTypes) {
       queryParams?.set('visitType', JSON.parse(selectedVisitTypes) ?? '');
       navigate(`?${queryParams?.toString()}`);
     } else {
-      queryParams?.set('visitType', Object.keys(VisitTypeToLabel).join(','));
+      queryParams?.set('visitType', Object.keys(visitTypeToInPersonLabel).join(','));
     }
   }, [navigate, queryParams]);
 
@@ -287,6 +294,7 @@ export default function Appointments(): ReactElement {
           visitType: visitType,
           providerIDs: providers,
           groupIDs: groups,
+          supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
         });
 
         debounce(() => {
@@ -345,6 +353,7 @@ export default function Appointments(): ReactElement {
       cancelledAppointments={cancelledAppointments}
       inOfficeAppointments={inOfficeAppointments}
       orders={orders}
+      vitals={vitals}
       locationSelected={locationSelected}
       setLocationSelected={setLocationSelected}
       practitioners={practitioners}
@@ -377,6 +386,7 @@ interface AppointmentsBodyProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   orders: OrdersForTrackingBoardTable;
+  vitals?: GetVitalsForListOfEncountersResponseData;
 }
 function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
   const {
@@ -399,6 +409,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     updateAppointments,
     setEditingComment,
     orders,
+    vitals,
   } = props;
 
   const [displayFilters, setDisplayFilters] = useState<boolean>(true);
@@ -465,9 +476,9 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                           },
                         }}
                         value={visitType}
-                        options={Object.keys(VisitTypeToLabel)}
+                        options={Object.keys(visitTypeToInPersonLabel)}
                         getOptionLabel={(option) => {
-                          return VisitTypeToLabel[option as VisitType];
+                          return visitTypeToInPersonLabel[option as VisitType];
                         }}
                         onChange={(event, value) => {
                           if (value) {
@@ -569,12 +580,13 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
               completedAppointments={completedAppointments}
               inOfficeAppointments={inOfficeAppointments}
               orders={orders}
+              vitals={vitals}
               loading={loadingState.status === 'loading'}
               updateAppointments={updateAppointments}
               setEditingComment={setEditingComment}
             />
           </Box>
-          <CreateDemoVisits />
+          {FEATURE_FLAGS.DEMO_VISITS_ENABLED && <CreateDemoVisits />}
         </>
       </PageContainer>
     </form>

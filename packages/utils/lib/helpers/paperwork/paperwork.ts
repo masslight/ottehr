@@ -1,13 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import {
+  Appointment,
+  DocumentReference,
+  Encounter,
   Extension,
   FhirResource,
+  List,
+  Location,
+  Patient,
   Questionnaire,
   QuestionnaireItem,
   QuestionnaireItemAnswerOption,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
+  Resource,
+  Schedule,
   ValueSet,
 } from 'fhir/r4b';
 import _ from 'lodash';
@@ -21,6 +29,7 @@ import {
   FormSelectionElementList,
   InputWidthOption,
   IntakeQuestionnaireItem,
+  PaperworkPDFResourcePackage,
   Question,
   QuestionnaireItemConditionDefinition,
   QuestionnaireItemExtension,
@@ -29,6 +38,8 @@ import {
   validateQuestionnaireDataType,
 } from '../../types';
 import { DOB_DATE_FORMAT } from '../../utils';
+
+export const PAPERWORK_PDF_ATTACHMENT_TITLE = 'Paperwork';
 
 export interface OptionConfig {
   label: string;
@@ -305,6 +316,10 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     }
   }
 
+  const requiredBooleanValue = extension.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requiredBooleanValue;
+  })?.valueBoolean;
+
   return {
     acceptsMultipleAnswers,
     alwaysFilter,
@@ -325,6 +340,7 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     inputWidth: inputWidth as InputWidthOption | undefined,
     minRows,
     complexValidation,
+    requiredBooleanValue,
   };
 };
 
@@ -369,10 +385,6 @@ export const getQuestionnaireItemsAndProgress = async (
           name: '_id',
           value: questionnaireResponseId,
         },
-        {
-          name: '_include',
-          value: 'QuestionnaireResponse:questionnaire',
-        },
       ],
     })
   ).unbundle();
@@ -383,18 +395,22 @@ export const getQuestionnaireItemsAndProgress = async (
     return res.resourceType === 'QuestionnaireResponse';
   }) as QuestionnaireResponse | undefined;
 
-  const questionnaire: Questionnaire | undefined = results.find((res) => {
-    if (res.resourceType === 'Questionnaire') {
-      // this in-memory filtering is a workaround for an Oystehr search bug: https://github.com/masslight/zapehr/issues/6051
-      const q = res as Questionnaire;
-      return `${q.url}|${q.version}` === qr?.questionnaire;
-    }
-    return false;
-  }) as Questionnaire | undefined;
-
-  if (!questionnaire || !qr) {
+  if (!qr) {
     return undefined;
   }
+
+  if (!qr.questionnaire) {
+    throw new Error(`QuestionnaireResponse with id ${questionnaireResponseId} is missing "questionnaire" field`);
+  }
+
+  const [questionnaireURL, questionnaireVersion] = qr.questionnaire.split('|');
+  const questionnaire = await getCanonicalQuestionnaire(
+    {
+      url: questionnaireURL,
+      version: questionnaireVersion,
+    },
+    oystehr
+  );
 
   const [sourceQuestionnaireUrl, sourceQuestionnaireVersion] = qr?.questionnaire?.split('|') ?? [null, null];
 
@@ -645,4 +661,82 @@ export const pruneEmptySections = (qr: QuestionnaireResponse): QuestionnaireResp
   prunedQR.item = prunedQR.item?.filter((item) => itemContainsAnyAnswer(item));
   //console.log('pruned qr.item', prunedQR.item);
   return prunedQR;
+};
+
+export function isNonPaperworkQuestionnaireResponse<T extends FhirResource>(resource: T): boolean {
+  return (
+    resource.resourceType === 'QuestionnaireResponse' &&
+    !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson') &&
+    !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
+  );
+}
+
+export const getPaperworkResources = async (
+  oystehr: Oystehr,
+  QuestionnaireResponseId: string
+): Promise<PaperworkPDFResourcePackage | undefined> => {
+  const items: Array<
+    Patient | QuestionnaireResponse | DocumentReference | List | Encounter | Appointment | Schedule | Location
+  > = (
+    await oystehr.fhir.search<
+      Patient | QuestionnaireResponse | DocumentReference | List | Encounter | Appointment | Schedule | Location
+    >({
+      resourceType: 'QuestionnaireResponse',
+      params: [
+        {
+          name: '_id',
+          value: QuestionnaireResponseId,
+        },
+        {
+          name: '_include',
+          value: 'QuestionnaireResponse:subject',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'List:patient',
+        },
+        {
+          name: '_include',
+          value: 'QuestionnaireResponse:encounter',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include',
+          value: 'Appointment:location',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Schedule:actor:Location',
+        },
+      ],
+    })
+  ).unbundle();
+
+  const questionnaireResponse: QuestionnaireResponse | undefined = items?.find(
+    (item: Resource) => item.resourceType === 'QuestionnaireResponse'
+  ) as QuestionnaireResponse;
+  if (!questionnaireResponse) return undefined;
+
+  const patient: Patient | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Patient';
+  }) as Patient;
+
+  const listResources = items.filter((item) => item.resourceType === 'List') as List[];
+
+  const appointment = items.find((item) => item.resourceType === 'Appointment');
+  if (!appointment) return undefined;
+  const schedule = items?.find((item) => item.resourceType === 'Schedule');
+  const location = items.find((item) => item.resourceType === 'Location');
+
+  return {
+    questionnaireResponse,
+    patient,
+    listResources,
+    appointment,
+    schedule,
+    location,
+  };
 };

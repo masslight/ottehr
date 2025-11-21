@@ -12,3 +12,7 @@ dist/
 old-ottehr/
 .serverless/
 cdk.out/
+playwright-report*/
+apps/**/playwright-report*/
+scripts/**/*.js
+*.js

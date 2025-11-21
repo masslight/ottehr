@@ -1,3 +1,4 @@
+import { vitalsConfig } from '../../configuration';
 import {
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
@@ -12,15 +13,18 @@ import {
 } from '../../types';
 import { formatDateTimeToZone } from '../../utils';
 import {
+  celsiusToFahrenheit,
+  cmToFeet,
+  cmToInches,
+  formatWeightKg,
+  formatWeightLbs,
   getVisionExtraOptionsFormattedString,
-  heightInCmToInch,
-  kgToLb,
-  parseVisionExtraOptions,
   VitalsVisitNoteData,
 } from '../vitals';
 
 export const mapVitalsToDisplay = (
   vitalsObservations: VitalsObservationDTO[],
+  showTime = true,
   timezone?: string
 ): VitalsVisitNoteData | undefined =>
   vitalsObservations?.reduce((vitals, observation) => {
@@ -32,7 +36,9 @@ export const mapVitalsToDisplay = (
     switch (field) {
       case VitalFieldNames.VitalTemperature:
         parsed = observation as VitalsTemperatureObservationDTO;
-        text = `${parsed.value} C ${parsed.observationMethod ? ` (${parsed.observationMethod})` : ''}`;
+        text = `${parsed.value} C = ${celsiusToFahrenheit(parsed.value).toFixed(1)} F ${
+          parsed.observationMethod ? ` (${parsed.observationMethod})` : ''
+        }`;
         break;
       case VitalFieldNames.VitalHeartbeat:
         parsed = observation as VitalsHeartbeatObservationDTO;
@@ -52,19 +58,26 @@ export const mapVitalsToDisplay = (
         parsed = observation as VitalsOxygenSatObservationDTO;
         text = `${parsed.value}%${parsed.observationMethod ? ` (${parsed.observationMethod})` : ''}`;
         break;
-      case VitalFieldNames.VitalWeight:
+      case VitalFieldNames.VitalWeight: {
         parsed = observation as VitalsWeightObservationDTO;
-        text = `${parsed.value} kg / ${kgToLb(parsed.value)} lbs`;
+        const kgStr = formatWeightKg(parsed.value) + ' kg';
+        const lbsStr = formatWeightLbs(parsed.value) + ' lbs';
+        if (vitalsConfig['vital-weight'].unit == 'kg') {
+          text = `${kgStr} = ${lbsStr}`;
+        } else {
+          text = `${lbsStr} = ${kgStr}`;
+        }
         break;
+      }
       case VitalFieldNames.VitalHeight:
         parsed = observation as VitalsHeightObservationDTO;
-        text = `${parsed.value} cm / ${heightInCmToInch(parsed.value)} inch`;
+        text = `${parsed.value} cm = ${cmToInches(parsed.value)} inch = ${cmToFeet(parsed.value)} ft`;
         break;
       case VitalFieldNames.VitalVision:
         parsed = observation as VitalsVisionObservationDTO;
         text = `Left eye: ${parsed.leftEyeVisionText}; Right eye: ${parsed.rightEyeVisionText};${
           parsed.extraVisionOptions && parsed.extraVisionOptions.length > 0
-            ? ` ${getVisionExtraOptionsFormattedString(parseVisionExtraOptions(parsed.extraVisionOptions))}`
+            ? ` ${getVisionExtraOptionsFormattedString(parsed.extraVisionOptions)}`
             : ''
         }`;
         break;
@@ -76,7 +89,7 @@ export const mapVitalsToDisplay = (
       if (!vitals[field]) {
         vitals[field] = [];
       }
-      vitals[field]!.push(`${time} - ${text}`);
+      vitals[field]!.push(showTime ? `${time} - ${text}` : text);
     }
 
     return vitals;

@@ -1,5 +1,5 @@
 import {
-  ChartDataFields,
+  AllChartValues,
   PATIENT_VITALS_META_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
   SearchParams,
@@ -7,7 +7,7 @@ import {
 } from 'utils';
 
 export interface VitalsSearchConfig {
-  fieldName: Extract<keyof ChartDataFields, 'vitalsObservations'>;
+  fieldName: Extract<keyof AllChartValues, 'vitalsObservations'>;
   searchParams: SearchParams;
 }
 
@@ -23,7 +23,20 @@ export const createVitalsSearchConfig = (
       _include: 'Observation:performer',
       _sort: '-_lastUpdated',
       _count: count ?? 100,
-      _tag: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}|${vitalFieldName}`,
+      _tag: vitalFieldName,
+    },
+  };
+};
+
+export const allVitalsSearchConfigForEncounter = (count?: number): VitalsSearchConfig => {
+  return {
+    fieldName: 'vitalsObservations',
+    searchParams: {
+      _search_by: 'encounter',
+      _include: 'Observation:performer',
+      _sort: '-_lastUpdated',
+      _count: count ?? 1000,
+      _tag: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}|`,
     },
   };
 };

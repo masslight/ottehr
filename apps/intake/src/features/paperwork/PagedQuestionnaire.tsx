@@ -123,11 +123,27 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
     return undefined;
   }
   // console.log('errors in form', JSON.stringify(errors, null, 2));
+
+  // Check if any error is for a group with list-with-form type
+  const hasListWithFormError = items.some((item) => {
+    return errorKeys.includes(item.linkId) && item.type === 'group' && item.groupType === 'list-with-form';
+  });
+
+  // For list-with-form groups, always use the generic singular message
+  if (hasListWithFormError) {
+    return 'Please fix the error in the field above to proceed';
+  }
+
   const errorItems = items
     .filter((i) => errorKeys.includes(i.linkId) && (i.text !== undefined || i.type === 'group'))
     .flatMap((i) => {
       if (i.type === 'group' && i.dataType !== 'DOB') {
         const items = ((errors[i.linkId] as any)?.item ?? []) as any[];
+        if (!Array.isArray(items)) {
+          // If items is not an array, treat it as a single group error
+          return `"${stripMarkdownLink(i.text ?? i.linkId)}"`;
+        }
+
         const internalErrors: IntakeQuestionnaireItem[] = [];
         items.forEach((e, idx) => {
           if (e != null) {
@@ -144,6 +160,7 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
       }
       return `"${stripMarkdownLink(i.text ?? '')}"`;
     });
+
   if (numErrors === errorItems.length) {
     if (numErrors > 1) {
       return `Please fix the errors in the following fields to proceed: ${errorItems.map((ei) => ei)}`;
@@ -166,17 +183,19 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   onSubmit,
   saveProgress,
 }) => {
-  const { paperwork, allItems } = usePaperworkContext();
+  const { paperwork, allItems, questionnaireResponse: questionnaireResponseResource } = usePaperworkContext();
+
   const [cache, setCache] = useState({
     pageId,
     items,
     defaultValues,
   });
-
   const validationSchema = makeValidationSchema(items, pageId, {
     values: paperwork,
     items: allItems,
+    questionnaireResponse: questionnaireResponseResource,
   }) as AnyObjectSchema;
+
   const methods = useForm({
     mode: 'onSubmit', // onBlur doesn't seem to work but we use onBlur of FormControl in NestedInput to implement the desired behavior
     reValidateMode: 'onChange',
@@ -185,7 +204,6 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
     shouldFocusError: true,
     resolver: yupResolver(validationSchema, { abortEarly: false }),
   });
-
   const { reset } = methods;
 
   useEffect(() => {
@@ -194,13 +212,12 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
       (cache.pageId !== pageId || !_.isEqual(cache.items, items) || !_.isEqual(cache.defaultValues, defaultValues))
     ) {
       setCache({ pageId, items, defaultValues });
-      console.log('resetting form with default values');
-      reset({
+      reset((formValues) => ({
+        ...formValues,
         ...(defaultValues ?? {}),
-      });
+      }));
     }
   }, [cache, defaultValues, items, reset, pageId]);
-
   return (
     <FormProvider {...methods}>
       <PaperworkFormRoot
@@ -241,9 +258,7 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   const { isSubmitting, isLoading, errors } = formState;
 
   const errorMessage = makeFormErrorMessage(items, errors);
-  // console.log('errors', errors);
   const { formValues } = useQRState();
-  // console.log('form values', formValues);
 
   const submitHandler = useCallback(async () => {
     setIsSavingProgress(true);
@@ -384,7 +399,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
         render={(renderProps) => (
           <FormControl
             variant="standard"
-            required={item.isRequired}
+            required={item.dataType !== 'Payment Validation' && item.isRequired}
             error={hasError}
             fullWidth={item.isFullWidth}
             hiddenLabel={true}
@@ -587,7 +602,13 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
           <Button
             variant="outlined"
             type="button"
-            onClick={smartOnChange}
+            onClick={
+              item.type !== 'boolean'
+                ? smartOnChange
+                : () => {
+                    smartOnChange(!unwrappedValue);
+                  }
+            }
             sx={{
               color: colorForButton,
               borderColor: colorForButton,
@@ -627,7 +648,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
                     outline: '1px solid #295F75',
                   },
                 }}
-                onChange={smartOnChange}
+                onChange={() => smartOnChange(!unwrappedValue)}
                 required={item.required}
               />
             }
@@ -692,7 +713,9 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
           return <RenderItems parentItem={item} items={item.item ?? []} fieldId={fieldId} />;
         }
       case 'Credit Card':
-        return <CreditCardVerification value={unwrappedValue} onChange={smartOnChange} />;
+        return (
+          <CreditCardVerification value={unwrappedValue} required={item.required ?? false} onChange={smartOnChange} />
+        );
       default:
         return <></>;
     }

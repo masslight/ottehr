@@ -7,14 +7,13 @@ import { generatePath, useNavigate } from 'react-router-dom';
 import {
   APIError,
   CreateSlotParams,
+  getClosingTime,
   getHoursOfOperationForToday,
+  getOpeningTime,
   getTimezone,
   isApiError,
-  isLocationOpen,
   ServiceMode,
-  stateCodeToFullName,
   TelemedLocation,
-  TIMEZONES,
 } from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { bookingBasePath, intakeFlowPageRoute } from '../App';
@@ -25,7 +24,7 @@ import { BoldPurpleInputLabel } from '../components/form';
 import PageForm from '../components/PageForm';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
-import { useGetTelemedStates } from '../telemed/features/appointments';
+import { useGetTelemedLocations } from '../telemed/features/appointments';
 import { useOystehrAPIClient } from '../telemed/utils';
 
 const emptyArray: [] = [];
@@ -58,14 +57,14 @@ const StartVirtualVisit = (): JSX.Element => {
   const [errorDialogConfig, setErrorDialogConfig] = useState<ErrorDialogConfig | undefined>(undefined);
 
   const apiClient = useOystehrAPIClient({ tokenless: true });
-  const { data: locationsResponse } = useGetTelemedStates(apiClient, Boolean(apiClient));
+  const { data: locationsResponse } = useGetTelemedLocations(apiClient, Boolean(apiClient));
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
 
-  const telemedStates = locationsResponse?.locations || emptyArray;
+  const telemedLocations = locationsResponse?.locations || emptyArray;
 
   console.log('locationsResponse', locationsResponse);
 
-  const handleStateChange = (_e: any, newValue: TelemedLocation | null): void => {
+  const handleLocationChange = (_e: any, newValue: TelemedLocation | null): void => {
     setSelectedLocation(newValue);
   };
 
@@ -112,44 +111,42 @@ const StartVirtualVisit = (): JSX.Element => {
     }
   };
 
-  const sortedStates = useMemo(() => {
-    const allStates = new Set([...Object.keys(stateCodeToFullName), ...telemedStates.map((s) => s.state)]);
-
-    const getPriority = (state: { available: boolean; workingHours: null | string }): number => {
-      if (state.available) return 0;
-      if (state.workingHours) return 1;
+  const sortedLocations = useMemo(() => {
+    const getPriority = (location: { available: boolean; workingHours: null | string }): number => {
+      if (location.available) return 0;
+      if (location.workingHours) return 1;
       return 2;
     };
 
-    return [...allStates]
-      .map((stateCode) => {
-        const serverState = telemedStates.find((s) => s.state === stateCode);
+    return telemedLocations
+      .map((location) => {
+        const tz = getTimezone(location.schedule);
+        const now = DateTime.now().setZone(tz);
+        const state = location.state;
+        const currentWorkingHours = currentWorkingHoursText(location);
+        const openingTime =
+          location.locationInformation.scheduleExtension &&
+          getOpeningTime(location.locationInformation.scheduleExtension!, tz, now);
+        const closingTime =
+          location.locationInformation.scheduleExtension &&
+          getClosingTime(location.locationInformation.scheduleExtension!, tz, now);
+        const isOpen = Boolean(openingTime && openingTime <= now && (!closingTime || closingTime > now));
 
-        const currentWorkingHours = currentWorkingHoursText(serverState);
         return {
-          state: stateCode,
-          available:
-            serverState?.available && serverState?.locationInformation?.scheduleExtension
-              ? isLocationOpen(
-                  serverState.locationInformation.scheduleExtension,
-                  serverState.locationInformation.timezone ?? TIMEZONES[0],
-                  DateTime.now().setZone(serverState.locationInformation.timezone ?? '')
-                )
-              : false,
-          workingHours: (Boolean(serverState?.available) && currentWorkingHours) || null,
-          fullName: stateCodeToFullName[stateCode] || stateCode,
-          scheduleId: serverState?.schedule.id || '',
-          schedule: serverState?.schedule,
-          locationInformation: serverState?.locationInformation,
+          state: state,
+          available: location?.available && openingTime && closingTime ? isOpen : false,
+          workingHours: (Boolean(location?.available) && currentWorkingHours) || null,
+          fullName: location?.locationInformation?.name || state,
+          scheduleId: location?.schedule.id || '',
+          schedule: location?.schedule,
+          locationInformation: location?.locationInformation,
         };
       })
       .sort((a, b) => {
         const priorityDiff = getPriority(a) - getPriority(b);
         return priorityDiff !== 0 ? priorityDiff : a.fullName.localeCompare(b.fullName);
       });
-  }, [telemedStates]);
-
-  console.log('sortedStates, telemedStates', sortedStates?.length, telemedStates?.length);
+  }, [telemedLocations]);
 
   return (
     <PageContainer title="Request a Virtual Visit" imgAlt="Chat icon">
@@ -157,7 +154,7 @@ const StartVirtualVisit = (): JSX.Element => {
         We're pleased to offer this new technology for accessing care. You will need to enter your information just
         once. Next time you return, it will all be here for you!
       </Typography>
-      {!sortedStates?.length || !telemedStates?.length ? (
+      {!sortedLocations?.length || !telemedLocations?.length ? (
         <Skeleton
           sx={{
             borderRadius: 2,
@@ -169,16 +166,20 @@ const StartVirtualVisit = (): JSX.Element => {
         <>
           <Autocomplete
             id="states-autocomplete"
-            options={sortedStates}
+            options={sortedLocations}
             getOptionLabel={(option) => option.fullName || option.state || ''}
             onChange={(_e, newValue) =>
-              newValue?.schedule ? handleStateChange(_e, newValue as TelemedLocation) : null
+              newValue?.schedule ? handleLocationChange(_e, newValue as TelemedLocation) : null
             }
-            value={sortedStates.find((state) => state.state === selectedLocation?.state) || null}
-            isOptionEqualToValue={(option, value) => option.state === value.state}
+            value={
+              sortedLocations.find(
+                (location) => location.locationInformation.id === selectedLocation?.locationInformation.id
+              ) || null
+            }
+            isOptionEqualToValue={(option, value) => option.locationInformation.id === value.locationInformation.id}
             renderOption={(props, option) => {
               return (
-                <li {...props}>
+                <li {...props} key={option.locationInformation.id}>
                   <Box>
                     <Typography sx={{ pt: 1 }} variant="body2">
                       {option.fullName}
@@ -202,7 +203,7 @@ const StartVirtualVisit = (): JSX.Element => {
             renderInput={(params) => (
               <>
                 <BoldPurpleInputLabel required shrink sx={{ whiteSpace: 'pre-wrap', mt: 3 }}>
-                  Current location (State)
+                  Visit location
                 </BoldPurpleInputLabel>
                 <TextField
                   {...params}

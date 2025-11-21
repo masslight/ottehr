@@ -17,13 +17,13 @@ import {
   Typography,
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
+import { useQuery } from '@tanstack/react-query';
 import { HealthcareService, Location, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useMemo, useState } from 'react';
-import { useQuery } from 'react-query';
 import { Link } from 'react-router-dom';
-import { APIError, isApiError, SchedulesAndOwnerListItem } from 'utils';
+import { APIError, isApiError, SchedulesAndOwnerListItem, useErrorQuery } from 'utils';
 import { listScheduleOwners } from '../api/api';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
@@ -57,6 +57,8 @@ export function getName(item: Resource): string {
   return name;
 }
 
+const emptyScheduleList: SchedulesAndOwnerListItem[] = [];
+
 export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps): ReactElement => {
   const { oystehrZambda } = useApiClients();
   const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -73,29 +75,32 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     return 'HealthcareService';
   })();
 
-  const { isLoading, isFetching, isRefetching, data } = useQuery(
-    [`list-schedule-owners + ${scheduleType}`, { zambdaClient: oystehrZambda }],
-    () => (oystehrZambda ? listScheduleOwners({ ownerType }, oystehrZambda) : null),
-    {
-      onError: (e) => {
-        let errorMessage = 'Error fetching schedule owners';
-        if (isApiError(e)) {
-          errorMessage = (e as APIError).message;
-        }
-        enqueueSnackbar({
-          message: errorMessage,
-          variant: 'error',
-        });
-      },
-      enabled: !!oystehrZambda,
+  const { data, error, isLoading, isFetching, isRefetching } = useQuery({
+    queryKey: ['schedule-list'],
+    queryFn: () => (oystehrZambda ? listScheduleOwners({ ownerType }, oystehrZambda) : null),
+    enabled: !!oystehrZambda,
+  });
+
+  useErrorQuery(error, (error) => {
+    if (error) {
+      let errorMessage = 'Error fetching schedule owners';
+      if (isApiError(error)) {
+        errorMessage = (error as APIError).message;
+      }
+      enqueueSnackbar({
+        message: errorMessage,
+        variant: 'error',
+      });
     }
-  );
+  });
 
   const loading = isLoading || isFetching || isRefetching;
 
   const filteredItems = useMemo(() => {
-    const unfiltered = data?.list ?? [];
-    return unfiltered.filter((item) => item.owner.name.toLowerCase().includes(searchText.toLowerCase()));
+    if (!data?.list) {
+      return emptyScheduleList;
+    }
+    return data.list.filter((item) => item.owner.name.toLowerCase().includes(searchText.toLowerCase()));
   }, [data, searchText]);
 
   // For pagination, only include the rows that are on the current page

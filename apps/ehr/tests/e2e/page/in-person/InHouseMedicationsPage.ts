@@ -1,8 +1,9 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
-import { CssHeader } from '../CssHeader';
 import { EditMedicationCard } from '../EditMedicationCard';
+import { InPersonHeader } from '../InPersonHeader';
 import { expectOrderMedicationPage, OrderMedicationPage } from '../OrderMedicationPage';
+import { Dialog, expectDialog } from '../patient-information/Dialog';
 import { SideMenu } from '../SideMenu';
 
 export class InHouseMedicationsPage {
@@ -12,8 +13,8 @@ export class InHouseMedicationsPage {
     this.#page = page;
   }
 
-  cssHeader(): CssHeader {
-    return new CssHeader(this.#page);
+  inPersonHeader(): InPersonHeader {
+    return new InPersonHeader(this.#page);
   }
 
   sideMenu(): SideMenu {
@@ -32,47 +33,112 @@ export class InHouseMedicationsPage {
   async verifyMedicationPresent(input: {
     medicationName: string;
     dose: string;
+    units: string;
     route: string;
+    orderedBy?: string;
+    givenBy?: string;
     instructions: string;
     status: string;
+    reason?: string;
   }): Promise<void> {
-    await expect(
-      this.#page
-        .getByTestId(dataTestIds.inHouseMedicationsPage.marTableRow)
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableMedicationCell)
-            .filter({ hasText: input.medicationName }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableDoseCell)
-            .filter({ hasText: input.dose }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableRouteCell)
-            .filter({ hasText: input.route }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableInstructionsCell)
-            .filter({ hasText: input.instructions }),
-        })
-        .filter({
-          has: this.#page
-            .getByTestId(dataTestIds.inHouseMedicationsPage.marTableStatusCell)
-            .filter({ hasText: input.status }),
-        })
-    ).toBeVisible();
+    const testIdToTextArray: { testId: string; text: string | undefined }[] = [
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTable.medicationCell,
+        text: input.medicationName,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTable.doseCell,
+        text: input.dose + ' ' + input.units,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTable.routeCell,
+        text: input.route,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTable.orderedByCell,
+        text: input.orderedBy,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTable.givenByCell,
+        text: input.givenBy,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTable.instructionsCell,
+        text: input.instructions,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTable.statusCell,
+        text: input.status,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.marTable.reasonCell,
+        text: input.reason,
+      },
+    ];
+    let matchedLocator = this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.marTable.row);
+    for (const testIdToText of testIdToTextArray) {
+      if (testIdToText.text) {
+        matchedLocator = matchedLocator.filter({
+          has: this.#page.getByTestId(testIdToText.testId).filter({ hasText: testIdToText.text }),
+        });
+        await expect(matchedLocator.first()).toBeVisible();
+      }
+    }
   }
 
   async clickMedicationDetailsTab(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.medicationDetailsTab).click();
   }
 
+  async clickMarTab(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.marTab).click();
+  }
+
   async clickPencilIcon(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.pencilIconButton).click();
+  }
+
+  async clickDeleteButton(medicationName: string): Promise<Dialog> {
+    await this.#page
+      .getByTestId(dataTestIds.inHouseMedicationsPage.marTable.row)
+      .filter({
+        hasText: medicationName,
+      })
+      .getByTestId(dataTestIds.inHouseMedicationsPage.deleteButton)
+      .click();
+    return expectDialog(this.#page);
+  }
+
+  async verifyMedicationInMedicationHistoryTable(input: {
+    medication: string;
+    dose: string;
+    units: string;
+    type: string;
+    whoAdded: string;
+  }): Promise<void> {
+    const testIdToTextArray: { testId: string; text: string | undefined }[] = [
+      {
+        testId: dataTestIds.inHouseMedicationsPage.medicationHistoryTableMedication,
+        text: input.medication + ' ' + '(' + input.dose + ' ' + input.units + ')',
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.medicationHistoryTableType,
+        text: input.type,
+      },
+      {
+        testId: dataTestIds.inHouseMedicationsPage.medicationHistoryTableWhoAdded,
+        text: input.whoAdded,
+      },
+    ];
+    let matchedLocator = this.#page.getByTestId(dataTestIds.inHouseMedicationsPage.medicationHistoryTableRow);
+    for (const testIdToText of testIdToTextArray) {
+      if (testIdToText.text) {
+        matchedLocator = matchedLocator.filter({
+          has: this.#page.getByTestId(testIdToText.testId).filter({ hasText: testIdToText.text }),
+        });
+        await expect(matchedLocator.first()).toBeVisible();
+      }
+    }
   }
 }
 

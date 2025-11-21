@@ -4,8 +4,13 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Grid, Tab, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { InPersonAppointmentInformation, OrdersForTrackingBoardTable } from 'utils';
+import {
+  GetVitalsForListOfEncountersResponseData,
+  InPersonAppointmentInformation,
+  OrdersForTrackingBoardTable,
+} from 'utils';
 import { dataTestIds } from '../constants/data-test-ids';
 import AppointmentTable from './AppointmentTable';
 import Loading from './Loading';
@@ -29,6 +34,7 @@ interface AppointmentsTabProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   orders: OrdersForTrackingBoardTable;
+  vitals?: GetVitalsForListOfEncountersResponseData;
 }
 
 export default function AppointmentTabs({
@@ -43,8 +49,12 @@ export default function AppointmentTabs({
   updateAppointments,
   setEditingComment,
   orders,
+  vitals,
 }: AppointmentsTabProps): ReactElement {
-  const [value, setValue] = useState<ApptTab>(ApptTab['in-office']);
+  const routeLocation = useLocation();
+  const initialTab = (routeLocation.state?.tab as ApptTab) || ApptTab['in-office'];
+
+  const [value, setValue] = useState<ApptTab>(initialTab);
   const [now, setNow] = useState<DateTime>(DateTime.now());
 
   const handleChange = (event: any, newValue: ApptTab): any => {
@@ -97,6 +107,7 @@ export default function AppointmentTabs({
       <AppointmentTable
         appointments={appointments}
         orders={orders}
+        vitals={vitals}
         location={location}
         tab={value}
         now={now}
@@ -136,7 +147,7 @@ export default function AppointmentTabs({
             />
             <Tab
               data-testid={dataTestIds.dashboard.cancelledTab}
-              label="Cancelled"
+              label={`Cancelled${cancelledAppointments ? ` – ${cancelledAppointments?.length}` : ''}`}
               value={ApptTab.cancelled}
               sx={{ textTransform: 'none', fontWeight: 500 }}
             />

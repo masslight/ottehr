@@ -7,19 +7,21 @@ import {
   APPOINTMENT_NOT_FOUND_ERROR,
   CheckInInput,
   CheckInZambdaOutput,
+  FHIR_EXTENSION,
   formatPhoneNumberDisplay,
-  getCriticalUpdateTagOp,
+  getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryIdx,
   getLocationInformation,
   getPatchBinary,
   getSecret,
   getTaskResource,
+  isFollowupEncounter,
+  isNonPaperworkQuestionnaireResponse,
   Secrets,
   SecretsKeys,
   TaskIndicator,
   VisitType,
 } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../common';
 import {
   checkPaperworkComplete,
   createOystehrClient,
@@ -47,7 +49,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
     console.log('getting user');
     const userToken = input.headers.Authorization?.replace('Bearer ', '');
     const user = userToken && (await getUser(userToken, input.secrets));
-    const formattedUserNumber = formatPhoneNumberDisplay(user?.name.replace('+1', ''));
+    const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
     const checkedInBy = `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
     const validatedParameters = validateRequestParameters(input);
     const { appointmentId: appointmentID, secrets } = validatedParameters;
@@ -109,7 +111,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
       if (resource.resourceType === 'Patient') {
         patient = resource as Patient;
       }
-      if (resource.resourceType === 'Encounter') {
+      if (resource.resourceType === 'Encounter' && !isFollowupEncounter(resource as Encounter)) {
         encounter = resource as Encounter;
       }
       if (resource.resourceType === 'Location') {
@@ -210,6 +212,12 @@ async function checkIn(
         period: {
           start: now,
         },
+        extension: [
+          {
+            url: FHIR_EXTENSION.EncounterStatusHistory.ottehrVisitStatus.url,
+            valueCode: 'arrived',
+          },
+        ],
       },
     });
   }
@@ -221,7 +229,9 @@ async function checkIn(
       value: 'arrived',
     },
   ];
-  appointmentPatchOperations.push(getCriticalUpdateTagOp(appointment, checkedInBy));
+  appointmentPatchOperations.push(
+    ...getAppointmentMetaTagOpForStatusUpdate(appointment, 'arrived', { updatedByOverride: checkedInBy })
+  );
 
   const appointmentPatchRequest = getPatchBinary({
     resourceType: 'Appointment',

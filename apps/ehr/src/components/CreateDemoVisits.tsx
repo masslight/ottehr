@@ -11,7 +11,7 @@ import { isLocationVirtual } from 'utils/lib/fhir/location';
 import { createSampleAppointments } from 'utils/lib/helpers';
 import { useApiClients } from '../hooks/useAppClients';
 
-const createAppointmentZambdaId = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
+const createAppointmentZambdaId = 'create-appointment';
 const intakeZambdaUrl = import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL;
 
 const CreateDemoVisits = (): ReactElement => {

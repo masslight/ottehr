@@ -12,7 +12,7 @@ export interface CancelInviteParticipantRequestParameters {
 
 export type CancelInviteParticipantRequestInput = CancelInviteParticipantRequestParameters & LambdaSecrets;
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CancelInviteParticipantResponse {}
 
 export interface ListInvitedParticipantsRequestParameters {

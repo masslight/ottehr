@@ -25,8 +25,10 @@ import {
 import { DateTime } from 'luxon';
 import {
   ABNORMAL_OBSERVATION_INTERPRETATION,
+  ABNORMAL_RESULT_DR_TAG,
   extractAbnormalValueSetValues,
   extractQuantityRange,
+  getAttendingPractitionerId,
   getFullestAvailableName,
   getSecret,
   HandleInHouseLabResultsZambdaOutput,
@@ -34,8 +36,11 @@ import {
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_TASK,
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
+  INCONCLUSIVE_RESULT_DR_TAG,
   INDETERMINATE_OBSERVATION_INTERPRETATION,
   LabComponentValueSetConfig,
+  NEUTRAL_RESULT_DR_TAG,
+  NonNormalResult,
   NORMAL_OBSERVATION_INTERPRETATION,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   ResultEntryInput,
@@ -50,7 +55,7 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
-import { getAttendingPractitionerId } from '../../shared/practitioner/helpers';
+import { createOwnerReference } from '../../shared/tasks';
 import { getServiceRequestsRelatedViaRepeat, getUrlAndVersionForADFromServiceRequest } from '../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -76,7 +81,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       serviceRequest,
       encounter,
       patient,
-      inputRequestTask,
+      inputResultTask,
       specimen,
       activityDefinition,
       currentUserPractitioner,
@@ -91,7 +96,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const requests = makeResultEntryRequests(
       serviceRequest,
-      inputRequestTask,
+      inputResultTask,
       specimen,
       activityDefinition,
       resultsEntryData,
@@ -99,6 +104,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       { id: attendingPractitioner.id || '', name: attendingPractitionerName }
     );
 
+    console.log(`These are the fhir requests getting made: ${JSON.stringify(requests)}`);
     const res = await oystehr.fhir.transaction({ requests });
     console.log('check the res', JSON.stringify(res));
 
@@ -166,13 +172,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('Error handling in-house lab results:', error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('handle-in-house-lab-results', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: `Error processing request: ${error.message || error}`,
-      }),
-    };
+    return topLevelCatch('handle-in-house-lab-results', error, ENVIRONMENT);
   }
 });
 
@@ -185,7 +185,7 @@ const getInHouseLabResultResources = async (
   serviceRequest: ServiceRequest;
   encounter: Encounter;
   patient: Patient;
-  inputRequestTask: Task;
+  inputResultTask: Task;
   specimen: Specimen;
   activityDefinition: ActivityDefinition;
   currentUserPractitioner: Practitioner;
@@ -218,10 +218,6 @@ const getInHouseLabResultResources = async (
           name: '_include',
           value: 'ServiceRequest:patient',
         },
-        {
-          name: '_revinclude',
-          value: 'Task:based-on',
-        },
         { name: '_include:iterate', value: 'Encounter:location' },
         {
           name: '_include:iterate',
@@ -252,7 +248,7 @@ const getInHouseLabResultResources = async (
 
   const serviceRequests: ServiceRequest[] = [];
   const patients: Patient[] = [];
-  const inputRequestTasks: Task[] = []; // IRT tasks
+  const inputResultTasks: Task[] = []; // IRT tasks
   const specimens: Specimen[] = [];
   const encounters: Encounter[] = [];
   const schedules: Schedule[] = [];
@@ -267,10 +263,9 @@ const getInHouseLabResultResources = async (
     if (resource.resourceType === 'Location') locations.push(resource);
     if (
       resource.resourceType === 'Task' &&
-      resource.status === 'ready' &&
       resource.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)
     ) {
-      inputRequestTasks.push(resource);
+      inputResultTasks.push(resource);
     }
   });
 
@@ -281,9 +276,20 @@ const getInHouseLabResultResources = async (
   if (encounters.length !== 1) throw new Error('Only one encounter should be returned');
   if (specimens.length !== 1)
     throw new Error(`Only one specimen should be returned - specimen ids: ${specimens.map((s) => s.id)}`);
-  if (inputRequestTasks.length !== 1) {
-    console.log('inputRequestTasks', inputRequestTasks);
-    throw new Error(`Only one ready IRT task should exist for ServiceRequest/${serviceRequestId}`);
+
+  console.log('These are the inputResultTasks', JSON.stringify(inputResultTasks));
+  if (inputResultTasks.length !== 1) {
+    console.log('inputResultTasks', inputResultTasks);
+    throw new Error(`Found multiple IRT tasks for ServiceRequest/${serviceRequestId}. Expected one`);
+  }
+
+  const inputResultTask = inputResultTasks[0];
+
+  if (inputResultTask.status === 'completed') {
+    throw new Error('Result has already been entered. Refresh the page to continue.');
+  }
+  if (inputResultTask.status !== 'ready' && inputResultTask.status !== 'in-progress') {
+    throw new Error(`One ready or in-progress IRT task should exist for ServiceRequest/${serviceRequestId}`);
   }
 
   const serviceRequestsRelatedViaRepeat =
@@ -294,6 +300,7 @@ const getInHouseLabResultResources = async (
 
   const encounter = encounters[0];
   const attendingPractitionerId = getAttendingPractitionerId(encounter);
+  if (!attendingPractitionerId) throw Error('Attending practitioner not found');
   const schedule = schedules[0];
   const location = locations.length ? locations[0] : undefined;
 
@@ -330,7 +337,7 @@ const getInHouseLabResultResources = async (
     serviceRequest,
     encounter,
     patient,
-    inputRequestTask: inputRequestTasks[0],
+    inputResultTask,
     specimen: specimens[0],
     activityDefinition: activityDefinitions[0],
     currentUserPractitioner,
@@ -361,7 +368,7 @@ const makeResultEntryRequests = (
     attendingPractitioner
   );
 
-  const irtTaskPatchRequest = makeIrtTaskPatchRequest(irtTask, provenanceFullUrl);
+  const irtTaskPatchRequest = makeIrtTaskPatchRequest(irtTask, provenanceFullUrl, curUser);
 
   const serviceRequestPatchRequest: BatchInputPatchRequest<ServiceRequest> = {
     method: 'PATCH',
@@ -375,7 +382,7 @@ const makeResultEntryRequests = (
     ],
   };
 
-  const { obsRefs, obsPostRequests } = makeObservationPostRequests(
+  const { obsRefs, obsPostRequests, nonNormalResultRecorded } = makeObservationPostRequests(
     serviceRequest,
     specimen,
     activityDefinition,
@@ -383,7 +390,12 @@ const makeResultEntryRequests = (
     resultsEntryData
   );
 
-  const diagnosticReportPostRequest = makeDiagnosticReportPostRequest(serviceRequest, activityDefinition, obsRefs);
+  const diagnosticReportPostRequest = makeDiagnosticReportPostRequest(
+    serviceRequest,
+    activityDefinition,
+    obsRefs,
+    nonNormalResultRecorded
+  );
 
   return [
     provenancePostRequest,
@@ -401,7 +413,11 @@ const makeObservationPostRequests = (
   activityDefinition: ActivityDefinition,
   curUser: PractitionerConfig,
   resultsEntryData: ResultEntryInput
-): { obsRefs: Reference[]; obsPostRequests: BatchInputPostRequest<Observation>[] } => {
+): {
+  obsRefs: Reference[];
+  obsPostRequests: BatchInputPostRequest<Observation>[];
+  nonNormalResultRecorded: NonNormalResult[];
+} => {
   if (!activityDefinition.code) throw new Error('activityDefinition.code is missing and is required');
 
   const activityDefContained = activityDefinition.contained;
@@ -432,6 +448,7 @@ const makeObservationPostRequests = (
   const obsRefs: Reference[] = [];
   const obsPostRequests: BatchInputPostRequest<Observation>[] = [];
 
+  const nonNormalResultRecorded: NonNormalResult[] = [];
   Object.keys(resultsEntryData).forEach((observationDefinitionId) => {
     const entry = resultsEntryData[observationDefinitionId];
     const obsFullUrl = `urn:uuid:${randomUUID()}`;
@@ -439,7 +456,15 @@ const makeObservationPostRequests = (
     obsRefs.push({
       reference: obsFullUrl,
     });
-    const { obsValue, obsInterpretation } = formatObsValueAndInterpretation(entry, obsDef, activityDefContained);
+    const { obsValue, obsInterpretation, nonNormalResult } = formatObsValueAndInterpretation(
+      entry,
+      obsDef,
+      activityDefContained
+    );
+    if (nonNormalResult) {
+      console.log('flagging non-normal result for', activityDefinition.code?.coding?.map((coding) => coding.code));
+      nonNormalResultRecorded.push(nonNormalResult);
+    }
     const obsFinalConfig: Observation = {
       ...obsConfig,
       ...obsValue,
@@ -460,7 +485,7 @@ const makeObservationPostRequests = (
     obsPostRequests.push(request);
   });
 
-  return { obsRefs, obsPostRequests };
+  return { obsRefs, obsPostRequests, nonNormalResultRecorded };
 };
 
 const getObsDefFromActivityDef = (obsDefId: string, activityDefContained: FhirResource[]): ObservationDefinition => {
@@ -479,6 +504,7 @@ const formatObsValueAndInterpretation = (
 ): {
   obsValue: { valueQuantity: Quantity } | { valueString: string };
   obsInterpretation: { interpretation?: CodeableConcept[] };
+  nonNormalResult: NonNormalResult | undefined;
 } => {
   if (obsDef.permittedDataType?.includes('Quantity')) {
     const floatVal = parseFloat(dataEntry);
@@ -488,11 +514,14 @@ const formatObsValueAndInterpretation = (
       },
     };
     const range = extractQuantityRange(obsDef).normalRange;
-    const interpretationCodeableConcept = determineQuantInterpretation(floatVal, range);
+    const { interpretation: interpretationCodeableConcept, nonNormalResult } = determineQuantInterpretation(
+      floatVal,
+      range
+    );
     const obsInterpretation = {
       interpretation: [interpretationCodeableConcept],
     };
-    return { obsValue, obsInterpretation };
+    return { obsValue, obsInterpretation, nonNormalResult };
   }
 
   if (obsDef.permittedDataType?.includes('CodeableConcept')) {
@@ -503,12 +532,17 @@ const formatObsValueAndInterpretation = (
       (resource) => resource.resourceType === 'ObservationDefinition' || resource.resourceType === 'ValueSet'
     ) as (ObservationDefinition | ValueSet)[];
     const abnormalValues = extractAbnormalValueSetValues(obsDef, filteredContained);
-    const interpretationCodeableConcept = determineCodeableConceptInterpretation(dataEntry, abnormalValues);
+    const isNeutral = abnormalValues.length === 0;
+    console.log('isNeutral:', isNeutral);
+    const { interpretation: interpretationCodeableConcept, nonNormalResult } = determineCodeableConceptInterpretation(
+      dataEntry,
+      abnormalValues
+    );
     const obsInterpretation = {
       interpretation: [interpretationCodeableConcept],
     };
 
-    return { obsValue, obsInterpretation };
+    return { obsValue, obsInterpretation, nonNormalResult: isNeutral ? NonNormalResult.Neutral : nonNormalResult };
   }
 
   throw new Error('obsDef.permittedDataType should be Quantity or CodeableConcept');
@@ -522,11 +556,11 @@ const determineQuantInterpretation = (
     unit: string;
     precision?: number;
   }
-): CodeableConcept => {
+): { interpretation: CodeableConcept; nonNormalResult?: NonNormalResult } => {
   if (entry > range.high || entry < range.low) {
-    return ABNORMAL_OBSERVATION_INTERPRETATION;
+    return { interpretation: ABNORMAL_OBSERVATION_INTERPRETATION, nonNormalResult: NonNormalResult.Abnormal };
   } else {
-    return NORMAL_OBSERVATION_INTERPRETATION;
+    return { interpretation: NORMAL_OBSERVATION_INTERPRETATION };
   }
 };
 
@@ -534,20 +568,21 @@ const determineQuantInterpretation = (
 const determineCodeableConceptInterpretation = (
   value: string,
   abnormalValues: LabComponentValueSetConfig[]
-): CodeableConcept => {
+): { interpretation: CodeableConcept; nonNormalResult?: NonNormalResult } => {
   if (value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode) {
-    return INDETERMINATE_OBSERVATION_INTERPRETATION;
+    return { interpretation: INDETERMINATE_OBSERVATION_INTERPRETATION, nonNormalResult: NonNormalResult.Inconclusive };
   } else {
     return abnormalValues.map((val) => val.code).includes(value)
-      ? ABNORMAL_OBSERVATION_INTERPRETATION
-      : NORMAL_OBSERVATION_INTERPRETATION;
+      ? { interpretation: ABNORMAL_OBSERVATION_INTERPRETATION, nonNormalResult: NonNormalResult.Abnormal }
+      : { interpretation: NORMAL_OBSERVATION_INTERPRETATION };
   }
 };
 
 const makeDiagnosticReportPostRequest = (
   serviceRequest: ServiceRequest,
   activityDefinition: ActivityDefinition,
-  obsRefs: Reference[]
+  obsRefs: Reference[],
+  nonNormalResultRecorded: NonNormalResult[]
 ): BatchInputPostRequest<DiagnosticReport> => {
   if (!activityDefinition.code) throw new Error('activityDefinition.code is missing and is required');
 
@@ -562,6 +597,29 @@ const makeDiagnosticReportPostRequest = (
     specimen: serviceRequest.specimen,
     result: obsRefs,
   };
+
+  if (nonNormalResultRecorded.length) {
+    const tags = [];
+    if (nonNormalResultRecorded.includes(NonNormalResult.Abnormal)) {
+      tags.push(ABNORMAL_RESULT_DR_TAG);
+    }
+    if (nonNormalResultRecorded.includes(NonNormalResult.Inconclusive)) {
+      tags.push(INCONCLUSIVE_RESULT_DR_TAG);
+    }
+    if (nonNormalResultRecorded.includes(NonNormalResult.Neutral)) {
+      tags.push(NEUTRAL_RESULT_DR_TAG);
+    }
+    if (tags.length) {
+      console.log('adding non normal result tags to dr, count: ', tags.length);
+      diagnosticReportConfig.meta = {
+        tag: tags,
+      };
+    } else {
+      console.log('something is off and no non normal tags are being recorded', nonNormalResultRecorded);
+    }
+  } else {
+    console.log('all recorded results are reported normal');
+  }
 
   const diagnosticReportPostRequest: BatchInputPostRequest<DiagnosticReport> = {
     method: 'POST',
@@ -608,27 +666,40 @@ const makeProvenancePostRequest = (
   return { provenancePostRequest, provenanceFullUrl };
 };
 
-const makeIrtTaskPatchRequest = (irtTask: Task, provenanceFullUrl: string): BatchInputPatchRequest<Task> => {
+const makeIrtTaskPatchRequest = (
+  irtTask: Task,
+  provenanceFullUrl: string,
+  curUser: PractitionerConfig
+): BatchInputPatchRequest<Task> => {
   const provRef = {
     reference: provenanceFullUrl,
   };
-  const relevantHistoryOperation: Operation = {
-    path: '/relevantHistory',
-    op: irtTask.relevantHistory ? 'replace' : 'add',
-    value: irtTask.relevantHistory ? [...irtTask.relevantHistory, provRef] : [provRef],
-  };
+
+  const operations: Operation[] = [
+    {
+      path: '/relevantHistory',
+      op: irtTask.relevantHistory ? 'replace' : 'add',
+      value: irtTask.relevantHistory ? [...irtTask.relevantHistory, provRef] : [provRef],
+    },
+    {
+      path: '/status',
+      op: 'replace',
+      value: 'completed',
+    },
+  ];
+
+  if (!irtTask.owner) {
+    operations.push({
+      path: '/owner',
+      op: 'add',
+      value: createOwnerReference(curUser.id, curUser.name ?? ''),
+    });
+  }
 
   const irtTaskPatchRequest: BatchInputPatchRequest<Task> = {
     method: 'PATCH',
     url: `Task/${irtTask.id}`,
-    operations: [
-      {
-        path: '/status',
-        op: 'replace',
-        value: 'completed',
-      },
-      relevantHistoryOperation,
-    ],
+    operations: operations,
   };
   return irtTaskPatchRequest;
 };

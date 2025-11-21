@@ -2,12 +2,12 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
   convertActivityDefinitionToTestItem,
+  getAttendingPractitionerId,
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
   getFullestAvailableName,
   getSecret,
   getTimezone,
-  PRACTITIONER_CODINGS,
   Secrets,
   SecretsKeys,
   TestItem,
@@ -92,14 +92,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         };
       }
 
-      const practitionerId = encounter.participant
-        ?.find(
-          (participant) =>
-            participant.type?.find(
-              (type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system)
-            )
-        )
-        ?.individual?.reference?.replace('Practitioner/', '');
+      const practitionerId = getAttendingPractitionerId(encounter);
 
       const attendingPractitionerPromise = practitionerId
         ? oystehr.fhir.get<Practitioner>({
@@ -161,12 +154,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     console.error('Error processing in-house lab order resources:', error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('get-create-in-house-lab-order-resources', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: `Error processing request: ${error.message || error}`,
-      }),
-    };
+    return topLevelCatch('get-create-in-house-lab-order-resources', error, ENVIRONMENT);
   }
 });

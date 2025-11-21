@@ -1,6 +1,6 @@
+import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import {
   Appointment,
-  Bundle,
   Claim,
   Coverage,
   DocumentReference,
@@ -12,25 +12,25 @@ import {
   Patient,
   RelatedPerson,
 } from 'fhir/r4b';
-import { useMutation, useQuery } from 'react-query';
+import { findResourceByType, generateOpByResourceData, getCoverageRelatedResources } from 'src/rcm/utils';
+import { useSuccessQuery } from 'utils';
 import { INSURANCE_PLAN_PAYER_META_TAG_CODE } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { findResourceByType, generateOpByResourceData, getCoverageRelatedResources } from '../../utils';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetClaim = (
   {
     claimId,
   }: {
     claimId: string | undefined;
   },
-  onSuccess: (data: Bundle<FhirResource>[]) => void
-) => {
+  onSuccess: (data: FhirResource[] | null) => void
+): UseQueryResult<FhirResource[], Error> => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['rcm-claim', claimId],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['rcm-claim', claimId],
+
+    queryFn: async () => {
       if (oystehr && claimId) {
         const resources = (
           await oystehr.fhir.search<
@@ -74,22 +74,22 @@ export const useGetClaim = (
       }
       throw new Error('fhir client not defined or claimId not provided');
     },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get claim: ', err);
-      },
-    }
-  );
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetInsurancePlans = (onSuccess: (data: InsurancePlan[]) => void) => {
+export const useGetInsurancePlans = (
+  onSuccess: (data: InsurancePlan[] | null) => void
+): UseQueryResult<InsurancePlan[], Error> => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['rcm-insurance-plans'],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['rcm-insurance-plans'],
+
+    queryFn: async () => {
       if (oystehr) {
         return (
           await oystehr.fhir.search<InsurancePlan>({
@@ -109,22 +109,22 @@ export const useGetInsurancePlans = (onSuccess: (data: InsurancePlan[]) => void)
       }
       throw new Error('fhir client not defined');
     },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get insurance plans: ', err);
-      },
-    }
-  );
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetOrganizations = (onSuccess: (data: Organization[]) => void) => {
+export const useGetOrganizations = (
+  onSuccess: (data: Organization[] | null) => void
+): UseQueryResult<Organization[], Error> => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['rcm-organizations'],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['rcm-organizations'],
+
+    queryFn: async () => {
       if (oystehr) {
         return (
           await oystehr.fhir.search<Organization>({
@@ -134,22 +134,20 @@ export const useGetOrganizations = (onSuccess: (data: Organization[]) => void) =
       }
       throw new Error('fhir client not defined');
     },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get organizations: ', err);
-      },
-    }
-  );
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetFacilities = (onSuccess: (data: Location[]) => void) => {
+export const useGetFacilities = (onSuccess: (data: Location[] | null) => void): UseQueryResult<Location[], Error> => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['rcm-facilities'],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['rcm-facilities'],
+
+    queryFn: async () => {
       if (oystehr) {
         return (
           await oystehr.fhir.search<Location>({
@@ -159,17 +157,22 @@ export const useGetFacilities = (onSuccess: (data: Location[]) => void) => {
       }
       throw new Error('fhir client not defined');
     },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get facilities: ', err);
-      },
-    }
-  );
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useEditCoverageInformationMutation = () => {
+export const useEditCoverageInformationMutation = (): UseMutationResult<
+  Coverage,
+  Error,
+  {
+    coverageData: Coverage;
+    previousCoverageData: Coverage;
+    fieldsToUpdate?: ('relationship' | 'class' | 'payor' | 'subscriberId')[];
+  }
+> => {
   const { oystehr } = useApiClients();
   return useMutation({
     mutationFn: ({
@@ -214,8 +217,15 @@ export const useEditCoverageInformationMutation = () => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useEditRelatedPersonInformationMutation = () => {
+export const useEditRelatedPersonInformationMutation = (): UseMutationResult<
+  RelatedPerson,
+  Error,
+  {
+    relatedPersonData: RelatedPerson;
+    previousRelatedPersonData: RelatedPerson;
+    fieldsToUpdate?: ('address' | 'birthDate' | 'gender' | 'name')[];
+  }
+> => {
   const { oystehr } = useApiClients();
   return useMutation({
     mutationFn: ({
@@ -254,8 +264,27 @@ export const useEditRelatedPersonInformationMutation = () => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useEditClaimInformationMutation = () => {
+export const useEditClaimInformationMutation = (): UseMutationResult<
+  Claim,
+  Error,
+  {
+    claimData: Claim;
+    previousClaimData: Claim;
+    fieldsToUpdate?: (
+      | 'accident'
+      | 'extension'
+      | 'supportingInfo'
+      | 'related'
+      | 'insurance'
+      | 'diagnosis'
+      | 'item'
+      | 'total'
+      | 'facility'
+      | 'provider'
+      | 'enterer'
+    )[];
+  }
+> => {
   const { oystehr } = useApiClients();
   return useMutation({
     mutationFn: ({

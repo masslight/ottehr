@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
 import { CODE_SYSTEM_ICD_10, getSecret, Secrets, SecretsKeys } from 'utils';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { searchIcd10Codes } from '../../../shared/icd-10-search';
 import { EnhancedBody, ValidatedCPTCode, ValidatedICD10Code, ValidatedInput } from '.';
 
 export const validateInput = async (
@@ -23,9 +24,9 @@ export const validateInput = async (
 };
 
 const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oystehr): Promise<EnhancedBody> => {
-  const { diagnosisCode, cptCode, encounterId, stat } = validateJsonBody(input);
+  const { diagnosisCode, cptCode, encounterId, stat, clinicalHistory } = validateJsonBody(input);
 
-  const diagnosis = await validateICD10Code(diagnosisCode, secrets);
+  const diagnosis = await validateICD10Code(diagnosisCode);
   const cpt = await validateCPTCode(cptCode, secrets);
   const encounter = await fetchEncounter(encounterId, oystehr);
 
@@ -33,11 +34,20 @@ const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oyste
     throw new Error('Stat is required and must be a boolean');
   }
 
+  if (!clinicalHistory || typeof clinicalHistory !== 'string') {
+    throw new Error('Clinical history is required and must be a string');
+  }
+
+  if (clinicalHistory.length > 255) {
+    throw new Error('Clinical history must be 255 characters or less');
+  }
+
   return {
     diagnosis,
     cpt,
     encounter,
     stat,
+    clinicalHistory,
   };
 };
 
@@ -83,57 +93,23 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
   };
 };
 
-const validateICD10Code = async (diagnosisCode: unknown, secrets: Secrets): Promise<ValidatedICD10Code> => {
-  let icdResponseBody: {
-    pageSize: number;
-    pageNumber: number;
-    result: {
-      results: {
-        ui: string;
-        name: string;
-      }[];
-      recCount: number;
-    };
-  } | null = null;
-
-  // The shortest length ICD-10 code is A00, which represents Cholera.
-  if (diagnosisCode == null || typeof diagnosisCode !== 'string' || diagnosisCode.length < 3) {
-    throw new Error('diagnosisCode is required and must be a string of length 3 or more');
+const validateICD10Code = async (diagnosisCode: unknown): Promise<ValidatedICD10Code> => {
+  // validate diagnosisCode is a string
+  if (diagnosisCode == null || typeof diagnosisCode !== 'string') {
+    throw new Error('diagnosisCode is required and must be a string');
   }
 
-  try {
-    const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
+  const searchResult = await searchIcd10Codes(diagnosisCode as string);
 
-    const icdResponse = await fetch(
-      `https://uts-ws.nlm.nih.gov/rest/search/current?apiKey=${apiKey}&pageSize=50&returnIdType=code&inputType=sourceUi&string=${diagnosisCode}&sabs=ICD10CM&searchType=exact`
-    );
-    if (!icdResponse.ok) {
-      throw new Error(icdResponse.statusText);
-    }
-    icdResponseBody = (await icdResponse.json()) as {
-      pageSize: number;
-      pageNumber: number;
-      result: {
-        results: {
-          ui: string;
-          name: string;
-        }[];
-        recCount: number;
-      };
-    };
-  } catch (error) {
-    throw new Error('Error while trying to validate ICD-10 code');
-  }
-
-  if (icdResponseBody.result.recCount < 1) {
+  if (searchResult.length < 1) {
     throw new Error('ICD-10 code is invalid');
-  } else if (icdResponseBody.result.recCount > 1) {
+  } else if (searchResult.length > 1) {
     throw new Error('ICD-10 code is ambiguous');
   }
 
   const dx = {
     code: diagnosisCode,
-    display: icdResponseBody.result.results[0].name,
+    display: searchResult[0].display,
     system: CODE_SYSTEM_ICD_10,
   };
 
@@ -180,7 +156,7 @@ const validateCPTCode = async (cptCode: unknown, secrets: Secrets): Promise<Vali
         recCount: number;
       };
     };
-  } catch (error) {
+  } catch {
     throw new Error('Error while trying to validate CPT code');
   }
 
@@ -211,7 +187,7 @@ const fetchEncounter = async (encounterId: unknown, oystehr: Oystehr): Promise<E
       resourceType: 'Encounter',
       id: encounterId,
     });
-  } catch (error) {
+  } catch {
     throw new Error('Error while trying to fetch encounter');
   }
 };

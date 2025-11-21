@@ -46,7 +46,6 @@ const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<Servi
 };
 
 export const validateSecrets = (secrets: Secrets | null): Secrets => {
-  console.log('alex,', secrets);
   if (!secrets) {
     throw new Error('Secrets are required');
   }

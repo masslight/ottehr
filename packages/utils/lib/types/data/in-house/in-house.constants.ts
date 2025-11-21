@@ -21,10 +21,18 @@ export const inHouseLabsTestStatuses: Record<TestStatus, TestStatus> = {
 };
 
 export const IN_HOUSE_LAB_TASK = {
+  category: 'in-house-lab',
   system: 'in-house-lab-task',
   code: {
     collectSampleTask: 'CST',
     inputResultsTask: 'IRT',
+  },
+  input: {
+    testName: 'test-name',
+    patientName: 'patient-name',
+    providerName: 'provider-name',
+    orderDate: 'order-date',
+    appointmentId: 'appointment-id',
   },
 } as const;
 
@@ -129,4 +137,21 @@ export const DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE = 10;
 export const REPEATABLE_TEXT_EXTENSION_CONFIG = {
   url: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-repeatable-test',
   valueString: 'repeatable-test',
+};
+
+const RESULT_RECORDING_DETAIL_SYSTEM = 'result-recording-detail';
+export const ABNORMAL_RESULT_DR_TAG = {
+  system: RESULT_RECORDING_DETAIL_SYSTEM,
+  code: 'abnormal',
+  display: 'At least one abnormal result was recorded',
+};
+export const INCONCLUSIVE_RESULT_DR_TAG = {
+  system: RESULT_RECORDING_DETAIL_SYSTEM,
+  code: 'inconclusive',
+  display: 'At least one inconclusive result was recorded',
+};
+export const NEUTRAL_RESULT_DR_TAG = {
+  system: RESULT_RECORDING_DETAIL_SYSTEM,
+  code: 'neutral',
+  display: 'Tests done should be displayed in neutral ui', // no colors, no indications positive/negative (example pregnancy)
 };

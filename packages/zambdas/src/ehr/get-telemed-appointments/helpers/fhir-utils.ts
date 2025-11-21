@@ -5,13 +5,14 @@ import {
   allLicensesForPractitioner,
   GetTelemedAppointmentsInput,
   isLocationVirtual,
+  isNonPaperworkQuestionnaireResponse,
   OTTEHR_MODULE,
   PatientFilterType,
 } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { joinLocationsIdsForFhirSearch } from './helpers';
 import { mapStatesToLocationIds, mapTelemedStatusToEncounterAndAppointment } from './mappers';
-import { LocationIdToAbbreviationMap } from './types';
+import { LocationIdToStateAbbreviationMap } from './types';
 
 export const getAllResourcesFromFhir = async (
   oystehr: Oystehr,
@@ -39,7 +40,6 @@ export const getAllResourcesFromFhir = async (
         name: '_sort',
         value: 'date',
       },
-      { name: '_count', value: '1000' },
       {
         name: '_include',
         value: 'Appointment:patient',
@@ -47,10 +47,6 @@ export const getAllResourcesFromFhir = async (
       {
         name: '_revinclude:iterate',
         value: 'RelatedPerson:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Encounter:participant',
       },
       {
         name: '_include:iterate',
@@ -61,7 +57,7 @@ export const getAllResourcesFromFhir = async (
         value: 'Appointment:location',
       },
       {
-        name: '_revinclude:iterate',
+        name: '_revinclude',
         value: 'Encounter:appointment',
       },
       {
@@ -95,9 +91,9 @@ export const getAllResourcesFromFhir = async (
     ],
   };
 
-  return (await oystehr.fhir.search<FhirResource>(fhirSearchParams))
-    .unbundle()
-    .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
+  return (await getAllFhirSearchPages<FhirResource>(fhirSearchParams, oystehr, 100)).filter(
+    (resource) => isNonPaperworkQuestionnaireResponse(resource) === false
+  );
 };
 
 export const getPractitionerLicensesLocationsAbbreviations = async (oystehr: Oystehr): Promise<string[]> => {
@@ -118,7 +114,7 @@ export const getPractitionerLicensesLocationsAbbreviations = async (oystehr: Oys
 const locationIdsForAppointmentsSearch = async (
   usStatesFilter: string[] | undefined,
   patientFilter: PatientFilterType,
-  virtualLocationsMap: LocationIdToAbbreviationMap,
+  virtualLocationsMap: LocationIdToStateAbbreviationMap,
   oystehr: Oystehr
 ): Promise<string[] | undefined> => {
   // Little explanation what patientFilter = 'my-patients' means:
@@ -182,7 +178,7 @@ export const getAllPartiallyPreFilteredFhirResources = async (
   oystehrM2m: Oystehr,
   oystehrCurrentUser: Oystehr,
   params: GetTelemedAppointmentsInput,
-  virtualLocationsMap: LocationIdToAbbreviationMap
+  virtualLocationsMap: LocationIdToStateAbbreviationMap
 ): Promise<Resource[] | undefined> => {
   const { dateFilter, usStatesFilter, statusesFilter, patientFilter } = params;
   let allResources: Resource[] = [];
@@ -213,7 +209,7 @@ export const getAllPartiallyPreFilteredFhirResources = async (
   return allResources;
 };
 
-export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<LocationIdToAbbreviationMap> => {
+export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<LocationIdToStateAbbreviationMap> => {
   // todo: add meta filter to search virtual only
   const resources = (
     await oystehr.fhir.search({
@@ -221,7 +217,7 @@ export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<Locat
     })
   ).unbundle();
 
-  const virtualLocationsMap: LocationIdToAbbreviationMap = {};
+  const virtualLocationsMap: LocationIdToStateAbbreviationMap = {};
   const locationsByState: Record<string, Location[]> = {};
 
   resources.forEach((resource) => {
@@ -235,9 +231,13 @@ export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<Locat
           locationsByState[state] = [];
         }
 
+        if (!virtualLocationsMap[state]) {
+          virtualLocationsMap[state] = [];
+        }
+
         locationsByState[state].push(location);
 
-        virtualLocationsMap[state] = location;
+        virtualLocationsMap[state].push(location);
       }
     }
   });

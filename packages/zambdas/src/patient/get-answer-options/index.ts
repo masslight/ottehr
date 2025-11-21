@@ -12,7 +12,7 @@ import {
   MISSING_REQUEST_BODY,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
+import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
@@ -52,10 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     console.log(error, error.issue);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });
 
@@ -136,8 +133,15 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Ques
 };
 
 const formatQueryResult = (result: any, resourceType: FhirResource['resourceType']): QuestionnaireItemAnswerOption => {
-  if (result.name && result.id && typeof result.name === 'string' && typeof result.id === 'string') {
-    return { valueReference: { reference: `${resourceType}/${result.id}`, display: result.name } };
+  const name = resourceType === 'Organization' ? result.alias?.[0] || result.name : result.name;
+  if (name && result.id && typeof name === 'string' && typeof result.id === 'string') {
+    return {
+      valueReference: {
+        reference: `${resourceType}/${result.id}`,
+        display: name,
+        type: resourceType === 'Organization' && result.name === 'Other' ? 'other' : undefined,
+      },
+    };
   }
   throw ANSWER_OPTION_FROM_RESOURCE_UNDEFINED(resourceType);
 };

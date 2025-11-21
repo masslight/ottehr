@@ -1,5 +1,5 @@
 {
-  "*.(tsx|ts|js|jsx)": [
+  "*.(tsx|ts)": [
     "cross-env NODE_OPTIONS='--max-old-space-size=8192' eslint --report-unused-disable-directives --max-warnings 0 --fix"
   ]
 }

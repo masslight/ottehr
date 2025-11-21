@@ -2,7 +2,6 @@ import { DateTime } from 'luxon';
 import { PersonSex, RequiredProps, Secrets, UpdateAppointmentRequestParams } from 'utils';
 import { phoneRegex, ZambdaInput } from '../../../shared';
 
-// Note that this file is copied from BH and needs significant changes
 export function validateUpdateAppointmentParams(
   input: ZambdaInput
 ): RequiredProps<UpdateAppointmentRequestParams, 'patient'> & { secrets: Secrets | null } {

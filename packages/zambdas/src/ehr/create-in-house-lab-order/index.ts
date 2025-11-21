@@ -10,31 +10,36 @@ import {
   Location,
   Patient,
   Practitioner,
+  Procedure,
   Provenance,
   ServiceRequest,
-  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APIError,
   CreateInHouseLabOrderParameters,
   FHIR_IDC10_VALUESET_SYSTEM,
+  getAttendingPractitionerId,
   getFullestAvailableName,
+  getSecret,
   IN_HOUSE_LAB_ERROR,
   IN_HOUSE_LAB_TASK,
   isApiError,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   Secrets,
+  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  fillMeta,
   getMyPractitionerId,
   parseCreatedResourcesBundle,
+  topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getAttendingPractitionerId } from '../../shared/practitioner/helpers';
+import { createTask } from '../../shared/tasks';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
@@ -124,7 +129,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       try {
         const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
         return await getMyPractitionerId(oystehrCurrentUser);
-      } catch (e) {
+      } catch {
         throw Error(
           'Resource configuration error - user creating this in-house lab order must have a Practitioner resource linked'
         );
@@ -269,6 +274,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     })();
 
     const attendingPractitionerId = getAttendingPractitionerId(encounter);
+    if (!attendingPractitionerId) throw Error('Attending practitioner not found');
 
     const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
       oystehrCurrentUser.fhir.get<Practitioner>({
@@ -345,23 +351,42 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ];
     }
 
-    const taskConfig: Task = {
-      resourceType: 'Task',
-      status: 'ready',
+    const taskConfig = createTask({
+      category: IN_HOUSE_LAB_TASK.category,
       code: {
-        coding: [
-          {
-            system: IN_HOUSE_LAB_TASK.system,
-            code: IN_HOUSE_LAB_TASK.code.collectSampleTask,
-          },
-        ],
+        system: IN_HOUSE_LAB_TASK.system,
+        code: IN_HOUSE_LAB_TASK.code.collectSampleTask,
       },
-      basedOn: [{ reference: serviceRequestFullUrl }],
-      encounter: { reference: `Encounter/${encounterId}` },
-      authoredOn: DateTime.now().toISO(),
-      intent: 'order',
-      ...(location && { location: { reference: `Location/${location.id}` } }),
-    };
+      encounterId: encounterId,
+      location: location?.id
+        ? {
+            id: location.id,
+          }
+        : undefined,
+      input: [
+        {
+          type: IN_HOUSE_LAB_TASK.input.testName,
+          valueString: activityDefinition.name,
+        },
+        {
+          type: IN_HOUSE_LAB_TASK.input.patientName,
+          valueString: getFullestAvailableName(patient),
+        },
+        {
+          type: IN_HOUSE_LAB_TASK.input.providerName,
+          valueString: currentUserPractitionerName ?? 'Unknown',
+        },
+        {
+          type: IN_HOUSE_LAB_TASK.input.orderDate,
+          valueString: serviceRequestConfig.authoredOn,
+        },
+        {
+          type: IN_HOUSE_LAB_TASK.input.appointmentId,
+          valueString: encounter.appointment?.[0]?.reference?.split('/')?.[1],
+        },
+      ],
+      basedOn: [serviceRequestFullUrl],
+    });
 
     const provenanceConfig: Provenance = {
       resourceType: 'Provenance',
@@ -385,6 +410,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ],
     };
 
+    const procedureConfig: Procedure = {
+      resourceType: 'Procedure',
+      status: 'completed',
+      subject: {
+        reference: `Patient/${patient.id}`,
+      },
+      encounter: {
+        reference: `Encounter/${encounterId}`,
+      },
+      performer: [
+        {
+          actor: {
+            reference: `Practitioner/${attendingPractitionerId}`,
+          },
+        },
+      ],
+      code: {
+        coding: [
+          {
+            ...activityDefinition.code?.coding?.find((coding) => coding.system === 'http://www.ama-assn.org/go/cpt'),
+            display: activityDefinition.name,
+          },
+        ],
+      },
+      meta: fillMeta('cpt-code', 'cpt-code'), // This is necessary to get the Assessment part of the chart showing the CPT codes. It is some kind of save-chart-data feature that this meta is used to find and save the CPT codes instead of just looking at the FHIR Procedure resources code values.
+    };
+
     const transactionResponse = await oystehr.fhir.transaction({
       requests: [
         {
@@ -402,6 +454,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           method: 'POST',
           url: '/Provenance',
           resource: provenanceConfig,
+        },
+        {
+          method: 'POST',
+          url: '/Procedure',
+          resource: procedureConfig,
         },
       ] as BatchInputRequest<FhirResource>[],
     });
@@ -440,11 +497,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const { code, message } = error as APIError;
       body = JSON.stringify({ message, code });
       statusCode = 400;
+      return {
+        statusCode,
+        body,
+      };
     }
-
-    return {
-      statusCode,
-      body,
-    };
+    return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 });

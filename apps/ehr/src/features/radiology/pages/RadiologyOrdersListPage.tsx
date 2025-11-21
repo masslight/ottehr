@@ -1,15 +1,18 @@
 import { Box, Button, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PageTitle } from 'src/telemed/components/PageTitle';
-import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { PageTitle } from '../../visits/shared/components/PageTitle';
 import { RadiologyTable, RadiologyTableColumn } from '../components/RadiologyTable';
 
 const radiologyColumns: RadiologyTableColumn[] = ['studyType', 'dx', 'ordered', 'stat', 'status', 'actions'];
 
 export const RadiologyOrdersListPage: React.FC = () => {
   const navigate = useNavigate();
-  const encounterId = useAppointmentStore((state) => state.encounter?.id);
+  const { encounter } = useAppointmentData();
+  const encounterId = encounter?.id;
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const handleCreateOrder = useCallback((): void => {
     navigate('create');
@@ -20,26 +23,28 @@ export const RadiologyOrdersListPage: React.FC = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
         <PageTitle label="Radiology" showIntakeNotesButton={false} />
         <Stack direction="row" spacing={2} alignItems="center">
-          <Button
-            onClick={handleCreateOrder}
-            variant="contained"
-            sx={{
-              textTransform: 'none',
-              borderRadius: 28,
-              fontWeight: 'bold',
-              width: 120,
-            }}
-          >
-            Order
-          </Button>
+          {!isReadOnly && (
+            <Button
+              onClick={handleCreateOrder}
+              variant="contained"
+              sx={{
+                textTransform: 'none',
+                borderRadius: 28,
+                fontWeight: 'bold',
+                width: 120,
+              }}
+            >
+              Order
+            </Button>
+          )}
         </Stack>
       </Box>
       <RadiologyTable
         encounterId={encounterId}
         columns={radiologyColumns}
         showFilters={false}
-        allowDelete={true}
-        onCreateOrder={handleCreateOrder}
+        allowDelete={!isReadOnly}
+        onCreateOrder={!isReadOnly ? handleCreateOrder : undefined}
       />
     </Stack>
   );

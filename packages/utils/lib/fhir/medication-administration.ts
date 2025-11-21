@@ -6,6 +6,8 @@ import {
   DrugInteraction,
   ExtendedMedicationDataForResponse,
   INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
+  INTERACTIONS_UNAVAILABLE,
+  ISSUE_TYPE_CODE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
@@ -21,6 +23,7 @@ import {
   MedicationInteractions,
   MedicationOrderStatusesType,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
   TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
   UpdateMedicationOrderInput,
@@ -60,8 +63,8 @@ export function mapOrderStatusToFhir(status: MedicationOrderStatusesType): Medic
   }
 }
 
-export function getMedicationName(medication: Medication): string | undefined {
-  return medication.identifier?.find((idn) => idn.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value;
+export function getMedicationName(medication: Medication | undefined): string | undefined {
+  return medication?.identifier?.find((idn) => idn.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value;
 }
 
 export function getMedicationTypeCode(medication: Medication): string | undefined {
@@ -150,14 +153,42 @@ export function getCreatedTheOrderProviderId(medicationAdministration: Medicatio
     ?.actor.reference?.replace('Practitioner/', '');
 }
 
+/**
+ * Gets all "ordered by" providers in chronological order (history)
+ */
+export function getAllOrderedByProviderIds(medicationAdministration: MedicationAdministration): string[] {
+  return (
+    (medicationAdministration.performer
+      ?.filter(
+        (performer) =>
+          performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_BY_MEDICATION_CODE)
+      )
+      ?.map((performer) => performer.actor.reference?.replace('Practitioner/', ''))
+      ?.filter((id) => id !== undefined) as string[]) || []
+  );
+}
+
+/**
+ * Gets the current "ordered by" provider (last one in the history)
+ */
+export function getCurrentOrderedByProviderId(medicationAdministration: MedicationAdministration): string | undefined {
+  const allOrderedByProviders = getAllOrderedByProviderIds(medicationAdministration);
+  return allOrderedByProviders.length > 0 ? allOrderedByProviders[allOrderedByProviders.length - 1] : undefined;
+}
+
 export const searchRouteByCode = (
-  code: keyof typeof medicationApplianceRoutes
+  code: keyof typeof medicationApplianceRoutes | undefined
 ): MedicationApplianceRoute | undefined => {
   return Object.values(medicationApplianceRoutes).find((route) => route.code === code);
 };
 
-export function searchMedicationLocation(code: string): MedicationApplianceLocation | undefined {
-  return medicationApplianceLocations.find((location) => location.code === code);
+export function searchMedicationLocation(
+  code: string | undefined,
+  name?: string | undefined
+): MedicationApplianceLocation | undefined {
+  return medicationApplianceLocations.find(
+    (location) => location.code === code && (name ? location.name === name : true)
+  );
 }
 
 export const medicationExtendedToMedicationData = (
@@ -192,56 +223,85 @@ export const makeMedicationOrderUpdateRequestInput = ({
   orderData?: Partial<MedicationData>;
 }): UpdateMedicationOrderInput => {
   const request: UpdateMedicationOrderInput = {};
-  id && (request.orderId = id);
-  newStatus && (request.newStatus = newStatus);
-  orderData && (request.orderData = orderData as MedicationData);
+  if (id) {
+    request.orderId = id;
+  }
+  if (newStatus) {
+    request.newStatus = newStatus;
+  }
+  if (orderData) {
+    request.orderData = orderData as MedicationData;
+  }
   return request;
 };
 
 export const getMedicationInteractions = (
   medicationRequest: MedicationRequest | undefined
 ): MedicationInteractions | undefined => {
-  const drugInteractions = medicationRequest?.contained
-    ?.filter((resource) => {
-      return (
-        resource.resourceType === 'DetectedIssue' && getCoding(resource.code, CODE_SYSTEM_ACT_CODE_V3)?.code === 'DRG'
-      );
-    })
-    ?.map<DrugInteraction>((resource) => {
-      const issue = resource as DetectedIssue;
-      return {
-        drugs: (issue.evidence ?? []).flatMap((evidence) => {
-          const coding = getCoding(evidence.code, MEDICATION_DISPENSABLE_DRUG_ID);
-          const drugId = coding?.code;
-          const drugName = coding?.display;
-          if (drugId && drugName) {
-            return [
-              {
-                id: drugId,
-                name: drugName,
-              },
-            ];
-          }
-          return [];
-        }),
-        severity: issue.severity,
-        message: issue.detail,
-        overrideReason: getOverrideReason(issue),
-      };
-    });
-  const allergyInteractions = medicationRequest?.contained
-    ?.filter((resource) => {
-      return (
-        resource.resourceType === 'DetectedIssue' && getCoding(resource.code, CODE_SYSTEM_ACT_CODE_V3)?.code === 'ALGY'
-      );
-    })
-    ?.map<AllergyInteraction>((resource) => {
-      const issue = resource as DetectedIssue;
-      return {
-        message: issue.detail,
-        overrideReason: getOverrideReason(issue),
-      };
-    });
+  const drugInteractions =
+    medicationRequest?.contained
+      ?.filter((resource) => {
+        return (
+          resource.resourceType === 'DetectedIssue' && getCoding(resource.code, CODE_SYSTEM_ACT_CODE_V3)?.code === 'DRG'
+        );
+      })
+      ?.map<DrugInteraction>((resource) => {
+        const issue = resource as DetectedIssue;
+        const sourceReference = issue.evidence?.find((evidence) => evidence.detail != null)?.detail?.[0];
+        const sourceReferenceString = sourceReference?.reference;
+        const sourceDisplay = sourceReference?.display;
+        return {
+          drugs: (issue.evidence ?? []).flatMap((evidence) => {
+            const coding = getCoding(evidence.code, MEDICATION_DISPENSABLE_DRUG_ID);
+            const drugId = coding?.code;
+            const drugName = coding?.display;
+            if (drugId && drugName) {
+              return [
+                {
+                  id: drugId,
+                  name: drugName,
+                },
+              ];
+            }
+            return [];
+          }),
+          severity: issue.severity,
+          message: issue.detail,
+          overrideReason: getOverrideReason(issue),
+          source:
+            sourceReferenceString && sourceDisplay
+              ? {
+                  reference: sourceReferenceString,
+                  display: sourceDisplay,
+                }
+              : undefined,
+        };
+      }) ?? [];
+  const allergyInteractions =
+    medicationRequest?.contained
+      ?.filter((resource) => {
+        return (
+          resource.resourceType === 'DetectedIssue' &&
+          // cSpell:disable-next al(ler)gy
+          getCoding(resource.code, CODE_SYSTEM_ACT_CODE_V3)?.code === 'ALGY'
+        );
+      })
+      ?.map<AllergyInteraction>((resource) => {
+        const issue = resource as DetectedIssue;
+        return {
+          message: issue.detail,
+          overrideReason: getOverrideReason(issue),
+        };
+      }) ?? [];
+  const interactionUnavailableIssue = medicationRequest?.contained?.find((resource) => {
+    return (
+      resource.resourceType === 'DetectedIssue' &&
+      getCoding(resource.code, ISSUE_TYPE_CODE_SYSTEM)?.code === INTERACTIONS_UNAVAILABLE
+    );
+  });
+  if (interactionUnavailableIssue) {
+    return undefined;
+  }
   return {
     drugInteractions,
     allergyInteractions,
@@ -256,4 +316,23 @@ const getOverrideReason = (issue: DetectedIssue): string | undefined => {
     }
   }
   return undefined;
+};
+
+export const medicationStatusDisplayLabelMap: Record<MedicationOrderStatusesType, string> = {
+  pending: 'Pending',
+  administered: 'Administered',
+  'administered-partly': 'Partly Administered',
+  'administered-not': 'Not Administered',
+  cancelled: 'Cancelled',
+};
+
+export const createMedicationString = (medication: ExtendedMedicationDataForResponse): string => {
+  const name = medication.medicationName;
+  const dose = medication.dose && `${medication.dose} ${medication.units}`;
+  const route = searchRouteByCode(medication.route)?.display;
+  const givenBy = medication.administeredProvider && `given by ${medication.administeredProvider}`;
+  const instructions = medication.instructions && `instructions: ${medication.instructions}`;
+  const status = medicationStatusDisplayLabelMap[medication.status];
+
+  return [name, dose, route, givenBy, instructions, status].filter(Boolean).join(', ');
 };

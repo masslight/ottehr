@@ -34,12 +34,12 @@ export default function AppointmentStatusDropdown({
 }: AppointmentsStatusDropdownProps): ReactElement {
   const handleChange = (event: SelectChangeEvent<typeof appointmentStatus>): void => {
     const value = event.target.value;
-    value &&
-      setAppointmentStatus &&
+    if (value && setAppointmentStatus) {
       setAppointmentStatus(
         // On autofill we get a stringified value.
         typeof value === 'string' ? value.split(',') : value
       );
+    }
   };
 
   return (

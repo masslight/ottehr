@@ -1,7 +1,7 @@
 import { Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getPatientName } from 'src/shared/utils';
 import { getPatientAddress } from 'utils';
-import { getPatientName } from '../../telemed/utils';
 import { PatientInformationModalFormValues } from './form-values.types';
 import { getDateFromFormat, mapGenderToLabel, mapPersonInformationToResource } from './resources.helper';
 

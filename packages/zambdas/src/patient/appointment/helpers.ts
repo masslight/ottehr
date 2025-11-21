@@ -1,46 +1,70 @@
 import Oystehr from '@oystehr/sdk';
-import { Coding, DocumentReference, Extension, Practitioner, Questionnaire } from 'fhir/r4b';
+import { Coding, DocumentReference, Extension, Organization, Practitioner, Questionnaire } from 'fhir/r4b';
 import {
   CanonicalUrl,
   getCanonicalQuestionnaire,
-  getSecret,
   OtherParticipantsExtension,
   PatientAccountResponse,
-  Secrets,
-  SecretsKeys,
   ServiceMode,
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
-import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
-
+import ehrInsuranceUpdateQuestionnaireJson from '../../../../../config/oystehr/ehr-insurance-update-questionnaire.json' assert { type: 'json' };
+import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
+import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
+import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,
-  secrets: Secrets | null,
   oystehrClient: Oystehr
 ): Promise<Questionnaire> => {
-  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, secrets);
+  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
   return getCanonicalQuestionnaire(canonical, oystehrClient);
 };
 
-export const getCanonicalUrlForPrevisitQuestionnaire = (
-  serviceMode: ServiceMode,
-  secrets: Secrets | null
-): CanonicalUrl => {
-  let secretKey = '';
+export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode): CanonicalUrl => {
+  let url = '';
+  let version = '';
   if (serviceMode === 'in-person') {
-    secretKey = SecretsKeys.IN_PERSON_PREVISIT_QUESTIONNAIRE;
+    const questionnaire = Object.values(inPersonIntakeQuestionnaireJson.fhirResources).find(
+      (q) =>
+        q.resource.resourceType === 'Questionnaire' &&
+        q.resource.status === 'active' &&
+        q.resource.url.includes('intake-paperwork-inperson')
+    );
+    url = questionnaire?.resource.url || '';
+    version = questionnaire?.resource.version || '';
   } else if (serviceMode === 'virtual') {
-    secretKey = SecretsKeys.VIRTUAL_PREVISIT_QUESTIONNAIRE;
+    const questionnaire = Object.values(virtualIntakeQuestionnaireJson.fhirResources).find(
+      (q) =>
+        q.resource.resourceType === 'Questionnaire' &&
+        q.resource.status === 'active' &&
+        q.resource.url.includes('intake-paperwork-virtual')
+    );
+    url = questionnaire?.resource.url || '';
+    version = questionnaire?.resource.version || '';
   }
-  const questionnaireCanonURL = getSecret(secretKey, secrets);
-  // todo: move this into some kind of util function
-  const [questionnaireURL, questionnaireVersion] = questionnaireCanonURL.split('|');
-  if (!questionnaireURL || !questionnaireVersion) {
-    throw new Error('Questionnaire url secret missing or malformed');
+  if (!url || !version) {
+    throw new Error('Questionnaire url missing or malformed');
   }
   return {
-    url: questionnaireURL,
-    version: questionnaireVersion,
+    url,
+    version,
+  };
+};
+
+export const getCanonicalUrlForInsuranceUpdateQuestionnaire = (): CanonicalUrl => {
+  const questionnaire = Object.values(ehrInsuranceUpdateQuestionnaireJson.fhirResources).find(
+    (q) =>
+      q.resource.resourceType === 'Questionnaire' &&
+      q.resource.status === 'active' &&
+      q.resource.url.includes('ehr-insurance-update-questionnaire')
+  );
+  const { url, version } = questionnaire?.resource || {};
+  if (!url || !version) {
+    throw new Error('Questionnaire url missing or malformed');
+  }
+  return {
+    url,
+    version,
   };
 };
 
@@ -145,12 +169,16 @@ export async function getRelatedResources(
     const primaryCarePhysician = insuranceResponse.patient?.contained?.find(
       (resource) => resource.resourceType === 'Practitioner' && resource.active === true
     ) as Practitioner;
+    const pharmacy = insuranceResponse.patient?.contained?.find(
+      (resource) => resource.resourceType === 'Organization' && resource.id === PATIENT_CONTAINED_PHARMACY_ID
+    ) as Organization;
 
     documents = docsResponse.unbundle();
     accountInfo = {
       ...insuranceResponse,
       primaryCarePhysician,
       coverageChecks: [], // these aren't needed here
+      pharmacy,
     };
   }
 

@@ -15,24 +15,33 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ActionsList } from 'src/components/ActionsList';
+import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CODINGS, PSC_HOLD_LOCALE } from 'utils';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import {
+  useGetCreateExternalLabResources,
+  useICD10SearchNew,
+} from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useDebounce } from 'src/shared/hooks/useDebounce';
+import {
+  CreateLabPaymentMethod,
+  DiagnosisDTO,
+  getAttendingPractitionerId,
+  LabPaymentMethod,
+  ModifiedOrderingLocation,
+  OrderableItemSearchResult,
+  PSC_HOLD_LOCALE,
+} from 'utils';
 import { createExternalLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import {
-  ActionsList,
-  DeleteIconButton,
-  useAppointmentStore,
-  useDebounce,
-  useGetCreateExternalLabResources,
-  useGetIcd10Search,
-  useSaveChartData,
-} from '../../../telemed';
 import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
@@ -41,38 +50,49 @@ interface CreateExternalLabOrdersProps {
   appointmentID?: string;
 }
 
+type LocationMapValue = {
+  location: ModifiedOrderingLocation;
+  labOrgIds: string;
+};
+
 export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = () => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const apiClient = useOystehrAPIClient();
+  const {
+    encounter,
+    appointment,
+    patient,
+    location: apptLocation,
+    followUpOriginEncounter: mainEncounter,
+  } = useAppointmentData();
+  const { chartData, setPartialChartData } = useChartData();
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
+  const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
 
-  const { mutate: saveChartData } = useSaveChartData();
-  const { chartData, encounter, appointment, patient, setPartialChartData } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'encounter',
-    'appointment',
-    'patient',
-    'setPartialChartData',
-  ]);
-
-  const { diagnosis } = chartData || {};
-  const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
-
-  const attendingPractitioner = encounter.participant?.find(
-    (participant) =>
-      participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
+  const diagnosis = useMemo<DiagnosisDTO[]>(
+    () => (isFollowup ? mainEncounterChartData?.diagnosis || [] : chartData?.diagnosis || []),
+    [mainEncounterChartData?.diagnosis, chartData?.diagnosis, isFollowup]
   );
-  const patientId = patient?.id || '';
 
+  const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
+  const attendingPractitionerId = getAttendingPractitionerId(encounter);
+  const patientId = patient?.id || '';
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
   const [psc, setPsc] = useState<boolean>(false);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>('');
+  const [labOrgIdsForSelectedOffice, setLabOrgIdsForSelectedOffice] = useState<string>('');
+  const [isOrderingDisabled, setIsOrderingDisabled] = useState<boolean>(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<CreateLabPaymentMethod | ''>('');
 
   // used to fetch dx icd10 codes
   const [debouncedDxSearchTerm, setDebouncedDxSearchTerm] = useState('');
-  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedDxSearchTerm, sabs: 'ICD10CM' });
+  const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedDxSearchTerm });
   const icdSearchOptions = data?.codes || [];
   const { debounce } = useDebounce(800);
   const debouncedHandleDxInputChange = (searchValue: string): void => {
@@ -89,12 +109,79 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   } = useGetCreateExternalLabResources({
     patientId,
   });
-  const coverageName = createExternalLabResources?.coverageName;
+
+  const coverageInfo = createExternalLabResources?.coverages;
+  const hasInsurance = !!(coverageInfo?.length && coverageInfo.length > 0);
+  const orderingLocations = createExternalLabResources?.orderingLocations ?? [];
+  const orderingLocationIdsStable = (createExternalLabResources?.orderingLocationIds ?? []).join(',');
+
+  const orderingLocationIdToLocationAndLabGUIDsMap = useMemo(
+    () =>
+      new Map<string, LocationMapValue>(
+        orderingLocations.map((loc) => [
+          loc.id,
+          {
+            location: loc,
+            labOrgIds: loc.enabledLabs.map((lab) => lab.labOrgRef.replace('Organization/', '')).join(','),
+          },
+        ])
+      ),
+    [orderingLocationIdsStable] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  useEffect(() => {
+    if (!apptLocation?.id) return;
+
+    if (orderingLocationIdToLocationAndLabGUIDsMap.has(apptLocation.id) && !selectedOfficeId) {
+      setSelectedOfficeId(apptLocation.id);
+      console.log('we did the state set');
+    }
+  }, [apptLocation?.id, selectedOfficeId, orderingLocationIdToLocationAndLabGUIDsMap]);
+
+  useEffect(() => {
+    const labOrgIds = orderingLocationIdToLocationAndLabGUIDsMap.get(selectedOfficeId)?.labOrgIds ?? '';
+    console.log(`lab org ids for selectedOfficeId ${selectedOfficeId}`, labOrgIds);
+    setLabOrgIdsForSelectedOffice(labOrgIds);
+  }, [selectedOfficeId, orderingLocationIdToLocationAndLabGUIDsMap]);
+
+  useEffect(() => {
+    if (!apptLocation && !selectedOfficeId) {
+      setError(['Please select an ordering office to continue']);
+      setIsOrderingDisabled(true);
+    } else if (
+      apptLocation &&
+      (!selectedOfficeId || !orderingLocationIdToLocationAndLabGUIDsMap.has(selectedOfficeId))
+    ) {
+      setError(['Office is not configured to order labs. Please select another office']);
+      setIsOrderingDisabled(true);
+    } else {
+      setError(undefined);
+      setIsOrderingDisabled(false);
+    }
+  }, [apptLocation, selectedOfficeId, orderingLocationIdToLocationAndLabGUIDsMap]);
+
+  useEffect(() => {
+    if (coverageInfo) {
+      if (coverageInfo.length > 0) {
+        setSelectedPaymentMethod(LabPaymentMethod.Insurance);
+      } else {
+        // if no coverage info is returned, self pay
+        setSelectedPaymentMethod(LabPaymentMethod.SelfPay);
+      }
+    } else {
+      console.log('coverageInfo is', coverageInfo);
+    }
+  }, [coverageInfo]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    const paramsSatisfied = orderDx.length && selectedLab;
+    const paramsSatisfied =
+      orderDx.length &&
+      selectedLab &&
+      selectedOfficeId &&
+      orderingLocationIdToLocationAndLabGUIDsMap.has(selectedOfficeId) &&
+      selectedPaymentMethod !== '';
     if (oystehrZambda && paramsSatisfied) {
       try {
         await addAdditionalDxToEncounter();
@@ -103,19 +190,23 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           encounter,
           orderableItem: selectedLab,
           psc,
+          orderingLocation: orderingLocationIdToLocationAndLabGUIDsMap.get(selectedOfficeId)!.location,
+          selectedPaymentMethod: selectedPaymentMethod,
         });
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
-        const oyError = e as OystehrSdkError;
-        console.log('error creating external lab order', oyError.code, oyError.message);
-        const errorMessage = [oyError.message];
+        const sdkError = e as Oystehr.OystehrSdkError;
+        console.log('error creating external lab order', sdkError.code, sdkError.message);
+        const errorMessage = [sdkError.message];
         setError(errorMessage);
       }
     } else if (!paramsSatisfied) {
       const errorMessage = [];
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!selectedLab) errorMessage.push('Please select a lab to order');
-      if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
+      if (!attendingPractitionerId) errorMessage.push('No attending practitioner has been assigned to this encounter');
+      if (!(selectedOfficeId && orderingLocationIdToLocationAndLabGUIDsMap.has(selectedOfficeId)))
+        errorMessage.push('No office selected, or office is not configured to order labs');
       if (errorMessage.length === 0) errorMessage.push('There was an error creating this external lab order');
       setError(errorMessage);
     }
@@ -123,6 +214,14 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   };
 
   const addAdditionalDxToEncounter = async (): Promise<void> => {
+    if (!apiClient) {
+      throw new Error('API client not available');
+    }
+
+    if (!mainEncounter?.id) {
+      throw new Error('Encounter ID not available');
+    }
+
     const dxToAdd: DiagnosisDTO[] = [];
     orderDx.forEach((dx) => {
       const alreadyExistsOnEncounter = diagnosis?.find((d) => d.code === dx.code);
@@ -135,35 +234,26 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       }
     });
     if (dxToAdd.length > 0) {
-      await new Promise<void>((resolve, reject) => {
-        saveChartData(
-          {
-            diagnosis: dxToAdd,
-          },
-          {
-            onSuccess: (data) => {
-              const returnedDiagnosis = data.chartData.diagnosis || [];
-              const allDx = [...returnedDiagnosis, ...(diagnosis || [])];
-              if (allDx) {
-                setPartialChartData({
-                  diagnosis: [...allDx],
-                });
-              }
-              resolve();
-            },
-            onError: (error) => {
-              reject(error);
-            },
-          }
-        );
+      const data = await apiClient.saveChartData({
+        encounterId: mainEncounter?.id,
+        diagnosis: dxToAdd,
       });
+
+      const returnedDiagnosis = data?.chartData?.diagnosis || [];
+      const currentEncounterDiagnoses = chartData?.diagnosis || [];
+      const allDx = [...returnedDiagnosis, ...currentEncounterDiagnoses];
+      if (allDx && !isFollowup) {
+        setPartialChartData({
+          diagnosis: [...allDx],
+        });
+      }
     }
   };
 
   if (isError || resourceFetchError) {
     return (
       <DetailPageContainer>
-        <LabBreadcrumbs sectionName="Order Lab">
+        <LabBreadcrumbs sectionName="Order External Lab">
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
               Order External Lab
@@ -198,6 +288,56 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           <form onSubmit={handleSubmit}>
             <Paper sx={{ p: 3 }}>
               <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
+                <Grid item xs={12}>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: '600px', color: theme.palette.primary.dark, marginBottom: '8px' }}
+                  >
+                    Ordering Office
+                  </Typography>
+                  <Grid item xs={12}>
+                    <FormControl fullWidth required>
+                      <InputLabel id="select-office-label" shrink>
+                        Office
+                      </InputLabel>
+                      <Select
+                        notched
+                        fullWidth
+                        id="select-office"
+                        label="office"
+                        onChange={(e) => {
+                          console.log('Selected office value', e.target.value);
+                          setSelectedOfficeId(e.target.value);
+                          if (!e.target.value)
+                            enqueueSnackbar('Must select an ordering office', {
+                              variant: 'error',
+                            });
+                          // future TODO: should clear out the selected lab only if the selected lab isn't from the same lab guid as what the location supports
+                          setSelectedLab(null);
+                        }}
+                        displayEmpty
+                        value={selectedOfficeId ?? ''}
+                        sx={{
+                          '& .MuiInputLabel-root': {
+                            top: -8,
+                          },
+                        }}
+                        size="small"
+                      >
+                        <MenuItem value="" disabled>
+                          <Typography sx={{ color: '#9E9E9E' }}>Select an Ordering Office</Typography>
+                        </MenuItem>
+                        {orderingLocations.map((loc) =>
+                          loc.id ? (
+                            <MenuItem id={loc.id} key={loc.id} value={loc.id}>
+                              {loc.name}
+                            </MenuItem>
+                          ) : null
+                        )}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
                 <Grid item xs={12}>
                   <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
                     Dx
@@ -239,8 +379,8 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                       <MenuItem value="" disabled>
                         <Typography sx={{ color: '#9E9E9E' }}>Add a Dx to Order</Typography>
                       </MenuItem>
-                      {diagnosis?.map((d) => (
-                        <MenuItem id={d.resourceId} key={d.resourceId} value={d.code}>
+                      {diagnosis?.map((d, idx) => (
+                        <MenuItem id={d.resourceId} key={`${idx}-dx-${d.resourceId}`} value={d.code}>
                           {d.code} {d.display}
                         </MenuItem>
                       ))}
@@ -307,12 +447,48 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   </Grid>
                 )}
                 <Grid item xs={12}>
-                  <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-                    Patient insurance
+                  <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark, mb: '8px' }}>
+                    Payment Method
                   </Typography>
-                  <Typography variant="body2" sx={{ paddingTop: '8px' }}>
-                    {coverageName || 'unknown'}
-                  </Typography>
+                  <Grid container gap={1} sx={{ display: 'flex' }}>
+                    <Grid item xs={6} width="100%">
+                      <Select
+                        notched
+                        fullWidth
+                        id="select-payment-method"
+                        onChange={(e) => setSelectedPaymentMethod(e.target.value as CreateLabPaymentMethod)}
+                        displayEmpty
+                        value={selectedPaymentMethod}
+                        sx={{
+                          '& .MuiInputLabel-root': {
+                            top: -8,
+                          },
+                        }}
+                        size="small"
+                      >
+                        {hasInsurance && (
+                          <MenuItem id={'payment-method-item-insurance'} value={LabPaymentMethod.Insurance}>
+                            Insurance
+                          </MenuItem>
+                        )}
+                        <MenuItem id={'payment-method-item-self-pay'} value={LabPaymentMethod.SelfPay}>
+                          Self Pay
+                        </MenuItem>
+                        <MenuItem id={'payment-method-item-client-bill'} value={LabPaymentMethod.ClientBill}>
+                          Client Bill
+                        </MenuItem>
+                      </Select>
+                    </Grid>
+                    {hasInsurance && selectedPaymentMethod === 'insurance' && (
+                      <Grid item xs={12} width="100%">
+                        {coverageInfo.map((coverageInfo, idx) => (
+                          <Typography key={`coverage-name-${idx}`} variant="body2">
+                            {`${coverageInfo.coverageName}${coverageInfo.isPrimary ? ' (primary)' : ''}`}
+                          </Typography>
+                        ))}
+                      </Grid>
+                    )}
+                  </Grid>
                 </Grid>
                 <Grid item xs={12}>
                   <Typography
@@ -321,7 +497,11 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   >
                     Lab
                   </Typography>
-                  <LabsAutocomplete selectedLab={selectedLab} setSelectedLab={setSelectedLab}></LabsAutocomplete>
+                  <LabsAutocomplete
+                    labOrgIdsString={labOrgIdsForSelectedOffice}
+                    selectedLab={selectedLab}
+                    setSelectedLab={setSelectedLab}
+                  ></LabsAutocomplete>
                 </Grid>
                 <Grid item xs={12}>
                   <FormControlLabel
@@ -343,6 +523,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                 </Grid>
                 <Grid item xs={6} display="flex" justifyContent="flex-end">
                   <LoadingButton
+                    disabled={isOrderingDisabled}
                     loading={submitting}
                     type="submit"
                     variant="contained"
@@ -351,7 +532,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     Order
                   </LoadingButton>
                 </Grid>
-                {error &&
+                {Array.isArray(error) &&
                   error.length > 0 &&
                   error.map((msg, idx) => (
                     <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>

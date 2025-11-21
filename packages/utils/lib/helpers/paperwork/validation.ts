@@ -1,6 +1,7 @@
 import {
   QuestionnaireItem,
   QuestionnaireItemEnableWhen,
+  QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
@@ -171,7 +172,10 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
   if (item.type === 'boolean') {
     let booleanSchema = Yup.boolean();
     if (required) {
-      booleanSchema = booleanSchema.is([true], REQUIRED_FIELD_ERROR_MESSAGE).required(REQUIRED_FIELD_ERROR_MESSAGE);
+      booleanSchema = booleanSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
+    }
+    if (item.requiredBooleanValue !== undefined) {
+      booleanSchema = booleanSchema.oneOf([item.requiredBooleanValue], REQUIRED_FIELD_ERROR_MESSAGE);
     }
     schemaTemp = Yup.object({
       valueBoolean: booleanSchema,
@@ -225,7 +229,7 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
     let stringSchema = Yup.string()
       .typeError(DATE_ERROR_MESSAGE)
       .matches(isoDateRegex, DATE_ERROR_MESSAGE)
-      .test('date test', async (value: any, context: any) => {
+      .test('date test', (value: any, context: any) => {
         const dt = DateTime.fromISO(value);
         const now = DateTime.now();
         if (dt > now) {
@@ -292,9 +296,8 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
 export const makeValidationSchema = (
   items: IntakeQuestionnaireItem[],
   pageId?: string,
-  externalContext?: { values: any; items: any }
+  externalContext?: { values: any; items: any; questionnaireResponse?: QuestionnaireResponse }
 ): any => {
-  // console.log('validation items', items);
   if (pageId !== undefined) {
     // we are validating one page of the questionnaire
     const itemsToValidate = items.find((i) => {
@@ -308,7 +311,6 @@ export const makeValidationSchema = (
       // this is the branch hit from frontend validation. it is nearly the same as the branch hit by
       // patch. in this case item list is provided directly, where as with Patch it is provided as
       // the item field on { linkId: pageId, item: items }. might be nice to consolidate this.
-      // console.log('page id not found; assuming it is root and making schema from items');
       return Yup.lazy((values: any, options: any) => {
         return makeValidationSchemaPrivate({
           items,
@@ -324,7 +326,7 @@ export const makeValidationSchema = (
         const { linkId: pageId, item: answerItem } = value;
         const questionItem = items.find((i) => i.linkId === pageId);
         if (!questionItem) {
-          // console.log('page not found');
+          console.log('page not found');
           return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
         }
         if (answerItem === undefined) {
@@ -344,7 +346,7 @@ export const makeValidationSchema = (
             accum[current.linkId] = { ...current };
             return accum;
           }, {});
-          const validated = await schema.validate(reduced, { abortEarly: false });
+          const validated = await schema.validateSync(reduced, { abortEarly: false });
           return Yup.mixed().transform(() => validated);
         } catch (e) {
           console.log('error: ', pageId, JSON.stringify(answerItem), e);
@@ -365,7 +367,6 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
   const { items, formValues, externalContext: maybeExternalContext } = input;
   // const contextualItems = maybeExternalContext?.items ?? [];
   const externalValues = maybeExternalContext?.values ?? [];
-  // console.log('validation items', items);
   // these allow us some flexibility to inject field dependencies from another
   // paperwork page, or anywhere outside the context of the immediate form being validated,
   // or to keep parent/sibling items in context when drilling down into a group
@@ -378,7 +379,9 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
       }
       return accum;
     }, {} as any);
+
   allValues = { ...allValues, ...formValues };
+
   const validatableItems = [...items]
     .filter((item) => item?.type !== 'display' && !item?.readOnly && !evalFilterWhen(item, allValues))
     .flatMap((item) => makeValidatableItem(item));
@@ -392,7 +395,7 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
         formValues,
         externalContext: maybeExternalContext,
       });
-      // console.log('embedded schema', embeddedSchema);
+
       schemaTemp = Yup.object().shape({
         linkId: Yup.string(),
         item: Yup.array()
@@ -400,7 +403,6 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
             if (!Array.isArray(v)) {
               return v;
             }
-            // console.log('sorted pre insert', JSON.stringify(v));
             const filled = filteredItems.map((item) => {
               const match = v.find((i) => {
                 return i?.linkId === item?.linkId;
@@ -418,7 +420,6 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
                 return { linkId: item.linkId };
               }
             });
-            // console.log('sorted post insert', JSON.stringify(filled));
             return filled;
           })
           .of(
@@ -426,10 +427,10 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
               `${item.linkId} group member test`,
               // test function, determines schema validity
               (val: any, context: any) => {
-                // console.log('testing val', val, context);
                 const parentContext = context?.from?.pop()?.value ?? {};
                 const combinedContext = { ...(externalValues ?? {}), ...(parentContext ?? {}) };
                 const shouldFilter = evalFilterWhen(item, combinedContext);
+
                 // if the parent item should be filtered we've normalized any items to linkId placeholders
                 // and can safely return true here, only proceeding to test conformance of each embedded item
                 // with the schema if the encompassing parent is not filtered out.
@@ -455,9 +456,8 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
                       }
                     }
                     // console.log('idx', idx, itemLinkId, val, item);
-                    return embeddedSchema.validateAt(val.linkId, memberItem);
+                    return embeddedSchema.validateSyncAt(val.linkId, { [val.linkId]: val });
                   } catch (e) {
-                    console.log('thrown error from group member test', e);
                     // this special one-off handling deals with the allergies page, which has an item that
                     // powers some logic in the form, but is not actually a field that needs to be validated because it
                     // contributes no persisted values. there's probably a better way to handle this, but this works for now.
@@ -493,8 +493,6 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
       } else {
         validationTemp[item.linkId] = schemaTemp;
       }
-    } else {
-      console.log('undefined schema', item.linkId);
     }
   });
   return Yup.object().shape(validationTemp);
@@ -626,33 +624,68 @@ const evalEnableWhenItem = (
   }
 };
 
+const evalStatusCondition = (questionVal: any, questionnaireResponse?: QuestionnaireResponse): boolean => {
+  const { operator, answerString, answerCoding } = questionVal;
+  const currentStatus = questionnaireResponse?.status;
+
+  switch (operator) {
+    case 'exists':
+      return !!currentStatus;
+
+    case '=':
+      if (answerString) {
+        return currentStatus === answerString;
+      }
+      if (answerCoding) {
+        return currentStatus === answerCoding.code;
+      }
+      return false;
+
+    case '!=':
+      if (answerString) {
+        return currentStatus !== answerString;
+      }
+      if (answerCoding) {
+        return currentStatus !== answerCoding.code;
+      }
+      return false;
+
+    case 'in':
+      if (answerString && currentStatus) {
+        const allowedStatuses = answerString.split(',').map((s: string) => s.trim());
+        return allowedStatuses.includes(currentStatus);
+      }
+      return false;
+
+    default:
+      return false;
+  }
+};
+
 export const evalEnableWhen = (
   item: IntakeQuestionnaireItem,
   items: IntakeQuestionnaireItem[],
-  values: { [itemLinkId: string]: QuestionnaireResponseItem }
+  values: { [itemLinkId: string]: QuestionnaireResponseItem },
+  questionnaireResponse?: QuestionnaireResponse
 ): boolean => {
   const { enableWhen, enableBehavior = 'all' } = item;
   if (enableWhen === undefined || enableWhen.length === 0) {
     return true;
   }
 
+  const evaluate = (ew: QuestionnaireItemEnableWhen): boolean => {
+    if (ew.question === '$status') {
+      return evalStatusCondition(ew, questionnaireResponse);
+    }
+    return evalEnableWhenItem(ew, values, items);
+  };
+
   if (enableBehavior === 'any') {
-    const verdict = enableWhen.some((ew) => {
-      const enabled = evalEnableWhenItem(ew, values, items);
-      return enabled;
-    });
-    return verdict;
+    return enableWhen.some(evaluate);
   } else if (enableBehavior === 'all') {
-    const verdict = enableWhen.every((ew) => {
-      const enabled = evalEnableWhenItem(ew, values, items);
-      return enabled;
-    });
-    return verdict;
+    return enableWhen.every(evaluate);
   } else {
-    const verdict = enableWhen.every((ew) => {
-      return evalEnableWhenItem(ew, values, items);
-    });
-    return verdict;
+    return enableWhen.every(evaluate);
   }
 };
 
@@ -667,7 +700,8 @@ export const evalRequired = (item: IntakeQuestionnaireItem, context: any, questi
     return false;
   }
 
-  return evalCondition(item.requireWhen, context, item.type, questionVal);
+  const result = evalCondition(item.requireWhen, context, item.type, questionVal);
+  return result;
 };
 
 export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): string | undefined => {
@@ -726,7 +760,7 @@ export const evalComplexValidationTrigger = (
   context: any,
   questionVal?: any
 ): boolean => {
-  // console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
+  console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
   if (item.complexValidation === undefined) {
     return false;
   } else if (item.complexValidation?.triggerWhen === undefined) {
@@ -817,6 +851,7 @@ const recursivePathEval = (context: any, question: string, value?: any): any | u
   if (value) {
     return value;
   }
+
   try {
     const itemDict = Array.isArray(context) ? makeItemDict(context) : context;
     const questionValue = (itemDict ?? {})[question];
@@ -826,7 +861,7 @@ const recursivePathEval = (context: any, question: string, value?: any): any | u
       const questionSplit = question.split('.');
       if (questionSplit.length > 1) {
         const newQuestion = questionSplit.slice(1).join('.');
-        return recursivePathEval(context, newQuestion);
+        return recursivePathEval(context[questionSplit[0]]?.item ?? context, newQuestion);
       }
     }
   } catch (e) {

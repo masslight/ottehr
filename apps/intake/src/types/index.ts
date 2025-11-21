@@ -1,4 +1,4 @@
-export type { Appointment, RadioOption } from './types';
+export type { RadioOption } from './types';
 
 export * from './file-upload-options';
 

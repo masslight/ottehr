@@ -15,10 +15,11 @@ import {
   useTheme,
 } from '@mui/material';
 import { Patient } from 'fhir/r4';
-import React, { FC, useState } from 'react';
+import { FC, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
+import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 import { PROJECT_NAME } from 'utils';
-import { ConfirmationDialog, ContainedPrimaryToggleButton } from '../../telemed';
 import { RoundedButton } from '../RoundedButton';
 import { useGetPatientsForMerge } from './queries';
 
@@ -51,6 +52,7 @@ type PatientFormValues = {
   active?: boolean;
   fillingOutAs?: string;
   responsiblePartyPhone?: string;
+  responsiblePartyEmail?: string;
   commonWellConsent?: boolean;
   pointOfDiscovery?: string;
   sexualOrientation?: string;
@@ -107,6 +109,7 @@ const mapPatientResourceToFormValues = (patient: Patient): PatientFormValues => 
     responsiblePartyPhone: responsibleParty?.telecom?.find(
       (telecom) => telecom.system === 'phone' && telecom.use === 'mobile'
     )?.value,
+    responsiblePartyEmail: responsibleParty?.telecom?.find((telecom) => telecom.system === 'email')?.value,
     responsiblePartyRelationship: responsibleParty?.relationship
       ?.find(
         (relationship) =>
@@ -283,6 +286,11 @@ const rows: Row[] = [
     title: 'Responsible party number',
     field: 'responsiblePartyPhone',
     render: (patient) => patient.responsiblePartyPhone || '-',
+  },
+  {
+    title: 'Responsible party email',
+    field: 'responsiblePartyEmail',
+    render: (patient) => patient.responsiblePartyEmail || '-',
   },
   {
     title: 'Responsible party relationship',

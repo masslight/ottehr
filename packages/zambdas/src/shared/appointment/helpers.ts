@@ -11,7 +11,6 @@ import {
   formatPhoneNumber,
   getPatchBinary,
   getPatientResourceWithVerifiedPhoneNumber,
-  mapStatusToTelemed,
   normalizePhoneNumber,
   PATIENT_NOT_FOUND_ERROR,
   PatientInfo,
@@ -62,8 +61,6 @@ export async function patchEncounterResource(
     throw new Error(`Failed to patch Encounter: ${JSON.stringify(error)}`);
   }
 }
-
-export { mapStatusToTelemed };
 
 export const telemedStatusToEncounter = (telemedStatus: TelemedCallStatuses): Encounter['status'] => {
   switch (telemedStatus) {
@@ -222,7 +219,31 @@ export function creatingPatientUpdateRequest(
     // Do not update weight last updated date
   }
 
-  console.log('patient extension', patientExtension);
+  const guardianExtIndex = patientExtension.findIndex(
+    (ext) => ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+  );
+
+  const guardianValue =
+    patient.authorizedNonLegalGuardians ??
+    maybeFhirPatient.extension?.find((ext) => ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)
+      ?.valueString;
+
+  if (guardianValue) {
+    const extensionValue = {
+      url: FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url,
+      valueString: guardianValue,
+    };
+    if (guardianExtIndex >= 0) {
+      patientExtension[guardianExtIndex] = extensionValue;
+    } else {
+      patientExtension.push(extensionValue);
+    }
+  } else if (guardianExtIndex >= 0) {
+    patientExtension = [
+      ...patientExtension.slice(0, guardianExtIndex),
+      ...patientExtension.slice(guardianExtIndex + 1),
+    ];
+  }
 
   patientPatchOperations.push({
     op: maybeFhirPatient.extension ? 'replace' : 'add',
@@ -433,6 +454,16 @@ export function creatingPatientCreateRequest(
 
   if (patient.address) {
     patientResource.address = patient.address;
+  }
+
+  if (patient.authorizedNonLegalGuardians) {
+    if (!patientResource.extension) {
+      patientResource.extension = [];
+    }
+    patientResource.extension.push({
+      url: FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url,
+      valueString: String(patient.authorizedNonLegalGuardians),
+    });
   }
 
   console.log('creating patient request for new patient resource');

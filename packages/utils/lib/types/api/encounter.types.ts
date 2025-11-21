@@ -10,11 +10,15 @@ export interface ProviderDetails {
   practitionerId: string;
   name: string;
 }
+
 export interface PatientFollowupDetails {
   encounterId?: string; // will only exist when updating
   patientId: string | null;
   followupType: FollowupType;
   reason?: FollowupReason;
+  otherReason?: string;
+  initialEncounterID?: string;
+  appointmentId?: string;
   answered?: string;
   caller?: string;
   message?: string;

@@ -1,21 +1,23 @@
-import { useQuery } from 'react-query';
+import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { OystehrAPIClient } from 'ui-components';
+import { PromiseReturnType } from 'utils';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetPastVisits = (apiClient: OystehrAPIClient | null, enabled = true, patientId?: string) =>
-  useQuery(
-    ['pastVisits', patientId],
-    () => {
+export const useGetPastVisits = (
+  apiClient: OystehrAPIClient | null,
+  enabled = true,
+  patientId?: string
+): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['getPastVisits']>>, Error> => {
+  const query = useQuery({
+    queryKey: ['pastVisits', patientId],
+    queryFn: () => {
       if (!apiClient) {
         throw new Error('API client not defined');
       }
       return patientId ? apiClient.getPastVisits({ patientId }) : apiClient.getPastVisits();
     },
-    {
-      enabled,
-      onError: (err) => {
-        console.error('Error during fetching appointments: ', err);
-      },
-      staleTime: 1000 * 60 * 5,
-    }
-  );
+    enabled,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  return query;
+};

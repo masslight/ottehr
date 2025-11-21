@@ -1,16 +1,17 @@
 import { Autocomplete, TextField } from '@mui/material';
 import { FC, useState } from 'react';
-import { useGetCreateExternalLabResources } from 'src/telemed';
-import { useDebounce } from 'src/telemed';
+import { useGetCreateExternalLabResources } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { nameLabTest, OrderableItemSearchResult } from 'utils';
 
 type LabsAutocompleteProps = {
   selectedLab: OrderableItemSearchResult | null;
+  labOrgIdsString: string;
   setSelectedLab: (value: OrderableItemSearchResult | null) => void;
 };
 
 export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
-  const { selectedLab, setSelectedLab } = props;
+  const { selectedLab, setSelectedLab, labOrgIdsString } = props;
   const [debouncedLabSearchTerm, setDebouncedLabSearchTerm] = useState<string | undefined>(undefined);
 
   const {
@@ -20,6 +21,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
     error: resourceFetchError,
   } = useGetCreateExternalLabResources({
     search: debouncedLabSearchTerm,
+    labOrgIdsString,
   });
 
   const labs = data?.labs || [];
@@ -38,6 +40,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
       size="small"
       options={labs}
       getOptionLabel={(option) => nameLabTest(option.item.itemName, option.lab.labName, false)}
+      getOptionKey={(lab) => lab.item.uniqueName}
       noOptionsText={
         debouncedLabSearchTerm && labs.length === 0 ? 'No labs based on input' : 'Start typing to load labs'
       }

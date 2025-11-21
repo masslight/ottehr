@@ -1,15 +1,41 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
+import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import {
   Appointment,
+  Coverage,
   Extension,
+  Location,
   Organization,
   PaymentNotice,
+  Practitioner,
   QuestionnaireResponseItemAnswer,
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_IDENTIFIER_SYSTEM, OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
-import { CashPaymentDTO, PatchPaperworkParameters, ScheduleOwnerFhirResource } from '../types';
+import { patientScreeningQuestionsConfig } from '../configuration/questionnaire';
+import {
+  allLicensesForPractitioner,
+  CANDID_PLAN_TYPE_SYSTEM,
+  FHIR_IDENTIFIER_SYSTEM,
+  getFullName,
+  INSURANCE_CANDID_PLAN_TYPE_CODES,
+  OTTEHR_MODULE,
+  PAYMENT_METHOD_EXTENSION_URL,
+  PROVIDER_TYPE_EXTENSION_URL,
+  SLUG_SYSTEM,
+} from '../fhir';
+import {
+  appointmentTypeLabels,
+  appointmentTypeMap,
+  CashPaymentDTO,
+  FhirAppointmentType,
+  PatchPaperworkParameters,
+  PHYSICIAN_TYPES,
+  PractitionerQualificationCode,
+  PROVIDER_TYPE_VALUES,
+  ProviderTypeCode,
+  ScheduleOwnerFhirResource,
+} from '../types';
 import { phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
@@ -23,6 +49,52 @@ export function createOystehrClient(token: string, fhirAPI: string, projectAPI: 
   return new Oystehr(CLIENT_CONFIG);
 }
 
+export type FetchClientWithOysterAuth = {
+  oystehrFetch: <T = any>(method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH', url: string, body?: any) => Promise<T>;
+};
+
+export function createFetchClientWithOystehrAuth(params: {
+  authToken: string;
+  projectId?: string;
+}): FetchClientWithOysterAuth {
+  const authToken = params.authToken;
+  const oystehrProjectId = params.projectId;
+
+  async function fetchWithOystehrAuth<T = any>(
+    method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH',
+    url: string,
+    body?: any
+  ): Promise<T> {
+    const headers: any = {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      authorization: `Bearer ${authToken}`,
+    };
+    if (oystehrProjectId) headers['x-oystehr-project-id'] = oystehrProjectId;
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    if (!response.ok) {
+      const res = await response.json();
+      throw new Error(`HTTP error for ${method} ${url}: ${res}, ${JSON.stringify(res)}`);
+    }
+    console.log(`Request status for ${method} ${url}: `, response.status);
+
+    if (response.body) {
+      const data = await response.json();
+      return data?.output ? data.output : data;
+    }
+
+    return {} as T;
+  }
+  return {
+    oystehrFetch: fetchWithOystehrAuth,
+  };
+}
+
 export function getParticipantIdFromAppointment(
   appointment: Appointment,
   participant: 'Patient' | 'Practitioner'
@@ -30,6 +102,15 @@ export function getParticipantIdFromAppointment(
   return appointment.participant
     .find((currentParticipant: any) => currentParticipant.actor?.reference?.startsWith(participant))
     ?.actor?.reference?.replace(`${participant}/`, '');
+}
+
+export function getFormatDuration(duration: number): string {
+  const seconds = duration / 1000;
+  return `${Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, '0')}:${Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, '0')}`;
 }
 
 /*
@@ -93,7 +174,11 @@ export const isNPIValid = (npi: string): boolean => {
   return npiRegex.test(npi);
 };
 
-export function formatPhoneNumberDisplay(phoneNumber: string): string {
+export function formatPhoneNumberDisplay(phoneNumber?: string): string {
+  if (!phoneNumber) {
+    return '';
+  }
+
   const cleaned = ('' + phoneNumber.slice(-10)).replace(/\D/g, '');
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
 
@@ -162,7 +247,7 @@ export function stripMarkdownLink(text: string): string {
   try {
     const str = String(text).replace(/(?:__|[*#])|\[(.*?)\]\(.*?\)/gm, '$1');
     return str;
-  } catch (_) {
+  } catch {
     return text;
   }
 }
@@ -238,6 +323,7 @@ export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH = '05';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR = '1900';
 export const DEMO_VISIT_RESPONSIBLE_BIRTH_SEX = 'Intersex';
 export const DEMO_VISIT_RESPONSIBLE_PHONE = '(240) 333-3333';
+export const DEMO_VISIT_RESPONSIBLE_EMAIL = 'ibenham+test@masslight.com';
 export const DEMO_VISIT_RESPONSIBLE_ADDRESS1 = '333 test street';
 export const DEMO_VISIT_RESPONSIBLE_CITY = 'Cleveland';
 export const DEMO_VISIT_RESPONSIBLE_STATE = 'OH';
@@ -252,6 +338,12 @@ export const DEMO_VISIT_PROVIDER_LAST_NAME = 'Provider last name';
 export const DEMO_VISIT_PRACTICE_NAME = 'Practice name';
 export const DEMO_VISIT_PHYSICIAN_ADDRESS = '441 4th Street, NW';
 export const DEMO_VISIT_PHYSICIAN_MOBILE = '(202) 456-7890';
+export const DEMO_VISIT_EMERGENCY_CONTACT_RELATIONSHIP = 'Spouse';
+// cSpell:disable-next emergen(cy)
+export const DEMO_VISIT_EMERGENCY_CONTACT_FIRST_NAME = 'Emergen';
+export const DEMO_VISIT_EMERGENCY_CONTACT_MIDDLE_NAME = 'C';
+export const DEMO_VISIT_EMERGENCY_CONTACT_LAST_NAME = 'Contact';
+export const DEMO_VISIT_EMERGENCY_CONTACT_PHONE = '(123) 123-1234';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -444,6 +536,7 @@ export function getResponsiblePartyStepAnswers({
   city = DEMO_VISIT_RESPONSIBLE_CITY,
   state = DEMO_VISIT_RESPONSIBLE_STATE,
   zip = DEMO_VISIT_RESPONSIBLE_ZIP,
+  email = DEMO_VISIT_RESPONSIBLE_EMAIL,
 }: {
   firstName?: string;
   relationship?: string;
@@ -454,6 +547,7 @@ export function getResponsiblePartyStepAnswers({
   city?: string;
   state?: string;
   zip?: string;
+  email?: string;
   phone?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
@@ -507,6 +601,54 @@ export function getResponsiblePartyStepAnswers({
           },
         ],
       },
+      {
+        linkId: 'responsible-party-email',
+        answer: [
+          {
+            valueString: email,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function getEmergencyContactStepAnswers({
+  relationship = DEMO_VISIT_EMERGENCY_CONTACT_RELATIONSHIP,
+  firstName = DEMO_VISIT_EMERGENCY_CONTACT_FIRST_NAME,
+  middleName = DEMO_VISIT_EMERGENCY_CONTACT_MIDDLE_NAME,
+  lastName = DEMO_VISIT_EMERGENCY_CONTACT_LAST_NAME,
+  phone = DEMO_VISIT_EMERGENCY_CONTACT_PHONE,
+}: {
+  relationship?: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  phone?: string;
+}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'emergency-contact-page',
+    item: [
+      {
+        linkId: 'emergency-contact-relationship',
+        answer: [{ valueString: relationship }],
+      },
+      {
+        linkId: 'emergency-contact-first-name',
+        answer: [{ valueString: firstName }],
+      },
+      {
+        linkId: 'emergency-contact-last-name',
+        answer: [{ valueString: lastName }],
+      },
+      {
+        linkId: 'emergency-contact-middle-name',
+        answer: [{ valueString: middleName }],
+      },
+      {
+        linkId: 'emergency-contact-number',
+        answer: [{ valueString: phone }],
+      },
     ],
   };
 }
@@ -525,6 +667,8 @@ export function getPaymentOptionSelfPayAnswers(): PatchPaperworkParameters['answ
 
 export function getPaymentOptionInsuranceAnswers({
   insuranceCarrier,
+  insurancePlanType,
+  insurancePlanType2,
   insuranceMemberId,
   insurancePolicyHolderFirstName,
   insurancePolicyHolderLastName,
@@ -554,6 +698,7 @@ export function getPaymentOptionInsuranceAnswers({
   insurancePolicyHolderRelationshipToInsured2,
 }: {
   insuranceCarrier: QuestionnaireResponseItemAnswer;
+  insurancePlanType: string;
   insuranceMemberId: string;
   insurancePolicyHolderFirstName: string;
   insurancePolicyHolderLastName: string;
@@ -580,6 +725,7 @@ export function getPaymentOptionInsuranceAnswers({
   insurancePolicyHolderZip2: string;
   insurancePolicyHolderRelationshipToInsured2: string;
   insuranceCarrier2: QuestionnaireResponseItemAnswer;
+  insurancePlanType2: string;
   insuranceMemberId2: string;
 }): PatchPaperworkParameters['answers'] {
   return {
@@ -590,6 +736,14 @@ export function getPaymentOptionInsuranceAnswers({
           {
             linkId: 'insurance-carrier-2',
             answer: [insuranceCarrier2],
+          },
+          {
+            linkId: 'insurance-plan-type-2',
+            answer: [
+              {
+                valueString: insurancePlanType2,
+              },
+            ],
           },
           {
             linkId: 'insurance-member-id-2',
@@ -821,6 +975,14 @@ export function getPaymentOptionInsuranceAnswers({
         answer: [insuranceCarrier],
       },
       {
+        linkId: 'insurance-plan-type',
+        answer: [
+          {
+            valueString: insurancePlanType,
+          },
+        ],
+      },
+      {
         linkId: 'payment-option',
         answer: [
           {
@@ -897,35 +1059,64 @@ export function getConsentStepAnswers({
   };
 }
 
-export function getAdditionalQuestionsAnswers(): PatchPaperworkParameters['answers'] {
+export function getCardPaymentStepAnswers(): PatchPaperworkParameters['answers'] {
   return {
-    linkId: 'additional-page',
+    linkId: 'card-payment-page',
     item: [
       {
-        linkId: 'covid-symptoms',
+        linkId: 'valid-card-on-file',
         answer: [
           {
-            valueString: 'No',
-          },
-        ],
-      },
-      {
-        linkId: 'tested-positive-covid',
-        answer: [
-          {
-            valueString: 'Yes',
-          },
-        ],
-      },
-      {
-        linkId: 'travel-usa',
-        answer: [
-          {
-            valueString: 'No',
+            valueBoolean: true,
           },
         ],
       },
     ],
+  };
+}
+
+export function getAdditionalQuestionsAnswers({
+  useRandomAnswers = false,
+}: {
+  useRandomAnswers?: boolean;
+} = {}): PatchPaperworkParameters['answers'] {
+  // Only generate answers for fields that exist in questionnaire
+  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+
+  return {
+    linkId: 'additional-page',
+    item: questionnaireFields.map((field, index) => {
+      switch (field.type) {
+        case 'radio': {
+          if (field.options && field.options.length !== 2) {
+            throw new Error(
+              'Only radio fields with 2 options are supported. No options found for field: ' + field.fhirField
+            );
+          }
+
+          const selectedOption = (() => {
+            if (useRandomAnswers) {
+              const randomIndex = Math.floor(Math.random() * field.options!.length);
+              return field.options?.[randomIndex];
+            }
+
+            const stableIndex = index % 2 === 1 ? 0 : 1;
+            return field.options?.[stableIndex];
+          })();
+
+          if (!selectedOption?.fhirValue) {
+            throw new Error('No options found for field: ' + field.fhirField);
+          }
+
+          return {
+            linkId: field.fhirField,
+            answer: [{ valueString: selectedOption.fhirValue }],
+          };
+        }
+        default:
+          throw Error('Only radio fields are supported. No options found for field: ' + field.fhirField);
+      }
+    }),
   };
 }
 
@@ -1073,6 +1264,30 @@ export function getPrimaryCarePhysicianStepAnswers({
   };
 }
 
+export function getPreferredPharmacyStepAnswers(): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'pharmacy-page',
+    item: [
+      {
+        linkId: 'pharmacy-name',
+        answer: [
+          {
+            valueString: 'Test pharmacy',
+          },
+        ],
+      },
+      {
+        linkId: 'pharmacy-address',
+        answer: [
+          {
+            valueString: 'Test pharmacy address',
+          },
+        ],
+      },
+    ],
+  };
+}
+
 const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): CashPaymentDTO | undefined => {
   const { extension, amount, created, id } = paymentNotice;
 
@@ -1082,12 +1297,12 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
 
   const paymentMethod = extension.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString;
 
-  if (!paymentMethod || (paymentMethod !== 'cash' && paymentMethod !== 'check')) {
+  if (!paymentMethod || (paymentMethod !== 'cash' && paymentMethod !== 'check' && paymentMethod !== 'card-reader')) {
     return undefined;
   }
 
   return {
-    paymentMethod: paymentMethod as 'cash' | 'check',
+    paymentMethod: paymentMethod as 'cash' | 'check' | 'card-reader',
     amountInCents: Math.round(amount.value * 100),
     dateISO: created,
     fhirPaymentNotificationId: id,
@@ -1134,3 +1349,106 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
   )?.value;
   return payerId;
 };
+
+export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirResource): string | undefined => {
+  let location: string | undefined;
+  if (scheduleResource.resourceType === 'Location') {
+    location = scheduleResource.name;
+  } else if (scheduleResource.resourceType === 'Practitioner') {
+    location = getFullName(scheduleResource);
+  } else {
+    location = scheduleResource.name;
+  }
+  return location;
+};
+
+export const getPractitionerQualificationByLocation = (
+  practitioner: Practitioner,
+  location: Location
+): PractitionerQualificationCode | undefined => {
+  const existedLicenses = allLicensesForPractitioner(practitioner);
+  const qualification = existedLicenses.find((license) => license.active && license.state === location.address?.state)
+    ?.code;
+
+  return qualification;
+};
+
+function getProviderTypeExtension(practitionerResource?: Practitioner): Extension | undefined {
+  return practitionerResource?.extension?.find((e) => e.url === PROVIDER_TYPE_EXTENSION_URL);
+}
+
+export function isProviderTypeCode(value: string): value is ProviderTypeCode {
+  return (PROVIDER_TYPE_VALUES as readonly string[]).includes(value);
+}
+
+export function getProviderType(practitionerResource?: Practitioner): ProviderTypeCode | undefined {
+  return getProviderTypeExtension(practitionerResource)?.valueCodeableConcept?.coding?.[0]?.code as
+    | ProviderTypeCode
+    | undefined;
+}
+
+export function isPhysicianProviderType(providerType?: ProviderTypeCode): boolean {
+  return providerType != null && PHYSICIAN_TYPES.includes(providerType);
+}
+
+export function isPhysician(practitionerResource?: Practitioner): boolean {
+  return isPhysicianProviderType(getProviderType(practitionerResource));
+}
+
+export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkType | undefined => {
+  const coverageCandidTypeCode = coverage.type?.coding?.find(
+    (coding) => coding.system && coding.system === CANDID_PLAN_TYPE_SYSTEM
+  )?.code;
+  if (!coverageCandidTypeCode || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(coverageCandidTypeCode)) {
+    return undefined;
+  }
+  return coverageCandidTypeCode as NetworkType;
+};
+
+export function getAppointmentType(appointment: Appointment): { type: string } {
+  const appointmentTypeTags = appointment.meta?.tag?.filter((tag) => !!tag.code && tag.code in appointmentTypeMap);
+
+  if (appointmentTypeTags && appointmentTypeTags.length > 1) {
+    console.warn(
+      `[getAppointmentType] Multiple appointmentType tags found: ${appointmentTypeTags.map((t) => t.code).join(', ')}`
+    );
+  }
+
+  const appointmentTypeTag = appointmentTypeTags?.[0];
+  const baseType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
+
+  const subType =
+    appointment.appointmentType?.text && appointmentTypeLabels[appointment.appointmentType.text as FhirAppointmentType];
+
+  const type = subType ? `${baseType} ${subType}` : baseType;
+
+  return { type };
+}
+
+/**
+ * Formats a nine digit zipcode with a dash. Can consume the zipcode or the fhirAddress.
+ * Assumes zip is at the end of the string. Returns string unchanged if no nine digit zip match is found.
+ * e.g. 191472314 -> 19147-2314
+ * e.g. TestLab Burlington 2314 York Court, Burlington, NC, 272153361 ->
+ *      TestLab Burlington 2314 York Court, Burlington, NC, 27215-3361
+ * @param addressOrZip
+ * @returns
+ */
+export function formatZipcodeForDisplay(addressOrZip: string): string {
+  const regexPattern = /\b(\d{5})(\d{4})$/;
+  const zipMatch = addressOrZip.match(regexPattern);
+  console.log(`This is zipMatch ${JSON.stringify(zipMatch)}`);
+  if (!zipMatch) return addressOrZip;
+  return addressOrZip.replace(regexPattern, `${zipMatch[1]}-${zipMatch[2]}`);
+}
+
+export interface TemplateVariables {
+  [key: string]: string | number;
+}
+
+// <key> syntax
+export function replaceTemplateVariablesArrows(template: string, variables: TemplateVariables): string {
+  return template.replace(/<([\w-]+)>/g, (match, key) => {
+    return variables[key]?.toString() || match;
+  });
+}

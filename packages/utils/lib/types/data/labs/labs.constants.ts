@@ -1,6 +1,10 @@
 // cSpell:ignore RCRT, RFRT, RPRT
+import { Coding } from 'fhir/r4b';
 import { Pagination } from '..';
-import { LabelConfig } from './labs.types';
+import { LabelConfig, LabType } from './labs.types';
+
+// for order form pdf (we might not want this idk)
+export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 
 // recommended from Dorn as a good length (also matches the len currently used when oystehr sets the order number)
 export const ORDER_NUMBER_LEN = 20;
@@ -12,16 +16,36 @@ export const PSC_HOLD_CONFIG = {
 };
 
 export const LAB_ORDER_TASK = {
+  category: 'external-lab',
   system: 'external-lab-task',
   code: {
+    // cSpell:disable-next MURT
+    matchUnsolicitedResult: 'MURT',
     preSubmission: 'PST',
     reviewPreliminaryResult: 'RPRT',
     reviewFinalResult: 'RFRT',
     reviewCorrectedResult: 'RCRT',
+    // cSpell:disable-next RCANRT
     reviewCancelledResult: 'RCANRT', // cancelled by the lab
+  },
+  input: {
+    testName: 'test-name',
+    labName: 'lab-name',
+    patientName: 'patient-name',
+    providerName: 'provider-name',
+    orderDate: 'order-date',
+    appointmentId: 'appointment-id',
+    receivedDate: 'received-date',
+    drTag: 'dr-tag',
+    alert: 'alert',
   },
 } as const;
 export type LabOrderTaskCode = (typeof LAB_ORDER_TASK.code)[keyof typeof LAB_ORDER_TASK.code];
+
+// should match oystehr
+export const DR_UNSOLICITED_PATIENT_REF = 'unsolicitedResultPatientId';
+// export const DR_UNSOLICITED_PRACTITIONER_REF = 'unsolicitedResultPractitionerId'; this has been replaced by the below
+export const DR_CONTAINED_PRACTITIONER_REF = 'resultOrderingProviderPractitionerId';
 
 export const PSC_HOLD_LOCALE = 'PSC Hold';
 export const PSC_LOCALE = 'PSC';
@@ -38,6 +62,12 @@ export const LAB_RESULT_DOC_REF_CODING_CODE = {
   display: 'Laboratory report',
 };
 
+export const LAB_RESULT_HL7_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '56444-3',
+  display: 'Healthcare communication document',
+};
+
 // there is no loinc code specifically for specimen labels or container labels, closest is 74384-9 "Specimen container [Type]"
 // so opted for something custom her
 export const EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE = {
@@ -48,10 +78,17 @@ export const EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE = {
 
 export const LAB_DR_TYPE_TAG = {
   system: 'result-type',
+  code: {
+    reflex: LabType.reflex,
+    unsolicited: LabType.unsolicited,
+    attachment: LabType.pdfAttachment,
+  },
   display: {
     reflex: 'reflex',
+    unsolicited: 'unsolicited',
+    attachment: 'PDF Attachment',
   },
-};
+} as const;
 
 export const SPECIMEN_CODING_CONFIG = {
   collection: {
@@ -89,17 +126,34 @@ export const DYMO_30334_LABEL_CONFIG: LabelConfig = {
   printerDPI: DYMO_550_TURBO_DPI,
 };
 
-// for manual orders
-export const OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.ottehr.com/lab-order-placer-id';
+// to identify manual orders (orders we could not submit electronically for some reason)
+// mapped to SR.category.coding.system
+export const MANUAL_EXTERNAL_LAB_ORDER_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/manual-lab-order';
+export const MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING = {
+  system: MANUAL_EXTERNAL_LAB_ORDER_SYSTEM,
+  code: 'manual-lab-order',
+  display: 'manual-lab-order',
+};
 
 // These are oystehr dependent
 // meaning that there is logic in oystehr labs specifically looking for these systems
 // so if we don't like any of them, we have to change there too
 export const OYSTEHR_LAB_OI_CODE_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/oystehr-lab-local-codes';
 export const FHIR_IDC10_VALUESET_SYSTEM = 'http://hl7.org/fhir/valueset-icd-10.html';
-('http://snomed.info/sct');
+export const SNOMED_CODE_SYSTEM = 'http://snomed.info/sct';
 export const OYSTEHR_LAB_GUID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-guid';
 export const OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-order-placer-id';
+export const OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM =
+  'https://extensions.fhir.oystehr.com/observation-value-attachment-pre-release';
+export const OYSTEHR_SAME_TRANSMISSION_DR_REF_URL =
+  'https://extensions.fhir.oystehr.com/same-transmission-diagnostic-report';
+
+export const OYSTEHR_OBS_CONTENT_TYPES = {
+  pdf: 'AP',
+  image: 'IM',
+} as const;
+export type ObsContentType = (typeof OYSTEHR_OBS_CONTENT_TYPES)[keyof typeof OYSTEHR_OBS_CONTENT_TYPES];
+export type SupportedObsImgAttachmentTypes = 'PNG' | 'JPG' | 'JPEG';
 
 export const OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY = {
   system: 'http://terminology.hl7.org/CodeSystem/v2-0074',
@@ -108,10 +162,35 @@ export const OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY = {
 };
 export const OYSTEHR_OBR_NOTE_CODING_SYSTEM = 'https://identifiers.fhir.oystehr.com/obr-note';
 
+export const OYSTEHR_LAB_DOC_CATEGORY_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/lab-documents';
+export const OYSTEHR_LAB_DOC_CATEGORY_CODING = {
+  system: OYSTEHR_LAB_DOC_CATEGORY_SYSTEM,
+  code: 'abn-document',
+  display: 'Lab ABN Document',
+};
+
+export const OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING = {
+  system: OYSTEHR_LAB_DOC_CATEGORY_SYSTEM,
+  code: 'lab-generated-result-document',
+  display: 'Lab Generated Result Document',
+};
+
+export const OYSTEHR_ABN_DOC_REF_CODING_UNIQUE: Coding = {
+  system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+  code: 'external-lab-abn',
+  display: 'External Lab ABN Consent',
+};
+export const OYSTEHR_ABN_DOC_REF_CODING_LOINC: Coding = {
+  system: 'http://loinc.org',
+  code: '59284-0',
+  display: 'Consent Document',
+};
+
 // Oystehr Labs APIs
 export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';
 
 export const OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API = `${OYSTEHR_LAB_API_BASE}/orderableItem`;
+export const OYSTEHR_SUBMIT_LAB_API = `${OYSTEHR_LAB_API_BASE}/submit`;
 
 export const DEFAULT_LABS_ITEMS_PER_PAGE = 10;
 
@@ -128,15 +207,17 @@ export const PROVENANCE_ACTIVITY_CODES = {
   submit: 'SUBMIT',
   createOrder: 'CREATE ORDER',
   inputResults: 'INPUT RESULTS',
-  collectSpecimen: 'COLLECT SPECIMEN',
+  completePstTask: 'COMPLETE PST TASK',
+  abnRejected: 'ABN REJECTED',
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
   review: 'review',
   submit: 'submit',
   createOrder: 'create order',
-  collectSpecimen: 'collect sample',
   inputResults: 'input results',
+  completePstTask: 'complete pst task',
+  abnRejected: 'ABN marked rejected',
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -160,9 +241,72 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
     display: PROVENANCE_ACTIVITY_CODES.inputResults,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
-  collectSpecimen: {
-    code: PROVENANCE_ACTIVITY_CODES.collectSpecimen,
-    display: PROVENANCE_ACTIVITY_DISPLAY.collectSpecimen,
+  // specimen collection & aoe entry if applicable
+  completePstTask: {
+    code: PROVENANCE_ACTIVITY_CODES.completePstTask,
+    display: PROVENANCE_ACTIVITY_DISPLAY.completePstTask,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  abnRejected: {
+    code: PROVENANCE_ACTIVITY_CODES.abnRejected,
+    display: PROVENANCE_ACTIVITY_DISPLAY.abnRejected,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;
+
+const LAB_DOC_REF_TAG_SYSTEM = 'lab-doc-type';
+export const LAB_DOC_REF_TAG_hl7_TRANSMISSION = {
+  system: LAB_DOC_REF_TAG_SYSTEM,
+  code: 'original-hl7-transmission',
+  display: 'Original HL7 Transmission',
+};
+
+export const PERFORMING_SITE_INFO_EXTENSION_URLS = {
+  parentExtUrl: 'https://extensions.fhir.oystehr.com/obx-performing-site-info',
+  name: 'name',
+  address: 'address',
+  phone: 'phone',
+};
+
+export const PERFORMING_PHYSICIAN_EXTENSION_URLS = {
+  parentExtUrl: 'https://extensions.fhir.oystehr.com/obx-performing-physician-info',
+  name: 'name',
+};
+
+export const OYSTEHR_LABS_TRANSMISSION_ACCOUNT_NUMBER_IDENTIFIER_SYSTEM =
+  'https://identifiers.fhir.oystehr.com/lab-transmission-account-number';
+
+export const OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL = 'https://extensions.fhir.oystehr.com/pv1-note';
+export const OYSTEHR_LABS_CLINICAL_INFO_EXT_URL = 'https://extensions.fhir.oystehr.com/lab-result-clinical-info';
+export const OYSTEHR_LABS_FASTING_STATUS_EXT_URL = 'https://extensions.fhir.oystehr.com/lab-result-fasting-status';
+
+export const OYSTEHR_LABS_RESULT_SPECIMEN_COLLECTION_VOLUME_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-collection-volume';
+export const OYSTEHR_LABS_RESULT_SPECIMEN_SOURCE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-specimen-source';
+
+export const OYSTEHR_LABS_RESULT_ORDERING_PROVIDER_EXT_URL =
+  'https://extensions.fhir.oystehr.com/lab-result-ordering-provider-reference';
+
+// This is primarily for LabCorp
+export const OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-result-additional-lab-code';
+
+export const OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM =
+  'https://identifiers.fhir.oystehr.com/lab-result-additional-placer-id';
+
+// Also for LabCorp
+export const LABCORP_SNOMED_CODE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/labcorp-snomed-value-to-code';
+
+export const SR_REVOKED_REASON_EXT = {
+  url: 'https://extensions.fhir.oystehr.com/reason-sr-revoked',
+  valueCode: 'rejected-abn',
+};
+
+export const LAB_CLIENT_BILL_COVERAGE_TYPE_CODING = {
+  system: 'https://terminology.fhir.oystehr.com/CodeSystem/labs-financial-class',
+  code: 'client-bill',
+};
+
+export const LAB_OBS_VALUE_WITH_PRECISION_EXT = 'https://extensions.fhir.oystehr.com/obx-5-quantity-with-precision';

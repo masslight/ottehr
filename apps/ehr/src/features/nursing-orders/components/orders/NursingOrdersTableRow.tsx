@@ -1,8 +1,9 @@
 import { Box, IconButton, TableCell, TableRow } from '@mui/material';
 import { DateTime } from 'luxon';
-import { ReactElement } from 'react';
+import { ReactElement, useState } from 'react';
+import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
+import { deleteIcon } from 'src/themes/ottehr';
 import { NursingOrder } from 'utils';
-import { deleteIcon } from '../../../../themes/ottehr';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 import { NursingOrdersTableColumn } from './NursingOrdersTable';
 import { useUpdateNursingOrder } from './useNursingOrders';
@@ -11,6 +12,7 @@ interface NursingOrdersTableRowProps {
   nursingOrderData: NursingOrder;
   refetchOrders: () => void;
   onRowClick?: () => void;
+  allowDelete?: boolean;
 }
 
 export const NursingOrdersTableRow = ({
@@ -18,18 +20,26 @@ export const NursingOrdersTableRow = ({
   columns,
   refetchOrders,
   onRowClick,
+  allowDelete,
 }: NursingOrdersTableRowProps): ReactElement => {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const { updateNursingOrder } = useUpdateNursingOrder({
     serviceRequestId: nursingOrderData.serviceRequestId,
     action: 'CANCEL ORDER',
   });
 
-  const handleCancel = async (): Promise<void> => {
+  const handleCancelOrder = async (): Promise<void> => {
+    setIsDeleting(true);
     try {
       await updateNursingOrder();
+      refetchOrders();
+      setIsDeleteDialogOpen(false);
     } catch (error) {
       console.error('Error cancelling nursing order:', error);
     }
+    setIsDeleting(false);
   };
 
   const formatDate = (datetime: string): string => {
@@ -42,7 +52,7 @@ export const NursingOrdersTableRow = ({
       case 'order':
         return (
           <Box>
-            <Box>{nursingOrderData.note}</Box>
+            <Box style={{ whiteSpace: 'pre-line' }}>{nursingOrderData.note}</Box>
           </Box>
         );
       case 'orderAdded':
@@ -56,12 +66,11 @@ export const NursingOrdersTableRow = ({
         return (
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             {nursingOrderData.status && <NursingOrdersStatusChip status={nursingOrderData.status} />}
-            {nursingOrderData.status === 'pending' && (
+            {nursingOrderData.status === 'pending' && allowDelete && (
               <IconButton
                 onClick={async (event) => {
                   event.stopPropagation();
-                  await handleCancel();
-                  refetchOrders();
+                  setIsDeleteDialogOpen(true);
                 }}
               >
                 <img alt="delete icon" src={deleteIcon} width={18} />
@@ -75,16 +84,28 @@ export const NursingOrdersTableRow = ({
   };
 
   return (
-    <TableRow
-      sx={{
-        '&:hover': { backgroundColor: '#f5f5f5' },
-        cursor: 'pointer',
-      }}
-      onClick={onRowClick}
-    >
-      {columns.map((column) => (
-        <TableCell key={column}>{renderCellContent(column)}</TableCell>
-      ))}
-    </TableRow>
+    <>
+      <TableRow
+        sx={{
+          '&:hover': { backgroundColor: '#f5f5f5' },
+          cursor: 'pointer',
+        }}
+        onClick={onRowClick}
+      >
+        {columns.map((column) => (
+          <TableCell key={column}>{renderCellContent(column)}</TableCell>
+        ))}
+      </TableRow>
+      <InPersonModal
+        title="Cancel Nursing Order"
+        description={`Are you sure you want to cancel this order "${nursingOrderData.note}"?`}
+        open={isDeleteDialogOpen}
+        confirmText="Cancel Order"
+        handleConfirm={handleCancelOrder}
+        closeButtonText="Keep Order"
+        handleClose={() => setIsDeleteDialogOpen(false)}
+        disabled={isDeleting}
+      />
+    </>
   );
 };

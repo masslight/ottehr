@@ -1,8 +1,18 @@
-import { useMutation } from 'react-query';
+import { useMutation, UseMutationResult } from '@tanstack/react-query';
 import { OystehrAPIClient } from 'ui-components';
+import { PromiseReturnType } from 'utils';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useCreateZ3ObjectMutation = () =>
+export const useCreateZ3ObjectMutation = (): UseMutationResult<
+  PromiseReturnType<ReturnType<OystehrAPIClient['createZ3Object']>>,
+  Error,
+  {
+    apiClient: OystehrAPIClient | null;
+    fileType: string;
+    fileFormat: string;
+    file: File;
+    appointmentID?: string;
+  }
+> =>
   useMutation({
     mutationFn: ({
       apiClient,

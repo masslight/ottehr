@@ -12,10 +12,9 @@ import {
 } from '@mui/material';
 import { FC } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { AllStates } from 'utils';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { ClaimState, useClaimStore, useEditClaimInformationMutation } from '../../../state';
-import { AdditionalInformationFormValues, mapAdditionalInformationToClaimResource } from '../../../utils';
+import { ClaimState, useClaimStore, useEditClaimInformationMutation } from 'src/rcm/state';
+import { AdditionalInformationFormValues, mapAdditionalInformationToClaimResource } from 'src/rcm/utils';
+import { AllStates, getSelectors } from 'utils';
 import {
   CheckboxController,
   DatePickerController,
@@ -75,7 +74,7 @@ export const AdditionalInformationModal: FC = () => {
       <EditModal
         title="Additional Information"
         onSave={(hideDialog) => handleSubmit((values) => onSave(values, hideDialog))()}
-        isSaveLoading={editClaim.isLoading}
+        isSaveLoading={editClaim.isPending}
         onShow={() => reset(getDefaultValues(claimData))}
       >
         <Grid container spacing={2}>

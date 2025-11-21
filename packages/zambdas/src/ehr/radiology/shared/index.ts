@@ -1,3 +1,6 @@
+import { ServiceRequest } from 'fhir/r4b';
+import { getSecret, Secrets, SecretsKeys } from 'utils';
+
 // cSpell:ignore: ACSN, PLAC
 export const ADVAPACS_FHIR_BASE_URL = 'https://usa1.api.integration.advapacs.com/fhir/R5';
 export const ADVAPACS_VIEWER_LAUNCH_URL = 'https://usa1.api.integration.advapacs.com/viewer/launch';
@@ -16,9 +19,14 @@ export const SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/service-request-performed-on';
 export const SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/service-request-requested-time';
-
-import { ServiceRequest } from 'fhir/r4b';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
+export const SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL =
+  'https://fhir.ottehr.com/Extension/service-request-order-detail-pre-release';
+export const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL =
+  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release';
+export const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL =
+  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-code';
+export const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL =
+  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-value-string';
 
 /**
  * Fetches a ServiceRequest from AdvaPACS using the accession number

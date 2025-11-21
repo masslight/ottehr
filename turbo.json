@@ -5,6 +5,10 @@
       "cache": false,
       "persistent": true
     },
+    "start:iac": {
+      "cache": false,
+      "persistent": true
+    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "build/**", ".dist/**"]
@@ -16,7 +20,6 @@
       "dependsOn": ["build", "lint"]
     },
     "test": {
-      "dependsOn": ["build"],
       "inputs": [
         "apps/**/*.tsx",
         "apps/**/*.ts",
@@ -33,8 +36,7 @@
       "cache": false
     },
     "integration:zambdas": {
-      "cache": false,
-      "dependsOn": ["^build"]
+      "cache": false
     },
     "e2e:login": {
       "cache": false,

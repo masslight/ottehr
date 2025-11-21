@@ -18,7 +18,6 @@ import {
   MedicationStatement,
   Meta,
   Observation,
-  Practitioner,
   Procedure,
   Reference,
   Resource,
@@ -32,17 +31,16 @@ import {
   addOperation,
   addOrReplaceOperation,
   AI_OBSERVATION_META_SYSTEM,
+  AllChartValues,
   AllergyDTO,
   BirthHistoryDTO,
   BODY_SITE_SYSTEM,
   BooleanValueDTO,
-  ChartDataFields,
   ClinicalImpressionDTO,
   CommunicationDTO,
   CPTCodeDTO,
-  createCodingCode,
+  createCodeableConcept,
   createFilesDocumentReferences,
-  CSS_NOTE_ID,
   DiagnosisDTO,
   DispositionDTO,
   DispositionFollowUpType,
@@ -50,14 +48,14 @@ import {
   DispositionType,
   ERX_MEDICATION_META_TAG_CODE,
   EXAM_OBSERVATION_META_SYSTEM,
-  ExamCardsNames,
-  ExamFieldsNames,
   ExamObservationDTO,
   FHIR_EXTENSION,
   fillVitalObservationAttributes,
   FreeTextNoteDTO,
   GetChartDataResponse,
+  getVitalObservationFhirInterpretations,
   HospitalizationDTO,
+  IN_PERSON_NOTE_ID,
   isVitalObservation,
   makeVitalsObservationDTO,
   MedicalConditionDTO,
@@ -67,6 +65,7 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_ID,
   ObservationBooleanFieldDTO,
+  ObservationDateRangeFieldDTO,
   ObservationDTO,
   ObservationTextFieldDTO,
   PATIENT_VITALS_META_SYSTEM,
@@ -83,11 +82,32 @@ import {
   SchoolWorkNoteExcuseDocFileDTO,
   SchoolWorkNoteType,
   SNOMEDCodeConceptInterface,
+  VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
+
+const hasValue = (data: unknown): boolean => {
+  if (data == null) return false;
+
+  if (Array.isArray(data)) {
+    return data.length > 0;
+  }
+
+  if (typeof data === 'object') {
+    return Object.keys(data).length > 0;
+  }
+
+  return true;
+};
+
+const logDuplicationWarning = (data: unknown, message: string): void => {
+  if (hasValue(data)) {
+    console.log(message);
+  }
+};
 
 const getMetaWFieldName = (fieldName: ProviderChartDataFieldsNames): Meta => {
   return fillMeta(fieldName, fieldName);
@@ -144,6 +164,7 @@ export function makeConditionDTO(condition: Condition): MedicalConditionDTO {
     display: condition.code?.coding?.[0]?.display,
     note: condition.note?.[0]?.text,
     current: condition.clinicalStatus?.coding?.[0]?.code === 'active',
+    lastUpdated: condition.meta?.lastUpdated || undefined,
   };
 }
 
@@ -208,13 +229,14 @@ export function makeAllergyDTO(allergy: AllergyIntolerance): AllergyDTO {
     id: allergy.code?.coding?.[0].code,
     note: allergy.note?.[0]?.text,
     current: allergy.clinicalStatus?.coding?.[0]?.code === 'active',
+    lastUpdated: allergy.meta?.lastUpdated || undefined,
   };
 }
 
 export function makeMedicationResource(
   encounterId: string,
   patientId: string,
-  practitioner: Practitioner,
+  practitionerId: string,
   data: MedicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): MedicationStatement {
@@ -227,7 +249,7 @@ export function makeMedicationResource(
     status: data.status,
     dosage: [{ text: data.intakeInfo.dose, asNeededBoolean: data.type === 'as-needed' }],
     effectiveDateTime: data.intakeInfo.date,
-    informationSource: { reference: `Practitioner/${practitioner.id}` },
+    informationSource: { reference: `Practitioner/${practitionerId}` },
     meta: getMetaWFieldName(fieldName),
     medicationCodeableConcept: {
       coding: [
@@ -246,9 +268,14 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
     resourceId: medication.id,
     id: medication.medicationCodeableConcept?.coding?.[0].code || '',
     name: medication.medicationCodeableConcept?.coding?.[0].display || '',
-    type: medication.dosage?.[0].asNeededBoolean ? 'as-needed' : 'scheduled',
+    type:
+      medication.meta?.tag?.[0].code === 'prescribed-medication'
+        ? 'prescribed-medication'
+        : medication.dosage?.[0].asNeededBoolean
+        ? 'as-needed'
+        : 'scheduled',
     intakeInfo: {
-      dose: medication.dosage?.[0].text || '',
+      dose: getMedicationDosage(medication, medication.meta?.tag?.[0].code || ''),
       date: medication.effectiveDateTime,
     },
     status: ['active', 'completed'].includes(medication.status)
@@ -301,12 +328,16 @@ export function makeProcedureResource(
   return result;
 }
 
+// todo: make this input a single interface type
 export function makeObservationResource(
   encounterId: string,
   patientId: string,
   practitionerId: string,
+  documentReferenceCreateUrl: string | undefined,
   data: ObservationDTO,
-  metaSystem: string
+  metaSystem: string,
+  patientDOB?: string,
+  patientSex?: string
 ): Observation {
   const base: Observation = {
     id: data.resourceId,
@@ -318,15 +349,31 @@ export function makeObservationResource(
     effectiveDateTime: DateTime.utc().toISO()!,
     status: 'final',
     code: { text: data.field || 'unknown' },
+    ...(documentReferenceCreateUrl
+      ? {
+          derivedFrom: [
+            {
+              reference: documentReferenceCreateUrl,
+            },
+          ],
+        }
+      : {}),
     meta: fillMeta(data.field, metaSystem),
   };
 
   const fieldName = data.field;
-  console.log(`makeObservationResource() fieldName=[${fieldName}]`);
+  console.log(`makeObservationResource() fieldName=[${fieldName}] data=[${JSON.stringify(data)}]`);
 
   if (isVitalObservation(data)) {
-    console.log(`isVitalObservation() == true`);
-    return fillVitalObservationAttributes(base, data);
+    let interpretation: Observation['interpretation'];
+    if (patientDOB) {
+      interpretation = getVitalObservationFhirInterpretations({
+        patientDOB,
+        vitalsObservation: data,
+        patientSex,
+      });
+    }
+    return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB);
   }
 
   if (isObservationBooleanFieldDTO(data)) {
@@ -337,7 +384,7 @@ export function makeObservationResource(
   }
 
   if (isObservationTextFieldDTO(data)) {
-    if ('note' in data) {
+    if ('note' in data && data.note) {
       return {
         ...base,
         valueString: data.value,
@@ -351,6 +398,18 @@ export function makeObservationResource(
     }
   }
 
+  if (isObservationDateRangeFieldDTO(data)) {
+    delete base.effectiveDateTime;
+    const [start, end] = data.value;
+    return {
+      ...base,
+      effectivePeriod: {
+        start,
+        end,
+      },
+    };
+  }
+
   throw new Error('Invalid ObservationDTO type');
 }
 
@@ -360,6 +419,30 @@ function isObservationBooleanFieldDTO(data: ObservationDTO): data is Observation
 
 function isObservationTextFieldDTO(data: ObservationDTO): data is ObservationTextFieldDTO {
   return typeof (data as ObservationTextFieldDTO).value === 'string';
+}
+
+function isObservationDateRangeFieldDTO(data: ObservationDTO): data is ObservationDateRangeFieldDTO {
+  if (!Array.isArray(data.value) || data.value.length !== 2) {
+    return false;
+  }
+
+  if (typeof data.value[0] !== 'string' || typeof data.value[1] !== 'string') {
+    return false;
+  }
+
+  const startDate = DateTime.fromISO(data.value[0]);
+  const endDate = DateTime.fromISO(data.value[1]);
+
+  if (!startDate.isValid || !endDate.isValid) {
+    return false;
+  }
+
+  if (startDate > endDate) {
+    console.log('startDate should be less than endDate');
+    return false;
+  }
+
+  return true;
 }
 
 export function makeFreeTextNoteDTO(resource: Procedure | Observation | Condition): FreeTextNoteDTO {
@@ -391,23 +474,21 @@ export function makeHospitalizationResource(
     resourceType: 'EpisodeOfCare',
     status: 'finished',
     patient: { reference: `Patient/${patientId}` },
-    type: [createCodingCode(data.code, data.display)],
+    type: [createCodeableConcept(undefined, data.display)],
     meta: getMetaWFieldName(fieldName),
   };
   return result;
 }
 
 export function makeHospitalizationDTO(resource: EpisodeOfCare): HospitalizationDTO | undefined {
-  const coding = resource.type;
-  if (coding) {
-    if (coding[0].coding?.[0]?.code && coding[0].coding?.[0]?.display) {
-      return {
-        resourceId: resource.id,
-        code: coding[0].coding?.[0]?.code,
-        display: coding[0].coding?.[0]?.display,
-      };
-    }
+  const code = resource.meta?.tag?.[0]?.code;
+  const display = resource.type?.[0]?.text;
+  const resourceId = resource.id;
+
+  if (resourceId && code && display) {
+    return { resourceId, code, display };
   }
+
   return undefined;
 }
 
@@ -415,7 +496,8 @@ export function makeExamObservationResource(
   encounterId: string,
   patientId: string,
   data: ExamObservationDTO,
-  snomedCodes: SNOMEDCodeConceptInterface
+  snomedCodes?: SNOMEDCodeConceptInterface,
+  label?: string
 ): Observation {
   return {
     resourceType: 'Observation',
@@ -425,8 +507,8 @@ export function makeExamObservationResource(
     status: 'final',
     valueBoolean: typeof data.value === 'boolean' ? Boolean(data.value) : undefined,
     note: data.note ? [{ text: data.note }] : undefined,
-    bodySite: snomedCodes.bodySite,
-    code: snomedCodes.code,
+    bodySite: snomedCodes?.bodySite,
+    code: snomedCodes?.code || { text: label || 'unknown' },
     meta: fillMeta(data.field, EXAM_OBSERVATION_META_SYSTEM),
   };
 }
@@ -434,8 +516,8 @@ export function makeExamObservationResource(
 export function makeExamObservationDTO(observation: Observation): ExamObservationDTO {
   return {
     resourceId: observation.id,
-    field: observation.meta?.tag?.[0].code as ExamFieldsNames | ExamCardsNames,
-    note: observation.note?.[0].text,
+    field: observation.meta?.tag?.[0]?.code || 'unknown',
+    note: observation.note?.[0]?.text,
     value: observation.valueBoolean,
   };
 }
@@ -498,7 +580,7 @@ export function makeNoteResource(encounterId: string, patientId: string | undefi
     resourceType: 'Communication',
     encounter: { reference: `Encounter/${encounterId}` },
     status: 'completed',
-    meta: fillMeta(CSS_NOTE_ID, data.type),
+    meta: fillMeta(IN_PERSON_NOTE_ID, data.type),
     subject: { reference: `Patient/${patientId}` },
     sender: {
       reference: `Practitioner/${data.authorId}`,
@@ -783,8 +865,16 @@ export function makeDiagnosisConditionResource(
   encounterId: string,
   patientId: string,
   data: DiagnosisDTO,
-  fieldName: ProviderChartDataFieldsNames
+  fieldName: ProviderChartDataFieldsNames,
+  source?: string
 ): Condition {
+  const meta = getMetaWFieldName(fieldName);
+  if (fieldName === 'ai-potential-diagnosis') {
+    meta.tag?.push({
+      code: source,
+      system: `${PRIVATE_EXTENSION_BASE_URL}/${fieldName}-source`,
+    });
+  }
   const conditionConfig: Condition = {
     id: data.resourceId,
     resourceType: 'Condition',
@@ -799,7 +889,7 @@ export function makeDiagnosisConditionResource(
         },
       ],
     },
-    meta: getMetaWFieldName(fieldName),
+    meta,
   };
   if (data.addedViaLabOrder) {
     conditionConfig.extension = [
@@ -961,7 +1051,10 @@ export async function makeSchoolWorkDR(
     meta: {
       tag: [{ code: type, system: SCHOOL_WORK_NOTE_TYPE_META_SYSTEM }, ...(getMetaWFieldName(fieldName).tag || [])],
     },
-    searchParams: [],
+    searchParams: [
+      { name: 'encounter', value: `Encounter/${encounterId}` },
+      { name: 'subject', value: `Patient/${patientId}` },
+    ],
     listResources,
   });
   return docRefs[0];
@@ -997,7 +1090,14 @@ export function makeObservationDTO(observation: Observation): null | Observation
       field,
       value: observation.valueString,
       note: observation.note?.[0]?.text,
+      derivedFrom: observation.derivedFrom?.[0].reference,
     } as ObservationTextFieldDTO;
+  } else if (observation.effectivePeriod?.start && observation.effectivePeriod?.end) {
+    return {
+      resourceId: observation.id,
+      field,
+      value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
+    } as ObservationDateRangeFieldDTO;
   }
 
   console.error(`Invalid Observation field type: "${field}" ${JSON.stringify(observation)}`);
@@ -1030,10 +1130,10 @@ export const chartDataResourceHasMetaTagBySystem = (resource: Resource, metaTagS
   metaTagSystem ? Boolean(resource?.meta?.tag?.find((tag) => tag.system === metaTagSystem)) : true;
 
 const mapResourceToChartDataFields = (
-  data: ChartDataFields,
+  data: AllChartValues,
   resource: FhirResource,
   encounterId: string
-): { chartDataFields: ChartDataFields; resourceMapped: boolean } => {
+): { chartDataFields: AllChartValues; resourceMapped: boolean } => {
   let resourceMapped = false;
   if (resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'medical-condition')) {
     data.conditions?.push(makeConditionDTO(resource));
@@ -1043,6 +1143,7 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagByCode(resource, 'chief-complaint') &&
     resourceReferencesEncounter(resource, encounterId)
   ) {
+    logDuplicationWarning(data.chiefComplaint, 'chart-data duplication warning: "chiefComplaint" already exists');
     data.chiefComplaint = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1050,6 +1151,7 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagByCode(resource, 'ros') &&
     resourceReferencesEncounter(resource, encounterId)
   ) {
+    logDuplicationWarning(data.ros, 'chart-data duplication warning: "ros" already exists');
     data.ros = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1060,7 +1162,8 @@ const mapResourceToChartDataFields = (
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'MedicationStatement' &&
-    chartDataResourceHasMetaTagByCode(resource, 'current-medication')
+    (chartDataResourceHasMetaTagByCode(resource, 'current-medication') ||
+      chartDataResourceHasMetaTagByCode(resource, 'prescribed-medication'))
   ) {
     data.medications?.push(makeMedicationDTO(resource));
     resourceMapped = true;
@@ -1087,6 +1190,10 @@ const mapResourceToChartDataFields = (
     resource?.resourceType === 'Procedure' &&
     chartDataResourceHasMetaTagByCode(resource, 'surgical-history-note')
   ) {
+    logDuplicationWarning(
+      data.surgicalHistoryNote,
+      'chart-data duplication warning: "surgicalHistoryNote" already exists'
+    );
     data.surgicalHistoryNote = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1130,12 +1237,16 @@ const mapResourceToChartDataFields = (
     resourceReferencesEncounter(resource, encounterId)
   ) {
     const cptDto = makeCPTCodeDTO(resource);
-    if (cptDto) data.emCode = cptDto;
+    if (cptDto) {
+      logDuplicationWarning(data.emCode, 'chart-data duplication warning: "emCode" already exists');
+      data.emCode = cptDto;
+    }
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'ClinicalImpression' &&
     chartDataResourceHasMetaTagByCode(resource, 'medical-decision')
   ) {
+    logDuplicationWarning(data.medicalDecision, 'chart-data duplication warning: "medicalDecision" already exists');
     data.medicalDecision = makeClinicalImpressionDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1144,7 +1255,10 @@ const mapResourceToChartDataFields = (
   ) {
     data.instructions?.push(makeCommunicationDTO(resource));
     resourceMapped = true;
-  } else if (resource.resourceType === 'Communication' && chartDataResourceHasMetaTagByCode(resource, CSS_NOTE_ID)) {
+  } else if (
+    resource.resourceType === 'Communication' &&
+    chartDataResourceHasMetaTagByCode(resource, IN_PERSON_NOTE_ID)
+  ) {
     data.notes?.push(makeNoteDTO(resource));
     resourceMapped = true;
   } else if (
@@ -1162,10 +1276,10 @@ const mapResourceToChartDataFields = (
     if (resourceDto) data.observations?.push(resourceDto);
     resourceMapped = true;
   } else if (
-    resource.resourceType === 'QuestionnaireResponse' &&
-    resource.questionnaire === '#aiInterviewQuestionnaire'
+    resource.resourceType === 'DocumentReference' &&
+    resource.type?.coding?.[0].code === VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE.code
   ) {
-    data.aiChat = resource;
+    data.aiChat?.documents.push(resource);
     resourceMapped = true;
   }
   return {
@@ -1185,7 +1299,12 @@ export function mapResourceToChartDataResponse(
   resourceMapped = updatedResponseData.resourceMapped;
 
   if (resource.resourceType === 'DocumentReference' && chartDataResourceHasMetaTagByCode(resource, SCHOOL_WORK_NOTE)) {
-    chartDataResponse.schoolWorkNotes?.push(makeSchoolWorkNoteDTO(resource));
+    const dto = makeSchoolWorkNoteDTO(resource);
+    const alreadyExists = chartDataResponse.schoolWorkNotes?.some((note) => note.id === dto.id);
+
+    if (!alreadyExists) {
+      chartDataResponse.schoolWorkNotes?.push(dto);
+    }
     resourceMapped = true;
   }
   return {
@@ -1194,7 +1313,7 @@ export function mapResourceToChartDataResponse(
   };
 }
 
-export function handleCustomDTOExtractions(data: ChartDataFields, resources: FhirResource[]): ChartDataFields {
+export function handleCustomDTOExtractions(data: AllChartValues, resources: FhirResource[]): AllChartValues {
   const encounterResource = resources.find((res) => res.resourceType === 'Encounter') as Encounter;
   if (!encounterResource) return data;
 
@@ -1239,7 +1358,11 @@ export function handleCustomDTOExtractions(data: ChartDataFields, resources: Fhi
   // 6. AI potential diagnoses
   resources
     .filter(
-      (resource) => resource.resourceType === 'Condition' && resource.meta?.tag?.[0].code === 'ai-potential-diagnosis'
+      (resource) =>
+        resource.resourceType === 'Condition' &&
+        resource.meta?.tag?.[0].code === 'ai-potential-diagnosis' &&
+        encounterResource.id !== undefined &&
+        resourceReferencesEncounter(resource, encounterResource.id)
     )
     .forEach((condition) => {
       data.aiPotentialDiagnosis?.push(makeDiagnosisDTO(condition as Condition, false));
@@ -1263,22 +1386,61 @@ export const createDispositionServiceRequest = ({
   patientId: string;
 }): BatchInputPutRequest<ServiceRequest> | BatchInputPostRequest<ServiceRequest> => {
   let orderDetail: CodeableConcept[] | undefined = undefined;
-  let dispositionFollowUpCode: CodeableConcept = createCodingCode('185389009', 'Follow-up visit (procedure)');
+  let dispositionFollowUpCode: CodeableConcept = createCodeableConcept(
+    [
+      {
+        system: 'http://snomed.info/sct',
+        code: '185389009',
+        display: 'Follow-up visit (procedure)',
+      },
+    ],
+    'Follow-up visit (procedure)'
+  );
 
   if (disposition.type === 'ip-lab') {
-    dispositionFollowUpCode = createCodingCode('15220000', 'Laboratory test (procedure)');
+    dispositionFollowUpCode = createCodeableConcept(
+      [
+        {
+          system: 'http://snomed.info/sct',
+          code: '15220000',
+          display: 'Laboratory test (procedure)',
+        },
+      ],
+      'Laboratory test (procedure)'
+    );
     orderDetail = [];
     disposition?.labService?.forEach?.((service) => {
-      orderDetail?.push?.(createCodingCode(service, undefined, 'lab-service'));
+      orderDetail?.push?.(
+        createCodeableConcept([
+          {
+            code: service,
+            system: 'lab-service', // TODO phony Coding system
+          },
+        ])
+      );
     });
     disposition?.virusTest?.forEach?.((test) => {
-      orderDetail?.push?.(createCodingCode(test, undefined, 'virus-test'));
+      orderDetail?.push?.(
+        createCodeableConcept([
+          {
+            code: test,
+            system: 'virus-test', // TODO phony Coding system
+          },
+        ])
+      );
     });
   }
 
   if (disposition.type === 'another' && disposition.reason) {
     orderDetail = [];
-    orderDetail?.push?.(createCodingCode(disposition.reason, undefined, 'reason-for-transfer'));
+    orderDetail?.push?.(
+      createCodeableConcept([
+        {
+          code: disposition.reason,
+          system: 'reason-for-transfer', // TODO phony Coding system
+        },
+      ])
+    );
   }
 
   const followUpDaysInMinutes = typeof disposition.followUpIn === 'number' ? disposition.followUpIn * 1440 : undefined;
@@ -1298,12 +1460,36 @@ export const createDispositionServiceRequest = ({
 };
 
 export const followUpToPerformerMap: { [field in DispositionFollowUpType]: CodeableConcept | undefined } = {
-  dentistry: createCodingCode('106289002', 'Dentist', 'http://snomed.info/sct'),
-  ent: createCodingCode('309372007', 'Ear, nose and throat surgeon', 'http://snomed.info/sct'),
-  ophthalmology: createCodingCode('422234006', 'Ophthalmologist (occupation)', 'http://snomed.info/sct'),
-  orthopedics: createCodingCode('59169001', 'Orthopedic technician', 'http://snomed.info/sct'),
-  'lurie-ct': createCodingCode('lurie-ct', undefined, 'lurie-ct'),
-  other: createCodingCode('other', 'other'),
+  dentistry: createCodeableConcept([
+    {
+      code: '106289002',
+      display: 'Dentist',
+      system: 'http://snomed.info/sct',
+    },
+  ]),
+  ent: createCodeableConcept([
+    {
+      code: '309372007',
+      display: 'Ear, nose and throat surgeon',
+      system: 'http://snomed.info/sct',
+    },
+  ]),
+  ophthalmology: createCodeableConcept([
+    {
+      code: '422234006',
+      display: 'Ophthalmologist (occupation)',
+      system: 'http://snomed.info/sct',
+    },
+  ]),
+  orthopedics: createCodeableConcept([
+    {
+      code: '59169001',
+      display: 'Orthopedic technician',
+      system: 'http://snomed.info/sct',
+    },
+  ]),
+  'lurie-ct': createCodeableConcept(undefined, 'lurie-ct'),
+  other: createCodeableConcept(undefined, 'other'),
 };
 
 export function makeProceduresDTOFromFhirResources(
@@ -1504,4 +1690,15 @@ function getCode(codeableConcept: CodeableConcept | CodeableConcept[] | undefine
 
 function getExtension(resource: DomainResource, url: string): Extension | undefined {
   return resource.extension?.find((extension) => extension.url === url);
+}
+
+function getMedicationDosage(medication: MedicationStatement, medicationType: string): string | undefined {
+  if (medicationType === 'in-house-medication') {
+    const doseQuantity = medication.dosage?.[0].doseAndRate?.[0].doseQuantity;
+    if (!doseQuantity?.value || !doseQuantity?.unit) {
+      return undefined;
+    }
+    return `${doseQuantity.value} ${doseQuantity.unit}`;
+  }
+  return medication.dosage?.[0].text;
 }

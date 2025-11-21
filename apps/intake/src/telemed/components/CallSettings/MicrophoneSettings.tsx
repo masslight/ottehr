@@ -84,7 +84,9 @@ export const MicrophoneSettings: FC<MicrophoneSettingsProps> = (props) => {
       }, 5000);
     }
     return () => {
-      timeout && clearTimeout(timeout);
+      if (timeout) {
+        clearTimeout(timeout);
+      }
     };
   }, [recordingStatus, stopRecording]);
 

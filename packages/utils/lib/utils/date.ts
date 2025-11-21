@@ -144,7 +144,7 @@ export const yupDateTransform = (d: any): string => {
   }
   try {
     return isoStringFromYMDString(d || '');
-  } catch (e) {
+  } catch {
     return d;
   }
 };
@@ -321,9 +321,15 @@ export const formatDateTimeToLocalTimezone = (isoDate: string | undefined): stri
   return `${dt.toLocaleString(DateTime.DATETIME_SHORT, { locale: 'en-US' })} (${dt.toFormat('ZZZZ')})`;
 };
 
-export const formatDateToMDYWithTime = (isoDate: string | undefined): string | undefined => {
+export const formatDateToMDYWithTime = (
+  isoDate: string | undefined,
+  timezone: Timezone = 'utc'
+): { date: string; time: string } | undefined => {
   if (!isoDate) return undefined;
-  const dateTime = DateTime.fromISO(isoDate, { zone: 'utc' });
+  const dateTime = DateTime.fromISO(isoDate).setZone(timezone);
 
-  return dateTime.toFormat("MM/dd/yyyy 'at' hh:mm a");
+  return {
+    date: dateTime.toFormat('MM/dd/yyyy'),
+    time: dateTime.toFormat('hh:mm a'),
+  };
 };

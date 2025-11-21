@@ -1,10 +1,10 @@
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
-import { PageSizes } from 'pdf-lib';
-import { Secrets } from 'utils';
+import { PageSizes, PDFImage } from 'pdf-lib';
+import { BUCKET_NAMES, Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import { createPdfClient, PdfInfo } from './pdf-utils';
+import { createPdfClient, getPdfLogo, PdfInfo } from './pdf-utils';
 import { ImageStyle, PdfClientStyles, ReceiptData, TextStyle } from './types';
 
 async function createReceiptPdfBytes(data: ReceiptData): Promise<Uint8Array> {
@@ -24,7 +24,9 @@ async function createReceiptPdfBytes(data: ReceiptData): Promise<Uint8Array> {
 
   const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
   const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assetsRubik-Bold.otf'));
-  const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./ottehrLogo.png'));
+  const logoBuffer = await getPdfLogo();
+  let logo: PDFImage | undefined;
+  if (logoBuffer) logo = await pdfClient.embedImage(logoBuffer);
 
   const textStyles: Record<string, TextStyle> = {
     blockHeader: {
@@ -62,7 +64,7 @@ async function createReceiptPdfBytes(data: ReceiptData): Promise<Uint8Array> {
     pdfClient.drawText(fieldValue, textStyles.fieldText);
   };
 
-  pdfClient.drawImage(ottehrLogo, imgStyles);
+  if (logo) pdfClient.drawImage(logo, imgStyles);
   if (data.facility) {
     drawFieldLine('Facility:', data.facility.name);
     drawFieldLine('Facility Address:', data.facility.address);
@@ -105,7 +107,7 @@ export async function createReceiptPdf(
     throw new Error('failed creating pdfBytes: ' + error.message);
   });
 
-  const bucketName = 'receipts';
+  const bucketName = BUCKET_NAMES.RECEIPTS;
   const fileName = 'Receipt.pdf';
   const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID: patient.id });
 

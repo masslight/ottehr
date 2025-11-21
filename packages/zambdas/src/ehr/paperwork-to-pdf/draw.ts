@@ -1,7 +1,7 @@
 import { Color, PageSizes, PDFDocument, PDFFont, PDFPage, PDFPageDrawTextOptions, StandardFonts } from 'pdf-lib';
 import { assertDefined } from '../../shared/helpers';
 import { rgbNormalized } from '../../shared/pdf/pdf-utils';
-import { Document, ImageItem, ImageType, Item, PatientInfo, Section } from './document';
+import { Document, ImageItem, ImageType, Item, PatientInfo, Section, VisitInfo } from './document';
 
 const PAGE_WIDTH = PageSizes.A4[0];
 const PAGE_HEIGHT = PageSizes.A4[1];
@@ -31,17 +31,43 @@ export async function generatePdf(document: Document): Promise<PDFDocument> {
   const firstPage = pdfDocument.addPage();
   firstPage.setSize(PAGE_WIDTH, PAGE_HEIGHT);
 
-  const y = drawPatientInfo(
-    document.patientInfo,
-    firstPage,
-    PAGE_HEIGHT - DEFAULT_MARGIN,
-    helveticaBoldFont,
-    helveticaFont
-  );
+  let y = drawStamp(document.visitInfo, firstPage, helveticaBoldFont, helveticaFont);
+
+  y = drawPatientInfo(document.patientInfo, firstPage, PAGE_HEIGHT - DEFAULT_MARGIN, helveticaBoldFont, helveticaFont);
+
   drawSections(document.sections, firstPage, y, helveticaBoldFont, helveticaFont);
   await drawImageItems(document.imageItems, pdfDocument, helveticaFont);
   drawPageNumbers(pdfDocument, helveticaFont);
   return pdfDocument;
+}
+
+function drawStamp(visit: VisitInfo, page: PDFPage, titleFont: PDFFont, regularFont: PDFFont): number {
+  let y = PAGE_HEIGHT - DEFAULT_MARGIN;
+
+  y = drawTextRightAligned('PAPERWORK', page, {
+    x: PAGE_WIDTH - DEFAULT_MARGIN,
+    y,
+    font: titleFont,
+    size: 20,
+  });
+
+  y = drawTextRightAligned(`${visit.type} | ${visit.time} | ${visit.date}`, page, {
+    x: PAGE_WIDTH - DEFAULT_MARGIN,
+    y,
+    font: regularFont,
+    size: 12,
+  });
+
+  if (visit.location) {
+    y = drawTextRightAligned(visit.location, page, {
+      x: PAGE_WIDTH - DEFAULT_MARGIN,
+      y,
+      font: regularFont,
+      size: 12,
+    });
+  }
+
+  return y;
 }
 
 function drawPatientInfo(

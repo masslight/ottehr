@@ -22,6 +22,7 @@ import {
   getSecret,
   getUnconfirmedDOBForAppointment,
   HealthcareServiceWithLocationContext,
+  isNonPaperworkQuestionnaireResponse,
   mapQuestionnaireAndValueSetsToItemsList,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   PaperworkSupportingInfo,
@@ -36,7 +37,6 @@ import {
   UCGetPaperworkResponse,
   VisitType,
 } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import {
   createOystehrClient,
   getAuth0Token,

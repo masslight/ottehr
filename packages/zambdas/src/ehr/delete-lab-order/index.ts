@@ -50,7 +50,9 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     }
 
     labConditions.forEach((condition) => {
-      condition.id && deleteRequests.push(makeDeleteResourceRequest('Condition', condition.id));
+      if (condition.id) {
+        deleteRequests.push(makeDeleteResourceRequest('Condition', condition.id));
+      }
     });
 
     if (deleteRequests.length > 0) {
@@ -75,11 +77,6 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('delete-lab-order', error, ENVIRONMENT);
-
-    return {
-      statusCode: error.statusCode || 500,
-      body: JSON.stringify({ message: `Error deleting external lab order: ${error.message || error}` }),
-    };
+    return topLevelCatch('delete-lab-order', error, ENVIRONMENT);
   }
 });
