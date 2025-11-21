@@ -458,24 +458,84 @@ const LANGUAGE_MAPPING: Record<LanguageOption, Coding | undefined> = {
     display: 'Spanish',
     system: 'urn:ietf:bcp:47',
   },
-  Chinese: undefined,
-  French: undefined,
-  German: undefined,
-  Tagalog: undefined,
-  Vietnamese: undefined,
-  Italian: undefined,
-  Korean: undefined,
-  Russian: undefined,
-  Polish: undefined,
-  Arabic: undefined,
-  Portuguese: undefined,
-  Japanese: undefined,
-  Greek: undefined,
-  Hindi: undefined,
-  Persian: undefined,
-  Urdu: undefined,
-  'Sign Language': undefined,
-  Other: undefined,
+  [LANGUAGE_OPTIONS.Chinese]: {
+    code: 'zh',
+    display: 'Chinese',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.French]: {
+    code: 'fr',
+    display: 'French',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.German]: {
+    code: 'de',
+    display: 'German',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Tagalog]: {
+    display: 'Tagalog',
+  },
+  [LANGUAGE_OPTIONS.Vietnamese]: {
+    display: 'Vietnamese',
+  },
+  [LANGUAGE_OPTIONS.Italian]: {
+    code: 'it',
+    display: 'Italian',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Korean]: {
+    code: 'ko',
+    display: 'Korean',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Russian]: {
+    code: 'ru',
+    display: 'Russian',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Polish]: {
+    code: 'pl',
+    display: 'Polish',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Arabic]: {
+    code: 'ar',
+    display: 'Arabic',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Portuguese]: {
+    code: 'pt',
+    display: 'Portuguese',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Japanese]: {
+    code: 'ja',
+    display: 'Japanese',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Greek]: {
+    code: 'el',
+    display: 'Greek',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Hindi]: {
+    code: 'hi',
+    display: 'Hindi',
+    system: 'urn:ietf:bcp:47',
+  },
+  [LANGUAGE_OPTIONS.Persian]: {
+    display: 'Persian',
+  },
+  [LANGUAGE_OPTIONS.Urdu]: {
+    display: 'Urdu',
+  },
+  [LANGUAGE_OPTIONS['Sign Language']]: {
+    display: 'Sign Language',
+  },
+  [LANGUAGE_OPTIONS.Other]: {
+    display: 'Other',
+  },
 };
 
 interface LanguageCommunication {
