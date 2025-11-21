@@ -1,9 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import axios from 'axios';
 import { DateTime } from 'luxon';
 import moment from 'moment';
 import { AppointmentProviderNotificationTypes, getSecret, PROVIDER_NOTIFICATION_TYPE_SYSTEM, SecretsKeys } from 'utils';
-import { fetchPatientSettingsById } from '../../services/patientSettings';
 import { createOystehrClient, getAuth0Token, lambdaResponse, sendEmail, wrapHandler, ZambdaInput } from '../../shared';
 
 // For local development it makes it easier to track performance
@@ -56,6 +56,9 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
         SecretsKeys.PATIENT_VITAL_WARNING_TEMPLATE_EMAIL_TEMPLATE_ID,
         secrets
       );
+      const API_BASE_URL = getSecret(SecretsKeys.API_BASE_URL, secrets);
+      const API_TOKEN = getSecret(SecretsKeys.API_TOKEN, secrets);
+
       const oystehr = createOystehrClient(oystehrToken, secrets);
 
       const roles = (await oystehr.role.list()).filter((x: any) => ['Provider', 'Staff'].includes(x.name));
@@ -88,7 +91,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
         console.log('Patient Id : ', patientId);
         if (patientId) {
           try {
-            const patientSettings = await fetchPatientSettingsById(patientId.split('/')[1]);
+            const patientSettings = await fetchPatientSettingsById(API_BASE_URL, API_TOKEN, patientId.split('/')[1]);
             console.log('Patient settings api res :', JSON.stringify(patientSettings, null, 2));
 
             if (patientSettings?.settings) {
@@ -844,4 +847,26 @@ const getRange = (baselineStr: string, varianceStr: string): any[] => {
   const min = baseline - delta;
   const max = baseline + delta;
   return [min, max];
+};
+
+const fetchPatientSettingsById = async (apiBaseUrl: string, apiToken: string, patientId: string): Promise<any> => {
+  try {
+    const response = await axios.post(
+      `${apiBaseUrl}/patient-settings/id`,
+      {
+        patientId,
+      },
+      {
+        headers: {
+          token: `${apiToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return response.data.data;
+  } catch (error) {
+    console.error('Error fetching patient settings by Id:', error);
+    return { reports: [], total: 0 };
+  }
 };
