@@ -175,7 +175,7 @@ const VitalsConfig = {
         rules: [{ type: 'max', units: 'kg', ageSexFunction: getWeightPercentileHigh }],
       },
     ],
-    unit: 'lbs',
+    unit: 'kg',
   },
   'vital-height': {
     alertThresholds: [
