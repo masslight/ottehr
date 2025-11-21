@@ -19,6 +19,7 @@ import {
   BUCKET_NAMES,
   CPTCodeDTO,
   ExtendedMedicationDataForResponse,
+  ExternalLabDocuments,
   followUpInOptions,
   formatDateToMDYWithTime,
   formatDOB,
@@ -27,8 +28,6 @@ import {
   GetChartDataResponse,
   getDefaultNote,
   GetRadiologyOrderListZambdaOutput,
-  LabOrderPDF,
-  LabResultPDF,
   mapDispositionTypeToLabel,
   mapErxMedicationsToDisplay,
   mapMedicationsToDisplay,
@@ -36,6 +35,7 @@ import {
   NonNormalResult,
   NonNormalResultContained,
   NOTE_TYPE,
+  OttehrGeneratedResultDocument,
   Pagination,
   ParticipantInfo,
   PatientLabItem,
@@ -69,8 +69,7 @@ type AllChartData = {
     provenances: Provenance[];
     organizations: Organization[];
     questionnaires: QuestionnaireData[];
-    resultPDFs: LabResultPDF[];
-    orderPDF: LabOrderPDF | undefined;
+    labDocuments: ExternalLabDocuments | undefined;
     specimens: Specimen[];
     patientLabItems: PatientLabItem[];
     appointmentScheduleMap: Record<string, Schedule>;
@@ -88,7 +87,7 @@ type AllChartData = {
     observations: Observation[];
     pagination: Pagination;
     diagnosticReports: DiagnosticReport[];
-    resultsPDFs: LabResultPDF[];
+    resultsPDFs: OttehrGeneratedResultDocument[];
     currentPractitioner?: Practitioner;
     appointmentScheduleMap: Record<string, Schedule>;
   };

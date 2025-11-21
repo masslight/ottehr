@@ -27,11 +27,15 @@ import {
 import {
   ABNORMAL_RESULT_DR_TAG,
   DiagnosticReportLabDetailPageDTO,
+  docRefIsAbnAndCurrent,
+  docRefIsLabelPDFAndCurrent,
   docRefIsLabGeneratedResult,
+  docRefIsOrderPDFAndCurrent,
+  docRefIsOttehrGeneratedResultAndCurrent,
   DynamicAOEInput,
   EncounterExternalLabResult,
   EncounterInHouseLabResult,
-  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
+  ExternalLabDocuments,
   externalLabOrderIsManual,
   ExternalLabOrderResult,
   ExternalLabOrderResultConfig,
@@ -46,21 +50,23 @@ import {
   INCONCLUSIVE_RESULT_DR_TAG,
   InHouseLabResult,
   LAB_DR_TYPE_TAG,
-  LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabDocument,
+  LabDocumentBase,
+  LabDocumentByRequisition,
+  LabDocumentRelatedToServiceRequest,
+  LabDocumentType,
   LabDrTypeTagCode,
   LabelPdf,
-  LabOrderPDF,
+  LabGeneratedResultDocument,
   LabOrderResultDetails,
-  LabResultPDF,
   LabType,
   nameLabTest,
   NEUTRAL_RESULT_DR_TAG,
   NonNormalResult,
+  OttehrGeneratedResultDocument,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
-  OYSTEHR_LAB_DOC_CATEGORY_CODING,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PATIENT_BILLING_ACCOUNT_TYPE,
@@ -445,7 +451,7 @@ export const makeEncounterLabResults = async (
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'DocumentReference') {
-      const isLabsDocRef = !!resource.type?.coding?.find((c) => c.code === LAB_RESULT_DOC_REF_CODING_CODE.code);
+      const isLabsDocRef = docRefIsOttehrGeneratedResultAndCurrent(resource);
       if (isLabsDocRef) documentReferences.push(resource as DocumentReference);
     }
     if (resource.resourceType === 'ServiceRequest') {
@@ -679,12 +685,126 @@ const getDocRefRelatedId = (
   return reference?.split('/')[1];
 };
 
+/**
+ * Gets presigned urls for document references and massages data into a consumable labDocument shape and organizes those labDocuments into the ExternalLabDocuments object
+ * @param documentReferences - all document references for a lab or labs
+ * @param serviceRequests - either one service request (if running from the detail page) or multiple (if running from the list view)
+ * @param m2mToken
+ * @returns ExternalLabDocuments
+ */
+export const configAllExternalLabDocuments = async (
+  documentReferences: DocumentReference[],
+  serviceRequests: ServiceRequest[],
+  m2mToken: string
+): Promise<ExternalLabDocuments | undefined> => {
+  const documentsWithPresignedUrls = await fetchLabDocumentPresignedUrls(documentReferences, m2mToken);
+  if (!documentsWithPresignedUrls) return;
+
+  const docsConfig: ExternalLabDocuments = {
+    labelPDF: documentsWithPresignedUrls?.labelPDF,
+    orderPDFsByRequisitionNumber: undefined,
+    abnPDFsByRequisitionNumber: undefined,
+    labGeneratedResults: undefined,
+    resultPDFs: undefined,
+  };
+  if (documentsWithPresignedUrls.orderPDFs.length > 0) {
+    const groupedOrderPdfs = groupLabDocsByRequisition(documentsWithPresignedUrls.orderPDFs, serviceRequests);
+    docsConfig.orderPDFsByRequisitionNumber = groupedOrderPdfs;
+  }
+  if (documentsWithPresignedUrls.abnPDFs.length > 0) {
+    const groupedAbnPdfs = groupLabDocsByRequisition(documentsWithPresignedUrls.abnPDFs, serviceRequests);
+    docsConfig.abnPDFsByRequisitionNumber = groupedAbnPdfs;
+  }
+  // result doc refs are only fetched up for the detail page so we do not need to group by requisition number
+  if (documentsWithPresignedUrls.labGeneratedResults.length > 0) {
+    docsConfig.labGeneratedResults = documentsWithPresignedUrls.labGeneratedResults;
+  }
+  // result doc refs are only fetched up for the detail page so we do not need to group by requisition number
+  if (documentsWithPresignedUrls.resultPDFs.length > 0) {
+    docsConfig.resultPDFs = documentsWithPresignedUrls.resultPDFs;
+  }
+
+  return docsConfig;
+};
+
+const groupLabDocsByRequisition = (
+  labDocuments: LabDocumentRelatedToServiceRequest[],
+  serviceRequests: ServiceRequest[]
+): LabDocumentByRequisition | undefined => {
+  if (!labDocuments) return;
+
+  const grouped: { [requisitionNumber: string]: LabDocumentRelatedToServiceRequest } = {};
+  labDocuments.forEach((labDoc) => {
+    const serviceRequestId = labDoc.serviceRequestId;
+    const serviceRequest = serviceRequests.find((sr) => sr.id === serviceRequestId);
+    const requisitionNumber = serviceRequest ? getOrderNumber(serviceRequest) : undefined;
+    if (requisitionNumber) {
+      grouped[requisitionNumber] = labDoc;
+    }
+  });
+  return grouped;
+};
+
+const docRefType = (docRef: DocumentReference): LabDocumentType | undefined => {
+  if (docRefIsLabGeneratedResult(docRef)) {
+    return LabDocumentType.labGeneratedResult;
+  } else if (docRefIsOrderPDFAndCurrent(docRef)) {
+    return LabDocumentType.orderPdf;
+  } else if (docRefIsLabelPDFAndCurrent(docRef)) {
+    return LabDocumentType.label;
+  } else if (docRefIsAbnAndCurrent(docRef)) {
+    return LabDocumentType.abn;
+  } else if (docRefIsOttehrGeneratedResultAndCurrent(docRef)) {
+    return LabDocumentType.ottehrGeneratedResult;
+  }
+  return;
+};
+/**
+ * Transforms data relating to any given lab document (usually some pdf) into a consumable shape to be used through the front and backend of the app
+ * @param docRef DocumentReference being configured into the lab document shape
+ * @param presignedURL url to access the document that will be stored in the lab document
+ * @returns LabDocument | null
+ */
+const configLabDocument = (docRef: DocumentReference, presignedURL: string): LabDocument | null => {
+  if (!docRef.id) return null;
+  const baseInfo: LabDocumentBase = { docRefId: docRef.id, presignedURL };
+  const serviceRequestId = getDocRefRelatedId(docRef, 'ServiceRequest');
+  const diagnosticReportId = getDocRefRelatedId(docRef, 'DiagnosticReport');
+  const type = docRefType(docRef);
+  const config = (() => {
+    switch (type) {
+      case LabDocumentType.abn:
+      case LabDocumentType.orderPdf:
+        if (!serviceRequestId) return null;
+        return { type, serviceRequestId, ...baseInfo };
+      case LabDocumentType.ottehrGeneratedResult:
+        if (!diagnosticReportId) return null;
+        return { type, diagnosticReportId, ...baseInfo };
+      case LabDocumentType.labGeneratedResult: {
+        const relatedResultReferences =
+          docRef.context?.related?.map((ref) => ref.reference).filter((ref): ref is string => !!ref) ?? [];
+        return { type, relatedResultReferences, ...baseInfo };
+      }
+      case LabDocumentType.label: {
+        return {
+          type,
+          documentReference: docRef,
+          presignedURL,
+        };
+      }
+      default:
+        return null;
+    }
+  })();
+  return config;
+};
+
 type FetchLabDocumentsRes = {
-  resultPDFs: LabResultPDF[];
+  resultPDFs: OttehrGeneratedResultDocument[];
   labelPDF: LabelPdf | undefined;
-  orderPDF: LabOrderPDF | undefined;
-  abnPDFs: LabDocument[];
-  labGeneratedResults: LabDocument[];
+  orderPDFs: LabDocumentRelatedToServiceRequest[];
+  abnPDFs: LabDocumentRelatedToServiceRequest[];
+  labGeneratedResults: LabGeneratedResultDocument[];
 };
 export const fetchLabDocumentPresignedUrls = async (
   documentReferences: DocumentReference[],
@@ -693,46 +813,15 @@ export const fetchLabDocumentPresignedUrls = async (
   if (!documentReferences.length) {
     return;
   }
-  const pdfPromises: Promise<LabResultPDF | LabelPdf | LabOrderPDF | null>[] = [];
 
+  const pdfPromises: Promise<LabelPdf | LabDocument | null>[] = [];
   for (const docRef of documentReferences) {
-    const diagnosticReportId = getDocRefRelatedId(docRef, 'DiagnosticReport');
-    const isLabGeneratedResultDoc = docRefIsLabGeneratedResult(docRef);
-    const serviceRequestId = getDocRefRelatedId(docRef, 'ServiceRequest');
-    const isLabOrderDoc = docRef.type?.coding?.find(
-      (code) => code.system === LAB_ORDER_DOC_REF_CODING_CODE.system && code.code === LAB_ORDER_DOC_REF_CODING_CODE.code
-    );
-    const isLabelDoc = docRef.type?.coding?.find(
-      (code) =>
-        code.system === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.system &&
-        code.code === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
-    );
-    const isAbnDoc = docRefIsAbnAndCurrent(docRef);
-    const docRefId = docRef.id;
-
     for (const content of docRef.content) {
       const z3Url = content.attachment?.url;
       if (z3Url) {
         pdfPromises.push(
           getPresignedURL(z3Url, m2mToken)
-            .then((presignedURL) => {
-              if (diagnosticReportId) {
-                if (isLabGeneratedResultDoc) {
-                  return { presignedURL, documentReference: docRef, type: 'lab-generated-result' } as LabDocument;
-                } else {
-                  return { presignedURL, diagnosticReportId } as LabResultPDF;
-                }
-              } else if (serviceRequestId) {
-                if (isLabOrderDoc) {
-                  return { presignedURL, serviceRequestId, docRefId } as LabOrderPDF;
-                } else if (isAbnDoc) {
-                  return { presignedURL, documentReference: docRef, type: 'abn' } as LabDocument;
-                } else if (isLabelDoc) {
-                  return { presignedURL, documentReference: docRef } as LabelPdf;
-                }
-              }
-              return null;
-            })
+            .then((presignedURL) => configLabDocument(docRef, presignedURL))
             .catch((error) => {
               captureException(error);
               console.error(`Failed to get presigned URL for document ${docRef.id}:`, error);
@@ -745,34 +834,39 @@ export const fetchLabDocumentPresignedUrls = async (
 
   const pdfs = await Promise.allSettled(pdfPromises);
 
-  const { resultPDFs, labelPDF, orderPDF, abnPDFs, labGeneratedResults } = pdfs
+  const { resultPDFs, labelPDF, orderPDFs, abnPDFs, labGeneratedResults } = pdfs
     .filter(
-      (result): result is PromiseFulfilledResult<LabResultPDF | LabelPdf | LabOrderPDF | LabDocument> =>
+      (result): result is PromiseFulfilledResult<LabelPdf | LabDocument> =>
         result.status === 'fulfilled' && result.value !== null
     )
     .reduce(
       (acc: FetchLabDocumentsRes, result) => {
-        if ('diagnosticReportId' in result.value) {
-          acc.resultPDFs.push(result.value);
-        } else if ('serviceRequestId' in result.value) {
-          acc.orderPDF = result.value;
-        } else if ('documentReference' in result.value) {
-          if ('type' in result.value) {
-            if (result.value.type === 'abn') {
+        if ('type' in result.value) {
+          switch (result.value.type) {
+            case LabDocumentType.abn:
               acc.abnPDFs.push(result.value);
-            } else if (result.value.type === 'lab-generated-result') {
+              break;
+            case LabDocumentType.labGeneratedResult:
               acc.labGeneratedResults.push(result.value);
-            }
-          } else {
-            acc.labelPDF = result.value;
+              break;
+            case LabDocumentType.orderPdf:
+              acc.orderPDFs.push(result.value);
+              break;
+            case LabDocumentType.ottehrGeneratedResult:
+              acc.resultPDFs.push(result.value);
+              break;
+            default:
+              break;
           }
+        } else {
+          acc.labelPDF = result.value;
         }
         return acc;
       },
-      { resultPDFs: [], labelPDF: undefined, orderPDF: undefined, abnPDFs: [], labGeneratedResults: [] }
+      { resultPDFs: [], labelPDF: undefined, orderPDFs: [], abnPDFs: [], labGeneratedResults: [] }
     );
 
-  return { resultPDFs, labelPDF, orderPDF, abnPDFs, labGeneratedResults };
+  return { resultPDFs, labelPDF, orderPDFs, abnPDFs, labGeneratedResults };
 };
 
 export const parseAppointmentIdForServiceRequest = (
@@ -807,12 +901,6 @@ export const parseTimezoneForAppointmentSchedule = (
     timezone = getTimezone(schedule);
   }
   return timezone;
-};
-
-export const documentReferenceIsLabs = (docRef: DocumentReference): boolean => {
-  return !!docRef.type?.coding?.some(
-    (c) => c.system === LAB_RESULT_DOC_REF_CODING_CODE.system && c.code === LAB_RESULT_DOC_REF_CODING_CODE.code
-  );
 };
 
 // todo labs we should be able to get rid of this
@@ -857,18 +945,6 @@ export const diagnosticReportSpecificResultType = (dr: DiagnosticReport): LabDrT
   } else {
     throw new Error(`an unexpected number of result-type tag have been assigned: ${labDrCodes} on DR: ${dr.id}`);
   }
-};
-
-export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
-  const isCurrent = docRef.status === 'current';
-  const isAbn = !!docRef.category?.some(
-    (cat) =>
-      cat.coding?.some(
-        (code) =>
-          code.code === OYSTEHR_LAB_DOC_CATEGORY_CODING.code && code.system === OYSTEHR_LAB_DOC_CATEGORY_CODING.system
-      )
-  );
-  return isCurrent && isAbn;
 };
 
 export const srHasRejectedAbnExt = (sr: ServiceRequest): boolean => {
@@ -1030,9 +1106,9 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
         }
       }
     }
-    if (resource.resourceType === 'DocumentReference' && resource.status === 'current') {
-      const isResultPdfDocRef = documentReferenceIsLabs(resource);
-      if (isResultPdfDocRef) {
+    if (resource.resourceType === 'DocumentReference') {
+      const isResultPdfDocRefAndCurrent = docRefIsOttehrGeneratedResultAndCurrent(resource);
+      if (isResultPdfDocRefAndCurrent) {
         currentResultPDFDocRefs.push(resource);
       }
     }

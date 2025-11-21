@@ -13,6 +13,7 @@ import {
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
+  docRefIsAbnAndCurrent,
   DynamicAOEInput,
   EXTERNAL_LAB_ERROR,
   getFullestAvailableName,
@@ -24,7 +25,7 @@ import {
   SR_REVOKED_REASON_EXT,
 } from 'utils';
 import { createOwnerReference } from '../../shared/tasks';
-import { docRefIsAbnAndCurrent, parseAccessionNumberFromDr, populateQuestionnaireResponseItems } from '../shared/labs';
+import { parseAccessionNumberFromDr, populateQuestionnaireResponseItems } from '../shared/labs';
 
 export const getSpecimenPatchAndMostRecentCollectionDate = (
   specimenResources: Specimen[],
