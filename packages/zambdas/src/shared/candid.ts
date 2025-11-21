@@ -1290,13 +1290,13 @@ async function candidCreateEncounterFromAppointmentRequest(
       const hcpcs = getHcpcsCodeFromMedication(medication);
       const procedureCode = cpt || hcpcs;
 
-      const dose = getDosageFromMA(medicationAdministration);
-      if (dose === undefined) return;
-      const candidMeasurement = mapMedicationToCandidMeasurement(dose.units);
+      const dosageFromMA = getDosageFromMA(medicationAdministration);
+      if (dosageFromMA === undefined) return;
+      const candidMeasurement = mapMedicationToCandidMeasurement(dosageFromMA.units);
       console.log(
-        `medication: ${medicationAdministration?.id}, ndc: ${ndc}, procedureCode: ${procedureCode}, dose: ${dose}`
+        `medication: ${medicationAdministration?.id}, ndc: ${ndc}, procedureCode: ${procedureCode}, dose: ${dosageFromMA.dose}`
       );
-      if (procedureCode && ndc && dose && candidMeasurement) {
+      if (procedureCode && ndc && dosageFromMA && candidMeasurement) {
         serviceLines.push({
           procedureCode,
           quantity: Decimal('1'), // ???
@@ -1306,7 +1306,7 @@ async function candidCreateEncounterFromAppointmentRequest(
             serviceIdQualifier: 'N4', // ???
             // todo check if our ndc is ok and will pass insurance validation
             nationalDrugCode: ndc,
-            nationalDrugUnitCount: Decimal(`${dose}`),
+            nationalDrugUnitCount: Decimal(dosageFromMA.dose.toString()),
             measurementUnitCode: candidMeasurement,
           },
           dateOfService:
