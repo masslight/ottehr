@@ -1,3 +1,4 @@
+import { assert } from 'node:console';
 import Oystehr, { BatchInputPostRequest, M2mListItem } from '@oystehr/sdk';
 import fastSeedData from 'ehr-ui/tests/e2e-utils/seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
 import {
@@ -249,6 +250,7 @@ export const setupIntegrationTest = async (
     testUserM2M = await oystehrAdmin.m2m.get({
       id: m2mListSearchResultData[0].id,
     });
+    assert(testUserM2M.description === m2mClientMockType, 'Found Test User M2M client should have correct mock type');
   } else {
     console.log('creating new M2M client for tests');
     const projectRoles = await oystehrAdmin.role.list();

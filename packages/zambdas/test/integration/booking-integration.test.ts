@@ -1,4 +1,4 @@
-import Oystehr, { M2mListItem } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Appointment, Location, Patient, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -31,9 +31,8 @@ import {
   SLUG_SYSTEM,
   Timezone,
 } from 'utils';
-import { assert, inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
-import { SECRETS } from '../data/secrets';
+import { assert } from 'vitest';
+import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import {
   adjustHoursOfOperation,
   changeAllCapacities,
@@ -45,8 +44,6 @@ import {
   startOfDayWithTimezone,
   tagForProcessId,
 } from '../helpers/testScheduleUtils';
-
-const testPretendUserM2MName = 'booking-integration-tests-m2m-client';
 
 const createSlotAndValidate = async (
   input: { params: CreateSlotParams; schedule: Schedule; selectedSlot?: SlotListItem },
@@ -216,8 +213,7 @@ interface CancelAndValidateInput {
 
 describe('prebook integration - from getting list of slots to booking with selected slot', () => {
   let oystehrAdmin: Oystehr;
-  let oystehrAsTestUserM2M: Oystehr;
-  let token = null;
+  let oystehrTestUserM2M: Oystehr;
   let processId: string | null = null;
   let existingTestPatient: Patient;
 
@@ -370,7 +366,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     let getScheduleResponse: GetScheduleResponse | undefined;
     try {
       getScheduleResponse = (
-        await oystehrAsTestUserM2M.zambda.executePublic({
+        await oystehrTestUserM2M.zambda.executePublic({
           id: 'get-schedule',
           slug,
           scheduleType: scheduleOwnerType === 'Location' ? 'location' : 'provider',
@@ -433,7 +429,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     assert(createSlotParams);
     const validatedSlotResponse = await createSlotAndValidate(
       { params: createSlotParams, selectedSlot, schedule },
-      oystehrAsTestUserM2M
+      oystehrTestUserM2M
     );
     const createdSlotResponse = validatedSlotResponse.slot;
     const serviceModeFromSlot = validatedSlotResponse.serviceMode;
@@ -459,7 +455,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     let getScheduleResponse: GetScheduleResponse | undefined;
     try {
       getScheduleResponse = (
-        await oystehrAsTestUserM2M.zambda.executePublic({
+        await oystehrTestUserM2M.zambda.executePublic({
           id: 'get-schedule',
           slug,
           scheduleType: 'location',
@@ -485,7 +481,7 @@ describe('prebook integration - from getting list of slots to booking with selec
 
     const validatedRescheduledSlot = await createSlotAndValidate(
       { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
-      oystehrAsTestUserM2M
+      oystehrTestUserM2M
     );
     const rescheduleSlotResponse: Slot = validatedRescheduledSlot.slot;
     const slotServiceMode = validatedRescheduledSlot.serviceMode;
@@ -497,7 +493,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     let rescheduleAppointmentResponse: any | undefined;
     try {
       rescheduleAppointmentResponse = (
-        await oystehrAsTestUserM2M.zambda.executePublic({
+        await oystehrTestUserM2M.zambda.executePublic({
           id: 'update-appointment',
           appointmentID: appointmentId,
           slot: rescheduleSlotResponse,
@@ -578,7 +574,7 @@ describe('prebook integration - from getting list of slots to booking with selec
   const cancelAndValidate = async (input: CancelAndValidateInput): Promise<void> => {
     const { appointmentId, oldSlotId } = input;
     try {
-      const cancelResult = await oystehrAsTestUserM2M.zambda.executePublic({
+      const cancelResult = await oystehrTestUserM2M.zambda.executePublic({
         id: 'cancel-appointment',
         appointmentID: appointmentId,
         cancellationReason: 'Patient improved',
@@ -625,7 +621,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     let createAppointmentResponse: CreateAppointmentResponse | undefined;
     try {
       createAppointmentResponse = (
-        await oystehrAsTestUserM2M.zambda.execute({
+        await oystehrTestUserM2M.zambda.execute({
           id: 'create-appointment',
           ...createAppointmentInputParams,
         })
@@ -653,80 +649,9 @@ describe('prebook integration - from getting list of slots to booking with selec
 
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
-    const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
-    expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-    });
-
-    oystehrAdmin = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectId: PROJECT_ID,
-    });
-
-    // We need to find or create the M2M client who will pretend to be a real EHR user.
-    const m2mListSearchResultData = (
-      await oystehrAdmin.m2m.listV2({
-        name: testPretendUserM2MName,
-      })
-    ).data;
-
-    let testUserM2M: M2mListItem;
-
-    if (m2mListSearchResultData.length > 0) {
-      console.log('found existing M2M client for tests');
-      testUserM2M = await oystehrAdmin.m2m.get({
-        id: m2mListSearchResultData[0].id,
-      });
-    } else {
-      console.log('creating new M2M client for tests');
-      const projectRoles = await oystehrAdmin.role.list();
-      const patientRoleId = projectRoles.find((role) => role.name === 'Patient')?.id;
-      expect(patientRoleId).toBeDefined();
-
-      const patientForM2M = await oystehrAdmin.fhir.create<Patient>({
-        resourceType: 'Patient',
-        name: [{ given: ['M2M'], family: 'Client' }],
-        birthDate: '1978-01-01',
-        telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
-      });
-
-      testUserM2M = await oystehrAdmin.m2m.create({
-        name: testPretendUserM2MName,
-        description: M2MClientMockType.patient,
-        profile: `Patient/${patientForM2M.id}`,
-        roles: [patientRoleId!],
-      });
-    }
-
-    const testUserM2MClientId = testUserM2M.clientId;
-    const testUserM2MClientSecret = (
-      await oystehrAdmin.m2m.rotateSecret({
-        id: testUserM2M.id,
-      })
-    ).secret;
-
-    console.log('client id ', testUserM2MClientId);
-    console.log('rotated: ', testUserM2MClientSecret);
-
-    const testUserM2MToken = await getAuth0Token({
-      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: testUserM2MClientId,
-      AUTH0_SECRET: testUserM2MClientSecret,
-      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-    });
-
-    oystehrAsTestUserM2M = new Oystehr({
-      accessToken: testUserM2MToken,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      projectId: PROJECT_ID,
-    });
+    const setup = await setupIntegrationTest('booking-integration.test.ts', M2MClientMockType.patient);
+    oystehrTestUserM2M = setup.oystehrTestUserM2M;
+    oystehrAdmin = setup.oystehr;
 
     existingTestPatient = await persistTestPatient({ patient: makeTestPatient(), processId }, oystehrAdmin);
   });
@@ -860,7 +785,7 @@ describe('prebook integration - from getting list of slots to booking with selec
       let getScheduleResponse: GetScheduleResponse | undefined;
       try {
         getScheduleResponse = (
-          await oystehrAsTestUserM2M.zambda.executePublic({
+          await oystehrTestUserM2M.zambda.executePublic({
             id: 'get-schedule',
             slug,
             scheduleType: 'location',
@@ -886,7 +811,7 @@ describe('prebook integration - from getting list of slots to booking with selec
 
       const validatedRescheduledSlot = await createSlotAndValidate(
         { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
-        oystehrAsTestUserM2M
+        oystehrTestUserM2M
       );
       const rescheduleSlotResponse = validatedRescheduledSlot.slot;
       assert(rescheduleSlotResponse.id);
@@ -895,7 +820,7 @@ describe('prebook integration - from getting list of slots to booking with selec
       let rescheduleAppointmentResponse: any | undefined;
       try {
         rescheduleAppointmentResponse = (
-          await oystehrAsTestUserM2M.zambda.executePublic({
+          await oystehrTestUserM2M.zambda.executePublic({
             id: 'update-appointment',
             appointmentID: appointment.id,
             slot: rescheduleSlotResponse,
@@ -911,7 +836,7 @@ describe('prebook integration - from getting list of slots to booking with selec
 
       // post-telemed appointments can't be canceled either
       try {
-        await oystehrAsTestUserM2M.zambda.executePublic({
+        await oystehrTestUserM2M.zambda.executePublic({
           id: 'cancel-appointment',
           appointmentID: appointment.id,
           cancellationReason: 'Patient improved',
