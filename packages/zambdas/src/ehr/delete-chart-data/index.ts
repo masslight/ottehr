@@ -68,6 +68,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     const {
       encounterId,
       chiefComplaint,
+      historyOfPresentIllness,
       ros,
       conditions,
       medications,
@@ -116,6 +117,9 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     // 2. delete  Medical Condition associated with chief complaint
     if (chiefComplaint) {
       deleteOrUpdateRequests.push(deleteResourceRequest('Condition', chiefComplaint.resourceId!));
+    }
+    if (historyOfPresentIllness) {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', historyOfPresentIllness.resourceId!));
     }
     if (ros) {
       deleteOrUpdateRequests.push(deleteResourceRequest('Condition', ros.resourceId!));
