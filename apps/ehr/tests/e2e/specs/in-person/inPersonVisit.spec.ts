@@ -173,6 +173,7 @@ test.describe('In-person visit', async () => {
       await patientInfoPage.inPersonHeader().verifyStatus('intake');
       await patientInfoPage.sideMenu().clickCompleteIntakeButton();
       await patientInfoPage.inPersonHeader().verifyStatus('ready for provider');
+      await patientInfoPage.sideMenu().clickReviewAndSign();
       const progressNotePage = await expectInPersonProgressNotePage(page);
       await progressNotePage.verifyReviewAndSignButtonDisabled();
       await progressNotePage.fillHPI();

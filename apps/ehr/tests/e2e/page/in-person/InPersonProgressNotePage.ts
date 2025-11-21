@@ -22,7 +22,7 @@ export class InPersonProgressNotePage extends BaseProgressNotePage {
 
   async expectLoaded(): Promise<void> {
     await this.#page.waitForURL(new RegExp('/in-person/.*/review-and-sign'));
-    await expect(this.#page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox)).toBeVisible();
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
   }
 }
 
