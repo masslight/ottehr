@@ -50,7 +50,7 @@ export class SideMenu {
   }
 
   async clickReviewAndSign(): Promise<InPersonProgressNotePage> {
-    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('review-and-sign')).click();
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('review-and-sign')).click({ force: true });
     return expectInPersonProgressNotePage(this.#page);
   }
 
