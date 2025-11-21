@@ -3,6 +3,7 @@ import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
+import { hideTooltip } from 'tests/e2e-utils/helpers/tests-utils';
 import {
   chooseJson,
   getConsentStepAnswers,
@@ -173,6 +174,7 @@ test.describe('In-person visit', async () => {
       await patientInfoPage.inPersonHeader().verifyStatus('intake');
       await patientInfoPage.sideMenu().clickCompleteIntakeButton();
       await patientInfoPage.inPersonHeader().verifyStatus('ready for provider');
+      await hideTooltip(page);
       await patientInfoPage.sideMenu().clickReviewAndSign();
       const progressNotePage = await expectInPersonProgressNotePage(page);
       await progressNotePage.verifyReviewAndSignButtonDisabled();
