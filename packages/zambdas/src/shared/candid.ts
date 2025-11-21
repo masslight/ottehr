@@ -63,9 +63,11 @@ import {
   FHIR_IDENTIFIER_NPI,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
+  getCptCodeFromMedication,
   getDosageFromMA,
+  getHcpcsCodeFromMedication,
   getMedicationFromMA,
-  getNdcCodeFromMA,
+  getNdcCodeFromMedication,
   getOptionalSecret,
   getPayerId,
   getPaymentVariantFromEncounter,
@@ -1283,16 +1285,20 @@ async function candidCreateEncounterFromAppointmentRequest(
     medications.forEach((medicationAdministration) => {
       const medication = getMedicationFromMA(medicationAdministration);
       if (!medication) return;
-      const ndc = getNdcCodeFromMA(medication);
-      // const cpt = getCptCodeFromMA(medication);
-      const cpt = 'J3301';
+      const ndc = getNdcCodeFromMedication(medication);
+      const cpt = getCptCodeFromMedication(medication);
+      const hcpcs = getHcpcsCodeFromMedication(medication);
+      const procedureCode = cpt || hcpcs;
+
       const dose = getDosageFromMA(medicationAdministration);
       if (dose === undefined) return;
       const candidMeasurement = mapMedicationToCandidMeasurement(dose.units);
-      console.log(`medication: ${medicationAdministration?.id}, ndc: ${ndc}, cpt: ${cpt}, dose: ${dose}`);
-      if (cpt && ndc && dose && candidMeasurement) {
+      console.log(
+        `medication: ${medicationAdministration?.id}, ndc: ${ndc}, procedureCode: ${procedureCode}, dose: ${dose}`
+      );
+      if (procedureCode && ndc && dose && candidMeasurement) {
         serviceLines.push({
-          procedureCode: cpt, // cpt or HCPCS code here
+          procedureCode,
           quantity: Decimal('1'), // ???
           units: ServiceLineUnits.Un, // ???
           diagnosisPointers: [primaryDiagnosisIndex], // ???

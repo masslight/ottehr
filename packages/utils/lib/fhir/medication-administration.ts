@@ -1,5 +1,5 @@
 import { MeasurementUnitCode } from 'candidhealth/api/resources/serviceLines/resources/v2';
-import { Coding, DetectedIssue, Extension, Medication, MedicationAdministration, MedicationRequest } from 'fhir/r4b';
+import { DetectedIssue, Medication, MedicationAdministration, MedicationRequest } from 'fhir/r4b';
 import { CODE_SYSTEM_ACT_CODE_V3, CODE_SYSTEM_CPT, CODE_SYSTEM_HCPCS, CODE_SYSTEM_NDC } from '../helpers';
 import {
   AllergyInteraction,
@@ -28,7 +28,6 @@ import {
   PRACTITIONER_ORDERED_MEDICATION_CODE,
   TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
   UpdateMedicationOrderInput,
-  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
 } from '../types';
 import { getCoding } from './helpers';
 
@@ -353,35 +352,19 @@ export function getMedicationFromMA(medicationAdministration: MedicationAdminist
   return medicationAdministration.contained?.find((res) => res.resourceType === 'Medication') as Medication;
 }
 
-export function getNdcCodeFromMA(medication: Medication): string | undefined {
+export function getNdcCodeFromMedication(medication: Medication): string | undefined {
   const medicationCoding = medication.code;
   return getCoding(medicationCoding, CODE_SYSTEM_NDC)?.code;
 }
 
-export function getCptCodeFromMA(medication: Medication): string | undefined {
+export function getCptCodeFromMedication(medication: Medication): string | undefined {
   const medicationCoding = medication.code;
   return getCoding(medicationCoding, CODE_SYSTEM_CPT)?.code;
 }
 
-export function getHcpcsCodeFromMA(medication: Medication): string | undefined {
+export function getHcpcsCodeFromMedication(medication: Medication): string | undefined {
   const medicationCoding = medication.code;
   return getCoding(medicationCoding, CODE_SYSTEM_HCPCS)?.code;
-}
-
-export function getVaccineAdministrationExtensions(medicationAdministration: MedicationAdministration): Extension[] {
-  return (medicationAdministration.extension ?? []).filter(
-    (extension) => extension.url === VACCINE_ADMINISTRATION_CODES_EXTENSION_URL
-  );
-}
-
-export function findCoding(extensions: Extension[], system: string): Coding | undefined {
-  for (const extension of extensions) {
-    const coding = getCoding(extension.valueCodeableConcept, system);
-    if (coding) {
-      return coding;
-    }
-  }
-  return undefined;
 }
 
 export function getDosageFromMA(
