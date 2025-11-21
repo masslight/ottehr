@@ -698,7 +698,7 @@ describe('prebook integration - from getting list of slots to booking with selec
 
       testUserM2M = await oystehrAdmin.m2m.create({
         name: testPretendUserM2MName,
-        description: M2MClientMockType.mockPatient,
+        description: M2MClientMockType.patient,
         profile: `Patient/${patientForM2M.id}`,
         roles: [patientRoleId!],
       });

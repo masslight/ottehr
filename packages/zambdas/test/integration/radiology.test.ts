@@ -61,7 +61,7 @@ describe('radiology integration tests', () => {
 
       testUserM2M = await oystehrAdmin.m2m.create({
         name: testPretendUserM2MName,
-        description: M2MClientMockType.mockProvider,
+        description: M2MClientMockType.provider,
         profile: `Practitioner/${practitionerForM2M.id}`,
         roles: [providerRoleId!],
       });

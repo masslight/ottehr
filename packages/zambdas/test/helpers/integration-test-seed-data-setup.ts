@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, M2mListItem } from '@oystehr/sdk';
 import fastSeedData from 'ehr-ui/tests/e2e-utils/seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
 import {
   Appointment,
@@ -10,13 +10,14 @@ import {
   List,
   Patient,
   Person,
+  Practitioner,
   QuestionnaireResponse,
   RelatedPerson,
   ServiceRequest,
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { cleanAppointmentGraph } from 'utils';
+import { cleanAppointmentGraph, M2MClientMockType, RoleType } from 'utils';
 import { inject } from 'vitest';
 import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } from '../../.env/local.json';
@@ -44,7 +45,7 @@ export interface InsertFullAppointmentDataBaseResult {
  */
 export interface IntegrationTestSetupResult {
   oystehr: Oystehr;
-  oystehrLocalZambdas: Oystehr;
+  oystehrTestUserM2M: Oystehr;
   token: string;
   processId: string;
   cleanup: () => Promise<void>;
@@ -207,7 +208,10 @@ export const cleanupResources = async (oystehr: Oystehr, processId: string): Pro
  * @param testFileName - The name of the test file (e.g., 'get-chart-data.test.ts')
  * @returns An object containing all setup data and cleanup function
  */
-export const setupIntegrationTest = async (testFileName: string): Promise<IntegrationTestSetupResult> => {
+export const setupIntegrationTest = async (
+  testFileName: string,
+  m2mClientMockType: M2MClientMockType
+): Promise<IntegrationTestSetupResult> => {
   const { AUTH0_ENDPOINT, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
 
   // Get authentication token
@@ -225,15 +229,81 @@ export const setupIntegrationTest = async (testFileName: string): Promise<Integr
   }
 
   // Create Oystehr client for FHIR operations
-  const oystehr = new Oystehr({
+  const oystehrAdmin = new Oystehr({
     accessToken: token,
     fhirApiUrl: FHIR_API,
     projectId: PROJECT_ID,
   });
 
-  // Create Oystehr client for zambda execution
-  const oystehrLocalZambdas = new Oystehr({
-    accessToken: token,
+  // We need to find or create the M2M client who will pretend to be a real EHR user.
+  const m2mListSearchResultData = (
+    await oystehrAdmin.m2m.listV2({
+      name: testFileName,
+    })
+  ).data;
+
+  let testUserM2M: M2mListItem;
+
+  if (m2mListSearchResultData.length > 0) {
+    console.log('found existing M2M client for tests');
+    testUserM2M = await oystehrAdmin.m2m.get({
+      id: m2mListSearchResultData[0].id,
+    });
+  } else {
+    console.log('creating new M2M client for tests');
+    const projectRoles = await oystehrAdmin.role.list();
+
+    if (m2mClientMockType === M2MClientMockType.patient) {
+      const patientRoleId = projectRoles.find((role) => role.name === 'Patient')?.id;
+      expect(patientRoleId).toBeDefined();
+      const patientForM2M = await oystehrAdmin.fhir.create<Patient>({
+        resourceType: 'Patient',
+        name: [{ given: ['M2M'], family: 'Client' }],
+        birthDate: '1978-01-01',
+        telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
+      });
+
+      testUserM2M = await oystehrAdmin.m2m.create({
+        name: testFileName,
+        description: M2MClientMockType.patient,
+        profile: `Patient/${patientForM2M.id}`,
+        roles: [patientRoleId!],
+      });
+    } else {
+      const providerRoleId = projectRoles.find((role) => role.name === RoleType.Provider)?.id;
+      expect(providerRoleId).toBeDefined();
+      const practitionerForM2M = await oystehrAdmin.fhir.create<Practitioner>({
+        resourceType: 'Practitioner',
+        name: [{ given: ['M2M'], family: 'Client' }],
+        birthDate: '1978-01-01',
+        telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
+      });
+
+      testUserM2M = await oystehrAdmin.m2m.create({
+        name: testFileName,
+        description: M2MClientMockType.provider,
+        profile: `Practitioner/${practitionerForM2M.id}`,
+        roles: [providerRoleId!],
+      });
+    }
+  }
+
+  const testUserM2MClientId = testUserM2M.clientId;
+  const testUserM2MClientSecret = (
+    await oystehrAdmin.m2m.rotateSecret({
+      id: testUserM2M.id,
+    })
+  ).secret;
+
+  const testUserM2MToken = await getAuth0Token({
+    AUTH0_ENDPOINT: AUTH0_ENDPOINT,
+    AUTH0_CLIENT: testUserM2MClientId,
+    AUTH0_SECRET: testUserM2MClientSecret,
+    AUTH0_AUDIENCE: AUTH0_AUDIENCE,
+  });
+
+  const oystehrTestUserM2M = new Oystehr({
+    accessToken: testUserM2MToken,
     fhirApiUrl: FHIR_API,
     projectApiUrl: EXECUTE_ZAMBDA_URL,
     projectId: PROJECT_ID,
@@ -244,15 +314,15 @@ export const setupIntegrationTest = async (testFileName: string): Promise<Integr
 
   // Create cleanup function
   const cleanup = async (): Promise<void> => {
-    if (!oystehr) {
+    if (!oystehrAdmin) {
       throw new Error('oystehr is null! could not clean up!');
     }
-    await cleanupResources(oystehr, processId);
+    await cleanupResources(oystehrAdmin, processId);
   };
 
   return {
-    oystehr,
-    oystehrLocalZambdas,
+    oystehr: oystehrAdmin,
+    oystehrTestUserM2M: oystehrTestUserM2M,
     token,
     processId,
     cleanup,

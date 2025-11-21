@@ -8,6 +8,7 @@ import {
   CreateSlotParams,
   GetTelemedAppointmentsInput,
   GetTelemedAppointmentsResponseEhr,
+  M2MClientMockType,
   PatientInfo,
   SCHEDULE_EXTENSION_URL,
   ServiceMode,
@@ -28,8 +29,8 @@ describe('get-telemed-appointments integration tests', () => {
   let endOfTomorrowSlotStart: string;
 
   beforeAll(async () => {
-    const setup = await setupIntegrationTest('get-telemed-appointments.test.ts');
-    oystehrLocalZambdas = setup.oystehrLocalZambdas;
+    const setup = await setupIntegrationTest('get-telemed-appointments.test.ts', M2MClientMockType.provider);
+    oystehrLocalZambdas = setup.oystehrTestUserM2M;
     oystehr = setup.oystehr;
     cleanupAppointmentGraph = setup.cleanup;
     userToken = setup.token;
