@@ -227,10 +227,11 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             const normalRange = getRange(weightThreshold, weightVariance);
             const criticalRange = getRange(weightThreshold, weightCriticalVariance);
 
-            isWarning = normalRange.length == 2 ? !(weight >= normalRange[0] && weight <= normalRange[1]) : false;
-
             isCritical =
-              criticalRange.length == 2 ? !(weight >= criticalRange[0] && weight <= criticalRange[1]) : false;
+              criticalRange.length === 2 ? !(weight >= criticalRange[0] && weight <= criticalRange[1]) : false;
+
+            isWarning =
+              !isCritical && normalRange.length === 2 ? !(weight >= normalRange[0] && weight <= normalRange[1]) : false;
 
             if (isWarning) {
               templateInformation.weightDisplay = 'block';
@@ -260,10 +261,13 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             const normalRange = getRange(glucoseThreshold, glucoseVariance);
             const criticalRange = getRange(glucoseThreshold, glucoseCriticalVariance);
 
-            isWarning = normalRange.length == 2 ? !(glucose >= normalRange[0] && glucose <= normalRange[1]) : false;
-
             isCritical =
-              criticalRange.length == 2 ? !(glucose >= criticalRange[0] && glucose <= criticalRange[1]) : false;
+              criticalRange.length === 2 ? !(glucose >= criticalRange[0] && glucose <= criticalRange[1]) : false;
+
+            isWarning =
+              !isCritical && normalRange.length === 2
+                ? !(glucose >= normalRange[0] && glucose <= normalRange[1])
+                : false;
 
             if (isWarning) {
               templateInformation.glucoseDisplay = 'block';
@@ -308,13 +312,14 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             systolicNormalRange = getRange(systolicThreshold, systolicVariance);
             systolicCriticalRange = getRange(systolicThreshold, systolicCriticalVariance);
 
-            systolicExceeding =
-              systolicNormalRange.length == 2
-                ? !(systolic >= systolicNormalRange[0] && systolic <= systolicNormalRange[1])
-                : false;
             systolicCritical =
-              systolicCriticalRange.length == 2
+              systolicCriticalRange.length === 2
                 ? !(systolic >= systolicCriticalRange[0] && systolic <= systolicCriticalRange[1])
+                : false;
+
+            systolicExceeding =
+              !systolicCritical && systolicNormalRange.length === 2
+                ? !(systolic >= systolicNormalRange[0] && systolic <= systolicNormalRange[1])
                 : false;
 
             console.log('Systolic exceeding :', systolicExceeding);
@@ -339,13 +344,14 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
             diastolicNormalRange = getRange(diastolicThreshold, diastolicVariance);
             diastolicCriticalRange = getRange(diastolicThreshold, diastolicCriticalVariance);
 
-            diastolicExceeding =
-              diastolicNormalRange.length == 2
-                ? !(diastolic >= diastolicNormalRange[0] && diastolic <= diastolicNormalRange[1])
-                : false;
             diastolicCritical =
-              diastolicCriticalRange.length == 2
+              diastolicCriticalRange.length === 2
                 ? !(diastolic >= diastolicCriticalRange[0] && diastolic <= diastolicCriticalRange[1])
+                : false;
+
+            diastolicExceeding =
+              !diastolicCritical && diastolicNormalRange.length === 2
+                ? !(diastolic >= diastolicNormalRange[0] && diastolic <= diastolicNormalRange[1])
                 : false;
 
             console.log('Diastolic exceeding:', diastolicExceeding);
@@ -700,9 +706,6 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
                     contentString: message,
                   },
                 ],
-                meta: {
-                  lastUpdated: uploadTimeUTC,
-                },
                 sender: {
                   type: 'Device',
                   reference: `Device/${fhirDevice.id}`,
