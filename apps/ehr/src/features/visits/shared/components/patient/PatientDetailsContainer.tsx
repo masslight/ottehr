@@ -34,6 +34,10 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
   const genderIdentityCurrentValue = watch(FormFields.genderIdentity.key);
   const isNonBinaryGender = genderIdentityCurrentValue === 'Non-binary gender identity';
 
+  const languageValue = watch(FormFields.language.key);
+
+  console.log(`languageValue = "${languageValue}"`);
+
   return (
     <Section title="Patient details">
       <Row label="Previous name">
@@ -182,7 +186,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', flex: '0 1 30%' }}>
-          <Typography sx={{ color: theme.palette.primary.dark }}>Preferred language</Typography>
+          <Typography sx={{ color: theme.palette.primary.dark }}>Preferred language43524352</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
           <Controller
@@ -206,6 +210,21 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
             )}
           />
         </Box>
+        {languageValue === 'Other' ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
+            <FormTextField
+              name={FormFields.otherLanguage.key}
+              control={control}
+              disabled={isLoading}
+              rules={{
+                validate: (value: string) => {
+                  if (value === '') return REQUIRED_FIELD_ERROR_MESSAGE;
+                  return true;
+                },
+              }}
+            />
+          </Box>
+        ) : null}
       </Box>
       <Box
         sx={{
