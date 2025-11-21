@@ -52,6 +52,7 @@ export class ScreeningPage {
   }
 
   async enterVaccinationNote(note: string): Promise<void> {
+    await this.#page.waitForTimeout(3000);
     await this.#page
       .getByTestId(dataTestIds.screeningPage.vaccinationNoteField)
       .locator('input')
