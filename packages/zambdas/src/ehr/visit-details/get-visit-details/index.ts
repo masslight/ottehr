@@ -27,6 +27,7 @@ import {
   getSecret,
   getTimezone,
   INVALID_RESOURCE_ID_ERROR,
+  isFollowupEncounter,
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
@@ -179,7 +180,9 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
   ).unbundle();
   const appointment = searchResults.find((resource) => resource.resourceType === 'Appointment') as Appointment;
   const patient = searchResults.find((resource) => resource.resourceType === 'Patient') as Patient;
-  const encounter = searchResults.find((resource) => resource.resourceType === 'Encounter') as Encounter;
+  const encounter = searchResults.find(
+    (resource) => resource.resourceType === 'Encounter' && !isFollowupEncounter(resource as Encounter)
+  ) as Encounter;
   const location = searchResults.find((resource) => resource.resourceType === 'Location') as Location | undefined;
   const flags = searchResults.filter((resource) => resource.resourceType === 'Flag') as Flag[];
   const qr = selectIntakeQuestionnaireResponse(searchResults) as PersistedFhirResource<QuestionnaireResponse>;

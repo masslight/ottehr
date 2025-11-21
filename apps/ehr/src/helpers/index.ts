@@ -186,10 +186,22 @@ export function isEligibleSupervisor(practitioner: Practitioner, attenderProvide
   return !isAttenderPhysician && isPractitionerPhysician && Boolean(npiIdentifier?.value);
 }
 
-export function sortByLastUpdated<T extends { lastUpdated?: string }>(items: T[] = [], newestFirst = false): T[] {
-  return [...items].sort((a, b) => {
+export function sortByRecencyAndStatus<T extends { lastUpdated?: string; current?: boolean }>(
+  items: T[] = [],
+  newestFirst = false
+): T[] {
+  const sortedByTime = [...items].sort((a, b) => {
     const aTime = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
     const bTime = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
     return newestFirst ? bTime - aTime : aTime - bTime;
   });
+
+  const active: T[] = [];
+  const inactive: T[] = [];
+
+  sortedByTime.forEach((item) => {
+    (item.current ? active : inactive).push(item);
+  });
+
+  return [...active, ...inactive];
 }

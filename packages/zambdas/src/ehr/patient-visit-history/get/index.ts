@@ -1,6 +1,6 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Account, Appointment, Encounter, Location, Patient, Practitioner, Slot, Task } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, Practitioner, Slot, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AppointmentHistoryRow,
@@ -8,6 +8,8 @@ import {
   AppointmentTypeOptions,
   AppointmentTypeSchema,
   FHIR_RESOURCE_NOT_FOUND,
+  FOLLOWUP_SYSTEMS,
+  FollowUpVisitHistoryRow,
   getAttendingPractitionerId,
   getFirstName,
   getInPersonVisitStatus,
@@ -44,7 +46,6 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
@@ -64,7 +65,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const secrets = input.secrets;
-    const { patientId } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -76,13 +76,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
-
-    const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehrClient);
-    const account: Account | undefined = accountResources.account;
-
-    if (!account?.id) {
-      throw FHIR_RESOURCE_NOT_FOUND('Account');
-    }
 
     const effectInput = await complexValidation(
       {
@@ -135,6 +128,14 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
       value: 'Task:encounter',
     },
     {
+      name: '_revinclude:iterate',
+      value: 'Encounter:part-of',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Encounter:location',
+    },
+    {
       name: '_sort',
       value: sortDirection === 'asc' ? 'date' : '-date',
     },
@@ -159,13 +160,20 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
   const locations: Location[] = [];
   const slots: Slot[] = [];
   const tasks: Task[] = [];
+  const followUpMap: Record<string, Encounter[]> = {};
   allResources.forEach((res) => {
     switch (res.resourceType) {
       case 'Appointment':
         appointments.push(res as Appointment);
         break;
       case 'Encounter':
-        encounters.push(res as Encounter);
+        if (res.partOf && res.partOf.reference && getFollowUpTypeFromEncounter(res)) {
+          const parentEncounterId = res.partOf.reference.replace('Encounter/', '');
+          followUpMap[parentEncounterId] = followUpMap[parentEncounterId] || [];
+          followUpMap[parentEncounterId].push(res);
+        } else {
+          encounters.push(res as Encounter);
+        }
         break;
       case 'Practitioner':
         practitioners.push(res as Practitioner);
@@ -194,19 +202,19 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
     const encounter = encounters.find(
       (encounter) => encounter.appointment?.[0]?.reference === `Appointment/${appointment.id}` && !encounter.partOf
     );
-    const practitionerId = encounter ? getAttendingPractitionerId(encounter) : undefined;
-    let providerResource: Practitioner | undefined;
-    if (practitionerId) {
-      providerResource = practitioners.find((practitioner) => practitioner.id === practitionerId);
-    }
-    let provider: { name: string; id: string } | undefined;
+    const provider = getProviderFromEncounter(encounter, practitioners);
 
-    if (providerResource && providerResource.id) {
-      provider = {
-        name: `${getFirstName(providerResource)} ${getLastName(providerResource)}`,
-        id: providerResource.id,
-      };
-    }
+    const followUps: FollowUpVisitHistoryRow[] | undefined = encounter
+      ? followUpMap[encounter.id || '']
+          ?.map((followUpEncounter) =>
+            followUpVisitHistoryRowFromEncounter(followUpEncounter, {
+              practitioners,
+              locations,
+              originalEncounter: encounter,
+            })
+          )
+          .filter((fu): fu is FollowUpVisitHistoryRow => fu !== undefined)
+      : undefined;
 
     let timezone = TIMEZONES[0]; // default timezone
     if (slot && slot.start) {
@@ -255,6 +263,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
         serviceMode === ServiceMode.virtual
           ? getTelemedLength(encounter?.statusHistory)
           : (encounter && getVisitTotalTime(appointment, getVisitStatusHistory(encounter), DateTime.now())) || 0,
+      followUps,
     };
     if (serviceMode === ServiceMode.virtual) {
       return {
@@ -342,6 +351,14 @@ const validateRequestParameters = (input: ZambdaInput): EffectInput & { secrets:
     throw INVALID_INPUT_ERROR('"to" must be a valid ISO date string.');
   }
 
+  if (from && to) {
+    const fromDateTime = DateTime.fromISO(from);
+    const toDateTime = DateTime.fromISO(to);
+    if (fromDateTime >= toDateTime) {
+      throw INVALID_INPUT_ERROR('The "from" date must be earlier than the "to" date.');
+    }
+  }
+
   if (type) {
     try {
       AppointmentTypeSchema.parse(type);
@@ -379,4 +396,71 @@ const validateRequestParameters = (input: ZambdaInput): EffectInput & { secrets:
     serviceMode,
     secrets: input.secrets ?? null,
   };
+};
+
+const getFollowUpTypeFromEncounter = (encounter: Encounter): string | undefined => {
+  const typeCoding = encounter.type?.find(
+    (t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
+  );
+  if (!typeCoding) return undefined;
+  let typeText = '-';
+  if (typeCoding.text) {
+    typeText = typeCoding.text;
+  }
+  return typeText;
+};
+
+interface FollowUpContext {
+  practitioners: Practitioner[];
+  locations: Location[];
+  originalEncounter: Encounter;
+}
+
+const followUpVisitHistoryRowFromEncounter = (
+  encounter: Encounter,
+  context: FollowUpContext
+): FollowUpVisitHistoryRow | undefined => {
+  if (!encounter.id) {
+    return undefined;
+  }
+  const followUpType = getFollowUpTypeFromEncounter(encounter);
+  const { practitioners, locations, originalEncounter } = context;
+
+  const location = locations.find(
+    (location) => encounter?.location?.some((loc) => loc.location?.reference?.replace('Location/', '') === location.id)
+  );
+  const office =
+    location?.address?.state && location?.name ? `${location.address.state.toUpperCase()} - ${location.name}` : '-';
+  const originalAppointmentId = originalEncounter.appointment?.[0]?.reference?.replace('Appointment/', '');
+  return {
+    encounterId: encounter.id,
+    dateTime: encounter.period?.start,
+    type: followUpType,
+    visitReason: encounter.reasonCode?.[0]?.text,
+    provider: getProviderFromEncounter(encounter, practitioners),
+    office,
+    status: encounter.status ?? '-',
+    originalEncounterId: originalEncounter.id,
+    originalAppointmentId,
+  };
+};
+
+const getProviderFromEncounter = (
+  encounter: Encounter | undefined,
+  practitioners: Practitioner[]
+): { name: string; id: string } | undefined => {
+  const practitionerId = encounter ? getAttendingPractitionerId(encounter) : undefined;
+  let providerResource: Practitioner | undefined;
+  if (practitionerId) {
+    providerResource = practitioners.find((practitioner) => practitioner.id === practitionerId);
+  }
+  let provider: { name: string; id: string } | undefined;
+
+  if (providerResource && providerResource.id) {
+    provider = {
+      name: `${getFirstName(providerResource)} ${getLastName(providerResource)}`,
+      id: providerResource.id,
+    };
+  }
+  return provider;
 };

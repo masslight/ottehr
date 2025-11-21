@@ -19,6 +19,7 @@ import {
   DEFAULT_APPOINTMENT_LENGTH_MINUTES,
   getFullName,
   getPatchOperationForNewMetaTag,
+  isFollowupEncounter,
   isLocationVirtual,
   makeBookingOriginExtensionEntry,
   SCHEDULE_EXTENSION_URL,
@@ -187,7 +188,9 @@ export async function getWaitingMinutesAtSchedule(
   ).unbundle();
   console.timeEnd('get_longest_waiting_patient');
 
-  const arrivedEncounters = searchForLongestWaitingPatient.filter((resource) => resource.resourceType === 'Encounter');
+  const arrivedEncounters = searchForLongestWaitingPatient.filter(
+    (resource) => resource.resourceType === 'Encounter' && !isFollowupEncounter(resource as Encounter)
+  );
 
   return getWaitingMinutes(nowForTimezone, arrivedEncounters);
 }
