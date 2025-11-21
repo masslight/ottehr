@@ -364,7 +364,8 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await paperwork.checkEmailValidations(locator.responsiblePartyEmail);
   });
   test('PRPI-5 Select self - check fields are prefilled with correct values', async () => {
-    const dob = await commonLocatorsHelper.getMonthDay(bookingData.dobMonth, bookingData.dobDay);
+    const [year, month, day] = bookingData.dateOfBirth.split('-');
+    const dob = commonLocatorsHelper.getMonthDay(month, day);
     if (!dob) {
       throw new Error('DOB data is null');
     }
@@ -372,9 +373,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyFirstName).toHaveValue(bookingData.firstName);
     await expect(locator.responsiblePartyLastName).toHaveValue(bookingData.lastName);
     await expect(locator.responsiblePartyBirthSex).toHaveValue(bookingData.birthSex);
-    await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
-      `${dob?.monthNumber}/${dob?.dayNumber}/${bookingData.dobYear}`
-    );
+    await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
   });
   test('PRPI-6 Select self - check fields are disabled', async () => {
     await expect(locator.responsiblePartyFirstName.getAttribute('disabled')).not.toBeNull();

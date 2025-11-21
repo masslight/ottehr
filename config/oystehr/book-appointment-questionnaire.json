@@ -22,6 +22,12 @@
                 "readOnly": true
               },
               {
+                "linkId": "ssn-field-required",
+                "type": "boolean",
+                "required": false,
+                "readOnly": true
+              },
+              {
                 "linkId": "patient-first-name",
                 "text": "First name (legal)",
                 "type": "string",
@@ -47,6 +53,7 @@
               },
               {
                 "linkId": "patient-birthdate",
+                "text": "Date of birth",
                 "type": "date",
                 "required": true,
                 "extension": [
@@ -93,6 +100,23 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
                     "valueString": "hidden"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                        "valueString": "ssn-field-required"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                        "valueString": "="
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                        "valueString": true
+                      }
+                    ]
                   }
                 ]
               },
@@ -138,7 +162,7 @@
               {
                 "linkId": "tell-us-more",
                 "text": "Tell us more (optional)",
-                "type": "boolean",
+                "type": "string",
                 "required": false
               },
               {

@@ -3,15 +3,20 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient, Questionnaire, QuestionnaireResponse, Slot, ValueSet } from 'fhir/r4b';
 import {
   BOOKING_CONFIG,
+  FHIR_RESOURCE_NOT_FOUND,
   GetQuestionnaireParams,
   GetQuestionnaireParamsSchema,
   GetQuestionnaireResponse,
   getSecret,
+  getServiceCategoryFromSlot,
+  getServiceModeFromSlot,
   INVALID_INPUT_ERROR,
   mapQuestionnaireAndValueSetsToItemsList,
   MISSING_REQUEST_BODY,
   Secrets,
   SecretsKeys,
+  ServiceCategoryCode,
+  ServiceMode,
 } from 'utils';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { getUser, userHasAccessToPatient } from '../../../shared/auth';
@@ -55,7 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetQuestionnaireResponse> => {
-  const { qUrl, qVersion, patient, templateQuestionnaire } = input;
+  const { qUrl, qVersion, patient, templateQuestionnaire, serviceCategoryCode, serviceMode } = input;
 
   // if the ENV is local, we pass in a template questionnaire directly, otherwise we fetch it from Oystehr
   const questionnaire =
@@ -82,7 +87,24 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetQ
   const valueSets: ValueSet[] = [];
   const allItems = mapQuestionnaireAndValueSetsToItemsList(items, valueSets);
 
-  let questionnaireResponse: QuestionnaireResponse | undefined;
+  const prepopulatedItem = BOOKING_CONFIG.prepopulateBookingForm({
+    questionnaire,
+    context: {
+      serviceMode,
+      serviceCategoryCode,
+    },
+    patient,
+  });
+
+  console.log('prepopulatedItem', JSON.stringify(prepopulatedItem, null, 2));
+
+  const questionnaireResponse: QuestionnaireResponse = {
+    resourceType: 'QuestionnaireResponse',
+    questionnaire: `${questionnaire.url}|${questionnaire.version}`,
+    status: 'in-progress',
+    subject: patient ? { reference: `Patient/${patient.id}` } : undefined,
+    item: prepopulatedItem,
+  };
   if (patient) {
     console.log('todo: prefill a QR for the patient');
   }
@@ -141,26 +163,29 @@ const validateRequestParameters = (input: ZambdaInput): ValidatedInput => {
 interface EffectInput {
   qUrl: string;
   qVersion: string;
+  serviceMode: ServiceMode;
+  serviceCategoryCode: ServiceCategoryCode;
   templateQuestionnaire?: Questionnaire;
   patient?: Patient;
 }
 
 const complexValidation = async (input: ValidatedInput, oystehr: Oystehr): Promise<EffectInput> => {
-  const { patientId, slotId, canonicalRef, userToken, secrets } = input;
+  const { patientId, slotId, userToken, secrets } = input;
 
-  let qUrl: string | undefined;
-  let qVersion: string | undefined;
-  let templateQuestionnaire: Questionnaire | undefined;
-
-  if (canonicalRef) {
-    [qUrl, qVersion] = canonicalRef.split('|');
-  } else if (slotId) {
-    const slotResource = await oystehr.fhir.get<Slot>({ resourceType: 'Slot', id: slotId });
-    const { url, version, templateQuestionnaire: q } = BOOKING_CONFIG.selectBookingQuestionnaire(slotResource);
-    qUrl = url;
-    qVersion = version;
-    templateQuestionnaire = q;
+  const slot = await oystehr.fhir.get<Slot>({ resourceType: 'Slot', id: slotId });
+  if (!slot) {
+    throw FHIR_RESOURCE_NOT_FOUND('Slot');
   }
+
+  const serviceMode = getServiceModeFromSlot(slot);
+  const serviceCategoryCode = getServiceCategoryFromSlot(slot);
+
+  if (!serviceMode || !serviceCategoryCode) {
+    // this indicates something is misconfigured in the slot or schedule
+    throw new Error('Could not determine service mode or category from slot');
+  }
+
+  const { url: qUrl, version: qVersion, templateQuestionnaire } = BOOKING_CONFIG.selectBookingQuestionnaire(slot);
 
   if (!qUrl || !qVersion || !templateQuestionnaire) {
     throw INVALID_INPUT_ERROR(
@@ -195,5 +220,12 @@ const complexValidation = async (input: ValidatedInput, oystehr: Oystehr): Promi
 
   const isLocal = getSecret('ENVIRONMENT', secrets) === 'local';
 
-  return { qUrl, qVersion, patient, templateQuestionnaire: isLocal ? templateQuestionnaire : undefined };
+  return {
+    serviceCategoryCode,
+    serviceMode,
+    qUrl,
+    qVersion,
+    patient,
+    templateQuestionnaire: isLocal ? templateQuestionnaire : undefined,
+  };
 };
