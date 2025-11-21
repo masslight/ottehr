@@ -1,3 +1,4 @@
+<!-- cSpell:ignore biovar, cholerae, eltor -->
 # ICD-10-CM Search Endpoint
 
 This endpoint provides fuzzy search functionality for ICD-10-CM diagnostic codes.

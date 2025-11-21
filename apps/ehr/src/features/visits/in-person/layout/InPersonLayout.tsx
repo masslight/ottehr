@@ -36,9 +36,9 @@ const contentWrapperStyle: React.CSSProperties = {
 
 export const InPersonLayout: React.FC = () => {
   const { encounter } = useAppointmentData();
-  const [recordingAnchorElemement, setRecordingAnchorElement] = React.useState<HTMLButtonElement | null>(null);
+  const [recordingAnchorElement, setRecordingAnchorElement] = React.useState<HTMLButtonElement | null>(null);
   const recordingElementID = 'recording-element';
-  const recordingOpen = Boolean(recordingAnchorElemement);
+  const recordingOpen = Boolean(recordingAnchorElement);
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
 

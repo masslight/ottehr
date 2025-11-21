@@ -23,6 +23,7 @@ locals {
 }
 
 resource "terraform_data" "build_ehr" {
+  count            = var.is_local ? 0 : 1
   triggers_replace = local.ehr_build_triggers
   provisioner "local-exec" {
     command     = "npm run build:${var.environment}"
@@ -55,6 +56,7 @@ locals {
 }
 
 resource "terraform_data" "build_patient_portal" {
+  count            = var.is_local ? 0 : 1
   triggers_replace = local.patient_portal_build_triggers
   provisioner "local-exec" {
     command     = "npm run build:${var.environment}"

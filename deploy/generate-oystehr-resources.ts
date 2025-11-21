@@ -83,7 +83,11 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   const specs: SpecFile[] = await Promise.all(
     jsonSpecFiles.map(async (file) => {
       const content = await fs.readFile(file, 'utf-8');
-      return { path: file, spec: JSON.parse(content) as { [key: string]: unknown } };
+      try {
+        return { path: file, spec: JSON.parse(content) as { [key: string]: unknown } };
+      } catch (err) {
+        throw new Error(`Error parsing JSON file ${file}: ${err}`);
+      }
     })
   );
 
@@ -98,7 +102,12 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
     throw new Error('All spec files must have the same schema version.');
   }
 
-  const vars = JSON.parse(await fs.readFile(varFile, 'utf-8'));
+  let vars: any;
+  try {
+    vars = JSON.parse(await fs.readFile(varFile, 'utf-8'));
+  } catch (err) {
+    throw new Error(`Error parsing variable file ${varFile}: ${err}`);
+  }
   if (!isObject(vars)) {
     throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
   }

@@ -328,8 +328,8 @@ async function createVisitNotePdfBytes(
     drawFieldLine('Address', data.address);
   }
   regularText(
-    // Related to a node bug, a second space(good space) was added between the words gave, their to handle a bad space(no space) occurance
-    'Provider confirmed patient’s name, DOB, introduced themselves, and gave  their licensure and credentials.'
+    // Related to a node bug, a second space(good space) was added between the words gave, their to handle a bad space(no space) occurrence
+    'Provider confirmed patient’s name, DOB, introduced themselves, and gave their licensure and credentials.'
   );
   separateLine();
 

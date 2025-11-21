@@ -66,7 +66,12 @@ async function generateOystehrResourceImports(input: {
   const specs: SpecFile[] = await Promise.all(
     jsonSpecFiles.map(async (file) => {
       const content = await fs.readFile(file, 'utf-8');
-      return { path: file, spec: JSON.parse(content) as { [key: string]: unknown } };
+      try {
+        const jsonContent = JSON.parse(content) as { [key: string]: unknown };
+        return { path: file, spec: jsonContent };
+      } catch (err) {
+        throw new Error(`Error parsing JSON file ${file}: ${err}`);
+      }
     })
   );
 
@@ -81,7 +86,12 @@ async function generateOystehrResourceImports(input: {
     throw new Error('All spec files must have the same schema version.');
   }
 
-  const vars = JSON.parse(await fs.readFile(varFile, 'utf-8'));
+  let vars: any;
+  try {
+    vars = JSON.parse(await fs.readFile(varFile, 'utf-8'));
+  } catch (err) {
+    throw new Error(`Error parsing variable file ${varFile}: ${err}`);
+  }
   if (!isObject(vars)) {
     throw new Error(`Variable file ${varFile} is not a valid JSON map.`);
   }
@@ -252,17 +262,17 @@ async function generateOystehrResourceImports(input: {
                         resourceType as keyof Spec20250925
                       )}.${key} Location/${loc.id}`
                     );
-                    const scheds = existingLocation.filter((res) => res.resourceType === 'Schedule') as Schedule[];
-                    if (scheds.length > 0) {
-                      scheds.forEach((sched) => {
-                        if (sched.id) {
+                    const schedules = existingLocation.filter((res) => res.resourceType === 'Schedule') as Schedule[];
+                    if (schedules.length > 0) {
+                      schedules.forEach((schedule) => {
+                        if (schedule.id) {
                           console.log(
-                            `Found existing resource in Oystehr for FHIR Schedule associated with Location.${key}: ${sched.id} (${sched.id})`
+                            `Found existing resource in Oystehr for FHIR Schedule associated with Location.${key}: ${schedule.id} (${schedule.id})`
                           );
                           imports.push(
                             `terraform import -var-file="\${ENV}.tfvars" module.oystehr.${schema.oystehrResourceFromResourceType(
                               resourceType as keyof Spec20250925
-                            )}.${key.replace('LOCATION', 'SCHEDULE')} Schedule/${sched.id}` // brittle convention-based replacement
+                            )}.${key.replace('LOCATION', 'SCHEDULE')} Schedule/${schedule.id}` // brittle convention-based replacement
                           );
                         }
                       });
@@ -311,78 +321,85 @@ async function generateOystehrResourceImports(input: {
                         resourceType as keyof Spec20250925
                       )}.${key} HealthcareService/${hcs.id}`
                     );
-                    const pracs = existingHCS.filter((res) => res.resourceType === 'Practitioner') as Practitioner[];
-                    const pracIds: Record<string, string> = {};
-                    if (pracs.length > 0) {
-                      pracs.forEach((prac) => {
-                        if (prac.id) {
+                    const practitioners = existingHCS.filter(
+                      (res) => res.resourceType === 'Practitioner'
+                    ) as Practitioner[];
+                    const practitionerIds: Record<string, string> = {};
+                    if (practitioners.length > 0) {
+                      practitioners.forEach((practitioner) => {
+                        if (practitioner.id) {
                           console.log(
-                            `Found existing resource in Oystehr for FHIR Practitioner associated with HealthcareService.${key}: ${prac.id} (${prac.id})`
+                            `Found existing resource in Oystehr for FHIR Practitioner associated with HealthcareService.${key}: ${practitioner.id} (${practitioner.id})`
                           );
-                          const pracSlug = prac.identifier?.find(
+                          const practitionerSlug = practitioner.identifier?.find(
                             (id: any) => id.system === 'https://fhir.ottehr.com/r4/slug'
                           )?.value;
-                          const pracMatch = Object.entries(schema.resources.fhirResources).find(([_, res]) => {
+                          const practitionerMatch = Object.entries(schema.resources.fhirResources).find(([_, res]) => {
                             const resSlug = res.resource.identifier?.find(
                               (id: any) => id.system === 'https://fhir.ottehr.com/r4/slug'
                             )?.value;
-                            return res.resource.resourceType === 'Practitioner' && resSlug === pracSlug;
+                            return res.resource.resourceType === 'Practitioner' && resSlug === practitionerSlug;
                           });
-                          if (pracMatch) {
-                            pracIds[pracMatch[0]] = prac.id;
+                          if (practitionerMatch) {
+                            practitionerIds[practitionerMatch[0]] = practitioner.id;
                             imports.push(
                               `terraform import -var-file="\${ENV}.tfvars" module.oystehr.${schema.oystehrResourceFromResourceType(
                                 resourceType as keyof Spec20250925
-                              )}.${pracMatch[0]} Practitioner/${prac.id}` // brittle convention-based replacement
+                              )}.${practitionerMatch[0]} Practitioner/${practitioner.id}` // brittle convention-based replacement
                             );
                           }
                         }
                       });
                     }
-                    const pracRoles = existingHCS.filter(
+                    const practitionerRoles = existingHCS.filter(
                       (res) => res.resourceType === 'PractitionerRole'
                     ) as PractitionerRole[];
-                    if (pracRoles.length > 0) {
-                      pracRoles.forEach((pracRole) => {
-                        if (pracRole.id) {
+                    if (practitionerRoles.length > 0) {
+                      practitionerRoles.forEach((practitionerRole) => {
+                        if (practitionerRole.id) {
                           console.log(
-                            `Found existing resource in Oystehr for FHIR PractitionerRole associated with HealthcareService.${key}: ${pracRole.id} (${pracRole.id})`
+                            `Found existing resource in Oystehr for FHIR PractitionerRole associated with HealthcareService.${key}: ${practitionerRole.id} (${practitionerRole.id})`
                           );
-                          const pracRef = (pracRole.practitioner as { reference: string } | undefined)?.reference;
-                          if (pracRef) {
-                            const pracKey = Object.entries(pracIds).find(([, id]) => pracRef === `Practitioner/${id}`);
-                            if (pracKey) {
-                              const prKey = pracKey[0].includes('_1')
+                          const practitionerRef = (practitionerRole.practitioner as { reference: string } | undefined)
+                            ?.reference;
+                          if (practitionerRef) {
+                            const practitionerKey = Object.entries(practitionerIds).find(
+                              ([, id]) => practitionerRef === `Practitioner/${id}`
+                            );
+                            if (practitionerKey) {
+                              const prKey = practitionerKey[0].includes('_1')
                                 ? 'PRACTITIONER_ROLE_VISIT_FOLLOWUP_GROUP_1'
                                 : 'PRACTITIONER_ROLE_VISIT_FOLLOWUP_GROUP_2';
                               imports.push(
                                 `terraform import -var-file="\${ENV}.tfvars" module.oystehr.${schema.oystehrResourceFromResourceType(
                                   resourceType as keyof Spec20250925
-                                )}.${prKey} PractitionerRole/${pracRole.id}` // brittle convention-based replacement
+                                )}.${prKey} PractitionerRole/${practitionerRole.id}` // brittle convention-based replacement
                               );
                             }
                           }
                         }
                       });
                     }
-                    const scheds = existingHCS.filter((res) => res.resourceType === 'Schedule') as Schedule[];
-                    if (scheds.length > 0) {
-                      scheds.forEach((sched) => {
-                        if (sched.id) {
+                    const schedules = existingHCS.filter((res) => res.resourceType === 'Schedule') as Schedule[];
+                    if (schedules.length > 0) {
+                      schedules.forEach((schedule) => {
+                        if (schedule.id) {
                           console.log(
-                            `Found existing resource in Oystehr for FHIR Schedule associated with HealthcareService.${key}: ${sched.id} (${sched.id})`
+                            `Found existing resource in Oystehr for FHIR Schedule associated with HealthcareService.${key}: ${schedule.id} (${schedule.id})`
                           );
-                          const pracRef = (sched.actor?.[0] as { reference: string } | undefined)?.reference;
-                          if (pracRef) {
-                            const pracKey = Object.entries(pracIds).find(([, id]) => pracRef === `Practitioner/${id}`);
-                            if (pracKey) {
-                              const schKey = pracKey[0].includes('_1')
+                          const practitionerRef = (schedule.actor?.[0] as { reference: string } | undefined)?.reference;
+                          if (practitionerRef) {
+                            const practitionerKey = Object.entries(practitionerIds).find(
+                              ([, id]) => practitionerRef === `Practitioner/${id}`
+                            );
+                            if (practitionerKey) {
+                              const schKey = practitionerKey[0].includes('_1')
                                 ? 'SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_1'
                                 : 'SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_2';
                               imports.push(
                                 `terraform import -var-file="\${ENV}.tfvars" module.oystehr.${schema.oystehrResourceFromResourceType(
                                   resourceType as keyof Spec20250925
-                                )}.${schKey} Schedule/${sched.id}` // brittle convention-based replacement
+                                )}.${schKey} Schedule/${schedule.id}` // brittle convention-based replacement
                               );
                             }
                           }

@@ -21,7 +21,6 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { CreateTaskDialog } from 'src/features/tasks/components/CreateTaskDialog';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
-import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getAdmitterPractitionerId, getInPersonVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { CompleteIntakeButton } from '../../in-person/components/CompleteIntakeButton';
@@ -227,7 +226,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
   justifyContent: 'flex-end',
 }));
 
-const StyledButton = styled(Button)<{ isactive: string }>(({ theme, isactive: isActive }) => ({
+const StyledButton = styled(Button)<{ isActive: string }>(({ theme, isActive: isActive }) => ({
   display: 'flex',
   width: '100%',
   height: '42px',
@@ -267,7 +266,6 @@ export const Sidebar = (): JSX.Element => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
   const { oystehrZambda } = useApiClients();
-  const user = useEvolveUser();
   const { interactionMode } = useInPersonNavigationContext();
   const { id: appointmentID } = useParams();
   const { visitState, appointmentRefetch } = useAppointmentData();
@@ -293,7 +291,6 @@ export const Sidebar = (): JSX.Element => {
         await handleChangeInPersonVisitStatus(
           {
             encounterId: encounter!.id!,
-            user: user!,
             updatedStatus: 'ready for provider',
           },
           oystehrZambda
@@ -406,7 +403,7 @@ export const Sidebar = (): JSX.Element => {
             const comparedPath = item?.activeCheckPath || item.to;
             return (
               <StyledButton
-                isactive={location.pathname.includes(comparedPath).toString()}
+                isActive={location.pathname.includes(comparedPath).toString()}
                 key={item.text}
                 onClick={() => {
                   requestAnimationFrame(() => {

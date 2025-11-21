@@ -4,7 +4,6 @@ import { pathToFileURL } from 'url';
 const USER_FILE_LOCATION = 'apps/intake/playwright/user.json';
 const TOKEN_VALIDITY_THRESHOLD_MINUTES = 60;
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateE2EIntakeUser = (fileLocation) => {
   const expiries = [];
 
@@ -18,11 +17,15 @@ export const validateE2EIntakeUser = (fileLocation) => {
     // const cookies = userFile.cookies?.map((cookie) => cookie.expires);
     // expiries.push(...cookies);
 
-    const authItem = userFile.origins?.flatMap((origin) =>
-      origin.localStorage?.find(
-        (item) =>
-          item.name?.includes('@@auth0spajs@@') && !item.name?.includes('@@user@@') && item.value?.includes('expiresAt')
-      )
+    const authItem = userFile.origins?.flatMap(
+      (origin) =>
+        origin.localStorage?.find(
+          (item) =>
+            // cSpell:disable-next spa js?
+            item.name?.includes('@@auth0spajs@@') &&
+            !item.name?.includes('@@user@@') &&
+            item.value?.includes('expiresAt')
+        )
     )[0];
     if (!authItem) {
       throw new Error('Could not find Auth0 token');
@@ -43,7 +46,6 @@ export const validateE2EIntakeUser = (fileLocation) => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const doesTokenLastMoreThanNeeded = (expiresAt) => {
   const timeLeft = (expiresAt * 1000 - Date.now()) / (1000 * 60);
   console.log(`Time left: ${timeLeft.toFixed(1)} minutes`);

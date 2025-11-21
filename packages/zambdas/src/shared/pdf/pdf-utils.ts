@@ -1,3 +1,4 @@
+// cSpell:ignore annot, annots
 import fs from 'node:fs';
 import fontkit from '@pdf-lib/fontkit';
 import { captureException } from '@sentry/aws-serverless';
@@ -325,7 +326,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
 
     // If the text fits within the current line, draw it directly
     if (lineWidth < totalWidth) {
-      console.log('lineWdith of text fits between left and right bounds');
+      console.log('lineWidth of text fits between left and right bounds');
       if (lineWidth > availableWidth) {
         console.log(
           `lineWidth ${lineWidth} is greater than available width ${availableWidth}. Adding newline and drawing.`
@@ -424,6 +425,103 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     }
   };
 
+  const drawLabelValueRow = (
+    label: string,
+    value: string | undefined,
+    labelStyle: TextStyle,
+    valueStyle: TextStyle,
+    options?: {
+      drawDivider?: boolean;
+      dividerStyle?: LineStyle;
+      dividerMargin?: number;
+      defaultValue?: string;
+      spacing?: number;
+      labelValueGap?: number;
+    }
+  ): void => {
+    const drawDivider = options?.drawDivider ?? false;
+    const dividerMargin = options?.dividerMargin ?? 4;
+    const defaultValue = options?.defaultValue ?? '-';
+    const spacing = options?.spacing ?? Math.max(labelStyle.spacing ?? 0, valueStyle.spacing ?? 0);
+    const labelValueGap = options?.labelValueGap ?? 10;
+
+    const displayValue = !value || value.trim() === '' ? defaultValue : value;
+
+    const availableWidth = pageRightBound - pageLeftBound;
+
+    const maxLabelWidth = availableWidth * 0.5;
+    const maxValueWidth = availableWidth * 0.5 - labelValueGap;
+
+    const labelLines = splitLongStringToPageSize(label, labelStyle.font, labelStyle.fontSize, maxLabelWidth);
+    const valueLines = splitLongStringToPageSize(displayValue, valueStyle.font, valueStyle.fontSize, maxValueWidth);
+
+    const labelHeight = labelStyle.font.heightAtSize(labelStyle.fontSize) * labelLines.length;
+    const valueHeight = valueStyle.font.heightAtSize(valueStyle.fontSize) * valueLines.length;
+    const maxHeight = Math.max(labelHeight, valueHeight);
+
+    if (currYPos - maxHeight < (pageStyles.pageMargins.bottom ?? 0)) {
+      addNewPage(pageStyles, pageLeftBound, pageRightBound);
+    }
+
+    const startY = currYPos;
+    const startX = pageLeftBound;
+
+    let labelY = startY;
+    for (let i = 0; i < labelLines.length; i++) {
+      const line = labelLines[i];
+      const yPos = labelY - labelStyle.font.heightAtSize(labelStyle.fontSize, { descender: false });
+      page.drawText(line, {
+        font: labelStyle.font,
+        size: labelStyle.fontSize,
+        x: startX,
+        y: yPos,
+        color: labelStyle.color,
+      });
+      labelY -= labelStyle.font.heightAtSize(labelStyle.fontSize);
+    }
+
+    let valueY = startY;
+    for (let i = 0; i < valueLines.length; i++) {
+      const line = valueLines[i];
+      const lineWidth = valueStyle.font.widthOfTextAtSize(line, valueStyle.fontSize);
+      const yPos = valueY - valueStyle.font.heightAtSize(valueStyle.fontSize, { descender: false });
+
+      const valueX = pageRightBound - lineWidth;
+
+      page.drawText(line, {
+        font: valueStyle.font,
+        size: valueStyle.fontSize,
+        x: valueX,
+        y: yPos,
+        color: valueStyle.color,
+      });
+      valueY -= valueStyle.font.heightAtSize(valueStyle.fontSize);
+    }
+
+    currYPos = Math.min(labelY, valueY) - spacing;
+    currXPos = pageLeftBound;
+
+    if (drawDivider) {
+      const dividerStyle = options?.dividerStyle ?? {
+        thickness: 1,
+        color: rgbNormalized(0xdf, 0xe5, 0xe9),
+        margin: { top: dividerMargin, bottom: dividerMargin },
+      };
+
+      page.drawLine({
+        color: dividerStyle.color,
+        thickness: dividerStyle.thickness,
+        start: { x: pageLeftBound, y: currYPos - dividerMargin },
+        end: { x: pageRightBound, y: currYPos - dividerMargin },
+      });
+
+      currYPos -= dividerMargin * 2 - dividerStyle.thickness;
+    } else {
+      currYPos -= spacing;
+      currXPos = pageLeftBound;
+    }
+  };
+
   const newLine = (yDrop: number): void => {
     // add check if it's gonna fit in current page or we gonna need new one
     currYPos -= yDrop;
@@ -498,6 +596,10 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
 
   const embedImage = async (file: Buffer): Promise<PDFImage> => {
     return await pdfDoc.embedPng(new Uint8Array(file));
+  };
+
+  const embedJpg = async (file: Buffer): Promise<PDFImage> => {
+    return await pdfDoc.embedJpg(new Uint8Array(file));
   };
 
   const embedPdfFromBase64 = async (base64String: string): Promise<void> => {
@@ -690,21 +792,29 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     }
   };
 
+  const getPageTopY = (): number => {
+    const { height } = page.getSize();
+    return height - (pageStyles.pageMargins.top ?? 0) - Y_POS_GAP;
+  };
+
   return {
     addNewPage,
     drawText,
     drawTextSequential,
     drawStartXPosSpecifiedText,
     drawImage,
+    drawLabelValueRow,
     newLine,
     getX,
     getY,
+    getPageTopY,
     setX,
     setY,
     save,
     embedFont,
     embedStandardFont,
     embedImage,
+    embedJpg,
     embedPdfFromBase64,
     embedImageFromBase64,
     drawSeparatedLine,
