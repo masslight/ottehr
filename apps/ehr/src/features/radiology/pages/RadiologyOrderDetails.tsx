@@ -173,7 +173,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 </Box>
               )}
 
-              {order.status === 'performed' && (
+              {order.status === 'performed' && !order.preliminaryReport && (
                 <Box>
                   <TextField
                     id="preliminary-report-field"
@@ -206,13 +206,26 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 </Box>
               )}
 
-              {order.result != null ? (
+              {order.preliminaryReport != null ? (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
+                    Preliminary Report
+                  </Typography>
+                  <Typography variant="body2">
+                    <div dangerouslySetInnerHTML={{ __html: atob(order.preliminaryReport) }} />
+                  </Typography>
+                </Box>
+              ) : (
+                <div />
+              )}
+
+              {order.finalReport != null ? (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
                     Final Report
                   </Typography>
                   <Typography variant="body2">
-                    <div dangerouslySetInnerHTML={{ __html: atob(order.result) }} />
+                    <div dangerouslySetInnerHTML={{ __html: atob(order.finalReport) }} />
                   </Typography>
                 </Box>
               ) : (

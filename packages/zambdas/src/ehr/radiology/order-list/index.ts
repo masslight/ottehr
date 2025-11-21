@@ -244,20 +244,22 @@ const parseResultsToOrder = (
     (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
   );
 
-  // Find the best diagnostic report using our priority logic
-  const preliminaryDiagnosticReport = relatedDiagnosticReports.find((report) => report.status === 'preliminary');
-  const bestDiagnosticReport = takeTheBestDiagnosticReport(relatedDiagnosticReports);
+  const preliminaryDiagnosticReport = takeMostRecentPreliminaryReport(relatedDiagnosticReports);
+  const preliminaryReportData = preliminaryDiagnosticReport?.presentedForm?.find(
+    (attachment) => attachment.contentType === 'text/html'
+  )?.data;
 
-  const result = bestDiagnosticReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/html')
+  const bestFinalReport = takeTheBestFinalDiagnosticReport(relatedDiagnosticReports);
+  const finalReportData = bestFinalReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/html')
     ?.data;
 
   if (serviceRequest.status === 'active') {
     status = RadiologyOrderStatus.pending;
-  } else if (serviceRequest.status === 'completed' && !bestDiagnosticReport) {
+  } else if (serviceRequest.status === 'completed' && !bestFinalReport) {
     status = RadiologyOrderStatus.performed;
-  } else if (bestDiagnosticReport?.status === 'preliminary') {
+  } else if (preliminaryDiagnosticReport && !bestFinalReport) {
     status = RadiologyOrderStatus.preliminary;
-  } else if (bestDiagnosticReport?.status === 'final') {
+  } else if (bestFinalReport) {
     // && myReviewTask?.status === 'ready') {
     status = RadiologyOrderStatus.final;
     // } else if (myReviewTask?.status === 'completed') {
@@ -268,7 +270,7 @@ const parseResultsToOrder = (
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
-  const history = buildHistory(serviceRequest, bestDiagnosticReport, preliminaryDiagnosticReport, providerName);
+  const history = buildHistory(serviceRequest, bestFinalReport, preliminaryDiagnosticReport, providerName);
 
   const clinicalHistory = extractClinicalHistory(serviceRequest);
 
@@ -282,13 +284,35 @@ const parseResultsToOrder = (
     diagnosis: `${diagnosisCode} — ${diagnosisDisplay}`,
     status,
     isStat: serviceRequest.priority === 'stat',
-    result,
+    preliminaryReport: preliminaryReportData,
+    finalReport: finalReportData,
     clinicalHistory,
     history,
   };
 };
 
-const takeTheBestDiagnosticReport = (diagnosticReports: DiagnosticReport[]): DiagnosticReport | undefined => {
+const getMostRecentReport = (reports: DiagnosticReport[]): DiagnosticReport | undefined => {
+  if (!reports.length) return undefined;
+
+  return reports.reduce((mostRecent, current) => {
+    if (!current.issued) return mostRecent;
+    if (!mostRecent.issued) return current;
+
+    return new Date(current.issued) > new Date(mostRecent.issued) ? current : mostRecent;
+  });
+};
+
+const takeMostRecentPreliminaryReport = (diagnosticReports: DiagnosticReport[]): DiagnosticReport | undefined => {
+  if (!diagnosticReports.length) {
+    return undefined;
+  }
+
+  const preliminaryReports = diagnosticReports.filter((report) => report.status === 'preliminary');
+
+  return getMostRecentReport(preliminaryReports);
+};
+
+const takeTheBestFinalDiagnosticReport = (diagnosticReports: DiagnosticReport[]): DiagnosticReport | undefined => {
   if (!diagnosticReports.length) {
     return undefined;
   }
@@ -299,31 +323,15 @@ const takeTheBestDiagnosticReport = (diagnosticReports: DiagnosticReport[]): Dia
   );
 
   const finalReports = diagnosticReports.filter((report) => report.status === 'final');
-  const preliminaryReports = diagnosticReports.filter((report) => report.status === 'preliminary');
-
-  // Helper function to get the most recent report by issued datetime
-  const getMostRecent = (reports: DiagnosticReport[]): DiagnosticReport | undefined => {
-    if (!reports.length) return undefined;
-
-    return reports.reduce((mostRecent, current) => {
-      if (!current.issued) return mostRecent;
-      if (!mostRecent.issued) return current;
-
-      return new Date(current.issued) > new Date(mostRecent.issued) ? current : mostRecent;
-    });
-  };
 
   // Apply priority logic
   if (amendedCorrectedAppended.length > 0) {
-    return getMostRecent(amendedCorrectedAppended);
+    return getMostRecentReport(amendedCorrectedAppended);
   } else if (finalReports.length > 0) {
-    return getMostRecent(finalReports);
-  } else if (preliminaryReports.length > 0) {
-    return getMostRecent(preliminaryReports);
+    return getMostRecentReport(finalReports);
   }
 
-  // If no reports match the expected statuses, return the first one
-  return diagnosticReports[0];
+  return undefined;
 };
 
 const buildHistory = (
