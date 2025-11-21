@@ -32,7 +32,7 @@ export function validateRequestParameters(
   }
 
   if (timeZone) {
-    if (!Intl.supportedValuesOf('timeZone').includes(timeZone)) {
+    if (!Intl.supportedValuesOf('timeZone').includes(timeZone) || timeZone === 'UTC') {
       throw new Error(`Invalid timeZone: ${timeZone}`);
     }
   }
