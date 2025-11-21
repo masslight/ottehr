@@ -1,3 +1,4 @@
+import { vitalsConfig } from '../../configuration';
 import {
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
@@ -15,8 +16,9 @@ import {
   celsiusToFahrenheit,
   cmToFeet,
   cmToInches,
+  formatWeightKg,
+  formatWeightLbs,
   getVisionExtraOptionsFormattedString,
-  kgToLbs,
   VitalsVisitNoteData,
 } from '../vitals';
 
@@ -56,10 +58,17 @@ export const mapVitalsToDisplay = (
         parsed = observation as VitalsOxygenSatObservationDTO;
         text = `${parsed.value}%${parsed.observationMethod ? ` (${parsed.observationMethod})` : ''}`;
         break;
-      case VitalFieldNames.VitalWeight:
+      case VitalFieldNames.VitalWeight: {
         parsed = observation as VitalsWeightObservationDTO;
-        text = `${parsed.value} kg = ${kgToLbs(parsed.value)} lbs`;
+        const kgStr = formatWeightKg(parsed.value) + ' kg';
+        const lbsStr = formatWeightLbs(parsed.value) + ' lbs';
+        if (vitalsConfig['vital-weight'].unit == 'kg') {
+          text = `${kgStr} = ${lbsStr}`;
+        } else {
+          text = `${lbsStr} = ${kgStr}`;
+        }
         break;
+      }
       case VitalFieldNames.VitalHeight:
         parsed = observation as VitalsHeightObservationDTO;
         text = `${parsed.value} cm = ${cmToInches(parsed.value)} inch = ${cmToFeet(parsed.value)} ft`;

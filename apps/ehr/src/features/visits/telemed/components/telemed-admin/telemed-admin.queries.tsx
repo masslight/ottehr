@@ -136,7 +136,8 @@ export const useInsuranceMutation = (
       const resource: Organization = {
         resourceType: 'Organization',
         active: data.active ?? true,
-        name: data.displayName,
+        name: insurancePlan?.name || data.payor?.name,
+        alias: data.displayName ? [data.displayName] : undefined,
         type: [
           {
             coding: [
@@ -147,8 +148,8 @@ export const useInsuranceMutation = (
             ],
           },
         ],
-        identifier: insurancePlan?.identifier,
-        address: insurancePlan?.address,
+        identifier: insurancePlan?.identifier || data?.identifier,
+        address: insurancePlan?.address || data?.address,
       };
       // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
       // if (!requirementSettingsExistingExtensions) {

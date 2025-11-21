@@ -3,6 +3,7 @@ import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
+import { hideTooltip } from 'tests/e2e-utils/helpers/tests-utils';
 import {
   chooseJson,
   getConsentStepAnswers,
@@ -168,21 +169,20 @@ test.describe('In-person visit', async () => {
       const inPersonHeader = new InPersonHeader(page);
       await inPersonHeader.selectIntakePractitioner();
       await inPersonHeader.selectProviderPractitioner();
-      const patientInfoPage = await expectPatientInfoPage(resourceHandler.appointment.id!, page);
+      const patientInfoPage = await expectPatientInfoPage(page);
 
       await patientInfoPage.inPersonHeader().verifyStatus('intake');
       await patientInfoPage.sideMenu().clickCompleteIntakeButton();
       await patientInfoPage.inPersonHeader().verifyStatus('ready for provider');
-      await patientInfoPage.inPersonHeader().clickSwitchModeButton('provider');
-      await patientInfoPage.inPersonHeader().changeStatus('provider');
+      await hideTooltip(page);
+      await patientInfoPage.sideMenu().clickReviewAndSign();
       const progressNotePage = await expectInPersonProgressNotePage(page);
       await progressNotePage.verifyReviewAndSignButtonDisabled();
-      await progressNotePage.fillHPI();
       await patientInfoPage.sideMenu().clickAssessment();
       const assessmentPage = await expectAssessmentPage(page);
       await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
       await assessmentPage.selectEmCode(EM_CODE);
-      await patientInfoPage.sideMenu().clickProgressNote();
+      await patientInfoPage.sideMenu().clickReviewAndSign();
       await progressNotePage.clickDischargeButton();
       await progressNotePage.clickReviewAndSignButton();
       await progressNotePage.clickSignButton();
