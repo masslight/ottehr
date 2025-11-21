@@ -141,7 +141,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     // Don't show "preliminary" result task on the tasks board
-    const showTaskOnBoard = diagnosticReport.status !== 'preliminary';
+    // we do need to show tasks for if the preliminary result is unsolicited otherwise theres no way for users to see it
+    const showTaskOnBoard = diagnosticReport.status !== 'preliminary' || isUnsolicited;
+    console.log('showTaskOnBoard', showTaskOnBoard);
 
     const newTask = createTask(
       {

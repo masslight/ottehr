@@ -437,3 +437,79 @@ export const handleRejectedAbn = async ({
   console.log('revoking the service request due to rejected abn');
   await oystehr.fhir.transaction({ requests: [srPatch, provenancePost] });
 };
+
+export const handleRejectedUnsolicitedResult = async ({
+  oystehr,
+  taskId,
+}: {
+  oystehr: Oystehr;
+  taskId: string;
+}): Promise<void> => {
+  console.log('searching for task and diagnostic report within handleRejectedUnsolicitedResult');
+  const resources = (
+    await oystehr.fhir.search<Task | DiagnosticReport>({
+      resourceType: 'Task',
+      params: [
+        {
+          name: '_id',
+          value: taskId,
+        },
+        {
+          name: '_include:iterate',
+          value: 'Task:based-on',
+        },
+      ],
+    })
+  ).unbundle();
+
+  console.log('number of resources returned from search:', resources.length);
+
+  const { fhirTask, fhirDiagnosticReport } = resources.reduce(
+    (acc: { fhirTask: Task | undefined; fhirDiagnosticReport: DiagnosticReport | undefined }, resource) => {
+      if (resource.resourceType === 'Task') acc.fhirTask = resource;
+      if (resource.resourceType === 'DiagnosticReport') acc.fhirDiagnosticReport = resource;
+      return acc;
+    },
+    { fhirTask: undefined, fhirDiagnosticReport: undefined }
+  );
+
+  if (!fhirTask)
+    throw new Error(`Something has gone awry getting this task during handleRejectedUnsolicitedResult: ${taskId}`);
+
+  const requests: BatchInputPatchRequest<Task | DiagnosticReport>[] = [
+    {
+      method: 'PATCH',
+      url: `Task/${taskId}`,
+      operations: [
+        {
+          op: 'replace',
+          path: '/status',
+          value: 'cancelled',
+        },
+      ],
+    },
+  ];
+
+  // this means it was matched and is being rejected AFTER being matched
+  if (fhirDiagnosticReport && fhirDiagnosticReport.subject?.reference?.startsWith('Patient/')) {
+    console.log(
+      'it appears this unsolicited result has been matched to a patient - the subject patient will be removed and the task will be cancelled'
+    );
+    requests.push({
+      method: 'PATCH',
+      url: `DiagnosticReport/${fhirDiagnosticReport.id}`,
+      operations: [
+        {
+          op: 'remove',
+          path: '/subject',
+        },
+      ],
+    });
+  } else {
+    console.log(
+      'this unsolicited result is being rejected before matching to a patient, the only action to be taken is cancelling the task'
+    );
+  }
+
+  await oystehr.fhir.transaction({ requests });
+};

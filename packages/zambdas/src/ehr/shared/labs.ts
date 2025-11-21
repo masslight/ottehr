@@ -1262,6 +1262,8 @@ const getResultDetailsBasedOnDr = async (
         return 'preliminary';
       case 'cancelled':
         return 'cancelled';
+      case 'corrected':
+        return 'corrected';
       default:
         throw Error(`Error parsing result type for diagnostic report: ${diagnosticReport.id}`);
     }

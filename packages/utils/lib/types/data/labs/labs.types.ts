@@ -98,7 +98,7 @@ export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceived
 export type LabOrderResultDetails = {
   testItem: string;
   testType: 'ordered' | LabDrTypeTagCode;
-  resultType: 'final' | 'preliminary' | 'cancelled';
+  resultType: 'final' | 'preliminary' | 'cancelled' | 'corrected';
   labStatus: ExternalLabsStatus;
   diagnosticReportId: string;
   taskId: string;
