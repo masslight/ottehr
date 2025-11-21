@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-ehr-insurance-update-1_0_4": {
+    "questionnaire-ehr-insurance-update-1_0_5": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/ehr-insurance-update-questionnaire",
-        "version": "1.0.4",
+        "version": "1.0.5",
         "name": "ehr-insurance-update-questionnaire",
         "title": "EHR Insurance Update Form",
         "status": "active",
@@ -416,6 +416,72 @@
                   },
                   {
                     "valueString": "Spanish"
+                  },
+                  {
+                    "valueString": "Chinese"
+                  },
+                  {
+                    "valueString": "French"
+                  },
+                  {
+                    "valueString": "German"
+                  },
+                  {
+                    "valueString": "Tagalog"
+                  },
+                  {
+                    "valueString": "Vietnamese"
+                  },
+                  {
+                    "valueString": "Italian"
+                  },
+                  {
+                    "valueString": "Korean"
+                  },
+                  {
+                    "valueString": "Russian"
+                  },
+                  {
+                    "valueString": "Polish"
+                  },
+                  {
+                    "valueString": "Arabic"
+                  },
+                  {
+                    "valueString": "Portuguese"
+                  },
+                  {
+                    "valueString": "Japanese"
+                  },
+                  {
+                    "valueString": "Greek"
+                  },
+                  {
+                    "valueString": "Hindi"
+                  },
+                  {
+                    "valueString": "Persian"
+                  },
+                  {
+                    "valueString": "Urdu"
+                  },
+                  {
+                    "valueString": "Sign Language"
+                  },
+                  {
+                    "valueString": "Other"
+                  }
+                ]
+              },
+              {
+                "linkId": "other-preferred-language",
+                "text": "Other preferred language",
+                "type": "string",
+                "enableWhen": [
+                  {
+                    "question": "preferred-language",
+                    "operator": "=",
+                    "answerString": "Other"
                   }
                 ]
               },
@@ -1919,7 +1985,7 @@
             "text": "Preferred pharmacy",
             "type": "group",
             "item": [
-               {
+              {
                 "linkId": "pharmacy-name",
                 "text": "Pharmacy name",
                 "type": "string",
