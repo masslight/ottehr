@@ -551,7 +551,6 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
       answer = makeAnswer(patientSendMarketing, 'Boolean');
     }
     if (linkId === 'preferred-language' && patientPreferredLanguage) {
-      console.log('preferred-language', LANGUAGE_OPTIONS[patientPreferredLanguage as LanguageOption]);
       if (LANGUAGE_OPTIONS[patientPreferredLanguage as LanguageOption]) {
         answer = makeAnswer(patientPreferredLanguage);
       } else {
@@ -559,7 +558,6 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
       }
     }
     if (linkId === 'other-preferred-language' && patientPreferredLanguage) {
-      console.log('other-preferred-language', LANGUAGE_OPTIONS[patientPreferredLanguage as LanguageOption]);
       if (!LANGUAGE_OPTIONS[patientPreferredLanguage as LanguageOption]) {
         answer = makeAnswer(patientPreferredLanguage);
       }

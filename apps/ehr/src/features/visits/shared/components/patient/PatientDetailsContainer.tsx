@@ -33,10 +33,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
 
   const genderIdentityCurrentValue = watch(FormFields.genderIdentity.key);
   const isNonBinaryGender = genderIdentityCurrentValue === 'Non-binary gender identity';
-
   const languageValue = watch(FormFields.language.key);
-
-  console.log(`languageValue = "${languageValue}"`);
 
   return (
     <Section title="Patient details">
@@ -186,7 +183,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', flex: '0 1 30%' }}>
-          <Typography sx={{ color: theme.palette.primary.dark }}>Preferred language43524352</Typography>
+          <Typography sx={{ color: theme.palette.primary.dark }}>Preferred language</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
           <Controller

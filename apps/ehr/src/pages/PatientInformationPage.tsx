@@ -193,14 +193,12 @@ const usePatientData = (
 
     let defaultFormVals: any;
     if (!isFetching && accountData && questionnaire) {
-      console.log('questionnaire', questionnaire);
       const prepopulatedForm = makePrepopulatedItemsFromPatientRecord({
         ...accountData,
         coverages: {},
         insuranceOrgs: [],
         questionnaire,
       });
-      console.log('prepopulatedForm', prepopulatedForm);
       defaultFormVals = makeFormDefaults(prepopulatedForm);
     }
 
