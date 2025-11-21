@@ -1,7 +1,7 @@
 import { BrowserContext, Page, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
-import { chooseJson, CreateAppointmentResponse } from 'utils';
+import { chooseJson, CreateAppointmentResponse, GetSlotDetailsResponse } from 'utils';
 import { FillingInfo } from '../../utils/in-person/FillingInfo';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
@@ -13,6 +13,7 @@ let flowClass: PrebookInPersonFlow;
 let paperwork: Paperwork;
 let locator: Locators;
 let fillingInfo: FillingInfo;
+let slotDetails: GetSlotDetailsResponse;
 const appointmentIds: string[] = [];
 
 test.beforeAll(
@@ -26,6 +27,12 @@ test.beforeAll(
         if (!appointmentIds.includes(appointmentId)) {
           appointmentIds.push(appointmentId);
         }
+      }
+    });
+    page.on('response', async (response) => {
+      if (response.url().includes('/get-slot-details/')) {
+        const details = chooseJson(await response.json()) as GetSlotDetailsResponse;
+        slotDetails = details;
       }
     });
     flowClass = new PrebookInPersonFlow(page);
@@ -77,8 +84,8 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
     const bookingData = await flowClass.startVisit();
     await page.goto(bookingData.bookingURL);
     await paperwork.clickProceedToPaperwork();
-    const { stateValue } = await paperwork.fillPaperworkAllFieldsInPerson('card', 'self');
-    await locator.finishButton.click();
+    const { stateValue } = await paperwork.fillPaperworkOnlyRequiredFieldsInPerson();
+    await locator.continueButton.click();
 
     const { slot, location } = await bookAppointmentForExistingPatient(bookingData);
 
@@ -94,6 +101,7 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
       slot,
       location,
       state: stateValue,
+      slotDetails,
     };
 
     writeTestData('cardPaymentSelfPatient.json', cardPaymentSelfPatient);
@@ -123,6 +131,7 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
       appointmentId: appointmentIds[appointmentIds.length - 1],
       slot,
       location,
+      slotDetails,
       state: stateValue,
       patientDetailsData,
       pcpData,

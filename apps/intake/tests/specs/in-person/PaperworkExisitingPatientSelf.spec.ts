@@ -8,7 +8,6 @@ import {
   CARD_NUMBER,
   Paperwork,
   PATIENT_ADDRESS,
-  PATIENT_ADDRESS_LINE_2,
   PATIENT_CITY,
   PATIENT_ZIP,
   RELATIONSHIP_RESPONSIBLE_PARTY_SELF,
@@ -60,7 +59,8 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Responsible Party: Self
       await expect(locator.responsiblePartyState).toHaveValue(patient.state!);
       await expect(locator.responsiblePartyZip).toHaveValue(PATIENT_ZIP);
       await expect(locator.responsiblePartyAddress1).toHaveValue(PATIENT_ADDRESS);
-      await expect(locator.responsiblePartyAddress2).toHaveValue(PATIENT_ADDRESS_LINE_2);
+      // fill only required fields and this isn't required
+      // await expect(locator.responsiblePartyAddress2).toHaveValue(PATIENT_ADDRESS_LINE_2);
       await expect(locator.responsiblePartyNumber).toHaveValue(
         paperwork.formatPhoneNumber(process.env.PHONE_NUMBER || '')
       );

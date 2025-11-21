@@ -5,6 +5,7 @@ import {
   PrimaryCarePhysicianData,
   ResponsibleParty,
 } from 'tests/utils/Paperwork';
+import { GetSlotDetailsResponse } from 'utils';
 
 export interface InPersonPatientTestData {
   firstName: string;
@@ -17,6 +18,7 @@ export interface InPersonPatientTestData {
   appointmentId: string;
   slot: string | undefined;
   location: string | null;
+  slotDetails: GetSlotDetailsResponse;
 }
 
 export interface InPersonPatientSelfTestData extends InPersonPatientTestData {

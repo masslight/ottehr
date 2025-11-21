@@ -396,8 +396,8 @@ export class Paperwork {
     await this.paperworkTelemed.fillAndCheckNoInviteParticipant();
     await this.locator.clickContinueButton();
   }
-  async fillPaperworkOnlyRequiredFieldsInPerson(): Promise<void> {
-    await this.fillContactInformationRequiredFields();
+  async fillPaperworkOnlyRequiredFieldsInPerson(): Promise<{ stateValue: string }> {
+    const { stateValue } = await this.fillContactInformationRequiredFields();
     await this.locator.clickContinueButton();
     await this.fillPatientDetailsRequiredFields();
     await this.locator.clickContinueButton();
@@ -416,6 +416,7 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     await this.fillConsentForms();
     await this.locator.clickContinueButton();
+    return { stateValue };
   }
   async fillContactInformationRequiredFields(): Promise<{ stateValue: string }> {
     const { stateValue } = await this.fillPatientState();
