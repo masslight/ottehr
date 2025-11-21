@@ -168,13 +168,11 @@ test.describe('In-person visit', async () => {
       const inPersonHeader = new InPersonHeader(page);
       await inPersonHeader.selectIntakePractitioner();
       await inPersonHeader.selectProviderPractitioner();
-      const patientInfoPage = await expectPatientInfoPage(resourceHandler.appointment.id!, page);
+      const patientInfoPage = await expectPatientInfoPage(page);
 
       await patientInfoPage.inPersonHeader().verifyStatus('intake');
       await patientInfoPage.sideMenu().clickCompleteIntakeButton();
       await patientInfoPage.inPersonHeader().verifyStatus('ready for provider');
-      await patientInfoPage.inPersonHeader().clickSwitchModeButton('provider');
-      await patientInfoPage.inPersonHeader().changeStatus('provider');
       const progressNotePage = await expectInPersonProgressNotePage(page);
       await progressNotePage.verifyReviewAndSignButtonDisabled();
       await progressNotePage.fillHPI();
@@ -182,7 +180,7 @@ test.describe('In-person visit', async () => {
       const assessmentPage = await expectAssessmentPage(page);
       await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
       await assessmentPage.selectEmCode(EM_CODE);
-      await patientInfoPage.sideMenu().clickProgressNote();
+      await patientInfoPage.sideMenu().clickReviewAndSign();
       await progressNotePage.clickDischargeButton();
       await progressNotePage.clickReviewAndSignButton();
       await progressNotePage.clickSignButton();
