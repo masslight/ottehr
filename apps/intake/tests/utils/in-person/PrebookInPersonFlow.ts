@@ -12,6 +12,9 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
     selectedSlot: { buttonName: string | null; selectedSlot: string | undefined };
     location: string | null;
   }> {
+    // Handle service category selection if present
+    await this.fillingInfo.selectServiceCategoryIfNeeded();
+
     await expect(this.locator.firstAvailableTime).toBeVisible();
     const title = await this.locator.pageTitle.textContent();
     const location = title ? title.replace('Book a visit at ', '').trim() : null;

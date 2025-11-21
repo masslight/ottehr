@@ -13,6 +13,9 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     await this.locator.clickReserveButton();
   }
   async selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>> {
+    // Handle service category selection if present
+    await this.fillingInfo.selectServiceCategoryIfNeeded();
+
     const statesSelector = this.page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector);
     await expect(statesSelector).toBeVisible();
 
