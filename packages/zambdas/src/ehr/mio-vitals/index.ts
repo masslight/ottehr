@@ -532,9 +532,6 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
                     contentString: message,
                   },
                 ],
-                meta: {
-                  lastUpdated: uploadTimeUTC,
-                },
                 sender: {
                   type: 'Device',
                   reference: `Device/${fhirDevice.id}`,
