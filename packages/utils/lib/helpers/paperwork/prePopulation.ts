@@ -216,7 +216,16 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
             answer = makeAnswer(customPronouns);
           }
           if (linkId === 'preferred-language' && language) {
-            answer = makeAnswer(language);
+            if (LANGUAGE_OPTIONS[language as LanguageOption]) {
+              answer = makeAnswer(language);
+            } else {
+              answer = makeAnswer('Other');
+            }
+          }
+          if (linkId === 'other-preferred-language' && language) {
+            if (!LANGUAGE_OPTIONS[language as LanguageOption]) {
+              answer = makeAnswer(language);
+            }
           }
           if (linkId === 'patient-ethnicity' && patientEthnicity) {
             answer = makeAnswer(patientEthnicity);
