@@ -308,3 +308,5 @@ export const LAB_CLIENT_BILL_COVERAGE_TYPE_CODING = {
   system: 'https://terminology.fhir.oystehr.com/CodeSystem/labs-financial-class',
   code: 'client-bill',
 };
+
+export const LAB_OBS_VALUE_WITH_PRECISION_EXT = 'https://extensions.fhir.oystehr.com/obx-5-quantity-with-precision';

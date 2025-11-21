@@ -32,6 +32,7 @@ import {
   getVisitStatusHistory,
   InPersonAppointmentInformation,
   INSURANCE_CARD_CODE,
+  isFollowupEncounter,
   isNonPaperworkQuestionnaireResponse,
   isTruthy,
   PHOTO_ID_CARD_CODE,
@@ -241,7 +242,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         if (patientId) patientIds.push(`Patient/${patientId}`);
       } else if (resource.resourceType === 'Patient' && resource.id) {
         patientIdMap[resource.id] = resource as Patient;
-      } else if (resource.resourceType === 'Encounter') {
+      } else if (resource.resourceType === 'Encounter' && !isFollowupEncounter(resource as Encounter)) {
         const asEnc = resource as Encounter;
         const apptRef = asEnc.appointment?.[0].reference;
         if (apptRef) {

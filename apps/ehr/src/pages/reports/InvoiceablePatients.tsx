@@ -13,9 +13,10 @@ import {
   Typography,
 } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
+import { GridRenderCellParams } from '@mui/x-data-grid-pro';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   INVOICEABLE_PATIENTS_REPORTS_BUCKET_NAME,
   INVOICEABLE_PATIENTS_REPORTS_FILE_NAME,
@@ -89,6 +90,11 @@ export default function InvoiceablePatients(): React.ReactElement {
         headerName: 'Patient Name',
         width: 250,
         sortable: true,
+        renderCell: (params: GridRenderCellParams) => (
+          <Link to={`/patient/${params.row.patientId}`} style={{ textDecoration: 'underline', color: 'inherit' }}>
+            <Typography variant="inherit">{params.value}</Typography>
+          </Link>
+        ),
       },
       {
         field: 'patientDob',
@@ -113,6 +119,11 @@ export default function InvoiceablePatients(): React.ReactElement {
         headerName: 'Responsible Party',
         width: 250,
         sortable: true,
+        renderCell: (params: GridRenderCellParams) => (
+          <Typography variant="inherit">
+            {params.value}, {params.row.responsiblePartyRelationship}
+          </Typography>
+        ),
       },
       {
         field: 'amountInvoiceable',
@@ -182,11 +193,13 @@ export default function InvoiceablePatients(): React.ReactElement {
 
     return reportData.patientsReports.map((patient) => ({
       id: patient.claimId,
+      patientId: patient.id,
       patientName: patient.name,
       patientDob: patient.dob,
       finalizationDate: patient.finalizationDate,
       appointmentDate: patient.appointmentDate,
       responsiblePartyName: patient.responsiblePartyName,
+      responsiblePartyRelationship: patient.responsiblePartyRelationshipToPatient,
       amountInvoiceable: patient.amountInvoiceable,
       candidClaimId: patient.claimId,
     }));

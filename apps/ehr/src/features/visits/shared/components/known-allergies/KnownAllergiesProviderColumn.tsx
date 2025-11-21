@@ -18,7 +18,7 @@ import { FC, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { sortByLastUpdated } from 'src/helpers';
+import { sortByRecencyAndStatus } from 'src/helpers';
 import { AllergyDTO } from 'utils';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
 import { useChartDataArrayValue } from '../../hooks/useChartDataArrayValue';
@@ -37,7 +37,7 @@ export const KnownAllergiesProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const featureFlags = useAppFlags();
-  const allergies = sortByLastUpdated(chartData?.allergies ?? []);
+  const allergies = sortByRecencyAndStatus(chartData?.allergies ?? []);
   const length = allergies.length;
 
   return (

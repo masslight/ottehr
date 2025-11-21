@@ -292,12 +292,19 @@ const VitalsBloodPressureSchema = VitalsObjectSchema.extend({
   { message: 'vital-blood-pressure object may only define components' }
 );
 
+const VitalsWeightSchema = VitalsObjectSchema.extend({
+  unit: z
+    .enum(['kg', 'lbs'] as const)
+    .optional()
+    .default('kg'),
+});
+
 export const VitalsMap = z.object({
   'vital-temperature': VitalsObjectSchema.optional(),
   'vital-heartbeat': VitalsObjectSchema.optional(),
   'vital-oxygen-sat': VitalsObjectSchema.optional(),
   'vital-respiration-rate': VitalsObjectSchema.optional(),
-  'vital-weight': VitalsObjectSchema.optional(),
+  'vital-weight': VitalsWeightSchema.optional().default({ unit: 'kg' }),
   'vital-height': VitalsObjectSchema.optional(),
   'vital-blood-pressure': VitalsBloodPressureSchema.optional(),
   'vital-vision': VitalsVisionSchema.optional(),
