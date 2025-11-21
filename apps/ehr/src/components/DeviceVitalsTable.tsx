@@ -131,18 +131,22 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
 
             if (glucoseThreshold && glucoseVariance && glucose) {
               const normalRange = getRange(glucoseThreshold, glucoseVariance);
+              const criticalRange = glucoseCriticalVariance ? getRange(glucoseThreshold, glucoseCriticalVariance) : [];
 
-              let isWithinNormal = false;
-              let isWithinCritical = false;
+              let isWarning = false;
+              let isCritical = false;
 
-              if (normalRange.length === 2) {
-                isWithinNormal = !(glucose >= normalRange[0] && glucose <= normalRange[1]);
-              }
+              if (normalRange.length === 2 && criticalRange.length === 2) {
+                const isInNormal = glucose >= normalRange[0] && glucose <= normalRange[1];
+                const isInCritical = glucose >= criticalRange[0] && glucose <= criticalRange[1];
 
-              if (glucoseCriticalVariance) {
-                const criticalRange = getRange(glucoseThreshold, glucoseCriticalVariance);
-                if (criticalRange.length === 2) {
-                  isWithinCritical = !(glucose >= criticalRange[0] && glucose <= criticalRange[1]);
+                if (isInNormal) {
+                  isWarning = false;
+                  isCritical = false;
+                } else if (!isInNormal && isInCritical) {
+                  isWarning = true;
+                } else if (!isInCritical) {
+                  isCritical = true;
                 }
               }
 
@@ -150,11 +154,11 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
               let fontWeight = 'normal';
               let fontSize = 'inherit';
 
-              if (isWithinCritical) {
+              if (isCritical) {
                 color = 'error.main';
                 fontWeight = 'bold';
                 fontSize = '1.1rem';
-              } else if (isWithinNormal) {
+              } else if (isWarning) {
                 color = 'warning.main';
                 fontWeight = 'bold';
                 fontSize = '1.05rem';
@@ -287,18 +291,24 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
 
             if (systolicThreshold && systolicVariance && systolic) {
               const normalRange = getRange(systolicThreshold, systolicVariance);
+              const criticalRange = systolicCriticalVariance
+                ? getRange(systolicThreshold, systolicCriticalVariance)
+                : [];
 
-              let isWithinNormal = false;
-              let isWithinCritical = false;
+              let isWarning = false;
+              let isCritical = false;
 
-              if (normalRange.length === 2) {
-                isWithinNormal = !(systolic >= normalRange[0] && systolic <= normalRange[1]);
-              }
+              if (normalRange.length === 2 && criticalRange.length === 2) {
+                const isInNormal = systolic >= normalRange[0] && systolic <= normalRange[1];
+                const isInCritical = systolic >= criticalRange[0] && systolic <= criticalRange[1];
 
-              if (systolicCriticalVariance) {
-                const criticalRange = getRange(systolicThreshold, systolicCriticalVariance);
-                if (criticalRange.length === 2) {
-                  isWithinCritical = !(systolic >= criticalRange[0] && systolic <= criticalRange[1]);
+                if (isInNormal) {
+                  isWarning = false;
+                  isCritical = false;
+                } else if (!isInNormal && isInCritical) {
+                  isWarning = true;
+                } else if (!isInCritical) {
+                  isCritical = true;
                 }
               }
 
@@ -306,11 +316,11 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
               let fontWeight = 'normal';
               let fontSize = 'inherit';
 
-              if (isWithinCritical) {
+              if (isCritical) {
                 color = 'error.main';
                 fontWeight = 'bold';
                 fontSize = '1.1rem';
-              } else if (isWithinNormal) {
+              } else if (isWarning) {
                 color = 'warning.main';
                 fontWeight = 'bold';
                 fontSize = '1.05rem';
@@ -328,6 +338,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
                 </Typography>
               );
             }
+
             return systolic || '-';
           },
         },
@@ -344,18 +355,24 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
 
             if (diastolicThreshold && diastolicVariance && diastolic) {
               const normalRange = getRange(diastolicThreshold, diastolicVariance);
+              const criticalRange = diastolicCriticalVariance
+                ? getRange(diastolicThreshold, diastolicCriticalVariance)
+                : [];
 
-              let isWithinNormal = false;
-              let isWithinCritical = false;
+              let isWarning = false;
+              let isCritical = false;
 
-              if (normalRange.length === 2) {
-                isWithinNormal = !(diastolic >= normalRange[0] && diastolic <= normalRange[1]);
-              }
+              if (normalRange.length === 2 && criticalRange.length === 2) {
+                const isInNormal = diastolic >= normalRange[0] && diastolic <= normalRange[1];
+                const isInCritical = diastolic >= criticalRange[0] && diastolic <= criticalRange[1];
 
-              if (diastolicCriticalVariance) {
-                const criticalRange = getRange(diastolicThreshold, diastolicCriticalVariance);
-                if (criticalRange.length === 2) {
-                  isWithinCritical = !(diastolic >= criticalRange[0] && diastolic <= criticalRange[1]);
+                if (isInNormal) {
+                  isWarning = false;
+                  isCritical = false;
+                } else if (!isInNormal && isInCritical) {
+                  isWarning = true;
+                } else if (!isInCritical) {
+                  isCritical = true;
                 }
               }
 
@@ -363,11 +380,11 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
               let fontWeight = 'normal';
               let fontSize = 'inherit';
 
-              if (isWithinCritical) {
+              if (isCritical) {
                 color = 'error.main';
                 fontWeight = 'bold';
                 fontSize = '1.1rem';
-              } else if (isWithinNormal) {
+              } else if (isWarning) {
                 color = 'warning.main';
                 fontWeight = 'bold';
                 fontSize = '1.05rem';
@@ -514,19 +531,24 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
 
             if (weightThreshold && weightVariance && weight) {
               const convertedWeight = weight ? weight * 0.00220462 : '';
+
               const normalRange = getRange(weightThreshold, weightVariance);
+              const criticalRange = weightCriticalVariance ? getRange(weightThreshold, weightCriticalVariance) : [];
 
-              let isWithinNormal = false;
-              let isWithinCritical = false;
+              let isWarning = false;
+              let isCritical = false;
 
-              if (normalRange.length === 2) {
-                isWithinNormal = !(convertedWeight >= normalRange[0] && convertedWeight <= normalRange[1]);
-              }
+              if (normalRange.length === 2 && criticalRange.length === 2) {
+                const isInNormal = convertedWeight >= normalRange[0] && convertedWeight <= normalRange[1];
+                const isInCritical = convertedWeight >= criticalRange[0] && convertedWeight <= criticalRange[1];
 
-              if (weightCriticalVariance) {
-                const criticalRange = getRange(weightThreshold, weightCriticalVariance);
-                if (criticalRange.length === 2) {
-                  isWithinCritical = !(convertedWeight >= criticalRange[0] && convertedWeight <= criticalRange[1]);
+                if (isInNormal) {
+                  isWarning = false;
+                  isCritical = false;
+                } else if (!isInNormal && isInCritical) {
+                  isWarning = true;
+                } else if (!isInCritical) {
+                  isCritical = true;
                 }
               }
 
@@ -534,11 +556,11 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
               let fontWeight = 'normal';
               let fontSize = 'inherit';
 
-              if (isWithinCritical) {
+              if (isCritical) {
                 color = 'error.main';
                 fontWeight = 'bold';
                 fontSize = '1.1rem';
-              } else if (isWithinNormal) {
+              } else if (isWarning) {
                 color = 'warning.main';
                 fontWeight = 'bold';
                 fontSize = '1.05rem';
@@ -556,6 +578,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
                 </Typography>
               );
             }
+
             return weight ? (weight * 0.00220462).toFixed(2) : '-';
           },
         },

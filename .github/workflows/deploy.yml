@@ -26,5 +26,8 @@ jobs:
           cd /opt/ottehr
           git pull
           ./scripts/deploy/aws/rebuild.sh
+          cd /opt/ottehr-backend/node/dist
+          node sync.js
           sudo systemctl restart nginx
         EOF
+ 
