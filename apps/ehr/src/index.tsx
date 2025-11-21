@@ -8,6 +8,7 @@ import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { initializeAppConfig } from '../../config/initConfig';
 import App from './App';
+import ErrorScreen from './components/ErrorScreen';
 
 // ⏳ Load config BEFORE anything else (Top-level await)
 initializeAppConfig();
@@ -41,7 +42,7 @@ root.render(
         }}
         cacheLocation="localstorage"
       >
-        <ErrorBoundary fallback={<p>An error has occurred</p>}>
+        <ErrorBoundary fallback={<ErrorScreen />}>
           <LocalizationProvider dateAdapter={AdapterDateFns}>
             <App />
           </LocalizationProvider>

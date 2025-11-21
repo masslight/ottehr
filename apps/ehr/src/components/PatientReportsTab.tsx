@@ -5,7 +5,7 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import moment from 'moment';
 import { FC, useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { fetchReports, getReportDownloadUrl } from '../../../../packages/zambdas/src/services/reports';
+import { fetchReports, getReportDownloadUrl } from '../api/services/reports';
 import { GenerateReportModal } from './GenerateReportModal';
 import { RoundedButton } from './RoundedButton';
 

@@ -25,7 +25,7 @@ import { MobileDateRangePicker } from '@mui/x-date-pickers-pro/MobileDateRangePi
 import { SingleInputDateRangeField } from '@mui/x-date-pickers-pro/SingleInputDateRangeField';
 import dayjs from 'dayjs';
 import { useState } from 'react';
-import { genreateManualReport } from '../../../../packages/zambdas/src/services/reports';
+import { genreateManualReport } from '../api/services/reports';
 import { RoundedButton } from './RoundedButton';
 
 interface GenerateReportModalProps {

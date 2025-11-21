@@ -20,11 +20,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import { getProviderStaffPatient } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import {
-  deletePatientSettings,
-  fetchPatientSettings,
-  savePatientSettings,
-} from '../../../../packages/zambdas/src/services/patientSettings';
+import { deletePatientSettings, fetchPatientSettings, savePatientSettings } from '../api/services/patientSettings';
 import { AutoCompleteDropdown } from './AutoCompleteDropdown';
 
 interface Option {

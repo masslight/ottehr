@@ -18,11 +18,7 @@ import {
 } from '@mui/material';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  fetchReportSettings,
-  getImageDownloadUrl,
-  saveReportSettings,
-} from '../../../../packages/zambdas/src/services/reports';
+import { fetchReportSettings, getImageDownloadUrl, saveReportSettings } from '../api/services/reports';
 import { RoundedButton } from './RoundedButton';
 
 interface BrandingData {
