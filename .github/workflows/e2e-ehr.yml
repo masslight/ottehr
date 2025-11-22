@@ -1,7 +1,7 @@
 name: EHR E2E Tests
 
 env:
-  NODE_VERSION: 20
+  NODE_VERSION: 22
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
   SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
@@ -20,22 +20,36 @@ on:
           - staging
           - demo
         default: 'local'
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [main, develop, 'release/**']
+  workflow_run:
+    workflows: ["Terraform apply"]
+    types:
+      - completed
 
 jobs:
   check-changes:
-    if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
       should-run: ${{ steps.check.outputs.should-run }}
       skip-reason: ${{ steps.check.outputs.skip-reason }}
+      environment: ${{ steps.env.outputs.environment }}
     steps:
+      - name: Determine Environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.repository }}" == "masslight/ottehr" ]; then
+            echo "environment=e2e" >> $GITHUB_OUTPUT
+          else
+            echo "environment=local" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 2  # Need at least 2 commits to compare
 
       - name: Check if EHR changes are relevant
@@ -54,21 +68,27 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Restore node modules
         id: npm-cache-restore
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: node_modules
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            deploy/node_modules
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-npm-
+            ${{ runner.os }}-npm-cache-
 
       - name: Install dependencies
         if: steps.npm-cache-restore.outputs.cache-hit != 'true'
@@ -76,7 +96,7 @@ jobs:
 
       - name: Restore Playwright browsers
         id: playwright-cache-restore
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ${{ env.PLAYWRIGHT_CACHE_PATH }}
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
@@ -87,7 +107,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Check out secrets repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
@@ -109,19 +129,21 @@ jobs:
       
       - name: Run E2E tests
         run: |
-          if [ "${{ github.event.inputs.environment }}" == "local" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
-            npm run ehr:e2e:local:integration
+          ENV="${{ needs.check-changes.outputs.environment }}"
+          
+          if [ "$ENV" == "local" ] || [ "$ENV" == "e2e" ]; then
+            npm run ehr:e2e:$ENV:integration
           else
-            npm run ehr:e2e:${{ github.event.inputs.environment }}
+            npm run ehr:e2e:$ENV
           fi
         env:
           CI: true
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: playwright-report-ehr-${{ github.event.inputs.environment || 'local' }}
+          name: playwright-report-ehr-${{ needs.check-changes.outputs.environment }}
           path: |
             apps/ehr/playwright-report/
             apps/ehr/test-results/
