@@ -1,6 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { BOOKING_CONFIG } from 'utils';
+import { assert } from 'vitest';
 import { Locators } from '../locators';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
@@ -311,26 +312,13 @@ export class FillingInfo {
     return { time, fullSlot };
   }
 
-  async selectServiceCategoryIfNeeded() {
-    // Check if we're on the service category selection page
-    const serviceCategoryHeading = this.page.getByRole('heading', {
-      name: /Welcome to/i,
-    });
+  async selectFirstServiceCategory() {
+    const availableCategories = BOOKING_CONFIG.serviceCategories || [];
+    const firstCategory = availableCategories[0];
+    assert(firstCategory.display);
 
-    const isOnServiceCategoryPage = await serviceCategoryHeading.isVisible({ timeout: 2000 }).catch(() => false);
-
-    if (isOnServiceCategoryPage) {
-      // Check if there are service category options (there should be at least one)
-      const options = this.page.locator('div[role="button"]');
-      const count = await options.count();
-
-      if (count > 0) {
-        // Select the first service category option
-        await options.first().click();
-        console.log('Selected first service category option');
-        return true;
-      }
+    if (firstCategory) {
+      await this.page.getByRole('option', { name: firstCategory.display }).click();
     }
-    return false;
   }
 }

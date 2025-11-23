@@ -13,7 +13,7 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
     location: string | null;
   }> {
     // Handle service category selection if present
-    await this.fillingInfo.selectServiceCategoryIfNeeded();
+    await this.fillingInfo.selectFirstServiceCategory();
 
     await expect(this.locator.firstAvailableTime).toBeVisible();
     const title = await this.locator.pageTitle.textContent();
