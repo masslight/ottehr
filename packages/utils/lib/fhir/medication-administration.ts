@@ -1,4 +1,3 @@
-import { MeasurementUnitCode } from 'candidhealth/dist/api/resources/serviceLines/resources/v2';
 import { DetectedIssue, Medication, MedicationAdministration, MedicationRequest } from 'fhir/r4b';
 import { CODE_SYSTEM_ACT_CODE_V3, CODE_SYSTEM_CPT, CODE_SYSTEM_HCPCS, CODE_SYSTEM_NDC } from '../helpers';
 import {
@@ -377,19 +376,4 @@ export function getDosageFromMA(
     units,
     dose,
   };
-}
-
-export function mapMedicationToCandidMeasurement(units: MedicationUnitOptions): MeasurementUnitCode | undefined {
-  switch (units) {
-    case 'mg':
-      return MeasurementUnitCode.Milligram;
-    case 'ml':
-      return MeasurementUnitCode.Milliliters;
-    case 'unit':
-      return MeasurementUnitCode.Units;
-    case 'g':
-      return MeasurementUnitCode.Grams;
-    default:
-      return MeasurementUnitCode.InternationalUnit; // todo ??? i have unhandled 'cc' and 'application' cases
-  }
 }
