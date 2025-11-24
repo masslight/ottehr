@@ -79,7 +79,7 @@ test.describe('Screening Page mutating tests', () => {
 async function setupPractitioners(page: Page): Promise<void> {
   const progressNotePage = new InPersonProgressNotePage(page);
   const inPersonHeader = new InPersonHeader(page);
-  await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
+  await progressNotePage.sideMenu().clickReviewAndSign();
   await inPersonHeader.verifyStatus('pending');
   await inPersonHeader.selectIntakePractitioner();
   await inPersonHeader.selectProviderPractitioner();
