@@ -332,16 +332,7 @@ export const Header = (): JSX.Element => {
                         textDecorationColor: theme.palette.text.secondary,
                       }}
                     >
-                      <PatientMetadata
-                        sx={{
-                          maxWidth: 250,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {visitText}
-                      </PatientMetadata>
+                      <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitText}</PatientMetadata>
                     </Link>
                   </Grid>
                   <Grid item>
@@ -361,7 +352,7 @@ export const Header = (): JSX.Element => {
                   <Grid item>
                     {isFollowup ? (
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <PatientMetadata>Follow-up provider: </PatientMetadata>
+                        <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>Follow-up provider: </PatientMetadata>
                         <TextField
                           select
                           fullWidth
