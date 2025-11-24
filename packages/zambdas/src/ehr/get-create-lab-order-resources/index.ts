@@ -209,7 +209,9 @@ const getLabs = async (
     cursor = response?.metadata?.nextCursor || '';
     totalReturn += itemsToBeReturned;
     console.log('totalReturn:', totalReturn);
-  } while (cursor && totalReturn <= 250); // capping at 250 so that the zambda doesn't fail. (no one is scrolling through that many anyway)
+  } while (cursor && totalReturn <= 100); // capping at 100 so that the zambda doesn't fail. (no one is scrolling through that many anyway)
+  // if we hear no complaints about the 100 return (i highly doubt we will) we can simplify this logic by getting rid of the cursor logic
+  // and the do while - the first call will only ever return 100 and i suspect thats really all we need
 
   return items;
 };
