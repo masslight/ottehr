@@ -1,4 +1,4 @@
-import { Box, Divider, MenuItem, Select, Typography, useTheme } from '@mui/material';
+import { Box, Divider, MenuItem, Select, Stack, Typography, useTheme } from '@mui/material';
 import { HumanName, Patient } from 'fhir/r4b';
 import { FC, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
@@ -33,6 +33,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
 
   const genderIdentityCurrentValue = watch(FormFields.genderIdentity.key);
   const isNonBinaryGender = genderIdentityCurrentValue === 'Non-binary gender identity';
+  const languageValue = watch(FormFields.language.key);
 
   return (
     <Section title="Patient details">
@@ -184,28 +185,45 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
         <Box sx={{ display: 'flex', alignItems: 'center', flex: '0 1 30%' }}>
           <Typography sx={{ color: theme.palette.primary.dark }}>Preferred language</Typography>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
-          <Controller
-            name={FormFields.language.key}
-            control={control}
-            render={({ field }) => (
-              <Select
-                {...field}
-                value={field.value || ''}
-                variant="standard"
+        <Stack sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
+          <Box width="100%">
+            <Controller
+              name={FormFields.language.key}
+              control={control}
+              render={({ field }) => (
+                <Select
+                  {...field}
+                  value={field.value || ''}
+                  variant="standard"
+                  disabled={isLoading}
+                  sx={{ width: '100%' }}
+                  data-testid={dataTestIds.patientDetailsContainer.preferredLanguage}
+                >
+                  {Object.entries(LANGUAGE_OPTIONS).map(([key, value]) => (
+                    <MenuItem key={value} value={value}>
+                      {key}
+                    </MenuItem>
+                  ))}
+                </Select>
+              )}
+            />
+          </Box>
+          {languageValue === 'Other' ? (
+            <Box width="100%">
+              <FormTextField
+                name={FormFields.otherLanguage.key}
+                control={control}
                 disabled={isLoading}
-                sx={{ width: '100%' }}
-                data-testid={dataTestIds.patientDetailsContainer.preferredLanguage}
-              >
-                {Object.entries(LANGUAGE_OPTIONS).map(([key, value]) => (
-                  <MenuItem key={value} value={value}>
-                    {key}
-                  </MenuItem>
-                ))}
-              </Select>
-            )}
-          />
-        </Box>
+                rules={{
+                  validate: (value: string) => {
+                    if (value === '') return REQUIRED_FIELD_ERROR_MESSAGE;
+                    return true;
+                  },
+                }}
+              />
+            </Box>
+          ) : null}
+        </Stack>
       </Box>
       <Box
         sx={{

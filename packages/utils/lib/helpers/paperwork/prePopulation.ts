@@ -20,6 +20,8 @@ import {
   getMiddleName,
   getNameSuffix,
   getPronounsFromExtension,
+  LANGUAGE_OPTIONS,
+  LanguageOption,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
 import {
@@ -214,7 +216,16 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
             answer = makeAnswer(customPronouns);
           }
           if (linkId === 'preferred-language' && language) {
-            answer = makeAnswer(language);
+            if (LANGUAGE_OPTIONS[language as LanguageOption]) {
+              answer = makeAnswer(language);
+            } else {
+              answer = makeAnswer('Other');
+            }
+          }
+          if (linkId === 'other-preferred-language' && language) {
+            if (!LANGUAGE_OPTIONS[language as LanguageOption]) {
+              answer = makeAnswer(language);
+            }
           }
           if (linkId === 'patient-ethnicity' && patientEthnicity) {
             answer = makeAnswer(patientEthnicity);
@@ -552,7 +563,16 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
       answer = makeAnswer(patientSendMarketing, 'Boolean');
     }
     if (linkId === 'preferred-language' && patientPreferredLanguage) {
-      answer = makeAnswer(patientPreferredLanguage);
+      if (LANGUAGE_OPTIONS[patientPreferredLanguage as LanguageOption]) {
+        answer = makeAnswer(patientPreferredLanguage);
+      } else {
+        answer = makeAnswer('Other');
+      }
+    }
+    if (linkId === 'other-preferred-language' && patientPreferredLanguage) {
+      if (!LANGUAGE_OPTIONS[patientPreferredLanguage as LanguageOption]) {
+        answer = makeAnswer(patientPreferredLanguage);
+      }
     }
     if (linkId === 'common-well-consent' && patientCommonWellConsent !== undefined) {
       answer = makeAnswer(patientCommonWellConsent, 'Boolean');
