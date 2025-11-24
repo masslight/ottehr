@@ -103,20 +103,41 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
   );
 
   const options = useMemo(() => {
-    let baseOptions = [];
+    let baseOptions: QuestionnaireItemAnswerOption[] = [];
     if (usesDynamicOptions) {
       baseOptions = (data ?? []) as QuestionnaireItemAnswerOption[];
     } else {
       baseOptions = staticOptions;
     }
+
     if (!multiple) {
-      return baseOptions;
+      return moveOtherOptionToEnd(baseOptions);
     }
-    const value = new Set(otherProps.value);
-    return baseOptions.filter((option) => {
-      return option.valueString && !value.has(option.valueString);
+
+    const selectedValues = new Set(
+      Array.isArray(otherProps.value)
+        ? (otherProps.value as any[]).map((val) => {
+            if (valueType === 'String') {
+              return typeof val === 'string' ? val : val?.valueString ?? val;
+            }
+            return val?.reference ?? val?.valueReference?.reference ?? val;
+          })
+        : []
+    );
+
+    const filteredOptions = baseOptions.filter((option) => {
+      if (option?.valueReference?.type === 'other') {
+        return true;
+      }
+      if (valueType === 'String') {
+        return option.valueString && !selectedValues.has(option.valueString);
+      }
+      const referenceValue = option?.valueReference?.reference;
+      return referenceValue && !selectedValues.has(referenceValue);
     });
-  }, [usesDynamicOptions, multiple, otherProps.value, data, staticOptions]);
+
+    return moveOtherOptionToEnd(filteredOptions);
+  }, [usesDynamicOptions, multiple, otherProps.value, data, staticOptions, valueType]);
 
   return (
     <Autocomplete
@@ -156,9 +177,11 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       filterOptions={(options, state) => {
         const { inputValue, getOptionLabel } = state;
         const filtered = options.filter((option) => {
-          return getOptionLabel(option)
-            ?.toLowerCase()
-            ?.startsWith(inputValue?.toLowerCase());
+          return (
+            getOptionLabel(option)
+              ?.toLowerCase()
+              ?.startsWith(inputValue?.toLowerCase()) || option?.valueReference?.type === 'other'
+          );
         });
         return filtered;
       }}
@@ -239,7 +262,21 @@ const idForOption = (option: any): string => {
 
 const valueForOption = (option: any, valueType: 'String' | 'Reference'): any => {
   const defaultVal = valueType === 'String' ? '' : null;
-  return option?.[`value${valueType}`] ?? defaultVal;
+  const value = option?.[`value${valueType}`] ?? defaultVal;
+  if (valueType === 'Reference' && value?.type === 'other') {
+    const { type: _type, ...rest } = value;
+    return rest;
+  }
+  return value;
+};
+
+const moveOtherOptionToEnd = (options: QuestionnaireItemAnswerOption[]): QuestionnaireItemAnswerOption[] => {
+  const otherOptionIndex = options.findIndex((option) => option?.valueReference?.type === 'other');
+  if (otherOptionIndex === -1) {
+    return options;
+  }
+  const otherOption = options[otherOptionIndex];
+  return [...options.slice(0, otherOptionIndex), ...options.slice(otherOptionIndex + 1), otherOption];
 };
 
 export default FreeMultiSelectInput;

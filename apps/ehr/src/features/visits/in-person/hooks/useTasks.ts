@@ -332,9 +332,11 @@ function fhirTaskToTask(task: FhirTask): Task {
     }
     if (
       diagnosticReportId &&
-      (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
+      (code === LAB_ORDER_TASK.code.reviewFinalResult ||
+        code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+        code === LAB_ORDER_TASK.code.reviewPreliminaryResult)
     ) {
-      if (labTypeString === LabType.unsolicited) {
+      if (labTypeString === LabType.unsolicited && !serviceRequestId) {
         const receivedDate = getInputString(LAB_ORDER_TASK.input.receivedDate, task);
         title = `Review unsolicited test results for “${fullTestName}” for ${patientName}`;
         subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;

@@ -22,6 +22,7 @@ type LabsTableContainerProps<SearchBy extends LabOrdersSearchBy> = {
   labOrders: (LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO)[];
   orderBundleName: string;
   abnPdfUrl: string | undefined;
+  orderPdfUrl: string | undefined;
   searchBy: SearchBy;
   columns: LabsTableColumn[];
   allowDelete: boolean;
@@ -42,6 +43,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
   labOrders,
   orderBundleName,
   abnPdfUrl,
+  orderPdfUrl,
   searchBy,
   columns,
   allowDelete,
@@ -164,6 +166,16 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
                 onClick={() => openPdf(abnPdfUrl)}
               >
                 Re-print ABN
+              </Button>
+            )}
+            {orderPdfUrl && (
+              <Button
+                variant="outlined"
+                type="button"
+                sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
+                onClick={() => openPdf(orderPdfUrl)}
+              >
+                Re-print Order
               </Button>
             )}
           </Box>

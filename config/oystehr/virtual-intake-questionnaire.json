@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-virtual-previsit-1_0_13": {
+    "questionnaire-virtual-previsit-1_0_14": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-        "version": "1.0.13",
+        "version": "1.0.14",
         "name": "virtual_pre-visit_paperwork",
         "title": "virtual pre-visit paperwork",
         "status": "active",
@@ -569,6 +569,73 @@
                   },
                   {
                     "valueString": "Spanish"
+                  },
+                  {
+                    "valueString": "Chinese"
+                  },
+                  {
+                    "valueString": "French"
+                  },
+                  {
+                    "valueString": "German"
+                  },
+                  {
+                    "valueString": "Tagalog"
+                  },
+                  {
+                    "valueString": "Vietnamese"
+                  },
+                  {
+                    "valueString": "Italian"
+                  },
+                  {
+                    "valueString": "Korean"
+                  },
+                  {
+                    "valueString": "Russian"
+                  },
+                  {
+                    "valueString": "Polish"
+                  },
+                  {
+                    "valueString": "Arabic"
+                  },
+                  {
+                    "valueString": "Portuguese"
+                  },
+                  {
+                    "valueString": "Japanese"
+                  },
+                  {
+                    "valueString": "Greek"
+                  },
+                  {
+                    "valueString": "Hindi"
+                  },
+                  {
+                    "valueString": "Persian"
+                  },
+                  {
+                    "valueString": "Urdu"
+                  },
+                  {
+                    "valueString": "Sign Language"
+                  },
+                  {
+                    "valueString": "Other"
+                  }
+                ]
+              },
+              {
+                "linkId": "other-preferred-language",
+                "text": "Other preferred language",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "preferred-language",
+                    "operator": "=",
+                    "answerString": "Other"
                   }
                 ]
               },
