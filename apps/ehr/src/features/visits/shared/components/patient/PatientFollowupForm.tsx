@@ -119,13 +119,15 @@ export default function PatientFollowupForm({ patient, followupDetails }: Patien
     const getAndSetProviders = async (client: Oystehr): Promise<void> => {
       const getEmployeesRes = await getEmployees(client);
       const providers = getEmployeesRes.employees.filter((employee) => employee.isProvider);
-      const formattedProviders: ProviderDetails[] = providers.map((prov) => {
-        const id = prov.profile.split('/')[1];
-        return {
-          practitionerId: id,
-          name: `${prov.firstName} ${prov.lastName}`,
-        };
-      });
+      const formattedProviders: ProviderDetails[] = providers
+        .map((prov) => {
+          const id = prov.profile.split('/')[1];
+          return {
+            practitionerId: id,
+            name: `${prov.firstName} ${prov.lastName}`,
+          };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
       setProviders(formattedProviders);
     };
     if (oystehrZambda && providers.length === 0) {
