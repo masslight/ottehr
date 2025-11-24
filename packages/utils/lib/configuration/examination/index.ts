@@ -1,7 +1,7 @@
 import { EXAMINATION_OVERRIDES } from '../../../.ottehr_config';
-import { ExamSchema, validateExamConfig } from '../../types';
-import { InPersonExamConfig } from '../../types/data/examination/in-person.config';
-import { TelemedExamConfig } from '../../types/data/examination/telemed.config';
+import { ExamSchema, validateExamConfig } from './examination.schema';
+import { InPersonExamConfig } from './in-person.config';
+import { TelemedExamConfig } from './telemed.config';
 
 // Simple hash function for versioning (security not required)
 function createSimpleHash(data: string): string {
@@ -45,3 +45,5 @@ export const ExamDef = (config?: unknown): ExamSchema => {
 };
 
 export const examConfig = ExamDef(EXAMINATION_OVERRIDES);
+
+export * from './examination.schema';

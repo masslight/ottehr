@@ -1,5 +1,6 @@
 // cSpell:ignore andor, decreasedrom, lowerleg, upperarm
-import { createCodeableConcept } from '../../api';
+
+import { createCodeableConcept } from '../../types';
 
 export const TelemedExamConfig = {
   general: {
