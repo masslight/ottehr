@@ -52,7 +52,7 @@ test.describe('Screening Page mutating tests', () => {
     });
 
     const progressNotePage = await test.step('Verify screening info on progress note', async () => {
-      const progressNotePage = await screeningPage.sideMenu().clickProgressNote();
+      const progressNotePage = await screeningPage.sideMenu().clickReviewAndSign();
       const progressNoteLines = createProgressNoteLines(SCREENING_A);
       progressNoteLines.push('ASQ - ' + SCREENING_A.asqAnswer);
       progressNoteLines.push(SCREENING_A.screeningNote);
@@ -67,7 +67,7 @@ test.describe('Screening Page mutating tests', () => {
     });
 
     await test.step('Verify edited screening info on progress note', async () => {
-      const progressNotePage = await screeningPage.sideMenu().clickProgressNote();
+      const progressNotePage = await screeningPage.sideMenu().clickReviewAndSign();
       const editedProgressNoteLines = createProgressNoteLines(SCREENING_B);
       editedProgressNoteLines.push('ASQ - ' + SCREENING_B.asqAnswer);
       editedProgressNoteLines.push(SCREENING_B.screeningNote);
@@ -83,7 +83,6 @@ async function setupPractitioners(page: Page): Promise<void> {
   await inPersonHeader.verifyStatus('pending');
   await inPersonHeader.selectIntakePractitioner();
   await inPersonHeader.selectProviderPractitioner();
-  await inPersonHeader.clickSwitchModeButton('provider');
   await progressNotePage.expectLoaded();
 }
 
