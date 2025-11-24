@@ -1,15 +1,29 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, Chip, Grid, IconButton, MenuItem, Skeleton, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import {
+  Box,
+  Chip,
+  Grid,
+  IconButton,
+  Link,
+  MenuItem,
+  Skeleton,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { formatLabelValue } from 'src/shared/utils';
 import {
+  formatDateToMDYWithTime,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
   getInsuranceNameFromCoverage,
@@ -112,6 +126,7 @@ const getFollowupStatusChip = (status: 'OPEN' | 'RESOLVED'): ReactElement => {
 export const Header = (): JSX.Element => {
   const { id: appointmentID } = useParams();
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const {
     resources: { appointment, patient, encounter: encounterValues },
@@ -128,8 +143,11 @@ export const Header = (): JSX.Element => {
   });
 
   const { chartData } = useChartData();
-  const { encounter } = visitState;
+  const { encounter, location } = visitState;
   const encounterId = encounter?.id;
+  const locationName = location?.name;
+  const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start) ?? {};
+  const visitText = `Visit: ${date} ${time}${locationName ? ` | ${locationName}` : ''}`;
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
@@ -303,6 +321,28 @@ export const Header = (): JSX.Element => {
                         dataTestId={dataTestIds.inPersonHeader.changeStatusDropdown}
                       />
                     )}
+                  </Grid>
+                  <Grid item>
+                    <Link
+                      component={RouterLink}
+                      to={`/visit/${appointment?.id}`}
+                      variant="body2"
+                      sx={{
+                        color: theme.palette.text.secondary,
+                        textDecorationColor: theme.palette.text.secondary,
+                      }}
+                    >
+                      <PatientMetadata
+                        sx={{
+                          maxWidth: 250,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {visitText}
+                      </PatientMetadata>
+                    </Link>
                   </Grid>
                   <Grid item>
                     <Tooltip title={paymentVariant}>
