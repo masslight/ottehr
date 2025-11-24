@@ -1300,12 +1300,11 @@ async function candidCreateEncounterFromAppointmentRequest(
         serviceLines.push({
           procedureCode,
           quantity: Decimal('1'), // ???
-          units: ServiceLineUnits.Un, // ???
-          diagnosisPointers: [primaryDiagnosisIndex], // ???
+          units: ServiceLineUnits.Un,
+          diagnosisPointers: [primaryDiagnosisIndex],
           drugIdentification: {
-            serviceIdQualifier: 'N4', // ???
-            // todo check if our ndc is ok and will pass insurance validation
-            nationalDrugCode: ndc,
+            serviceIdQualifier: 'N4',
+            nationalDrugCode: ndc, // this ndc code has to be 5-4-2 format to match N4 code
             nationalDrugUnitCount: Decimal(dosageFromMA.dose.toString()),
             measurementUnitCode: candidMeasurement,
           },
