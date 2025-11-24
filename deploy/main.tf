@@ -86,7 +86,7 @@ module "ottehr_apps" {
     EHR_ORGANIZATION_NAME_SHORT      = module.oystehr.EHR_ORGANIZATION_NAME_SHORT
     OYSTEHR_APPLICATION_CLIENT_ID    = module.oystehr.app_ehr_client_id
     OYSTEHR_APPLICATION_REDIRECT_URL = module.oystehr.app_ehr_redirect_url
-    OYSTEHR_CONNECTION_NAME          = module.oystehr.app_ehr_connection_name
+    OYSTEHR_CONNECTION_NAME          = module.oystehr.app_ehr_connection_name == null ? "" : module.oystehr.app_ehr_connection_name
     MUI_X_LICENSE_KEY                = module.oystehr.MUI_X_LICENSE_KEY
     OYSTEHR_APPLICATION_ID           = module.oystehr.app_ehr_id
     PROJECT_API_ZAMBDA_URL           = local.is_local ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
