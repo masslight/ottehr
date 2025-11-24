@@ -380,20 +380,24 @@ async function candidCreateEncounterRequest(
     ),
     diagnoses: candidDiagnoses,
     serviceLines: procedures.flatMap<ServiceLineCreate>((procedure) => {
-      const coding = procedure.code?.coding?.find((c) => c.system === CPT_SYSTEM || c.system === HCPCS_SYSTEM);
-      const procedureCode = coding?.code;
-      let modifiers: ProcedureModifier[] = [];
-      if (procedureCode == null) {
+      const codings = procedure.code?.coding ?? [];
+
+      const preferredCoding =
+        codings.find((c) => c.system === CPT_SYSTEM || c.system === HCPCS_SYSTEM) ??
+        codings.find((c) => typeof c.code === 'string');
+
+      const procedureCode = preferredCoding?.code;
+
+      if (!procedureCode) {
         return [];
       }
 
       const isEandMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
-      if (isEandMCode && isTelemedAppointment(appointment)) {
-        modifiers = ['95'];
-      }
+      const modifiers: ProcedureModifier[] = isEandMCode && isTelemedAppointment(appointment) ? ['95'] : [];
+
       return [
         {
-          procedureCode: procedureCode,
+          procedureCode,
           modifiers,
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
@@ -407,6 +411,7 @@ async function candidCreateEncounterRequest(
         },
       ];
     }),
+
     subscriberPrimary: createSubscriberPrimary(insuranceResources),
   };
 }
