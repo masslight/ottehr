@@ -333,6 +333,10 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
 
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
   const [openAddInsuranceModal, setOpenAddInsuranceModal] = useState(false);
+  const shouldRenderEmployerSection = useMemo(
+    () => questionnaire?.item?.some((item) => item.linkId === 'employer-information-page') ?? false,
+    [questionnaire]
+  );
 
   useGetInsurancePlans((data) => {
     if (!data) return;
@@ -458,7 +462,9 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     onAddInsurance={() => setOpenAddInsuranceModal(true)}
                   />
                   <ResponsibleInformationContainer isLoading={isFetching || submitQR.isPending} />
-                  <EmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
+                  {shouldRenderEmployerSection && (
+                    <EmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
+                  )}
                   <EmergencyContactContainer isLoading={isFetching || submitQR.isPending} />
                   <PharmacyContainer isLoading={isFetching || submitQR.isPending} />
                 </Box>

@@ -6,7 +6,7 @@ import InputMask from 'src/components/InputMask';
 import { Row, Section } from 'src/components/layout';
 import { FormFields, STATE_OPTIONS } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { emailRegex, isPhoneNumberValid, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { emailRegex, isPhoneNumberValid, isPostalCodeValid } from 'utils';
 
 const { employerInformation } = FormFields;
 
@@ -15,21 +15,19 @@ export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoa
 
   return (
     <Section title="Employer information" dataTestId={dataTestIds.employerInformationContainer.id}>
-      <Row label={employerInformation.employerName.label} required>
+      <Row label={employerInformation.employerName.label}>
         <FormTextField
           name={employerInformation.employerName.key}
           control={control}
           data-testid={dataTestIds.employerInformationContainer.employerName}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           disabled={isLoading}
         />
       </Row>
-      <Row label={employerInformation.addressLine1.label} required>
+      <Row label={employerInformation.addressLine1.label}>
         <FormTextField
           name={employerInformation.addressLine1.key}
           control={control}
           data-testid={dataTestIds.employerInformationContainer.addressLine1}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           disabled={isLoading}
         />
       </Row>
@@ -41,19 +39,17 @@ export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoa
           disabled={isLoading}
         />
       </Row>
-      <Row label="City, State, ZIP" required>
+      <Row label="City, State, ZIP">
         <Box sx={{ display: 'flex', gap: 2 }}>
           <FormTextField
             name={employerInformation.city.key}
             control={control}
             data-testid={dataTestIds.employerInformationContainer.city}
-            rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             disabled={isLoading}
           />
           <Controller
             name={employerInformation.state.key}
             control={control}
-            rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             render={({ field: { value }, fieldState: { error } }) => (
               <Autocomplete
                 options={STATE_OPTIONS.map((option) => option.value)}
@@ -76,28 +72,28 @@ export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoa
             control={control}
             data-testid={dataTestIds.employerInformationContainer.zip}
             rules={{
-              required: REQUIRED_FIELD_ERROR_MESSAGE,
-              validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
+              validate: (value: string) => {
+                if (!value) return true;
+                return isPostalCodeValid(value) || 'Must be 5 digits';
+              },
             }}
             disabled={isLoading}
           />
         </Box>
       </Row>
-      <Row label={employerInformation.contactFirstName.label} required>
+      <Row label={employerInformation.contactFirstName.label}>
         <FormTextField
           name={employerInformation.contactFirstName.key}
           control={control}
           data-testid={dataTestIds.employerInformationContainer.contactFirstName}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           disabled={isLoading}
         />
       </Row>
-      <Row label={employerInformation.contactLastName.label} required>
+      <Row label={employerInformation.contactLastName.label}>
         <FormTextField
           name={employerInformation.contactLastName.key}
           control={control}
           data-testid={dataTestIds.employerInformationContainer.contactLastName}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           disabled={isLoading}
         />
       </Row>
@@ -123,7 +119,7 @@ export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoa
           disabled={isLoading}
         />
       </Row>
-      <Row label={employerInformation.contactPhone.label} required>
+      <Row label={employerInformation.contactPhone.label}>
         <FormTextField
           name={employerInformation.contactPhone.key}
           control={control}
@@ -133,10 +129,13 @@ export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoa
             inputComponent: InputMask as any,
           }}
           rules={{
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value: string) =>
-              isPhoneNumberValid(value) ||
-              'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number',
+            validate: (value: string) => {
+              if (!value) return true;
+              return (
+                isPhoneNumberValid(value) ||
+                'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number'
+              );
+            },
           }}
           disabled={isLoading}
         />

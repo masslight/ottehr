@@ -1918,15 +1918,15 @@ function getInsuranceDetailsFromAnswers(
 }
 
 interface EmployerInformation {
-  employerName: string;
-  addressLine1: string;
+  employerName?: string;
+  addressLine1?: string;
   addressLine2?: string;
-  city: string;
-  state: string;
-  zip: string;
-  contactFirstName: string;
-  contactLastName: string;
-  contactPhone: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  contactFirstName?: string;
+  contactLastName?: string;
+  contactPhone?: string;
   contactEmail?: string;
   contactFax?: string;
   contactTitle?: string;
@@ -1976,44 +1976,53 @@ const mergeGuarantors = (guarantors: Account['guarantor'], organizationReference
 };
 
 const buildEmployerOrganization = (details: EmployerInformation, id?: string): Organization => {
-  const lines = [details.addressLine1];
-  if (details.addressLine2) {
-    lines.push(details.addressLine2);
-  }
+  const lines = [details.addressLine1, details.addressLine2].filter(Boolean) as string[];
   const phone = safeFormatPhone(details.contactPhone);
   const fax = safeFormatPhone(details.contactFax);
+
   const telecom = [
     createTelecom('phone', phone),
     createTelecom('fax', fax),
     createTelecom('email', details.contactEmail),
   ].filter(Boolean) as ContactPoint[];
 
+  const address =
+    lines.length || details.city || details.state || details.zip
+      ? [
+          {
+            line: lines.length ? lines : undefined,
+            city: details.city || undefined,
+            state: details.state || undefined,
+            postalCode: details.zip || undefined,
+          },
+        ]
+      : undefined;
+
+  const contactGiven = details.contactFirstName ? [details.contactFirstName] : [];
+  const hasContactName = contactGiven.length || details.contactLastName;
+  const contactEntry =
+    hasContactName || telecom.length || details.contactTitle
+      ? [
+          {
+            name: hasContactName
+              ? {
+                  given: contactGiven.length ? contactGiven : undefined,
+                  family: details.contactLastName || undefined,
+                }
+              : undefined,
+            telecom: telecom.length ? telecom : undefined,
+            purpose: details.contactTitle ? { text: details.contactTitle } : undefined,
+          },
+        ]
+      : undefined;
+
   return {
     resourceType: 'Organization',
     id,
-    name: details.employerName,
-    address: [
-      {
-        line: lines,
-        city: details.city,
-        state: details.state,
-        postalCode: details.zip,
-      },
-    ],
-    telecom,
-    contact: [
-      {
-        name: {
-          given: [details.contactFirstName],
-          family: details.contactLastName,
-        },
-        purpose: details.contactTitle
-          ? {
-              text: details.contactTitle,
-            }
-          : undefined,
-      },
-    ],
+    name: details.employerName || undefined,
+    address,
+    telecom: telecom.length ? telecom : undefined,
+    contact: contactEntry,
     type: [
       {
         coding: [
@@ -2076,16 +2085,22 @@ const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInf
   const contactLastName = getAnswerString('employer-contact-last-name');
   const contactPhone = getAnswerString('employer-contact-phone');
 
-  if (
-    !employerName ||
-    !addressLine1 ||
-    !city ||
-    !state ||
-    !zip ||
-    !contactFirstName ||
-    !contactLastName ||
-    !contactPhone
-  ) {
+  const hasAnyValue = [
+    employerName,
+    addressLine1,
+    city,
+    state,
+    zip,
+    contactFirstName,
+    contactLastName,
+    contactPhone,
+    getAnswerString('employer-address-2'),
+    getAnswerString('employer-contact-email'),
+    getAnswerString('employer-contact-fax'),
+    getAnswerString('employer-contact-title'),
+  ].some((value) => value && value.length);
+
+  if (!hasAnyValue) {
     return undefined;
   }
 

@@ -1929,13 +1929,13 @@
                 "linkId": "employer-name",
                 "text": "Employer Name",
                 "type": "string",
-                "required": true
+                "required": false
               },
               {
                 "linkId": "employer-address",
                 "text": "Employer Address",
                 "type": "string",
-                "required": true
+                "required": false
               },
               {
                 "linkId": "employer-address-2",
@@ -1947,7 +1947,7 @@
                 "linkId": "employer-city",
                 "text": "City",
                 "type": "string",
-                "required": true,
+                "required": false,
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -1959,7 +1959,7 @@
                 "linkId": "employer-state",
                 "text": "State",
                 "type": "choice",
-                "required": true,
+                "required": false,
                 "answerOption": [
                   { "valueString": "AL" },
                   { "valueString": "AK" },
@@ -2025,7 +2025,7 @@
                 "linkId": "employer-zip",
                 "text": "ZIP",
                 "type": "string",
-                "required": true,
+                "required": false,
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -2046,7 +2046,7 @@
                 "linkId": "employer-contact-first-name",
                 "text": "First name",
                 "type": "string",
-                "required": true,
+                "required": false,
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -2058,7 +2058,7 @@
                 "linkId": "employer-contact-last-name",
                 "text": "Last name",
                 "type": "string",
-                "required": true,
+                "required": false,
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -2088,7 +2088,7 @@
                 "linkId": "employer-contact-phone",
                 "text": "Mobile",
                 "type": "string",
-                "required": true,
+                "required": false,
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
