@@ -1520,17 +1520,7 @@
             ]
           },
           {
-            "linkId": "medical-history-page",
-            "item": [
-              {
-                "linkId": "medical-history-questionnaire",
-                "answer": [
-                  {
-                    "valueBoolean": true
-                  }
-                ]
-              }
-            ]
+            "linkId": "medical-history-page"
           }
         ],
         "authored": "{{date}}T10:56:08.707-04:00",
