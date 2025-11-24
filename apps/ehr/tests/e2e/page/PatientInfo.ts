@@ -17,6 +17,12 @@ export class PatientInfoPage {
   sideMenu(): SideMenu {
     return new SideMenu(this.#page);
   }
+
+  async fillHPI(): Promise<void> {
+    const hpiTextField = this.#page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes);
+    await expect(hpiTextField).toBeVisible();
+    await hpiTextField.locator('textarea').first().fill('The patient reports having a cough for 3 days.');
+  }
 }
 
 export async function expectPatientInfoPage(page: Page): Promise<PatientInfoPage> {

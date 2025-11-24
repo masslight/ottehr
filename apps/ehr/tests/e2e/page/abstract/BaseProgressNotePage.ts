@@ -8,12 +8,6 @@ export abstract class BaseProgressNotePage {
     this.#page = page;
   }
 
-  async fillHPI(): Promise<void> {
-    const hpiTextField = this.#page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes);
-    await expect(hpiTextField).toBeVisible();
-    await hpiTextField.locator('textarea').first().fill('The patient reports having a cough for 3 days.');
-  }
-
   async clickDischargeButton(): Promise<void> {
     const dischargeButton = this.#page.getByTestId(dataTestIds.progressNotePage.dischargeButton);
     await expect(dischargeButton).toBeVisible();
