@@ -7,7 +7,7 @@ dotenv.config({ path: path.resolve(__dirname, 'env/.env.local') });
 
 export default defineConfig({
   test: {
-    globals: true,
+    globals: !process.env.PLAYWRIGHT_TEST_BASE_URL, // Disable globals when Playwright is running
     exclude: ['**/*.spec.ts', '**/*.test.tsx'],
   },
   plugins: [tsconfigPaths()],
