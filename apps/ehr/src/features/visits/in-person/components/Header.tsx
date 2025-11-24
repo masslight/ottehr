@@ -17,6 +17,7 @@ import {
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
+import { Encounter } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
@@ -129,10 +130,13 @@ export const Header = (): JSX.Element => {
   const theme = useTheme();
 
   const {
-    resources: { appointment, patient, encounter: encounterValues },
+    resources: { appointment, patient, encounter: encounterValues, location: locationResource },
     mappedData,
     visitState,
     appointmentRefetch,
+    followUpOriginEncounter,
+    followupEncounters,
+    selectedEncounterId,
   } = useAppointmentData();
 
   const apiClient = useOystehrAPIClient();
@@ -144,10 +148,38 @@ export const Header = (): JSX.Element => {
 
   const { chartData } = useChartData();
   const { encounter, location } = visitState;
-  const encounterId = encounter?.id;
-  const locationName = location?.name;
-  const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start) ?? {};
-  const visitText = `Visit: ${date} ${time}${locationName ? ` | ${locationName}` : ''}`;
+  const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
+
+  const findEncounterById = (id?: string): Encounter | undefined => {
+    if (!id) return undefined;
+    const foundInFollowups = (followupEncounters || []).find((e) => e.id === id);
+    if (foundInFollowups) return foundInFollowups;
+    if (followUpOriginEncounter?.id === id) return followUpOriginEncounter;
+    return undefined;
+  };
+
+  const isMainEncounter = !effectiveEncounterId || effectiveEncounterId === followUpOriginEncounter?.id;
+
+  const currentEncounter = isMainEncounter ? followUpOriginEncounter : findEncounterById(effectiveEncounterId);
+
+  const start = isMainEncounter ? appointment?.start : currentEncounter?.period?.start;
+
+  let locationName = '';
+
+  const locationRef = currentEncounter?.location?.[0]?.location?.reference;
+  if (locationRef) {
+    const locationId = locationRef.split('/')[1];
+    const allLocations = [...(visitState?.location ? [visitState.location] : []), ...[locationResource]];
+    const matchedLocation = allLocations.find((loc) => loc?.id === locationId);
+
+    locationName = matchedLocation?.name ?? '';
+  }
+
+  locationName = locationName || location?.name || '';
+
+  const { date = '', time = '' } = formatDateToMDYWithTime(start) ?? {};
+  const visitText = `Visit: ${date} ${time}${locationName ? ` | ${locationName}` : ''}`.trim();
+
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
@@ -450,7 +482,7 @@ export const Header = (): JSX.Element => {
                       >
                         {patientName}
                       </PatientName>
-                      <PrintVisitLabelButton encounterId={encounterId} />
+                      <PrintVisitLabelButton encounterId={effectiveEncounterId} />
                       <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
                     </PatientInfoWrapper>
                     <PatientInfoWrapper>
@@ -485,7 +517,7 @@ export const Header = (): JSX.Element => {
                     nextMode={nextMode}
                   />
                 )}
-                {encounterId ? <InternalNotes /> : null}
+                {effectiveEncounterId ? <InternalNotes /> : null}
               </Grid>
             </Grid>
           </Grid>
