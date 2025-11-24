@@ -361,9 +361,12 @@ const groupLabOrderListPageDTOs = (
       orderBundles[requisitionNumber].orders.push(item);
     } else {
       const bundleName = `${item.fillerLab}${item.isPSC ? ' PSC' : ''}`;
-      orderBundles[requisitionNumber] = { bundleName, abnPdfUrl: undefined, orders: [item] };
+      orderBundles[requisitionNumber] = { bundleName, abnPdfUrl: undefined, orderPdfUrl: undefined, orders: [item] };
       if ('abnPdfUrl' in item) {
         orderBundles[requisitionNumber].abnPdfUrl = item.abnPdfUrl;
+      }
+      if ('orderPdfUrl' in item) {
+        orderBundles[requisitionNumber].orderPdfUrl = item.orderPdfUrl;
       }
     }
   };
