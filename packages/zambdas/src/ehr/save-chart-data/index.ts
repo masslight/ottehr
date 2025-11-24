@@ -669,9 +669,7 @@ async function getUserPractitioner(
     const userProfile = getUserResponse.profile;
     console.log(`User Profile: ${JSON.stringify(userProfile)}`);
     const userProfileString = userProfile.split('/');
-    console.log('userProfileString:', userProfileString);
     const practitionerId = userProfileString[1];
-    console.log('practitionerId:', practitionerId);
     return await oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
       id: practitionerId,
