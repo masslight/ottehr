@@ -1,4 +1,4 @@
-import { MeasurementUnitCode } from 'candidhealth/api/resources/serviceLines/resources/v2';
+import { MeasurementUnitCode } from 'candidhealth/dist/api/resources/serviceLines/resources/v2';
 import { DetectedIssue, Medication, MedicationAdministration, MedicationRequest } from 'fhir/r4b';
 import { CODE_SYSTEM_ACT_CODE_V3, CODE_SYSTEM_CPT, CODE_SYSTEM_HCPCS, CODE_SYSTEM_NDC } from '../helpers';
 import {
