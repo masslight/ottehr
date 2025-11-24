@@ -1,6 +1,7 @@
 import {
   Autocomplete,
   Backdrop,
+  Checkbox,
   CircularProgress,
   Divider,
   FormControl,
@@ -15,7 +16,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { Box, Stack } from '@mui/system';
+import { Box, Stack, useTheme } from '@mui/system';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import Oystehr from '@oystehr/sdk';
@@ -24,7 +25,7 @@ import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
@@ -149,6 +150,7 @@ const parseWithOther = (rawValue: string | undefined, validOptions: string[] | u
 
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { id: appointmentId, procedureId } = useParams();
   const { oystehr } = useApiClients();
   const { data: selectOptions, isLoading: isSelectOptionsLoading } = useSelectOptions(oystehr);
@@ -647,12 +649,23 @@ export default function ProceduresNew(): ReactElement {
         />
         <AccordionCard>
           <Stack spacing={2} style={{ padding: '24px' }}>
-            <Box sx={{ color: '#0F347C' }}>
-              <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
-                <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
-                  Procedure Type
-                </Typography>
-              </TooltipWrapper>
+            <Box style={{ display: 'flex', alignItems: 'center' }}>
+              <Checkbox
+                checked={state.consentObtained ?? false}
+                onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
+                disabled={isReadOnly}
+                data-testid={dataTestIds.documentProcedurePage.consentForProcedure}
+              />
+              <Typography>
+                I have obtained the{' '}
+                <Link target="_blank" to={`/consent_procedure.pdf`} style={{ color: theme.palette.primary.main }}>
+                  Consent for Procedure
+                </Link>
+              </Typography>
+            </Box>
+
+            <Box sx={{ marginTop: '16px', color: '#0F347C' }}>
+              <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>Procedure Type</Typography>
             </Box>
 
             {dropdown(
