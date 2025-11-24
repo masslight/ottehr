@@ -56,12 +56,22 @@ export default defineConfig({
   projects: [
     // { name: 'setup', testMatch: /.*\.setup\.ts/ },
     {
+      name: 'login',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: './playwright/user.json',
+      },
+      testMatch: /.*login\/login\.spec\.ts/,
+    },
+    {
       name: 'in-person-setup',
       use: {
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
       },
+      dependencies: ['login'],
       testMatch: /.*in-person\.spec\.ts/,
+      testIgnore: /.*login\/login\.spec\.ts/,
     },
     {
       name: 'chromium',
@@ -72,7 +82,7 @@ export default defineConfig({
       },
       // dependencies: ['setup'],
       dependencies: ['in-person-setup'],
-      testIgnore: /.*in-person\.spec\.ts/,
+      testIgnore: [/.*login\/login\.spec\.ts/, /.*in-person\.spec\.ts/],
     },
 
     // {
