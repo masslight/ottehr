@@ -630,7 +630,7 @@
                 "linkId": "other-preferred-language",
                 "text": "Other preferred language",
                 "type": "string",
-                "required": true,
+                "required": false,
                 "enableWhen": [
                   {
                     "question": "preferred-language",
