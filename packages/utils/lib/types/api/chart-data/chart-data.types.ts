@@ -126,7 +126,6 @@ export interface MedicalConditionDTO extends SaveableDTO {
   display?: string;
   note?: string;
   current?: boolean;
-  lastUpdated?: string;
 }
 
 export interface MedicationDTO extends SaveableDTO {
@@ -160,7 +159,6 @@ export interface AllergyDTO extends SaveableDTO {
   name?: string;
   note?: string;
   current?: boolean;
-  lastUpdated?: string;
 }
 
 export const EXAM_OBSERVATION_META_SYSTEM = 'exam-observation-field';
@@ -264,7 +262,6 @@ export type AiObservationDTO = {
 export interface CPTCodeDTO extends SaveableDTO {
   code: string;
   display: string;
-  system?: string;
 }
 
 export interface ClinicalImpressionDTO extends SaveableDTO {

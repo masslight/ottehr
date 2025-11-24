@@ -18,7 +18,6 @@ export type ProviderChartDataFieldsNames =
   | 'medical-decision'
   | 'cpt-code'
   | 'em-code'
-  | 'hcpcs-code'
   | 'patient-instruction'
   | 'diagnosis'
   | typeof SCHOOL_WORK_NOTE

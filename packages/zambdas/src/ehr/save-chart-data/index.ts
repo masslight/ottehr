@@ -362,15 +362,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // 10 convert CPT code to Procedure (FHIR) and preserve FHIR resource IDs
     cptCodes?.forEach((element) => {
-      if (element.system === 'http://www.ama-assn.org/go/cpt') {
-        saveOrUpdateRequests.push(
-          saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, element, 'cpt-code'))
-        );
-      } else if (element.system === 'https://www.cms.gov/medicare/hcpcs') {
-        saveOrUpdateRequests.push(
-          saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, element, 'hcpcs-code'))
-        );
-      }
+      saveOrUpdateRequests.push(
+        saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, element, 'cpt-code'))
+      );
     });
 
     if (emCode) {
@@ -675,7 +669,9 @@ async function getUserPractitioner(
     const userProfile = getUserResponse.profile;
     console.log(`User Profile: ${JSON.stringify(userProfile)}`);
     const userProfileString = userProfile.split('/');
+    console.log('userProfileString:', userProfileString);
     const practitionerId = userProfileString[1];
+    console.log('practitionerId:', practitionerId);
     return await oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
       id: practitionerId,

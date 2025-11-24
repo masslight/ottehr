@@ -13,7 +13,6 @@ import {
   PatientRelationshipToInsuredCodeAll,
   PreEncounterAppointmentId,
   PreEncounterPatientId,
-  ProcedureModifier,
   ServiceLineUnits,
   State,
   SubscriberCreate,
@@ -58,7 +57,6 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  CPT_SYSTEM,
   createReference,
   FHIR_IDENTIFIER_NPI,
   getAttendingPractitionerId,
@@ -67,15 +65,13 @@ import {
   getPayerId,
   getPaymentVariantFromEncounter,
   getSecret,
-  HCPCS_SYSTEM,
   INVALID_INPUT_ERROR,
-  isTelemedAppointment,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   PaymentVariant,
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, emCodeOptions } from 'utils/lib/helpers/rcm';
+import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';
@@ -270,8 +266,7 @@ const createCandidCreateEncounterInput = async (
       .filter(
         (procedure) =>
           chartDataResourceHasMetaTagByCode(procedure, 'cpt-code') ||
-          chartDataResourceHasMetaTagByCode(procedure, 'em-code') ||
-          chartDataResourceHasMetaTagByCode(procedure, 'hcpcs-code')
+          chartDataResourceHasMetaTagByCode(procedure, 'em-code')
       ),
     insuranceResources: coverage
       ? {
@@ -287,7 +282,7 @@ async function candidCreateEncounterRequest(
   input: CreateEncounterInput,
   apiClient: CandidApiClient
 ): Promise<EncounterCreate> {
-  const { encounter, patient, practitioner, diagnoses, procedures, insuranceResources, location, appointment } = input;
+  const { encounter, patient, practitioner, diagnoses, procedures, insuranceResources, location } = input;
   const patientName = assertDefined(patient.name?.[0], 'Patient name');
   const patientAddress = assertDefined(patient.address?.[0], 'Patient address');
   const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
@@ -380,25 +375,13 @@ async function candidCreateEncounterRequest(
     ),
     diagnoses: candidDiagnoses,
     serviceLines: procedures.flatMap<ServiceLineCreate>((procedure) => {
-      const codings = procedure.code?.coding ?? [];
-
-      const preferredCoding =
-        codings.find((c) => c.system === CPT_SYSTEM || c.system === HCPCS_SYSTEM) ??
-        codings.find((c) => typeof c.code === 'string');
-
-      const procedureCode = preferredCoding?.code;
-
-      if (!procedureCode) {
+      const procedureCode = procedure.code?.coding?.[0].code;
+      if (procedureCode == null) {
         return [];
       }
-
-      const isEandMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
-      const modifiers: ProcedureModifier[] = isEandMCode && isTelemedAppointment(appointment) ? ['95'] : [];
-
       return [
         {
-          procedureCode,
-          modifiers,
+          procedureCode: procedureCode,
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
           diagnosisPointers: [primaryDiagnosisIndex],
@@ -411,7 +394,6 @@ async function candidCreateEncounterRequest(
         },
       ];
     }),
-
     subscriberPrimary: createSubscriberPrimary(insuranceResources),
   };
 }
@@ -1283,39 +1265,24 @@ async function candidCreateEncounterFromAppointmentRequest(
     ),
     diagnoses: candidDiagnoses,
     serviceLines: procedures.flatMap<ServiceLineCreate>((procedure) => {
-      const codings = procedure.code?.coding ?? [];
-
-      const billableCodings: { code: string; system: string }[] = codings
-        .filter(
-          (c): c is { code: string; system: string } =>
-            typeof c.code === 'string' && (c.system === CPT_SYSTEM || c.system === HCPCS_SYSTEM)
-        )
-        .map((c) => ({ code: c.code, system: c.system }));
-
-      if (billableCodings.length === 0) {
+      const procedureCode = procedure.code?.coding?.[0].code;
+      if (procedureCode == null) {
         return [];
       }
-
-      return billableCodings.map<ServiceLineCreate>((coding) => {
-        const procedureCode = coding.code;
-
-        const isEandMCode = emCodeOptions.some((em) => em.code === procedureCode);
-        const modifiers: ProcedureModifier[] = isEandMCode && isTelemedAppointment(appointment) ? ['95'] : [];
-
-        return {
-          procedureCode,
-          modifiers,
+      return [
+        {
+          procedureCode: procedureCode,
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
           diagnosisPointers: [primaryDiagnosisIndex],
           dateOfService:
             dateOfServiceString ||
             assertDefined(
-              DateTime.fromISO(assertDefined(input.appointment.start, 'Appointment start')).toISODate(),
+              DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
               'Service line date'
             ),
-        };
-      });
+        },
+      ];
     }),
   };
 }
@@ -1327,7 +1294,3 @@ export const makeBusinessIdentifierForCandidPayment = (candidPaymentId: string):
     value: candidPaymentId,
   };
 };
-
-export function getCandidEncounterIdFromEncounter(encounter: Encounter): string | undefined {
-  return encounter.identifier?.find((idn) => idn.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM)?.value;
-}

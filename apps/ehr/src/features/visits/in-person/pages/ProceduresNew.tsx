@@ -38,10 +38,8 @@ import {
   BODY_SIDES_VALUE_SET_URL,
   BODY_SITES_VALUE_SET_URL,
   COMPLICATIONS_VALUE_SET_URL,
-  CPT_SYSTEM,
   CPTCodeDTO,
   DiagnosisDTO,
-  HCPCS_SYSTEM,
   IcdSearchResponse,
   MEDICATIONS_USED_VALUE_SET_URL,
   PATIENT_RESPONSES_VALUE_SET_URL,
@@ -432,13 +430,7 @@ export default function ProceduresNew(): ReactElement {
           onChange={(_e: unknown, data: CPTCodeDTO | null) => {
             updateState((state) => {
               if (data != null) {
-                state.cptCodes = [
-                  ...(state.cptCodes ?? []),
-                  {
-                    ...data,
-                    system: data.system ?? CPT_SYSTEM,
-                  },
-                ];
+                state.cptCodes = [...(state.cptCodes ?? []), data];
               }
             });
           }}
@@ -673,11 +665,11 @@ export default function ProceduresNew(): ReactElement {
                 const selected = selectOptions?.procedureTypes.find((procedureType) => procedureType.name === value);
 
                 const newCodes: CPTCodeDTO[] = [];
+
                 if (selected?.cpt) {
                   newCodes.push({
                     code: selected.cpt.code,
                     display: selected.cpt.display,
-                    system: selected.cpt.system ?? CPT_SYSTEM,
                   });
                 }
 
@@ -685,7 +677,6 @@ export default function ProceduresNew(): ReactElement {
                   newCodes.push({
                     code: selected.hcpcs.code,
                     display: selected.hcpcs.display,
-                    system: selected.hcpcs.system ?? HCPCS_SYSTEM,
                   });
                 }
 
@@ -932,10 +923,9 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
     queryKey: ['procedures-new-dropdown-options'],
 
     queryFn: async (): Promise<SelectOptions> => {
-      if (!oystehr) {
+      if (oystehr == null) {
         return emptySelectOptions;
       }
-
       const valueSets = (
         await oystehr.fhir.search<ValueSet>({
           resourceType: 'ValueSet',
@@ -958,7 +948,6 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
           ],
         })
       ).unbundle();
-
       return {
         procedureTypes: getProcedureTypes(valueSets),
         medicationsUsed: getValueSetValues(MEDICATIONS_USED_VALUE_SET_URL, valueSets),
@@ -972,7 +961,6 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
         timeSpent: getValueSetValues(TIME_SPENT_VALUE_SET_URL, valueSets),
       };
     },
-
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
   });
