@@ -182,6 +182,10 @@ export async function getChartData(
     addRequestIfNeeded({ field: 'chiefComplaint', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }
 
+  if (requestedFields?.historyOfPresentIllness) {
+    addRequestIfNeeded({ field: 'historyOfPresentIllness', resourceType: 'Condition', defaultSearchBy: 'encounter' });
+  }
+
   if (requestedFields?.ros) {
     addRequestIfNeeded({ field: 'ros', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }

@@ -265,6 +265,16 @@ export async function convertSearchResultsToResponse(
     getChartDataResponse.preferredPharmacies = pharmacies;
   }
 
+  const encounter = resources.find((r) => r.resourceType === 'Encounter');
+
+  if (encounter && fields?.includes('reasonForVisit')) {
+    const ext = encounter.extension?.find((e) => e.url === `reason-for-visit`);
+
+    getChartDataResponse.reasonForVisit = {
+      text: ext?.valueString ?? '',
+    };
+  }
+
   return {
     chartData: getChartDataResponse,
     chartResources: chartDataResources,

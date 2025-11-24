@@ -54,6 +54,7 @@ import {
   updateEncounterDiagnosis,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
+  updateEncounterReasonForVisit,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
@@ -84,6 +85,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const {
       encounterId,
       chiefComplaint,
+      historyOfPresentIllness,
       ros,
       conditions,
       medications,
@@ -110,6 +112,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       birthHistory,
       userToken,
       procedures,
+      reasonForVisit,
     } = validateRequestParameters(input);
 
     console.time('time');
@@ -157,6 +160,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // convert chief complaint Medical Conditions to Conditions preserve FHIR resource ID, add to encounter
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(makeConditionResource(encounterId, patient.id, chiefComplaint, 'chief-complaint'))
+      );
+    }
+
+    if (historyOfPresentIllness) {
+      // convert history of present illness Medical Conditions to Conditions preserve FHIR resource ID, add to encounter
+      saveOrUpdateRequests.push(
+        saveOrUpdateResourceRequest(
+          makeConditionResource(encounterId, patient.id, historyOfPresentIllness, 'history-of-present-illness')
+        )
       );
     }
 
@@ -482,6 +494,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // convert FreeTextNote to Condition (FHIR) resource and mention them in Encounter.extension
     if (addendumNote) {
       updateEncounterOperations.push(...updateEncounterAddendumNote(encounter, addendumNote));
+    }
+
+    // convert FreeTextNote to Encounter.extension
+    if (reasonForVisit) {
+      updateEncounterOperations.push(...updateEncounterReasonForVisit(encounter, reasonForVisit));
     }
 
     // 14 convert work-school note to pdf file, upload it to z3 bucket and create DocumentReference (FHIR) for it
