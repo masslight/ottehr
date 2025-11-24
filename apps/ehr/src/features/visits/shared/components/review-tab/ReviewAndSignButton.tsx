@@ -228,6 +228,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
                   <FormControlLabel
                     control={
                       <Checkbox
+                        data-testid={dataTestIds.progressNotePage.supervisorApprovalCheckbox}
                         checked={requireSupervisorApproval}
                         onChange={(e) => setRequireSupervisorApproval(e.target.checked)}
                       />

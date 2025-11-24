@@ -187,6 +187,10 @@ test.describe('In-person visit', async () => {
       await patientInfoPage.sideMenu().clickReviewAndSign();
       await progressNotePage.clickDischargeButton();
       await progressNotePage.clickReviewAndSignButton();
+      const supervisorCheckbox = page.getByTestId(dataTestIds.progressNotePage.supervisorApprovalCheckbox);
+      if (await supervisorCheckbox.isVisible()) {
+        await supervisorCheckbox.uncheck();
+      }
       await progressNotePage.clickSignButton();
       await patientInfoPage.inPersonHeader().verifyStatus('completed');
       await openVisitsPage(page);
