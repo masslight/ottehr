@@ -1,12 +1,12 @@
 name: Intake E2E Tests
 
 env:
-  NODE_VERSION: 22
+  NODE_VERSION: 20
   TOKEN_VALIDITY_THRESHOLD_MINUTES: 60
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
   SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
-  USER_JSON_CACHE_KEY: intake-playwright-user-${{ github.event.inputs.environment || (github.repository == 'masslight/ottehr' && 'e2e') || 'local' }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.run_number }}
-  USER_JSON_CACHE_RESTORE_KEYS: intake-playwright-user-${{ github.event.inputs.environment || (github.repository == 'masslight/ottehr' && 'e2e') || 'local' }}-
+  USER_JSON_CACHE_KEY: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.run_number }}
+  USER_JSON_CACHE_RESTORE_KEYS: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
   USER_JSON_PATH: apps/intake/playwright/user.json
 
@@ -24,38 +24,24 @@ on:
           - staging
           - demo
         default: 'local'
-  workflow_run:
-    workflows: ["Terraform apply"]
-    types:
-      - completed
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, develop, 'release/**']
   schedule:
     - cron: '0 0 * * *'
 
 jobs:
   check-changes:
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
       should-run: ${{ steps.check.outputs.should-run }}
       skip-reason: ${{ steps.check.outputs.skip-reason }}
-      environment: ${{ steps.env.outputs.environment }}
     steps:
-      - name: Determine Environment
-        id: env
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.repository }}" == "masslight/ottehr" ]; then
-            echo "environment=e2e" >> $GITHUB_OUTPUT
-          else
-            echo "environment=local" >> $GITHUB_OUTPUT
-          fi
-
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 2  # Need at least 2 commits to compare
 
       - name: Check if Intake changes are relevant
@@ -85,7 +71,7 @@ jobs:
     steps:
       - name: Try restore user.json cache
         id: cache
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ env.USER_JSON_CACHE_KEY }}
@@ -118,6 +104,7 @@ jobs:
                 item.value?.includes("expiresAt")
               )
             );
+
             if (!origin) {
               console.error("ERROR: No origin with Auth0 token found");
               process.exit(1);
@@ -175,31 +162,25 @@ jobs:
     timeout-minutes: 18 # Sometimes SMS takes ~5 minutes to deliver, and with other timeouts, all login tests can take ~9 minutes. Playwright has 2 retries for intake CI, so we need a login job timeout of 18 minutes.
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache node modules
         id: npm-cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@v4
         with:
-          path: |
-            node_modules
-            packages/*/node_modules
-            apps/*/node_modules
-            deploy/node_modules
-          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
+          path: node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-npm-cache-
+            ${{ runner.os }}-npm-
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@v4
         with:
           path: ${{ env.PLAYWRIGHT_CACHE_PATH }}
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
@@ -207,7 +188,7 @@ jobs:
             ${{ runner.os }}-playwright-         
 
       - name: Check out secrets repo
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
@@ -236,7 +217,7 @@ jobs:
 
       - name: Run login
         id: login
-        run: npm run intake:e2e:${{ needs.check-changes.outputs.environment }}:login
+        run: npm run intake:e2e:${{ github.event.inputs.environment || 'local' }}:login
         env:
           CI: true
 
@@ -247,6 +228,7 @@ jobs:
           node -e '
           const fs = require("fs");
           const path = "${{ env.USER_JSON_PATH }}";
+
           if (!fs.existsSync(path)) {
             console.log(`File ${path} does not exist`);
             process.exit(1);
@@ -269,16 +251,16 @@ jobs:
 
       - name: Save user.json to cache
         if: steps.validate.outcome == 'success'
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/save@v4
         with:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ env.USER_JSON_CACHE_KEY }}
 
       - name: Upload login test results
         if: steps.login.outcome == 'success' || steps.login.outcome == 'failure' # log on success needed for investigate false success caces, we can remove it if login will work stable
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-intake-login-${{ needs.check-changes.outputs.environment }}
+          name: playwright-report-intake-login-${{ github.event.inputs.environment || 'local' }}
           path: |
             apps/intake/playwright-report-login/
             apps/intake/test-results-login/
@@ -297,34 +279,28 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Restore node modules
         id: npm-cache-restore
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@v4
         with:
-          path: |
-            node_modules
-            packages/*/node_modules
-            apps/*/node_modules
-            deploy/node_modules
-          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
+          path: node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-npm-cache-
+            ${{ runner.os }}-npm-
 
       - name: Install dependencies
         if: steps.npm-cache-restore.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Restore Playwright browsers
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@v4
         with:
           path: ${{ env.PLAYWRIGHT_CACHE_PATH }}
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
@@ -335,7 +311,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Restore user.json cache
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ env.USER_JSON_CACHE_KEY }}
@@ -343,7 +319,7 @@ jobs:
           fail-on-cache-miss: ${{ needs.intake-login.result == 'success' }}
 
       - name: Check out secrets repo
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
@@ -365,19 +341,19 @@ jobs:
       
       - name: Run E2E tests
         run: |
-          if [ "${{ needs.check-changes.outputs.environment }}" == "local" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
+          if [ "${{ github.event.inputs.environment }}" == "local" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
             npm run intake:e2e:local:specs
           else
-            npm run intake:e2e:${{ needs.check-changes.outputs.environment }}:specs
+            npm run intake:e2e:${{ github.event.inputs.environment }}:specs
           fi
         env:
           CI: true
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-intake-${{ needs.check-changes.outputs.environment }}
+          name: playwright-report-intake-${{ github.event.inputs.environment || 'local' }}
           path: |
             apps/intake/playwright-report/
             apps/intake/test-results/
