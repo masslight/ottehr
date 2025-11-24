@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test';
 import { BOOKING_CONFIG, shouldShowServiceCategorySelectionPage } from 'utils';
-import { assert } from 'vitest';
 
 test('Should open home page and show Request a Virtual Visit button', async ({ page }) => {
   await page.goto('/home');
@@ -16,8 +15,7 @@ test('Should open Book In-Person Visit', async ({ page }) => {
 
   if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
     const availableCategories = BOOKING_CONFIG.serviceCategories || [];
-    const firstCategory = availableCategories[0];
-    assert(firstCategory.display);
+    const firstCategory = availableCategories[0]!;
 
     if (firstCategory) {
       await page.getByText(firstCategory.display).click();
