@@ -842,6 +842,24 @@ export function updateEncounterAddendumNote(encounter: Encounter, data: FreeText
   return resultOperations;
 }
 
+export function updateEncounterReasonForVisit(encounter: Encounter, data: FreeTextNoteDTO): Operation[] {
+  const reasonForVisit = encounter.extension?.find((extension) => extension.url === 'reason-for-visit');
+  const resultOperations: Operation[] = [];
+
+  if (reasonForVisit) {
+    encounter.extension?.forEach((ext, index) => {
+      if (ext.url === 'reason-for-visit') {
+        resultOperations.push(addOrReplaceOperation(ext.valueString, `/extension/${index}/valueString`, data.text));
+      }
+    });
+  } else {
+    if (!encounter.extension) resultOperations.push(addEmptyArrOperation('/extension'));
+    resultOperations.push(addOperation('/extension/-', { url: 'reason-for-visit', valueString: data.text }));
+  }
+
+  return resultOperations;
+}
+
 export function deleteEncounterDiagnosis(encounter: Encounter, conditionId: string): Operation[] {
   const resultOperations: Operation[] = [];
   if (encounter.diagnosis) {
@@ -1145,6 +1163,17 @@ const mapResourceToChartDataFields = (
   ) {
     logDuplicationWarning(data.chiefComplaint, 'chart-data duplication warning: "chiefComplaint" already exists');
     data.chiefComplaint = makeFreeTextNoteDTO(resource);
+    resourceMapped = true;
+  } else if (
+    resource?.resourceType === 'Condition' &&
+    chartDataResourceHasMetaTagByCode(resource, 'history-of-present-illness') &&
+    resourceReferencesEncounter(resource, encounterId)
+  ) {
+    logDuplicationWarning(
+      data.historyOfPresentIllness,
+      'chart-data duplication warning: "historyOfPresentIllness" already exists'
+    );
+    data.historyOfPresentIllness = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Condition' &&

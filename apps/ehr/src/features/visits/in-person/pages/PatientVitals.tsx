@@ -65,7 +65,7 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Vitals" showIntakeNotesButton={interactionMode === 'intake'} />
+      <PageTitle label="Vitals" showIntakeNotesButton={interactionMode === 'main'} />
       <VitalsTemperaturesCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}

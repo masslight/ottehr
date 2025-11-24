@@ -33,7 +33,7 @@ export const Medications: React.FC<MedicationsProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Medications" showIntakeNotesButton={interactionMode === 'intake'} />
+      <PageTitle label="Medications" showIntakeNotesButton={interactionMode === 'main'} />
 
       <AskMedicationsAlert />
       <MedicalHistoryDoubleCard

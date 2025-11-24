@@ -34,7 +34,7 @@ export const SurgicalHistory: React.FC<SurgicalHistoryProps> = () => {
     <Stack spacing={1}>
       <PageTitle
         label="Surgical History"
-        showIntakeNotesButton={interactionMode === 'intake'}
+        showIntakeNotesButton={interactionMode === 'main'}
         dataTestId={dataTestIds.surgicalHistory.surgicalHistoryTitle}
       />
       <InfoAlert text="Ask: Has the patient ever had surgery? If yes, what was the surgery?" />

@@ -20,10 +20,6 @@ export class InPersonHeader {
     await this.verifyStatus(status);
   }
 
-  async clickSwitchModeButton(status: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.inPersonHeader.switchModeButton(status)).click();
-  }
-
   async selectIntakePractitioner(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.inPersonHeader.intakePractitionerInput).click();
     await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().waitFor();

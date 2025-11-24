@@ -2068,12 +2068,12 @@ export const parseLResultsDetails = (
         compareDates(a.authoredOn, b.authoredOn)
       )[0];
       const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances)?.date || null;
-      const labGeneratedResultUrl = labGeneratedResults?.find((labDoc) => {
-        return result.id && labDoc.relatedResultReferences.includes(`DiagnosticReport/${result.id}`);
-      })?.presignedURL;
+      const labGeneratedResultUrls = labGeneratedResults
+        ?.filter((labDoc) => result.id && labDoc.relatedResultReferences.includes(`DiagnosticReport/${result.id}`))
+        .map((doc) => doc?.presignedURL);
       const resultPdfUrl = resultPDFs?.find((pdf) => pdf.diagnosticReportId === result.id)?.presignedURL || null;
       if (details) {
-        resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl, labGeneratedResultUrl });
+        resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl, labGeneratedResultUrls });
       }
     });
   });
