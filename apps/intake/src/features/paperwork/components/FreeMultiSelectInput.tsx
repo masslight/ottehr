@@ -262,7 +262,12 @@ const idForOption = (option: any): string => {
 
 const valueForOption = (option: any, valueType: 'String' | 'Reference'): any => {
   const defaultVal = valueType === 'String' ? '' : null;
-  return option?.[`value${valueType}`] ?? defaultVal;
+  const value = option?.[`value${valueType}`] ?? defaultVal;
+  if (valueType === 'Reference' && value?.type === 'other') {
+    const { type: _type, ...rest } = value;
+    return rest;
+  }
+  return value;
 };
 
 const moveOtherOptionToEnd = (options: QuestionnaireItemAnswerOption[]): QuestionnaireItemAnswerOption[] => {
