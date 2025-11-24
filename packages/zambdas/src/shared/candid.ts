@@ -58,6 +58,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  CPT_SYSTEM,
   createReference,
   FHIR_IDENTIFIER_NPI,
   getAttendingPractitionerId,
@@ -66,6 +67,7 @@ import {
   getPayerId,
   getPaymentVariantFromEncounter,
   getSecret,
+  HCPCS_SYSTEM,
   INVALID_INPUT_ERROR,
   isTelemedAppointment,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
@@ -377,14 +379,15 @@ async function candidCreateEncounterRequest(
     ),
     diagnoses: candidDiagnoses,
     serviceLines: procedures.flatMap<ServiceLineCreate>((procedure) => {
-      const procedureCode = procedure.code?.coding?.[0].code;
+      const coding = procedure.code?.coding?.find((c) => c.system === CPT_SYSTEM || c.system === HCPCS_SYSTEM);
+      const procedureCode = coding?.code;
       let modifiers: ProcedureModifier[] = [];
       if (procedureCode == null) {
         return [];
       }
 
-      const isEAndMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
-      if (isEAndMCode && isTelemedAppointment(appointment)) {
+      const isEandMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
+      if (isEandMCode && isTelemedAppointment(appointment)) {
         modifiers = ['95'];
       }
       return [
@@ -1274,14 +1277,15 @@ async function candidCreateEncounterFromAppointmentRequest(
     ),
     diagnoses: candidDiagnoses,
     serviceLines: procedures.flatMap<ServiceLineCreate>((procedure) => {
-      const procedureCode = procedure.code?.coding?.[0].code;
+      const coding = procedure.code?.coding?.find((c) => c.system === CPT_SYSTEM || c.system === HCPCS_SYSTEM);
+      const procedureCode = coding?.code;
       let modifiers: ProcedureModifier[] = [];
       if (procedureCode == null) {
         return [];
       }
 
-      const isEAndMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
-      if (isEAndMCode && isTelemedAppointment(appointment)) {
+      const isEandMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
+      if (isEandMCode && isTelemedAppointment(appointment)) {
         modifiers = ['95'];
       }
       return [

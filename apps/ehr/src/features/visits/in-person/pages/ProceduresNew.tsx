@@ -38,8 +38,10 @@ import {
   BODY_SIDES_VALUE_SET_URL,
   BODY_SITES_VALUE_SET_URL,
   COMPLICATIONS_VALUE_SET_URL,
+  CPT_SYSTEM,
   CPTCodeDTO,
   DiagnosisDTO,
+  HCPCS_SYSTEM,
   IcdSearchResponse,
   MEDICATIONS_USED_VALUE_SET_URL,
   PATIENT_RESPONSES_VALUE_SET_URL,
@@ -430,7 +432,13 @@ export default function ProceduresNew(): ReactElement {
           onChange={(_e: unknown, data: CPTCodeDTO | null) => {
             updateState((state) => {
               if (data != null) {
-                state.cptCodes = [...(state.cptCodes ?? []), data];
+                state.cptCodes = [
+                  ...(state.cptCodes ?? []),
+                  {
+                    ...data,
+                    system: data.system ?? CPT_SYSTEM,
+                  },
+                ];
               }
             });
           }}
@@ -665,11 +673,11 @@ export default function ProceduresNew(): ReactElement {
                 const selected = selectOptions?.procedureTypes.find((procedureType) => procedureType.name === value);
 
                 const newCodes: CPTCodeDTO[] = [];
-
                 if (selected?.cpt) {
                   newCodes.push({
                     code: selected.cpt.code,
                     display: selected.cpt.display,
+                    system: selected.cpt.system ?? CPT_SYSTEM,
                   });
                 }
 
@@ -677,6 +685,7 @@ export default function ProceduresNew(): ReactElement {
                   newCodes.push({
                     code: selected.hcpcs.code,
                     display: selected.hcpcs.display,
+                    system: selected.hcpcs.system ?? HCPCS_SYSTEM,
                   });
                 }
 
@@ -923,9 +932,10 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
     queryKey: ['procedures-new-dropdown-options'],
 
     queryFn: async (): Promise<SelectOptions> => {
-      if (oystehr == null) {
+      if (!oystehr) {
         return emptySelectOptions;
       }
+
       const valueSets = (
         await oystehr.fhir.search<ValueSet>({
           resourceType: 'ValueSet',
@@ -948,8 +958,46 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
           ],
         })
       ).unbundle();
+
+      // ---- HARD CODED TEST PROCEDURES ----
+      const testProcedures: ProcedureType[] = [
+        {
+          name: 'TEST PROCEDURE — CPT 12345',
+          cpt: {
+            code: '12345',
+            display: 'Test Hardcoded CPT',
+            system: CPT_SYSTEM,
+          },
+          hcpcs: undefined,
+        },
+        {
+          name: 'TEST PROCEDURE — HCPCS Q9999',
+          hcpcs: {
+            code: 'Q9999',
+            display: 'Test Hardcoded HCPCS',
+            system: HCPCS_SYSTEM,
+          },
+          cpt: undefined,
+        },
+        {
+          name: 'TEST COMBO — CPT + HCPCS',
+          cpt: {
+            code: '99214',
+            display: 'Office Visit Level 4',
+            system: CPT_SYSTEM,
+          },
+          hcpcs: {
+            code: 'Q4020',
+            display: 'Splint Application',
+            system: HCPCS_SYSTEM,
+          },
+        },
+      ];
+
+      const realProcedures = getProcedureTypes(valueSets);
+
       return {
-        procedureTypes: getProcedureTypes(valueSets),
+        procedureTypes: [...testProcedures, ...realProcedures],
         medicationsUsed: getValueSetValues(MEDICATIONS_USED_VALUE_SET_URL, valueSets),
         bodySites: getValueSetValues(BODY_SITES_VALUE_SET_URL, valueSets),
         bodySides: getValueSetValues(BODY_SIDES_VALUE_SET_URL, valueSets),
@@ -961,6 +1009,7 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
         timeSpent: getValueSetValues(TIME_SPENT_VALUE_SET_URL, valueSets),
       };
     },
+
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
   });

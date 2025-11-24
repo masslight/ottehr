@@ -264,6 +264,7 @@ export type AiObservationDTO = {
 export interface CPTCodeDTO extends SaveableDTO {
   code: string;
   display: string;
+  system?: string;
 }
 
 export interface ClinicalImpressionDTO extends SaveableDTO {
