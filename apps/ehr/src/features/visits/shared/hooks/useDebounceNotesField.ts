@@ -6,7 +6,7 @@ import { useChartFields } from './useChartFields';
 
 type ChartDataTextValueType = Pick<
   AllChartValues,
-  'chiefComplaint' | 'ros' | 'surgicalHistoryNote' | 'medicalDecision' | 'addendumNote'
+  'chiefComplaint' | 'ros' | 'surgicalHistoryNote' | 'medicalDecision' | 'addendumNote' | 'historyOfPresentIllness'
 >;
 
 const nameToTypeEnum = {
@@ -15,18 +15,21 @@ const nameToTypeEnum = {
   surgicalHistoryNote: 'text',
   medicalDecision: 'text',
   addendumNote: 'text',
+  historyOfPresentIllness: 'text',
 } as const;
 
 const mapValueToLabel: Record<keyof ChartDataTextValueType, string> = {
-  chiefComplaint: 'HPI note',
+  chiefComplaint: 'Chief complaint note',
   ros: 'ROS note',
   surgicalHistoryNote: 'Surgical history note',
   medicalDecision: 'Medical Decision Making note',
   addendumNote: 'Addendum note',
+  historyOfPresentIllness: 'HPI note',
 };
 
 const requestedFieldsOptions: Partial<Record<keyof ChartDataTextValueType, { _tag?: string }>> = {
   chiefComplaint: { _tag: 'chief-complaint' },
+  historyOfPresentIllness: { _tag: 'history-of-present-illness' },
   ros: { _tag: 'ros' },
   surgicalHistoryNote: { _tag: 'surgical-history-note' },
   medicalDecision: { _tag: 'medical-decision' },
