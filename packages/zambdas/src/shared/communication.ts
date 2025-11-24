@@ -297,7 +297,7 @@ export async function sendEmail(
     to: email,
     from: {
       email: SENDGRID_FROM_EMAIL,
-      name: `${APP_NAME} In Person`,
+      name: `${APP_NAME}`,
     },
     subject,
     ...(SENDGRID_EMAIL_BCC.length ? { bcc: SENDGRID_EMAIL_BCC } : {}),
