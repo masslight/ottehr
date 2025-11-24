@@ -355,6 +355,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
     insuranceOrgs,
     emergencyContactResource,
     pharmacy,
+    employerOrganization,
   } = input;
   console.log('making prepopulated items from patient record', coverages, pharmacy);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
@@ -391,6 +392,12 @@ export const makePrepopulatedItemsFromPatientRecord = (
         return mapPharmacyToQuestionnaireResponseItems({
           items: itemItems,
           pharmacyResource: pharmacy,
+        });
+      }
+      if (EMPLOYER_ITEMS.includes(item.linkId)) {
+        return mapEmployerToQuestionnaireResponseItems({
+          items: itemItems,
+          employerOrganization,
         });
       }
       return [];

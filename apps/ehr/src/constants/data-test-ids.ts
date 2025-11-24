@@ -163,6 +163,21 @@ export const dataTestIds = {
     state: 'responsible-party-information-container-state',
     zip: 'responsible-party-information-container-zip',
   },
+  employerInformationContainer: {
+    id: 'employer-information-container',
+    employerName: 'employer-information-container-name',
+    addressLine1: 'employer-information-container-address-line1',
+    addressLine2: 'employer-information-container-address-line2',
+    city: 'employer-information-container-city',
+    state: 'employer-information-container-state',
+    zip: 'employer-information-container-zip',
+    contactFirstName: 'employer-information-container-contact-first-name',
+    contactLastName: 'employer-information-container-contact-last-name',
+    contactTitle: 'employer-information-container-contact-title',
+    contactEmail: 'employer-information-container-contact-email',
+    contactPhone: 'employer-information-container-contact-phone',
+    contactFax: 'employer-information-container-contact-fax',
+  },
 
   userSettingsContainer: {
     releaseOfInfoDropdown: 'release-of-info-dropdown',
