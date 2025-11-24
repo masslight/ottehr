@@ -41,7 +41,7 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
 
   // todo later, this function is pretty much duplicated from /external-labs/pages/UnsolicitedResultsMatch.tsx
   // we should deduplicate
-  const handleReject = (): void => {
+  const handleRejectUnsolicitedResult = (): void => {
     if (taskId) {
       cancelTask(
         {
@@ -50,10 +50,10 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
         },
         {
           onSuccess: async () => {
-            await queryClient.invalidateQueries({
-              queryKey: [GET_TASKS_KEY],
-              exact: false,
-            });
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false }),
+              queryClient.invalidateQueries({ queryKey: ['get unsolicited results resources'], exact: false }),
+            ]);
             navigate('/tasks');
           },
           onError: (error) => {
@@ -152,7 +152,7 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
                 }}
                 color="error"
                 size={'medium'}
-                onClick={handleReject}
+                onClick={handleRejectUnsolicitedResult}
               >
                 Reject
               </LoadingButton>

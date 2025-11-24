@@ -562,6 +562,7 @@ export const FormFields = {
     genderIdentity: { key: 'patient-gender-identity' },
     genderIdentityDetails: { key: 'patient-gender-identity-details' },
     language: { key: 'preferred-language' },
+    otherLanguage: { key: 'other-preferred-language' },
     pointOfDiscovery: { key: 'patient-point-of-discovery' },
     sendMarketing: { key: 'mobile-opt-in' },
     commonWellConsent: { key: 'common-well-consent' },
