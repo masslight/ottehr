@@ -2,6 +2,7 @@ import { DeleteOutlined as DeleteIcon, EditOutlined as EditIcon } from '@mui/ico
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { EditableNote, NoteLocales } from '../types';
 import { DeleteNoteModal } from './DeleteNoteModal';
 import { EditNoteModal } from './EditNoteModal';
@@ -33,7 +34,9 @@ export const NoteEntity: React.FC<{
     <>
       <BoxStyled>
         <Box sx={{ py: 1, pr: 4 }}>
-          <Typography variant="body1">{entity.text}</Typography>
+          <Typography variant="body1" data-testid={dataTestIds.screeningPage.screeningNoteItem}>
+            {entity.text}
+          </Typography>
           <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
             {entity.lastUpdated ? DateTime.fromISO(entity.lastUpdated).toFormat('MM/dd/yyyy HH:mm a') : ''} by{' '}
             {entity.authorName || entity.authorId}

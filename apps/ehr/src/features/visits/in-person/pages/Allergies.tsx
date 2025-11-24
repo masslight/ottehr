@@ -34,7 +34,7 @@ export const Allergies: React.FC<AllergiesProps> = () => {
       <PageTitle
         dataTestId={dataTestIds.allergies.allergiesPageTitle}
         label="Allergies"
-        showIntakeNotesButton={interactionMode === 'intake'}
+        showIntakeNotesButton={interactionMode === 'main'}
       />
       <InfoAlert text="Ask: Does the patient have any known allergies to medications, latex, or food?" />
       <MedicalHistoryDoubleCard
