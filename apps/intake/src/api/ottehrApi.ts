@@ -21,7 +21,6 @@ import {
   GetSlotDetailsResponse,
   HandleAnswerInput,
   isApiError,
-  isoStringFromMDYString,
   PatchPaperworkParameters,
   PatientInfo,
   PersistConsentInput,
@@ -99,8 +98,7 @@ class API {
         throw new Error('create appointment environment variable could not be loaded');
       }
 
-      const fhirParams = fhirifyAppointmentInputs({ ...parameters });
-      const response = await zambdaClient.execute(CREATE_APPOINTMENT_ZAMBDA_ID, fhirParams);
+      const response = await zambdaClient.execute(CREATE_APPOINTMENT_ZAMBDA_ID, parameters);
 
       const jsonToUse = chooseJson(response);
       return jsonToUse;
@@ -464,18 +462,3 @@ class API {
 const api = new API();
 
 export default api;
-
-const fhirifyAppointmentInputs = (inputs: CreateAppointmentInputParams): CreateAppointmentInputParams => {
-  const returnParams = { ...inputs };
-
-  const { patient } = returnParams;
-
-  const { dateOfBirth: patientBirthDate } = patient as PatientInfo;
-  if (patient) {
-    patient.dateOfBirth = isoStringFromMDYString(patientBirthDate ?? '');
-  }
-
-  returnParams.patient = patient;
-
-  return returnParams;
-};

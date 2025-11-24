@@ -55,17 +55,17 @@ export class FillingInfo {
     const lastName = `TM-UserLN${this.getRandomString()}`;
     // cspell:disable-next dvoschuk
     const email = `dvoshchuk+${firstName}@masslight.com`;
-    await this.page.getByPlaceholder('First name').click();
-    await this.page.getByPlaceholder('First name').fill(firstName);
-    await this.page.getByPlaceholder('Last name').click();
-    await this.page.getByPlaceholder('Last name').fill(lastName);
+    await this.page.locator('#patient-first-name').click();
+    await this.page.locator('#patient-first-name').fill(firstName);
+    await this.page.locator('#patient-last-name').click();
+    await this.page.locator('#patient-last-name').fill(lastName);
 
-    await this.page.locator('#sex').click();
+    await this.page.locator('#patient-sex').click();
     const birthSex = this.getRandomElement(this.birthSexes);
     await this.page.getByRole('option', { name: birthSex, exact: true }).click();
 
-    await this.page.getByPlaceholder('example@mail.com').click();
-    await this.page.getByPlaceholder('example@mail.com').fill(email);
+    await this.page.locator('#patient-email').click();
+    await this.page.locator('#patient-email').fill(email);
 
     const thisEmailBelongsTo = this.getRandomElement(this.thisEmailBelongsTo);
 
@@ -97,15 +97,14 @@ export class FillingInfo {
     const randomDay = this.getRandomInt(1, 28).toString();
     const randomYear = this.getRandomInt(YearMin, YearMax).toString();
 
-    await this.page.getByRole('combobox').nth(0).click();
-    await this.page.getByRole('option', { name: randomMonth }).click();
+    // Convert month name to numeric format (01-12)
+    const monthIndex = this.months.indexOf(randomMonth) + 1;
+    const numericMonth = monthIndex.toString().padStart(2, '0');
+    const paddedDay = randomDay.padStart(2, '0');
 
-    await this.page.getByRole('combobox').nth(1).click();
-    await this.page.getByRole('option', { name: randomDay, exact: true }).click();
+    const dateString = `${numericMonth}/${paddedDay}/${randomYear}`;
 
-    await this.page.getByRole('combobox').nth(2).click();
-    await this.page.getByRole('option', { name: randomYear }).click();
-
+    await this.page.getByPlaceholder('MM/DD/YYYY').fill(dateString);
     return { randomMonth, randomDay, randomYear };
   }
 
@@ -116,15 +115,15 @@ export class FillingInfo {
     const randomMonth = this.getRandomElement(this.months);
     const randomDay = this.getRandomInt(1, 28).toString();
     const randomYear = this.getRandomInt(YearMin, YearMax).toString();
-    await this.page.getByRole('combobox').nth(0).click();
-    await expect(this.page.getByRole('option', { name: randomMonth })).toBeVisible();
-    await this.page.getByRole('option', { name: randomMonth }).click();
-    await this.page.getByRole('combobox').nth(1).click();
-    await expect(this.page.getByRole('option', { name: randomDay, exact: true })).toBeVisible();
-    await this.page.getByRole('option', { name: randomDay, exact: true }).click();
-    await this.page.getByRole('combobox').nth(2).click();
-    await expect(this.page.getByRole('option', { name: randomYear })).toBeVisible();
-    await this.page.getByRole('option', { name: randomYear }).click();
+
+    // Convert month name to numeric format (01-12)
+    const monthIndex = this.months.indexOf(randomMonth) + 1;
+    const numericMonth = monthIndex.toString().padStart(2, '0');
+    const paddedDay = randomDay.padStart(2, '0');
+
+    const dateString = `${numericMonth}/${paddedDay}/${randomYear}`;
+
+    await this.page.getByPlaceholder('MM/DD/YYYY').fill(dateString);
 
     return { randomMonth, randomDay, randomYear };
   }
@@ -318,7 +317,7 @@ export class FillingInfo {
     assert(firstCategory.display);
 
     if (firstCategory) {
-      await this.page.getByRole('option', { name: firstCategory.display }).click();
+      await this.page.getByText(firstCategory.display).click();
     }
   }
 }

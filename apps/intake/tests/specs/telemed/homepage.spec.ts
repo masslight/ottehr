@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { BOOKING_CONFIG, shouldShowServiceCategorySelectionPage } from 'utils';
+import { assert } from 'vitest';
 
 test('Should open home page and show Request a Virtual Visit button', async ({ page }) => {
   await page.goto('/home');
@@ -11,6 +13,17 @@ test('Should open home page and show Request a Virtual Visit button', async ({ p
 test('Should open Book In-Person Visit', async ({ page }) => {
   await page.goto('/home');
   await page.getByRole('button', { name: 'Schedule an In-Person Visit' }).click();
+
+  if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
+    const availableCategories = BOOKING_CONFIG.serviceCategories || [];
+    const firstCategory = availableCategories[0];
+    assert(firstCategory.display);
+
+    if (firstCategory) {
+      await page.getByText(firstCategory.display).click();
+    }
+  }
+
   await expect(page.getByRole('heading', { name: 'Book a visit', level: 2 })).toBeVisible({
     timeout: 15000,
   });

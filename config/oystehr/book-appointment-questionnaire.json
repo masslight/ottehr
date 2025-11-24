@@ -143,16 +143,55 @@
                 "required": true,
                 "answerOption": [
                   {
-                    "valueString": "Annual Exam / Physical"
+                    "valueString": "Cough and/or congestion"
                   },
                   {
-                    "valueString": "New Patient Visit"
+                    "valueString": "Throat pain"
                   },
                   {
-                    "valueString": "Follow-up Visit"
+                    "valueString": "Eye concern"
                   },
                   {
-                    "valueString": "Consultation"
+                    "valueString": "Vomiting and/or diarrhea"
+                  },
+                  {
+                    "valueString": "Abdominal (belly) pain"
+                  },
+                  {
+                    "valueString": "Rash or skin issue"
+                  },
+                  {
+                    "valueString": "Urinary problem"
+                  },
+                  {
+                    "valueString": "Breathing problem"
+                  },
+                  {
+                    "valueString": "Injury to arm"
+                  },
+                  {
+                    "valueString": "Injury to leg"
+                  },
+                  {
+                    "valueString": "Injury to head"
+                  },
+                  {
+                    "valueString": "Injury (Other)"
+                  },
+                  {
+                    "valueString": "Cut to arm or leg"
+                  },
+                  {
+                    "valueString": "Cut to face or head"
+                  },
+                  {
+                    "valueString": "Removal of sutures/stitches/staples"
+                  },
+                  {
+                    "valueString": "Choked or swallowed something"
+                  },
+                  {
+                    "valueString": "Allergic reaction to medication or food"
                   },
                   {
                     "valueString": "Other"

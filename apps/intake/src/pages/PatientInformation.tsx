@@ -51,7 +51,7 @@ export const PatientInfoCollection: FC = () => {
       const response = await api.getQuestionnaire(
         {
           slotId: slotId,
-          patientId: patientInfo?.id,
+          patientId: patientInfo?.id === 'new-patient' ? undefined : patientInfo?.id,
         },
         zambdaClient
       );
@@ -207,6 +207,7 @@ const PatientInformation = (): JSX.Element => {
         });
       } else {
         // merging form fields and the patientInfo state
+        console.log('No duplicate found, proceeding with patient info:', postedPatientInfo);
         const payload: PatientInfo = {
           ...patientInfo,
           ...postedPatientInfo,

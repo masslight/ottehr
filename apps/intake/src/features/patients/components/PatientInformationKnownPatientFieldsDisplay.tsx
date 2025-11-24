@@ -17,6 +17,7 @@ export const PatientInformationKnownPatientFieldsDisplay = ({
   selectPatientPageUrl: string;
 }): JSX.Element => {
   const patientFullName = useGetFullName(patientInfo);
+  console.log('date to format:', unconfirmedDateOfBirth ?? patientInfo.dateOfBirth);
   const formattedBirthday = DateTime.fromFormat(
     yupDateTransform(unconfirmedDateOfBirth ?? patientInfo.dateOfBirth),
     'yyyy-MM-dd'

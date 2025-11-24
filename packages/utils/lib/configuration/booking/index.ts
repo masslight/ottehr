@@ -17,28 +17,14 @@ import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, OTTEHR_CODE_S
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../../helpers';
 import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../../types';
 
-const REASON_FOR_VISIT_OPTIONS = Object.freeze([
-  'Cough and/or congestion',
-  'Throat pain',
-  'Eye concern',
-  'Fever',
-  'Ear pain',
-  'Vomiting and/or diarrhea',
-  'Abdominal (belly) pain',
-  'Rash or skin issue',
-  'Urinary problem',
-  'Breathing problem',
-  'Injury to arm',
-  'Injury to leg',
-  'Injury to head',
-  'Injury (Other)',
-  'Cut to arm or leg',
-  'Cut to face or head',
-  'Removal of sutures/stitches/staples',
-  'Choked or swallowed something',
-  'Allergic reaction to medication or food',
-  'Other',
-]);
+const BookingQuestionnaire = Object.values(bookAppointmentQuestionnaireJson.fhirResources)![0]
+  .resource as Questionnaire;
+
+const REASON_FOR_VISIT_OPTIONS = Object.freeze(
+  BookingQuestionnaire.item![0].item!.find(
+    (item: QuestionnaireItem) => item.linkId === 'reason-for-visit'
+  )!.answerOption?.map((option: any) => option.valueString) ?? []
+);
 
 export const intakeQuestionnaires: Readonly<Array<Questionnaire>> = (() => {
   const inPersonQ = Object.values(inPersonIntakeQuestionnaireJson.fhirResources).find(
@@ -217,7 +203,7 @@ const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): Pat
       case 'patient-last-name':
         patientInfo.lastName = pickFirstValueFromAnswerItem(item, 'string');
         break;
-      case 'patient-date-of-birth':
+      case 'patient-birthdate':
         patientInfo.dateOfBirth = pickFirstValueFromAnswerItem(item, 'string');
         break;
       case 'authorized-non-legal-guardian':
