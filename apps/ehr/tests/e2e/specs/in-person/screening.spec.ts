@@ -43,7 +43,7 @@ test.describe('Screening Page mutating tests', () => {
     await resourceHandler.cleanupResources();
   });
 
-  test('Screening Hapy path', async ({ page }) => {
+  test('Screening Happy path', async ({ page }) => {
     let screeningPage = await test.step('Fill screening info', async () => {
       const progressNotePage = await expectInPersonProgressNotePage(page);
       const screeningPage = await progressNotePage.sideMenu().clickScreening();
