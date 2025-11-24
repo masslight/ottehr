@@ -1,5 +1,4 @@
 import { expect, Page } from '@playwright/test';
-import { ADDITIONAL_QUESTIONS } from 'src/constants';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { SideMenu } from '../SideMenu';
 
@@ -34,21 +33,11 @@ export class ScreeningPage {
   async selectRadioAnswer(question: string, answer: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.screeningPage.askPatientQuestion)
+      .or(this.#page.locator(`[data-testid^="${dataTestIds.telemedEhrFlow.hpiAdditionalQuestions('')}"]`))
       .filter({ hasText: question })
       .locator('label')
       .getByText(answer, { exact: true })
       .click();
-  }
-
-  async answerAllAdditionalQuestions(answer: string): Promise<void> {
-    for (const question of ADDITIONAL_QUESTIONS) {
-      const questionRadioLocator = this.#page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiAdditionalQuestions(question.field))
-        .locator('label')
-        .filter({ hasText: answer });
-      await questionRadioLocator.click();
-      await expect(questionRadioLocator).toBeEnabled();
-    }
   }
 
   async enterVaccinationNote(note: string): Promise<void> {
