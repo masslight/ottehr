@@ -50,15 +50,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const now = DateTime.now();
 
-    const clientOrgId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
-
     console.log('getting resources needed for submit lab');
     const bundledOrdersByOrderNumber = await getBundledOrderResources(
       oystehr,
       m2mToken,
       serviceRequestIDs,
-      manualOrder,
-      clientOrgId
+      manualOrder
     );
     console.log('successfully retrieved resources');
 

@@ -80,7 +80,7 @@ export const ChangeStatusDropdown = ({
       return;
     }
 
-    const encounterStatus = getInPersonVisitStatus(appointment, encounter);
+    const encounterStatus = getInPersonVisitStatus(appointment, encounter, FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED);
 
     if (encounterStatus === 'unknown') {
       console.warn('Encounter status is unknown, so not setting a status');
