@@ -280,6 +280,7 @@ export type GetAppointmentsRequestParams = Pick<
   | 'usStatesFilter'
   | 'providersFilter'
   | 'dateFilter'
+  | 'timeZone'
   | 'groupsFilter'
   | 'patientFilter'
   | 'statusesFilter'

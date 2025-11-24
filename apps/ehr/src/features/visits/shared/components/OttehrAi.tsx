@@ -1,4 +1,4 @@
-import { ottehrAiIcon } from '@ehrTheme/icons';
+import { aiIcon } from '@ehrTheme/icons';
 import { Box, Container, Stack, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, Practitioner } from 'fhir/r4b';
@@ -137,7 +137,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
                 alignItems: 'center',
               }}
             >
-              <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
+              <img src={aiIcon} style={{ width: '30px', marginRight: '8px' }} />
               <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
                 OYSTEHR AI SUGGESTIONS
               </Typography>

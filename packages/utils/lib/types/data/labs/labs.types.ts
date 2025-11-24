@@ -106,7 +106,7 @@ export type LabOrderResultDetails = {
   reviewedDate: string | null;
   resultPdfUrl: string | null;
   alternatePlacerId: string | undefined; // DR.identifier (system ==== OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM)
-  labGeneratedResultUrl?: string; // todo labs team this needs to be an array
+  labGeneratedResultUrls?: string[];
 };
 
 export type QuestionnaireData = {

@@ -6,7 +6,8 @@ export const formatLabelValue = (
   keepPlaceholderIfValueFulfilled = false,
   emptyValuePlaceholder = 'N/A'
 ): string => {
-  const prefix = !value || (keepPlaceholderIfValueFulfilled && value) ? `${placeholder}: ` : '';
+  const shouldAddPrefix = !!placeholder && (!value || (keepPlaceholderIfValueFulfilled && value));
+  const prefix = shouldAddPrefix ? `${placeholder}: ` : '';
   return prefix + (value || emptyValuePlaceholder);
 };
 

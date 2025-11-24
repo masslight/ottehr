@@ -17,10 +17,16 @@ export class PatientInfoPage {
   sideMenu(): SideMenu {
     return new SideMenu(this.#page);
   }
+
+  async fillHPI(): Promise<void> {
+    const hpiTextField = this.#page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes);
+    await expect(hpiTextField).toBeVisible();
+    await hpiTextField.locator('textarea').first().fill('The patient reports having a cough for 3 days.');
+  }
 }
 
-export async function expectPatientInfoPage(appointmentId: string, page: Page): Promise<PatientInfoPage> {
-  await page.waitForURL(new RegExp(`/in-person/${appointmentId}/patient-info`), { timeout: 10000 });
+export async function expectPatientInfoPage(page: Page): Promise<PatientInfoPage> {
+  await page.waitForURL(new RegExp(`/in-person/.*/cc-and-intake-notes`), { timeout: 10000 });
   await expect(
     page.getByTestId(dataTestIds.patientInfoPage.patientInfoVerifiedCheckbox).locator('input')
   ).toBeEnabled();

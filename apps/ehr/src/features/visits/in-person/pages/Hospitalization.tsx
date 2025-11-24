@@ -35,7 +35,7 @@ export const Hospitalization: React.FC<HospitalizationProps> = () => {
       <PageTitle
         dataTestId={dataTestIds.hospitalizationPage.hospitalizationTitle}
         label="Hospitalization"
-        showIntakeNotesButton={interactionMode === 'intake'}
+        showIntakeNotesButton={interactionMode === 'main'}
       />
       <InfoAlert text="Ask: Has the patient had any prior overnight hospital stays or hospital admissions?" />
       <MedicalHistoryDoubleCard

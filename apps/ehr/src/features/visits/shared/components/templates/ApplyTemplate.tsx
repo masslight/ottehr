@@ -123,7 +123,7 @@ export const ApplyTemplate: React.FC = () => {
         renderInput={(params) => (
           <TextField
             {...params}
-            label="Select Template"
+            label="Select condition"
             placeholder={isLoadingTemplates ? 'Loading templates...' : 'Search templates...'}
           />
         )}
