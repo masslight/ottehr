@@ -270,7 +270,8 @@ const createCandidCreateEncounterInput = async (
       .filter(
         (procedure) =>
           chartDataResourceHasMetaTagByCode(procedure, 'cpt-code') ||
-          chartDataResourceHasMetaTagByCode(procedure, 'em-code')
+          chartDataResourceHasMetaTagByCode(procedure, 'em-code') ||
+          chartDataResourceHasMetaTagByCode(procedure, 'hcpcs-code')
       ),
     insuranceResources: coverage
       ? {
@@ -1277,20 +1278,27 @@ async function candidCreateEncounterFromAppointmentRequest(
     ),
     diagnoses: candidDiagnoses,
     serviceLines: procedures.flatMap<ServiceLineCreate>((procedure) => {
-      const coding = procedure.code?.coding?.find((c) => c.system === CPT_SYSTEM || c.system === HCPCS_SYSTEM);
-      const procedureCode = coding?.code;
-      let modifiers: ProcedureModifier[] = [];
-      if (procedureCode == null) {
+      const codings = procedure.code?.coding ?? [];
+
+      const billableCodings: { code: string; system: string }[] = codings
+        .filter(
+          (c): c is { code: string; system: string } =>
+            typeof c.code === 'string' && (c.system === CPT_SYSTEM || c.system === HCPCS_SYSTEM)
+        )
+        .map((c) => ({ code: c.code, system: c.system }));
+
+      if (billableCodings.length === 0) {
         return [];
       }
 
-      const isEandMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
-      if (isEandMCode && isTelemedAppointment(appointment)) {
-        modifiers = ['95'];
-      }
-      return [
-        {
-          procedureCode: procedureCode,
+      return billableCodings.map<ServiceLineCreate>((coding) => {
+        const procedureCode = coding.code;
+
+        const isEandMCode = emCodeOptions.some((em) => em.code === procedureCode);
+        const modifiers: ProcedureModifier[] = isEandMCode && isTelemedAppointment(appointment) ? ['95'] : [];
+
+        return {
+          procedureCode,
           modifiers,
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
@@ -1298,11 +1306,11 @@ async function candidCreateEncounterFromAppointmentRequest(
           dateOfService:
             dateOfServiceString ||
             assertDefined(
-              DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
+              DateTime.fromISO(assertDefined(input.appointment.start, 'Appointment start')).toISODate(),
               'Service line date'
             ),
-        },
-      ];
+        };
+      });
     }),
   };
 }

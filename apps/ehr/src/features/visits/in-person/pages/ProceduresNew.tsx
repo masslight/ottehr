@@ -959,45 +959,8 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
         })
       ).unbundle();
 
-      // ---- HARD CODED TEST PROCEDURES ----
-      const testProcedures: ProcedureType[] = [
-        {
-          name: 'TEST PROCEDURE — CPT 12345',
-          cpt: {
-            code: '12345',
-            display: 'Test Hardcoded CPT',
-            system: CPT_SYSTEM,
-          },
-          hcpcs: undefined,
-        },
-        {
-          name: 'TEST PROCEDURE — HCPCS Q9999',
-          hcpcs: {
-            code: 'Q9999',
-            display: 'Test Hardcoded HCPCS',
-            system: HCPCS_SYSTEM,
-          },
-          cpt: undefined,
-        },
-        {
-          name: 'TEST COMBO — CPT + HCPCS',
-          cpt: {
-            code: '99214',
-            display: 'Office Visit Level 4',
-            system: CPT_SYSTEM,
-          },
-          hcpcs: {
-            code: 'Q4020',
-            display: 'Splint Application',
-            system: HCPCS_SYSTEM,
-          },
-        },
-      ];
-
-      const realProcedures = getProcedureTypes(valueSets);
-
       return {
-        procedureTypes: [...testProcedures, ...realProcedures],
+        procedureTypes: getProcedureTypes(valueSets),
         medicationsUsed: getValueSetValues(MEDICATIONS_USED_VALUE_SET_URL, valueSets),
         bodySites: getValueSetValues(BODY_SITES_VALUE_SET_URL, valueSets),
         bodySides: getValueSetValues(BODY_SIDES_VALUE_SET_URL, valueSets),

@@ -362,9 +362,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // 10 convert CPT code to Procedure (FHIR) and preserve FHIR resource IDs
     cptCodes?.forEach((element) => {
-      saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, element, 'cpt-code'))
-      );
+      if (element.system === 'http://www.ama-assn.org/go/cpt') {
+        saveOrUpdateRequests.push(
+          saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, element, 'cpt-code'))
+        );
+      } else if (element.system === 'https://www.cms.gov/medicare/hcpcs') {
+        saveOrUpdateRequests.push(
+          saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, element, 'hcpcs-code'))
+        );
+      }
     });
 
     if (emCode) {
