@@ -66,6 +66,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     NLM_API_KEY,
     FHIR_API,
     PROJECT_API,
+    ENVIRONMENT,
   } = secrets;
   if (
     !ADVAPACS_CLIENT_ID ||
@@ -76,7 +77,8 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     !AUTH0_AUDIENCE ||
     !NLM_API_KEY ||
     !FHIR_API ||
-    !PROJECT_API
+    !PROJECT_API ||
+    !ENVIRONMENT
   ) {
     throw new Error('Missing required secrets');
   }
@@ -90,6 +92,7 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     NLM_API_KEY,
     FHIR_API,
     PROJECT_API,
+    ENVIRONMENT,
   };
 };
 

@@ -26,7 +26,7 @@ export const BottomNavigation = (): JSX.Element => {
   } = useInPersonNavigationContext();
 
   const practitionerTypeFromMode =
-    interactionMode === 'intake' ? PRACTITIONER_CODINGS.Admitter : PRACTITIONER_CODINGS.Attender;
+    interactionMode === 'main' ? PRACTITIONER_CODINGS.Admitter : PRACTITIONER_CODINGS.Attender;
 
   const { isEncounterUpdatePending } = usePractitionerActions(encounter, 'end', practitionerTypeFromMode);
   const [nextButtonLoading, setNextButtonLoading] = React.useState<boolean>(false);
@@ -86,7 +86,7 @@ export const BottomNavigation = (): JSX.Element => {
           Back
         </Button>
         <LoadingButton
-          disabled={isNavigationDisabled || isEncounterUpdatePending || (isLastPage && interactionMode === 'provider')}
+          disabled={isNavigationDisabled || isEncounterUpdatePending || (isLastPage && interactionMode === 'main')}
           loading={nextButtonLoading}
           endIcon={<ArrowForwardIcon sx={{ width: '32px', height: '32px' }} />}
           onClick={handleNextPage}

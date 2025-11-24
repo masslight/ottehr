@@ -21,13 +21,13 @@ export class InPersonProgressNotePage extends BaseProgressNotePage {
   }
 
   async expectLoaded(): Promise<void> {
-    await this.#page.waitForURL(new RegExp('/in-person/.*/progress-note'));
+    await this.#page.waitForURL(new RegExp('/in-person/.*/review-and-sign'));
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
   }
 }
 
 export async function expectInPersonProgressNotePage(page: Page): Promise<InPersonProgressNotePage> {
-  await page.waitForURL(new RegExp('/in-person/.*/progress-note'));
+  await page.waitForURL(new RegExp('/in-person/.*/review-and-sign'));
   return new InPersonProgressNotePage(page);
 }
 
@@ -35,6 +35,6 @@ export async function openInPersonProgressNotePage(
   appointmentId: string,
   page: Page
 ): Promise<InPersonProgressNotePage> {
-  await page.goto(`/in-person/${appointmentId}/progress-note`);
+  await page.goto(`/in-person/${appointmentId}/review-and-sign`);
   return expectInPersonProgressNotePage(page);
 }

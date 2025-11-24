@@ -30,3 +30,10 @@ export async function checkDropdownHasOptionAndSelectIt(
 export async function getDropdownOption(page: Page, pattern: string): Promise<Locator> {
   return page.locator('[role="option"]', { hasText: new RegExp(pattern, 'i') }).first();
 }
+
+export async function hideTooltip(page: Page, timeout = 2000): Promise<void> {
+  await page.mouse.move(0, 0);
+
+  const tooltip = page.locator('[role="tooltip"]');
+  await expect(tooltip).toHaveCount(0, { timeout });
+}

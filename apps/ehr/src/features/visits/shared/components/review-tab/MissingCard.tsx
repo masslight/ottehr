@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getAssessmentUrl } from 'src/features/visits/in-person/routing/helpers';
+import { getAssessmentUrl, getHpiUrl } from 'src/features/visits/in-person/routing/helpers';
 import { TelemedAppointmentVisitTabs } from 'utils';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAppointmentData, useAppTelemedLocalStore, useChartData } from '../../stores/appointment/appointment.store';
@@ -36,25 +36,25 @@ export const MissingCard: FC = () => {
     return null;
   }
 
-  const navigateToTab = (): void => {
+  const navigateTo = (target: 'hpi' | 'assessment'): void => {
     if (isInPerson) {
+      const inPersonRoutes: Record<'hpi' | 'assessment', string> = {
+        hpi: getHpiUrl(appointment?.id || ''),
+        assessment: getAssessmentUrl(appointment?.id || ''),
+      };
+
       requestAnimationFrame(() => {
-        navigate(getAssessmentUrl(appointment?.id || ''));
+        navigate(inPersonRoutes[target]);
       });
     } else {
-      useAppTelemedLocalStore.setState({ currentTab: TelemedAppointmentVisitTabs.assessment });
-    }
-  };
+      const telemedTabs: Record<'hpi' | 'assessment', TelemedAppointmentVisitTabs> = {
+        hpi: TelemedAppointmentVisitTabs.hpi,
+        assessment: TelemedAppointmentVisitTabs.assessment,
+      };
 
-  const scrollOrNavigateToHPI = (): void => {
-    if (isInPerson) {
-      const headings = Array.from(document.querySelectorAll('h6'));
-      const hpiHeading = headings.find((heading) => heading.textContent === 'Chief Complaint & HPI');
-      if (hpiHeading) {
-        hpiHeading.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    } else {
-      useAppTelemedLocalStore.setState({ currentTab: TelemedAppointmentVisitTabs.hpi });
+      useAppTelemedLocalStore.setState({
+        currentTab: telemedTabs[target],
+      });
     }
   };
 
@@ -71,7 +71,7 @@ export const MissingCard: FC = () => {
             <Link
               sx={{ cursor: 'pointer' }}
               color="error"
-              onClick={scrollOrNavigateToHPI}
+              onClick={() => navigateTo('hpi')}
               data-testid={dataTestIds.progressNotePage.hpiLink}
             >
               HPI
@@ -81,7 +81,7 @@ export const MissingCard: FC = () => {
             <Link
               sx={{ cursor: 'pointer' }}
               color="error"
-              onClick={navigateToTab}
+              onClick={() => navigateTo('assessment')}
               data-testid={dataTestIds.progressNotePage.primaryDiagnosisLink}
             >
               Primary diagnosis
@@ -91,7 +91,7 @@ export const MissingCard: FC = () => {
             <Link
               sx={{ cursor: 'pointer' }}
               color="error"
-              onClick={navigateToTab}
+              onClick={() => navigateTo('assessment')}
               data-testid={dataTestIds.progressNotePage.medicalDecisionLink}
             >
               Medical decision making
@@ -101,7 +101,7 @@ export const MissingCard: FC = () => {
             <Link
               sx={{ cursor: 'pointer' }}
               color="error"
-              onClick={navigateToTab}
+              onClick={() => navigateTo('assessment')}
               data-testid={dataTestIds.progressNotePage.emCodeLink}
             >
               E&M code

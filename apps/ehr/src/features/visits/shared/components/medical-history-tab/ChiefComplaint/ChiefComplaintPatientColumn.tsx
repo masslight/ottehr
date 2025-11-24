@@ -3,14 +3,14 @@ import { Box, Skeleton, Typography, useTheme } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import ImageCarousel, { ImageCarouselObject } from 'src/components/ImageCarousel';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import AiSuggestion from 'src/features/visits/in-person/components/AiSuggestion';
-import { AiObservationField, getPresignedURL, ObservationTextFieldDTO } from 'utils';
-import { useAppointmentData, useChartData } from '../../../stores/appointment/appointment.store';
+import { getPresignedURL } from 'utils';
+import { AiHpiSuggestion } from '../../../../AiHpiSuggestion';
+import { ReasonForVisitFieldReadOnly } from '../../../../ReasonForVisitField';
+import { useAppointmentData } from '../../../stores/appointment/appointment.store';
 
 export const ChiefComplaintPatientColumn: FC = () => {
   const theme = useTheme();
-  const { isAppointmentLoading, patientPhotoUrls, appointment } = useAppointmentData();
-  const { chartData } = useChartData();
+  const { isAppointmentLoading, patientPhotoUrls } = useAppointmentData();
   const [signedPhotoUrls, setSignedPhotoUrls] = useState<string[]>([]);
   const [photoUrlsLoading, setPhotoUrlsLoading] = useState<boolean>(false);
   const { getAccessTokenSilently } = useAuth0();
@@ -44,10 +44,6 @@ export const ChiefComplaintPatientColumn: FC = () => {
     }
   }, [getAccessTokenSilently, patientPhotoUrls]);
 
-  const aiHistoryOfPresentIllness = chartData?.observations?.filter(
-    (observation) => observation.field === AiObservationField.HistoryOfPresentIllness
-  ) as ObservationTextFieldDTO[];
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <ImageCarousel
@@ -57,20 +53,9 @@ export const ChiefComplaintPatientColumn: FC = () => {
         open={photoZoom}
         setOpen={setPhotoZoom}
       />
-      <Box>
-        <Typography variant="subtitle2" color={theme.palette.primary.dark}>
-          Reason for visit selected by patient
-        </Typography>
-        {isAppointmentLoading ? (
-          <Skeleton width="100%">
-            <Typography>.</Typography>
-          </Skeleton>
-        ) : (
-          <Typography data-testid={dataTestIds.telemedEhrFlow.hpiReasonForVisit}>
-            {appointment?.description ?? ''}
-          </Typography>
-        )}
-      </Box>
+
+      <ReasonForVisitFieldReadOnly />
+
       {(isAppointmentLoading || photoUrlsLoading || photoCarouselObjects?.length > 0) && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', gap: 1 }}>
@@ -112,16 +97,8 @@ export const ChiefComplaintPatientColumn: FC = () => {
           )}
         </Box>
       )}
-      {aiHistoryOfPresentIllness?.length > 0 && (
-        <>
-          <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
-          <AiSuggestion
-            title={'History of Present Illness (HPI)'}
-            chartData={chartData}
-            content={aiHistoryOfPresentIllness}
-          />
-        </>
-      )}
+
+      <AiHpiSuggestion />
     </Box>
   );
 };

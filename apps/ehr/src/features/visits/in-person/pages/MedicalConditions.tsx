@@ -35,7 +35,7 @@ export const MedicalConditions: FC<MedicalConditionsProps> = () => {
       <PageTitle
         dataTestId={dataTestIds.medicalConditions.medicalConditionsPageTitle}
         label="Medical Conditions"
-        showIntakeNotesButton={interactionMode === 'intake'}
+        showIntakeNotesButton={interactionMode === 'main'}
       />
       <InfoAlert text="Ask: Does the patient have any significant past or ongoing medical issues?" />
       <MedicalHistoryDoubleCard
