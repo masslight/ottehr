@@ -118,6 +118,7 @@ export abstract class BaseProgressNotePage {
       surgery
     );
   }
+
   async verifyInHouseMedication(medication: {
     medication: string;
     dose: string;
@@ -145,6 +146,16 @@ export abstract class BaseProgressNotePage {
           medication.status,
       })
     ).toBeVisible();
+  }
+
+  async verifyScreening(lines: string[]): Promise<void> {
+    for (const line of lines) {
+      await expect(
+        this.#page.getByTestId(dataTestIds.progressNotePage.additionalQuestions).filter({
+          hasText: line,
+        })
+      ).toBeVisible();
+    }
   }
 
   abstract expectLoaded(): Promise<void>;
