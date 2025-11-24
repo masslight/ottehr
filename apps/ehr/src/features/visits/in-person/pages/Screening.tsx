@@ -38,7 +38,7 @@ export const Screening: React.FC<ScreeningProps> = () => {
       <PageTitle
         dataTestId={dataTestIds.screeningPage.title}
         label="Screening"
-        showIntakeNotesButton={interactionMode === 'intake'}
+        showIntakeNotesButton={interactionMode === 'main'}
       />
       <Questions />
       <AskThePatient />

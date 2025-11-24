@@ -43,7 +43,7 @@ test.describe('Screening Page mutating tests', () => {
     await resourceHandler.cleanupResources();
   });
 
-  test('Screening Hapy path', async ({ page }) => {
+  test('Screening Happy path', async ({ page }) => {
     let screeningPage = await test.step('Fill screening info', async () => {
       const progressNotePage = await expectInPersonProgressNotePage(page);
       const screeningPage = await progressNotePage.sideMenu().clickScreening();
@@ -52,7 +52,7 @@ test.describe('Screening Page mutating tests', () => {
     });
 
     const progressNotePage = await test.step('Verify screening info on progress note', async () => {
-      const progressNotePage = await screeningPage.sideMenu().clickProgressNote();
+      const progressNotePage = await screeningPage.sideMenu().clickReviewAndSign();
       const progressNoteLines = createProgressNoteLines(SCREENING_A);
       progressNoteLines.push('ASQ - ' + SCREENING_A.asqAnswer);
       progressNoteLines.push(SCREENING_A.screeningNote);
@@ -67,7 +67,7 @@ test.describe('Screening Page mutating tests', () => {
     });
 
     await test.step('Verify edited screening info on progress note', async () => {
-      const progressNotePage = await screeningPage.sideMenu().clickProgressNote();
+      const progressNotePage = await screeningPage.sideMenu().clickReviewAndSign();
       const editedProgressNoteLines = createProgressNoteLines(SCREENING_B);
       editedProgressNoteLines.push('ASQ - ' + SCREENING_B.asqAnswer);
       editedProgressNoteLines.push(SCREENING_B.screeningNote);
@@ -79,11 +79,10 @@ test.describe('Screening Page mutating tests', () => {
 async function setupPractitioners(page: Page): Promise<void> {
   const progressNotePage = new InPersonProgressNotePage(page);
   const inPersonHeader = new InPersonHeader(page);
-  await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/review-and-sign`);
   await inPersonHeader.verifyStatus('pending');
   await inPersonHeader.selectIntakePractitioner();
   await inPersonHeader.selectProviderPractitioner();
-  await inPersonHeader.clickSwitchModeButton('provider');
   await progressNotePage.expectLoaded();
 }
 

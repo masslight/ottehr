@@ -103,7 +103,7 @@ test.describe('In-Person Visit Chart Data', async () => {
 
     test.describe('Check progress note page for the filled in data presence', async () => {
       test('ALG-1.3 Verify Progress Note shows Allergy', async () => {
-        await sideMenu.clickProgressNote();
+        await sideMenu.clickReviewAndSign();
         await progressNotePage.verifyAddedAllergyIsShown(ALLERGY);
       });
 
@@ -140,7 +140,7 @@ test.describe('In-Person Visit Chart Data', async () => {
 
     test.describe('Check progress note page for the modified data', async () => {
       test('ALG-1.6 Verify Progress Note does not show removed Allergy', async () => {
-        await sideMenu.clickProgressNote();
+        await sideMenu.clickReviewAndSign();
         const progressNotePage = await expectInPersonProgressNotePage(page);
         await progressNotePage.verifyRemovedAllergyIsNotShown(ALLERGY);
       });
@@ -171,7 +171,7 @@ test.describe('In-Person Visit Chart Data', async () => {
       await assessmentPage.fillMdmField('');
       await waitForChartDataDeletion(page);
 
-      await sideMenu.clickProgressNote();
+      await sideMenu.clickReviewAndSign();
       await progressNotePage.expectLoaded();
       await progressNotePage.verifyReviewAndSignButtonDisabled();
       await test.step('Verify missing card is visible and has all required missing fields', async () => {
@@ -237,7 +237,7 @@ test.describe('In-Person Visit Chart Data', async () => {
 
       // Verify diagnoses on Review and Sign page
       await test.step('Verify diagnoses on Review and Sign page', async () => {
-        await sideMenu.clickProgressNote();
+        await sideMenu.clickReviewAndSign();
         await progressNotePage.expectLoaded();
 
         // Verify both diagnoses are present
@@ -270,7 +270,7 @@ test.describe('In-Person Visit Chart Data', async () => {
 
       // Verify on Review and Sign page
       await test.step('Verify swapped diagnoses on Review and Sign page', async () => {
-        await sideMenu.clickProgressNote();
+        await sideMenu.clickReviewAndSign();
         await progressNotePage.expectLoaded();
 
         // Verify both diagnoses are present
@@ -306,7 +306,7 @@ test.describe('In-Person Visit Chart Data', async () => {
 
       // Verify on Review and Sign page
       await test.step('Verify promoted diagnosis on Review and Sign page, deleted diagnosis is not present', async () => {
-        await sideMenu.clickProgressNote();
+        await sideMenu.clickReviewAndSign();
         await progressNotePage.expectLoaded();
 
         // Verify only one diagnosis is present
@@ -332,7 +332,7 @@ test.describe('In-Person Visit Chart Data', async () => {
       await assessmentPage.expectMdmField({ text: newText });
 
       // Navigate to Review and Sign to verify text is displayed
-      await sideMenu.clickProgressNote();
+      await sideMenu.clickReviewAndSign();
       await progressNotePage.expectLoaded();
       await expect(page.getByText(newText)).toBeVisible();
     });
@@ -350,7 +350,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         const value = await page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown).locator('input').inputValue();
 
         // Navigate to Review and Sign to verify code is displayed
-        await sideMenu.clickProgressNote();
+        await sideMenu.clickReviewAndSign();
         await progressNotePage.expectLoaded();
         await expect(page.getByText(value)).toBeVisible();
       });
@@ -374,7 +374,7 @@ test.describe('In-Person Visit Chart Data', async () => {
         expect(value2).toContain(CPT_CODE_2);
 
         // Navigate to Review and Sign to verify code is displayed
-        await sideMenu.clickProgressNote();
+        await sideMenu.clickReviewAndSign();
         await progressNotePage.expectLoaded();
         await expect(page.getByText(value!)).toBeVisible();
         await expect(page.getByText(value2!)).toBeVisible();
@@ -397,7 +397,7 @@ test.describe('In-Person Visit Chart Data', async () => {
       await page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(CPT_CODE_2)).click();
       await waitForChartDataDeletion(page);
 
-      await sideMenu.clickProgressNote();
+      await sideMenu.clickReviewAndSign();
       await progressNotePage.expectLoaded();
       await expect(page.getByText(value!)).not.toBeVisible();
       await expect(page.getByText(value2!)).not.toBeVisible();
@@ -652,7 +652,7 @@ test.describe('In-Person Visit Chart Data', async () => {
 
     test('Should verify all findings on Review and Sign page', async () => {
       // Navigate to Review and Sign tab
-      await sideMenu.clickProgressNote();
+      await sideMenu.clickReviewAndSign();
       await progressNotePage.expectLoaded();
 
       const examinationsContainer = page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabExaminationsContainer);
@@ -762,5 +762,4 @@ async function openVisit(page: Page): Promise<void> {
   const inPersonHeader = new InPersonHeader(page);
   await inPersonHeader.selectIntakePractitioner();
   await inPersonHeader.selectProviderPractitioner();
-  await inPersonHeader.clickSwitchModeButton('provider');
 }
