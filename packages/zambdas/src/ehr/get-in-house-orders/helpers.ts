@@ -31,7 +31,7 @@ import {
   InHouseOrderListPageItemDTO,
   InHouseOrdersSearchBy,
   isPositiveNumberOrZero,
-  LabResultPDF,
+  OttehrGeneratedResultDocument,
   Pagination,
   TestStatus,
 } from 'utils';
@@ -66,7 +66,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
   specimens: Specimen[],
   observations: Observation[],
   diagnosticReports: DiagnosticReport[],
-  resultsPDFs: LabResultPDF[],
+  resultsPDFs: OttehrGeneratedResultDocument[],
   ENVIRONMENT: string,
   appointmentScheduleMap: Record<string, Schedule>,
   currentPractitioner?: Practitioner
@@ -147,7 +147,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   observations: Observation[];
   appointmentScheduleMap: Record<string, Schedule>;
   cache?: Cache;
-  resultsPDF?: LabResultPDF;
+  resultsPDF?: OttehrGeneratedResultDocument;
   currentPractitionerName?: string;
   currentPractitionerId?: string;
 }): InHouseGetOrdersResponseDTO<SearchBy>['data'][number] => {
@@ -259,7 +259,7 @@ export const getInHouseResources = async (
   observations: Observation[];
   pagination: Pagination;
   diagnosticReports: DiagnosticReport[];
-  resultsPDFs: LabResultPDF[];
+  resultsPDFs: OttehrGeneratedResultDocument[];
   currentPractitioner?: Practitioner;
   appointmentScheduleMap: Record<string, Schedule>;
 }> => {
@@ -292,7 +292,7 @@ export const getInHouseResources = async (
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
 
   let currentPractitioner: Practitioner | undefined;
-  let resultsPDFs: LabResultPDF[] = [];
+  let resultsPDFs: OttehrGeneratedResultDocument[] = [];
 
   if (isDetailPageRequest && userToken) {
     // if more than one ServiceRequest is returned for when this is called from the detail page

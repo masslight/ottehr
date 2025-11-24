@@ -1,3 +1,4 @@
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { GenericNoteList } from 'src/features/visits/shared/components/generic-notes-list/GenericNoteList';
 import { GenericNotesConfig } from 'src/features/visits/shared/components/generic-notes-list/types';
 import { IN_PERSON_NOTE_ID, NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
@@ -31,5 +32,9 @@ const screeningNotesConfig: GenericNotesConfig = {
 };
 
 export const ScreeningNotes: React.FC = () => (
-  <GenericNoteList apiConfig={screeningNotesConfig.apiConfig} locales={screeningNotesConfig.locales} />
+  <GenericNoteList
+    apiConfig={screeningNotesConfig.apiConfig}
+    locales={screeningNotesConfig.locales}
+    addNoteButtonDataTestId={dataTestIds.screeningPage.addNoteButton}
+  />
 );
