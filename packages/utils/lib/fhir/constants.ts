@@ -583,12 +583,6 @@ export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
   virtualServiceMode: {
     coding: [
       {
-        system: `${FHIR_BASE_URL}/slot-service-category`,
-        code: SlotServiceCategoryCode.virtualServiceMode,
-      },
-      // added to avoid confusion with new service category code system
-      // can be removed in the future
-      {
         system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-mode-service-category`,
         code: SlotServiceCategoryCode.virtualServiceMode,
       },
@@ -596,10 +590,6 @@ export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
   },
   inPersonServiceMode: {
     coding: [
-      {
-        system: `${FHIR_BASE_URL}/slot-service-category`,
-        code: SlotServiceCategoryCode.inPersonServiceMode,
-      },
       {
         system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-mode-service-category`,
         code: SlotServiceCategoryCode.inPersonServiceMode,
