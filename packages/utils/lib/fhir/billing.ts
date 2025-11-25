@@ -121,11 +121,15 @@ export const parseCoverageEligibilityResponse = (
         (e) => e.url === 'https://extensions.fhir.oystehr.com/raw-response'
       )?.valueString;
       let copay: PatientPaymentBenefit[] | undefined;
+      let deductible: PatientPaymentBenefit[] | undefined;
       if (fullBenefitJSON) {
         try {
           // cSpell:disable-next eligibility
           const benefitList = JSON.parse(fullBenefitJSON)?.elig?.benefit;
-          copay = parseObjectsToCopayBenefits(benefitList);
+          copay = parseObjectsToCopayBenefits(benefitList).filter(
+            (benefit) => benefit.coverageCode === 'A' || benefit.coverageCode === 'B'
+          );
+          deductible = parseObjectsToCopayBenefits(benefitList).filter((benefit) => benefit.coverageCode === 'C');
         } catch (error) {
           console.error('Error parsing fullBenefitJSON', error);
         }
@@ -134,6 +138,7 @@ export const parseCoverageEligibilityResponse = (
         status: InsuranceEligibilityCheckStatus.eligibilityConfirmed,
         dateISO,
         copay,
+        deductible,
         errors: coverageResponse.error,
       };
     } else {
@@ -154,17 +159,9 @@ export const parseCoverageEligibilityResponse = (
 };
 
 export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit[] => {
-  const filteredInputs = input.filter((item) => {
-    return (
-      item &&
-      typeof item === 'object' &&
-      (item['benefit_coverage_code'] === 'B' || item['benefit_coverage_code'] === 'A')
-    );
-  });
-
-  return filteredInputs
+  return input
     .map((item) => {
-      const benefitCoverageCode = item['benefit_coverage_code'] as 'A' | 'B';
+      const benefitCoverageCode = item['benefit_coverage_code'] as 'A' | 'B' | 'C';
       const CP: PatientPaymentBenefit = {
         amountInUSD: item['benefit_amount'] ?? 0,
         percentage: item['benefit_percent'] ?? 0,
