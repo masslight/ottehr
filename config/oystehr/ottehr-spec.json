@@ -1299,12 +1299,12 @@
       "src": "src/ehr/update-invoice-task/index",
       "zip": ".dist/zips/update-invoice-task.zip"
     },
-    "GET-QUESTIONNAIRE-PATIENT": {
-      "name": "get-questionnaire-patient",
+    "GET-BOOKING-QUESTIONNAIRE": {
+      "name": "get-booking-questionnaire",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/patient/paperwork/get-questionnaire/index",
-      "zip": ".dist/zips/get-questionnaire-patient.zip"
+      "src": "src/patient/paperwork/get-booking-questionnaire/index",
+      "zip": ".dist/zips/get-booking-questionnaire.zip"
     }
   },
   "faxNumbers": {
@@ -6010,7 +6010,7 @@
             "Zambda:Function:ai-interview-start",
             "Zambda:Function:ai-interview-handle-answer",
             "Zambda:Function:ai-interview-persist-consent",
-            "Zambda:Function:get-questionnaire-patient"
+            "Zambda:Function:get-booking-questionnaire"
           ],
           "action": [
             "Zambda:InvokeFunction"

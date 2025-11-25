@@ -55,4 +55,4 @@ export * from './patient-visit-history.types';
 export * from './bulk-update-insurance-status.types';
 export * from './update-invoice-task.types';
 export * from './visit-details';
-export * from './get-questionnaire.types';
+export * from './get-booking-questionnaire.types';
