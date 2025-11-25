@@ -3,7 +3,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import { DialogTitle, Paper, Stack } from '@mui/material';
 import { Dialog, DialogContent, IconButton, Typography } from '@mui/material';
 import { Box } from '@mui/system';
-import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
+import { DataGrid, GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import { ReactElement, useCallback, useState } from 'react';
@@ -145,7 +145,7 @@ export const PatientSummaryTable = (): ReactElement => {
   return (
     <>
       <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
-        <DataGridPro
+        <DataGrid
           rows={summaries}
           columns={columns}
           paginationModel={paginationModel}

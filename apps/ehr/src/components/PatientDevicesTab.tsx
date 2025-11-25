@@ -1,6 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { Alert, AlertColor, Box, Paper, Snackbar, Stack, Typography } from '@mui/material';
-import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
+import { DataGrid, GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import { FC, useCallback, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import { useParams } from 'react-router-dom';
@@ -245,7 +245,7 @@ export const PatientDevicesTab: FC<{
           </RoundedButton>
         </Box>
 
-        <DataGridPro
+        <DataGrid
           rows={assignedDevices}
           columns={columns}
           paginationModel={paginationModel}

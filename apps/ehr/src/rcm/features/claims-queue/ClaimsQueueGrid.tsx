@@ -1,4 +1,4 @@
-import { DataGridPro } from '@mui/x-data-grid-pro';
+import { DataGrid } from '@mui/x-data-grid';
 import { FC } from 'react';
 import { ClaimsQueueType } from 'utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
@@ -23,7 +23,7 @@ export const ClaimsQueueGrid: FC<ClaimsQueueGridProps> = (props) => {
   });
 
   return (
-    <DataGridPro
+    <DataGrid
       checkboxSelection
       disableRowSelectionOnClick
       paginationMode="server"

@@ -1,6 +1,6 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, Button, Paper, Skeleton, Stack, Typography } from '@mui/material';
-import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
+import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import moment from 'moment-timezone';
 import React, { useState } from 'react';
 import { useQuery } from 'react-query';
@@ -734,7 +734,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
       )}
 
       {rows.length > 0 && columns.length > 0 ? (
-        <DataGridPro
+        <DataGrid
           rows={rows}
           columns={columns}
           autoHeight

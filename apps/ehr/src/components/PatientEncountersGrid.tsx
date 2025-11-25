@@ -10,7 +10,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
+import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
@@ -299,7 +299,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         />
       </Box>
 
-      <DataGridPro
+      <DataGrid
         rows={filtered}
         columns={columns}
         initialState={{

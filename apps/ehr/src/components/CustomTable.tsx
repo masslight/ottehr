@@ -1,13 +1,13 @@
 import { alpha, Box, useTheme } from '@mui/material';
 import {
-  DataGridPro,
+  DataGrid,
   GridCellParams,
   GridColDef,
   GridFilterItem,
   GridFilterModel,
   GridFilterOperator,
   GridSortDirection,
-} from '@mui/x-data-grid-pro';
+} from '@mui/x-data-grid';
 import { DateTime } from 'luxon';
 import { ReactElement } from 'react';
 
@@ -61,7 +61,7 @@ export default function CustomTable({
   );
 
   return (
-    <DataGridPro
+    <DataGrid
       autoHeight
       columnHeaderHeight={52}
       disableColumnFilter
