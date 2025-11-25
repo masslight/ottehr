@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, Appointment, Location, Patient, QuestionnaireResponseItem, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { ServiceCategoryCode } from '../configuration';
 import { isLocationVirtual } from '../fhir';
 import {
   CreateAppointmentInputParams,
@@ -133,6 +134,7 @@ export const createSampleAppointments = async ({
   serviceMode,
   appointmentMetadata,
   skipPaperwork,
+  serviceCategory,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
@@ -145,6 +147,7 @@ export const createSampleAppointments = async ({
   projectId: string;
   paperworkAnswers?: GetPaperworkAnswers;
   serviceMode?: ServiceMode;
+  serviceCategory?: ServiceCategoryCode;
   appointmentMetadata?: Appointment['meta'];
   skipPaperwork?: boolean;
 }): Promise<CreateAppointmentResponse> => {
@@ -181,7 +184,8 @@ export const createSampleAppointments = async ({
               ...demoData,
             },
             selectedLocationId,
-            locationState
+            locationState,
+            serviceCategory
           );
 
           if (appointmentMetadata) {
@@ -385,7 +389,8 @@ const generateRandomPatientInfo = async (
   phoneNumber?: string,
   demoData?: AppointmentData,
   selectedLocationId?: string,
-  locationState?: string
+  locationState?: string,
+  serviceCategory?: ServiceCategoryCode
 ): Promise<CreateAppointmentInputParams> => {
   const {
     firstNames = DEFAULT_FIRST_NAMES,
@@ -486,7 +491,7 @@ const generateRandomPatientInfo = async (
     lengthInMinutes: 15,
     serviceModality: serviceMode,
     walkin: serviceMode === ServiceMode.virtual ? true : false,
-    serviceCategoryCode: 'urgent-care',
+    serviceCategoryCode: serviceCategory ?? 'urgent-care',
   };
 
   let persistedSlot: Slot;
