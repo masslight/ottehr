@@ -19,12 +19,12 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { QuestionnaireResponse } from 'fhir/r4b';
 import _ from 'lodash';
 import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
 import { useBeforeUnload } from 'react-router-dom';
+import { usePaperworkStore } from 'src/pages/PaperworkPage';
 import {
   IntakeQuestionnaireItem,
   makeValidationSchema,
@@ -186,7 +186,6 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   saveProgress,
 }) => {
   const { paperwork, allItems, questionnaireResponse: questionnaireResponseResource } = usePaperworkContext();
-
   const [cache, setCache] = useState({
     pageId,
     items,
@@ -223,7 +222,6 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   return (
     <FormProvider {...methods}>
       <PaperworkFormRoot
-        pageId={pageId}
         items={items}
         onSubmit={onSubmit}
         saveProgress={saveProgress}
@@ -235,7 +233,6 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
 };
 
 interface PaperworkRootInput {
-  pageId: string;
   items: IntakeQuestionnaireItem[];
   onSubmit: (data: QuestionnaireFormFields) => void;
   saveProgress: (data: QuestionnaireFormFields) => void;
@@ -243,7 +240,6 @@ interface PaperworkRootInput {
   parentIsSaving?: boolean;
 }
 const PaperworkFormRoot: FC<PaperworkRootInput> = ({
-  pageId,
   items,
   onSubmit,
   saveProgress,
@@ -253,6 +249,7 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   const [isSavingProgress, setIsSavingProgress] = useState(false);
 
   const { saveButtonDisabled } = usePaperworkContext();
+  const { continueLabel } = usePaperworkStore();
   //console.log('questionnaire response.q', questionnaireResponse?.questionnaire);
   //console.log('all items', allItems);
 
@@ -272,21 +269,15 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   }, [handleSubmit, onSubmit]);
 
   const { bottomComponent, hideControls, controlButtons } = options;
-  const [aiInterviewQuestionnaireResponse, setAiInterviewQuestionnaireResponse] = useState<
-    QuestionnaireResponse | undefined
-  >(undefined);
   const swizzledCtrlButtons = useMemo(() => {
     const baseStuff = controlButtons ?? {};
     return {
       ...baseStuff,
       submitDisabled: baseStuff.loading || isLoading || saveButtonDisabled,
-      submitLabel:
-        pageId === 'medical-history-page' && aiInterviewQuestionnaireResponse?.status !== 'completed'
-          ? 'Skip'
-          : baseStuff.submitLabel,
+      submitLabel: continueLabel,
       onSubmit: submitHandler,
     };
-  }, [aiInterviewQuestionnaireResponse?.status, controlButtons, isLoading, pageId, saveButtonDisabled, submitHandler]);
+  }, [continueLabel, controlButtons, isLoading, saveButtonDisabled, submitHandler]);
 
   useBeforeUnload(() => {
     saveProgress(formValues);
@@ -295,11 +286,7 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   return (
     <form onSubmit={submitHandler}>
       <Grid container spacing={1}>
-        <RenderItems
-          items={items}
-          aiInterviewQuestionnaireResponse={aiInterviewQuestionnaireResponse}
-          setAiInterviewQuestionnaireResponse={setAiInterviewQuestionnaireResponse}
-        />
+        <RenderItems items={items} />
       </Grid>
       <div id="page-form-inner-form" />
       {bottomComponent}
@@ -322,12 +309,10 @@ export interface RenderItemsProps {
   items: IntakeQuestionnaireItem[];
   parentItem?: IntakeQuestionnaireItem;
   fieldId?: string;
-  aiInterviewQuestionnaireResponse: QuestionnaireResponse | undefined;
-  setAiInterviewQuestionnaireResponse: (questionnaireResponse: QuestionnaireResponse | undefined) => void;
 }
 
 const RenderItems: FC<RenderItemsProps> = (props: RenderItemsProps) => {
-  const { items, parentItem, fieldId, aiInterviewQuestionnaireResponse, setAiInterviewQuestionnaireResponse } = props;
+  const { items, parentItem, fieldId } = props;
   const styledItems = useStyledItems({ formItems: items });
   // console.log('styledItems', styledItems);
   // console.log('all items', items);
@@ -346,8 +331,6 @@ const RenderItems: FC<RenderItemsProps> = (props: RenderItemsProps) => {
               fieldId={fieldId}
               parentItem={parentItem}
               RenderItems={RenderItems}
-              aiInterviewQuestionnaireResponse={aiInterviewQuestionnaireResponse}
-              setAiInterviewQuestionnaireResponse={setAiInterviewQuestionnaireResponse}
             />
           );
         } else {
@@ -358,8 +341,6 @@ const RenderItems: FC<RenderItemsProps> = (props: RenderItemsProps) => {
               inputProps={makeFormInputPropsForItem(item)}
               parentItem={props.parentItem}
               inheritedFieldId={fieldId}
-              aiInterviewQuestionnaireResponse={aiInterviewQuestionnaireResponse}
-              setAiInterviewQuestionnaireResponse={setAiInterviewQuestionnaireResponse}
             />
           );
         }
@@ -388,20 +369,10 @@ const makeStyles = (): any => {
 interface NestedInputProps extends StyledItemInputProps {
   parentItem?: IntakeQuestionnaireItem;
   inheritedFieldId?: string;
-  aiInterviewQuestionnaireResponse: QuestionnaireResponse | undefined;
-  setAiInterviewQuestionnaireResponse: (questionnaireResponse: QuestionnaireResponse | undefined) => void;
 }
 
 const NestedInput: FC<NestedInputProps> = (props) => {
-  const {
-    item,
-    inputProps,
-    sx = {},
-    parentItem,
-    inheritedFieldId,
-    aiInterviewQuestionnaireResponse,
-    setAiInterviewQuestionnaireResponse,
-  } = props;
+  const { item, inputProps, sx = {}, parentItem, inheritedFieldId } = props;
   const { helperText, showHelperTextIcon } = inputProps || {};
   const { formValues } = useQRState();
   const dependency = item.requireWhen ? formValues[item.requireWhen.question] : undefined;
@@ -414,7 +385,6 @@ const NestedInput: FC<NestedInputProps> = (props) => {
   //console.log('item, parentItem', item.linkId, parentItem?.linkId, inheritedFieldId);
   const fieldId = getPaperworkFieldId({ item, parentItem, parentFieldId: inheritedFieldId });
   //console.log('linkId, fieldId', item.linkId, fieldId);
-
   const { hasError, errorMessage } = useFieldError(parentItem ? fieldId : item.linkId);
 
   useEffect(() => {
@@ -477,14 +447,7 @@ const NestedInput: FC<NestedInputProps> = (props) => {
                 item.text
               )}
             </BoldPurpleInputLabel>
-            <FormInputField
-              renderProps={renderProps}
-              itemProps={props}
-              parentItem={parentItem}
-              fieldId={fieldId}
-              aiInterviewQuestionnaireResponse={aiInterviewQuestionnaireResponse}
-              setAiInterviewQuestionnaireResponse={setAiInterviewQuestionnaireResponse}
-            />
+            <FormInputField renderProps={renderProps} itemProps={props} parentItem={parentItem} fieldId={fieldId} />
             {item.secondaryInfoText ? (
               <LightToolTip
                 title={item.secondaryInfoText}
@@ -526,18 +489,9 @@ interface GetFormInputFieldProps {
   renderProps: any; // do better
   fieldId: string;
   parentItem?: IntakeQuestionnaireItem;
-  aiInterviewQuestionnaireResponse: QuestionnaireResponse | undefined;
-  setAiInterviewQuestionnaireResponse: (questionnaireResponse: QuestionnaireResponse | undefined) => void;
 }
 
-const FormInputField: FC<GetFormInputFieldProps> = ({
-  itemProps,
-  renderProps,
-  fieldId,
-  parentItem,
-  aiInterviewQuestionnaireResponse,
-  setAiInterviewQuestionnaireResponse,
-}): ReactElement => {
+const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fieldId, parentItem }): ReactElement => {
   const { item, inputProps } = itemProps;
   const { inputBaseProps, inputMode } = inputProps || { disableUnderline: true };
   const {
@@ -754,34 +708,18 @@ const FormInputField: FC<GetFormInputFieldProps> = ({
                 items={item.item ?? []}
                 fieldId={fieldId}
                 key={`${fieldId}.group-render`}
-                aiInterviewQuestionnaireResponse={aiInterviewQuestionnaireResponse}
-                setAiInterviewQuestionnaireResponse={setAiInterviewQuestionnaireResponse}
               />
             </>
           );
         } else {
-          return (
-            <RenderItems
-              parentItem={item}
-              items={item.item ?? []}
-              fieldId={fieldId}
-              aiInterviewQuestionnaireResponse={aiInterviewQuestionnaireResponse}
-              setAiInterviewQuestionnaireResponse={setAiInterviewQuestionnaireResponse}
-            />
-          );
+          return <RenderItems parentItem={item} items={item.item ?? []} fieldId={fieldId} />;
         }
       case 'Credit Card':
         return (
           <CreditCardVerification value={unwrappedValue} required={item.required ?? false} onChange={smartOnChange} />
         );
       case 'Medical History':
-        return (
-          <AIInterview
-            onChange={smartOnChange}
-            aiInterviewQuestionnaireResponse={aiInterviewQuestionnaireResponse}
-            setAiInterviewQuestionnaireResponse={setAiInterviewQuestionnaireResponse}
-          />
-        );
+        return <AIInterview value={unwrappedValue} onChange={smartOnChange} />;
       default:
         return <></>;
     }

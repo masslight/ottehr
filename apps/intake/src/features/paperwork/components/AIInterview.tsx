@@ -7,22 +7,22 @@ import { useParams } from 'react-router-dom';
 import { AiChatHistory } from 'src/components/AiChatHistory';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
 import api from '../../../api/ottehrApi';
+import { usePaperworkContext } from '../context';
 
 interface AIInterviewProps {
+  value?: boolean;
   onChange: (event: { target: { value: boolean } }) => void;
-  aiInterviewQuestionnaireResponse: QuestionnaireResponse | undefined;
-  setAiInterviewQuestionnaireResponse: (questionnaireResponse: QuestionnaireResponse | undefined) => void;
 }
 
-const AIInterview: FC<AIInterviewProps> = ({
-  onChange,
-  aiInterviewQuestionnaireResponse,
-  setAiInterviewQuestionnaireResponse,
-}): JSX.Element => {
+const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewComplete, onChange }): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: false });
 
   const { id: appointmentId } = useParams();
+  const { setContinueLabel } = usePaperworkContext();
   const [loading, setLoading] = useState<boolean>(false);
+  const [aiInterviewQuestionnaireResponse, setAiInterviewQuestionnaireResponse] = useState<
+    QuestionnaireResponse | undefined
+  >(undefined);
   const [answer, setAnswer] = useState<string>('');
   const [unprocessedUserAnswer, setUnprocessedUserAnswer] = useState<string>('');
 
@@ -39,9 +39,17 @@ const AIInterview: FC<AIInterviewProps> = ({
 
   useEffect(() => {
     if (aiInterviewQuestionnaireResponse?.status === 'completed') {
+      setContinueLabel(undefined);
+    } else {
+      setContinueLabel('Skip');
+    }
+  }, [aiInterviewQuestionnaireResponse?.status, setContinueLabel]);
+
+  useEffect(() => {
+    if (aiInterviewQuestionnaireResponse?.status === 'completed' && !medicalHistoryInterviewComplete) {
       onChange({ target: { value: true } });
     }
-  }, [onChange, aiInterviewQuestionnaireResponse?.status]);
+  }, [onChange, aiInterviewQuestionnaireResponse?.status, medicalHistoryInterviewComplete, setContinueLabel]);
 
   const onSend = async (): Promise<void> => {
     const trimmedAnswer = answer.trim();
