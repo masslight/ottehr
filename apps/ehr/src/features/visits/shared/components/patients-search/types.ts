@@ -64,4 +64,8 @@ export interface SearchResultParsedPatient {
     date: string;
     location: string;
   };
+  lastName?: string;
+  firstName?: string;
+  middleName?: string;
+  sex?: string;
 }

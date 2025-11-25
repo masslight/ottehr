@@ -68,6 +68,10 @@ export const parseSearchResults = (fhirResponse: Bundle): SearchResult => {
           }
         : undefined,
       lastVisit,
+      lastName,
+      firstName: patient.name?.[0]?.given?.join(' '),
+      middleName: patient.name?.[0].given?.[1],
+      sex: patient.gender,
     };
 
     patients.push(parsedPatient);
