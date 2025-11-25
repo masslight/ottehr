@@ -13,16 +13,6 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     await this.locator.clickReserveButton();
   }
   async selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>> {
-    // Handle service category selection if present
-    /*if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
-      const availableCategories = BOOKING_CONFIG.serviceCategories || [];
-      const firstCategory = availableCategories[0]!;
-
-      if (firstCategory) {
-        await this.page.getByText(firstCategory.display).click();
-      }
-    }*/
-
     const statesSelector = this.page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector);
     await expect(statesSelector).toBeVisible();
 

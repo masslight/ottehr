@@ -425,9 +425,8 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
 
     await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
 
-    await expect(page.locator('#reason-for-visit')).toHaveText('Select...');
     const Reason = await fillingInfo.fillTelemedReasonForVisit();
-    await expect(page.locator('#reason-for-visit')).toHaveText(Reason);
+    await expect(page.locator('#reason-for-visit')).toHaveValue(Reason);
   });
 
   test('Should land on first paperwork page when appointment created', async () => {
