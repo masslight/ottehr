@@ -295,6 +295,10 @@
           {
             "coding": [
               {
+                "system": "https://fhir.ottehr.com/slot-service-category",
+                "code": "virtual-service-mode"
+              },
+              {
                 "system": "https://fhir.ottehr.com/CodeSystem/service-mode-service-category",
                 "code": "virtual-service-mode"
               }
@@ -345,6 +349,10 @@
         "serviceCategory": [
           {
             "coding": [
+              {
+                "system": "https://fhir.ottehr.com/slot-service-category",
+                "code": "virtual-service-mode"
+              },
               {
                 "system": "https://fhir.ottehr.com/CodeSystem/service-mode-service-category",
                 "code": "virtual-service-mode"

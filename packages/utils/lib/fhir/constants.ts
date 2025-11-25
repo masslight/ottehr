@@ -574,7 +574,7 @@ export const SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING: CodeableConcept = {
   ],
 };
 
-export enum SlotServiceCategoryCode {
+export enum ServiceModeCategoryCode {
   virtualServiceMode = 'virtual-service-mode',
   inPersonServiceMode = 'in-person-service-mode',
 }
@@ -583,16 +583,26 @@ export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
   virtualServiceMode: {
     coding: [
       {
+        system: `${FHIR_BASE_URL}/slot-service-category`,
+        code: ServiceModeCategoryCode.virtualServiceMode,
+      },
+      // added to avoid confusion with new service category code system
+      // can be removed in the future
+      {
         system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-mode-service-category`,
-        code: SlotServiceCategoryCode.virtualServiceMode,
+        code: ServiceModeCategoryCode.virtualServiceMode,
       },
     ],
   },
   inPersonServiceMode: {
     coding: [
       {
+        system: `${FHIR_BASE_URL}/slot-service-category`,
+        code: ServiceModeCategoryCode.inPersonServiceMode,
+      },
+      {
         system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-mode-service-category`,
-        code: SlotServiceCategoryCode.inPersonServiceMode,
+        code: ServiceModeCategoryCode.inPersonServiceMode,
       },
     ],
   },
