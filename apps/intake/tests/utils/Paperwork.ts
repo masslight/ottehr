@@ -214,6 +214,8 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     await this.fillConsentForms();
     await this.locator.clickContinueButton();
+    // skip medical history
+    await this.locator.clickContinueButton();
     return {
       stateValue,
       patientDetailsData: {
@@ -415,6 +417,8 @@ export class Paperwork {
     await this.skipPhotoID();
     await this.locator.clickContinueButton();
     await this.fillConsentForms();
+    await this.locator.clickContinueButton();
+    // skip medical history
     await this.locator.clickContinueButton();
   }
   async fillContactInformationRequiredFields(): Promise<{ stateValue: string }> {
