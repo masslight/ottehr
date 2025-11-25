@@ -15,6 +15,7 @@ import {
   getDosageUnitsAndRouteOfMedication,
   getFullestAvailableName,
   getLocationCodeFromMedicationAdministration,
+  getMedicationFromMA,
   getMedicationInteractions,
   getMedicationName,
   GetMedicationOrdersInput,
@@ -28,11 +29,15 @@ import {
   OrderPackage,
   SecretsKeys,
 } from 'utils';
-import { createOystehrClient, topLevelCatch, wrapHandler } from '../../shared';
-import { ZambdaInput } from '../../shared';
-import { checkOrCreateM2MClientToken } from '../../shared';
-import { getMedicationFromMA } from '../create-update-medication-order/helpers';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
+
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-medication-orders';
 

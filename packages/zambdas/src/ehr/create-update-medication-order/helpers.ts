@@ -115,7 +115,3 @@ export function updateMedicationAdministrationData(data: {
   newMA.id = orderResources.medicationAdministration.id;
   return newMA;
 }
-
-export function getMedicationFromMA(medicationAdministration: MedicationAdministration): Medication | undefined {
-  return medicationAdministration.contained?.find((res) => res.resourceType === 'Medication') as Medication;
-}

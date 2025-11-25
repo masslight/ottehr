@@ -153,6 +153,7 @@ export const appointmentTypeLabels: { [type in FhirAppointmentType]: string } = 
 export type PatientFilterType = 'my-patients' | 'all-patients';
 
 export interface GetTelemedAppointmentsInput {
+  timeZone?: string;
   dateFilter?: string;
   usStatesFilter?: string[];
   locationsIdsFilter?: string[];

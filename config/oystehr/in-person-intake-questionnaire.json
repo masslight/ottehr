@@ -569,6 +569,73 @@
                   },
                   {
                     "valueString": "Spanish"
+                  },
+                  {
+                    "valueString": "Chinese"
+                  },
+                  {
+                    "valueString": "French"
+                  },
+                  {
+                    "valueString": "German"
+                  },
+                  {
+                    "valueString": "Tagalog"
+                  },
+                  {
+                    "valueString": "Vietnamese"
+                  },
+                  {
+                    "valueString": "Italian"
+                  },
+                  {
+                    "valueString": "Korean"
+                  },
+                  {
+                    "valueString": "Russian"
+                  },
+                  {
+                    "valueString": "Polish"
+                  },
+                  {
+                    "valueString": "Arabic"
+                  },
+                  {
+                    "valueString": "Portuguese"
+                  },
+                  {
+                    "valueString": "Japanese"
+                  },
+                  {
+                    "valueString": "Greek"
+                  },
+                  {
+                    "valueString": "Hindi"
+                  },
+                  {
+                    "valueString": "Persian"
+                  },
+                  {
+                    "valueString": "Urdu"
+                  },
+                  {
+                    "valueString": "Sign Language"
+                  },
+                  {
+                    "valueString": "Other"
+                  }
+                ]
+              },
+              {
+                "linkId": "other-preferred-language",
+                "text": "Other preferred language",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "preferred-language",
+                    "operator": "=",
+                    "answerString": "Other"
                   }
                 ]
               }

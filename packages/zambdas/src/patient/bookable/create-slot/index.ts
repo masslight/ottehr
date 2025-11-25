@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  BOOKING_CONFIG,
   CreateSlotParams,
   FHIR_RESOURCE_NOT_FOUND,
   getSecret,
@@ -14,6 +15,8 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
   SecretsKeys,
+  ServiceCategoryCode,
+  ServiceCategoryCodeSchema,
   ServiceMode,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
@@ -86,6 +89,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     serviceModality,
     postTelemedLabOnly,
     originalBookingUrl,
+    serviceCategoryCode: maybeServiceCategoryCode,
   } = JSON.parse(input.body);
 
   // required param checks
@@ -162,6 +166,16 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     apptLength.length = lengthInHours;
     apptLength.unit = 'hours';
   }
+
+  let serviceCategoryCode: ServiceCategoryCode | undefined;
+
+  if (maybeServiceCategoryCode) {
+    serviceCategoryCode = ServiceCategoryCodeSchema.safeParse(maybeServiceCategoryCode).data;
+    if (!serviceCategoryCode) {
+      throw INVALID_INPUT_ERROR(`"serviceCategoryCode" must be one of ${ServiceCategoryCodeSchema.options.join(', ')}`);
+    }
+  }
+
   return {
     secrets: input.secrets,
     scheduleId,
@@ -172,6 +186,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     postTelemedLabOnly: postTelemedLabOnly ?? false,
     serviceModality: serviceModality as ServiceMode,
     originalBookingUrl,
+    serviceCategoryCode,
   };
 };
 
@@ -180,8 +195,17 @@ interface EffectInput {
 }
 
 const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
-  const { scheduleId, startISO, apptLength, status, walkin, serviceModality, postTelemedLabOnly, originalBookingUrl } =
-    input;
+  const {
+    scheduleId,
+    startISO,
+    apptLength,
+    status,
+    walkin,
+    serviceModality,
+    postTelemedLabOnly,
+    originalBookingUrl,
+    serviceCategoryCode,
+  } = input;
   // query up the schedule that owns the slot
   const schedule: Schedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: scheduleId });
   if (!schedule) {
@@ -203,6 +227,18 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     serviceModality === ServiceMode['in-person']
       ? [SlotServiceCategory.inPersonServiceMode]
       : [SlotServiceCategory.virtualServiceMode];
+  if (serviceCategoryCode) {
+    const serviceCategoryCodeCoding = BOOKING_CONFIG.serviceCategories.find((sc) => sc.code === serviceCategoryCode);
+    if (serviceCategoryCodeCoding) {
+      serviceCategory.push({
+        coding: [
+          {
+            ...serviceCategoryCodeCoding,
+          },
+        ],
+      });
+    }
+  }
   let extension: Slot['extension'];
   if (originalBookingUrl) {
     extension = [makeBookingOriginExtensionEntry(originalBookingUrl)];

@@ -37,6 +37,7 @@ export interface AIChatDetails {
 // todo: need to refactor and simplify types; there are different sets of fields for useChartData and useChartFields, but this types contains all possible values and not very useful
 export interface AllChartValues {
   chiefComplaint?: FreeTextNoteDTO;
+  historyOfPresentIllness?: FreeTextNoteDTO;
   ros?: FreeTextNoteDTO;
   conditions?: MedicalConditionDTO[];
   medications?: MedicationDTO[];
@@ -65,11 +66,13 @@ export interface AllChartValues {
   externalLabResults?: EncounterExternalLabResult;
   inHouseLabResults?: EncounterInHouseLabResult;
   procedures?: ProcedureDTO[];
+  reasonForVisit?: FreeTextNoteDTO;
 }
 
 export type RequestedFields =
   | 'surgicalHistoryNote'
   | 'chiefComplaint'
+  | 'historyOfPresentIllness'
   | 'ros'
   | 'episodeOfCare'
   | 'prescribedMedications'
@@ -86,7 +89,8 @@ export type RequestedFields =
   | 'medications'
   | 'inhouseMedications'
   | 'observations'
-  | 'preferredPharmacies';
+  | 'preferredPharmacies'
+  | 'reasonForVisit';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 

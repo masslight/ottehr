@@ -107,12 +107,8 @@ resource "aws_cloudfront_distribution" "ehr_cf" {
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "ottehr-ehr-${var.project_id}"
     viewer_protocol_policy = "allow-all"
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
+    compress               = true
+    cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   }
   restrictions {
     geo_restriction {
@@ -133,7 +129,7 @@ resource "aws_cloudfront_distribution" "ehr_cf" {
 ##### Patient Portal Bucket #####
 
 resource "aws_s3_bucket" "patient_portal_bucket" {
-  bucket        = "ottehr-${var.project_id}-patient-portal"
+  bucket        = "ottehr-${var.project_id}-intake.ottehr.com"
   force_destroy = true
   lifecycle {
     prevent_destroy = true
@@ -229,12 +225,8 @@ resource "aws_cloudfront_distribution" "patient_portal_cf" {
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "ottehr-patient-portal-${var.project_id}"
     viewer_protocol_policy = "allow-all"
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
+    compress               = true
+    cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   }
   restrictions {
     geo_restriction {

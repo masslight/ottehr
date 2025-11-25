@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputRequest } from '@oystehr/sdk';
 import {
   Appointment,
+  Coding,
   Encounter,
   FhirResource,
   HealthcareService,
@@ -11,12 +12,14 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { BOOKING_CONFIG, ServiceCategoryCode } from '../configuration';
 import {
   BookableScheduleData,
   codingContainedInList,
   DEFAULT_APPOINTMENT_LENGTH_MINUTES,
   getFullName,
   getPatchOperationForNewMetaTag,
+  isFollowupEncounter,
   isLocationVirtual,
   makeBookingOriginExtensionEntry,
   SCHEDULE_EXTENSION_URL,
@@ -185,7 +188,9 @@ export async function getWaitingMinutesAtSchedule(
   ).unbundle();
   console.timeEnd('get_longest_waiting_patient');
 
-  const arrivedEncounters = searchForLongestWaitingPatient.filter((resource) => resource.resourceType === 'Encounter');
+  const arrivedEncounters = searchForLongestWaitingPatient.filter(
+    (resource) => resource.resourceType === 'Encounter' && !isFollowupEncounter(resource as Encounter)
+  );
 
   return getWaitingMinutes(nowForTimezone, arrivedEncounters);
 }
@@ -741,6 +746,7 @@ interface GetSlotsInput {
   selectedDate?: string;
   originalBookingUrl?: string;
   slotExpirationBiasInSeconds?: number; // this is for testing busy-tentative slot expiration
+  serviceCategories?: Coding[];
 }
 
 export const getAvailableSlotsForSchedules = async (
@@ -750,7 +756,7 @@ export const getAvailableSlotsForSchedules = async (
   availableSlots: SlotListItem[];
   telemedAvailable: SlotListItem[];
 }> => {
-  const { now, scheduleList, numDays, selectedDate, originalBookingUrl } = input;
+  const { now, scheduleList, numDays, selectedDate, originalBookingUrl, serviceCategories } = input;
   const telemedAvailable: SlotListItem[] = [];
   const availableSlots: SlotListItem[] = [];
 
@@ -779,12 +785,18 @@ export const getAvailableSlotsForSchedules = async (
     });
   };
 
+  interface GenerateSlotsForScheduleInput {
+    scheduleTemp: ScheduleAndOwner;
+    startTime: DateTime;
+    numDays: number;
+    busySlots: Slot[];
+    serviceCategories?: Coding[];
+  }
+
   const generateSlotsForSchedule = (
-    scheduleTemp: ScheduleAndOwner,
-    startTime: DateTime,
-    numDays: number,
-    busySlots: Slot[]
+    input: GenerateSlotsForScheduleInput
   ): { available: SlotListItem[]; telemed: SlotListItem[] } => {
+    const { scheduleTemp, startTime, numDays, busySlots, serviceCategories } = input;
     const schedule = scheduleTemp.schedule;
     const tz = getTimezone(schedule);
 
@@ -803,6 +815,7 @@ export const getAvailableSlotsForSchedules = async (
       owner: scheduleTemp.owner,
       timezone: tz,
       originalBookingUrl,
+      serviceCategories,
     });
 
     const telemed = makeSlotListItems({
@@ -811,6 +824,7 @@ export const getAvailableSlotsForSchedules = async (
       owner: scheduleTemp.owner,
       timezone: tz,
       originalBookingUrl,
+      serviceCategories,
     });
 
     return { available, telemed };
@@ -838,12 +852,13 @@ export const getAvailableSlotsForSchedules = async (
 
         const busySlots = await fetchBusySlotsForSchedule(schedule.id!, dayStart.toISO()!, dayEnd.toISO()!);
 
-        const { available, telemed } = generateSlotsForSchedule(
+        const { available, telemed } = generateSlotsForSchedule({
           scheduleTemp,
-          DateTime.fromISO(selectedDate, { zone: tz }).startOf('day'),
-          1,
-          busySlots
-        );
+          startTime: DateTime.fromISO(selectedDate, { zone: tz }).startOf('day'),
+          numDays: 1,
+          busySlots,
+          serviceCategories,
+        });
 
         availableSlots.push(...available);
         telemedAvailable.push(...telemed);
@@ -897,7 +912,13 @@ export const getAvailableSlotsForSchedules = async (
         return id === schedule.id && !getSlotIsPostTelemed(slot);
       });
 
-      const { available, telemed } = generateSlotsForSchedule(scheduleTemp, now, numDays ?? SCHEDULE_NUM_DAYS, busy);
+      const { available, telemed } = generateSlotsForSchedule({
+        scheduleTemp,
+        startTime: now,
+        numDays: numDays ?? SCHEDULE_NUM_DAYS,
+        busySlots: busy,
+        serviceCategories,
+      });
 
       availableSlots.push(...available);
       telemedAvailable.push(...telemed);
@@ -948,10 +969,10 @@ interface MakeSlotListItemsInput {
   timezone: Timezone;
   appointmentLengthInMinutes?: number;
   originalBookingUrl?: string;
+  serviceCategories?: Coding[];
 }
 
 export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[] => {
-  // todo: remove magic numbers
   const {
     startTimes,
     owner: ownerResource,
@@ -959,6 +980,7 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
     timezone,
     appointmentLengthInMinutes = DEFAULT_APPOINTMENT_LENGTH_MINUTES,
     originalBookingUrl,
+    serviceCategories = [],
   } = input;
   return startTimes.map((startTime) => {
     const end = DateTime.fromISO(startTime).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
@@ -970,7 +992,7 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
       resourceType: 'Slot',
       id: `${scheduleId}|${startTime}`,
       start: startTime,
-      serviceCategory: getSlotServiceCategoryCodingFromScheduleOwner(ownerResource),
+      serviceCategory: getSlotServiceCategoryCodingFromScheduleOwner(ownerResource, serviceCategories),
       end,
       schedule: { reference: `Schedule/${scheduleId}` },
       status: 'free',
@@ -1572,20 +1594,28 @@ export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr
 };
 
 export const getSlotServiceCategoryCodingFromScheduleOwner = (
-  owner: ScheduleOwnerFhirResource
+  owner: ScheduleOwnerFhirResource,
+  additionalServiceCategories: Coding[] = []
 ): Slot['serviceCategory'] | undefined => {
   // customization point - override this to return a specific service category given a known schedule owner. if a category is returned here,
   // the service modality may be inferred from the schedule owner. the service modality will then be used to specify the service mode for the appointment
   // when the slot is submitted to the create-appointment endpoint. alternatively, the service modality can be written to the slot directly by passing a value for
   // the serviceModality param to the create-slot endpoint. if a Slot has an express service modality set, that will take priority over any value returned here.
 
+  // we just assume single-coding CCs here and wrap them in CodeableConcepts for upstream simplicity
+  const additionalCategories = additionalServiceCategories.map((coding) => {
+    return {
+      coding: [coding],
+    };
+  });
+
   // console.log('getting service category from schedule owner', owner);
   if (owner.resourceType === 'Location' && isLocationVirtual(owner as Location)) {
-    return [SlotServiceCategory.virtualServiceMode];
+    return [SlotServiceCategory.virtualServiceMode, ...additionalCategories];
   }
 
   // default to in-person service mode
-  return [SlotServiceCategory.inPersonServiceMode];
+  return [SlotServiceCategory.inPersonServiceMode, ...additionalCategories];
 };
 
 export const getServiceModeFromScheduleOwner = (
@@ -1646,6 +1676,17 @@ export const getServiceModeFromSlot = (slot: Slot): ServiceMode | undefined => {
     }
   });
   return serviceMode;
+};
+
+export const getServiceCategoryFromSlot = (slot: Slot): ServiceCategoryCode | undefined => {
+  let serviceCategory: ServiceCategoryCode | undefined;
+  (slot.serviceCategory ?? []).forEach((category) => {
+    const categoryCoding = category.coding?.[0] ?? {};
+    if (codingContainedInList(categoryCoding, BOOKING_CONFIG.serviceCategories)) {
+      serviceCategory = categoryCoding.code;
+    }
+  });
+  return serviceCategory;
 };
 
 export const getSlotIsWalkin = (slot: Slot): boolean => {
@@ -1802,5 +1843,6 @@ export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSl
     walkin,
     originalBookingUrl,
     postTelemedLabOnly,
+    serviceCategoryCode: getServiceCategoryFromSlot(slot) ?? 'urgent-care',
   };
 };

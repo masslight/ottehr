@@ -17,7 +17,7 @@ import { FC, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { sortByLastUpdated } from 'src/helpers';
+import { sortByRecencyAndStatus } from 'src/helpers';
 import { IcdSearchResponse, MedicalConditionDTO } from 'utils';
 import { useChartDataArrayValue } from '../../../hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
@@ -35,7 +35,7 @@ export const MedicalConditionsProviderColumn: FC = () => {
   const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const featureFlags = useAppFlags();
-  const conditions = sortByLastUpdated(chartData?.conditions ?? []);
+  const conditions = sortByRecencyAndStatus(chartData?.conditions ?? []);
   const length = conditions.length;
 
   return (

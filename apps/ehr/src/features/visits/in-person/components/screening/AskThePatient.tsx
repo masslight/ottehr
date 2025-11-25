@@ -22,6 +22,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import {
@@ -328,7 +329,7 @@ const AskThePatient = (): React.ReactElement => {
     switch (field.type) {
       case 'radio':
         return (
-          <Grid item xs={12} key={field.id}>
+          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion} item xs={12} key={field.id}>
             <Typography
               sx={{
                 color: theme.palette.primary.dark,
@@ -380,6 +381,7 @@ const AskThePatient = (): React.ReactElement => {
                   render={({ field: noteFormField }) => (
                     <Box sx={{ flex: '1' }}>
                       <TextField
+                        data-testid={dataTestIds.screeningPage.vaccinationNoteField}
                         {...noteFormField}
                         label={field.noteField!.label}
                         placeholder={field.noteField!.placeholder}
@@ -401,7 +403,7 @@ const AskThePatient = (): React.ReactElement => {
 
       case 'dateRange':
         return (
-          <Grid item xs={12} key={field.id}>
+          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion} item xs={12} key={field.id}>
             <Grid item xs={6}>
               <Typography
                 sx={{
@@ -578,7 +580,7 @@ const AskThePatient = (): React.ReactElement => {
 
       case 'select':
         return (
-          <Grid item xs={12} key={field.id}>
+          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion} item xs={12} key={field.id}>
             <Grid item xs={6}>
               <Typography
                 sx={{
@@ -616,6 +618,7 @@ const AskThePatient = (): React.ReactElement => {
                       }}
                     >
                       <Select
+                        data-testid={dataTestIds.screeningPage.answerDropdown}
                         {...formField}
                         displayEmpty
                         disabled={isFieldDisabled}
@@ -672,7 +675,7 @@ const AskThePatient = (): React.ReactElement => {
 
       case 'text':
         return (
-          <Grid item xs={12} key={field.id}>
+          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion} item xs={12} key={field.id}>
             <Grid item xs={6}>
               <Typography
                 sx={{
@@ -709,7 +712,7 @@ const AskThePatient = (): React.ReactElement => {
 
       case 'textarea':
         return (
-          <Grid item xs={12} key={field.id}>
+          <Grid data-testid={dataTestIds.screeningPage.askPatientQuestion} item xs={12} key={field.id}>
             <Grid item xs={6}>
               <Typography
                 sx={{

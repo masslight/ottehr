@@ -10,6 +10,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  testMatch: /.*\.spec\.ts/,
+  testIgnore: ['**/component/**', '**/unit/**', 'tests/e2e/specs/employees.spec.ts'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   reporter: [['html'], ['list'], ['junit', { outputFile: 'test-results/results.xml' }]],
@@ -37,7 +39,6 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   outputDir: 'test-results/',
   workers: process.env.CI ? 6 : undefined,
-  testIgnore: ['tests/e2e/specs/employees.spec.ts'],
   globalSetup: './tests/global-setup/index.ts',
   globalTeardown: './tests/global-teardown/index.ts',
 });

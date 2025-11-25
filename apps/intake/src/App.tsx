@@ -20,10 +20,11 @@ import Homepage from './pages/Homepage';
 import MyPatients from './pages/MyPatients';
 import { PaperworkHome, PaperworkPage } from './pages/PaperworkPage';
 import PastVisits from './pages/PastVisits';
-import PatientInformation from './pages/PatientInformation';
+import PatientInformation, { PatientInfoCollection } from './pages/PatientInformation';
 import PrebookVisit from './pages/PrebookVisit';
 import Review from './pages/Review';
 import ReviewPaperwork from './pages/ReviewPaperwork';
+import SelectServiceCategoryPage from './pages/SelectServiceCategory';
 import StartVirtualVisit from './pages/StartVirtualVisit';
 import ThankYou from './pages/ThankYou';
 import VisitDetails from './pages/VisitDetails';
@@ -71,6 +72,7 @@ export const BOOKING_SERVICE_MODE_PARAM = 'service_mode';
 export const BOOKING_SCHEDULE_TYPE_QUERY_PARAM = 'scheduleType';
 export const BOOKING_SCHEDULE_ON_QUERY_PARAM = 'bookingOn';
 export const BOOKING_SCHEDULE_SELECTED_SLOT = 'slot';
+export const BOOKING_SERVICE_CATEGORY_PARAM = 'serviceCategory';
 
 export const bookingBasePath = `/book/:${BOOKING_SLOT_ID_PARAM}`;
 export const paperworkBasePath = '/paperwork/:id';
@@ -204,6 +206,10 @@ export const intakeFlowPageRoute = {
     path: `/prebook/:${BOOKING_SERVICE_MODE_PARAM}`,
     getPage: () => <PrebookVisit />,
   },
+  SelectServiceCategory: {
+    path: `/prebook/:${BOOKING_SERVICE_MODE_PARAM}/select-service-category`,
+    getPage: () => <SelectServiceCategoryPage />,
+  },
   StartVirtualVisit: {
     path: '/start-virtual',
     getPage: () => <StartVirtualVisit />,
@@ -224,8 +230,12 @@ export const intakeFlowPageRoute = {
     path: `${bookingBasePath}/confirm-date-of-birth`,
     getPage: () => <ConfirmDateOfBirth />,
   },
-  PatientInformation: {
+  PatientInfoCollection: {
     path: `${bookingBasePath}/patient-information`,
+    getPage: () => <PatientInfoCollection />,
+  },
+  PatientInformation: {
+    path: `${bookingBasePath}/patient-information/form`,
     getPage: () => <PatientInformation />,
   },
   Review: {
@@ -314,6 +324,10 @@ function App(): JSX.Element {
                   element={intakeFlowPageRoute.PrebookVisitDynamic.getPage()}
                 />
                 <Route
+                  path={intakeFlowPageRoute.SelectServiceCategory.path}
+                  element={intakeFlowPageRoute.SelectServiceCategory.getPage()}
+                />
+                <Route
                   path={intakeFlowPageRoute.StartVirtualVisit.path}
                   element={intakeFlowPageRoute.StartVirtualVisit.getPage()}
                 />
@@ -356,9 +370,14 @@ function App(): JSX.Element {
                     />
                     <Route path={intakeFlowPageRoute.NewUser.path} element={intakeFlowPageRoute.NewUser.getPage()} />
                     <Route
-                      path={intakeFlowPageRoute.PatientInformation.path}
-                      element={intakeFlowPageRoute.PatientInformation.getPage()}
-                    />
+                      path={intakeFlowPageRoute.PatientInfoCollection.path}
+                      element={intakeFlowPageRoute.PatientInfoCollection.getPage()}
+                    >
+                      <Route
+                        path={intakeFlowPageRoute.PatientInformation.path}
+                        element={intakeFlowPageRoute.PatientInformation.getPage()}
+                      />
+                    </Route>
                     <Route
                       path={intakeFlowPageRoute.ConfirmDateOfBirth.path}
                       element={intakeFlowPageRoute.ConfirmDateOfBirth.getPage()}
