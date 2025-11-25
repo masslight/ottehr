@@ -343,13 +343,13 @@ export function creatingPatientUpdateRequest(
       patientPatchOperations.push({
         op: 'replace',
         path: `/identifier`,
-        value: [newIdentifier],
+        value: newIdentifier,
       });
     } else {
       patientPatchOperations.push({
         op: 'add',
         path: `/identifier`,
-        value: [identifier],
+        value: newIdentifier,
       });
     }
   }
