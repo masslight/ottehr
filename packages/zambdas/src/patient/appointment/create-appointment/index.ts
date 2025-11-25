@@ -493,6 +493,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     appointmentType: {
       text: visitType,
     },
+    serviceCategory: slot?.serviceCategory,
     description: reasonForVisit,
     status: initialAppointmentStatus,
     created: now.toISO() ?? '',

@@ -177,6 +177,7 @@ const getLabs = async (
 ): Promise<OrderableItemSearchResult[]> => {
   const labIds = labOrgsGUIDs.join(',');
   let cursor = '';
+  let totalReturn = 0;
   const items: OrderableItemSearchResult[] = [];
 
   do {
@@ -191,8 +192,8 @@ const getLabs = async (
     if (!orderableItemsSearch.ok)
       throw EXTERNAL_LAB_ERROR(`Failed to fetch orderable items: ${orderableItemsSearch.status}`);
 
+    console.log(`orderable item search for search term "${search}"`);
     const response = await orderableItemsSearch.json();
-    console.log(`orderable item search response for search term "${search}": ${JSON.stringify(response)}`);
 
     let orderableItemRes = response.orderableItems;
     if (!Array.isArray(orderableItemRes)) {
@@ -201,11 +202,16 @@ const getLabs = async (
       );
       orderableItemRes = [];
     }
-    console.log('This is orderableItemRes', JSON.stringify(orderableItemRes));
+    const itemsToBeReturned = orderableItemRes.length;
+    console.log('This is orderableItemRes len', itemsToBeReturned);
 
     items.push(...(orderableItemRes as OrderableItemSearchResult[]));
     cursor = response?.metadata?.nextCursor || '';
-  } while (cursor);
+    totalReturn += itemsToBeReturned;
+    console.log('totalReturn:', totalReturn);
+  } while (cursor && totalReturn <= 100); // capping at 100 so that the zambda doesn't fail. (no one is scrolling through that many anyway)
+  // if we hear no complaints about the 100 return (i highly doubt we will) we can simplify this logic by getting rid of the cursor logic
+  // and the do while - the first call will only ever return 100 and i suspect thats really all we need
 
   return items;
 };

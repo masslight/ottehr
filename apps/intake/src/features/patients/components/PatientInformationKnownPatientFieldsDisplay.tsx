@@ -2,31 +2,24 @@ import { Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { isoStringFromDateComponents, yupDateTransform } from 'utils';
+import { PatientInfo, yupDateTransform } from 'utils';
 import { useGetFullName } from '../../../hooks/useGetFullName';
 import { otherColors } from '../../../IntakeThemeProvider';
 import i18n from '../../../lib/i18n';
-import { PatientInfoInProgress } from '../types';
 
 export const PatientInformationKnownPatientFieldsDisplay = ({
   patientInfo,
   unconfirmedDateOfBirth,
   selectPatientPageUrl,
 }: {
-  patientInfo: PatientInfoInProgress;
+  patientInfo: PatientInfo;
   unconfirmedDateOfBirth?: string;
   selectPatientPageUrl: string;
 }): JSX.Element => {
   const patientFullName = useGetFullName(patientInfo);
+  console.log('date to format:', unconfirmedDateOfBirth ?? patientInfo.dateOfBirth);
   const formattedBirthday = DateTime.fromFormat(
-    yupDateTransform(
-      unconfirmedDateOfBirth ??
-        isoStringFromDateComponents({
-          day: patientInfo?.dobDay ?? '',
-          month: patientInfo?.dobMonth ?? '',
-          year: patientInfo?.dobYear ?? '',
-        })
-    ),
+    yupDateTransform(unconfirmedDateOfBirth ?? patientInfo.dateOfBirth),
     'yyyy-MM-dd'
   )
     .setLocale(i18n.language)

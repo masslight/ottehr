@@ -7,7 +7,7 @@ import { useAppointmentData, useChartData } from '../../shared/stores/appointmen
 import { InPersonModal } from '../components/InPersonModal';
 import { ROUTER_PATH, routesInPerson } from '../routing/routesInPerson';
 
-export type InteractionMode = 'intake' | 'provider' | 'readonly' | 'follow-up';
+export type InteractionMode = 'main' | 'readonly' | 'follow-up';
 export type CSSValidator = () => React.ReactElement | string;
 export type CSSValidators = Record<string, CSSValidator>;
 
@@ -20,6 +20,7 @@ export interface RouteInPerson {
   text: string;
   iconKey: keyof typeof sidebarMenuIcons;
   isSkippedInNavigation?: boolean;
+  groupLabel?: string;
 }
 
 interface InPersonNavigationContextType {
@@ -59,7 +60,7 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
   const [isModeInitialized, setIsModeInitialized] = useState(false);
 
   // todo: calc actual initial InteractionMode value; in that case check "Intake Notes" button (or any other usages) in the Telemed works correctly
-  const [interactionMode, _setInteractionMode] = useState<InteractionMode>('intake');
+  const [interactionMode, _setInteractionMode] = useState<InteractionMode>('main');
 
   const [modalContent, setModalContent] = useState<ReturnType<CSSValidator>>();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -118,22 +119,8 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
     let targetMode: InteractionMode;
     if (visitType === 'follow-up') {
       targetMode = 'follow-up';
-    } else if (
-      encounter?.participant?.find(
-        (participant) =>
-          participant.type?.find(
-            (type) =>
-              type.coding?.find(
-                (coding) =>
-                  coding.system === 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType' &&
-                  coding.code === 'ATND'
-              ) != null
-          ) != null
-      )
-    ) {
-      targetMode = 'provider';
     } else {
-      targetMode = 'intake';
+      targetMode = 'main';
     }
 
     if (targetMode === 'follow-up' || !isModeInitialized) {
@@ -259,7 +246,7 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
   const nextButtonText = (() => {
     if (isChartDataLoading) return ' ';
 
-    if (interactionMode === 'intake') {
+    if (interactionMode === 'main') {
       switch (currentRoute) {
         case 'allergies':
           return chartData?.allergies?.length ? 'Allergies Confirmed' : 'Confirmed No Known Allergies';

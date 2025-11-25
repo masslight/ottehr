@@ -1,6 +1,7 @@
 // cSpell:ignore PPCP, PRPI
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import * as fs from 'fs';
+import { DateTime } from 'luxon';
 import * as path from 'path';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
@@ -180,10 +181,8 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PPI-3. Select future dob - check validation error', async () => {
-      await locator.policyHolderDOB.click();
-      await locator.calendarArrowRight.click();
-      await locator.calendarDay.click();
-      await locator.calendarButtonOK.click();
+      const futureDate = DateTime.now().plus({ years: 1 });
+      await page.getByPlaceholder('MM/DD/YYYY').fill(futureDate.toFormat('MM/dd/yyyy'));
       await expect(locator.dateFutureError).toBeVisible();
     });
 
@@ -280,10 +279,8 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PSI-3. Select future dob - check validation error', async () => {
-      await locator.secondaryPolicyHolderDOB.click();
-      await locator.calendarArrowRight.click();
-      await locator.calendarDay.click();
-      await locator.calendarButtonOK.click();
+      const futureDate = DateTime.now().plus({ years: 1 });
+      await page.getByPlaceholder('MM/DD/YYYY').fill(futureDate.toFormat('MM/dd/yyyy'));
       await expect(locator.dateFutureError).toBeVisible();
     });
 
@@ -382,7 +379,8 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PRPI-6. Select self - check fields are prefilled with correct values', async () => {
-      const dob = commonLocatorsHelper.getMonthDay(patient.dobMonth, patient.dobDay);
+      const [year, month, day] = patient.dateOfBirth.split('-');
+      const dob = commonLocatorsHelper.getMonthDay(month, day);
       if (!dob) {
         throw new Error('DOB data is null');
       }
@@ -390,9 +388,7 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
       await expect(locator.responsiblePartyFirstName).toHaveValue(patient.firstName);
       await expect(locator.responsiblePartyLastName).toHaveValue(patient.lastName);
       await expect(locator.responsiblePartyBirthSex).toHaveValue(patient.birthSex);
-      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
-        `${dob?.monthNumber}/${dob?.dayNumber}/${patient.dobYear}`
-      );
+      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
     });
 
     await test.step('PRPI-7. Select self - check fields are disabled', async () => {
@@ -410,11 +406,9 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PRPI-9. Select future dob - check validation error', async () => {
-      await locator.responsiblePartyDOBAnswer.click();
-      await locator.calendarArrowRight.click();
-      await locator.calendarDay.click();
-      await locator.calendarButtonOK.click();
-      await locator.clickContinueButton();
+      const futureDate = DateTime.now().plus({ years: 1 });
+      const dobLocator = locator.responsiblePartyDOBAnswer;
+      await dobLocator.fill(futureDate.toFormat('MM/dd/yyyy'));
       await expect(locator.dateFutureError).toBeVisible();
     });
 

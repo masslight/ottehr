@@ -205,3 +205,35 @@ The `apps_upload` module uploads each app's `build` to the remote cloud storage 
 The `aws` submodule will upload the contents of each app's `build` directory to S3 and create a new invalidation for the CloudFront distribution.
 
 The `gcp` submodule will upload the contents of each app's `build` directory.
+
+## Migration to IaC
+
+If you are migrating an environment to IaC, you will need to follow a couple steps:
+
+### Oystehr Resources
+
+1. Set up your environment as discussed above.
+1. Run `ENV=${env} npm run generate` with your environment to create Terraform configuration
+1. Use `scripts/config/generate-oystehr-resource-imports.ts` to create resource import commands corresponding to your Terraform configuration
+1. Run the imports and check the plan produced by `terraform plan -no-color -parallelism=20 -var-file="${ENV}.tfvars" 2>&1 | tee out.log` for further resources to import
+1. Delete ephemeral and canonical resources by running the following scripts:
+    - packages/zambdas/src/scripts/remove-insurances-and-payer-orgs.ts
+    - packages/zambdas/src/scripts/delete-value-sets.ts
+    - packages/zambdas/src/scripts/recreate-global-templates.ts
+    - packages/zambdas/src/scripts/delete-in-house-medications-list.ts
+    - packages/zambdas/src/scripts/retire-in-house-lab-activity-definitions.ts
+    - packages/zambdas/src/scripts/recreate-vaccines-list.ts
+    - packages/zambdas/src/scripts/delete-subscriptions.ts
+
+### AWS or GCP Resources
+
+Create manual import commands for `infra` module resources, or create [an import file](https://developer.hashicorp.com/terraform/language/import#define-an-import-block). For example AWS imports might look like:
+
+```bash
+terraform import -var-file="staging.tfvars" 'module.infra[0].aws_s3_bucket.ehr_bucket' some-ehr-bucket
+terraform import -var-file="staging.tfvars" 'module.infra[0].aws_cloudfront_distribution.ehr_cf' EHREXAMPLE
+terraform import -var-file="staging.tfvars" 'module.infra[0].aws_s3_bucket.patient_portal_bucket' some-patient-portal-bucket
+terraform import -var-file="staging.tfvars" 'module.infra[0].aws_cloudfront_distribution.patient_portal_cf' PPEXAMPLE
+```
+
+Then include either `aws_profile` or `gcp_project` in your `tfvars` file as discussed [above](#terraform-variables).

@@ -2,12 +2,12 @@ import { Box, Button, Dialog, Paper, Typography } from '@mui/material';
 import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { DateComponents, getDateComponentsFromISOString, PatientInfoInProgress } from 'utils';
+import { DateComponents, getDateComponentsFromISOString, PatientInfo } from 'utils';
 import { FormInputType } from '../types';
 import PageForm from './PageForm';
 
 interface ConfirmDateOfBirthFormProps {
-  patientInfo: PatientInfoInProgress | undefined;
+  patientInfo: PatientInfo | undefined;
   description?: ReactElement;
   defaultValue?: string | undefined;
   required: boolean;
@@ -100,10 +100,11 @@ const ConfirmDateOfBirthForm: FC<ConfirmDateOfBirthFormProps> = ({
 
     let shouldConfirm = false;
 
-    if (patientInfo) {
-      const day2 = patientInfo.dobDay;
-      const month2 = patientInfo.dobMonth;
-      const year2 = patientInfo.dobYear;
+    if (patientInfo?.dateOfBirth) {
+      const dateOfBirthParts = patientInfo.dateOfBirth.split('-');
+      const day2 = dateOfBirthParts[2];
+      const month2 = dateOfBirthParts[1];
+      const year2 = dateOfBirthParts[0];
       shouldConfirm = day1 == day2 && year1 === year2 && month1 === month2;
     } else {
       shouldConfirm = true;

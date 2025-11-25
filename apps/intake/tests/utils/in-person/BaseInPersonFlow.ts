@@ -32,9 +32,7 @@ export abstract class BaseInPersonFlow {
     lastName: string;
     birthSex: string;
     email: string;
-    dobMonth: string;
-    dobYear: string;
-    dobDay: string;
+    dateOfBirth: string;
     slotDetails: GetSlotDetailsResponse | null;
     selectedSlot?: { buttonName: string | null; selectedSlot: string | undefined };
     location?: string | null;
@@ -54,9 +52,7 @@ export abstract class BaseInPersonFlow {
     lastName: string;
     email: string;
     birthSex: string;
-    dobMonth: string;
-    dobYear: string;
-    dobDay: string;
+    dateOfBirth: string;
   }> {
     await this.locator.waitUntilLoadingIsFinished();
     await this.locator.continueOrDifferentFamilyMember();
@@ -72,9 +68,7 @@ export abstract class BaseInPersonFlow {
       lastName: bookingData.lastName,
       email: bookingData.email,
       birthSex: bookingData.BirthSex,
-      dobMonth: dob.randomMonth,
-      dobYear: dob.randomYear,
-      dobDay: dob.randomDay,
+      dateOfBirth: `${dob.randomYear}-${dob.randomMonth}-${dob.randomDay}`,
     };
   }
 
@@ -92,9 +86,7 @@ export abstract class BaseInPersonFlow {
     lastName: string;
     email: string;
     birthSex: string;
-    dobMonth: string;
-    dobYear: string;
-    dobDay: string;
+    dateOfBirth: string;
     slotDetails: GetSlotDetailsResponse | null;
     location?: string | null;
     selectedSlot?: string | null;
@@ -112,9 +104,7 @@ export abstract class BaseInPersonFlow {
       lastName: bookingData.lastName,
       email: bookingData.email,
       birthSex: bookingData.birthSex,
-      dobMonth: bookingData.dobMonth,
-      dobYear: bookingData.dobYear,
-      dobDay: bookingData.dobDay,
+      dateOfBirth: bookingData.dateOfBirth,
       location: bookingData.location,
       selectedSlot: bookingData.selectedSlot?.selectedSlot,
       slotDetails: bookingData.slotDetails,

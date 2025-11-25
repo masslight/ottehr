@@ -7,7 +7,7 @@ import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { pastVisits } from '@theme/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { PROJECT_NAME, ServiceMode } from 'utils';
+import { PROJECT_NAME, ServiceMode, shouldShowServiceCategorySelectionPage } from 'utils';
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
 import HomepageOption from '../components/HomepageOption';
 import { dataTestIds } from '../helpers/data-test-ids';
@@ -90,17 +90,42 @@ const Homepage = (): JSX.Element => {
   };
 
   const handleInPerson = (): void => {
-    const destination = `${intakeFlowPageRoute.PrebookVisitDynamic.path.replace(
-      `:${BOOKING_SERVICE_MODE_PARAM}`,
-      ServiceMode['in-person']
-    )}?bookingOn=visit-followup-group&scheduleType=group`;
+    const shouldSelectServiceCategory = shouldShowServiceCategorySelectionPage({
+      serviceMode: ServiceMode['in-person'],
+      visitType: 'prebook',
+    });
+    let destination = '';
+    console.log('Should select service category:', shouldSelectServiceCategory);
+    if (shouldSelectServiceCategory) {
+      destination = intakeFlowPageRoute.SelectServiceCategory.path.replace(
+        `:${BOOKING_SERVICE_MODE_PARAM}`,
+        ServiceMode['in-person']
+      );
+    } else {
+      destination = intakeFlowPageRoute.PrebookVisitDynamic.path.replace(
+        `:${BOOKING_SERVICE_MODE_PARAM}`,
+        ServiceMode['in-person']
+      );
+    }
+    destination += `?bookingOn=visit-followup-group&scheduleType=group`;
+    console.log('Navigating to:', destination);
     navigate(destination);
   };
 
   const handleScheduleVirtual = (): void => {
-    navigate(
-      intakeFlowPageRoute.PrebookVisitDynamic.path.replace(`:${BOOKING_SERVICE_MODE_PARAM}`, ServiceMode['virtual'])
-    );
+    const shouldSelectServiceCategory = shouldShowServiceCategorySelectionPage({
+      serviceMode: ServiceMode.virtual,
+      visitType: 'prebook',
+    });
+    if (shouldSelectServiceCategory) {
+      navigate(
+        intakeFlowPageRoute.SelectServiceCategory.path.replace(`:${BOOKING_SERVICE_MODE_PARAM}`, ServiceMode['virtual'])
+      );
+    } else {
+      navigate(
+        intakeFlowPageRoute.PrebookVisitDynamic.path.replace(`:${BOOKING_SERVICE_MODE_PARAM}`, ServiceMode['virtual'])
+      );
+    }
   };
 
   return (

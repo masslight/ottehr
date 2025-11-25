@@ -1,4 +1,5 @@
 import { Box, Typography } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +15,7 @@ export const UnsolicitedResultsReview: React.FC = () => {
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const urlParams = useParams();
+  const queryClient = useQueryClient();
   const [markingAsReviewed, setMarkingAsReviewed] = useState<boolean>(false);
 
   const diagnosticReportId = urlParams.diagnosticReportId as string;
@@ -32,12 +34,18 @@ export const UnsolicitedResultsReview: React.FC = () => {
       const { taskId, diagnosticReportId } = input;
       try {
         setMarkingAsReviewed(true);
-        await updateLabOrderResources(oystehrZambda, {
-          taskId,
-          serviceRequestId: undefined,
-          diagnosticReportId,
-          event: 'reviewed',
-        });
+        await Promise.all([
+          await updateLabOrderResources(oystehrZambda, {
+            taskId,
+            serviceRequestId: undefined,
+            diagnosticReportId,
+            event: 'reviewed',
+          }),
+          await queryClient.invalidateQueries({
+            queryKey: ['get unsolicited results resources'],
+            exact: false,
+          }),
+        ]);
         const patientId = data?.unsolicitedLabDTO.patientId;
         navigate(`/patient/${patientId}`); // todo somehow this needs to select the lab tab
       } catch (e) {
@@ -63,15 +71,15 @@ export const UnsolicitedResultsReview: React.FC = () => {
           There was loading this page. Please try again.
         </Typography>
       ) : (
-        <DetailPageContainer>
-          <Box sx={{ paddingTop: '24px' }}>
+        <Box sx={{ paddingTop: '24px' }}>
+          <DetailPageContainer>
             <DetailsWithResults
               labOrder={data.unsolicitedLabDTO}
               markTaskAsReviewed={markAsReviewed}
               loading={loadingResources || markingAsReviewed}
             />
-          </Box>
-        </DetailPageContainer>
+          </DetailPageContainer>
+        </Box>
       )}
     </>
   );

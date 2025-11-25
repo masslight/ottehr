@@ -1,4 +1,5 @@
 import { Appointment, Encounter, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
+import { ServiceCategoryCode } from '../../../configuration';
 import { ServiceMode, Timezone } from '../../common';
 import { PatientInfo } from '../../data';
 import { ScheduleOwnerFhirResource } from '../schedules';
@@ -31,6 +32,7 @@ export interface CreateSlotParams {
   scheduleId: string;
   startISO: string;
   serviceModality: ServiceMode;
+  serviceCategoryCode?: ServiceCategoryCode;
   lengthInMinutes?: number;
   lengthInHours?: number;
   status?: Slot['status'];

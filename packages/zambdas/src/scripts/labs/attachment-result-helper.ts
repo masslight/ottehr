@@ -11,7 +11,7 @@ import { createAttachmentDocRef } from './lab-script-helpers';
 const main = async (): Promise<void> => {
   if (process.argv.length !== 4) {
     console.log(`exiting, incorrect number of arguments passed\n`);
-    console.log(`Usage: npm run mock-pdf-result [${EXAMPLE_ENVS.join(' | ')}] [serviceRequest Id]\n`);
+    console.log(`Usage: npm run mock-attachment-result [${EXAMPLE_ENVS.join(' | ')}] [serviceRequest Id]\n`);
     process.exit(1);
   }
 

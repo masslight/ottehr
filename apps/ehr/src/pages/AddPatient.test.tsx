@@ -39,7 +39,7 @@ describe('AddPatient', () => {
     //               {
     //                 coding: [
     //                   {
-    //                     system: 'https://fhir.ottehr.com/slot-service-category',
+    //                     system: 'https://fhir.ottehr.com/service-mode-service-category',
     //                     code: 'in-person-service-mode',
     //                   },
     //                 ],

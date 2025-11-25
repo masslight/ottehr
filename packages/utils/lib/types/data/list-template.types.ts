@@ -1,4 +1,4 @@
-import { ExamType } from './examination/examination';
+import { ExamType } from '../../configuration';
 
 export interface ListTemplatesZambdaInput {
   examType: ExamType;

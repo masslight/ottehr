@@ -1,4 +1,5 @@
 import { BrowserContext, expect, Locator, Page } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { AllStates, PatientEthnicity, PatientRace } from 'utils';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
@@ -823,15 +824,9 @@ export class Paperwork {
     return { birthSex };
   }
   async fillPaperworkDOB(dobField: Locator): Promise<{ paperworkDOB: string }> {
-    await dobField.click();
-    await this.locator.calendarArrowDown.click();
-    const year = this.page.locator('button', { hasText: '2005' });
-    await year.scrollIntoViewIfNeeded();
-    await year.click();
-    await this.locator.calendarDay.click();
-    await this.locator.calendarButtonOK.click();
-    const paperworkDOB = (await dobField.getAttribute('value')) || '';
-    return { paperworkDOB };
+    const twentyYearsAgo = DateTime.now().minus({ years: 20 });
+    await dobField.fill(twentyYearsAgo.toFormat('MM/dd/yyyy'));
+    return { paperworkDOB: twentyYearsAgo.toFormat('MM/dd/yyyy') };
   }
   async fillResponsiblePartySelfRelationship(): Promise<void> {
     await this.validateAllOptions(

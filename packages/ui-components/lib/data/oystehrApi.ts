@@ -26,7 +26,6 @@ import {
   GetVisitDetailsRequest,
   GetVisitDetailsResponse,
   InviteParticipantRequestParameters,
-  isoStringFromMDYString,
   JoinCallRequestParameters,
   JoinCallResponse,
   ListInvitedParticipantsRequestParameters,
@@ -251,8 +250,7 @@ export const getOystehrAPI = (
   const createAppointment = async (
     parameters: CreateAppointmentUCTelemedParams
   ): Promise<CreateAppointmentUCTelemedResponse> => {
-    const fhirParams = fhirifyAppointmentInputs({ ...parameters });
-    return await makeZapRequest('create appointment', fhirParams);
+    return await makeZapRequest('create appointment', parameters);
   };
 
   const createZ3Object = async (
@@ -438,20 +436,6 @@ export const getOystehrAPI = (
     videoChatListInvites,
     listBookables,
   };
-};
-
-const fhirifyAppointmentInputs = (inputs: CreateAppointmentUCTelemedParams): CreateAppointmentUCTelemedParams => {
-  const returnParams = { ...inputs };
-  const { patient } = returnParams;
-
-  const { dateOfBirth: patientBirthDate } = patient as PatientInfo;
-  if (patient) {
-    patient.dateOfBirth = isoStringFromMDYString(patientBirthDate ?? '');
-  }
-
-  returnParams.patient = patient;
-
-  return returnParams;
 };
 
 const InternalError: APIError = {
