@@ -125,8 +125,14 @@ export class FillingInfo {
     return { reason, enteredReason };
   }
   async fillCorrectDOB(month: string, day: string, year: string) {
-    // await this.page.getByPlaceholder('MM/DD/YYYY').focus();
-    await this.page.getByPlaceholder('MM/DD/YYYY').fill(`${month}/${day}/${year}`);
+    await this.page.getByRole('combobox').nth(0).click();
+    await this.page.getByRole('option', { name: month }).click();
+
+    await this.page.getByRole('combobox').nth(1).click();
+    await this.page.getByRole('option', { name: day, exact: true }).click();
+
+    await this.page.getByRole('combobox').nth(2).click();
+    await this.page.getByRole('option', { name: year }).click();
   }
 
   async selectFirstServiceCategory() {

@@ -79,13 +79,13 @@ interface StrongCoding extends Coding {
 }
 
 const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
-  { display: 'Urgent Care', code: 'urgent_care', system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category` },
+  { display: 'Urgent Care', code: 'urgent-care', system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category` },
   {
     display: 'Occupational Medicine',
-    code: 'occupational_medicine',
+    code: 'occupational-medicine',
     system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category`,
   },
-  { display: 'Workmans Comp', code: 'workmans_comp', system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category` },
+  { display: 'Workmans Comp', code: 'workmans-comp', system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category` },
 ];
 
 interface BookingContext {

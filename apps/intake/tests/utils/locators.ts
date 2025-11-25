@@ -97,8 +97,6 @@ export class Locators {
   dateFutureError: Locator;
   calendarCurrentDay: Locator;
   calendarButtonOK: Locator;
-  calendarArrowRight: Locator;
-  calendarArrowDown: Locator;
   calendarDay: Locator;
   insuranceOption: Locator;
   insuranceHeading: Locator;
@@ -391,8 +389,6 @@ export class Locators {
     // Paperwork calendar locators
     this.calendarCurrentDay = page.locator('button[aria-current="date"]');
     this.calendarButtonOK = page.locator('button:has-text("OK")');
-    this.calendarArrowRight = page.getByTestId('ArrowRightIcon');
-    this.calendarArrowDown = page.locator('[role="presentation"] [data-testid="ArrowDropDownIcon"]');
     this.calendarDay = page.locator('div[aria-rowindex="2"] button[aria-colindex="1"]').nth(0);
 
     //Consent forms locators

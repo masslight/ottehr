@@ -32,13 +32,13 @@ export interface CreateSlotParams {
   scheduleId: string;
   startISO: string;
   serviceModality: ServiceMode;
+  serviceCategoryCode?: ServiceCategoryCode;
   lengthInMinutes?: number;
   lengthInHours?: number;
   status?: Slot['status'];
   walkin?: boolean;
   postTelemedLabOnly?: boolean;
   originalBookingUrl?: string;
-  serviceCategoryCode?: ServiceCategoryCode;
 }
 
 export interface GetSlotDetailsParams {

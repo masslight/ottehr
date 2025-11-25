@@ -1,5 +1,4 @@
 import { roundNumberToDecimalPlaces } from '../../utils';
-
 export const LBS_IN_KG = 2.20462;
 
 export const kgToLbs = (kg: number): number => Math.round(kg * LBS_IN_KG * 10) / 10;

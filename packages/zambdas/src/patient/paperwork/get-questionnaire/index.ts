@@ -178,11 +178,11 @@ const complexValidation = async (input: ValidatedInput, oystehr: Oystehr): Promi
   }
 
   const serviceMode = getServiceModeFromSlot(slot);
-  const serviceCategoryCode = getServiceCategoryFromSlot(slot);
+  const serviceCategoryCode = getServiceCategoryFromSlot(slot) ?? BOOKING_CONFIG.serviceCategories[0].code;
 
-  if (!serviceMode || !serviceCategoryCode) {
+  if (!serviceMode) {
     // this indicates something is misconfigured in the slot or schedule
-    throw new Error('Could not determine service mode or category from slot');
+    throw new Error('Could not determine service mode from slot');
   }
 
   const { url: qUrl, version: qVersion, templateQuestionnaire } = BOOKING_CONFIG.selectBookingQuestionnaire(slot);

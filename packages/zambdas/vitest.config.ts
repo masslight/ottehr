@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    globals: !process.env.PLAYWRIGHT_TEST_BASE_URL, // Disable globals when Playwright is running
+    globals: false,
     environment: 'node',
     silent: true,
     testTimeout: 20000,

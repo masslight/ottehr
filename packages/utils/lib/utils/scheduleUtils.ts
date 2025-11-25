@@ -1843,6 +1843,6 @@ export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSl
     walkin,
     originalBookingUrl,
     postTelemedLabOnly,
-    serviceCategoryCode: getServiceCategoryFromSlot(slot),
+    serviceCategoryCode: getServiceCategoryFromSlot(slot) ?? 'urgent-care',
   };
 };

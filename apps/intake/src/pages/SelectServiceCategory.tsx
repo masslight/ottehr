@@ -11,9 +11,9 @@ import { CustomContainer } from '../telemed/features/common';
 
 // hardcoding this for now. could move into config someday but more trouble than it's worth at the moment
 const IconMap: Record<string, JSX.Element> = {
-  urgent_care: <HealingIcon />,
-  occupational_medicine: <BadgeIcon />,
-  workmans_comp: <MedicalServicesIcon />,
+  'urgent-care': <HealingIcon />,
+  'occupational-medicine': <BadgeIcon />,
+  'workmans-comp': <MedicalServicesIcon />,
 };
 
 const SelectServiceCategoryPage = (): JSX.Element => {

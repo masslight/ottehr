@@ -486,6 +486,7 @@ const generateRandomPatientInfo = async (
     lengthInMinutes: 15,
     serviceModality: serviceMode,
     walkin: serviceMode === ServiceMode.virtual ? true : false,
+    serviceCategoryCode: 'urgent-care',
   };
 
   let persistedSlot: Slot;

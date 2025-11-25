@@ -1,7 +1,7 @@
 import { expect, Page } from '@playwright/test';
+import { assert } from 'console';
 import { DateTime } from 'luxon';
 import { BOOKING_CONFIG } from 'utils';
-import { assert } from 'vitest';
 import { Locators } from '../locators';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
@@ -60,7 +60,7 @@ export class FillingInfo {
     await this.page.locator('#patient-last-name').click();
     await this.page.locator('#patient-last-name').fill(lastName);
 
-    await this.page.locator('#patient-sex').click();
+    await this.page.locator('#patient-birth-sex').click();
     const birthSex = this.getRandomElement(this.birthSexes);
     await this.page.getByRole('option', { name: birthSex, exact: true }).click();
 
@@ -69,7 +69,7 @@ export class FillingInfo {
 
     const thisEmailBelongsTo = this.getRandomElement(this.thisEmailBelongsTo);
 
-    await this.page.locator('#reasonForVisit').click();
+    await this.page.locator('#reason-for-visit').click();
     const reasonForVisit: string = (await this.page.getByRole('option').first().textContent()) || '';
     await this.page.getByRole('option').first().click({ timeout: 5000 });
     return { firstName, lastName, birthSex, email, thisEmailBelongsTo, reasonForVisit };
@@ -83,7 +83,7 @@ export class FillingInfo {
   }
 
   async fillTelemedReasonForVisit() {
-    await this.page.locator('#reasonForVisit').click();
+    await this.page.locator('#reason-for-visit').click();
     const reasonForVisit = this.getRandomElement(this.reasonForVisit);
     await this.page.getByRole('option', { name: reasonForVisit, exact: true }).click({ timeout: 5000 });
     return reasonForVisit;
