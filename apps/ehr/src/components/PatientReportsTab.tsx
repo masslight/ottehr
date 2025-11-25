@@ -1,7 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import DownloadIcon from '@mui/icons-material/Download';
 import { Box, IconButton, Paper, Stack, Typography } from '@mui/material';
-import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
+import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import moment from 'moment';
 import { FC, useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -107,7 +107,7 @@ export const PatientReportsTab: FC = () => {
         </RoundedButton>
       </Box>
 
-      <DataGridPro
+      <DataGrid
         rows={reports}
         columns={columns}
         getRowId={(row) => row.id}

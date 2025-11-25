@@ -2,7 +2,7 @@
 import DownloadIcon from '@mui/icons-material/Download';
 import { IconButton, useTheme } from '@mui/material';
 import { Box } from '@mui/material';
-import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
+import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { DateTime } from 'luxon';
 import { FC, useCallback, useMemo } from 'react';
 import { formatISOStringToDateAndTime } from '../../../helpers/formatDateTime';
@@ -109,7 +109,7 @@ export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProp
   }, [documentTableActions]);
 
   return (
-    <DataGridPro
+    <DataGrid
       rows={filteredDocs}
       columns={tableColumns}
       initialState={{

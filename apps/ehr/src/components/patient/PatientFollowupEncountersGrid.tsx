@@ -1,6 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { Box, Chip, Paper, Stack, Typography } from '@mui/material';
-import { DataGridPro, GridColDef, GridRowParams } from '@mui/x-data-grid-pro';
+import { DataGrid, GridColDef, GridRowParams } from '@mui/x-data-grid';
 import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
 import { Encounter, Patient } from 'fhir/r4b';
 import { FC, ReactElement, useEffect, useState } from 'react';
@@ -206,7 +206,7 @@ export const PatientFollowupEncountersGrid: FC<PatientEncountersGridProps> = (pr
         </RoundedButton>
       </Box>
 
-      <DataGridPro
+      <DataGrid
         rows={followupEncounters}
         columns={columns}
         initialState={{

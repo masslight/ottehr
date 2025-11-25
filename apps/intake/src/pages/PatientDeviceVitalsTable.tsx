@@ -1,5 +1,5 @@
 import { Typography } from '@mui/material';
-import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
+import { DataGrid, GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import moment from 'moment-timezone';
 import React, { useState } from 'react';
 import { useQuery } from 'react-query';
@@ -455,12 +455,10 @@ export const PatientDeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ deviceTy
   const columns = generateColumns();
   const rows = transformVitalsToRows();
 
-  console.log(columns);
-
   return (
     <>
       {rows.length > 0 ? (
-        <DataGridPro
+        <DataGrid
           rows={rows}
           columns={columns}
           autoHeight
