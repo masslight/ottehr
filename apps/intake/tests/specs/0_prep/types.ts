@@ -12,9 +12,7 @@ export interface InPersonPatientTestData {
   lastName: string;
   email: string;
   birthSex: string;
-  dobMonth: string;
-  dobDay: string;
-  dobYear: string;
+  dateOfBirth: string;
   appointmentId: string;
   slot: string | undefined;
   location: string | null;

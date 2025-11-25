@@ -53,9 +53,7 @@ function writeTestData(filename: string, data: unknown): void {
 async function bookAppointmentForExistingPatient(bookingData: {
   firstName: string;
   lastName: string;
-  dobMonth: string;
-  dobDay: string;
-  dobYear: string;
+  dateOfBirth: string;
 }): Promise<{
   slot: string | undefined;
   location: string | null;
@@ -67,7 +65,8 @@ async function bookAppointmentForExistingPatient(bookingData: {
     .getByRole('heading', { name: new RegExp(`.*${bookingData.firstName} ${bookingData.lastName}.*`, 'i') })
     .click();
   await locator.continueButton.click();
-  await fillingInfo.fillCorrectDOB(bookingData.dobMonth, bookingData.dobDay, bookingData.dobYear);
+  const [year, month, day] = bookingData.dateOfBirth.split('-');
+  await fillingInfo.fillCorrectDOB(month, day, year);
   await locator.continueButton.click();
   await fillingInfo.fillVisitReason();
   await locator.continueButton.click();
@@ -94,9 +93,7 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
       lastName: bookingData.lastName,
       email: bookingData.email,
       birthSex: bookingData.birthSex,
-      dobMonth: bookingData.dobMonth,
-      dobDay: bookingData.dobDay,
-      dobYear: bookingData.dobYear,
+      dateOfBirth: bookingData.dateOfBirth,
       appointmentId: appointmentIds[appointmentIds.length - 1],
       slot,
       location,
@@ -125,9 +122,7 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
       lastName: bookingData.lastName,
       email: bookingData.email,
       birthSex: bookingData.birthSex,
-      dobMonth: bookingData.dobMonth,
-      dobDay: bookingData.dobDay,
-      dobYear: bookingData.dobYear,
+      dateOfBirth: bookingData.dateOfBirth,
       appointmentId: appointmentIds[appointmentIds.length - 1],
       slot,
       location,
@@ -155,9 +150,7 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
       lastName: bookingData.lastName,
       email: bookingData.email,
       birthSex: bookingData.birthSex,
-      dobMonth: bookingData.dobMonth,
-      dobDay: bookingData.dobDay,
-      dobYear: bookingData.dobYear,
+      dateOfBirth: bookingData.dateOfBirth,
       appointmentId: bookingData.bookingUUID,
     };
 
@@ -174,9 +167,7 @@ test.describe.parallel('In-Person Setup: Create test patients and appointments',
       lastName: bookingData.lastName,
       email: bookingData.email,
       birthSex: bookingData.birthSex,
-      dobMonth: bookingData.dobMonth,
-      dobDay: bookingData.dobDay,
-      dobYear: bookingData.dobYear,
+      dateOfBirth: bookingData.dateOfBirth,
     };
 
     writeTestData('patientWithoutAppointments.json', patientWithoutAppointments);
