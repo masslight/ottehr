@@ -73,6 +73,12 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
     } else {
       setErrors({ ...errors, searchEntry: false });
     }
+    if (searchFilters.phone.length !== 10) {
+      setErrors({ phone: true });
+      return;
+    } else {
+      setErrors({ ...errors, phone: false });
+    }
     setSelectedPatient(undefined);
     search({ pagination: { pageSize: patientsPerPage, offset: 0 } });
     setOpenSearchResults(true);

@@ -136,6 +136,10 @@ export default function AddPatient(): JSX.Element {
   // handle functions
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
+    if (!patientInfo) {
+      setErrors({ search: true });
+      return;
+    }
 
     if (!patientInfo?.phoneNumber || patientInfo.phoneNumber.length !== 10) {
       setErrors({ phone: true });
