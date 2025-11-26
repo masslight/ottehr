@@ -182,7 +182,7 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
 
     await test.step('PPI-3. Select future dob - check validation error', async () => {
       const futureDate = DateTime.now().plus({ years: 1 });
-      await page.getByPlaceholder('MM/DD/YYYY').fill(futureDate.toFormat('MM/dd/yyyy'));
+      await locator.policyHolderDOB.fill(futureDate.toFormat('MM/dd/yyyy'));
       await expect(locator.dateFutureError).toBeVisible();
     });
 
@@ -280,7 +280,7 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
 
     await test.step('PSI-3. Select future dob - check validation error', async () => {
       const futureDate = DateTime.now().plus({ years: 1 });
-      await page.getByPlaceholder('MM/DD/YYYY').fill(futureDate.toFormat('MM/dd/yyyy'));
+      await locator.secondaryPolicyHolderDOB.fill(futureDate.toFormat('MM/dd/yyyy'));
       await expect(locator.dateFutureError).toBeVisible();
     });
 
