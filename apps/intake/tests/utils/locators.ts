@@ -17,6 +17,7 @@ export class Locators {
   page: Page;
   scheduleInPersonVisitButton: Locator;
   scheduleVirtualVisitButton: Locator;
+  startVirtualVisitButton: Locator;
   differentFamilyMember: Locator;
   continueButton: Locator;
   reserveButton: Locator;
@@ -240,6 +241,7 @@ export class Locators {
     this.page = page;
     this.scheduleInPersonVisitButton = page.getByTestId(dataTestIds.scheduleInPersonVisitButton);
     this.scheduleVirtualVisitButton = page.getByTestId(dataTestIds.scheduleVirtualVisitButton);
+    this.startVirtualVisitButton = page.getByTestId(dataTestIds.startVirtualVisitButton);
     this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
     this.differentFamilyMember = page.getByTestId(dataTestIds.differentFamilyMember);
     this.continueButton = page.getByTestId(dataTestIds.continueButton);

@@ -59,7 +59,7 @@ test('CV-1 Click on [Cancel] - Cancel screen opens', async () => {
 });
 test('CV-2 Select cancellation reason', async () => {
   const cancelPage = new CancelPage(page);
-  await cancelPage.selectCancellationReason();
+  await cancelPage.selectCancellationReason('in-person');
 });
 test('CV-3 Visit is canceled', async () => {
   const cancelPage = new CancelPage(page);

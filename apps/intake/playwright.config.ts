@@ -76,6 +76,15 @@ export default defineConfig({
       testIgnore: /.*login\/login\.spec\.ts/,
     },
     {
+      name: 'telemed-setup',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: './playwright/user.json',
+      },
+      testMatch: /.*telemed\.spec\.ts/,
+      testIgnore: /.*login\/login\.spec\.ts/,
+    },
+    {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
@@ -83,8 +92,8 @@ export default defineConfig({
         // storageState: './tests/.auth/user.json'
       },
       // dependencies: ['setup'],
-      dependencies: ['in-person-setup'],
-      testIgnore: [/.*login\/login\.spec\.ts/, /.*in-person\.spec\.ts/],
+      dependencies: ['in-person-setup', 'telemed-setup'],
+      testIgnore: [/.*login\/login\.spec\.ts/, /.*in-person\.spec\.ts/, /.*telemed\.spec\.ts/],
     },
 
     // {
