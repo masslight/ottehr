@@ -1,26 +1,26 @@
 import { InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
-import { Appointment, Location, Patient } from 'fhir/r4b';
+import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import { PageSizes } from 'pdf-lib';
-import { formatDateToMDYWithTime, getAppointmentType } from 'utils';
+import { formatDateToMDYWithTime, getAppointmentType, getFullName, standardizePhoneNumber } from 'utils';
 import { createPdfClient, getPdfLogo, rgbNormalized } from '../../shared/pdf/pdf-utils';
 import { ImageStyle, LineStyle, PdfClient, PdfClientStyles, TextStyle } from '../../shared/pdf/types';
-import { getPatientLastFirstName } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 
 export interface StatementPdfInput {
   patient: Patient;
   appointment: Appointment;
-  location: Location | undefined;
   itemizationResponse: InvoiceItemizationResponse;
   timezone: string;
+  location?: Location;
+  responsibleParty?: RelatedPerson | Patient;
 }
 
 const TITLE_COLOR = rgbNormalized(15, 52, 124);
 const LABEL_COLOR = rgbNormalized(180, 180, 180);
 
 export async function generatePdf(input: StatementPdfInput): Promise<Uint8Array> {
-  const { patient, appointment, location, itemizationResponse, timezone } = input;
+  const { patient, appointment, location, itemizationResponse, timezone, responsibleParty } = input;
   const pdfClientStyles: PdfClientStyles = {
     initialPage: {
       width: PageSizes.A4[0],
@@ -100,16 +100,39 @@ export async function generatePdf(input: StatementPdfInput): Promise<Uint8Array>
   pdfClient.drawText(`${appointmentType} | ${appointmentTime} | ${appointmentDate}\n`, textStyles.regular);
   pdfClient.drawText(locationName + '\n\n', textStyles.regular);
 
-  const patientName = getPatientLastFirstName(patient) ?? '';
+  const patientName = getFullName(patient) ?? '';
   const patientDob =
     (patient?.birthDate && DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy')) ?? '';
+  const patientMobile =
+    standardizePhoneNumber(patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value) ??
+    '';
+  const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
 
   pdfClient.drawText('Patient\n', textStyles.label);
   pdfClient.drawText(`${patientName}\n`, textStyles.regularBold);
-  pdfClient.drawText(`DOB: ${patientDob}\n\n`, textStyles.regular);
+  pdfClient.drawText(`DOB: ${patientDob}\n`, textStyles.regular);
+  pdfClient.drawText(`${patientMobile} | ${patientEmail}\n\n`, textStyles.regular);
 
-  pdfClient.drawText('Responsible party\n', textStyles.label);
-  pdfClient.drawText('info\n\n', textStyles.regular);
+  if (responsibleParty) {
+    const responsiblePartyAddress = responsibleParty?.address?.[0];
+    const addressLine1 = responsiblePartyAddress?.line?.[0] ?? '';
+    const addressLine2 = responsiblePartyAddress?.line?.[1] ?? '';
+    const city = responsiblePartyAddress?.city ?? '';
+    const state = responsiblePartyAddress?.state ?? '';
+    const zip = responsiblePartyAddress?.postalCode ?? '';
+    const address = [addressLine1, addressLine2, `${city}, ${state} ${zip}`].filter((s) => s.length > 0).join('\n');
+    const phone =
+      standardizePhoneNumber(
+        responsibleParty?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value
+      ) ?? '';
+    const email =
+      responsibleParty?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
+
+    pdfClient.drawText('Responsible party\n', textStyles.label);
+    pdfClient.drawText(getFullName(responsibleParty) + '\n', textStyles.regularBold);
+    pdfClient.drawText(address + '\n', textStyles.regular);
+    pdfClient.drawText(`${phone} | ${email}\n\n`, textStyles.regular);
+  }
 
   pdfClient.drawText('Services provided\n', textStyles.subtitle);
 

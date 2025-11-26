@@ -32,6 +32,7 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
+import { getAccountAndCoverageResourcesForPatient } from '../shared/harvest';
 import { generatePdf } from './draw';
 
 const ZAMBDA_NAME = 'generate-statement';
@@ -60,6 +61,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
     const resources = await getResources(encounterId, oystehr);
+
+    const { guarantorResource } = await getAccountAndCoverageResourcesForPatient(resources.patient.id ?? '', oystehr);
 
     const encounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',
@@ -96,6 +99,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const pdfDocument = await generatePdf({
       ...resources,
       itemizationResponse,
+      responsibleParty: guarantorResource,
     });
 
     const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
