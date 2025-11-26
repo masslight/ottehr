@@ -74,7 +74,7 @@ export const MissingCard: FC = () => {
               onClick={() => navigateTo('hpi')}
               data-testid={dataTestIds.progressNotePage.hpiLink}
             >
-              HPI
+              Chief Complaint
             </Link>
           )}
           {!primaryDiagnosis && (
