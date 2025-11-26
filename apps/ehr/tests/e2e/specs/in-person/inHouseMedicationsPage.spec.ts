@@ -194,7 +194,7 @@ test('In-house medications page', async () => {
       status: STATUS,
     });
 
-    const progressNotePage = await medicationsPage.sideMenu().clickProgressNote();
+    const progressNotePage = await medicationsPage.sideMenu().clickReviewAndSign();
     await progressNotePage.verifyInHouseMedication({
       medication: NEW_MEDICATION,
       dose: NEW_DOSE,
@@ -261,7 +261,7 @@ test('Making in-house medication order Administered happy path', async () => {
     type: 'In-house medication',
     whoAdded: getLastName(testUserPractitioner) + ', ' + getFirstName(testUserPractitioner),
   });
-  const progressNotePage = await medicationsPage.sideMenu().clickProgressNote();
+  const progressNotePage = await medicationsPage.sideMenu().clickReviewAndSign();
   await progressNotePage.verifyInHouseMedication({
     medication: MEDICATION_FOR_ADMINISTERED,
     dose: DOSE,
@@ -305,7 +305,7 @@ test('Making in-house medication order Partly Administered happy path', async ()
     status: PARTLY_ADMINISTERED,
     reason: PATIENT_REFUSED,
   });
-  const progressNotePage = await medicationsPage.sideMenu().clickProgressNote();
+  const progressNotePage = await medicationsPage.sideMenu().clickReviewAndSign();
   await progressNotePage.verifyInHouseMedication({
     medication: MEDICATION_FOR_PARTLY_ADMINISTERED,
     dose: DOSE,
@@ -349,7 +349,7 @@ test('Making in-house medication order Not Administered happy path', async () =>
     status: NOT_ADMINISTERED,
     reason: PATIENT_REFUSED,
   });
-  const progressNotePage = await medicationsPage.sideMenu().clickProgressNote();
+  const progressNotePage = await medicationsPage.sideMenu().clickReviewAndSign();
   await progressNotePage.verifyInHouseMedication({
     medication: MEDICATION_FOR_NOT_ADMINISTERED,
     dose: DOSE,
@@ -366,7 +366,6 @@ async function prepareAppointment(page: Page): Promise<void> {
   const inPersonHeader = new InPersonHeader(page);
   await inPersonHeader.selectIntakePractitioner();
   await inPersonHeader.selectProviderPractitioner();
-  await inPersonHeader.clickSwitchModeButton('provider');
   const sideMenu = new SideMenu(page);
   await sideMenu.clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);

@@ -97,8 +97,6 @@ export class Locators {
   dateFutureError: Locator;
   calendarCurrentDay: Locator;
   calendarButtonOK: Locator;
-  calendarArrowRight: Locator;
-  calendarArrowDown: Locator;
   calendarDay: Locator;
   insuranceOption: Locator;
   insuranceHeading: Locator;
@@ -237,6 +235,12 @@ export class Locators {
   emergencyContactInformationFirstName: Locator;
   emergencyContactInformationLastName: Locator;
   emergencyContactInformationPhone: Locator;
+  emergencyContactSameAddressAsPatient: Locator;
+  emergencyContactAddress: Locator;
+  emergencyContactAddressLine2: Locator;
+  emergencyContactCity: Locator;
+  emergencyContactState: Locator;
+  emergencyContactZip: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -387,12 +391,16 @@ export class Locators {
     this.emergencyContactInformationFirstName = page.locator('[id="emergency-contact-first-name"]');
     this.emergencyContactInformationLastName = page.locator('[id="emergency-contact-last-name"]');
     this.emergencyContactInformationPhone = page.locator('[id="emergency-contact-number"]');
+    this.emergencyContactSameAddressAsPatient = page.getByLabel("Same as patient's address");
+    this.emergencyContactAddress = page.locator('[id="emergency-contact-address"]');
+    this.emergencyContactAddressLine2 = page.locator('[id="emergency-contact-address-2"]');
+    this.emergencyContactCity = page.locator('[id="emergency-contact-city"]');
+    this.emergencyContactState = page.locator('[id="emergency-contact-state"]');
+    this.emergencyContactZip = page.locator('[id="emergency-contact-zip"]');
 
     // Paperwork calendar locators
     this.calendarCurrentDay = page.locator('button[aria-current="date"]');
     this.calendarButtonOK = page.locator('button:has-text("OK")');
-    this.calendarArrowRight = page.getByTestId('ArrowRightIcon');
-    this.calendarArrowDown = page.locator('[role="presentation"] [data-testid="ArrowDropDownIcon"]');
     this.calendarDay = page.locator('div[aria-rowindex="2"] button[aria-colindex="1"]').nth(0);
 
     //Consent forms locators

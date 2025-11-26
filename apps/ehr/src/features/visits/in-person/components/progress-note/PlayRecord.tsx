@@ -1,5 +1,5 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { ottehrAiIcon } from '@ehrTheme/icons';
+import { aiIcon } from '@ehrTheme/icons';
 import { PlayArrow } from '@mui/icons-material';
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import { DocumentReference, Practitioner } from 'fhir/r4b';
@@ -40,7 +40,7 @@ export function PlayRecord(props: PlayRecordProps): ReactElement {
           paddingBottom: 0.5,
         }}
       >
-        <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
+        <img src={aiIcon} style={{ width: '30px', marginRight: '8px' }} />
         <Typography variant="body1" style={{ fontWeight: 700, fontSize: '14px' }}>
           {getDocumentReferenceSource(documentReference) === 'audio'
             ? 'TRANSCRIPT OF VISIT BY OYSTEHR AI'

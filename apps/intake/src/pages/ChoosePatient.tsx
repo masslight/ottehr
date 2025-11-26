@@ -6,14 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  CancellationReasonOptionsInPerson,
-  getDateComponentsFromISOString,
-  PatientAppointmentDTO,
-  PROJECT_NAME,
-  ServiceMode,
-  VisitType,
-} from 'utils';
+import { CancellationReasonOptionsInPerson, PatientAppointmentDTO, PROJECT_NAME, ServiceMode, VisitType } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { ottehrApi } from '../api';
 import { intakeFlowPageRoute } from '../App';
@@ -119,11 +112,6 @@ const ChoosePatient = (): JSX.Element => {
 
     if (patients) {
       patients.forEach(async (currentPatient) => {
-        const {
-          year: dobYear,
-          month: dobMonth,
-          day: dobDay,
-        } = getDateComponentsFromISOString(currentPatient?.dateOfBirth);
         if (patientInfo?.id && patientInfo.id === currentPatient.id && currentPatient.id === data.patientID) {
           foundPatient = true;
           // don't overwrite what's already in the booking store if we haven't chosen a new patient
@@ -136,9 +124,7 @@ const ChoosePatient = (): JSX.Element => {
             firstName: data.firstName || currentPatient.firstName,
             middleName: data.middleName || currentPatient.middleName,
             lastName: data.lastName || currentPatient.lastName,
-            dobYear,
-            dobDay,
-            dobMonth,
+            dateOfBirth: data.dateOfBirth || currentPatient.dateOfBirth,
             sex: data.sex || currentPatient.sex,
             reasonForVisit: data.reasonForVisit || patientInfo?.reasonForVisit,
             email: data.email || currentPatient.email,
@@ -161,11 +147,14 @@ const ChoosePatient = (): JSX.Element => {
           newPatient: true,
           firstName: undefined,
           lastName: undefined,
-          dobYear: undefined,
-          dobDay: undefined,
-          dobMonth: undefined,
+          dateOfBirth: undefined,
           sex: undefined,
+          ssn: undefined,
           reasonForVisit: undefined,
+          reasonAdditional: undefined,
+          phoneNumber: undefined,
+          address: undefined,
+          authorizedNonLegalGuardians: undefined,
           email: undefined,
         });
       }

@@ -7,12 +7,10 @@ import {
 } from 'tests/e2e/page/DocumentProcedurePage';
 import { FinalResultPage } from 'tests/e2e/page/FinalResultPage';
 import { expectAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
-import {
-  InPersonProgressNotePage,
-  openInPersonProgressNotePage,
-} from 'tests/e2e/page/in-person/InPersonProgressNotePage';
+import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { expectOrderDetailsPage, OrderInHouseLabPage } from 'tests/e2e/page/OrderInHouseLabPage';
+import { expectPatientInfoPage } from 'tests/e2e/page/PatientInfo';
 import { PerformTestPage } from 'tests/e2e/page/PerformTestPage';
 import { ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
@@ -167,7 +165,7 @@ test.describe('Procedures Page', () => {
     });
 
     await test.step('Verify procedure details on progress note', async () => {
-      const progressNotePage = await sideMenu.clickProgressNote();
+      const progressNotePage = await sideMenu.clickReviewAndSign();
       await progressNotePage.verifyProcedure(PROCEDURE_A.procedureType, progressNoteProcedureDetails(PROCEDURE_A));
     });
 
@@ -187,7 +185,7 @@ test.describe('Procedures Page', () => {
     });
 
     await test.step('Verify edited procedure details on progress note', async () => {
-      const progressNotePage = await sideMenu.clickProgressNote();
+      const progressNotePage = await sideMenu.clickReviewAndSign();
       await progressNotePage.verifyProcedure(PROCEDURE_B.procedureType, progressNoteProcedureDetails(PROCEDURE_B));
     });
 
@@ -282,14 +280,12 @@ test.describe('In-house labs page', async () => {
 
 // Procedures helpers
 async function setupPractitioners(page: Page): Promise<void> {
-  const progressNotePage = new InPersonProgressNotePage(page);
   const inPersonHeader = new InPersonHeader(page);
   await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
   await inPersonHeader.verifyStatus('pending');
   await inPersonHeader.selectIntakePractitioner();
   await inPersonHeader.selectProviderPractitioner();
-  await inPersonHeader.clickSwitchModeButton('provider');
-  await progressNotePage.expectLoaded();
+  await expectPatientInfoPage(page);
 }
 
 async function enterProcedureInfo(

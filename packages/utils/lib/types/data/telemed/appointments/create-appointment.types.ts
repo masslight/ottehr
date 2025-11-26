@@ -46,12 +46,7 @@ export type PatientInfo = PatientBaseInfo & {
     system: string;
     value: string;
   }[];
+  ssn?: string;
   address?: Address[];
   tags?: Meta['tag'];
 };
-
-export interface PatientInfoInProgress extends Omit<PatientInfo, 'patientDateOfBirth'> {
-  dobYear: string | undefined;
-  dobMonth: string | undefined;
-  dobDay: string | undefined;
-}

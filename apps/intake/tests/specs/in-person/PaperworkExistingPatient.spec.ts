@@ -57,7 +57,8 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
       .getByRole('heading', { name: new RegExp(`.*${bookingData.firstName} ${bookingData.lastName}.*`, 'i') })
       .click();
     await locator.continueButton.click();
-    await fillingInfo.fillCorrectDOB(bookingData.dobMonth, bookingData.dobDay, bookingData.dobYear);
+    const [year, month, day] = bookingData.dateOfBirth.split('-');
+    await fillingInfo.fillCorrectDOB(month, day, year);
     await locator.continueButton.click();
     await paperwork.checkCorrectPageOpens('About the patient');
     await fillingInfo.fillVisitReason();

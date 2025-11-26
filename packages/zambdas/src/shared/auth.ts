@@ -1,34 +1,17 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Patient, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt } from 'jose';
-import { getPatientsForUser, getSecret, Secrets, SecretsKeys } from 'utils';
+import { getPatientsForUser, getSecret, Secrets, SecretsKeys, TEST_USER_ID, userMe } from 'utils';
 import { getAuth0Token } from './getAuth0Token';
-import { createOystehrClient } from './helpers';
 
-const TEST_USER_ID = 'test-M2M-user-id';
-export async function getUser(token: string, secrets: Secrets | null, testProfile?: string): Promise<User> {
-  const oystehr = createOystehrClient(token, secrets);
-
-  const ENV = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-
+export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
   let user: User;
+
   try {
-    user = await oystehr.user.me();
+    user = await userMe(token, secrets);
   } catch (error: any) {
     console.log('error getting user from token', error?.message || error);
-    const isTestClient = token && isTestM2MClient(token, secrets) && ENV === 'local';
-    console.log('isTestClient', isTestClient);
-    if (!isTestClient) {
-      throw error;
-    }
-    user = {
-      id: 'test-M2M-user-id',
-      email: 'test-M2M-user-email',
-      name: '+12025555555',
-      phoneNumber: '+12025555555',
-      profile: testProfile || 'test-M2M-user-profile',
-      authenticationMethod: 'sms',
-    };
+    throw error;
   }
 
   return user;

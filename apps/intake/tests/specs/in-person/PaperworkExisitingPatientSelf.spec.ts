@@ -64,7 +64,8 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - card
       .getByRole('heading', { name: new RegExp(`.*${bookingData.firstName} ${bookingData.lastName}.*`, 'i') })
       .click();
     await locator.continueButton.click();
-    await fillingInfo.fillCorrectDOB(bookingData.dobMonth, bookingData.dobDay, bookingData.dobYear);
+    const [year, month, day] = bookingData.dateOfBirth.split('-');
+    await fillingInfo.fillCorrectDOB(month, day, year);
     await locator.continueButton.click();
     await paperwork.checkCorrectPageOpens('About the patient');
     await fillingInfo.fillVisitReason();
@@ -74,7 +75,8 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - card
     await paperwork.checkCorrectPageOpens('Thank you for choosing Ottehr!');
   });
   test('IPPPS-1 Check Responsible party has prefilled values', async () => {
-    const dob = await commonLocatorsHelper.getMonthDay(bookingData.dobMonth, bookingData.dobDay);
+    const [year, month, day] = bookingData.dateOfBirth.split('-');
+    const dob = await commonLocatorsHelper.getMonthDay(month, day);
     if (!dob) {
       throw new Error('DOB data is null');
     }
@@ -82,9 +84,7 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - card
     await expect(locator.responsiblePartyFirstName).toHaveValue(bookingData.firstName);
     await expect(locator.responsiblePartyLastName).toHaveValue(bookingData.lastName);
     await expect(locator.responsiblePartyBirthSex).toHaveValue(bookingData.birthSex);
-    await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
-      `${dob?.monthNumber}/${dob?.dayNumber}/${bookingData.dobYear}`
-    );
+    await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
     await expect(locator.responsiblePartyRelationship).toHaveValue(RELATIONSHIP_RESPONSIBLE_PARTY_SELF);
     await expect(locator.responsiblePartyCity).toHaveValue(PATIENT_CITY);
     await expect(locator.responsiblePartyState).toHaveValue(filledPaperwork.stateValue);

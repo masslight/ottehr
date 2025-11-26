@@ -11,16 +11,15 @@ import ottehrApi from '../api/ottehrApi';
 import { BOOKING_SLOT_ID_PARAM, bookingBasePath } from '../App';
 import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
-import { PatientInfoInProgress } from '../features/patients/types';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
 type BookingState = {
-  patientInfo: PatientInfoInProgress | undefined;
+  patientInfo: PatientInfo | undefined;
   unconfirmedDateOfBirth: string | undefined;
 };
 
 interface BookingStoreActions {
-  setPatientInfo: (info: PatientInfoInProgress | undefined) => void;
+  setPatientInfo: (info: PatientInfo | undefined) => void;
   setUnconfirmedDateOfBirth: (dob: string | undefined) => void;
   completeBooking: () => void;
   handleLogout: () => void;
@@ -40,7 +39,7 @@ const useBookingStore = create<BookingState & BookingStoreActions>()(
           ...BOOKING_INITIAL,
         });
       },
-      setPatientInfo: (info: PatientInfoInProgress | undefined) => {
+      setPatientInfo: (info: PatientInfo | undefined) => {
         set((state) => {
           let isNewPatientInfo = false;
           if (state.patientInfo && state.patientInfo.id !== info?.id) {
@@ -260,10 +259,10 @@ const BookingHome: FC = () => {
         return <Navigate to={basePath} replace={true} />;
       }
     } else {
-      console.log('there is NOT patient info');
+      // console.log('there is NOT patient info');
     }
   } else {
-    console.log('there is patient info');
+    // console.log('there is patient info');
   }
 
   if (pageNotFound) {

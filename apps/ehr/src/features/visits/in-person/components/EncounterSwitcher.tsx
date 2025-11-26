@@ -21,7 +21,7 @@ export const EncounterSwitcher: FC<EncounterSwitcherProps> = ({ open }) => {
   const handleEncounterSelect = (encounterId: string): void => {
     setSelectedEncounter(encounterId);
     if (encounterId === followUpOriginEncounter?.id) {
-      setInteractionMode('provider', true);
+      setInteractionMode('main', true);
     } else {
       setInteractionMode('follow-up', true);
     }
