@@ -73,7 +73,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
     } else {
       setErrors({ ...errors, searchEntry: false });
     }
-    if (searchFilters.phone.length !== 10) {
+    if (searchFilters.phone && searchFilters.phone.length !== 10) {
       setErrors({ phone: true });
       return;
     } else {
@@ -211,6 +211,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                     />
                     <Grid item xs={12} sm={6}>
                       <TextField
+                        fullWidth
                         label="Date of birth"
                         value={formattedDOB}
                         {...readOnlyTextFieldProps}
@@ -219,6 +220,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <TextField
+                        fullWidth
                         label="Sex at birth"
                         value={
                           patientInfo.sex
