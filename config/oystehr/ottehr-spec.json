@@ -5917,7 +5917,8 @@
             "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
             "Z3:#{var/PROJECT_ID}-discharge-summaries/*",
             "Z3:#{var/PROJECT_ID}-labs/*",
-            "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*"
+            "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*",
+            "Z3:#{var/PROJECT_ID}-statements/*"
           ],
           "action": [
             "Z3:PutObject",
@@ -7110,6 +7111,10 @@
     },
     "INVOICEABLE_PATIENTS_REPORTS": {
       "name": "#{var/PROJECT_ID}-invoiceable-patients-reports",
+      "removalPolicy": "retain"
+    },
+    "STATEMENTS": {
+      "name": "#{var/PROJECT_ID}-statements",
       "removalPolicy": "retain"
     }
   },
