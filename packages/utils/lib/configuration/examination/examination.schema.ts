@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CodeableConceptSchema } from '../../fhir';
+import { CodeableConceptSchema } from '../../types/fhir';
 
 // Schema for an 8 character hexadecimal hash string
 const HexHashSchema = z.string().regex(/^[a-f0-9]{8}$/, 'Must be a valid 8-character hexadecimal hash string');

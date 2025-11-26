@@ -481,6 +481,8 @@ export const FacilitiesTelemed: FacilityInfo[] = [
 export interface InHouseMedicationInfo {
   name: string;
   NDC: string;
+  CPT?: string;
+  HCPCS?: string;
   erxData: {
     id: string;
   };

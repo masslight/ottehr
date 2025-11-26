@@ -1,4 +1,4 @@
-import { ottehrAiIcon } from '@ehrTheme/icons';
+import { aiIcon } from '@ehrTheme/icons';
 import { Box, Container, Stack, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, Practitioner } from 'fhir/r4b';
@@ -6,7 +6,13 @@ import { DateTime } from 'luxon';
 import React from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { AiObservationField, ObservationTextFieldDTO, PUBLIC_EXTENSION_BASE_URL } from 'utils';
+import {
+  AiObservationField,
+  DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
+  DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
+  ObservationTextFieldDTO,
+  PUBLIC_EXTENSION_BASE_URL,
+} from 'utils';
 import AiSuggestion from '../../in-person/components/AiSuggestion';
 import { PlayRecord } from '../../in-person/components/progress-note/PlayRecord';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
@@ -33,9 +39,9 @@ interface OttehrAiProps {
 const DATE_TIME_FORMAT = 'MM/dd/yyyy hh:mm a';
 
 export function getDocumentReferenceSource(documentReference: DocumentReference): 'audio' | 'chat' | undefined {
-  if (documentReference.description === 'Summary of visit from audio recording') {
+  if (documentReference.description === DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO) {
     return 'audio';
-  } else if (documentReference.description === 'Summary of visit from chat') {
+  } else if (documentReference.description === DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT) {
     return 'chat';
   }
   return undefined;
@@ -137,7 +143,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
                 alignItems: 'center',
               }}
             >
-              <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
+              <img src={aiIcon} style={{ width: '30px', marginRight: '8px' }} />
               <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
                 OYSTEHR AI SUGGESTIONS
               </Typography>

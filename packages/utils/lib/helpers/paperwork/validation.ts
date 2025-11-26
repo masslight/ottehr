@@ -17,6 +17,7 @@ import {
   pickFirstValueFromAnswerItem,
   QuestionnaireItemConditionDefinition,
   REQUIRED_FIELD_ERROR_MESSAGE,
+  ssnRegex,
   zipRegex,
 } from 'utils';
 import * as Yup from 'yup';
@@ -73,6 +74,10 @@ const makeValidatableItem = (
   if (ZIP_CODE_FIELDS.includes(item.linkId) || item.dataType === 'ZIP') {
     regex = zipRegex;
     regexError = 'ZIP Code must be 5 numbers';
+  }
+  if (item.dataType === 'SSN') {
+    regex = ssnRegex;
+    regexError = 'SSN must be in the format xxx-xx-xxxx';
   }
 
   return {

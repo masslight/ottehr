@@ -1,15 +1,30 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, Chip, Grid, IconButton, MenuItem, Skeleton, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import {
+  Box,
+  Chip,
+  Grid,
+  IconButton,
+  Link,
+  MenuItem,
+  Skeleton,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
+import { Encounter } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { formatLabelValue } from 'src/shared/utils';
 import {
+  formatDateToMDYWithTime,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
   getInsuranceNameFromCoverage,
@@ -27,11 +42,9 @@ import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppoint
 import { useOystehrAPIClient } from '../../shared/hooks/useOystehrAPIClient';
 import { usePractitionerActions } from '../../shared/hooks/usePractitioner';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
-import { useInPersonNavigationContext } from '../context/InPersonNavigationContext';
 import { ChangeStatusDropdown } from './ChangeStatusDropdown';
 import { InternalNotes } from './InternalNotes';
 import { PrintVisitLabelButton } from './PrintVisitLabelButton';
-import { SwitchIntakeModeButton } from './SwitchIntakeModeButton';
 
 const HeaderWrapper = styled(Box)(({ theme }) => ({
   backgroundColor: theme.palette.background.paper,
@@ -112,12 +125,16 @@ const getFollowupStatusChip = (status: 'OPEN' | 'RESOLVED'): ReactElement => {
 export const Header = (): JSX.Element => {
   const { id: appointmentID } = useParams();
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const {
-    resources: { appointment, patient, encounter: encounterValues },
+    resources: { appointment, patient, encounter: encounterValues, location: locationResource },
     mappedData,
     visitState,
     appointmentRefetch,
+    followUpOriginEncounter,
+    followupEncounters,
+    selectedEncounterId,
   } = useAppointmentData();
 
   const apiClient = useOystehrAPIClient();
@@ -128,8 +145,39 @@ export const Header = (): JSX.Element => {
   });
 
   const { chartData } = useChartData();
-  const { encounter } = visitState;
-  const encounterId = encounter?.id;
+  const { encounter, location } = visitState;
+  const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
+
+  const findEncounterById = (id?: string): Encounter | undefined => {
+    if (!id) return undefined;
+    const foundInFollowups = (followupEncounters || []).find((e) => e.id === id);
+    if (foundInFollowups) return foundInFollowups;
+    if (followUpOriginEncounter?.id === id) return followUpOriginEncounter;
+    return undefined;
+  };
+
+  const isMainEncounter = !effectiveEncounterId || effectiveEncounterId === followUpOriginEncounter?.id;
+
+  const currentEncounter = isMainEncounter ? followUpOriginEncounter : findEncounterById(effectiveEncounterId);
+
+  const start = isMainEncounter ? appointment?.start : currentEncounter?.period?.start;
+
+  let locationName = '';
+
+  const locationRef = currentEncounter?.location?.[0]?.location?.reference;
+  if (locationRef) {
+    const locationId = locationRef.split('/')[1];
+    const allLocations = [...(visitState?.location ? [visitState.location] : []), ...[locationResource]];
+    const matchedLocation = allLocations.find((loc) => loc?.id === locationId);
+
+    locationName = matchedLocation?.name ?? '';
+  }
+
+  locationName = locationName || location?.name || '';
+
+  const { date = '', time = '' } = formatDateToMDYWithTime(start) ?? {};
+  const visitText = `Visit: ${date} ${time}${locationName ? ` | ${locationName}` : ''}`.trim();
+
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
@@ -184,8 +232,6 @@ export const Header = (): JSX.Element => {
   const reasonForVisit = formatLabelValue(appointment?.description, 'Reason for Visit');
   const userId = formatLabelValue(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
-  const { interactionMode, setInteractionMode } = useInPersonNavigationContext();
-  const nextMode = interactionMode === 'intake' ? 'provider' : 'intake';
   const {
     isEncounterUpdatePending: isUpdatingPractitionerForIntake,
     handleUpdatePractitioner: handleUpdatePractitionerForIntake,
@@ -194,7 +240,7 @@ export const Header = (): JSX.Element => {
     isEncounterUpdatePending: isUpdatingPractitionerForProvider,
     handleUpdatePractitioner: handleUpdatePractitionerForProvider,
   } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Attender);
-  const isEncounterUpdatePending = isUpdatingPractitionerForIntake || isUpdatingPractitionerForProvider;
+
   const { oystehrZambda } = useApiClients();
 
   const { data: employees, isFetching: employeesIsFetching } = useQuery({
@@ -268,18 +314,6 @@ export const Header = (): JSX.Element => {
     }
   };
 
-  const handleSwitchMode = async (): Promise<void> => {
-    try {
-      if (!appointmentID) return;
-      setInteractionMode(nextMode, true);
-    } catch (error: any) {
-      console.log(error.message);
-      enqueueSnackbar(`An error occurred trying to switch to ${nextMode} mode. Please try again.`, {
-        variant: 'error',
-      });
-    }
-  };
-
   return (
     <HeaderWrapper data-testid={dataTestIds.inPersonHeader.container}>
       <Stack flexDirection="row">
@@ -305,6 +339,19 @@ export const Header = (): JSX.Element => {
                     )}
                   </Grid>
                   <Grid item>
+                    <Link
+                      component={RouterLink}
+                      to={`/visit/${appointment?.id}`}
+                      variant="body2"
+                      sx={{
+                        color: theme.palette.text.secondary,
+                        textDecorationColor: theme.palette.text.secondary,
+                      }}
+                    >
+                      <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>{visitText}</PatientMetadata>
+                    </Link>
+                  </Grid>
+                  <Grid item>
                     <Tooltip title={paymentVariant}>
                       <PatientMetadata
                         sx={{
@@ -321,7 +368,7 @@ export const Header = (): JSX.Element => {
                   <Grid item>
                     {isFollowup ? (
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <PatientMetadata>Follow-up provider: </PatientMetadata>
+                        <PatientMetadata sx={{ whiteSpace: 'nowrap' }}>Follow-up provider: </PatientMetadata>
                         <TextField
                           select
                           fullWidth
@@ -419,7 +466,7 @@ export const Header = (): JSX.Element => {
                       >
                         {patientName}
                       </PatientName>
-                      <PrintVisitLabelButton encounterId={encounterId} />
+                      <PrintVisitLabelButton encounterId={effectiveEncounterId} />
                       <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
                     </PatientInfoWrapper>
                     <PatientInfoWrapper>
@@ -447,14 +494,7 @@ export const Header = (): JSX.Element => {
                   mt: 0.5,
                 }}
               >
-                {!isFollowup && (
-                  <SwitchIntakeModeButton
-                    isDisabled={!appointmentID || isEncounterUpdatePending}
-                    handleSwitchMode={handleSwitchMode}
-                    nextMode={nextMode}
-                  />
-                )}
-                {encounterId ? <InternalNotes /> : null}
+                {effectiveEncounterId ? <InternalNotes /> : null}
               </Grid>
             </Grid>
           </Grid>

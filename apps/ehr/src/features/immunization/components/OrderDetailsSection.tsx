@@ -7,7 +7,8 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunization';
-import { LOCATION_OPTIONS, ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils/options';
+import { LOCATION_OPTIONS, ROUTE_OPTIONS } from 'src/shared/utils/options';
+import { UNIT_OPTIONS } from 'utils';
 
 export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();

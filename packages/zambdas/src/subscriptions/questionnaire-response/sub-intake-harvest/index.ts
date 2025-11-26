@@ -244,7 +244,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   // only create the consent resources once when qr goes to completed.
   // it seems QR is saved twice in rapid succession on submission
-  if (hipaa === true && consentToTreat === true) {
+  if (hipaa === true && consentToTreat === true && qr.status === 'completed') {
     console.time('creating consent resources');
     try {
       await createConsentResources({

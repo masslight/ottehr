@@ -1,60 +1,20 @@
 import Oystehr from '@oystehr/sdk';
-import { DomainResource, Encounter, Patient, Practitioner } from 'fhir/r4b';
-import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput, RoleType } from 'utils';
-import { inject } from 'vitest';
-import { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } from '../../.env/local.json';
-import { getAuth0Token } from '../../src/shared';
-import { SECRETS } from '../data/secrets';
+import { DomainResource, Encounter, Patient } from 'fhir/r4b';
+import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput, M2MClientMockType } from 'utils';
+import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 describe('radiology integration tests', () => {
-  let oystehrLocalZambdas: Oystehr;
-  let oystehr: Oystehr;
-  let token = null;
+  let oystehrTestUserM2M: Oystehr;
+  let oystehrAdmin: Oystehr;
   let encounter: Encounter;
   const resourcesToCleanup: DomainResource[] = [];
 
   beforeAll(async () => {
-    const { AUTH0_ENDPOINT, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-    });
+    const setup = await setupIntegrationTest('integration/radiology.test.ts', M2MClientMockType.provider);
+    oystehrTestUserM2M = setup.oystehrTestUserM2M;
+    oystehrAdmin = setup.oystehr;
 
-    const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
-    expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-    oystehr = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectId: PROJECT_ID,
-    });
-
-    oystehrLocalZambdas = new Oystehr({
-      accessToken: token,
-      fhirApiUrl: FHIR_API,
-      projectApiUrl: EXECUTE_ZAMBDA_URL,
-      projectId: PROJECT_ID,
-    });
-
-    const practitionerForM2M = await oystehr.fhir.create<Practitioner>({
-      resourceType: 'Practitioner',
-      name: [{ given: ['M2M'], family: 'Client' }],
-      birthDate: '1978-01-01',
-      telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
-    });
-
-    const projectRoles = await oystehr.role.list();
-    const providerRoleId = projectRoles.find((role) => role.name === RoleType.Provider)?.id;
-    expect(providerRoleId).toBeDefined();
-
-    await oystehr.m2m.update({
-      id: (await oystehr.m2m.me()).id,
-      profile: `Practitioner/${practitionerForM2M.id}`,
-      roles: [providerRoleId!],
-    });
-
-    const patient = await oystehr.fhir.create<Patient>({
+    const patient = await oystehrAdmin.fhir.create<Patient>({
       resourceType: 'Patient',
       name: [{ given: ['Test'], family: 'Patient' }],
       birthDate: '2000-01-01',
@@ -62,7 +22,7 @@ describe('radiology integration tests', () => {
     });
     resourcesToCleanup.push(patient);
 
-    encounter = await oystehr.fhir.create<Encounter>({
+    encounter = await oystehrAdmin.fhir.create<Encounter>({
       resourceType: 'Encounter',
       status: 'in-progress',
       class: { code: 'AMB' },
@@ -73,10 +33,10 @@ describe('radiology integration tests', () => {
   });
 
   afterAll(async () => {
-    if (!oystehr) {
+    if (!oystehrAdmin) {
       throw new Error('oystehr is null! could not clean up!');
     }
-    await cleanupResources(oystehr);
+    await cleanupResources(oystehrAdmin);
   });
 
   const cleanupResources = async (oystehr: Oystehr): Promise<void> => {
@@ -101,7 +61,7 @@ describe('radiology integration tests', () => {
       let orderOutput: any;
       try {
         orderOutput = (
-          await oystehrLocalZambdas.zambda.execute({
+          await oystehrTestUserM2M.zambda.execute({
             id: 'RADIOLOGY-CREATE-ORDER',
             ...createOrderInput,
           })

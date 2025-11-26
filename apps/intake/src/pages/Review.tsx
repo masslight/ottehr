@@ -63,6 +63,7 @@ const Review = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: false });
 
   const onSubmit = async (): Promise<void> => {
+    console.log('submitting review page', patientInfo);
     try {
       if (!patientInfo) {
         console.log('no patient info error');

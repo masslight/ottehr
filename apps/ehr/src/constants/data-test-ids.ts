@@ -369,6 +369,7 @@ export const dataTestIds = {
     knownAllergiesContainer: 'known-allergies-container',
     medicalConditionsContainer: 'medical-conditions-container',
     surgicalHistoryContainer: 'surgical-history-container',
+    additionalQuestions: 'additional-questions',
   },
   assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
@@ -608,10 +609,22 @@ export const dataTestIds = {
     message: 'administration-dialog-message',
     reasonField: 'administration-dialog-reason-field',
   },
+
   inHouseMedicationAdministrationConfirmationDialog: {
     patient: 'administration-dialog-patient',
     medication: 'administration-dialog-medication',
     message: 'administration-dialog-message',
     reasonField: 'administration-dialog-reason-field',
+  },
+
+  screeningPage: {
+    title: 'screening-title',
+    asqQuestion: 'asq-question',
+    screeningNoteField: 'screening-note-field',
+    screeningNoteItem: 'screening-note-item',
+    addNoteButton: 'add-screening-note-button',
+    askPatientQuestion: 'ask-patient-question',
+    vaccinationNoteField: 'vaccination-note-field',
+    answerDropdown: 'answer-dropdown',
   },
 };

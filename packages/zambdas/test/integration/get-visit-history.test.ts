@@ -418,13 +418,13 @@ describe('tests for getting the visit history for a patient', () => {
 
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
+    const { AUTH0_ENDPOINT, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
     const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
     expect(EXECUTE_ZAMBDA_URL).toBeDefined();
     token = await getAuth0Token({
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT,
-      AUTH0_SECRET: AUTH0_SECRET,
+      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
+      AUTH0_SECRET: AUTH0_SECRET_TESTS,
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 

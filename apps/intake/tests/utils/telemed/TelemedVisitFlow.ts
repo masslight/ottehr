@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { shouldShowServiceCategorySelectionPage } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { BaseTelemedFlow, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
 
@@ -12,6 +13,10 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     await this.locator.goToWaitingRoomButton.click();
   }
   async selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>> {
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'telemed', visitType: 'prebook' })) {
+      await this.fillingInfo.selectFirstServiceCategory();
+    }
+
     await this.page.getByPlaceholder('Search or select').click();
     const locationOption = this.page
       .locator('[role="option"]')

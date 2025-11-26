@@ -1,5 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ADDITIONAL_QUESTIONS_META_SYSTEM } from 'utils';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
@@ -34,7 +35,11 @@ export const Screening: React.FC<ScreeningProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Screening" showIntakeNotesButton={interactionMode === 'intake'} />
+      <PageTitle
+        dataTestId={dataTestIds.screeningPage.title}
+        label="Screening"
+        showIntakeNotesButton={interactionMode === 'main'}
+      />
       <Questions />
       <AskThePatient />
       <ASQ />

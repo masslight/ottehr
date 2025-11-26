@@ -71,6 +71,11 @@ const addStyleInfo = (item: IntakeQuestionnaireItem): StyledQuestionnaireItem =>
     placeholder = 'Street, City, Zip Code';
   }
 
+  if (item.dataType === 'SSN') {
+    placeholder = 'XXX-XX-XXXX';
+    mask = '000-00-0000';
+  }
+
   return {
     ...item,
     hideControlLabel: hidesLabel,
