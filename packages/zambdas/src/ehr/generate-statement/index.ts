@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi } from 'candidhealth';
 import { randomUUID } from 'crypto';
-import { Encounter, List } from 'fhir/r4b';
+import { Appointment, Encounter, List, Location, Patient, Resource, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BUCKET_NAMES,
@@ -23,6 +23,7 @@ import {
   createPresignedUrl,
   getAuth0Token,
   getCandidEncounterIdFromEncounter,
+  resolveTimezone,
   topLevelCatch,
   uploadObjectToZ3,
   validateJsonBody,
@@ -35,7 +36,15 @@ import { generatePdf } from './draw';
 
 const ZAMBDA_NAME = 'generate-statement';
 
-export interface GenerateStatementInputValidated extends GenerateStatementInput {
+interface StatementResources {
+  appointment: Appointment;
+  encounter: Encounter;
+  patient: Patient;
+  location: Location | undefined;
+  timezone: string;
+}
+
+interface GenerateStatementInputValidated extends GenerateStatementInput {
   secrets: Secrets;
 }
 
@@ -49,6 +58,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { encounterId, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+
+    const resources = await getResources(encounterId, oystehr);
 
     const encounter = await oystehr.fhir.get<Encounter>({
       resourceType: 'Encounter',
@@ -76,10 +87,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const candidClaimResponse = await candid.patientAr.v1.itemize(CandidApi.ClaimId(candidClaimId));
 
-    const serviceLines =
-      candidClaimResponse && candidClaimResponse.ok ? candidClaimResponse?.body?.serviceLineItemization : undefined;
+    const itemizationResponse = candidClaimResponse && candidClaimResponse.ok ? candidClaimResponse?.body : undefined;
 
-    const pdfDocument = await generatePdf(serviceLines ?? []);
+    if (!itemizationResponse) {
+      throw new Error('Failed to get itemization response');
+    }
+
+    const pdfDocument = await generatePdf({
+      ...resources,
+      itemizationResponse,
+    });
 
     const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
     const fileName = `Statement-${encounterId}-${timestamp}.pdf`;
@@ -101,7 +118,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     let presignedUrl;
     try {
       presignedUrl = await createPresignedUrl(m2mToken, baseFileUrl, 'upload');
-      await uploadObjectToZ3(new Uint8Array(await pdfDocument.save()), presignedUrl);
+      await uploadObjectToZ3(pdfDocument, presignedUrl);
     } catch (error: any) {
       throw new Error(`failed uploading pdf to z3:  ${JSON.stringify(error.message)}`);
     }
@@ -198,3 +215,66 @@ async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
   }
   return createOystehrClient(oystehrToken, secrets);
 }
+
+const getResources = async (encounterId: string, oystehr: Oystehr): Promise<StatementResources> => {
+  const items: Array<Appointment | Encounter | Patient | Location | Schedule> = (
+    await oystehr.fhir.search<Appointment | Encounter | Patient | Location | Schedule>({
+      resourceType: 'Encounter',
+      params: [
+        {
+          name: '_id',
+          value: encounterId,
+        },
+        {
+          name: '_include',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include',
+          value: 'Encounter:subject',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:location',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Schedule:actor:Location',
+        },
+      ],
+    })
+  ).unbundle();
+
+  const appointment: Appointment | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Appointment';
+  }) as Appointment;
+  if (!appointment) throw new Error('Appointment not found');
+
+  const encounter: Encounter | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Encounter';
+  }) as Encounter;
+  if (!encounter) throw new Error('Encounter not found');
+
+  const patient: Patient | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Patient';
+  }) as Patient;
+  if (!patient) throw new Error('Patient not found');
+
+  const location: Location | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Location';
+  }) as Location;
+
+  const schedule: Schedule | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Schedule';
+  }) as Schedule;
+
+  const timezone = resolveTimezone(schedule, location, 'America/New_York');
+
+  return {
+    appointment,
+    encounter,
+    patient,
+    location,
+    timezone,
+  };
+};

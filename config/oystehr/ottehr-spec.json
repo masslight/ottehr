@@ -1298,6 +1298,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/update-invoice-task/index",
       "zip": ".dist/zips/update-invoice-task.zip"
+    },
+    "GENERATE_STATEMENT": {
+      "name": "generate-statement",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/generate-statement/index",
+      "zip": ".dist/zips/generate-statement.zip"
     }
   },
   "faxNumbers": {
