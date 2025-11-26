@@ -78,100 +78,131 @@ async function bookAppointmentForExistingPatient(bookingData: {
   };
 }
 
-test.describe.parallel('In-Person Setup: Create test patients and appointments', () => {
+test.describe.parallel('In-Person: Create test patients and appointments', () => {
   test('Create patient with self-pay and card payment appointment', async ({ page }) => {
-    const bookingData = await flowClass.startVisit();
-    await page.goto(bookingData.bookingURL);
-    await paperwork.clickProceedToPaperwork();
-    const { stateValue } = await paperwork.fillPaperworkOnlyRequiredFieldsInPerson();
-    await locator.continueButton.click();
+    const { bookingData, stateValue } = await test.step('Book first appointment', async () => {
+      const bookingData = await flowClass.startVisit();
+      await page.goto(bookingData.bookingURL);
+      await paperwork.clickProceedToPaperwork();
+      const { stateValue } = await paperwork.fillPaperworkOnlyRequiredFieldsInPerson();
+      await locator.continueButton.click();
+      return { bookingData, stateValue };
+    });
 
-    const { slot, location } = await bookAppointmentForExistingPatient(bookingData);
+    const { slot, location } = await test.step('Book second appointment without filling paperwork', async () => {
+      return await bookAppointmentForExistingPatient(bookingData);
+    });
 
-    const cardPaymentSelfPatient = {
-      firstName: bookingData.firstName,
-      lastName: bookingData.lastName,
-      email: bookingData.email,
-      birthSex: bookingData.birthSex,
-      dateOfBirth: bookingData.dateOfBirth,
-      appointmentId: appointmentIds[appointmentIds.length - 1],
-      slot,
-      location,
-      state: stateValue,
-      slotDetails,
-    };
-
-    writeTestData('cardPaymentSelfPatient.json', cardPaymentSelfPatient);
-
-    console.log('cardPaymentSelfPatient', JSON.stringify(cardPaymentSelfPatient));
-    console.log('Appointment IDs:', appointmentIds);
+    await test.step('Save test data', async () => {
+      const cardPaymentSelfPatient = {
+        firstName: bookingData.firstName,
+        lastName: bookingData.lastName,
+        email: bookingData.email,
+        birthSex: bookingData.birthSex,
+        dateOfBirth: bookingData.dateOfBirth,
+        appointmentId: appointmentIds[appointmentIds.length - 1],
+        slot,
+        location,
+        state: stateValue,
+        slotDetails,
+      };
+      console.log('cardPaymentSelfPatient', JSON.stringify(cardPaymentSelfPatient));
+      writeTestData('cardPaymentSelfPatient.json', cardPaymentSelfPatient);
+    });
   });
 
   test('Create patient without self-pay with insurance payment appointment', async ({ page }) => {
-    const bookingData = await flowClass.startVisit();
-    await page.goto(bookingData.bookingURL);
-    await paperwork.clickProceedToPaperwork();
-    const { stateValue, patientDetailsData, pcpData, insuranceData, secondaryInsuranceData, responsiblePartyData } =
-      await paperwork.fillPaperworkAllFieldsInPerson('insurance', 'not-self');
-    await locator.finishButton.click();
-
-    const { slot, location } = await bookAppointmentForExistingPatient(bookingData);
-
-    const insurancePaymentNotSelfPatient = {
-      firstName: bookingData.firstName,
-      lastName: bookingData.lastName,
-      email: bookingData.email,
-      birthSex: bookingData.birthSex,
-      dateOfBirth: bookingData.dateOfBirth,
-      appointmentId: appointmentIds[appointmentIds.length - 1],
-      slot,
-      location,
-      slotDetails,
-      state: stateValue,
+    const {
+      bookingData,
+      stateValue,
       patientDetailsData,
       pcpData,
       insuranceData,
       secondaryInsuranceData,
       responsiblePartyData,
-    };
+    } = await test.step('Book first appointment', async () => {
+      const bookingData = await flowClass.startVisit();
+      await page.goto(bookingData.bookingURL);
+      await paperwork.clickProceedToPaperwork();
+      const { stateValue, patientDetailsData, pcpData, insuranceData, secondaryInsuranceData, responsiblePartyData } =
+        await paperwork.fillPaperworkAllFieldsInPerson('insurance', 'not-self');
+      await locator.finishButton.click();
+      return {
+        bookingData,
+        stateValue,
+        patientDetailsData,
+        pcpData,
+        insuranceData,
+        secondaryInsuranceData,
+        responsiblePartyData,
+      };
+    });
 
-    writeTestData('insurancePaymentNotSelfPatient.json', insurancePaymentNotSelfPatient);
+    const { slot, location } = await test.step('Book second appointment without filling paperwork', async () => {
+      return await bookAppointmentForExistingPatient(bookingData);
+    });
 
-    console.log('insurancePaymentNotSelfPatient', JSON.stringify(insurancePaymentNotSelfPatient));
+    await test.step('Save test data', async () => {
+      const insurancePaymentNotSelfPatient = {
+        firstName: bookingData.firstName,
+        lastName: bookingData.lastName,
+        email: bookingData.email,
+        birthSex: bookingData.birthSex,
+        dateOfBirth: bookingData.dateOfBirth,
+        appointmentId: appointmentIds[appointmentIds.length - 1],
+        slot,
+        location,
+        slotDetails,
+        state: stateValue,
+        patientDetailsData,
+        pcpData,
+        insuranceData,
+        secondaryInsuranceData,
+        responsiblePartyData,
+      };
+      console.log('insurancePaymentNotSelfPatient', JSON.stringify(insurancePaymentNotSelfPatient));
+      writeTestData('insurancePaymentNotSelfPatient.json', insurancePaymentNotSelfPatient);
+    });
   });
 
   test('Create patient without filling in paperwork', async () => {
-    const bookingData = await flowClass.startVisit();
-    await page.goto(bookingData.bookingURL);
-    await paperwork.clickProceedToPaperwork();
+    const { bookingData } = await test.step('Create patient', async () => {
+      const bookingData = await flowClass.startVisit();
+      await page.goto(bookingData.bookingURL);
+      await paperwork.clickProceedToPaperwork();
+      return { bookingData };
+    });
 
-    const patientWithoutPaperwork = {
-      firstName: bookingData.firstName,
-      lastName: bookingData.lastName,
-      email: bookingData.email,
-      birthSex: bookingData.birthSex,
-      dateOfBirth: bookingData.dateOfBirth,
-      appointmentId: bookingData.bookingUUID,
-    };
-
-    writeTestData('patientWithoutPaperwork.json', patientWithoutPaperwork);
-
-    console.log('patientWithoutPaperwork', JSON.stringify(patientWithoutPaperwork));
+    await test.step('Save test data', async () => {
+      const patientWithoutPaperwork = {
+        firstName: bookingData.firstName,
+        lastName: bookingData.lastName,
+        email: bookingData.email,
+        birthSex: bookingData.birthSex,
+        dateOfBirth: bookingData.dateOfBirth,
+        appointmentId: bookingData.bookingUUID,
+      };
+      console.log('patientWithoutPaperwork', JSON.stringify(patientWithoutPaperwork));
+      writeTestData('patientWithoutPaperwork.json', patientWithoutPaperwork);
+    });
   });
 
   test('Create patient without appointments', async () => {
-    const bookingData = await flowClass.startVisit();
+    const { bookingData } = await test.step('Create patient', async () => {
+      const bookingData = await flowClass.startVisit();
+      return { bookingData };
+    });
 
-    const patientWithoutAppointments = {
-      firstName: bookingData.firstName,
-      lastName: bookingData.lastName,
-      email: bookingData.email,
-      birthSex: bookingData.birthSex,
-      dateOfBirth: bookingData.dateOfBirth,
-    };
-
-    writeTestData('patientWithoutAppointments.json', patientWithoutAppointments);
-
-    console.log('patientWithoutAppointments', JSON.stringify(patientWithoutAppointments));
+    await test.step('Save test data', async () => {
+      const patientWithoutAppointments = {
+        firstName: bookingData.firstName,
+        lastName: bookingData.lastName,
+        email: bookingData.email,
+        birthSex: bookingData.birthSex,
+        dateOfBirth: bookingData.dateOfBirth,
+      };
+      console.log('patientWithoutAppointments', JSON.stringify(patientWithoutAppointments));
+      writeTestData('patientWithoutAppointments.json', patientWithoutAppointments);
+    });
   });
 });
