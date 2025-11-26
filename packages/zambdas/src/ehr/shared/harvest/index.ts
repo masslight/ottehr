@@ -175,6 +175,12 @@ interface EmergencyContact {
   lastName: string;
   relationship: 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
   number: string;
+  addressLine?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  addressSameAsPatient?: boolean;
 }
 
 interface PolicyHolder {
@@ -1871,6 +1877,8 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
 export function extractEmergencyContact(items: QuestionnaireResponseItem[]): EmergencyContact | undefined {
   const findAnswer = (linkId: string): string | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+  const findBooleanAnswer = (linkId: string): boolean | undefined =>
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueBoolean;
 
   const contact: EmergencyContact = {
     middleName: findAnswer('emergency-contact-middle-name') ?? '',
@@ -1878,6 +1886,12 @@ export function extractEmergencyContact(items: QuestionnaireResponseItem[]): Eme
     lastName: findAnswer('emergency-contact-last-name') ?? '',
     relationship: findAnswer('emergency-contact-relationship') as 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other',
     number: findAnswer('emergency-contact-number') ?? '',
+    addressLine: findAnswer('emergency-contact-address') ?? undefined,
+    addressLine2: findAnswer('emergency-contact-address-2') ?? undefined,
+    city: findAnswer('emergency-contact-city') ?? undefined,
+    state: findAnswer('emergency-contact-state') ?? undefined,
+    zip: findAnswer('emergency-contact-zip') ?? undefined,
+    addressSameAsPatient: findBooleanAnswer('emergency-contact-address-as-patient'),
   };
 
   if (contact.firstName && contact.lastName && contact.number && contact.relationship) {
@@ -1885,6 +1899,37 @@ export function extractEmergencyContact(items: QuestionnaireResponseItem[]): Eme
   }
   return undefined;
 }
+
+const buildEmergencyContactAddress = (contact: EmergencyContact, patient: Patient): Address | undefined => {
+  if (contact.addressSameAsPatient) {
+    const patientAddress = patient.address?.[0];
+    if (patientAddress) {
+      return {
+        line: patientAddress.line ? [...patientAddress.line] : undefined,
+        city: patientAddress.city,
+        state: patientAddress.state,
+        postalCode: patientAddress.postalCode,
+      };
+    }
+  }
+
+  const { addressLine, addressLine2, city, state, zip } = contact;
+  const hasAddressData = addressLine || addressLine2 || city || state || zip;
+  if (!hasAddressData) {
+    return undefined;
+  }
+
+  const address: Address = {
+    line: [addressLine, addressLine2].filter(Boolean) as string[],
+    city,
+    state,
+    postalCode: zip,
+  };
+  if (!address.line?.length) {
+    delete address.line;
+  }
+  return address;
+};
 
 // note: this function assumes items have been flattened before being passed in
 interface InsuranceDetails {
@@ -2344,6 +2389,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   const guarantorData = extractAccountGuarantor(flattenedItems);
 
   const emergencyContactData = extractEmergencyContact(flattenedItems);
+  const emergencyContactAddress =
+    emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData, patient) : undefined;
 
   const employerInformation = getEmployerInformation(flattenedItems);
   /*console.log(
@@ -2507,6 +2554,11 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         ],
       },
     ];
+    if (emergencyContactAddress) {
+      emergencyContactResourceToPut.address = [emergencyContactAddress];
+    } else {
+      delete emergencyContactResourceToPut.address;
+    }
     puts.push({
       method: 'PUT',
       url: `RelatedPerson/${existingEmergencyContact.id}`,
@@ -2546,6 +2598,9 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         system: 'phone',
       },
     ];
+    if (emergencyContactAddress) {
+      emergencyContactResourceToCreate.address = [emergencyContactAddress];
+    }
     emergencyContactPost = {
       method: 'POST',
       url: 'RelatedPerson',

@@ -1610,6 +1610,49 @@
                     "valueString": "(123) 123-1234"
                   }
                 ]
+              },
+              {
+                "linkId": "emergency-contact-address-as-patient"
+              },
+              {
+                "linkId": "emergency-contact-address",
+                "answer": [
+                  {
+                    "valueString": "address"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-address-2",
+                "answer": [
+                  {
+                    "valueString": "address 2"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-city",
+                "answer": [
+                  {
+                    "valueString": "city"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-state",
+                "answer": [
+                  {
+                    "valueString": "AL"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-zip",
+                "answer": [
+                  {
+                    "valueString": "12312"
+                  }
+                ]
               }
             ]
           },
