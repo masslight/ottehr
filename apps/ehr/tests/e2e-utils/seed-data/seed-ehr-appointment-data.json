@@ -1422,6 +1422,107 @@
             ]
           },
           {
+            "linkId": "employer-information-page",
+            "item": [
+              {
+                "linkId": "employer-name",
+                "answer": [
+                  {
+                    "valueString": "Test Employer Inc"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-address",
+                "answer": [
+                  {
+                    "valueString": "123 Business Street"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-address-2",
+                "answer": [
+                  {
+                    "valueString": "Suite 100"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-city",
+                "answer": [
+                  {
+                    "valueString": "New York"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-state",
+                "answer": [
+                  {
+                    "valueString": "NY"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-zip",
+                "answer": [
+                  {
+                    "valueString": "10001"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-first-name",
+                "answer": [
+                  {
+                    "valueString": "John"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-last-name",
+                "answer": [
+                  {
+                    "valueString": "Doe"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-title",
+                "answer": [
+                  {
+                    "valueString": "HR Manager"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-email",
+                "answer": [
+                  {
+                    "valueString": "a@a.a"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-phone",
+                "answer": [
+                  {
+                    "valueString": "(123) 123-1234"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-fax",
+                "answer": [
+                  {
+                    "valueString": "(123) 123-1234"
+                  }
+                ]
+              }
+            ]
+          },
+          {
             "linkId": "emergency-contact-page",
             "item": [
               {

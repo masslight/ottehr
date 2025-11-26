@@ -344,6 +344,18 @@ export const DEMO_VISIT_EMERGENCY_CONTACT_FIRST_NAME = 'Emergen';
 export const DEMO_VISIT_EMERGENCY_CONTACT_MIDDLE_NAME = 'C';
 export const DEMO_VISIT_EMERGENCY_CONTACT_LAST_NAME = 'Contact';
 export const DEMO_VISIT_EMERGENCY_CONTACT_PHONE = '(123) 123-1234';
+export const DEMO_VISIT_EMPLOYER_NAME = 'Test Employer Inc';
+export const DEMO_VISIT_EMPLOYER_ADDRESS = '123 Business Street';
+export const DEMO_VISIT_EMPLOYER_ADDRESS_2 = 'Suite 100';
+export const DEMO_VISIT_EMPLOYER_CITY = 'New York';
+export const DEMO_VISIT_EMPLOYER_STATE = 'NY';
+export const DEMO_VISIT_EMPLOYER_ZIP = '10001';
+export const DEMO_VISIT_EMPLOYER_CONTACT_FIRST_NAME = 'John';
+export const DEMO_VISIT_EMPLOYER_CONTACT_LAST_NAME = 'Doe';
+export const DEMO_VISIT_EMPLOYER_CONTACT_TITLE = 'HR Manager';
+export const DEMO_VISIT_EMPLOYER_CONTACT_EMAIL = 'a@a.a';
+export const DEMO_VISIT_EMPLOYER_CONTACT_PHONE = '(123) 123-1234';
+export const DEMO_VISIT_EMPLOYER_CONTACT_FAX = '(123) 123-1234';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -1283,6 +1295,88 @@ export function getPreferredPharmacyStepAnswers(): PatchPaperworkParameters['ans
             valueString: 'Test pharmacy address',
           },
         ],
+      },
+    ],
+  };
+}
+
+export function getEmployerInformationStepAnswers({
+  employerName = DEMO_VISIT_EMPLOYER_NAME,
+  address = DEMO_VISIT_EMPLOYER_ADDRESS,
+  address2 = DEMO_VISIT_EMPLOYER_ADDRESS_2,
+  city = DEMO_VISIT_EMPLOYER_CITY,
+  state = DEMO_VISIT_EMPLOYER_STATE,
+  zip = DEMO_VISIT_EMPLOYER_ZIP,
+  contactFirstName = DEMO_VISIT_EMPLOYER_CONTACT_FIRST_NAME,
+  contactLastName = DEMO_VISIT_EMPLOYER_CONTACT_LAST_NAME,
+  contactTitle = DEMO_VISIT_EMPLOYER_CONTACT_TITLE,
+  contactEmail = DEMO_VISIT_EMPLOYER_CONTACT_EMAIL,
+  contactPhone = DEMO_VISIT_EMPLOYER_CONTACT_PHONE,
+  contactFax = DEMO_VISIT_EMPLOYER_CONTACT_FAX,
+}: {
+  employerName?: string;
+  address?: string;
+  address2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  contactFirstName?: string;
+  contactLastName?: string;
+  contactTitle?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactFax?: string;
+} = {}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'employer-information-page',
+    item: [
+      {
+        linkId: 'employer-name',
+        answer: [{ valueString: employerName }],
+      },
+      {
+        linkId: 'employer-address',
+        answer: [{ valueString: address }],
+      },
+      {
+        linkId: 'employer-address-2',
+        answer: [{ valueString: address2 }],
+      },
+      {
+        linkId: 'employer-city',
+        answer: [{ valueString: city }],
+      },
+      {
+        linkId: 'employer-state',
+        answer: [{ valueString: state }],
+      },
+      {
+        linkId: 'employer-zip',
+        answer: [{ valueString: zip }],
+      },
+      {
+        linkId: 'employer-contact-first-name',
+        answer: [{ valueString: contactFirstName }],
+      },
+      {
+        linkId: 'employer-contact-last-name',
+        answer: [{ valueString: contactLastName }],
+      },
+      {
+        linkId: 'employer-contact-title',
+        answer: [{ valueString: contactTitle }],
+      },
+      {
+        linkId: 'employer-contact-email',
+        answer: [{ valueString: contactEmail }],
+      },
+      {
+        linkId: 'employer-contact-phone',
+        answer: [{ valueString: contactPhone }],
+      },
+      {
+        linkId: 'employer-contact-fax',
+        answer: [{ valueString: contactFax }],
       },
     ],
   };
