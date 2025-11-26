@@ -729,7 +729,7 @@ export default function VisitDetailsPage(): ReactElement {
     try {
       const response = await generatePaperworkPdf(oystehrZambda!, {
         questionnaireResponseId: qrId!,
-      } as any);
+      });
       await downloadDocument(response.documentReference.split('/')[1]);
     } catch (error) {
       console.error(error);
