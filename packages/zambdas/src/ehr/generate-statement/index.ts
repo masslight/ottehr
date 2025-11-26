@@ -8,13 +8,12 @@ import {
   BUCKET_NAMES,
   createCandidApiClient,
   createFilesDocumentReferences,
-  EXPORTED_QUESTIONNAIRE_CODE,
   GenerateStatementInput,
   getSecret,
   OTTEHR_MODULE,
-  PAPERWORK_PDF_ATTACHMENT_TITLE,
   Secrets,
   SecretsKeys,
+  STATEMENT_CODE,
 } from 'utils';
 import {
   assertDefined,
@@ -36,6 +35,7 @@ import { getAccountAndCoverageResourcesForPatient } from '../shared/harvest';
 import { generatePdf } from './draw';
 
 const ZAMBDA_NAME = 'generate-statement';
+const STATEMENT_FILE_TITLE = 'Statement'; // todo
 
 interface StatementResources {
   appointment: Appointment;
@@ -113,11 +113,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const baseFileUrl = makeZ3Url({
       secrets,
       fileName,
-      bucketName: BUCKET_NAMES.PAPERWORK, // todo
+      bucketName: BUCKET_NAMES.STATEMENTS,
       patientID: patientId,
     });
 
-    console.log('Uploading file to bucket, ', BUCKET_NAMES.PAPERWORK); // todo
+    console.log('Uploading file to bucket, ', BUCKET_NAMES.STATEMENTS);
 
     let presignedUrl;
     try {
@@ -145,18 +145,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       files: [
         {
           url: baseFileUrl,
-          title: PAPERWORK_PDF_ATTACHMENT_TITLE, // todo
+          title: STATEMENT_FILE_TITLE,
         },
       ],
       type: {
         coding: [
           {
             system: 'http://loinc.org',
-            code: EXPORTED_QUESTIONNAIRE_CODE, // todo
-            display: PAPERWORK_PDF_ATTACHMENT_TITLE, // todo
+            code: STATEMENT_CODE,
+            display: STATEMENT_FILE_TITLE,
           },
         ],
-        text: PAPERWORK_PDF_ATTACHMENT_TITLE, // todo
+        text: STATEMENT_FILE_TITLE,
       },
       dateCreated: DateTime.now().toUTC().toISO(),
       searchParams: [
@@ -170,7 +170,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         },
         {
           name: 'type',
-          value: EXPORTED_QUESTIONNAIRE_CODE, // todo
+          value: STATEMENT_CODE,
         },
       ],
       references: {

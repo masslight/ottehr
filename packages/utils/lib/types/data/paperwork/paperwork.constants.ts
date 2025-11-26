@@ -43,6 +43,7 @@ export const PRIVACY_POLICY_CODE = '64292-6';
 export const VISIT_NOTE_SUMMARY_CODE = '75498-6';
 export const VISIT_DETAILS_CODE = 'visit-details';
 export const DISCHARGE_SUMMARY_CODE = 'discharge-summary';
+export const STATEMENT_CODE = 'statement-code'; // todo
 
 // only one type supported currently, but extension is invited here
 export const ComplexValidationType = {

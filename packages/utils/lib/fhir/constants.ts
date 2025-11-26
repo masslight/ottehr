@@ -25,6 +25,7 @@ import {
   RECEIPT_CODE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
+  STATEMENT_CODE,
   VISIT_NOTE_SUMMARY_CODE,
 } from '../types';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
@@ -380,6 +381,7 @@ export const BUCKET_NAMES = {
   RECEIPTS: 'receipts',
   PAPERWORK: 'exported-questionnaires',
   DISCHARGE_SUMMARIES: 'discharge-summaries',
+  STATEMENTS: 'statements',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -454,6 +456,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.DISCHARGE_SUMMARIES,
     display: 'Discharge Summary',
     documentTypeCode: DISCHARGE_SUMMARY_CODE,
+  },
+  {
+    title: BUCKET_NAMES.STATEMENTS,
+    display: 'Statements',
+    documentTypeCode: STATEMENT_CODE,
   },
 ];
 

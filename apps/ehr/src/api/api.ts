@@ -48,6 +48,7 @@ import {
   DeleteLabOrderZambdaOutput,
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
+  GenerateStatementInput,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
   GetConversationInput,
@@ -1143,6 +1144,22 @@ export const createDischargeSummary = async (
 export const generatePaperworkPdf = async (
   oystehr: Oystehr,
   parameters: PaperworkToPDFInput
+): Promise<{ documentReference: string }> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: PAPERWORK_TO_PDF_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const generateStatementPdf = async (
+  oystehr: Oystehr,
+  parameters: GenerateStatementInput
 ): Promise<{ documentReference: string }> => {
   try {
     const response = await oystehr.zambda.execute({
