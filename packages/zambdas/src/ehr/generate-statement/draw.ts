@@ -97,8 +97,15 @@ export async function generatePdf(input: StatementPdfInput): Promise<Uint8Array>
   const { date: appointmentDate, time: appointmentTime } = formatDateToMDYWithTime(appointment?.start, timezone) ?? {};
   const locationName = location?.name ?? '';
 
+  const beforeAppointmentInfoY = pdfClient.getY();
   pdfClient.drawText(`${appointmentType} | ${appointmentTime} | ${appointmentDate}\n`, textStyles.regular);
   pdfClient.drawText(locationName + '\n\n', textStyles.regular);
+  const afterAppointmentInfoY = pdfClient.getY();
+
+  pdfClient.setY(beforeAppointmentInfoY);
+  pdfClient.drawText('Statement Date\n', { ...textStyles.label, side: 'right' });
+  pdfClient.drawText(DateTime.now().toFormat('MM/dd/yyyy'), { ...textStyles.regular, side: 'right' });
+  pdfClient.setY(afterAppointmentInfoY);
 
   const patientName = getFullName(patient) ?? '';
   const patientDob =
@@ -108,7 +115,7 @@ export async function generatePdf(input: StatementPdfInput): Promise<Uint8Array>
     '';
   const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
 
-  pdfClient.drawText('Patient\n', textStyles.label);
+  pdfClient.drawText('Patient\n', textStyles.subtitle);
   pdfClient.drawText(`${patientName}\n`, textStyles.regularBold);
   pdfClient.drawText(`DOB: ${patientDob}\n`, textStyles.regular);
   pdfClient.drawText(`${patientMobile} | ${patientEmail}\n\n`, textStyles.regular);
@@ -128,7 +135,7 @@ export async function generatePdf(input: StatementPdfInput): Promise<Uint8Array>
     const email =
       responsibleParty?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
 
-    pdfClient.drawText('Responsible party\n', textStyles.label);
+    pdfClient.drawText('Responsible party\n', textStyles.subtitle);
     pdfClient.drawText(getFullName(responsibleParty) + '\n', textStyles.regularBold);
     pdfClient.drawText(address + '\n', textStyles.regular);
     pdfClient.drawText(`${phone} | ${email}\n\n`, textStyles.regular);
