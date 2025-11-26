@@ -13,6 +13,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  getMedicationFromMA,
   getMedicationName,
   getMedicationTypeCode,
   getPatchBinary,
@@ -47,7 +48,6 @@ import {
 import {
   createMedicationCopy,
   getMedicationById,
-  getMedicationFromMA,
   practitionerIdFromZambdaInput,
   updateMedicationAdministrationData,
   validateProviderAccess,

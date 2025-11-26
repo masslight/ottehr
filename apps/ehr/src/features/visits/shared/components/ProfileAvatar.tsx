@@ -9,12 +9,14 @@ import ProfilePhotoImagePicker from './ProfilePhotoImagePicker';
 type ProfileAvatarProps = {
   appointmentID?: string;
   embracingSquareSize?: number;
+  editBubbleSize?: number;
   hasEditableInfo?: boolean;
 };
 
 export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   appointmentID,
   embracingSquareSize,
+  editBubbleSize = 24,
   hasEditableInfo,
 }): JSX.Element => {
   const { mappedData } = useAppointmentData(appointmentID);
@@ -38,7 +40,6 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   });
 
   const avatarSquareSize = embracingSquareSize ?? 50;
-  const editBubbleSize = Math.floor(0.3 * avatarSquareSize);
 
   return (
     <>
@@ -63,8 +64,8 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
             aria-label="edit"
             sx={{
               position: 'absolute',
-              bottom: 0,
-              right: 0,
+              top: 12,
+              right: 12,
               backgroundColor: theme.palette.primary.main,
               color: 'white',
               width: editBubbleSize,

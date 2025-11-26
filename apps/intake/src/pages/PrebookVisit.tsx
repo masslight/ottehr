@@ -12,6 +12,8 @@ import {
   GetScheduleResponse,
   isApiError,
   ScheduleType,
+  ServiceCategoryCode,
+  ServiceCategoryCodeSchema,
   ServiceMode,
   SlotListItem,
 } from 'utils';
@@ -20,6 +22,7 @@ import {
   BOOKING_SCHEDULE_ON_QUERY_PARAM,
   BOOKING_SCHEDULE_SELECTED_SLOT,
   BOOKING_SCHEDULE_TYPE_QUERY_PARAM,
+  BOOKING_SERVICE_CATEGORY_PARAM,
   BOOKING_SERVICE_MODE_PARAM,
   bookingBasePath,
   intakeFlowPageRoute,
@@ -67,12 +70,14 @@ const useBookingParams = (
   selectedSlot: string | undefined;
   slugToFetch: string | undefined;
   serviceModeFromParam: string | undefined;
+  serviceCategoryCode: ServiceCategoryCode | undefined;
 } => {
   const [searchParams] = useSearchParams();
   const pathParams = useParams();
   const bookingOn = searchParams.get(BOOKING_SCHEDULE_ON_QUERY_PARAM);
   const scheduleTypeFromParam = searchParams.get(BOOKING_SCHEDULE_TYPE_QUERY_PARAM) as ScheduleType | null;
   const serviceModeFromParam = pathParams[BOOKING_SERVICE_MODE_PARAM];
+  const serviceCategoryCodeFromParam = searchParams.get(BOOKING_SERVICE_CATEGORY_PARAM);
 
   const typeMap: Record<string, ScheduleType> = {
     HealthcareService: ScheduleType.group,
@@ -88,13 +93,15 @@ const useBookingParams = (
     selectedSlot: searchParams.get(BOOKING_SCHEDULE_SELECTED_SLOT) ?? undefined,
     scheduleType: scheduleTypeFromParam || (selectedLocation && typeMap[selectedLocation.resourceType]),
     slugToFetch: bookingOn ?? selectedLocation?.slug,
+    serviceCategoryCode: ServiceCategoryCodeSchema.safeParse(serviceCategoryCodeFromParam)?.data ?? undefined,
   };
 };
 
 const useBookingData = (
   serviceMode: ServiceMode,
   slugToFetch: string | undefined,
-  scheduleType: ScheduleType | null
+  scheduleType: ScheduleType | null,
+  serviceCategoryCode?: ServiceCategoryCode
 ): {
   bookableItems: BookableItem[];
   isCategorized: boolean;
@@ -123,6 +130,7 @@ const useBookingData = (
     {
       slug: slugToFetch ?? '',
       scheduleType: scheduleType ?? ScheduleType.location,
+      serviceCategoryCode,
     }
   );
 
@@ -181,7 +189,8 @@ const PrebookVisit: FC = () => {
   const selectedLocation =
     (serviceModeFromParam ?? serviceMode) === 'in-person' ? selectedInPersonLocation : selectedVirtualLocation;
 
-  const { bookingOn, scheduleType, selectedSlot, slugToFetch } = useBookingParams(selectedLocation);
+  const { bookingOn, scheduleType, selectedSlot, slugToFetch, serviceCategoryCode } =
+    useBookingParams(selectedLocation);
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
 
   const {
@@ -190,7 +199,7 @@ const PrebookVisit: FC = () => {
     isLoading: isBookablesLoading,
     slotData,
     isSlotsLoading,
-  } = useBookingData(serviceMode, slugToFetch, scheduleType);
+  } = useBookingData(serviceMode, slugToFetch, scheduleType, serviceCategoryCode);
 
   const handleBookableSelection = (_e: any, newValue: BookableItem | null): void => {
     const serviceType = newValue?.serviceMode ?? serviceModeFromParam ?? serviceMode;

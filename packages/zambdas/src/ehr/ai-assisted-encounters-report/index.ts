@@ -3,6 +3,8 @@ import { Appointment, DocumentReference, Encounter, Location, Patient, Practitio
 import {
   AiAssistedEncountersReportZambdaInput,
   AiAssistedEncountersReportZambdaOutput,
+  DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
+  DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT,
   getAttendingPractitionerId,
   getInPersonVisitStatus,
   getPatientFirstName,
@@ -292,9 +294,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const encounterDocRefs = encounterRef ? encounterDocumentMap.get(encounterRef) || [] : [];
 
       const hasAmbientScribe = encounterDocRefs.some(
-        (docRef) => docRef.description === 'Summary of visit from audio recording'
+        (docRef) => docRef.description === DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO
       );
-      const hasPatientChatbot = encounterDocRefs.some((docRef) => docRef.description === 'Summary of visit from chat');
+      const hasPatientChatbot = encounterDocRefs.some(
+        (docRef) => docRef.description === DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT
+      );
 
       let aiType = '';
       if (hasAmbientScribe && hasPatientChatbot) {

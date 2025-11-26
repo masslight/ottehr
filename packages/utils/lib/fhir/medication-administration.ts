@@ -1,5 +1,5 @@
 import { DetectedIssue, Medication, MedicationAdministration, MedicationRequest } from 'fhir/r4b';
-import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
+import { CODE_SYSTEM_ACT_CODE_V3, CODE_SYSTEM_CPT, CODE_SYSTEM_HCPCS, CODE_SYSTEM_NDC } from '../helpers';
 import {
   AllergyInteraction,
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
@@ -29,6 +29,16 @@ import {
   UpdateMedicationOrderInput,
 } from '../types';
 import { getCoding } from './helpers';
+
+export type MedicationUnitOptions = 'mg' | 'ml' | 'g' | 'cc' | 'unit' | 'application';
+export const UNIT_OPTIONS: { value: MedicationUnitOptions; label: string }[] = [
+  { value: 'mg', label: 'mg' },
+  { value: 'ml', label: 'mL' },
+  { value: 'g', label: 'g' },
+  { value: 'cc', label: 'cc' },
+  { value: 'unit', label: 'unit' },
+  { value: 'application', label: 'application' },
+];
 
 export function mapFhirToOrderStatus(
   medicationAdministration: MedicationAdministration
@@ -336,3 +346,34 @@ export const createMedicationString = (medication: ExtendedMedicationDataForResp
 
   return [name, dose, route, givenBy, instructions, status].filter(Boolean).join(', ');
 };
+
+export function getMedicationFromMA(medicationAdministration: MedicationAdministration): Medication | undefined {
+  return medicationAdministration.contained?.find((res) => res.resourceType === 'Medication') as Medication;
+}
+
+export function getNdcCodeFromMedication(medication: Medication): string | undefined {
+  const medicationCoding = medication.code;
+  return getCoding(medicationCoding, CODE_SYSTEM_NDC)?.code;
+}
+
+export function getCptCodeFromMedication(medication: Medication): string | undefined {
+  const medicationCoding = medication.code;
+  return getCoding(medicationCoding, CODE_SYSTEM_CPT)?.code;
+}
+
+export function getHcpcsCodeFromMedication(medication: Medication): string | undefined {
+  const medicationCoding = medication.code;
+  return getCoding(medicationCoding, CODE_SYSTEM_HCPCS)?.code;
+}
+
+export function getDosageFromMA(
+  medicationAdministration: MedicationAdministration
+): { units: MedicationUnitOptions; dose: number } | undefined {
+  const dose = medicationAdministration.dosage?.dose?.value;
+  const units = medicationAdministration.dosage?.dose?.unit as MedicationUnitOptions;
+  if (!dose || !units) return undefined;
+  return {
+    units,
+    dose,
+  };
+}

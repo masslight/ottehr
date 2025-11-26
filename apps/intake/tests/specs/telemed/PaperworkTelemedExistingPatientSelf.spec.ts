@@ -1,6 +1,6 @@
 // cSpell:ignore VVPPS
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { chooseJson, CreateAppointmentResponse } from 'utils';
+import { BOOKING_CONFIG, chooseJson, CreateAppointmentResponse, shouldShowServiceCategorySelectionPage } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import {
@@ -58,6 +58,14 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     await locator.finishButton.click();
     await page.goto('/home');
     await locator.scheduleVirtualVisitButton.click();
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
+      const availableCategories = BOOKING_CONFIG.serviceCategories || [];
+      const firstCategory = availableCategories[0]!;
+
+      if (firstCategory) {
+        await page.getByText(firstCategory.display).click();
+      }
+    }
     await paperwork.checkCorrectPageOpens('Book a visit');
     await flowClass.selectTimeLocationAndContinue();
     await page
@@ -80,7 +88,7 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     await paperwork.checkCorrectPageOpens('Thank you for choosing Ottehr!');
   });
   test('VVPPS-1 Check Responsible party has prefilled values', async () => {
-    const dob = await commonLocatorsHelper.getMonthDay(
+    const dob = commonLocatorsHelper.getMonthDay(
       bookingData.patientBasicInfo.dob.m,
       bookingData.patientBasicInfo.dob.d
     );

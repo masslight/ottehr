@@ -20,6 +20,8 @@ import {
   getMiddleName,
   getNameSuffix,
   getPronounsFromExtension,
+  LANGUAGE_OPTIONS,
+  LanguageOption,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
 import {
@@ -214,7 +216,16 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
             answer = makeAnswer(customPronouns);
           }
           if (linkId === 'preferred-language' && language) {
-            answer = makeAnswer(language);
+            if (LANGUAGE_OPTIONS[language as LanguageOption]) {
+              answer = makeAnswer(language);
+            } else {
+              answer = makeAnswer('Other');
+            }
+          }
+          if (linkId === 'other-preferred-language' && language) {
+            if (!LANGUAGE_OPTIONS[language as LanguageOption]) {
+              answer = makeAnswer(language);
+            }
           }
           if (linkId === 'patient-ethnicity' && patientEthnicity) {
             answer = makeAnswer(patientEthnicity);
@@ -247,6 +258,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         return mapEmergencyContactToQuestionnaireResponseItems({
           items: itemItems,
           emergencyContactResource: accountInfo?.emergencyContactResource,
+          patient,
         });
       } else if (COVERAGE_ITEMS.includes(item.linkId)) {
         return mapCoveragesToQuestionnaireResponseItems({
@@ -380,7 +392,11 @@ export const makePrepopulatedItemsFromPatientRecord = (
         return mapGuarantorToQuestionnaireResponseItems({ items: itemItems, guarantorResource });
       }
       if (EMERGENCY_CONTACT_ITEMS.includes(item.linkId)) {
-        return mapEmergencyContactToQuestionnaireResponseItems({ items: itemItems, emergencyContactResource });
+        return mapEmergencyContactToQuestionnaireResponseItems({
+          items: itemItems,
+          emergencyContactResource,
+          patient,
+        });
       }
       if (PHARMACY_ITEMS.includes(item.linkId)) {
         return mapPharmacyToQuestionnaireResponseItems({
@@ -540,7 +556,16 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
       answer = makeAnswer(patientSendMarketing, 'Boolean');
     }
     if (linkId === 'preferred-language' && patientPreferredLanguage) {
-      answer = makeAnswer(patientPreferredLanguage);
+      if (LANGUAGE_OPTIONS[patientPreferredLanguage as LanguageOption]) {
+        answer = makeAnswer(patientPreferredLanguage);
+      } else {
+        answer = makeAnswer('Other');
+      }
+    }
+    if (linkId === 'other-preferred-language' && patientPreferredLanguage) {
+      if (!LANGUAGE_OPTIONS[patientPreferredLanguage as LanguageOption]) {
+        answer = makeAnswer(patientPreferredLanguage);
+      }
     }
     if (linkId === 'common-well-consent' && patientCommonWellConsent !== undefined) {
       answer = makeAnswer(patientCommonWellConsent, 'Boolean');
@@ -1019,12 +1044,23 @@ const EMERGENCY_CONTACT_ITEMS = ['emergency-contact-section', 'emergency-contact
 interface MapEmergencyContactInput {
   items: QuestionnaireItem[];
   emergencyContactResource?: RelatedPerson;
+  patient?: Patient;
 }
 
 const mapEmergencyContactToQuestionnaireResponseItems = (
   input: MapEmergencyContactInput
 ): QuestionnaireResponseItem[] => {
-  const { emergencyContactResource, items } = input;
+  const { emergencyContactResource, items, patient } = input;
+
+  const patientAddress = patient?.address?.[0];
+  const emergencyContactAddress = emergencyContactResource?.address?.[0];
+  const emergencyContactAddressLine = emergencyContactAddress?.line?.[0];
+  const emergencyContactAddressLine2 = emergencyContactAddress?.line?.[1];
+  const emergencyContactCity = emergencyContactAddress?.city;
+  const emergencyContactState = emergencyContactAddress?.state;
+  const emergencyContactZip = emergencyContactAddress?.postalCode;
+  const emergencyContactAddressAsPatient =
+    patientAddress && emergencyContactAddress ? areAddressesEqual(emergencyContactAddress, patientAddress) : undefined;
 
   const phone = formatPhoneNumberDisplay(
     emergencyContactResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''
@@ -1071,6 +1107,24 @@ const mapEmergencyContactToQuestionnaireResponseItems = (
     }
     if (linkId === 'emergency-contact-number' && phone) {
       answer = makeAnswer(phone);
+    }
+    if (linkId === 'emergency-contact-address-as-patient' && emergencyContactAddressAsPatient !== undefined) {
+      answer = makeAnswer(emergencyContactAddressAsPatient, 'Boolean');
+    }
+    if (linkId === 'emergency-contact-address' && emergencyContactAddressLine) {
+      answer = makeAnswer(emergencyContactAddressLine);
+    }
+    if (linkId === 'emergency-contact-address-2' && emergencyContactAddressLine2) {
+      answer = makeAnswer(emergencyContactAddressLine2);
+    }
+    if (linkId === 'emergency-contact-city' && emergencyContactCity) {
+      answer = makeAnswer(emergencyContactCity);
+    }
+    if (linkId === 'emergency-contact-state' && emergencyContactState) {
+      answer = makeAnswer(emergencyContactState);
+    }
+    if (linkId === 'emergency-contact-zip' && emergencyContactZip) {
+      answer = makeAnswer(emergencyContactZip);
     }
     return {
       linkId,

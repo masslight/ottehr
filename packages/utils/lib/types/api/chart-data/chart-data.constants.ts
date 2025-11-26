@@ -5,6 +5,7 @@ import { IN_PERSON_NOTE_ID, NOTHING_TO_EAT_OR_DRINK_ID } from './chart-data.type
 
 export type ProviderChartDataFieldsNames =
   | 'chief-complaint'
+  | 'history-of-present-illness'
   | 'ros'
   | 'current-medication'
   | 'in-house-medication'

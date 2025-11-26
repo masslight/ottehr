@@ -42,7 +42,10 @@ export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps>
   const currentASQObs = chartData?.observations?.find((obs) => obs.field === ASQ_FIELD);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
+      data-testid={dataTestIds.progressNotePage.additionalQuestions}
+    >
       <Typography variant="h5" color="primary.dark">
         Additional questions
       </Typography>

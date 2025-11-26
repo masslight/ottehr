@@ -1,5 +1,4 @@
-import { ApplyTemplateZambdaInput, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
-import { ExamType } from 'utils/lib/types/data/examination/examination';
+import { ApplyTemplateZambdaInput, ExamType, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'> {

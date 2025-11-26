@@ -43,13 +43,14 @@ export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/t
 export const ROOM_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/room';
 
 export const FHIR_BASE_URL = 'https://fhir.ottehr.com';
+export const OTTEHR_CODE_SYSTEM_BASE_URL = 'https://fhir.ottehr.com/CodeSystem';
 
 export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
-export const FHIR_HL7_ORG_BASE_URL = 'http://hl7.org/fhir/ValueSet';
+export const FHIR_HL7_ORG_VALUE_SET_BASE_URL = 'http://hl7.org/fhir/ValueSet';
 
 export const FHIR_EXTENSION = {
   Appointment: {
@@ -222,7 +223,7 @@ export const FHIR_EXTENSION = {
   },
   RelatedPerson: {
     responsiblePartyRelationship: {
-      url: `${FHIR_HL7_ORG_BASE_URL}/relatedperson-relationshiptype`,
+      url: `${FHIR_HL7_ORG_VALUE_SET_BASE_URL}/relatedperson-relationshiptype`,
     },
   },
 } as const;
@@ -573,7 +574,7 @@ export const SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING: CodeableConcept = {
   ],
 };
 
-export enum SlotServiceCategoryCode {
+export enum ServiceModeCategoryCode {
   virtualServiceMode = 'virtual-service-mode',
   inPersonServiceMode = 'in-person-service-mode',
 }
@@ -583,7 +584,13 @@ export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
     coding: [
       {
         system: `${FHIR_BASE_URL}/slot-service-category`,
-        code: SlotServiceCategoryCode.virtualServiceMode,
+        code: ServiceModeCategoryCode.virtualServiceMode,
+      },
+      // added to avoid confusion with new service category code system
+      // can be removed in the future
+      {
+        system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-mode-service-category`,
+        code: ServiceModeCategoryCode.virtualServiceMode,
       },
     ],
   },
@@ -591,7 +598,11 @@ export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
     coding: [
       {
         system: `${FHIR_BASE_URL}/slot-service-category`,
-        code: SlotServiceCategoryCode.inPersonServiceMode,
+        code: ServiceModeCategoryCode.inPersonServiceMode,
+      },
+      {
+        system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-mode-service-category`,
+        code: ServiceModeCategoryCode.inPersonServiceMode,
       },
     ],
   },
@@ -665,3 +676,6 @@ export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
     ],
   },
 };
+
+export const DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO = 'Summary of visit from audio recording';
+export const DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT = 'Summary of visit from chat';

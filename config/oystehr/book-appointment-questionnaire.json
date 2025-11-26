@@ -1,0 +1,225 @@
+{
+"schema-version": "2025-09-25",
+  "fhirResources": {
+    "questionnaire-book-appointment-1_0_0": {
+      "resource": {
+        "resourceType": "Questionnaire",
+        "url": "https://ottehr.com/FHIR/Questionnaire/book-appointment",
+        "version": "1.0.0",
+        "name": "BookAppointmentQuestionnaire",
+        "title": "Book Appointment Form",
+        "status": "active",
+        "item": [
+          {
+            "linkId": "patient-information-page",
+            "text": "About the patient",
+            "type": "group",
+            "item": [
+              {
+                "linkId": "should-display-ssn-field",
+                "type": "boolean",
+                "required": false,
+                "readOnly": true
+              },
+              {
+                "linkId": "ssn-field-required",
+                "type": "boolean",
+                "required": false,
+                "readOnly": true
+              },
+              {
+                "linkId": "patient-first-name",
+                "text": "First name (legal)",
+                "type": "string",
+                "required": true
+              },
+              {
+                "linkId": "patient-middle-name",
+                "text": "Middle name (legal)",
+                "type": "string",
+                "required": false
+              },
+              {
+                "linkId": "patient-last-name",
+                "text": "Last name (legal)",
+                "type": "string",
+                "required": true
+              },
+              {
+                "linkId": "patient-preferred-name",
+                "text": "Chosen or preferred name (optional)",
+                "type": "string",
+                "required": false
+              },
+              {
+                "linkId": "patient-birthdate",
+                "text": "Date of birth",
+                "type": "date",
+                "required": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "DOB"
+                  }
+                ]
+              },
+               {
+                "linkId": "patient-birth-sex",
+                "text": "Birth sex",
+                "type": "choice",
+                "required": true,
+                "answerOption": [
+                  {
+                    "valueString": "Male"
+                  },
+                  {
+                    "valueString": "Female"
+                  },
+                  {
+                    "valueString": "Intersex"
+                  }
+                ]
+              },
+              {
+                "linkId": "patient-ssn",
+                "text": "SSN",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "should-display-ssn-field",
+                    "operator": "=",
+                    "answerBoolean": true
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "SSN"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "hidden"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                        "valueString": "ssn-field-required"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                        "valueString": "="
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                        "valueString": "true"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "linkId": "patient-email",
+                "text": "Email",
+                "type": "string",
+                "required": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Email"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
+                    "valueString": "section-patient shipping email"
+                  }
+                ]
+              },
+              {
+                "linkId": "reason-for-visit",
+                "text": "Reason for visit",
+                "type": "choice",
+                "required": true,
+                "answerOption": [
+                  {
+                    "valueString": "Cough and/or congestion"
+                  },
+                  {
+                    "valueString": "Throat pain"
+                  },
+                  {
+                    "valueString": "Eye concern"
+                  },
+                  {
+                    "valueString": "Fever"
+                  },
+                   {
+                    "valueString": "Ear pain"
+                  },
+                  {
+                    "valueString": "Vomiting and/or diarrhea"
+                  },
+                  {
+                    "valueString": "Abdominal (belly) pain"
+                  },
+                  {
+                    "valueString": "Rash or skin issue"
+                  },
+                  {
+                    "valueString": "Urinary problem"
+                  },
+                  {
+                    "valueString": "Breathing problem"
+                  },
+                  {
+                    "valueString": "Injury to arm"
+                  },
+                  {
+                    "valueString": "Injury to leg"
+                  },
+                  {
+                    "valueString": "Injury to head"
+                  },
+                  {
+                    "valueString": "Injury (Other)"
+                  },
+                  {
+                    "valueString": "Cut to arm or leg"
+                  },
+                  {
+                    "valueString": "Cut to face or head"
+                  },
+                  {
+                    "valueString": "Removal of sutures/stitches/staples"
+                  },
+                  {
+                    "valueString": "Choked or swallowed something"
+                  },
+                  {
+                    "valueString": "Allergic reaction to medication or food"
+                  },
+                  {
+                    "valueString": "Other"
+                  }
+                ]
+              },
+              {
+                "linkId": "tell-us-more",
+                "text": "Tell us more (optional)",
+                "type": "string",
+                "required": false
+              },
+              {
+                "linkId": "authorized-non-legal-guardian",
+                "text": "Who, besides the parent or legal guardian, is allowed to bring in the patient?",
+                "type": "string",
+                "required": false
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
