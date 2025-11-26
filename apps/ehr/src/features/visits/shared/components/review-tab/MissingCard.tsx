@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getAssessmentUrl, getHpiUrl } from 'src/features/visits/in-person/routing/helpers';
+import { getAssessmentUrl, getChiefComplaintUrl } from 'src/features/visits/in-person/routing/helpers';
 import { TelemedAppointmentVisitTabs } from 'utils';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAppointmentData, useAppTelemedLocalStore, useChartData } from '../../stores/appointment/appointment.store';
@@ -39,7 +39,7 @@ export const MissingCard: FC = () => {
   const navigateTo = (target: 'hpi' | 'assessment'): void => {
     if (isInPerson) {
       const inPersonRoutes: Record<'hpi' | 'assessment', string> = {
-        hpi: getHpiUrl(appointment?.id || ''),
+        hpi: getChiefComplaintUrl(appointment?.id || ''),
         assessment: getAssessmentUrl(appointment?.id || ''),
       };
 
