@@ -1,0 +1,428 @@
+import { Page, test } from '@playwright/test';
+import * as fs from 'fs';
+import * as path from 'path';
+import { CancelPage } from 'tests/utils/CancelPage';
+import {
+  BOOKING_CONFIG,
+  chooseJson,
+  CreateAppointmentResponse,
+  GetSlotDetailsResponse,
+  shouldShowServiceCategorySelectionPage,
+} from 'utils';
+import { FillingInfo as InPersonFillingInfo } from '../../utils/in-person/FillingInfo';
+import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
+import { Locators } from '../../utils/locators';
+import { Paperwork } from '../../utils/Paperwork';
+import { FillingInfo as TelemedFillingInfo } from '../../utils/telemed/FillingInfo';
+import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
+import { TelemedVisitFlow } from '../../utils/telemed/TelemedVisitFlow';
+
+const appointmentIds: string[] = [];
+
+function writeTestData(filename: string, data: unknown): void {
+  const testDataPath = 'test-data';
+  if (!fs.existsSync(testDataPath)) {
+    fs.mkdirSync(testDataPath, { recursive: true });
+  }
+  fs.writeFileSync(path.join(testDataPath, filename), JSON.stringify(data, null, 2));
+}
+
+async function bookAppointmentForExistingPatient(
+  bookingData: {
+    firstName: string;
+    lastName: string;
+    dateOfBirth: string;
+  },
+  playwrightContext: {
+    page: Page;
+    flowClass: PrebookInPersonFlow;
+    paperwork: Paperwork;
+    locator: Locators;
+    fillingInfo: InPersonFillingInfo;
+  }
+): Promise<{
+  slot: string | undefined;
+  location: string | null;
+}> {
+  const { page, flowClass, paperwork, locator, fillingInfo } = playwrightContext;
+  await page.goto('/home');
+  await locator.scheduleInPersonVisitButton.click();
+  const { selectedSlot, location } = await flowClass.additionalStepsForPrebook();
+  await page
+    .getByRole('heading', { name: new RegExp(`.*${bookingData.firstName} ${bookingData.lastName}.*`, 'i') })
+    .click();
+  await locator.continueButton.click();
+  const [year, month, day] = bookingData.dateOfBirth.split('-');
+  await fillingInfo.fillCorrectDOB(month, day, year);
+  await locator.continueButton.click();
+  await fillingInfo.fillVisitReason();
+  await locator.continueButton.click();
+  await locator.reserveButton.click();
+  await paperwork.clickProceedToPaperwork();
+  return {
+    slot: selectedSlot.selectedSlot,
+    location,
+  };
+}
+
+test.describe.parallel('In-Person: Create test patients and appointments', () => {
+  test('Create patient with self-pay and card payment appointment', async ({ page }) => {
+    const slotDetailsRef: { current: GetSlotDetailsResponse } = { current: {} as GetSlotDetailsResponse };
+
+    const { flowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
+      page.on('response', async (response) => {
+        if (response.url().includes('/create-appointment/')) {
+          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+          if (!appointmentIds.includes(appointmentId)) {
+            appointmentIds.push(appointmentId);
+          }
+        }
+      });
+      page.on('response', async (response) => {
+        if (response.url().includes('/get-slot-details/')) {
+          slotDetailsRef.current = chooseJson(await response.json()) as GetSlotDetailsResponse;
+        }
+      });
+      const flowClass = new PrebookInPersonFlow(page);
+      const paperwork = new Paperwork(page);
+      const locator = new Locators(page);
+      const fillingInfo = new InPersonFillingInfo(page);
+      return { flowClass, paperwork, locator, fillingInfo };
+    });
+
+    const { bookingData, stateValue } = await test.step('Book first appointment', async () => {
+      const bookingData = await flowClass.startVisit();
+      await page.goto(bookingData.bookingURL);
+      await paperwork.clickProceedToPaperwork();
+      const { stateValue } = await paperwork.fillPaperworkOnlyRequiredFieldsInPerson();
+      await locator.continueButton.click();
+      return { bookingData, stateValue };
+    });
+
+    const { slot, location } = await test.step('Book second appointment without filling paperwork', async () => {
+      return await bookAppointmentForExistingPatient(bookingData, {
+        page,
+        flowClass,
+        paperwork,
+        locator,
+        fillingInfo,
+      });
+    });
+
+    await test.step('Save test data', async () => {
+      const cardPaymentSelfPatient = {
+        firstName: bookingData.firstName,
+        lastName: bookingData.lastName,
+        email: bookingData.email,
+        birthSex: bookingData.birthSex,
+        dateOfBirth: bookingData.dateOfBirth,
+        appointmentId: appointmentIds[appointmentIds.length - 1],
+        slot,
+        location,
+        state: stateValue,
+        slotDetails: slotDetailsRef.current,
+      };
+      console.log('cardPaymentSelfPatient', JSON.stringify(cardPaymentSelfPatient));
+      writeTestData('cardPaymentSelfPatient.json', cardPaymentSelfPatient);
+    });
+  });
+
+  test('Create patient without self-pay with insurance payment appointment', async ({ page }) => {
+    const slotDetailsRef: { current: GetSlotDetailsResponse } = { current: {} as GetSlotDetailsResponse };
+
+    const { flowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
+      page.on('response', async (response) => {
+        if (response.url().includes('/create-appointment/')) {
+          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+          if (!appointmentIds.includes(appointmentId)) {
+            appointmentIds.push(appointmentId);
+          }
+        }
+      });
+      page.on('response', async (response) => {
+        if (response.url().includes('/get-slot-details/')) {
+          slotDetailsRef.current = chooseJson(await response.json()) as GetSlotDetailsResponse;
+        }
+      });
+      const flowClass = new PrebookInPersonFlow(page);
+      const paperwork = new Paperwork(page);
+      const locator = new Locators(page);
+      const fillingInfo = new InPersonFillingInfo(page);
+      return { flowClass, paperwork, locator, fillingInfo };
+    });
+
+    const {
+      bookingData,
+      stateValue,
+      patientDetailsData,
+      pcpData,
+      insuranceData,
+      secondaryInsuranceData,
+      responsiblePartyData,
+    } = await test.step('Book first appointment', async () => {
+      const bookingData = await flowClass.startVisit();
+      await page.goto(bookingData.bookingURL);
+      await paperwork.clickProceedToPaperwork();
+      const { stateValue, patientDetailsData, pcpData, insuranceData, secondaryInsuranceData, responsiblePartyData } =
+        await paperwork.fillPaperworkAllFieldsInPerson('insurance', 'not-self');
+      await locator.finishButton.click();
+      return {
+        bookingData,
+        stateValue,
+        patientDetailsData,
+        pcpData,
+        insuranceData,
+        secondaryInsuranceData,
+        responsiblePartyData,
+      };
+    });
+
+    const { slot, location } = await test.step('Book second appointment without filling paperwork', async () => {
+      return await bookAppointmentForExistingPatient(bookingData, {
+        page,
+        flowClass,
+        paperwork,
+        locator,
+        fillingInfo,
+      });
+    });
+
+    await test.step('Save test data', async () => {
+      const insurancePaymentNotSelfPatient = {
+        firstName: bookingData.firstName,
+        lastName: bookingData.lastName,
+        email: bookingData.email,
+        birthSex: bookingData.birthSex,
+        dateOfBirth: bookingData.dateOfBirth,
+        appointmentId: appointmentIds[appointmentIds.length - 1],
+        slot,
+        location,
+        slotDetails: slotDetailsRef.current,
+        state: stateValue,
+        patientDetailsData,
+        pcpData,
+        insuranceData,
+        secondaryInsuranceData,
+        responsiblePartyData,
+      };
+      console.log('insurancePaymentNotSelfPatient', JSON.stringify(insurancePaymentNotSelfPatient));
+      writeTestData('insurancePaymentNotSelfPatient.json', insurancePaymentNotSelfPatient);
+    });
+  });
+
+  test('Create patient without filling in paperwork', async ({ browser, page }) => {
+    const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      page.on('response', async (response) => {
+        if (response.url().includes('/create-appointment/')) {
+          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+          if (!appointmentIds.includes(appointmentId)) {
+            appointmentIds.push(appointmentId);
+          }
+        }
+      });
+      const flowClass = new PrebookInPersonFlow(page);
+      const paperwork = new Paperwork(page);
+      return { flowClass, paperwork };
+    });
+
+    const { bookingData } = await test.step('Create patient', async () => {
+      const bookingData = await flowClass.startVisit();
+      await page.goto(bookingData.bookingURL);
+      await paperwork.clickProceedToPaperwork();
+      return { bookingData };
+    });
+
+    await test.step('Save test data', async () => {
+      const patientWithoutPaperwork = {
+        firstName: bookingData.firstName,
+        lastName: bookingData.lastName,
+        email: bookingData.email,
+        birthSex: bookingData.birthSex,
+        dateOfBirth: bookingData.dateOfBirth,
+        appointmentId: bookingData.bookingUUID,
+      };
+      console.log('patientWithoutPaperwork', JSON.stringify(patientWithoutPaperwork));
+      writeTestData('patientWithoutPaperwork.json', patientWithoutPaperwork);
+    });
+  });
+
+  test('Create patient without appointments', async ({ browser }) => {
+    const flowClass = await test.step('Set up playwright', async () => {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      return new PrebookInPersonFlow(page);
+    });
+
+    const { bookingData } = await test.step('Create patient', async () => {
+      const bookingData = await flowClass.startVisit();
+      return { bookingData };
+    });
+
+    await test.step('Save test data', async () => {
+      const patientWithoutAppointments = {
+        firstName: bookingData.firstName,
+        lastName: bookingData.lastName,
+        email: bookingData.email,
+        birthSex: bookingData.birthSex,
+        dateOfBirth: bookingData.dateOfBirth,
+      };
+      console.log('patientWithoutAppointments', JSON.stringify(patientWithoutAppointments));
+      writeTestData('patientWithoutAppointments.json', patientWithoutAppointments);
+    });
+  });
+});
+
+test.describe.parallel('Telemed: Create test patients and appointments', () => {
+  test('Create prebook patient with self-pay and card payment prebook appointment', async ({ browser, page }) => {
+    const { prebookFlowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
+      const context = await browser.newContext();
+      page = await context.newPage();
+      page.on('response', async (response) => {
+        if (response.url().includes('/create-appointment/')) {
+          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+          if (!appointmentIds.includes(appointmentId)) {
+            appointmentIds.push(appointmentId);
+          }
+        }
+      });
+      const prebookFlowClass = new PrebookTelemedFlow(page);
+      const paperwork = new Paperwork(page);
+      const locator = new Locators(page);
+      const fillingInfo = new TelemedFillingInfo(page);
+      return { prebookFlowClass, paperwork, locator, fillingInfo };
+    });
+
+    const bookingData = await test.step('Book first appointment', async () => {
+      const bookingData = await prebookFlowClass.startVisitFullFlow();
+      await page.goto(bookingData.bookingURL);
+      await paperwork.clickProceedToPaperwork();
+      await paperwork.fillPaperworkAllFieldsTelemed('insurance', 'not-self');
+      await locator.finishButton.click();
+      return bookingData;
+    });
+
+    await test.step('Book second appointment without filling paperwork', async () => {
+      await page.goto('/home');
+      await locator.scheduleVirtualVisitButton.click();
+      if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'prebook' })) {
+        const availableCategories = BOOKING_CONFIG.serviceCategories || [];
+        const firstCategory = availableCategories[0]!;
+
+        if (firstCategory) {
+          await page.getByText(firstCategory.display).click();
+        }
+      }
+      await paperwork.checkCorrectPageOpens('Book a visit');
+      await prebookFlowClass.selectTimeLocationAndContinue();
+      await page
+        .getByRole('heading', {
+          name: new RegExp(
+            `.*${bookingData.patientBasicInfo.firstName} ${bookingData.patientBasicInfo.lastName}.*`,
+            'i'
+          ),
+        })
+        .click();
+      await locator.continueButton.click();
+      await fillingInfo.fillCorrectDOB(
+        bookingData.patientBasicInfo.dob.m,
+        bookingData.patientBasicInfo.dob.d,
+        bookingData.patientBasicInfo.dob.y
+      );
+      await locator.continueButton.click();
+      await paperwork.checkCorrectPageOpens('About the patient');
+      await fillingInfo.fillTelemedReasonForVisit();
+      await locator.continueButton.click();
+      await paperwork.checkCorrectPageOpens('Review and submit');
+      await locator.reserveButton.click();
+      await paperwork.checkCorrectPageOpens('Thank you for choosing Ottehr!');
+    });
+
+    await test.step('Write test data to file', async () => {
+      const prebookTelemedPatient = {
+        firstName: bookingData.patientBasicInfo.firstName,
+        lastName: bookingData.patientBasicInfo.lastName,
+        email: bookingData.patientBasicInfo.email,
+        birthSex: bookingData.patientBasicInfo.birthSex,
+        dateOfBirth: bookingData.patientBasicInfo.dob,
+        appointmentId: appointmentIds[appointmentIds.length - 1],
+      };
+      console.log('prebookTelemedPatient', JSON.stringify(prebookTelemedPatient));
+      writeTestData('prebookTelemedPatient.json', prebookTelemedPatient);
+    });
+  });
+
+  test('Create walk-in patient without self-pay with insurance payment walk-in appointment', async ({
+    browser,
+    page,
+  }) => {
+    const { walkInFlowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
+      const context = await browser.newContext();
+      page = await context.newPage();
+      page.on('response', async (response) => {
+        if (response.url().includes('/create-appointment/')) {
+          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+          if (!appointmentIds.includes(appointmentId)) {
+            appointmentIds.push(appointmentId);
+          }
+        }
+      });
+
+      const walkInFlowClass = new TelemedVisitFlow(page);
+      const paperwork = new Paperwork(page);
+      const locator = new Locators(page);
+      const fillingInfo = new TelemedFillingInfo(page);
+      return { walkInFlowClass, paperwork, locator, fillingInfo };
+    });
+
+    const bookingData = await test.step('Book first appointment', async () => {
+      // this uses the card payment and responsible party is self flow
+      const bookingData = await walkInFlowClass.startVisitFullFlow();
+      const cancelPage = new CancelPage(page);
+      await cancelPage.clickCancelButton();
+      await cancelPage.selectCancellationReason('virtual');
+      return bookingData;
+    });
+
+    await test.step('Book second appointment without filling paperwork', async () => {
+      await page.goto('/home');
+      await locator.startVirtualVisitButton.click();
+      await walkInFlowClass.selectTimeLocationAndContinue();
+      await page
+        .getByRole('heading', {
+          name: new RegExp(
+            `.*${bookingData.patientBasicInfo.firstName} ${bookingData.patientBasicInfo.lastName}.*`,
+            'i'
+          ),
+        })
+        .click();
+      await locator.continueButton.click();
+      await fillingInfo.fillCorrectDOB(
+        bookingData.patientBasicInfo.dob.m,
+        bookingData.patientBasicInfo.dob.d,
+        bookingData.patientBasicInfo.dob.y
+      );
+      await locator.continueButton.click();
+      await paperwork.checkCorrectPageOpens('About the patient');
+      await fillingInfo.fillTelemedReasonForVisit();
+      await locator.continueButton.click();
+      await paperwork.checkCorrectPageOpens('Review and submit');
+      await locator.confirmWalkInButton.click();
+      await paperwork.checkCorrectPageOpens('Contact information');
+    });
+
+    await test.step('Write test data to file', async () => {
+      const walkInTelemedPatient = {
+        firstName: bookingData.patientBasicInfo.firstName,
+        lastName: bookingData.patientBasicInfo.lastName,
+        email: bookingData.patientBasicInfo.email,
+        birthSex: bookingData.patientBasicInfo.birthSex,
+        dateOfBirth: bookingData.patientBasicInfo.dob,
+        appointmentId: appointmentIds[appointmentIds.length - 1],
+      };
+      console.log('walkInTelemedPatient', JSON.stringify(walkInTelemedPatient));
+      writeTestData('walkInTelemedPatient.json', walkInTelemedPatient);
+    });
+  });
+});

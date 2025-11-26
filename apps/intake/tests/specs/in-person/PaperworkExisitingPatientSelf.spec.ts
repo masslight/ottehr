@@ -12,7 +12,7 @@ import {
   PATIENT_ZIP,
   RELATIONSHIP_RESPONSIBLE_PARTY_SELF,
 } from '../../utils/Paperwork';
-import { InPersonPatientSelfTestData } from '../0_prep/types';
+import { InPersonPatientSelfTestData } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;

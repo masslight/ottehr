@@ -5,7 +5,7 @@ import { UploadDocs } from 'tests/utils/UploadDocs';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
-import { InPersonPatientSelfTestData } from '../0_prep/types';
+import { InPersonPatientSelfTestData } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;

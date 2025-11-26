@@ -66,22 +66,13 @@ export default defineConfig({
       testMatch: /.*login\/login\.spec\.ts/,
     },
     {
-      name: 'in-person-setup',
+      name: 'paperwork-setup',
       use: {
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
       },
       dependencies: ['login'],
-      testMatch: /.*in-person\.spec\.ts/,
-      testIgnore: /.*login\/login\.spec\.ts/,
-    },
-    {
-      name: 'telemed-setup',
-      use: {
-        ...devices['Desktop Chrome'],
-        storageState: './playwright/user.json',
-      },
-      testMatch: /.*telemed\.spec\.ts/,
+      testMatch: /.*setup\.spec\.ts/,
       testIgnore: /.*login\/login\.spec\.ts/,
     },
     {
@@ -92,8 +83,8 @@ export default defineConfig({
         // storageState: './tests/.auth/user.json'
       },
       // dependencies: ['setup'],
-      dependencies: ['in-person-setup', 'telemed-setup'],
-      testIgnore: [/.*login\/login\.spec\.ts/, /.*in-person\.spec\.ts/, /.*telemed\.spec\.ts/],
+      dependencies: ['paperwork-setup'],
+      testIgnore: [/.*login\/login\.spec\.ts/, /.*setup\.spec\.ts/],
     },
 
     // {
