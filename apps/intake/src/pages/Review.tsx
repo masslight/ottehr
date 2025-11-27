@@ -1,10 +1,18 @@
 import { EditOutlined } from '@mui/icons-material';
 import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography, useTheme } from '@mui/material';
+import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { APIError, APPOINTMENT_CANT_BE_IN_PAST_ERROR, ServiceMode, VisitType } from 'utils';
+import {
+  APIError,
+  APPOINTMENT_CANT_BE_IN_PAST_ERROR,
+  BOOKING_CONFIG,
+  PatientInfo,
+  ServiceMode,
+  VisitType,
+} from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 import { ottehrApi } from '../api';
@@ -15,10 +23,9 @@ import PageForm from '../components/PageForm';
 import { useIntakeCommonStore } from '../features/common';
 import { NO_PATIENT_ERROR, NO_SLOT_ERROR, PAST_APPT_ERROR } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
-import { useGetFullName } from '../hooks/useGetFullName';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import i18n from '../lib/i18n';
-import { useBookingContext } from './BookingHome';
+import { PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
 
 interface ReviewItem {
   name: string;
@@ -28,11 +35,18 @@ interface ReviewItem {
   path?: string;
 }
 
+const makeFullName = (patient: PatientInfo | undefined): string | undefined => {
+  if (!patient) {
+    return undefined;
+  }
+  const { firstName, middleName, lastName } = patient;
+  return `${firstName}${middleName ? ` ${middleName}` : ''} ${lastName}`;
+};
+
 const Review = (): JSX.Element => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const {
-    patientInfo,
     unconfirmedDateOfBirth,
     visitType,
     scheduleOwnerName,
@@ -46,9 +60,27 @@ const Review = (): JSX.Element => {
     completeBooking,
   } = useBookingContext();
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
-  const patientFullName = useGetFullName(patientInfo);
   const theme = useTheme();
   const { slotId } = useParams<{ slotId: string }>();
+
+  const patientInfo: PatientInfo | undefined = (() => {
+    const storedData = sessionStorage.getItem(PROGRESS_STORAGE_KEY);
+    console.log('Retrieving stored patient information from sessionStorage:', storedData);
+    if (!storedData) return undefined;
+    try {
+      const storedItems = Object.entries(JSON.parse(storedData)).map(([key, value]) => ({
+        linkId: key,
+        item: Object.values(value as Record<string, unknown>),
+      })) as QuestionnaireResponseItem[];
+      console.log('Parsed stored patient information:', storedItems);
+      return BOOKING_CONFIG.mapBookingQRItemToPatientInfo(storedItems);
+    } catch (error) {
+      console.error('Error parsing stored patient information:', error);
+    }
+    return undefined;
+  })();
+  const patientFullName = makeFullName(patientInfo);
+
   const { t } = useTranslation();
 
   const getNextPath = (appointmentId: string): string => {

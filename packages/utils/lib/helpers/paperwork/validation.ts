@@ -1,3 +1,4 @@
+import { ValueDoesNotMatchKeyTypeError } from 'candidhealth/serialization/resources/encounters/resources/v4';
 import {
   QuestionnaireItem,
   QuestionnaireItemEnableWhen,
@@ -517,9 +518,16 @@ export const itemAnswerHasValue = (answerItem: QuestionnaireResponseItemAnswer):
 
 type EnableWhenOperator = 'exists' | '=' | '!=' | '>' | '<' | '>=' | '<=';
 
-const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: boolean | undefined): boolean => {
+const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: any | undefined): boolean => {
   if (operator === 'exists') {
-    return value !== undefined;
+    if (answerValue === true) {
+      return value !== undefined;
+    } else {
+      return value === undefined;
+    }
+  }
+  if (typeof value !== 'boolean') {
+    return false;
   }
 
   if (operator === '=') {
@@ -531,6 +539,9 @@ const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: 
 };
 
 const evalString = (operator: EnableWhenOperator, answerValue: string, value: string | undefined): boolean => {
+  if (operator === 'exists') {
+    return value !== undefined;
+  }
   if (operator === '=') {
     return answerValue === value;
   } else if (operator === '!=') {
@@ -607,7 +618,25 @@ const evalEnableWhenItem = (
     return (accum.item ?? []).find((i: any) => i?.linkId && i.linkId === current);
   }, values as any);
 
-  if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
+  let shouldLog = false;
+  if (itemDef.linkId === 'existing-patient-id') {
+    shouldLog = true;
+  }
+
+  if (shouldLog) {
+    console.log('existing-patient-id itemDef.type', itemDef.type, answerString);
+  }
+
+  if (operator === 'exists' && answerBoolean !== undefined) {
+    if (shouldLog) {
+      console.log('existing-patient-id on exists branch', valueDef);
+    }
+    return evalBoolean(
+      operator,
+      answerBoolean,
+      pickFirstValueFromAnswerItem(valueDef, itemDef.type === 'boolean' ? 'boolean' : undefined)
+    );
+  } else if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
     return evalBoolean(operator, answerBoolean, pickFirstValueFromAnswerItem(valueDef, 'boolean'));
   } else if (
     (itemDef.type === 'string' || itemDef.type === 'choice' || itemDef.type === 'open-choice') &&
@@ -616,14 +645,23 @@ const evalEnableWhenItem = (
     const verdict = evalString(operator, answerString, pickFirstValueFromAnswerItem(valueDef));
     return verdict;
   } else if (itemDef.type === 'date' && answerDate !== undefined) {
+    if (shouldLog) {
+      console.log('existing-patient-id on date branch');
+    }
     return evalDateTime(operator, answerDate, pickFirstValueFromAnswerItem(valueDef));
   } else if (itemDef.type === 'date' && answerInteger !== undefined) {
+    if (shouldLog) {
+      console.log('existing-patient-id on integer branch');
+    }
     const answerDateFormatted = formattedDateStringForYearsAgo(`${answerInteger}`);
     if (answerDateFormatted === undefined) {
       return false;
     }
     return evalDateTime(operator, answerDateFormatted, pickFirstValueFromAnswerItem(valueDef));
   } else {
+    if (shouldLog) {
+      console.log('existing-patient-id on unsupported branch');
+    }
     // we only support string, bool, and date atm, but extensions welcome as needed!
     return false;
   }
@@ -684,6 +722,10 @@ export const evalEnableWhen = (
     }
     return evalEnableWhenItem(ew, values, items);
   };
+
+  if (item.linkId === 'patient-first-name') {
+    console.log('evalEnableWhenItem patient first name', enableWhen, ValueDoesNotMatchKeyTypeError, enableBehavior);
+  }
 
   if (enableBehavior === 'any') {
     return enableWhen.some(evaluate);

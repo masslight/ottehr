@@ -20,7 +20,7 @@ import { bookingBasePath } from '../App';
 import { PageContainer } from '../components';
 import { ErrorDialog } from '../components/ErrorDialog';
 import { PatientInformationKnownPatientFieldsDisplay } from '../features/patients';
-import { useBookingContext } from './BookingHome';
+import { PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
 
 interface ErrorDialogConfig {
   title: string;
@@ -83,20 +83,12 @@ export const PatientInfoCollection: FC = () => {
       defaultValues = convertQRItemToLinkIdMap(currentPageEntries);
     }
 
-    if (patientInfo) {
-      const mappedPatientInfo = BOOKING_CONFIG.mapPatientInfoToBookingQRItem(patientInfo);
-      // turn the QR items into linkId-keyed map
-      // we don't want to overwrite the pre-populated logical fields from the questionnaire response
-      defaultValues = { ...defaultValues, ...convertQRItemToLinkIdMap(mappedPatientInfo) };
-    }
-
     return {
       contextItems,
       questionnaireResponse: prepopulatedQuestionnaire,
       defaultValues,
     };
-  }, [allItems, patientInfo, prepopulatedQuestionnaire]);
-
+  }, [allItems, currentPageIndex, prepopulatedQuestionnaire]);
   const currentPageId = allItems?.[currentPageIndex]?.linkId;
 
   const outletContext: PaperworkContext = useMemo(() => {
@@ -222,14 +214,30 @@ const PatientInformation = (): JSX.Element => {
         payload.id = payload.id === 'new-patient' ? undefined : payload.id;
 
         setPatientInfo(payload);
+        sessionStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify({ [pageId]: data }));
         navigate(window.location.pathname.replace('patient-information/form', 'review'));
       }
     },
 
-    [confirmDuplicate, navigate, patientInfo, patients, setPatientInfo, t]
+    [confirmDuplicate, navigate, pageId, patientInfo, patients, setPatientInfo, t]
   );
 
-  const defaultValues = paperworkInProgress[pageId] || {};
+  const defaultValues = (() => {
+    if (!pageId) return {};
+    const storedValueString = sessionStorage.getItem(PROGRESS_STORAGE_KEY);
+    let defaults = paperworkInProgress[pageId] || {};
+    if (storedValueString) {
+      try {
+        const storedValues = JSON.parse(storedValueString)[pageId];
+        defaults = storedValues;
+      } catch (error) {
+        console.error('Error parsing stored patient information:', error);
+      }
+    }
+    return defaults;
+  })();
+
+  console.log('defaultValues', defaultValues);
 
   return (
     <>
@@ -250,11 +258,7 @@ const PatientInformation = (): JSX.Element => {
           isSaving={false}
           saveProgress={(data) => {
             if (pageId && data) {
-              const newPatientInfo = BOOKING_CONFIG.mapBookingQRItemToPatientInfo(Object.values(data));
-              setPatientInfo({
-                ...patientInfo,
-                ...newPatientInfo,
-              });
+              sessionStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify({ [pageId]: data }));
             }
           }}
         />
