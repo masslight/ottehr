@@ -120,9 +120,9 @@ const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Questionn
   const patientPreferredName = patient?.name?.find((name) => name.use === 'nickname')?.given?.[0];
   const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value;
 
-  const authorizedNLG =
-    patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ||
-    'none';
+  const authorizedNLG = patient?.extension?.find(
+    (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+  )?.valueString;
 
   const ssn = patient?.identifier?.find(
     (id) =>
@@ -237,6 +237,100 @@ const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): Pat
   return patientInfo;
 };
 
+const mapPatientInfoToBookingQRItem = (patientInfo: PatientInfo): QuestionnaireResponseItem[] => {
+  const items: QuestionnaireResponseItem[] = [];
+
+  if (patientInfo.firstName !== undefined) {
+    items.push({
+      linkId: 'patient-first-name',
+      answer: makeAnswer(patientInfo.firstName),
+    });
+  }
+
+  if (patientInfo.middleName !== undefined) {
+    items.push({
+      linkId: 'patient-middle-name',
+      answer: makeAnswer(patientInfo.middleName),
+    });
+  }
+
+  if (patientInfo.lastName !== undefined) {
+    items.push({
+      linkId: 'patient-last-name',
+      answer: makeAnswer(patientInfo.lastName),
+    });
+  }
+
+  if (patientInfo.dateOfBirth !== undefined) {
+    items.push({
+      linkId: 'patient-birthdate',
+      answer: makeAnswer(patientInfo.dateOfBirth),
+    });
+  }
+
+  if (patientInfo.authorizedNonLegalGuardians !== undefined) {
+    items.push({
+      linkId: 'authorized-non-legal-guardian',
+      answer: makeAnswer(patientInfo.authorizedNonLegalGuardians),
+    });
+  }
+
+  if (patientInfo.email !== undefined) {
+    items.push({
+      linkId: 'patient-email',
+      answer: makeAnswer(patientInfo.email),
+    });
+  }
+
+  if (patientInfo.phoneNumber !== undefined) {
+    items.push({
+      linkId: 'patient-phone-number',
+      answer: makeAnswer(patientInfo.phoneNumber),
+    });
+  }
+
+  if (patientInfo.reasonForVisit !== undefined) {
+    items.push({
+      linkId: 'reason-for-visit',
+      answer: makeAnswer(patientInfo.reasonForVisit),
+    });
+  }
+
+  if (patientInfo.reasonAdditional !== undefined) {
+    items.push({
+      linkId: 'tell-us-more',
+      answer: makeAnswer(patientInfo.reasonAdditional),
+    });
+  }
+
+  if (patientInfo.chosenName !== undefined) {
+    items.push({
+      linkId: 'patient-preferred-name',
+      answer: makeAnswer(patientInfo.chosenName),
+    });
+  }
+
+  if (patientInfo.ssn !== undefined) {
+    items.push({
+      linkId: 'patient-ssn',
+      answer: makeAnswer(patientInfo.ssn),
+    });
+  }
+
+  if (patientInfo.sex !== undefined) {
+    // Convert PersonSex enum back to string display value
+    const sexValue = Object.keys(PersonSex).find((key) => PersonSex[key as keyof typeof PersonSex] === patientInfo.sex);
+    if (sexValue) {
+      items.push({
+        linkId: 'patient-birth-sex',
+        answer: makeAnswer(sexValue),
+      });
+    }
+  }
+
+  return items;
+};
+
 const BOOKING_DEFAULTS = Object.freeze({
   reasonForVisitOptions: REASON_FOR_VISIT_OPTIONS,
   cancelReasonOptions: CANCEL_REASON_OPTIONS,
@@ -262,6 +356,7 @@ const BOOKING_DEFAULTS = Object.freeze({
   },
   prepopulateBookingForm,
   mapBookingQRItemToPatientInfo,
+  mapPatientInfoToBookingQRItem,
 });
 
 const mergedBookingConfig = _.merge({ ...BOOKING_DEFAULTS }, { ...BOOKING_OVERRIDES });
