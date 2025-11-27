@@ -60,6 +60,11 @@ interface EmergencyContact {
   firstName: string;
   lastName: string;
   phone: string;
+  address: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  zip: string;
 }
 
 interface TelemedPaperworkData {
@@ -890,15 +895,22 @@ export class Paperwork {
     firstName: string;
     lastName: string;
     phone: string;
+    address: string;
+    addressLine2: string;
+    city: string;
+    state: string;
+    zip: string;
   }> {
     const { relationship } = await this.fillEmergencyContactInformationRelationship();
     const name = await this.fillEmergencyContactInformationName();
     const { formattedPhoneNumber: phone } = await this.fillEmergencyContactInformationPhone();
+    const addressInfo = await this.fillEmergencyContactAddressInformation();
     return {
       relationship,
       firstName: name.firstName,
       lastName: name.lastName,
       phone,
+      ...addressInfo,
     };
   }
   async fillEmergencyContactInformationRelationship(): Promise<{ relationship: string }> {
@@ -924,6 +936,28 @@ export class Paperwork {
     const formattedPhoneNumber = this.formatPhoneNumber(PHONE_NUMBER);
     await this.locator.emergencyContactInformationPhone.fill(PHONE_NUMBER);
     return { formattedPhoneNumber };
+  }
+  async fillEmergencyContactAddressInformation(): Promise<{
+    address: string;
+    addressLine2: string;
+    city: string;
+    state: string;
+    zip: string;
+  }> {
+    await this.locator.emergencyContactSameAddressAsPatient.setChecked(false);
+    const address = `Emergency Address ${this.getRandomString()}`;
+    const addressLine2 = `Emergency Address Line 2 ${this.getRandomString()}`;
+    const city = `EmergencyCity${this.getRandomString()}`;
+    const state = 'AL';
+    const zip = '12345';
+    await this.locator.emergencyContactAddress.fill(address);
+    await this.locator.emergencyContactAddressLine2.fill(addressLine2);
+    await this.locator.emergencyContactCity.fill(city);
+    await this.locator.emergencyContactState.click();
+    await this.page.getByRole('option').first().click();
+    await expect(this.locator.emergencyContactState).toHaveValue(state);
+    await this.locator.emergencyContactZip.fill(zip);
+    return { address, addressLine2, city, state, zip };
   }
 
   async checkImagesIsSaved(image: Locator): Promise<void> {
