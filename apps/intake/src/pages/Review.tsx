@@ -3,7 +3,7 @@ import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography,
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { APIError, APPOINTMENT_CANT_BE_IN_PAST_ERROR, ServiceMode, VisitType } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
@@ -13,7 +13,7 @@ import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
 import { useIntakeCommonStore } from '../features/common';
-import { NO_PATIENT_ERROR, PAST_APPT_ERROR } from '../helpers';
+import { NO_PATIENT_ERROR, NO_SLOT_ERROR, PAST_APPT_ERROR } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { useGetFullName } from '../hooks/useGetFullName';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
@@ -35,7 +35,6 @@ const Review = (): JSX.Element => {
     patientInfo,
     unconfirmedDateOfBirth,
     visitType,
-    slotId,
     scheduleOwnerName,
     scheduleOwnerType,
     scheduleOwnerId,
@@ -49,7 +48,7 @@ const Review = (): JSX.Element => {
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
   const patientFullName = useGetFullName(patientInfo);
   const theme = useTheme();
-
+  const { slotId } = useParams<{ slotId: string }>();
   const { t } = useTranslation();
 
   const getNextPath = (appointmentId: string): string => {
@@ -69,6 +68,12 @@ const Review = (): JSX.Element => {
         console.log('no patient info error');
         safelyCaptureException(new Error('Patient not selected at appointment submit time'));
         setErrorConfig(NO_PATIENT_ERROR(t));
+        return;
+      }
+      if (!slotId) {
+        console.log('no slotId error');
+        safelyCaptureException(new Error('Slot ID not found'));
+        setErrorConfig(NO_SLOT_ERROR(t));
         return;
       }
       // Validate inputs

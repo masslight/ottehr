@@ -34,6 +34,7 @@ export const PatientInfoCollection: FC = () => {
   const zambdaClient = useUCZambdaClient({ tokenless: true });
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [saveButtonDisabled, setSaveButtonDisabled] = useState<boolean>(false);
 
   const { slotId } = useParams<{ slotId: string }>();
   const bookingContext = useBookingContext();
@@ -74,6 +75,7 @@ export const PatientInfoCollection: FC = () => {
   const { contextItems, questionnaireResponse, defaultValues } = useMemo(() => {
     const contextItems = allItems?.[currentPageIndex]?.item ?? [];
     const currentPageEntries = prepopulatedQuestionnaire?.item?.[currentPageIndex]?.item;
+
     let defaultValues: { [key: string]: QuestionnaireResponseItem } =
       convertQuestionnaireItemToQRLinkIdMap(contextItems);
 
@@ -81,12 +83,18 @@ export const PatientInfoCollection: FC = () => {
       defaultValues = convertQRItemToLinkIdMap(currentPageEntries);
     }
 
+    if (patientInfo) {
+      const mappedPatientInfo = BOOKING_CONFIG.mapPatientInfoToBookingQRItem(patientInfo);
+      // turn the QR items into linkId-keyed map
+      defaultValues = convertQRItemToLinkIdMap(mappedPatientInfo);
+    }
+
     return {
       contextItems,
       questionnaireResponse: prepopulatedQuestionnaire,
       defaultValues,
     };
-  }, [allItems, currentPageIndex, prepopulatedQuestionnaire]);
+  }, [allItems, patientInfo, prepopulatedQuestionnaire]);
 
   const currentPageId = allItems?.[currentPageIndex]?.linkId;
 
@@ -98,12 +106,10 @@ export const PatientInfoCollection: FC = () => {
       allItems: contextItems,
       pages,
       questionnaireResponse,
-      saveButtonDisabled: false,
-      setSaveButtonDisabled: (_newVal: boolean): void => {
-        // todo
-      },
+      saveButtonDisabled,
+      setSaveButtonDisabled,
       findAnswerWithLinkId: (_linkId: string): QuestionnaireResponseItem | undefined => {
-        // todo
+        // todo: can this be removed from the context as well?
         return undefined;
       },
       // things we don't need and shouldn't be on the base context
@@ -118,7 +124,7 @@ export const PatientInfoCollection: FC = () => {
         throw new Error('Function not implemented.');
       },
     };
-  }, [allItems, contextItems, currentPageId, defaultValues, pages, questionnaireResponse]);
+  }, [allItems, contextItems, currentPageId, defaultValues, pages, questionnaireResponse, saveButtonDisabled]);
 
   useEffect(() => {
     if (isSuccess) {
@@ -133,7 +139,7 @@ export const PatientInfoCollection: FC = () => {
   );
 };
 
-const PROGRESS_STORAGE_KEY = 'patient-information-progress';
+// export const PROGRESS_STORAGE_KEY = 'patient-information-progress';
 const PatientInformation = (): JSX.Element => {
   const [errorDialog, setErrorDialog] = useState<ErrorDialogConfig | undefined>(undefined);
   const navigate = useNavigate();
@@ -222,20 +228,7 @@ const PatientInformation = (): JSX.Element => {
     [confirmDuplicate, navigate, patientInfo, patients, setPatientInfo, t]
   );
 
-  const defaultValues = (() => {
-    if (!pageId) return {};
-    const storedValueString = sessionStorage.getItem(PROGRESS_STORAGE_KEY);
-    let defaults = paperworkInProgress[pageId] || {};
-    if (storedValueString) {
-      try {
-        const storedValues = JSON.parse(storedValueString)[pageId];
-        defaults = storedValues;
-      } catch (error) {
-        console.error('Error parsing stored patient information:', error);
-      }
-    }
-    return defaults;
-  })();
+  const defaultValues = paperworkInProgress[pageId] || {};
 
   return (
     <>
@@ -268,7 +261,11 @@ const PatientInformation = (): JSX.Element => {
           isSaving={false}
           saveProgress={(data) => {
             if (pageId && data) {
-              sessionStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify({ [pageId]: data }));
+              const newPatientInfo = BOOKING_CONFIG.mapBookingQRItemToPatientInfo(Object.values(data));
+              setPatientInfo({
+                ...patientInfo,
+                ...newPatientInfo,
+              });
             }
           }}
         />
