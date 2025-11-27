@@ -14,13 +14,15 @@ export interface StatementPdfInput {
   timezone: string;
   location?: Location;
   responsibleParty?: RelatedPerson | Patient;
+  procedureNameProvider: (procedureCode: string) => Promise<string>;
 }
 
 const TITLE_COLOR = rgbNormalized(15, 52, 124);
 const LABEL_COLOR = rgbNormalized(180, 180, 180);
 
 export async function generatePdf(input: StatementPdfInput): Promise<Uint8Array> {
-  const { patient, appointment, location, itemizationResponse, timezone, responsibleParty } = input;
+  const { patient, appointment, location, itemizationResponse, timezone, responsibleParty, procedureNameProvider } =
+    input;
   const pdfClientStyles: PdfClientStyles = {
     initialPage: {
       width: PageSizes.A4[0],
@@ -158,7 +160,22 @@ export async function generatePdf(input: StatementPdfInput): Promise<Uint8Array>
 
   for (const serviceLine of itemizationResponse.serviceLineItemization) {
     pdfClient.drawSeparatedLine(tableRowSeparatorStyle);
-    pdfClient.drawStartXPosSpecifiedText(serviceLine.procedureCode, textStyles.tableContent, 0);
+
+    const beforeProcedureY = pdfClient.getY();
+
+    pdfClient.drawTextSequential(
+      (await procedureNameProvider(serviceLine.procedureCode)) + '\n',
+      textStyles.tableContent,
+      {
+        leftBound: 40,
+        rightBound: 180,
+      }
+    );
+
+    const afterProcedureY = pdfClient.getY();
+
+    pdfClient.setY(beforeProcedureY);
+
     pdfClient.drawStartXPosSpecifiedText(
       formatMoney(serviceLine.chargeAmountCents - serviceLine.insuranceAdjustments.totalAdjustmentCents),
       textStyles.tableContent,
@@ -183,11 +200,9 @@ export async function generatePdf(input: StatementPdfInput): Promise<Uint8Array>
       textStyles.tableContent,
       430
     );
-    pdfClient.drawStartXPosSpecifiedText(
-      formatMoney(serviceLine.patientBalanceCents) + '\n',
-      textStyles.tableContent,
-      500
-    );
+    pdfClient.drawStartXPosSpecifiedText(formatMoney(serviceLine.patientBalanceCents), textStyles.tableContent, 500);
+
+    pdfClient.setY(afterProcedureY);
   }
 
   pdfClient.drawText('\n\n', textStyles.regular);

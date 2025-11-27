@@ -101,6 +101,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ...resources,
       itemizationResponse,
       responsibleParty: guarantorResource,
+      procedureNameProvider: async (procedureCode: string): Promise<string> => {
+        return getProcedureCodeTitle(procedureCode, secrets);
+      },
     });
 
     const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
@@ -286,3 +289,28 @@ const getResources = async (encounterId: string, oystehr: Oystehr): Promise<Stat
     timezone,
   };
 };
+
+async function getProcedureCodeTitle(code: string, secrets: Secrets): Promise<string> {
+  const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
+  const names = await Promise.all([searchCodeName(code, 'HCPT', apiKey), searchCodeName(code, 'HCPCS', apiKey)]);
+  const name = names.find((name) => name != null);
+  return name ? `${code} - ${name}` : code;
+}
+
+async function searchCodeName(code: string, sabs: string, apiKey: string): Promise<string | undefined> {
+  const response = await fetch(
+    `https://uts-ws.nlm.nih.gov/rest/search/current?apiKey=${apiKey}&returnIdType=code&inputType=code&string=${code}&sabs=${sabs}&partialSearch=true&searchType=rightTruncation`
+  );
+  if (!response.ok) {
+    return undefined;
+  }
+  const responseBody = (await response.json()) as {
+    result: {
+      results: {
+        ui: string;
+        name: string;
+      }[];
+    };
+  };
+  return responseBody.result.results.find((entry) => entry)?.name;
+}
