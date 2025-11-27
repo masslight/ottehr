@@ -135,14 +135,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       .filter((maybeStudyReportItem) => maybeStudyReportItem !== undefined);
 
     if (studiesAwaitingFinalReportMoreThan24Hours.length > 0) {
-      console.log('Studies awaiting final report for more than 24 hours:');
+      let outputStrings = '';
+      outputStrings += 'Studies awaiting final report for more than 24 hours:';
       studiesAwaitingFinalReportMoreThan24Hours.forEach((study) => {
-        console.log(
-          `ServiceRequest/${study.serviceRequestId}, Patient: ${study.patientName || 'Unknown'}, Appointment ID: ${
-            study.appointmentId
-          }`
-        );
+        outputStrings += `\nServiceRequest/${study.serviceRequestId}, Patient: ${
+          study.patientName || 'Unknown'
+        }, Appointment ID: ${study.appointmentId}`;
       });
+      console.log(outputStrings);
+      throw new Error(outputStrings);
     } else {
       console.log('No studies are awaiting final report for more than 24 hours.');
     }
