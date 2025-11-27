@@ -16,7 +16,7 @@ import {
   PatientInfo,
   QuestionnaireFormFields,
 } from 'utils';
-import { bookingBasePath } from '../App';
+import { bookingBasePath, intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
 import { ErrorDialog } from '../components/ErrorDialog';
 import { PatientInformationKnownPatientFieldsDisplay } from '../features/patients';
@@ -252,7 +252,19 @@ const PatientInformation = (): JSX.Element => {
         <PagedQuestionnaire
           onSubmit={onSubmit}
           pageId={pageId}
-          options={{ controlButtons: { backButton: false, loading: false } }}
+          options={{
+            controlButtons: {
+              backButton: true,
+              loading: false,
+              onBack: () => {
+                if (!slotId) {
+                  navigate(intakeFlowPageRoute.Homepage.path);
+                  return;
+                }
+                navigate(intakeFlowPageRoute.ChoosePatient.path.replace(':slotId', slotId));
+              },
+            },
+          }}
           items={allItems || []}
           defaultValues={defaultValues}
           isSaving={false}
