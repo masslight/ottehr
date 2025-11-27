@@ -36,7 +36,7 @@ import { getAccountAndCoverageResourcesForPatient } from '../shared/harvest';
 import { generatePdf } from './draw';
 
 const ZAMBDA_NAME = 'generate-statement';
-const STATEMENT_FILE_TITLE = 'Statement'; // todo
+const STATEMENT = 'Statement';
 
 interface StatementResources {
   appointment: Appointment;
@@ -152,7 +152,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       files: [
         {
           url: baseFileUrl,
-          title: `${STATEMENT_FILE_TITLE}-${appointmentDate}-${appointmentTime}`,
+          title: `${STATEMENT}-${appointmentDate}-${appointmentTime}`,
         },
       ],
       type: {
@@ -160,10 +160,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           {
             system: 'http://loinc.org',
             code: STATEMENT_CODE,
-            display: STATEMENT_FILE_TITLE,
+            display: STATEMENT,
           },
         ],
-        text: STATEMENT_FILE_TITLE,
+        text: STATEMENT,
       },
       dateCreated: DateTime.now().toUTC().toISO(),
       searchParams: [
