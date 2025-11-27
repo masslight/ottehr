@@ -8,6 +8,7 @@ import {
   BUCKET_NAMES,
   createCandidApiClient,
   createFilesDocumentReferences,
+  formatDateToMDYWithTime,
   GenerateStatementInput,
   getSecret,
   OTTEHR_MODULE,
@@ -141,11 +142,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       })
     ).unbundle();
 
+    const { date: appointmentDate, time: appointmentTime } =
+      formatDateToMDYWithTime(resources.appointment?.start, resources.timezone) ?? {};
+
     const { docRefs } = await createFilesDocumentReferences({
       files: [
         {
           url: baseFileUrl,
-          title: STATEMENT_FILE_TITLE,
+          title: `${STATEMENT_FILE_TITLE}-${appointmentDate}-${appointmentTime}`,
         },
       ],
       type: {
