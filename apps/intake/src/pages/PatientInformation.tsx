@@ -86,7 +86,8 @@ export const PatientInfoCollection: FC = () => {
     if (patientInfo) {
       const mappedPatientInfo = BOOKING_CONFIG.mapPatientInfoToBookingQRItem(patientInfo);
       // turn the QR items into linkId-keyed map
-      defaultValues = convertQRItemToLinkIdMap(mappedPatientInfo);
+      // we don't want to overwrite the pre-populated logical fields from the questionnaire response
+      defaultValues = { ...defaultValues, ...convertQRItemToLinkIdMap(mappedPatientInfo) };
     }
 
     return {
