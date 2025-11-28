@@ -405,23 +405,32 @@ export class Paperwork {
   async fillPaperworkOnlyRequiredFieldsInPerson(): Promise<{ stateValue: string }> {
     const { stateValue } = await this.fillContactInformationRequiredFields();
     await this.locator.clickContinueButton();
+    await expect(this.locator.flowHeading).toHaveText('Patient details');
     await this.fillPatientDetailsRequiredFields();
     await this.locator.clickContinueButton();
+    await expect(this.locator.flowHeading).toHaveText('Primary Care Physician');
     await this.skipPrimaryCarePhysician();
     await this.skipPreferredPharmacy();
-    await this.locator.clickContinueButton();
     await this.selectSelfPayPayment();
     await this.locator.clickContinueButton();
+    await expect(this.locator.flowHeading).toHaveText('Credit card details');
+    // test skipping credit card is fine
+    await this.locator.clickContinueButton();
+    await expect(this.locator.flowHeading).toBeVisible();
+    await expect(this.locator.flowHeading).toHaveText('Responsible party information');
+    await this.locator.clickBackButton();
     await this.fillAndAddCreditCard();
     await this.locator.clickContinueButton();
     await this.fillResponsiblePartyDataSelf();
     await this.locator.clickContinueButton();
+    await expect(this.locator.flowHeading).toHaveText('Emergency Contact');
     await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
+    await expect(this.locator.flowHeading).toHaveText('Photo ID');
     await this.skipPhotoID();
-    await this.locator.clickContinueButton();
     await this.fillConsentForms();
     await this.locator.clickContinueButton();
+    await expect(this.locator.flowHeading).toHaveText('Review and submit');
     return { stateValue };
   }
   async fillContactInformationRequiredFields(): Promise<{ stateValue: string }> {

@@ -1,4 +1,4 @@
-import { Page, test } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CancelPage } from 'tests/utils/CancelPage';
@@ -96,6 +96,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
       await paperwork.clickProceedToPaperwork();
       const { stateValue } = await paperwork.fillPaperworkOnlyRequiredFieldsInPerson();
       await locator.continueButton.click();
+      await expect(locator.flowHeading).toHaveText('Thank you for choosing Ottehr!');
       return { bookingData, stateValue };
     });
 
