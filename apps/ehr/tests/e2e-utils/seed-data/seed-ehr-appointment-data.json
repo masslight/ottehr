@@ -1169,7 +1169,7 @@
                 ]
               },
               {
-                "linkId": "patient-communication-method",
+                "linkId": "patient-preferred-communication-method",
                 "answer": [
                   {
                     "valueString": "No preference"

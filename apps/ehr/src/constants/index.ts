@@ -575,7 +575,7 @@ export const FormFields = {
     zip: { key: 'patient-zip', type: 'String' },
     email: { key: 'patient-email', type: 'String' },
     phone: { key: 'patient-number', type: 'String' },
-    communicationMethod: { key: 'patient-communication-method', type: 'String' },
+    preferredCommunicationMethod: { key: 'patient-preferred-communication-method', type: 'String' },
   },
   insurance: [
     {
@@ -700,3 +700,26 @@ export const ADDITIONAL_QUESTIONS = questionnaireFields.map((field) => ({
   label: field.question,
   field: field.fhirField,
 }));
+
+export const PREFERRED_COMMUNICATION_METHOD_OPTIONS = [
+  {
+    label: 'No preference',
+    value: 'No preference',
+  },
+  {
+    label: 'Email',
+    value: 'Email',
+  },
+  {
+    label: 'Home Phone',
+    value: 'Home Phone',
+  },
+  {
+    label: 'Cell Phone',
+    value: 'Cell Phone',
+  },
+  {
+    label: 'Mail',
+    value: 'Mail',
+  },
+];
