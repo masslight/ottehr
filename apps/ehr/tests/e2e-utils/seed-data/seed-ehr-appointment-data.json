@@ -12,9 +12,7 @@
         "name": [
           {
             "use": "official",
-            "given": [
-              "Jon"
-            ],
+            "given": ["Jon"],
             "family": "Snow"
           }
         ],
@@ -23,10 +21,7 @@
         "address": [
           {
             "city": "New York",
-            "line": [
-              "20250519 Test Line",
-              "Apt 4B"
-            ],
+            "line": ["20250519 Test Line", "Apt 4B"],
             "state": "NY",
             "country": "US",
             "postalCode": "06001"
@@ -64,9 +59,7 @@
             "id": "primary-care-physician",
             "name": [
               {
-                "given": [
-                  "Provider first name"
-                ],
+                "given": ["Provider first name"],
                 "family": "Provider last name"
               }
             ],
@@ -228,13 +221,11 @@
       "resource": {
         "name": [
           {
-            "given": [
-              "Emergen",
-              "C"
-            ],
+            "given": ["Emergen", "C"],
             "family": "Contact"
           }
         ],
+        "address": [{ "city": "city", "line": ["address", "address 2"], "state": "AL", "postalCode": "12312" }],
         "patient": {
           "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
         },
@@ -1815,9 +1806,7 @@
             "id": "accountGuarantorId",
             "name": [
               {
-                "given": [
-                  "fwe"
-                ],
+                "given": ["fwe"],
                 "family": "sf"
               }
             ],
@@ -1839,9 +1828,7 @@
             "address": [
               {
                 "city": "Cleveland",
-                "line": [
-                  "333 test street"
-                ],
+                "line": ["333 test street"],
                 "state": "OH",
                 "postalCode": "44101"
               }
