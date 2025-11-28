@@ -430,9 +430,6 @@ export const EditableMedicationCard: React.FC<{
     return undefined;
   }, [erxEnabled, erxStatus, interactionsCheckState, localValues.medicationId, medication, isMedicationHistoryLoading]);
 
-  console.log(`interactionsCheckState.medicationName = "${interactionsCheckState.medicationName}"`);
-  console.log(`medication?.medicationName = "${medication?.medicationName}"`);
-
   return (
     <>
       <MedicationCardView
