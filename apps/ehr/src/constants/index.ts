@@ -575,6 +575,7 @@ export const FormFields = {
     zip: { key: 'patient-zip', type: 'String' },
     email: { key: 'patient-email', type: 'String' },
     phone: { key: 'patient-number', type: 'String' },
+    communicationMethod: { key: 'patient-communication-method', type: 'String' },
   },
   insurance: [
     {

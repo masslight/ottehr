@@ -1169,6 +1169,14 @@
                 ]
               },
               {
+                "linkId": "patient-communication-method",
+                "answer": [
+                  {
+                    "valueString": "No preference"
+                  }
+                ]
+              },
+              {
                 "linkId": "mobile-opt-in",
                 "answer": [
                   {

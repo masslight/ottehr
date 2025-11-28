@@ -726,6 +726,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-point-of-discovery': patientFieldPaths.pointOfDiscovery,
   'mobile-opt-in': patientFieldPaths.sendMarketing,
   'common-well-consent': patientFieldPaths.commonWellConsent,
+  'patient-preferred-communication-method': patientFieldPaths.preferredCommunicationMethod,
   'insurance-carrier': coverageFieldPaths.carrier,
   'insurance-member-id': coverageFieldPaths.memberId,
   'insurance-additional-information': coverageFieldPaths.additionalInformation,

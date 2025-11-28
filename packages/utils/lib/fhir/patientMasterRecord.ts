@@ -18,6 +18,7 @@ import {
   PATIENT_SEND_MARKETING_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
   PRACTICE_NAME_URL,
+  PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
   RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL,
 } from '../types/constants';
 import { extractExtensionValue } from './helpers';
@@ -82,6 +83,7 @@ export const patientFieldPaths = {
   deceased: 'Patient/deceasedBoolean',
   deceasedDate: 'Patient/deceasedDateTime',
   deceasedNote: `Patient/extension/${PATIENT_DECEASED_NOTE_URL}`,
+  preferredCommunicationMethod: `Patient/extension/${PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL}`,
 };
 
 export const coverageFieldPaths = {

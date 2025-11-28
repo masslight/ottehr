@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-virtual-previsit-1_0_14": {
+    "questionnaire-virtual-previsit-1_0_15": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-        "version": "1.0.14",
+        "version": "1.0.15",
         "name": "virtual_pre-visit_paperwork",
         "title": "virtual pre-visit paperwork",
         "status": "active",
@@ -395,6 +395,29 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
                     "valueString": "section-patient shipping tel"
+                  }
+                ]
+              },
+              {
+                "linkId": "patient-preferred-communication-method",
+                "text": "Preferred Communication Method",
+                "required": true,
+                "type": "choice",
+                "answerOption": [
+                  {
+                    "valueString": "No preference"
+                  },
+                  {
+                    "valueString": "Email"
+                  },
+                  {
+                    "valueString": "Home Phone"
+                  },
+                  {
+                    "valueString": "Cell Phone"
+                  },
+                  {
+                    "valueString": "Mail"
                   }
                 ]
               },
