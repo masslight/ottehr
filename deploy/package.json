@@ -14,7 +14,8 @@
     "apply-staging": "./apply.sh staging",
     "apply-demo": "./apply.sh demo",
     "terraform-init": "terraform init --backend-config=./backend.config",
-    "terraform-setup": "npm run terraform-init && terraform workspace new local && terraform workspace new development && terraform workspace new testing && terraform workspace new staging && terraform workspace new demo && terraform workspace select local"
+    "terraform-setup": "npm run terraform-init && terraform workspace new local && terraform workspace new development && terraform workspace new testing && terraform workspace new staging && terraform workspace new demo && terraform workspace select local",
+    "fill-env-with-created-resources-data": "tsx fill-env-with-created-resources-data.ts"
   },
   "devDependencies": {
     "@types/node": "^24.2.1"
