@@ -17,6 +17,14 @@ export class PastVisitsPage extends CommonLocatorsHelper {
     await expect(visitsList).not.toBeVisible();
   }
 
+  async verifyNonEmptyState(): Promise<void> {
+    const visitsList = this.page.getByTestId('past-visits-list');
+    await expect(visitsList).toBeVisible();
+
+    const emptyStateMessage = this.page.getByTestId('empty-state-message');
+    await expect(emptyStateMessage).not.toBeVisible();
+  }
+
   async verifyBackButton(): Promise<void> {
     const backButton = this.page.getByTestId('back-to-homepage-button');
     await expect(backButton).toBeVisible();

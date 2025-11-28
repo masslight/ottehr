@@ -21,6 +21,7 @@ export interface InPersonPatientTestData {
 
 export interface InPersonPatientSelfTestData extends InPersonPatientTestData {
   state: string;
+  cancelledSlotDetails: { appointmentId: string } & GetSlotDetailsResponse;
 }
 
 export interface InPersonPatientNotSelfTestData extends InPersonPatientTestData {

@@ -99,6 +99,12 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
       return { bookingData, stateValue };
     });
 
+    await test.step('Cancel first appointment', async () => {
+      const cancelPage = new CancelPage(page);
+      await cancelPage.clickCancelButton();
+      await cancelPage.selectCancellationReason('in-person');
+    });
+
     const { slot, location } = await test.step('Book second appointment without filling paperwork', async () => {
       return await bookAppointmentForExistingPatient(bookingData, {
         page,
@@ -121,6 +127,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
         location,
         state: stateValue,
         slotDetails: slotDetailsRef.current,
+        cancelledSlotDetails: { appointmentId: appointmentIds[appointmentIds.length - 2], ...bookingData.slotDetails },
       };
       console.log('cardPaymentSelfPatient', JSON.stringify(cardPaymentSelfPatient));
       writeTestData('cardPaymentSelfPatient.json', cardPaymentSelfPatient);
