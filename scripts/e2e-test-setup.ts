@@ -9,6 +9,7 @@ import {
   SCHEDULE_EXTENSION_URL,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
 import {
   allPhysicalDefaultLocations,
@@ -106,15 +107,19 @@ async function getLocationsForTesting(
   const firstDefaultLocation = allPhysicalDefaultLocations[0];
   const firstDefaultVirtualLocation = virtualDefaultLocations[0];
 
-  const locationsResponse = await oystehr.fhir.search<Location | Schedule>({
-    resourceType: 'Location',
-    params: [
-      {
-        name: '_revinclude',
-        value: 'Schedule:actor:Location',
-      },
-    ],
-  });
+  // Use getAllFhirSearchPages to handle pagination when there are more than 1000 locations
+  const locationsAndSchedules = await getAllFhirSearchPages<Location | Schedule>(
+    {
+      resourceType: 'Location',
+      params: [
+        {
+          name: '_revinclude',
+          value: 'Schedule:actor:Location',
+        },
+      ],
+    },
+    oystehr
+  );
 
   const defaultGroupRelatedResourcesResponse = await oystehr.fhir.search<
     HealthcareService | Location | Practitioner | Schedule
@@ -157,8 +162,6 @@ async function getLocationsForTesting(
   const defaultGroupSchedules = defaultGroupRelatedResources.filter(
     (res): res is Schedule => res.resourceType === 'Schedule'
   );
-
-  const locationsAndSchedules = locationsResponse.unbundle();
   const locations = locationsAndSchedules.filter((res): res is Location => res.resourceType === 'Location');
   const schedules = locationsAndSchedules.filter((res): res is Schedule => res.resourceType === 'Schedule');
 
@@ -187,6 +190,11 @@ async function getLocationsForTesting(
     throw Error('Required virtual location not found');
   }
 
+  console.log(
+    'locationResource',
+    locations.filter((location) => location.name?.includes(firstDefaultLocation.name)),
+    locations.length
+  );
   if (!locationId) {
     throw Error('Required locationId not found  ');
   }
