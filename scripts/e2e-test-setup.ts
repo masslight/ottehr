@@ -190,11 +190,6 @@ async function getLocationsForTesting(
     throw Error('Required virtual location not found');
   }
 
-  console.log(
-    'locationResource',
-    locations.filter((location) => location.name?.includes(firstDefaultLocation.name)),
-    locations.length
-  );
   if (!locationId) {
     throw Error('Required locationId not found  ');
   }
