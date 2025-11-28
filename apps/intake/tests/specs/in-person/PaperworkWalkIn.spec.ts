@@ -2,16 +2,13 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
-// import { StartInPersonFlow } from '../../utils/in-person/StartInPersonFlow';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
 
 let page: Page;
 let context: BrowserContext;
-// let flowClass: StartInPersonFlow;
 let locator: Locators;
-// let bookingURL: Awaited<ReturnType<StartInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
@@ -28,7 +25,6 @@ test.beforeAll(async ({ browser }) => {
       }
     }
   });
-  // flowClass = new StartInPersonFlow(page);
   paperwork = new Paperwork(page);
   locator = new Locators(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
