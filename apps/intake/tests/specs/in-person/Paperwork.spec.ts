@@ -136,7 +136,6 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PPO-2. Check required fields', async () => {
-      // todo parallel test execution sometimes fails this test
       await paperwork.checkRequiredFields(
         '"Select payment option"',
         'How would you like to pay for your visit?',
@@ -155,7 +154,6 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PPO-5. Select insurance and click [Continue]', async () => {
-      // todo parallel test execution sometimes fails this test
       await locator.clickBackButton();
       await paperwork.selectInsurancePayment();
       await locator.clickContinueButton();
