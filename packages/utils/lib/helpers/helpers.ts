@@ -344,12 +344,6 @@ export const DEMO_VISIT_EMERGENCY_CONTACT_FIRST_NAME = 'Emergen';
 export const DEMO_VISIT_EMERGENCY_CONTACT_MIDDLE_NAME = 'C';
 export const DEMO_VISIT_EMERGENCY_CONTACT_LAST_NAME = 'Contact';
 export const DEMO_VISIT_EMERGENCY_CONTACT_PHONE = '(123) 123-1234';
-export const DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS_AS_PATIENT = false;
-export const DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS = 'address';
-export const DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS_LINE2 = 'address 2';
-export const DEMO_VISIT_EMERGENCY_CONTACT_CITY = 'city';
-export const DEMO_VISIT_EMERGENCY_CONTACT_STATE = 'AL';
-export const DEMO_VISIT_EMERGENCY_CONTACT_ZIP = '12312';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -625,24 +619,12 @@ export function getEmergencyContactStepAnswers({
   middleName = DEMO_VISIT_EMERGENCY_CONTACT_MIDDLE_NAME,
   lastName = DEMO_VISIT_EMERGENCY_CONTACT_LAST_NAME,
   phone = DEMO_VISIT_EMERGENCY_CONTACT_PHONE,
-  addressAsPatient = DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS_AS_PATIENT,
-  address = DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS,
-  addressLine2 = DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS_LINE2,
-  city = DEMO_VISIT_EMERGENCY_CONTACT_CITY,
-  state = DEMO_VISIT_EMERGENCY_CONTACT_STATE,
-  zip = DEMO_VISIT_EMERGENCY_CONTACT_ZIP,
 }: {
   relationship?: string;
   firstName?: string;
   middleName?: string;
   lastName?: string;
   phone?: string;
-  addressAsPatient?: boolean;
-  address?: string;
-  addressLine2?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'emergency-contact-page',
@@ -666,30 +648,6 @@ export function getEmergencyContactStepAnswers({
       {
         linkId: 'emergency-contact-number',
         answer: [{ valueString: phone }],
-      },
-      {
-        linkId: 'emergency-contact-address-as-patient',
-        answer: [{ valueBoolean: addressAsPatient }],
-      },
-      {
-        linkId: 'emergency-contact-address',
-        answer: [{ valueString: address }],
-      },
-      {
-        linkId: 'emergency-contact-address-2',
-        answer: [{ valueString: addressLine2 }],
-      },
-      {
-        linkId: 'emergency-contact-city',
-        answer: [{ valueString: city }],
-      },
-      {
-        linkId: 'emergency-contact-state',
-        answer: [{ valueString: state }],
-      },
-      {
-        linkId: 'emergency-contact-zip',
-        answer: [{ valueString: zip }],
       },
     ],
   };
