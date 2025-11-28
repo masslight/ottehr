@@ -185,6 +185,10 @@ const EXTENSION_CONFIGS: Record<string, ExtensionConfig> = {
     url: PATIENT_RX_HISTORY_CONSENT_STATUS_URL,
     valueType: 'valueString',
   },
+  preferredCommunicationMethod: {
+    url: PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
+    valueType: 'valueString',
+  },
 };
 
 const PRONOUNS_MAPPING = {

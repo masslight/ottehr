@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-ehr-insurance-update-1_0_6": {
+    "questionnaire-ehr-insurance-update-1_0_7": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/ehr-insurance-update-questionnaire",
-        "version": "1.0.6",
+        "version": "1.0.7",
         "name": "ehr-insurance-update-questionnaire",
         "title": "EHR Insurance Update Form",
         "status": "active",
@@ -309,6 +309,29 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                     "valueString": "Phone Number"
+                  }
+                ]
+              },
+              {
+                "linkId": "patient-preferred-communication-method",
+                "text": "Preferred Communication Method",
+                "required": true,
+                "type": "choice",
+                "answerOption": [
+                  {
+                    "valueString": "No preference"
+                  },
+                  {
+                    "valueString": "Email"
+                  },
+                  {
+                    "valueString": "Home Phone"
+                  },
+                  {
+                    "valueString": "Cell Phone"
+                  },
+                  {
+                    "valueString": "Mail"
                   }
                 ]
               }
