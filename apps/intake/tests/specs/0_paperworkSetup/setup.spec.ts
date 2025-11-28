@@ -256,6 +256,46 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
   });
 
+  test('Create patient without filling in paperwork for reservation modification', async ({ browser, page }) => {
+    const slotDetailsRef: { current: GetSlotDetailsResponse } = { current: {} as GetSlotDetailsResponse };
+    const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      page.on('response', async (response) => {
+        if (response.url().includes('/create-appointment/')) {
+          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+          if (!appointmentIds.includes(appointmentId)) {
+            appointmentIds.push(appointmentId);
+          }
+        }
+      });
+      const flowClass = new PrebookInPersonFlow(page);
+      const paperwork = new Paperwork(page);
+      return { flowClass, paperwork };
+    });
+
+    const { bookingData } = await test.step('Create patient', async () => {
+      const bookingData = await flowClass.startVisit();
+      await page.goto(bookingData.bookingURL);
+      await paperwork.clickProceedToPaperwork();
+      return { bookingData };
+    });
+
+    await test.step('Save test data', async () => {
+      const reservationModificationPatient = {
+        firstName: bookingData.firstName,
+        lastName: bookingData.lastName,
+        email: bookingData.email,
+        birthSex: bookingData.birthSex,
+        dateOfBirth: bookingData.dateOfBirth,
+        appointmentId: bookingData.bookingUUID,
+        slotDetails: slotDetailsRef.current,
+      };
+      console.log('reservationModificationPatient', JSON.stringify(reservationModificationPatient));
+      writeTestData('reservationModificationPatient.json', reservationModificationPatient);
+    });
+  });
+
   test('Create patient without appointments', async ({ browser }) => {
     const flowClass = await test.step('Set up playwright', async () => {
       const context = await browser.newContext();
