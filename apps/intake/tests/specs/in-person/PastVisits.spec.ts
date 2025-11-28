@@ -78,7 +78,9 @@ test.describe.parallel('Past Visits', async () => {
 
     await test.step('PV-2.3. Check appointment details', async () => {
       await expect(page.getByRole('heading', { level: 6 })).toHaveText(
-        DateTime.fromISO(appointmentPatient.cancelledSlotDetails.startISO).toFormat("MMMM dd, yyyy 'at' h:mm a")
+        DateTime.fromISO(appointmentPatient.cancelledSlotDetails.startISO)
+          .setZone(appointmentPatient.cancelledSlotDetails.timezoneForDisplay)
+          .toFormat("MMMM dd, yyyy 'at' h:mm a")
       );
       await expect(page.getByText(`Visit ID: ${appointmentPatient.cancelledSlotDetails.appointmentId}`)).toBeVisible();
       await expect(page.getByText('(In-Person)')).toBeVisible();
