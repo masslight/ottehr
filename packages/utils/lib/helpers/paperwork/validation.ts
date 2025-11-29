@@ -526,7 +526,7 @@ const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: 
     }
   }
   if (typeof value !== 'boolean') {
-    return false;
+    return operator === '!='; // if value is not boolean, treat as non-match
   }
 
   if (operator === '=') {

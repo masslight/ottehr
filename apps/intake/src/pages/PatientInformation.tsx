@@ -42,6 +42,7 @@ export const PatientInfoCollection: FC = () => {
   const {
     data: questionnaireData,
     isLoading,
+    isRefetching,
     isSuccess,
   } = useQuery({
     queryKey: ['get-booking-questionnaire', { zambdaClient }],
@@ -126,7 +127,7 @@ export const PatientInfoCollection: FC = () => {
 
   return (
     <PageContainer title={t('aboutPatient.title')} description={t('aboutPatient.subtitle')}>
-      {isLoading ? <CircularProgress /> : <Outlet context={{ ...outletContext, ...bookingContext }} />}
+      {isLoading || isRefetching ? <CircularProgress /> : <Outlet context={{ ...outletContext, ...bookingContext }} />}
     </PageContainer>
   );
 };

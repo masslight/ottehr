@@ -2,12 +2,13 @@ import { render, screen } from '@testing-library/react';
 import { DateTime } from 'luxon';
 import { MemoryRouter } from 'react-router-dom';
 import { VisitType } from 'utils';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import ReviewPage from '../../src/pages/Review';
 
 const mockUseBookingContext = vi.fn();
 vi.mock('../../src/pages/BookingHome', () => ({
   useBookingContext: () => mockUseBookingContext(),
+  PROGRESS_STORAGE_KEY: 'patient-information-progress',
 }));
 
 const mockData = {
@@ -26,6 +27,19 @@ describe('Review and Submit Screen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseBookingContext.mockReturnValue(mockData);
+
+    // Set up sessionStorage with patient information
+    const mockSessionData = {
+      'patient-information-page-1': {
+        'patient-first-name': { linkId: 'patient-first-name', answer: [{ valueString: 'John' }] },
+        'patient-last-name': { linkId: 'patient-last-name', answer: [{ valueString: 'Doe' }] },
+      },
+    };
+    sessionStorage.setItem('patient-information-progress', JSON.stringify(mockSessionData));
+  });
+
+  afterEach(() => {
+    sessionStorage.clear();
   });
 
   test('should render Review page', () => {
@@ -134,6 +148,9 @@ describe('Review and Submit Screen', () => {
   });
 
   test('Check patient name displays "Unknown" when patientInfo is missing', () => {
+    // Clear sessionStorage to simulate missing patient info
+    sessionStorage.clear();
+
     mockUseBookingContext.mockReturnValue({
       ...mockData,
       patientInfo: undefined,
