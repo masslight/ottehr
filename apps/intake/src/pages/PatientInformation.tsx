@@ -39,13 +39,13 @@ export const PatientInfoCollection: FC = () => {
   const { slotId } = useParams<{ slotId: string }>();
   const bookingContext = useBookingContext();
   const { patientInfo } = bookingContext;
-  console.log('Fetching paperwork for slotId:', slotId, 'and patientInfo:', patientInfo);
+  // console.log('Fetching paperwork for slotId:', slotId, 'and patientInfo:', patientInfo);
   const {
     data: questionnaireData,
     isLoading,
     isSuccess,
   } = useQuery({
-    queryKey: ['get-employees', { zambdaClient }],
+    queryKey: ['get-booking-questionnaire', { zambdaClient }],
     queryFn: async () => {
       if (!zambdaClient) throw new Error('Zambda client not initialized');
       if (!slotId) throw new Error('slotId is required');
@@ -169,7 +169,7 @@ const PatientInformation = (): JSX.Element => {
 
   const onSubmit = useCallback(
     async (data: QuestionnaireFormFields): Promise<void> => {
-      console.log('Submitting Patient Information data:', data);
+      // console.log('Submitting Patient Information data:', data);
       const postedPatientInfo: PatientInfo = BOOKING_CONFIG.mapBookingQRItemToPatientInfo(Object.values(data));
       let foundDuplicate: PatientInfo | undefined;
       // check if a patient with the same data already exists for this user
@@ -213,6 +213,8 @@ const PatientInformation = (): JSX.Element => {
         };
         payload.id = payload.id === 'new-patient' ? undefined : payload.id;
 
+        // todo: we are duplicating state in booking context and session storage here
+        // this data shouldn't be needed in booking context
         setPatientInfo(payload);
         sessionStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify({ [pageId]: data }));
         navigate(window.location.pathname.replace('patient-information/form', 'review'));
@@ -237,7 +239,8 @@ const PatientInformation = (): JSX.Element => {
     return defaults;
   })();
 
-  console.log('defaultValues', defaultValues);
+  // console.log('defaultValues', defaultValues);
+  // console.log('patientInfo', patientInfo);
 
   return (
     <>

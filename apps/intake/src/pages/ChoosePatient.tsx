@@ -17,7 +17,7 @@ import PatientList from '../features/patients/components/selectable-list';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
-import { useBookingContext } from './BookingHome';
+import { PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
 
 const ChoosePatient = (): JSX.Element => {
   const navigate = useNavigate();
@@ -158,6 +158,9 @@ const ChoosePatient = (): JSX.Element => {
           email: undefined,
         });
       }
+    }
+    if (patientInfo?.id !== data.patientID) {
+      sessionStorage.removeItem(PROGRESS_STORAGE_KEY);
     }
 
     if (data.patientID !== 'new-patient') {

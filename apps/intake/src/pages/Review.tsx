@@ -65,14 +65,12 @@ const Review = (): JSX.Element => {
 
   const patientInfo: PatientInfo | undefined = (() => {
     const storedData = sessionStorage.getItem(PROGRESS_STORAGE_KEY);
-    console.log('Retrieving stored patient information from sessionStorage:', storedData);
     if (!storedData) return undefined;
     try {
       const storedItems = Object.entries(JSON.parse(storedData)).map(([key, value]) => ({
         linkId: key,
         item: Object.values(value as Record<string, unknown>),
       })) as QuestionnaireResponseItem[];
-      console.log('Parsed stored patient information:', storedItems);
       return BOOKING_CONFIG.mapBookingQRItemToPatientInfo(storedItems);
     } catch (error) {
       console.error('Error parsing stored patient information:', error);
@@ -94,7 +92,6 @@ const Review = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: false });
 
   const onSubmit = async (): Promise<void> => {
-    console.log('submitting review page', patientInfo);
     try {
       if (!patientInfo) {
         console.log('no patient info error');
