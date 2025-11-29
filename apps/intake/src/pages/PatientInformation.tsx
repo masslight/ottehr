@@ -39,7 +39,6 @@ export const PatientInfoCollection: FC = () => {
   const { slotId } = useParams<{ slotId: string }>();
   const bookingContext = useBookingContext();
   const { patientInfo } = bookingContext;
-  // console.log('Fetching paperwork for slotId:', slotId, 'and patientInfo:', patientInfo);
   const {
     data: questionnaireData,
     isLoading,
