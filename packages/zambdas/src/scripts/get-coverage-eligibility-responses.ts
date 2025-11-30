@@ -132,10 +132,19 @@ function getInsuranceTypeInfo(rawData: any): { type: string; isMedicaid: boolean
 }
 
 // Function to format and display eligibility response data
-function displayEligibilityData(rawData: any, responseId: string): void {
+function displayEligibilityData(rawData: any, responseId: string, patientId: string): void {
   if (!rawData) {
     console.log(`No raw data found for response ${responseId}`);
     return;
+  }
+
+  // Write raw data to file
+  const filename = `${process.env.HOME || '~'}/Downloads/${patientId}.json`;
+  try {
+    fs.writeFileSync(filename, JSON.stringify(rawData, null, 2), 'utf8');
+    console.log(`\n📄 Raw response data written to: ${filename}`);
+  } catch (error) {
+    console.error(`❌ Error writing raw response to file:`, error);
   }
 
   // Check if response contains an error
@@ -150,9 +159,6 @@ function displayEligibilityData(rawData: any, responseId: string): void {
   // Check if response contains eligibility data
   if (!rawData.elig) {
     console.log(`\n⚠️  No eligibility data found for response ${responseId}`);
-    console.log('📄 Full JSON Response:');
-    console.log('======================');
-    console.log(JSON.stringify(rawData, null, 2));
     return;
   }
 
@@ -303,7 +309,7 @@ async function main(): Promise<void> {
 
     // Display detailed eligibility data if raw data is available
     if (rawData) {
-      displayEligibilityData(rawData, id);
+      displayEligibilityData(rawData, id, patientId);
     }
   }
 
