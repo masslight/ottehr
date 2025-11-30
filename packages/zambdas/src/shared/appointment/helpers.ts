@@ -325,15 +325,6 @@ export function creatingPatientUpdateRequest(
       value: patientDateOfBirth,
     });
   }
-
-  if (patientPatchOperations.length >= 1) {
-    console.log('getting patch binary for patient operations');
-    updatePatientRequest = getPatchBinary({
-      resourceType: 'Patient',
-      resourceId: patient.id,
-      patchOperations: patientPatchOperations,
-    });
-  }
   if (patient.ssn) {
     const identifier = makeSSNIdentifier(patient.ssn);
     const newIdentifier = (maybeFhirPatient.identifier ?? []).filter((id) => id.system !== identifier.system);
@@ -352,6 +343,15 @@ export function creatingPatientUpdateRequest(
         value: newIdentifier,
       });
     }
+  }
+
+  if (patientPatchOperations.length >= 1) {
+    console.log('getting patch binary for patient operations');
+    updatePatientRequest = getPatchBinary({
+      resourceType: 'Patient',
+      resourceId: patient.id,
+      patchOperations: patientPatchOperations,
+    });
   }
 
   return updatePatientRequest;
