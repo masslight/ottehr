@@ -118,7 +118,7 @@
                       },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                        "valueString": ""
+                        "valueBoolean": false
                       }
                     ]
                   }
