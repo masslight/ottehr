@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi } from 'candidhealth';
 import { randomUUID } from 'crypto';
-import { Appointment, Encounter, List, Location, Patient, Resource, Schedule } from 'fhir/r4b';
+import { Appointment, Encounter, List, Location, Patient, Resource, Schedule, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BUCKET_NAMES,
@@ -16,6 +16,7 @@ import {
   SecretsKeys,
   STATEMENT_CODE,
 } from 'utils';
+import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
 import {
   assertDefined,
   checkOrCreateM2MClientToken,
@@ -30,9 +31,8 @@ import {
   validateString,
   wrapHandler,
   ZambdaInput,
-} from '../../shared';
-import { makeZ3Url } from '../../shared/presigned-file-urls';
-import { getAccountAndCoverageResourcesForPatient } from '../shared/harvest';
+} from '../../../shared';
+import { makeZ3Url } from '../../../shared/presigned-file-urls';
 import { generatePdf } from './draw';
 
 const ZAMBDA_NAME = 'generate-statement';
@@ -213,9 +213,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 function validateInput(input: ZambdaInput): GenerateStatementInputValidated {
-  const { encounterId } = validateJsonBody(input);
+  const inputJson = validateJsonBody(input);
+
+  if (inputJson.resourceType !== 'Task') {
+    throw new Error(`Input needs to be a Task resource`);
+  }
+
+  const task = inputJson as Task;
+
   return {
-    encounterId: validateString(encounterId, 'encounterId'),
+    encounterId: validateString(task.encounter?.reference?.split('/')[1], 'encounterId'),
     secrets: assertDefined(input.secrets, 'input.secrets'),
   };
 }

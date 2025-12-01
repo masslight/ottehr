@@ -1306,12 +1306,17 @@
       "src": "src/patient/paperwork/get-questionnaire/index",
       "zip": ".dist/zips/get-questionnaire-patient.zip"
     },
-    "GENERATE_STATEMENT": {
+    "SUB_GENERATE_STATEMENT": {
       "name": "generate-statement",
-      "type": "http_auth",
+      "type": "subscription",
       "runtime": "nodejs22.x",
       "src": "src/ehr/generate-statement/index",
-      "zip": ".dist/zips/generate-statement.zip"
+      "zip": ".dist/zips/generate-statement.zip",
+      "subscription": {
+        "criteria": "Task?code=send-invoice-to-patient|&status=completed",
+        "reason": "Generate statement",
+        "event": "update"
+      }
     }
   },
   "faxNumbers": {

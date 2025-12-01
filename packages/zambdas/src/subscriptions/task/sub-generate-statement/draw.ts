@@ -4,8 +4,8 @@ import fs from 'fs';
 import { DateTime } from 'luxon';
 import { PageSizes } from 'pdf-lib';
 import { formatDateToMDYWithTime, getAppointmentType, getFullName, standardizePhoneNumber } from 'utils';
-import { createPdfClient, getPdfLogo, rgbNormalized } from '../../shared/pdf/pdf-utils';
-import { ImageStyle, LineStyle, PdfClient, PdfClientStyles, TextStyle } from '../../shared/pdf/types';
+import { createPdfClient, getPdfLogo, rgbNormalized } from '../../../shared/pdf/pdf-utils';
+import { ImageStyle, LineStyle, PdfClient, PdfClientStyles, TextStyle } from '../../../shared/pdf/types';
 
 export interface StatementPdfInput {
   patient: Patient;
