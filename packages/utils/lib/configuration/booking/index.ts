@@ -21,11 +21,10 @@ import { deepFreezeObject } from '../../utils';
 const BookingQuestionnaire = Object.values(bookAppointmentQuestionnaireJson.fhirResources)![0]
   .resource as Questionnaire;
 
-const REASON_FOR_VISIT_OPTIONS = [
+const REASON_FOR_VISIT_OPTIONS =
   BookingQuestionnaire.item![0].item!.find(
     (item: QuestionnaireItem) => item.linkId === 'reason-for-visit'
-  )!.answerOption?.map((option: any) => option.valueString) ?? [],
-];
+  )!.answerOption?.map((option: any) => option.valueString) ?? [];
 
 export const intakeQuestionnaires: Readonly<Array<Questionnaire>> = (() => {
   const inPersonQ = Object.values(inPersonIntakeQuestionnaireJson.fhirResources).find(
