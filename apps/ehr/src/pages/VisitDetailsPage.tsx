@@ -761,6 +761,19 @@ export default function VisitDetailsPage(): ReactElement {
                   ]}
                 />
               </Grid>
+              <LoadingButton
+                variant="outlined"
+                sx={{
+                  borderRadius: '20px',
+                  textTransform: 'none',
+                }}
+                loading={paperworkPdfLoading}
+                color="primary"
+                disabled={isLoadingDocuments || !patient?.id}
+                onClick={downloadPaperworkPdf}
+              >
+                Paperwork PDF
+              </LoadingButton>
             </Grid>
             {/* page title row */}
             <Grid container direction="row" marginTop={1}>
@@ -1176,19 +1189,6 @@ export default function VisitDetailsPage(): ReactElement {
         <Grid container direction="row">
           <Grid item sx={{ marginLeft: { xs: 0, sm: 8 }, marginTop: 2, marginBottom: 50 }}>
             <Stack direction="row" spacing={1} useFlexGap>
-              <LoadingButton
-                variant="outlined"
-                sx={{
-                  borderRadius: '20px',
-                  textTransform: 'none',
-                }}
-                loading={paperworkPdfLoading}
-                color="primary"
-                disabled={isLoadingDocuments || !patient?.id}
-                onClick={downloadPaperworkPdf}
-              >
-                Patient Paperwork PDF
-              </LoadingButton>
               <LoadingButton
                 loading={activityLogsLoading}
                 variant="outlined"
