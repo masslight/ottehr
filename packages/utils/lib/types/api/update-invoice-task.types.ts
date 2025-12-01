@@ -1,13 +1,6 @@
 import z from 'zod';
 
 export const PrefilledInvoiceInfoSchema = z.object({
-  patientFullName: z.string(),
-  patientDob: z.string(),
-  patientGender: z.string(),
-  patientPhoneNumber: z.string(),
-  responsiblePartyName: z.string(), // todo, check different variants of responsible party, self, spose ...
-  responsiblePartyPhoneNumber: z.string(), // todo and what data and where will be stored
-  responsiblePartyEmail: z.string().optional(),
   dueDate: z.string(),
   memo: z.string().optional(),
   smsTextMessage: z.string(),

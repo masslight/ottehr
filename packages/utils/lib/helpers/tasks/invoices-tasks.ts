@@ -23,37 +23,12 @@ export function createInvoiceTaskInput(input: PrefilledInvoiceInfo): TaskInput[]
 }
 
 export function parseInvoiceTaskInput(invoiceTask: Task): PrefilledInvoiceInfo | undefined {
-  const patientFullName = getInvoiceTaskInputFieldByCode('patientFullName', invoiceTask);
-  const patientDob = getInvoiceTaskInputFieldByCode('patientDob', invoiceTask);
-  const patientGender = getInvoiceTaskInputFieldByCode('patientGender', invoiceTask);
-  const patientPhoneNumber = getInvoiceTaskInputFieldByCode('patientPhoneNumber', invoiceTask);
-  const responsiblePartyName = getInvoiceTaskInputFieldByCode('responsiblePartyName', invoiceTask);
-  const responsiblePartyPhoneNumber = getInvoiceTaskInputFieldByCode('responsiblePartyPhoneNumber', invoiceTask);
-  const responsiblePartyEmail = getInvoiceTaskInputFieldByCode('responsiblePartyEmail', invoiceTask);
   const dueDate = getInvoiceTaskInputFieldByCode('dueDate', invoiceTask);
   const memo = getInvoiceTaskInputFieldByCode('memo', invoiceTask);
   const smsTextMessage = getInvoiceTaskInputFieldByCode('smsTextMessage', invoiceTask);
   const amount = getInvoiceTaskInputFieldByCode('amountCents', invoiceTask);
-  if (
-    !patientFullName ||
-    !patientDob ||
-    !patientGender ||
-    !patientPhoneNumber ||
-    !responsiblePartyName ||
-    !responsiblePartyPhoneNumber ||
-    !dueDate ||
-    !smsTextMessage ||
-    !amount
-  )
-    return undefined;
+  if (!dueDate || !smsTextMessage || !amount) return undefined;
   return {
-    patientFullName,
-    patientDob,
-    patientGender,
-    patientPhoneNumber,
-    responsiblePartyName,
-    responsiblePartyEmail,
-    responsiblePartyPhoneNumber,
     dueDate,
     memo,
     smsTextMessage,

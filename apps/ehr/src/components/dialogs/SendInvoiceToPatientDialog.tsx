@@ -1,3 +1,4 @@
+import CloseIcon from '@mui/icons-material/Close';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
   Box,
@@ -8,16 +9,18 @@ import {
   Grid,
   IconButton,
   InputAdornment,
+  Skeleton,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { Task } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   BRANDING_CONFIG,
-  formatPhoneNumberDisplay,
+  GetPatientAndResponsiblePartyInfoEndpointOutput,
   InvoiceMessagesPlaceholders,
   parseInvoiceTaskInput,
   PrefilledInvoiceInfo,
@@ -34,20 +37,6 @@ export interface SendInvoiceFormData {
   smsTextMessage: string;
 }
 
-type PatientAndResponsibleParty = {
-  patient: {
-    name: string;
-    dob: string;
-    gender: string;
-    phone: string;
-  };
-  responsibleParty: {
-    name: string;
-    email?: string;
-    phone: string;
-  };
-};
-
 interface SendInvoiceToPatientDialogProps {
   title: string;
   modalOpen: boolean;
@@ -55,22 +44,23 @@ interface SendInvoiceToPatientDialogProps {
   onSubmit: (taskId: string, prefilledInvoiceInfo: PrefilledInvoiceInfo) => Promise<void>;
   submitButtonName: string;
   invoiceTask?: Task;
+  patientAndRP?: GetPatientAndResponsiblePartyInfoEndpointOutput;
 }
 
 export default function SendInvoiceToPatientDialog({
   title,
   modalOpen,
   handleClose,
-  // onSubmit,
+  onSubmit,
   submitButtonName,
   invoiceTask,
+  patientAndRP,
 }: SendInvoiceToPatientDialogProps): ReactElement {
-  const [disableAllFields, setDisableAllFields] = useState(false);
-  const [patientAndRP, setPatientAndRP] = useState<PatientAndResponsibleParty | undefined>(undefined);
+  const [disableAllFields, setDisableAllFields] = useState(true);
   const {
     control,
     watch,
-    // handleSubmit,
+    handleSubmit,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<SendInvoiceFormData>({
@@ -88,23 +78,18 @@ export default function SendInvoiceToPatientDialog({
   );
   const memoMessagePrefilledPreview = replaceTemplateVariablesArrows(watch('memo'), invoiceMessagesPlaceholders);
 
-  // const handleSubmitWrapped = (data: SendInvoiceFormData): void => {
-  //   if (invoiceTask && invoiceTask?.id) {
-  //     setDisableAllFields(true);
-  //     const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
-  //     if (invoiceTaskInput) {
-  //       // getting disabled fields from initial input
-  //       void onSubmit(invoiceTask?.id, {
-  //         recipientName: invoiceTaskInput.recipientName,
-  //         recipientEmail: invoiceTaskInput.recipientEmail,
-  //         recipientPhoneNumber: invoiceTaskInput.recipientPhoneNumber,
-  //         dueDate: data.dueDate,
-  //         memo: data.memo,
-  //         smsTextMessage: data.smsTextMessage,
-  //       });
-  //     }
-  //   } else enqueueSnackbar('Error sending invoice', { variant: 'error' });
-  // };
+  const handleSubmitWrapped = (data: SendInvoiceFormData): void => {
+    if (invoiceTask && invoiceTask?.id) {
+      setDisableAllFields(true);
+
+      void onSubmit(invoiceTask?.id, {
+        dueDate: data.dueDate,
+        memo: data.memo,
+        smsTextMessage: data.smsTextMessage,
+        amountCents: Math.round(data.amount * 100),
+      });
+    } else enqueueSnackbar('Error sending invoice', { variant: 'error' });
+  };
 
   useEffect(() => {
     if (invoiceTask) {
@@ -112,32 +97,7 @@ export default function SendInvoiceToPatientDialog({
       setDisableAllFields(false);
       const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
       if (invoiceTaskInput) {
-        const {
-          patientFullName,
-          patientDob,
-          patientGender,
-          patientPhoneNumber,
-          responsiblePartyName,
-          responsiblePartyEmail,
-          responsiblePartyPhoneNumber,
-          dueDate,
-          memo,
-          smsTextMessage,
-          amountCents,
-        } = invoiceTaskInput;
-        setPatientAndRP({
-          patient: {
-            name: patientFullName,
-            dob: patientDob,
-            gender: patientGender,
-            phone: formatPhoneNumberDisplay(patientPhoneNumber),
-          },
-          responsibleParty: {
-            name: responsiblePartyName,
-            email: responsiblePartyEmail,
-            phone: formatPhoneNumberDisplay(responsiblePartyPhoneNumber),
-          },
-        });
+        const { dueDate, memo, smsTextMessage, amountCents } = invoiceTaskInput;
         reset({
           amount: amountCents / 100,
           dueDate: dueDate,
@@ -150,43 +110,58 @@ export default function SendInvoiceToPatientDialog({
 
   return (
     <Dialog open={modalOpen}>
+      <IconButton onClick={() => handleClose()} size="medium" sx={{ position: 'absolute', right: 12, top: 12 }}>
+        <CloseIcon fontSize="medium" sx={{ color: '#938B7D' }} />
+      </IconButton>
+
       <Grid container direction="column" sx={{ padding: 1 }} spacing={0.5}>
         <DialogTitle variant="h4" color="primary.dark">
           {title}
         </DialogTitle>
 
         <DialogContent>
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Patient
-            </Typography>
-            <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{patientAndRP?.patient.name}</Typography>
-            <Box sx={{ flexDirection: 'row', display: 'flex' }}>
-              <Typography variant="body2">{patientAndRP?.patient.dob}</Typography>
-              <Typography variant="body2" sx={{ pl: 2 }}>
-                {patientAndRP?.patient.gender}
-              </Typography>
-              <Typography variant="body2" sx={{ pl: 2 }}>
-                {patientAndRP?.patient.phone}
-              </Typography>
-            </Box>
-          </Box>
+          {patientAndRP !== undefined ? (
+            <Box>
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Patient
+                </Typography>
+                <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{patientAndRP?.patient.fullName}</Typography>
+                <Box sx={{ flexDirection: 'row', display: 'flex' }}>
+                  <Typography variant="body2">{patientAndRP?.patient.dob}</Typography>
+                  <Typography variant="body2" sx={{ pl: 2 }}>
+                    {patientAndRP?.patient.gender}
+                  </Typography>
+                  <Typography variant="body2" sx={{ pl: 2 }}>
+                    {patientAndRP?.patient.phoneNumber}
+                  </Typography>
+                </Box>
+              </Box>
 
-          <Box sx={{ mt: 2, mb: 3 }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Responsible party name
-            </Typography>
-            <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{patientAndRP?.responsibleParty.name}</Typography>
-            <Box sx={{ flexDirection: 'row', display: 'flex' }}>
-              <Typography variant="body2">{patientAndRP?.responsibleParty.email}</Typography>
-              <Typography variant="body2" sx={{ pl: 2 }}>
-                {patientAndRP?.responsibleParty.phone}
-              </Typography>
+              <Box sx={{ mt: 2, mb: 3 }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Responsible party name
+                </Typography>
+                <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{patientAndRP?.responsibleParty.fullName}</Typography>
+                <Box sx={{ flexDirection: 'row', display: 'flex' }}>
+                  <Typography variant="body2">{patientAndRP?.responsibleParty.email}</Typography>
+                  <Typography variant="body2" sx={{ pl: 2 }}>
+                    {patientAndRP?.responsibleParty.fullName}
+                  </Typography>
+                </Box>
+              </Box>
             </Box>
-          </Box>
+          ) : (
+            <Skeleton variant="rectangular" animation="wave" />
+          )}
 
-          {/*<Box component="form" id="send-invoice-form" onSubmit={handleSubmit(handleSubmitWrapped)} sx={{ mt: 2 }}>*/}
-          <Grid component="form" id="send-invoice-form" container spacing={2}>
+          <Grid
+            component="form"
+            id="send-invoice-form"
+            container
+            spacing={2}
+            onSubmit={handleSubmit(handleSubmitWrapped)}
+          >
             <Grid item xs={12} sm={6}>
               <Controller
                 name="amount"
@@ -291,7 +266,16 @@ export default function SendInvoiceToPatientDialog({
         </DialogContent>
 
         <DialogActions>
-          <Box sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              width: '100%',
+              marginX: 2,
+              mb: 1,
+            }}
+          >
             <RoundedButton variant="outlined" onClick={handleClose} size="medium">
               Cancel
             </RoundedButton>

@@ -56,3 +56,4 @@ export * from './bulk-update-insurance-status.types';
 export * from './update-invoice-task.types';
 export * from './visit-details';
 export * from './get-questionnaire.types';
+export * from './get-patient-and-responsible-party-info.types';
