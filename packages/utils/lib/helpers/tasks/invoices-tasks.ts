@@ -6,6 +6,8 @@ export function createInvoiceTaskInput(input: PrefilledInvoiceInfo): TaskInput[]
   const fieldsNames = Object.keys(input);
 
   return fieldsNames.map((fieldName) => {
+    let fieldValue = input[fieldName as keyof PrefilledInvoiceInfo];
+    if (typeof fieldValue === 'number') fieldValue = fieldValue.toString();
     return {
       type: {
         coding: [
@@ -15,30 +17,51 @@ export function createInvoiceTaskInput(input: PrefilledInvoiceInfo): TaskInput[]
           },
         ],
       },
-      valueString: input[fieldName as keyof PrefilledInvoiceInfo],
+      valueString: fieldValue,
     };
   });
 }
 
 export function parseInvoiceTaskInput(invoiceTask: Task): PrefilledInvoiceInfo | undefined {
-  const recipientName = getInvoiceTaskInputFieldByCode('recipientName', invoiceTask);
-  const recipientEmail = getInvoiceTaskInputFieldByCode('recipientEmail', invoiceTask);
-  const recipientPhoneNumber = getInvoiceTaskInputFieldByCode('recipientPhoneNumber', invoiceTask);
+  const patientFullName = getInvoiceTaskInputFieldByCode('patientFullName', invoiceTask);
+  const patientDob = getInvoiceTaskInputFieldByCode('patientDob', invoiceTask);
+  const patientGender = getInvoiceTaskInputFieldByCode('patientGender', invoiceTask);
+  const patientPhoneNumber = getInvoiceTaskInputFieldByCode('patientPhoneNumber', invoiceTask);
+  const responsiblePartyName = getInvoiceTaskInputFieldByCode('responsiblePartyName', invoiceTask);
+  const responsiblePartyPhoneNumber = getInvoiceTaskInputFieldByCode('responsiblePartyPhoneNumber', invoiceTask);
+  const responsiblePartyEmail = getInvoiceTaskInputFieldByCode('responsiblePartyEmail', invoiceTask);
   const dueDate = getInvoiceTaskInputFieldByCode('dueDate', invoiceTask);
   const memo = getInvoiceTaskInputFieldByCode('memo', invoiceTask);
   const smsTextMessage = getInvoiceTaskInputFieldByCode('smsTextMessage', invoiceTask);
-  if (!recipientName || !recipientEmail || !recipientPhoneNumber || !dueDate || !smsTextMessage) return undefined;
+  const amount = getInvoiceTaskInputFieldByCode('amountCents', invoiceTask);
+  if (
+    !patientFullName ||
+    !patientDob ||
+    !patientGender ||
+    !patientPhoneNumber ||
+    !responsiblePartyName ||
+    !responsiblePartyPhoneNumber ||
+    !dueDate ||
+    !smsTextMessage ||
+    !amount
+  )
+    return undefined;
   return {
-    recipientName,
-    recipientEmail,
-    recipientPhoneNumber,
+    patientFullName,
+    patientDob,
+    patientGender,
+    patientPhoneNumber,
+    responsiblePartyName,
+    responsiblePartyEmail,
+    responsiblePartyPhoneNumber,
     dueDate,
     memo,
     smsTextMessage,
+    amountCents: parseInt(amount),
   };
 }
 
-function getInvoiceTaskInputFieldByCode(code: string, task: Task): string | undefined {
+function getInvoiceTaskInputFieldByCode(code: keyof PrefilledInvoiceInfo, task: Task): string | undefined {
   return task.input?.find(
     (input) =>
       input.type.coding?.find((type) => type.system === ottehrCodeSystemUrl('invoice-task-input') && type.code === code)

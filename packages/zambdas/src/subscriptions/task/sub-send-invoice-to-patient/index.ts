@@ -7,7 +7,6 @@ import { Account, Encounter, Patient, Task, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
-  BRANDING_CONFIG,
   createCandidApiClient,
   getPatientReferenceFromAccount,
   getSecret,
@@ -15,7 +14,6 @@ import {
   PrefilledInvoiceInfo,
   RcmTaskCodings,
   removePrefix,
-  replaceTemplateVariablesArrows,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -47,8 +45,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const stripe = getStripeClient(secrets);
 
     try {
-      const clinicName = BRANDING_CONFIG.projectName;
-
       console.log('Fetching fhir resources');
       const fhirResources = await getFhirResources(oystehr, encounterId);
       if (!fhirResources) throw new Error('Failed to fetch all needed FHIR resources');
@@ -73,7 +69,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('Creating invoice and invoice item');
       const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
       if (!patientId) throw new Error("Encounter doesn't have patient reference");
-      const invoiceResponse = await createInvoice(stripe, stripeCustomerId, clinicName, {
+      const invoiceResponse = await createInvoice(stripe, stripeCustomerId, {
         oystEncounterId: encounterId,
         oystPatientId: patientId,
         prefilledInfo,
@@ -82,21 +78,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('Invoice and invoice item created');
 
       console.log('Sending invoice to patient (with email)');
-      const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id);
-      console.log('Invoice sent: ', sendInvoiceResponse.status);
+      // const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id);
+      // console.log('Invoice sent: ', sendInvoiceResponse.status);
 
       console.log('Sending sms to patient');
-      const invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
-      await sendInvoiceSmsToPatient(
-        oystehr,
-        prefilledInfo.smsTextMessage,
-        invoiceUrl,
-        clinicName,
-        (patientBalanceCents / 100).toString(),
-        prefilledInfo.dueDate,
-        patient,
-        secrets
-      );
+      // const invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
+      await sendInvoiceSmsToPatient(oystehr, prefilledInfo.smsTextMessage, patient, secrets);
       console.log('Sms sent to patient');
 
       console.log('Setting task status to completed');
@@ -152,7 +139,6 @@ async function createInvoiceItem(
 async function createInvoice(
   stripe: Stripe,
   stripeCustomerId: string,
-  clinic: string,
   params: {
     oystEncounterId: string;
     oystPatientId: string;
@@ -162,17 +148,11 @@ async function createInvoice(
   try {
     const { oystEncounterId, oystPatientId, prefilledInfo } = params;
     const { memo, dueDate } = prefilledInfo;
-    const filledMemo = memo
-      ? replaceTemplateVariablesArrows(memo, {
-          clinic,
-          'due-date': dueDate,
-        })
-      : memo;
 
     const invoiceParams: Stripe.InvoiceCreateParams = {
       customer: stripeCustomerId,
       collection_method: 'send_invoice',
-      description: filledMemo,
+      description: memo,
       metadata: {
         oystehr_patient_id: oystPatientId,
         oystehr_encounter_id: oystEncounterId,
@@ -333,20 +313,10 @@ function addErrorToTaskOutput(task: Task, error: string): Task {
 async function sendInvoiceSmsToPatient(
   oystehr: Oystehr,
   smsTextMessage: string,
-  invoiceUrl: string,
-  clinic: string,
-  amount: string,
-  dueDate: string,
   patient: Patient,
   secrets: Secrets | null
 ): Promise<void> {
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-  const smsMessage = replaceTemplateVariablesArrows(smsTextMessage, {
-    clinic,
-    amount,
-    'due-date': dueDate,
-    'invoice-link': invoiceUrl,
-  });
-  console.log('Sending sms to patient: ', smsMessage);
-  await sendSmsForPatient(smsMessage, oystehr, patient, ENVIRONMENT);
+  console.log('Sending sms to patient: ', smsTextMessage);
+  await sendSmsForPatient(smsTextMessage, oystehr, patient, ENVIRONMENT);
 }

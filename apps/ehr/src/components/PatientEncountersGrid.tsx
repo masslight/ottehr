@@ -379,7 +379,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                   setSelectedInvoiceTask(lastEncounterTask);
                 }}
               >
-                Invoice
+                Send Invoice
               </RoundedButton>
             </Box>
           </Tooltip>
@@ -595,7 +595,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         title="Send invoice"
         modalOpen={selectedInvoiceTask !== undefined}
         handleClose={() => setSelectedInvoiceTask(undefined)}
-        submitButtonName="Send"
+        submitButtonName="Send Invoice"
         onSubmit={sendInvoice}
         invoiceTask={selectedInvoiceTask}
       />
