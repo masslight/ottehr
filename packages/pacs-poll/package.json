@@ -1,0 +1,20 @@
+{
+  "name": "pacs-poll",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "bundle": "tsx bundle.ts",
+    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 .",
+    "lint:fix": "eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 --fix ."
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "devDependencies": {
+    "@sentry/esbuild-plugin": "^3.5.0",
+    "esbuild": "^0.25.1",
+    "esbuild-plugin-copy": "^2.1.1"
+  }
+}

@@ -19,3 +19,4 @@ export * from './billing';
 export * from './questionnaires';
 export * from './practitioners';
 export * from './insurance';
+export * from './radiology';
