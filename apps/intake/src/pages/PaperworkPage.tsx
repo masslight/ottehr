@@ -386,6 +386,9 @@ export const PaperworkPage: FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   // when the page changes, update continue label
   useEffect(() => {
+    if (!setContinueLabel) {
+      return;
+    }
     setContinueLabel(undefined);
   }, [setContinueLabel, pageName]);
 

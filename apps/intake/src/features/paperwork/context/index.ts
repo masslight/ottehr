@@ -23,7 +23,7 @@ export interface PaperworkContext
   paymentMethodStateInitializing: boolean;
   paymentMethods: CreditCardInfo[];
   stripeSetupData: string | undefined;
-  setContinueLabel: (label: string | undefined) => void;
+  setContinueLabel?: (label: string | undefined) => void;
   saveButtonDisabled?: boolean;
   refetchPaymentMethods: (options?: RefetchOptions | undefined) => Promise<
     QueryObserverResult<

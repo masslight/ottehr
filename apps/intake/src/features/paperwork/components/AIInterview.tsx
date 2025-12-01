@@ -38,6 +38,9 @@ const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewCompl
   }, [aiInterviewQuestionnaireResponse, setAiInterviewQuestionnaireResponse, zambdaClient, appointmentId]);
 
   useEffect(() => {
+    if (!setContinueLabel) {
+      return;
+    }
     if (aiInterviewQuestionnaireResponse?.status === 'completed') {
       setContinueLabel(undefined);
     } else {
