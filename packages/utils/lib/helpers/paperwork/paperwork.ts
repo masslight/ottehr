@@ -173,10 +173,6 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen
   );
 
-  if (item.linkId === 'patient-first-name') {
-    console.log('requireWhen', JSON.stringify(requireWhen), JSON.stringify(extension));
-  }
-
   const { extension: textWhenExt, baseConditionDef: textWhenPartial } = getConditionalExtension(
     extension,
     OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen
