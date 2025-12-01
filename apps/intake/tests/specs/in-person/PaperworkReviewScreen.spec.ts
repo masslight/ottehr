@@ -69,6 +69,7 @@ test.describe('Paperwork.Review and Submit - Check Complete/Missing chips', () =
     await locator.clickContinueButton();
     await locator.clickContinueButton();
     await locator.clickContinueButton();
+    await locator.clickContinueButton();
     await paperwork.checkAllChipsAreCompletedInPerson();
     await expect(locator.continueButton).toBeVisible();
   });
