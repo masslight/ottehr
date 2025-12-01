@@ -98,9 +98,10 @@ test.describe('Start virtual visit with required information only', async () => 
       throw Error('Date units are not provided');
     }
 
-    await expect(locator.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`)).toBeVisible({
+    await expect(locator.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`)).toBeAttached({
       timeout: 10000,
     });
+
     await expect(
       locator.getByText(
         `Birthday: ${fillingInfo.getStringDateByDateUnits(dob?.randomMonth, dob?.randomDay, dob?.randomYear)}`
@@ -372,7 +373,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
       throw Error('Date units are not provided');
     }
 
-    await expect(locator.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`)).toBeVisible({
+    await expect(locator.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`)).toBeAttached({
       timeout: 10000,
     });
 

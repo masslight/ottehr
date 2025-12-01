@@ -9,7 +9,7 @@
  *   ENV={env} npx env-cmd -f apps/ehr/env/tests.{env}.json tsx scripts/generate-seed-data.ts
  *
  * We are reusing a part of e2e tests flow, so we need to have:
- *   - user.json should contain valid access token for the user
+ *   - playwright ehr user.json (to generate it run 'npm run ehr:e2e:{env}:integration:ui')
  *   - Environment variables must be set (AUTH0_*, FHIR_API, PROJECT_API_ZAMBDA_URL, etc.)
  */
 

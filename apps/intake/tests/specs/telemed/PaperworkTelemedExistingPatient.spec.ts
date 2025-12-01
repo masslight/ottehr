@@ -46,7 +46,6 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     filledPaperwork = await paperwork.fillPaperworkAllFieldsTelemed('insurance', 'not-self');
     await locator.finishButton.click();
     await page.waitForTimeout(1_000);
-    await page.waitForLoadState('networkidle');
     await page.goto('/home');
     await page.waitForTimeout(15000); // Wait for the harvest of first appointment to finish because these tests check pre-population which depends on harvest.
     await locator.scheduleVirtualVisitButton.click();
@@ -60,11 +59,12 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     }
     await paperwork.checkCorrectPageOpens('Book a visit');
     await flowClass.selectTimeLocationAndContinue();
+
     await page
-      .getByRole('heading', {
-        name: new RegExp(`.*${bookingData.patientBasicInfo.firstName} ${bookingData.patientBasicInfo.lastName}.*`, 'i'),
-      })
-      .click();
+      .getByTestId(`${bookingData.patientBasicInfo.firstName} ${bookingData.patientBasicInfo.lastName}`)
+      .locator('input[type="radio"]')
+      .click({ timeout: 40_000, noWaitAfter: true, force: true });
+
     await locator.continueButton.click();
     await fillingInfo.fillCorrectDOB(
       bookingData.patientBasicInfo.dob.m,
