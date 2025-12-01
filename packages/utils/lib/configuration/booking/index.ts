@@ -16,15 +16,16 @@ import { BOOKING_OVERRIDES } from '../../../.ottehr_config';
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, OTTEHR_CODE_SYSTEM_BASE_URL } from '../../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../../helpers';
 import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../../types';
+import { deepFreezeObject } from '../../utils';
 
 const BookingQuestionnaire = Object.values(bookAppointmentQuestionnaireJson.fhirResources)![0]
   .resource as Questionnaire;
 
-const REASON_FOR_VISIT_OPTIONS = Object.freeze(
+const REASON_FOR_VISIT_OPTIONS = [
   BookingQuestionnaire.item![0].item!.find(
     (item: QuestionnaireItem) => item.linkId === 'reason-for-visit'
-  )!.answerOption?.map((option: any) => option.valueString) ?? []
-);
+  )!.answerOption?.map((option: any) => option.valueString) ?? [],
+];
 
 export const intakeQuestionnaires: Readonly<Array<Questionnaire>> = (() => {
   const inPersonQ = Object.values(inPersonIntakeQuestionnaireJson.fhirResources).find(
@@ -62,7 +63,7 @@ const bookAppointmentQuestionnaire: {
   };
 })();
 
-const CANCEL_REASON_OPTIONS = Object.freeze([
+const CANCEL_REASON_OPTIONS = [
   'Patient improved',
   'Wait time too long',
   'Prefer another provider',
@@ -70,7 +71,7 @@ const CANCEL_REASON_OPTIONS = Object.freeze([
   'Changing to telemedicine',
   'Financial responsibility concern',
   'Insurance issue',
-]);
+];
 
 interface StrongCoding extends Coding {
   code: string;
@@ -243,7 +244,7 @@ const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): Pat
   return patientInfo;
 };
 
-const BOOKING_DEFAULTS = Object.freeze({
+const BOOKING_DEFAULTS = {
   reasonForVisitOptions: REASON_FOR_VISIT_OPTIONS,
   cancelReasonOptions: CANCEL_REASON_OPTIONS,
   serviceCategoriesEnabled: {
@@ -268,11 +269,11 @@ const BOOKING_DEFAULTS = Object.freeze({
   },
   prepopulateBookingForm,
   mapBookingQRItemToPatientInfo,
-});
+};
 
 const mergedBookingConfig = _.merge({ ...BOOKING_DEFAULTS }, { ...BOOKING_OVERRIDES });
 
-export const BOOKING_CONFIG = Object.freeze(mergedBookingConfig);
+export const BOOKING_CONFIG = deepFreezeObject(mergedBookingConfig);
 
 export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
   return BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes.includes(params.serviceMode) &&
