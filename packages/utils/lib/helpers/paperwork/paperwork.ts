@@ -136,7 +136,7 @@ const getConditionalExtension = (
     const answerDate = answerObj?.valueDate;
     if (
       operator !== undefined &&
-      ['=', '!=', '>', '<', '>=', '<='].includes(operator) &&
+      ['exists', '=', '!=', '>', '<', '>=', '<='].includes(operator) &&
       question !== undefined &&
       (answerString !== undefined ||
         answerBoolean !== undefined ||
@@ -172,6 +172,10 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     extension,
     OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen
   );
+
+  if (item.linkId === 'patient-first-name') {
+    console.log('requireWhen', JSON.stringify(requireWhen), JSON.stringify(extension));
+  }
 
   const { extension: textWhenExt, baseConditionDef: textWhenPartial } = getConditionalExtension(
     extension,
