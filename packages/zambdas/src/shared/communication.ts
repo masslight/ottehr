@@ -181,7 +181,7 @@ class EmailClient {
   async sendErrorEmail(to: string | string[], templateData: ErrorReportTemplateData): Promise<void> {
     const recipients = typeof to === 'string' ? [to] : [...to];
 
-    const ottehrSupportEmail = 'support@ottehr.com';
+    const ottehrSupportEmail = 'ottehr-support@ottehr.com';
     if (!recipients.includes(ottehrSupportEmail)) {
       recipients.push(ottehrSupportEmail);
     }
