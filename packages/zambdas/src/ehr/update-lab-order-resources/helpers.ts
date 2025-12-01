@@ -1,8 +1,10 @@
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
+  Communication,
   DiagnosticReport,
   DocumentReference,
+  Encounter,
   Practitioner,
   Provenance,
   QuestionnaireResponse,
@@ -19,6 +21,8 @@ import {
   getFullestAvailableName,
   getPatchBinary,
   LAB_DR_TYPE_TAG,
+  LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SpecimenCollectionDateConfig,
@@ -512,4 +516,123 @@ export const handleRejectedUnsolicitedResult = async ({
   }
 
   await oystehr.fhir.transaction({ requests });
+};
+
+export const handleAddOrderLevelNote = async ({
+  oystehr,
+  requisitionNumber,
+  note,
+}: {
+  oystehr: Oystehr;
+  requisitionNumber: string;
+  note: string;
+}): Promise<void> => {
+  const resourceSearch = (
+    await oystehr.fhir.search<ServiceRequest | Encounter>({
+      resourceType: 'ServiceRequest',
+      params: [
+        {
+          name: 'identifier',
+          value: `${OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM}|${requisitionNumber}`,
+        },
+        {
+          name: '_include:iterate',
+          value: 'ServiceRequest:encounter',
+        },
+      ],
+    })
+  ).unbundle();
+  console.log(`resource search for handleAddOrderLevelNote returned ${resourceSearch.length}`);
+
+  const { serviceRequests, encounters } = resourceSearch.reduce(
+    (acc: { serviceRequests: ServiceRequest[]; encounters: Encounter[] }, resource) => {
+      if (resource.resourceType === 'ServiceRequest') acc.serviceRequests.push(resource);
+      if (resource.resourceType === 'Encounter') acc.encounters.push(resource);
+      return acc;
+    },
+    { serviceRequests: [], encounters: [] }
+  );
+
+  if (encounters.length !== 1) {
+    throw Error(
+      `All service requests in an order bundle should be linked to the same encounter. However, more than one encounter was found for this order ${requisitionNumber}`
+    );
+  }
+  const encounter = encounters[0];
+
+  const communicationConfig: Communication = {
+    resourceType: 'Communication',
+    status: 'completed', // todo sarah confirm this makes sense
+    identifier: [
+      {
+        system: OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+        value: requisitionNumber,
+      },
+    ],
+    basedOn: serviceRequests.map((sr) => ({ reference: `ServiceRequest/${sr.id}` })),
+    encounter: { reference: `Encounter/${encounter.id}` },
+    category: [
+      {
+        coding: [LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY],
+      },
+    ],
+    payload: [{ contentString: note }],
+  };
+
+  await oystehr.fhir.create<Communication>(communicationConfig);
+};
+
+export const handleUpdateOrderLevelNote = async ({
+  oystehr,
+  requisitionNumber,
+  note,
+}: {
+  oystehr: Oystehr;
+  requisitionNumber: string;
+  note: string;
+}): Promise<void> => {
+  console.log('searching for the order level note communication');
+  const resourceSearch = (
+    await oystehr.fhir.search<Communication>({
+      resourceType: 'Communication',
+      params: [
+        {
+          name: 'identifier',
+          value: `${OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM}|${requisitionNumber}`,
+        },
+        {
+          name: 'category',
+          value: `${LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.system}|${LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.code}`,
+        },
+      ],
+    })
+  ).unbundle();
+  console.log(`resource search for handleAddOrderLevelNote returned ${resourceSearch.length}`);
+
+  if (resourceSearch.length !== 1) {
+    throw new Error(
+      `An unexpected number of resources were returned when searching to update the order level note for requisition ${requisitionNumber}. Return count: ${resourceSearch.length}`
+    );
+  }
+
+  const communication = resourceSearch.find((resource) => resource.resourceType === 'Communication');
+  if (!communication) {
+    throw new Error(`Could not find the order level note communication for requsition $requisitionNumber}`);
+  }
+
+  if (note) {
+    console.log('Updating order level note');
+    await oystehr.fhir.update<Communication>({
+      ...communication,
+      payload: [
+        {
+          contentString: note,
+        },
+      ],
+    });
+  } else {
+    if (!communication.id) throw new Error(`no id for this communication ?? ${JSON.stringify(communication)}`);
+    console.log('note was sent as an empty string, we will delete the communication');
+    await oystehr.fhir.delete<Communication>({ resourceType: 'Communication', id: communication.id });
+  }
 };

@@ -310,3 +310,10 @@ export const LAB_CLIENT_BILL_COVERAGE_TYPE_CODING = {
 };
 
 export const LAB_OBS_VALUE_WITH_PRECISION_EXT = 'https://extensions.fhir.oystehr.com/obx-5-quantity-with-precision';
+
+const LABS_COMMUNICATION_CATEGORY_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/lab-communication-type';
+export const LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY = {
+  system: LABS_COMMUNICATION_CATEGORY_SYSTEM,
+  code: 'clinical-info',
+  display: 'Relevant clinical information',
+};

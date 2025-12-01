@@ -50,9 +50,11 @@ import { createOwnerReference } from '../../shared/tasks';
 import { diagnosticReportSpecificResultType, getExternalLabOrderResourcesViaServiceRequest } from '../shared/labs';
 import {
   getSpecimenPatchAndMostRecentCollectionDate,
+  handleAddOrderLevelNote,
   handleMatchUnsolicitedRequest,
   handleRejectedAbn,
   handleRejectedUnsolicitedResult,
+  handleUpdateOrderLevelNote,
   makePstCompletePatchRequests,
   makeQrPatchRequest,
   makeSpecimenPatchRequest,
@@ -189,6 +191,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           statusCode: 200,
           body: JSON.stringify({
             message: `Successfully revoked sr for lab with rejected abn`,
+          }),
+        };
+      }
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote: {
+        const { requisitionNumber, note } = validatedParameters;
+        console.log('handling add order level note');
+        await handleAddOrderLevelNote({ oystehr, requisitionNumber, note });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully created order level note communication`,
+          }),
+        };
+      }
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote: {
+        const { requisitionNumber, note } = validatedParameters;
+        console.log('handling update order level note');
+        await handleUpdateOrderLevelNote({ oystehr, requisitionNumber, note });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully updated order level note communication`,
           }),
         };
       }

@@ -6,6 +6,7 @@ import {
   Bundle,
   BundleEntry,
   Coding,
+  Communication,
   DiagnosticReport,
   DocumentReference,
   Encounter,
@@ -43,6 +44,7 @@ import {
   getOrderNumberFromDr,
   isPositiveNumberOrZero,
   LAB_DR_TYPE_TAG,
+  LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
   LAB_ORDER_TASK,
   LabDrTypeTagCode,
   LabGeneratedResultDocument,
@@ -106,6 +108,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   labDocuments: ExternalLabDocuments | undefined,
   specimens: Specimen[],
   appointmentScheduleMap: Record<string, Schedule>,
+  communications: Communication[],
   ENVIRONMENT: string
 ): LabOrderDTO<SearchBy>[] => {
   console.log('mapResourcesToLabOrderDTOs');
@@ -138,6 +141,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
           labDocuments,
           specimens,
           appointmentScheduleMap,
+          communications,
           cache,
         })
       );
@@ -196,6 +200,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   labDocuments,
   specimens,
   appointmentScheduleMap,
+  communications,
   cache,
 }: {
   searchBy: SearchBy;
@@ -212,6 +217,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   labDocuments: ExternalLabDocuments | undefined;
   specimens: Specimen[];
   appointmentScheduleMap: Record<string, Schedule>;
+  communications: Communication[];
   cache?: Cache;
 }): LabOrderDTO<SearchBy> => {
   console.log('parsing external lab order data');
@@ -236,6 +242,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     requisitionNumber && labDocuments?.orderPDFsByRequisitionNumber
       ? labDocuments?.orderPDFsByRequisitionNumber[requisitionNumber]?.presignedURL
       : undefined;
+  const { orderLevelNote } = parseLabCommunications(communications, serviceRequest);
 
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
@@ -256,6 +263,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     orderNumber: requisitionNumber,
     abnPdfUrl,
     orderPdfUrl,
+    orderLevelNote,
     location: parseLocation(serviceRequest, locations),
   };
 
@@ -512,6 +520,7 @@ export const getLabResources = async (
   specimens: Specimen[];
   patientLabItems: PatientLabItem[];
   appointmentScheduleMap: Record<string, Schedule>;
+  communications: Communication[];
 }> => {
   // does not include the location on the SR
   const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
@@ -556,7 +565,8 @@ export const getLabResources = async (
           | Appointment
           | Schedule
           | Slot
-          | Specimen => Boolean(res)
+          | Specimen
+          | Communication => Boolean(res)
       ) || [];
 
   const {
@@ -573,6 +583,7 @@ export const getLabResources = async (
     documentReferences,
     appointments,
     appointmentScheduleMap,
+    communications,
   } = extractLabResources(labResources);
 
   // todo labs team
@@ -658,6 +669,7 @@ export const getLabResources = async (
     pagination,
     patientLabItems,
     appointmentScheduleMap,
+    communications,
   };
 };
 
@@ -744,6 +756,12 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: '_revinclude:iterate',
       value: 'DocumentReference:related',
     });
+
+    // order level note
+    searchParams.push({
+      name: '_revinclude',
+      value: 'Communication:based-on',
+    });
   }
 
   // tracking board case
@@ -822,6 +840,7 @@ export const extractLabResources = (
     | Appointment
     | Schedule
     | Slot
+    | Communication
   )[]
 ): {
   serviceRequests: ServiceRequest[];
@@ -837,6 +856,7 @@ export const extractLabResources = (
   documentReferences: DocumentReference[];
   appointments: Appointment[];
   appointmentScheduleMap: Record<string, Schedule>;
+  communications: Communication[];
 } => {
   console.log('extracting lab resources');
   console.log(`${resources.length} resources total`);
@@ -856,6 +876,7 @@ export const extractLabResources = (
   const slots: Slot[] = [];
   const scheduleMap: Record<string, Schedule> = {};
   const appointmentScheduleMap: Record<string, Schedule> = {};
+  const communications: Communication[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -895,6 +916,8 @@ export const extractLabResources = (
       if (scheduleId && !scheduleMap[scheduleId]) {
         scheduleMap[scheduleId] = resource;
       }
+    } else if (resource.resourceType === 'Communication') {
+      if (isLabCommunication(resource)) communications.push(resource);
     }
   }
 
@@ -926,6 +949,7 @@ export const extractLabResources = (
     documentReferences,
     appointments,
     appointmentScheduleMap,
+    communications,
   };
 };
 
@@ -2553,4 +2577,27 @@ const parseLocation = (serviceRequest: ServiceRequest, locations: Location[]): L
 
   console.log(`parsed location from ServiceRequest/${serviceRequest.id}: ${location?.id}`);
   return location;
+};
+
+const isLabCommunication = (communication: Communication): boolean => {
+  return !!communication.category?.find(
+    (cat) => cat.coding?.find((code) => code.system === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.system)
+  );
+};
+// i think at some point we will have another communication (clinical info note for OBR13) we should expand on this helper function for that
+const parseLabCommunications = (
+  communications: Communication[],
+  serviceRequest: ServiceRequest
+): { orderLevelNote: string | undefined } => {
+  const note = { orderLevelNote: undefined };
+  const orderLevelNoteCommunication = communications?.find(
+    (comm) =>
+      comm.category?.find(
+        (cat) => cat.coding?.find((code) => code.system === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.system)
+      ) && comm.basedOn?.some((ref) => ref.reference === `ServiceRequest/${serviceRequest.id}`)
+  );
+  if (!orderLevelNoteCommunication) return note;
+  const contentString = orderLevelNoteCommunication?.payload?.map((content) => content.contentString).join('; '); // this should only ever be one item in the array
+  if (!contentString) return note;
+  return { orderLevelNote: contentString };
 };
