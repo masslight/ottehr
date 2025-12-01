@@ -28,22 +28,101 @@
                 "readOnly": true
               },
               {
+                "linkId": "existing-patient-id",
+                "type": "string",
+                "required": false,
+                "readOnly": true
+              },
+              {
                 "linkId": "patient-first-name",
                 "text": "First name (legal)",
                 "type": "string",
-                "required": true
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "existing-patient-id",
+                    "operator": "exists",
+                    "answerBoolean": false
+                  }
+                ],
+                 "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "hidden"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                        "valueString": "existing-patient-id"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                        "valueString": "exists"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                        "valueBoolean": false
+                      }
+                    ]
+                  }
+                ]
               },
               {
                 "linkId": "patient-middle-name",
                 "text": "Middle name (legal)",
                 "type": "string",
-                "required": false
+                "required": false,
+                 "enableWhen": [
+                  {
+                    "question": "existing-patient-id",
+                    "operator": "exists",
+                    "answerBoolean": false
+                  }
+                ],
+                 "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "hidden"
+                  }
+                ]
               },
               {
                 "linkId": "patient-last-name",
                 "text": "Last name (legal)",
                 "type": "string",
-                "required": true
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "existing-patient-id",
+                    "operator": "exists",
+                    "answerBoolean": false
+                  }
+                ],
+                 "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "hidden"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                        "valueString": "existing-patient-id"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                        "valueString": "exists"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                        "valueBoolean": false
+                      }
+                    ]
+                  }
+                ]
               },
               {
                 "linkId": "patient-preferred-name",
@@ -55,11 +134,35 @@
                 "linkId": "patient-birthdate",
                 "text": "Date of birth",
                 "type": "date",
-                "required": true,
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "existing-patient-id",
+                    "operator": "exists",
+                    "answerBoolean": false
+                  }
+                ],
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                     "valueString": "DOB"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                        "valueString": "existing-patient-id"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                        "valueString": "exists"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                        "valueBoolean": false
+                      }
+                    ]
                   }
                 ]
               },
