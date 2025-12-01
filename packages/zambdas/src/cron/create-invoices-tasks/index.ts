@@ -126,11 +126,14 @@ async function getEncountersWithoutTask(candid: CandidApiClient, oystehr: Oysteh
   const claimsFetched = inventoryPages?.claims;
   console.log('fetched claims: ', claimsFetched?.length);
   if (claimsFetched?.length && claimsFetched.length > 0) {
+    console.log('getting itemizations and encounters');
     const [itemizationResponse, encounterPackagesResponse] = await Promise.all([
       getItemizationToClaimIdMap(candid, claimsFetched),
       getEncounterTasksPackages(oystehr, claimsFetched),
     ]);
 
+    console.log('fetched itemizations: ', Object.keys(itemizationResponse).length);
+    console.log('fetched encounters: ', encounterPackagesResponse.length);
     const encountersWithoutTask: EncounterWithoutTaskPkg[] = [];
     encounterPackagesResponse.forEach((pkg) => {
       if (!pkg.tasks || pkg.tasks.length === 0) {
