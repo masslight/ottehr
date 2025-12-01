@@ -162,12 +162,15 @@ const ReviewPaperwork = (): JSX.Element => {
       validationState['photo-id-page'] = false;
     }
     // medical history is also optional
-    if (pickFirstValueFromAnswerItem(findAnswerWithLinkId('medical-history-questionnaire'), 'boolean') === undefined) {
+    if (
+      appointmentData?.serviceMode === ServiceMode['in-person'] &&
+      pickFirstValueFromAnswerItem(findAnswerWithLinkId('medical-history-questionnaire'), 'boolean') === undefined
+    ) {
       validationState['medical-history-page'] = false;
     }
     const allComplete = Object.values(validationState).some((val) => !val) === false;
     return { paperworkCompletedStatus: validationState, allComplete };
-  }, [allItems, completedPaperwork, findAnswerWithLinkId, paperworkPages]);
+  }, [allItems, appointmentData?.serviceMode, completedPaperwork, findAnswerWithLinkId, paperworkPages]);
 
   const reviewItems: ReviewItem[] = [
     {

@@ -243,9 +243,9 @@ export class Locators {
     this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
     this.differentFamilyMember = page.getByTestId(dataTestIds.differentFamilyMember);
     this.continueButton = page.getByTestId(dataTestIds.continueButton);
-    // if (this.continueButton == null) {
-    //   this.continueButton = page.getByText('Continue');
-    // }
+    if (this.continueButton == null) {
+      this.continueButton = page.getByText('Continue');
+    }
     this.flowHeading = page.getByTestId(dataTestIds.flowPageTitle);
     this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
     this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
