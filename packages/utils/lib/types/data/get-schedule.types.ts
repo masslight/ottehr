@@ -1,3 +1,4 @@
+import { ServiceCategoryCode } from '../../configuration';
 import { SlotListItem } from '../../utils';
 import { AvailableLocationInformation, ScheduleType, Timezone } from '../common';
 
@@ -16,4 +17,5 @@ export interface GetScheduleRequestParams {
   slug: string;
   originalBookingUrl?: string;
   selectedDate?: string;
+  serviceCategoryCode?: ServiceCategoryCode;
 }

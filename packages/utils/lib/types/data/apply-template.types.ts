@@ -1,4 +1,4 @@
-import { ExamType } from './examination/examination';
+import { ExamType } from '../../configuration/examination';
 
 export interface ApplyTemplateZambdaInput {
   encounterId: string;

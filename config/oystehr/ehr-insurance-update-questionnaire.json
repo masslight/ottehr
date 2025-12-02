@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-ehr-insurance-update-1_0_5": {
+    "questionnaire-ehr-insurance-update-1_1_0": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/ehr-insurance-update-questionnaire",
-        "version": "1.0.5",
+        "version": "1.1.0",
         "name": "ehr-insurance-update-questionnaire",
         "title": "EHR Insurance Update Form",
         "status": "active",
@@ -1921,6 +1921,196 @@
             ]
           },
           {
+            "linkId": "employer-information-page",
+            "text": "Employer information",
+            "type": "group",
+            "item": [
+              {
+                "linkId": "employer-name",
+                "text": "Employer Name",
+                "type": "string",
+                "required": false
+              },
+              {
+                "linkId": "employer-address",
+                "text": "Employer Address",
+                "type": "string",
+                "required": false
+              },
+              {
+                "linkId": "employer-address-2",
+                "text": "Address line 2 (optional)",
+                "type": "string",
+                "required": false
+              },
+              {
+                "linkId": "employer-city",
+                "text": "City",
+                "type": "string",
+                "required": false,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-state",
+                "text": "State",
+                "type": "choice",
+                "required": false,
+                "answerOption": [
+                  { "valueString": "AL" },
+                  { "valueString": "AK" },
+                  { "valueString": "AZ" },
+                  { "valueString": "AR" },
+                  { "valueString": "CA" },
+                  { "valueString": "CO" },
+                  { "valueString": "CT" },
+                  { "valueString": "DE" },
+                  { "valueString": "DC" },
+                  { "valueString": "FL" },
+                  { "valueString": "GA" },
+                  { "valueString": "HI" },
+                  { "valueString": "ID" },
+                  { "valueString": "IL" },
+                  { "valueString": "IN" },
+                  { "valueString": "IA" },
+                  { "valueString": "KS" },
+                  { "valueString": "KY" },
+                  { "valueString": "LA" },
+                  { "valueString": "ME" },
+                  { "valueString": "MD" },
+                  { "valueString": "MA" },
+                  { "valueString": "MI" },
+                  { "valueString": "MN" },
+                  { "valueString": "MS" },
+                  { "valueString": "MO" },
+                  { "valueString": "MT" },
+                  { "valueString": "NE" },
+                  { "valueString": "NV" },
+                  { "valueString": "NH" },
+                  { "valueString": "NJ" },
+                  { "valueString": "NM" },
+                  { "valueString": "NY" },
+                  { "valueString": "NC" },
+                  { "valueString": "ND" },
+                  { "valueString": "OH" },
+                  { "valueString": "OK" },
+                  { "valueString": "OR" },
+                  { "valueString": "PA" },
+                  { "valueString": "RI" },
+                  { "valueString": "SC" },
+                  { "valueString": "SD" },
+                  { "valueString": "TN" },
+                  { "valueString": "TX" },
+                  { "valueString": "UT" },
+                  { "valueString": "VT" },
+                  { "valueString": "VA" },
+                  { "valueString": "VI" },
+                  { "valueString": "WA" },
+                  { "valueString": "WV" },
+                  { "valueString": "WI" },
+                  { "valueString": "WY" }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-zip",
+                "text": "ZIP",
+                "type": "string",
+                "required": false,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "ZIP"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-text",
+                "text": "Employer Contact",
+                "type": "display"
+              },
+              {
+                "linkId": "employer-contact-first-name",
+                "text": "First name",
+                "type": "string",
+                "required": false,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "m"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-last-name",
+                "text": "Last name",
+                "type": "string",
+                "required": false,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "m"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-title",
+                "text": "Title",
+                "type": "string",
+                "required": false
+              },
+              {
+                "linkId": "employer-contact-email",
+                "text": "Email",
+                "type": "string",
+                "required": false,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Email"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-phone",
+                "text": "Mobile",
+                "type": "string",
+                "required": false,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Phone Number"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-fax",
+                "text": "Fax",
+                "type": "string",
+                "required": false,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Phone Number"
+                  }
+                ]
+              }
+            ]
+          },
+          {
             "linkId": "emergency-contact-section",
             "text": "Emergency contact information",
             "type": "group",
@@ -1976,6 +2166,305 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
                     "valueString": "section-patient shipping tel"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-address-as-patient",
+                "text": "Same as patient's address",
+                "type": "boolean",
+                "required": false
+              },
+              {
+                "linkId": "emergency-contact-address",
+                "text": "Address",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "emergency-contact-address-as-patient",
+                    "operator": "!=",
+                    "answerBoolean": true
+                  }
+                ],
+                "enableBehavior": "all",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                    "valueString": "patient-street-address"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-address-2",
+                "text": "Address line 2 (optional)",
+                "type": "string",
+                "enableWhen": [
+                  {
+                    "question": "emergency-contact-address-as-patient",
+                    "operator": "!=",
+                    "answerBoolean": true
+                  }
+                ],
+                "enableBehavior": "all",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                    "valueString": "patient-street-address-2"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-city",
+                "text": "City",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "emergency-contact-address-as-patient",
+                    "operator": "!=",
+                    "answerBoolean": true
+                  }
+                ],
+                "enableBehavior": "all",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                    "valueString": "patient-city"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-state",
+                "text": "State",
+                "type": "choice",
+                "answerOption": [
+                  {
+                    "valueString": "AL"
+                  },
+                  {
+                    "valueString": "AK"
+                  },
+                  {
+                    "valueString": "AZ"
+                  },
+                  {
+                    "valueString": "AR"
+                  },
+                  {
+                    "valueString": "CA"
+                  },
+                  {
+                    "valueString": "CO"
+                  },
+                  {
+                    "valueString": "CT"
+                  },
+                  {
+                    "valueString": "DE"
+                  },
+                  {
+                    "valueString": "DC"
+                  },
+                  {
+                    "valueString": "FL"
+                  },
+                  {
+                    "valueString": "GA"
+                  },
+                  {
+                    "valueString": "HI"
+                  },
+                  {
+                    "valueString": "ID"
+                  },
+                  {
+                    "valueString": "IL"
+                  },
+                  {
+                    "valueString": "IN"
+                  },
+                  {
+                    "valueString": "IA"
+                  },
+                  {
+                    "valueString": "KS"
+                  },
+                  {
+                    "valueString": "KY"
+                  },
+                  {
+                    "valueString": "LA"
+                  },
+                  {
+                    "valueString": "ME"
+                  },
+                  {
+                    "valueString": "MD"
+                  },
+                  {
+                    "valueString": "MA"
+                  },
+                  {
+                    "valueString": "MI"
+                  },
+                  {
+                    "valueString": "MN"
+                  },
+                  {
+                    "valueString": "MS"
+                  },
+                  {
+                    "valueString": "MO"
+                  },
+                  {
+                    "valueString": "MT"
+                  },
+                  {
+                    "valueString": "NE"
+                  },
+                  {
+                    "valueString": "NV"
+                  },
+                  {
+                    "valueString": "NH"
+                  },
+                  {
+                    "valueString": "NJ"
+                  },
+                  {
+                    "valueString": "NM"
+                  },
+                  {
+                    "valueString": "NY"
+                  },
+                  {
+                    "valueString": "NC"
+                  },
+                  {
+                    "valueString": "ND"
+                  },
+                  {
+                    "valueString": "OH"
+                  },
+                  {
+                    "valueString": "OK"
+                  },
+                  {
+                    "valueString": "OR"
+                  },
+                  {
+                    "valueString": "PA"
+                  },
+                  {
+                    "valueString": "RI"
+                  },
+                  {
+                    "valueString": "SC"
+                  },
+                  {
+                    "valueString": "SD"
+                  },
+                  {
+                    "valueString": "TN"
+                  },
+                  {
+                    "valueString": "TX"
+                  },
+                  {
+                    "valueString": "UT"
+                  },
+                  {
+                    "valueString": "VT"
+                  },
+                  {
+                    "valueString": "VA"
+                  },
+                  {
+                    "valueString": "VI"
+                  },
+                  {
+                    "valueString": "WA"
+                  },
+                  {
+                    "valueString": "WV"
+                  },
+                  {
+                    "valueString": "WI"
+                  },
+                  {
+                    "valueString": "WY"
+                  }
+                ],
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "emergency-contact-address-as-patient",
+                    "operator": "!=",
+                    "answerBoolean": true
+                  }
+                ],
+                "enableBehavior": "all",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                    "valueString": "patient-state"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
+                  }
+                ]
+              },
+              {
+                "linkId": "emergency-contact-zip",
+                "text": "ZIP",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "emergency-contact-address-as-patient",
+                    "operator": "!=",
+                    "answerBoolean": true
+                  }
+                ],
+                "enableBehavior": "all",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "ZIP"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                    "valueString": "s"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                    "valueString": "patient-zip"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "protected"
                   }
                 ]
               }

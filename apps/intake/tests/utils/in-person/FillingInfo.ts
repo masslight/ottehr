@@ -1,4 +1,5 @@
-import { expect, Locator, Page } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
+import { assert } from 'console';
 import { BOOKING_CONFIG } from 'utils';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
@@ -70,35 +71,19 @@ export class FillingInfo {
     const email = `ykulik+${firstName}@masslight.com`;
     const reason = this.getRandomElement(this.reasonForVisit);
     const enteredReason = this.getRandomString();
-    await this.page.getByPlaceholder('First name').click();
-    await this.page.getByPlaceholder('First name').fill(firstName);
-    await this.page.getByPlaceholder('Last name').click();
-    await this.page.getByPlaceholder('Last name').fill(lastName);
-    await this.page.locator('#sex').click();
+    await this.page.locator('#patient-first-name').click();
+    await this.page.locator('#patient-first-name').fill(firstName);
+    await this.page.locator('#patient-last-name').click();
+    await this.page.locator('#patient-last-name').fill(lastName);
+    await this.page.locator('#patient-birth-sex').click();
     const BirthSex = this.getRandomElement(birthSexes);
     await this.page.getByRole('option', { name: BirthSex, exact: true }).click();
-    await this.page.getByPlaceholder('example@mail.com').click();
-    await this.page.getByPlaceholder('example@mail.com').fill(email);
+    await this.page.locator('#patient-email').click();
+    await this.page.locator('#patient-email').fill(email);
     await this.page.getByLabel('Reason for visit *', { exact: true }).click();
     await this.page.getByRole('option', { name: reason, exact: true }).click();
     await this.page.getByRole('textbox', { name: 'Tell us more (optional)' }).fill(enteredReason);
     return { firstName, lastName, BirthSex, email, reason, enteredReason };
-  }
-
-  private async pressComboBox(locator: Locator) {
-    await locator.hover();
-    const cursorStyle = await locator.evaluate((el) => window.getComputedStyle(el).cursor);
-    expect(cursorStyle).toBe('pointer');
-    await locator.click({ force: true });
-  }
-
-  private async pressDropdownOption(options: Parameters<typeof this.page.getByRole>['1'], awaitDropdownClose = true) {
-    await expect(this.page.getByRole('option', options)).toBeVisible();
-    const locator = this.page.getByRole('option', options);
-    await locator.click();
-    if (awaitDropdownClose) {
-      await expect(locator).toBeVisible({ visible: false });
-    }
   }
 
   async fillDOBgreater18() {
@@ -109,16 +94,14 @@ export class FillingInfo {
     const randomDay = this.getRandomInt(1, 28).toString();
     const randomYear = this.getRandomInt(YearMin, YearMax).toString();
 
-    await this.page.getByRole('combobox').nth(0).click();
-    await this.pressDropdownOption({ name: randomMonth });
+    // Convert month name to numeric format (01-12)
+    const monthIndex = this.months.indexOf(randomMonth) + 1;
+    const numericMonth = monthIndex.toString().padStart(2, '0');
+    const paddedDay = randomDay.padStart(2, '0');
 
-    const dayFieldLocator = this.page.getByRole('combobox').nth(1);
-    await this.pressComboBox(dayFieldLocator);
-    await this.pressDropdownOption({ name: randomDay, exact: true });
+    const dateString = `${numericMonth}/${paddedDay}/${randomYear}`;
 
-    const yearFieldLocator = this.page.getByRole('combobox').nth(2);
-    await this.pressComboBox(yearFieldLocator);
-    await this.pressDropdownOption({ name: randomYear }, false);
+    await this.page.getByPlaceholder('MM/DD/YYYY').fill(dateString);
 
     return { randomMonth, randomDay, randomYear };
   }
@@ -150,5 +133,17 @@ export class FillingInfo {
 
     await this.page.getByRole('combobox').nth(2).click();
     await this.page.getByRole('option', { name: year }).click();
+  }
+
+  async selectFirstServiceCategory() {
+    // Check if we're on the service category selection page
+
+    const availableCategories = BOOKING_CONFIG.serviceCategories || [];
+    const firstCategory = availableCategories[0];
+    assert(firstCategory.display);
+
+    if (firstCategory) {
+      await this.page.getByText(firstCategory.display).click();
+    }
   }
 }

@@ -46,6 +46,7 @@ import {
   PROJECT_NAME,
   ROOM_EXTENSION_URL,
   STATUSES_WITHOUT_TIME_TRACKER,
+  VisitStatusHistoryEntry,
 } from 'utils';
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -118,24 +119,47 @@ const TimeBox = ({
   );
 };
 
-const longWaitTimeFlag = (appointment: InPersonAppointmentInformation, statusTime: number): boolean => {
-  if (appointment.status === 'arrived' && statusTime > 10) {
-    return true;
-  }
+const inRoomStatuses = ['intake', 'ready for provider', 'provider'];
 
-  if (appointment.status === 'ready' && appointment.appointmentType !== 'walk-in' && statusTime > 15) {
-    return true;
-  }
+const getInRoomExamTime = (visitStatusHistory: VisitStatusHistoryEntry[], now: DateTime): number => {
+  let totalInRoomTime = 0;
 
-  if (appointment.status === 'intake' && statusTime > 40) {
-    return true;
-  }
+  for (let i = visitStatusHistory.length - 1; i >= 0; i--) {
+    const status = visitStatusHistory[i];
 
-  if (appointment.status === 'ready for provider') {
-    if (statusTime > 45) {
-      return true;
+    if (inRoomStatuses.includes(status.status)) {
+      totalInRoomTime += getDurationOfStatus(status, now);
+    }
+
+    if (status.status === 'intake') {
+      break;
     }
   }
+
+  return totalInRoomTime;
+};
+
+const getIsLongWaitTime = (
+  appointment: InPersonAppointmentInformation,
+  recentStatus: VisitStatusHistoryEntry | undefined,
+  now: DateTime
+): boolean => {
+  if (!recentStatus) return false;
+
+  const currentStatusDuration = getDurationOfStatus(recentStatus, now);
+
+  if (appointment.status === 'arrived' && currentStatusDuration > 10) {
+    return true;
+  }
+
+  if (appointment.status === 'ready' && appointment.appointmentType !== 'walk-in' && currentStatusDuration > 15) {
+    return true;
+  }
+
+  if (inRoomStatuses.includes(recentStatus?.status) && getInRoomExamTime(appointment.visitStatusHistory, now) > 40) {
+    return true;
+  }
+
   return false;
 };
 
@@ -320,11 +344,7 @@ export default function AppointmentTableRow({
     ? appointment.unconfirmedDOB
     : appointment.patient?.dateOfBirth;
 
-  const isLongWaitingTime = (() => {
-    if (!recentStatus) return false;
-    const currentStatusDuration = getDurationOfStatus(recentStatus, now);
-    return longWaitTimeFlag(appointment, currentStatusDuration);
-  })();
+  const isLongWaitingTime = getIsLongWaitTime(appointment, recentStatus, now);
 
   const formattedPriorityHighIcon = (
     <PriorityHighRoundedIcon

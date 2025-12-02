@@ -1,15 +1,13 @@
 // cSpell:ignore alertable
 import { CodeableConcept, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { AlertRule, AlertThreshold, VitalsDef } from '../../configuration';
 import {
-  AlertRule,
-  AlertThreshold,
   FHIRObservationInterpretation,
   FHIRObservationInterpretationCodesMap,
   GetVitalsResponseData,
   VitalAlertCriticality,
   VitalFieldNames,
-  VitalsDef,
   VitalsObservationDTO,
 } from '../../types';
 

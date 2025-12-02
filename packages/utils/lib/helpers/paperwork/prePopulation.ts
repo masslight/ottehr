@@ -258,6 +258,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         return mapEmergencyContactToQuestionnaireResponseItems({
           items: itemItems,
           emergencyContactResource: accountInfo?.emergencyContactResource,
+          patient,
         });
       } else if (COVERAGE_ITEMS.includes(item.linkId)) {
         return mapCoveragesToQuestionnaireResponseItems({
@@ -266,6 +267,11 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           patient,
           documents,
           insuranceOrgs: accountInfo?.insuranceOrgs ?? [],
+        });
+      } else if (EMPLOYER_ITEMS.includes(item.linkId)) {
+        return mapEmployerToQuestionnaireResponseItems({
+          items: itemItems,
+          employerOrganization: accountInfo?.employerOrganization,
         });
       } else if (item.linkId === 'photo-id-page') {
         return itemItems.map((item) => {
@@ -361,6 +367,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
     insuranceOrgs,
     emergencyContactResource,
     pharmacy,
+    employerOrganization,
   } = input;
   console.log('making prepopulated items from patient record', coverages, pharmacy);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
@@ -391,12 +398,22 @@ export const makePrepopulatedItemsFromPatientRecord = (
         return mapGuarantorToQuestionnaireResponseItems({ items: itemItems, guarantorResource });
       }
       if (EMERGENCY_CONTACT_ITEMS.includes(item.linkId)) {
-        return mapEmergencyContactToQuestionnaireResponseItems({ items: itemItems, emergencyContactResource });
+        return mapEmergencyContactToQuestionnaireResponseItems({
+          items: itemItems,
+          emergencyContactResource,
+          patient,
+        });
       }
       if (PHARMACY_ITEMS.includes(item.linkId)) {
         return mapPharmacyToQuestionnaireResponseItems({
           items: itemItems,
           pharmacyResource: pharmacy,
+        });
+      }
+      if (EMPLOYER_ITEMS.includes(item.linkId)) {
+        return mapEmployerToQuestionnaireResponseItems({
+          items: itemItems,
+          employerOrganization,
         });
       }
       return [];
@@ -939,6 +956,88 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     });
 };
 
+const EMPLOYER_ITEMS = ['employer-information-page'];
+
+interface MapEmployerItemsInput {
+  items: QuestionnaireItem[];
+  employerOrganization?: Organization;
+}
+
+const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): QuestionnaireResponseItem[] => {
+  const { employerOrganization, items } = input;
+  const address = employerOrganization?.address?.[0];
+  const contact = employerOrganization?.contact?.[0];
+
+  const getTelecomValue = (system: string): string | undefined => {
+    const contactValue = contact?.telecom?.find((tel) => tel.system === system && tel.value)?.value;
+    const orgValue = employerOrganization?.telecom?.find((tel) => tel.system === system && tel.value)?.value;
+    return contactValue ?? orgValue;
+  };
+
+  const formatPhone = (value?: string): string | undefined => {
+    if (!value) return undefined;
+    const formatted = formatPhoneNumberDisplay(value);
+    return formatted || value;
+  };
+
+  return items.map((item) => {
+    let answer: QuestionnaireResponseItemAnswer[] | undefined;
+    const { linkId } = item;
+
+    switch (linkId) {
+      case 'employer-name':
+        if (employerOrganization?.name) answer = makeAnswer(employerOrganization.name);
+        break;
+      case 'employer-address':
+        if (address?.line?.[0]) answer = makeAnswer(address.line[0]);
+        break;
+      case 'employer-address-2':
+        if (address?.line?.[1]) answer = makeAnswer(address.line[1]);
+        break;
+      case 'employer-city':
+        if (address?.city) answer = makeAnswer(address.city);
+        break;
+      case 'employer-state':
+        if (address?.state) answer = makeAnswer(address.state);
+        break;
+      case 'employer-zip':
+        if (address?.postalCode) answer = makeAnswer(address.postalCode);
+        break;
+      case 'employer-contact-first-name': {
+        const firstName = contact?.name?.given?.[0];
+        if (firstName) answer = makeAnswer(firstName);
+        break;
+      }
+      case 'employer-contact-last-name':
+        if (contact?.name?.family) answer = makeAnswer(contact.name.family);
+        break;
+      case 'employer-contact-title':
+        if (contact?.purpose?.text) answer = makeAnswer(contact.purpose.text);
+        break;
+      case 'employer-contact-email': {
+        const email = getTelecomValue('email');
+        if (email) answer = makeAnswer(email);
+        break;
+      }
+      case 'employer-contact-phone': {
+        const phone = formatPhone(getTelecomValue('phone'));
+        if (phone) answer = makeAnswer(phone);
+        break;
+      }
+      case 'employer-contact-fax': {
+        const fax = formatPhone(getTelecomValue('fax'));
+        if (fax) answer = makeAnswer(fax);
+        break;
+      }
+    }
+
+    return {
+      linkId,
+      answer,
+    };
+  });
+};
+
 const GUARANTOR_ITEMS = ['responsible-party-section', 'responsible-party-page'];
 interface MapGuarantorItemsInput {
   items: QuestionnaireItem[];
@@ -1039,12 +1138,23 @@ const EMERGENCY_CONTACT_ITEMS = ['emergency-contact-section', 'emergency-contact
 interface MapEmergencyContactInput {
   items: QuestionnaireItem[];
   emergencyContactResource?: RelatedPerson;
+  patient?: Patient;
 }
 
 const mapEmergencyContactToQuestionnaireResponseItems = (
   input: MapEmergencyContactInput
 ): QuestionnaireResponseItem[] => {
-  const { emergencyContactResource, items } = input;
+  const { emergencyContactResource, items, patient } = input;
+
+  const patientAddress = patient?.address?.[0];
+  const emergencyContactAddress = emergencyContactResource?.address?.[0];
+  const emergencyContactAddressLine = emergencyContactAddress?.line?.[0];
+  const emergencyContactAddressLine2 = emergencyContactAddress?.line?.[1];
+  const emergencyContactCity = emergencyContactAddress?.city;
+  const emergencyContactState = emergencyContactAddress?.state;
+  const emergencyContactZip = emergencyContactAddress?.postalCode;
+  const emergencyContactAddressAsPatient =
+    patientAddress && emergencyContactAddress ? areAddressesEqual(emergencyContactAddress, patientAddress) : undefined;
 
   const phone = formatPhoneNumberDisplay(
     emergencyContactResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''
@@ -1091,6 +1201,24 @@ const mapEmergencyContactToQuestionnaireResponseItems = (
     }
     if (linkId === 'emergency-contact-number' && phone) {
       answer = makeAnswer(phone);
+    }
+    if (linkId === 'emergency-contact-address-as-patient' && emergencyContactAddressAsPatient !== undefined) {
+      answer = makeAnswer(emergencyContactAddressAsPatient, 'Boolean');
+    }
+    if (linkId === 'emergency-contact-address' && emergencyContactAddressLine) {
+      answer = makeAnswer(emergencyContactAddressLine);
+    }
+    if (linkId === 'emergency-contact-address-2' && emergencyContactAddressLine2) {
+      answer = makeAnswer(emergencyContactAddressLine2);
+    }
+    if (linkId === 'emergency-contact-city' && emergencyContactCity) {
+      answer = makeAnswer(emergencyContactCity);
+    }
+    if (linkId === 'emergency-contact-state' && emergencyContactState) {
+      answer = makeAnswer(emergencyContactState);
+    }
+    if (linkId === 'emergency-contact-zip' && emergencyContactZip) {
+      answer = makeAnswer(emergencyContactZip);
     }
     return {
       linkId,

@@ -90,6 +90,18 @@ export class Locators {
   responsiblePartyCity: Locator;
   responsiblePartyState: Locator;
   responsiblePartyZip: Locator;
+  employerName: Locator;
+  employerAddress1: Locator;
+  employerAddress2: Locator;
+  employerCity: Locator;
+  employerState: Locator;
+  employerZip: Locator;
+  employerContactFirstName: Locator;
+  employerContactLastName: Locator;
+  employerContactTitle: Locator;
+  employerContactEmail: Locator;
+  employerContactPhone: Locator;
+  employerContactFax: Locator;
   numberErrorText: Locator;
   zipErrorText: Locator;
   responsiblePartyDOBAnswer: Locator;
@@ -97,8 +109,6 @@ export class Locators {
   dateFutureError: Locator;
   calendarCurrentDay: Locator;
   calendarButtonOK: Locator;
-  calendarArrowRight: Locator;
-  calendarArrowDown: Locator;
   calendarDay: Locator;
   insuranceOption: Locator;
   insuranceHeading: Locator;
@@ -237,6 +247,12 @@ export class Locators {
   emergencyContactInformationFirstName: Locator;
   emergencyContactInformationLastName: Locator;
   emergencyContactInformationPhone: Locator;
+  emergencyContactSameAddressAsPatient: Locator;
+  emergencyContactAddress: Locator;
+  emergencyContactAddressLine2: Locator;
+  emergencyContactCity: Locator;
+  emergencyContactState: Locator;
+  emergencyContactZip: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -382,17 +398,35 @@ export class Locators {
     this.responsiblePartyState = page.locator('[id="responsible-party-state"]');
     this.responsiblePartyZip = page.locator('[id="responsible-party-zip"]');
 
+    // Employer information locators
+    this.employerName = page.locator('[id="employer-name"]');
+    this.employerAddress1 = page.locator('[id="employer-address"]');
+    this.employerAddress2 = page.locator('[id="employer-address-2"]');
+    this.employerCity = page.locator('[id="employer-city"]');
+    this.employerState = page.locator('[id="employer-state"]');
+    this.employerZip = page.locator('[id="employer-zip"]');
+    this.employerContactFirstName = page.locator('[id="employer-contact-first-name"]');
+    this.employerContactLastName = page.locator('[id="employer-contact-last-name"]');
+    this.employerContactTitle = page.locator('[id="employer-contact-title"]');
+    this.employerContactEmail = page.locator('[id="employer-contact-email"]');
+    this.employerContactPhone = page.locator('[id="employer-contact-phone"]');
+    this.employerContactFax = page.locator('[id="employer-contact-fax"]');
+
     // Emergency Contact Information locators
     this.emergencyContactInformationRelationship = page.locator('[id="emergency-contact-relationship"]');
     this.emergencyContactInformationFirstName = page.locator('[id="emergency-contact-first-name"]');
     this.emergencyContactInformationLastName = page.locator('[id="emergency-contact-last-name"]');
     this.emergencyContactInformationPhone = page.locator('[id="emergency-contact-number"]');
+    this.emergencyContactSameAddressAsPatient = page.getByLabel("Same as patient's address");
+    this.emergencyContactAddress = page.locator('[id="emergency-contact-address"]');
+    this.emergencyContactAddressLine2 = page.locator('[id="emergency-contact-address-2"]');
+    this.emergencyContactCity = page.locator('[id="emergency-contact-city"]');
+    this.emergencyContactState = page.locator('[id="emergency-contact-state"]');
+    this.emergencyContactZip = page.locator('[id="emergency-contact-zip"]');
 
     // Paperwork calendar locators
     this.calendarCurrentDay = page.locator('button[aria-current="date"]');
     this.calendarButtonOK = page.locator('button:has-text("OK")');
-    this.calendarArrowRight = page.getByTestId('ArrowRightIcon');
-    this.calendarArrowDown = page.locator('[role="presentation"] [data-testid="ArrowDropDownIcon"]');
     this.calendarDay = page.locator('div[aria-rowindex="2"] button[aria-colindex="1"]').nth(0);
 
     //Consent forms locators

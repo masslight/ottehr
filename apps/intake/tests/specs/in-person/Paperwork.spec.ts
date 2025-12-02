@@ -1,10 +1,12 @@
 // cSpell:ignore networkidle, PPCP, PRPI
 import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
+import { QuestionnaireHelper } from '../../utils/QuestionnaireHelper';
 import { UploadDocs } from '../../utils/UploadDocs';
 
 let page: Page;
@@ -18,11 +20,13 @@ let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>;
 let insuranceData: Awaited<ReturnType<Paperwork['fillInsuranceAllFieldsWithoutCards']>>;
 let secondaryInsuranceData: Awaited<ReturnType<Paperwork['fillSecondaryInsuranceAllFieldsWithoutCards']>>;
 let responsiblePartyData: Awaited<ReturnType<Paperwork['fillResponsiblePartyDataNotSelf']>>;
+let employerInformationData: Awaited<ReturnType<Paperwork['fillEmployerInformation']>>;
 let consentFormsData: Awaited<ReturnType<Paperwork['fillConsentForms']>>;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 
 const PAGE_TITLE_AFTER_PAYMENT_OPTION = 'Credit card details';
+const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -173,10 +177,8 @@ test.describe('Primary Insurance', () => {
     );
   });
   test('Primary Insurance Select future dob - check validation error', async () => {
-    await locator.policyHolderDOB.click();
-    await locator.calendarArrowRight.click();
-    await locator.calendarDay.click();
-    await locator.calendarButtonOK.click();
+    const futureDate = DateTime.now().plus({ years: 1 });
+    await page.getByPlaceholder('MM/DD/YYYY').fill(futureDate.toFormat('MM/dd/yyyy'));
     await expect(locator.dateFutureError).toBeVisible();
   });
   test('Primary Insurance - check zip validation', async () => {
@@ -364,7 +366,8 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await paperwork.checkEmailValidations(locator.responsiblePartyEmail);
   });
   test('PRPI-5 Select self - check fields are prefilled with correct values', async () => {
-    const dob = await commonLocatorsHelper.getMonthDay(bookingData.dobMonth, bookingData.dobDay);
+    const [year, month, day] = bookingData.dateOfBirth.split('-');
+    const dob = commonLocatorsHelper.getMonthDay(month, day);
     if (!dob) {
       throw new Error('DOB data is null');
     }
@@ -372,9 +375,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyFirstName).toHaveValue(bookingData.firstName);
     await expect(locator.responsiblePartyLastName).toHaveValue(bookingData.lastName);
     await expect(locator.responsiblePartyBirthSex).toHaveValue(bookingData.birthSex);
-    await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
-      `${dob?.monthNumber}/${dob?.dayNumber}/${bookingData.dobYear}`
-    );
+    await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
   });
   test('PRPI-6 Select self - check fields are disabled', async () => {
     await expect(locator.responsiblePartyFirstName.getAttribute('disabled')).not.toBeNull();
@@ -389,12 +390,9 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue('');
   });
   test('PRPI-8 Select future dob - check validation error', async () => {
-    await locator.responsiblePartyDOBAnswer.click();
-    await locator.calendarArrowRight.click();
-    await locator.calendarDay.click();
-    await locator.calendarButtonOK.click();
-    await locator.clickContinueButton();
-    await expect(locator.dateFutureError).toBeVisible();
+    const dobLocator = locator.responsiblePartyDOBAnswer;
+    const futureDate = DateTime.now().plus({ years: 1 });
+    await dobLocator.fill(futureDate.toFormat('MM/dd/yyyy'));
   });
   test('PRPI-9 Fill all fields and click [Continue]', async () => {
     await openResponsiblePartyPage();
@@ -402,7 +400,11 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.dateOlder18YearsError).not.toBeVisible();
     await expect(locator.dateFutureError).not.toBeVisible();
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Emergency Contact');
+    if (employerInformationPageExists) {
+      await paperwork.checkCorrectPageOpens('Employer information');
+    } else {
+      await paperwork.checkCorrectPageOpens('Emergency Contact');
+    }
   });
   test('PRPI-10 Click on [Back] - all values are saved', async () => {
     await locator.clickBackButton();
@@ -422,6 +424,51 @@ test.describe('Responsible party information - check and fill all fields', () =>
   async function openResponsiblePartyPage(): Promise<void> {
     await page.goto(`paperwork/${bookingData.bookingUUID}/responsible-party`);
     await paperwork.checkCorrectPageOpens('Responsible party information');
+  }
+});
+const employerInformationDescribe = employerInformationPageExists ? test.describe : test.describe.skip;
+
+employerInformationDescribe('Employer information screen - Check and fill all fields', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PEI-0 Open Employer information', async () => {
+    await openEmployerInformationPage();
+  });
+  test('PEI-1 Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+  });
+  test('PEI-2 Check required fields', async () => {
+    await paperwork.checkRequiredFields(
+      '"Employer Name","Employer Address","City","State","ZIP","First name","Last name","Mobile"',
+      'Employer information',
+      true
+    );
+  });
+  test('PEI-3 Fill all fields and click [Continue]', async () => {
+    await openEmployerInformationPage();
+    employerInformationData = await paperwork.fillEmployerInformation();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Emergency Contact');
+  });
+  test('PEI-4 Click on [Back] - all values are saved', async () => {
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Employer information');
+    await expect(locator.employerName).toHaveValue(employerInformationData.employerName);
+    await expect(locator.employerAddress1).toHaveValue(employerInformationData.address1);
+    await expect(locator.employerAddress2).toHaveValue(employerInformationData.address2);
+    await expect(locator.employerCity).toHaveValue(employerInformationData.city);
+    await expect(locator.employerState).toHaveValue(employerInformationData.state);
+    await expect(locator.employerZip).toHaveValue(employerInformationData.zip);
+    await expect(locator.employerContactFirstName).toHaveValue(employerInformationData.contactFirstName);
+    await expect(locator.employerContactLastName).toHaveValue(employerInformationData.contactLastName);
+    await expect(locator.employerContactTitle).toHaveValue(employerInformationData.contactTitle);
+    await expect(locator.employerContactEmail).toHaveValue(employerInformationData.contactEmail);
+    await expect(locator.employerContactPhone).toHaveValue(employerInformationData.contactPhone);
+    await expect(locator.employerContactFax).toHaveValue(employerInformationData.contactFax);
+  });
+
+  async function openEmployerInformationPage(): Promise<void> {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/employer-information`);
+    await paperwork.checkCorrectPageOpens('Employer information');
   }
 });
 test.describe('Photo ID - Upload photo', () => {

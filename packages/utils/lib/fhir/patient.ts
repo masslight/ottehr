@@ -32,6 +32,7 @@ import {
 import {
   FHIR_EXTENSION,
   FHIR_IDENTIFIER_NPI,
+  FHIR_IDENTIFIER_SYSTEM,
   filterResources,
   getAllPractitionerCredentials,
   getCommunicationsAndSenders,
@@ -689,4 +690,19 @@ export const getPreferredPharmacyFromPatient = (patient: Patient): Organization 
       })
     );
   }) as Organization | undefined;
+};
+
+export const makeSSNIdentifier = (ssn: string): Identifier => {
+  return {
+    system: 'http://hl7.org/fhir/sid/us-ssn',
+    type: {
+      coding: [
+        {
+          system: FHIR_IDENTIFIER_SYSTEM,
+          code: 'SS',
+        },
+      ],
+    },
+    value: ssn,
+  };
 };
