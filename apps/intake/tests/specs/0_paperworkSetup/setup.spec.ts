@@ -342,13 +342,13 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
       return { prebookFlowClass, paperwork, locator, fillingInfo };
     });
 
-    const bookingData = await test.step('Book first appointment', async () => {
+    const { bookingData, filledPaperwork } = await test.step('Book first appointment', async () => {
       const bookingData = await prebookFlowClass.startVisitFullFlow();
       await page.goto(bookingData.bookingURL);
       await paperwork.clickProceedToPaperwork();
-      await paperwork.fillPaperworkAllFieldsTelemed('insurance', 'not-self');
+      const filledPaperwork = await paperwork.fillPaperworkAllFieldsTelemed('insurance', 'not-self');
       await locator.finishButton.click();
-      return bookingData;
+      return { bookingData, filledPaperwork };
     });
 
     await test.step('Book second appointment without filling paperwork', async () => {
@@ -395,6 +395,18 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         birthSex: bookingData.patientBasicInfo.birthSex,
         dateOfBirth: bookingData.patientBasicInfo.dob,
         appointmentId: appointmentIds[appointmentIds.length - 1],
+        state: filledPaperwork.stateValue,
+        patientDetailsData: filledPaperwork.patientDetailsData,
+        pcpData: filledPaperwork.pcpData,
+        insuranceData: filledPaperwork.insuranceData,
+        secondaryInsuranceData: filledPaperwork.secondaryInsuranceData,
+        responsiblePartyData: filledPaperwork.responsiblePartyData,
+        medicationData: filledPaperwork.medicationData,
+        allergiesData: filledPaperwork.allergiesData,
+        medicalHistoryData: filledPaperwork.medicalHistoryData,
+        surgicalHistoryData: filledPaperwork.surgicalHistoryData,
+        flags: filledPaperwork.flags,
+        uploadedPhotoCondition: filledPaperwork.uploadedPhotoCondition,
       };
       console.log('prebookTelemedPatient', JSON.stringify(prebookTelemedPatient));
       writeTestData('prebookTelemedPatient.json', prebookTelemedPatient);

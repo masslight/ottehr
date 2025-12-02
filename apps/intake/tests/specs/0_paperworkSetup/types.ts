@@ -51,3 +51,24 @@ export interface TelemedPatientTestData {
   };
   appointmentId: string | null;
 }
+
+export interface TelemedPrebookPatientTestData extends TelemedPatientTestData {
+  state: string;
+  patientDetailsData: PatientDetailsData;
+  pcpData: PrimaryCarePhysicianData;
+  insuranceData: {
+    insuranceRequiredData: InsuranceRequiredData;
+    insuranceOptionalData: InsuranceOptionalData;
+  } | null;
+  secondaryInsuranceData: {
+    insuranceRequiredData: InsuranceRequiredData;
+    insuranceOptionalData: InsuranceOptionalData;
+  } | null;
+  responsiblePartyData: ResponsibleParty;
+  medicationData: TelemedPaperworkData;
+  allergiesData: TelemedPaperworkData;
+  medicalHistoryData: TelemedPaperworkData;
+  surgicalHistoryData: TelemedPaperworkData;
+  flags: Flags;
+  uploadedPhotoCondition: Locator;
+}
