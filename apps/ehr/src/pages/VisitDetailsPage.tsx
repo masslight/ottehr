@@ -752,7 +752,7 @@ export default function VisitDetailsPage(): ReactElement {
         <Grid container direction="row">
           <Grid item xs={0.25}></Grid>
           <Grid item xs={11.5}>
-            <Grid container direction="row">
+            <Grid container direction="row" sx={{ justifyContent: 'space-between' }}>
               <Grid item xs={6}>
                 <CustomBreadcrumbs
                   chain={[
