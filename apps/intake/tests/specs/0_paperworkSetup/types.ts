@@ -38,3 +38,16 @@ export interface InPersonPatientNotSelfTestData extends InPersonPatientTestData 
   } | null;
   responsiblePartyData: ResponsibleParty;
 }
+
+export interface TelemedPatientTestData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  birthSex: string;
+  dateOfBirth: {
+    m: string;
+    d: string;
+    y: string;
+  };
+  appointmentId: string | null;
+}

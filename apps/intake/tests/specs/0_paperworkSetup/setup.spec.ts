@@ -473,4 +473,42 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
       writeTestData('walkInTelemedPatient.json', walkInTelemedPatient);
     });
   });
+
+  test('Create patient without filling in paperwork', async ({ browser, page }) => {
+    const { prebookFlowClass, paperwork } = await test.step('Set up playwright', async () => {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      page.on('response', async (response) => {
+        if (response.url().includes('/create-appointment/')) {
+          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+          if (!appointmentIds.includes(appointmentId)) {
+            appointmentIds.push(appointmentId);
+          }
+        }
+      });
+      const prebookFlowClass = new PrebookTelemedFlow(page);
+      const paperwork = new Paperwork(page);
+      return { prebookFlowClass, paperwork };
+    });
+
+    const { bookingData } = await test.step('Create patient', async () => {
+      const bookingData = await prebookFlowClass.startVisitFullFlow();
+      await page.goto(bookingData.bookingURL);
+      await paperwork.clickProceedToPaperwork();
+      return { bookingData };
+    });
+
+    await test.step('Save test data', async () => {
+      const telemedPatientWithoutPaperwork = {
+        firstName: bookingData.patientBasicInfo.firstName,
+        lastName: bookingData.patientBasicInfo.lastName,
+        email: bookingData.patientBasicInfo.email,
+        birthSex: bookingData.patientBasicInfo.birthSex,
+        dateOfBirth: bookingData.patientBasicInfo.dob,
+        appointmentId: bookingData.bookingUUID,
+      };
+      console.log('telemedPatientWithoutPaperwork', JSON.stringify(telemedPatientWithoutPaperwork));
+      writeTestData('telemedPatientWithoutPaperwork.json', telemedPatientWithoutPaperwork);
+    });
+  });
 });
