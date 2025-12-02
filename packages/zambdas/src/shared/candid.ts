@@ -1245,12 +1245,10 @@ async function candidCreateEncounterFromAppointmentRequest(
 
   // Use appointment start time for date of service instead of signed date
   const appointmentStart = appointment.start;
-  console.log(`Appointment start time: ${appointmentStart}`);
   let dateOfServiceString: string | undefined;
 
   if (appointmentStart) {
     dateOfServiceString = getLocalDateOfService(appointmentStart, location);
-    console.log(`Using appointment start time for date of service: ${dateOfServiceString}`);
   }
 
   const serviceLines: ServiceLineCreate[] = [];
