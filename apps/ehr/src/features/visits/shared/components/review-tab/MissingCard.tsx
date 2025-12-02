@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getAssessmentUrl, getChiefComplaintUrl } from 'src/features/visits/in-person/routing/helpers';
+import { getAssessmentUrl, getChiefComplaintUrl, getHPIUrl } from 'src/features/visits/in-person/routing/helpers';
 import { TelemedAppointmentVisitTabs } from 'utils';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAppointmentData, useAppTelemedLocalStore, useChartData } from '../../stores/appointment/appointment.store';
@@ -22,6 +22,9 @@ export const MissingCard: FC = () => {
       chiefComplaint: {
         _tag: 'chief-complaint',
       },
+      historyOfPresentIllness: {
+        _tag: 'history-of-present-illness',
+      },
     },
   });
 
@@ -31,15 +34,17 @@ export const MissingCard: FC = () => {
   const medicalDecision = chartFields?.medicalDecision?.text;
   const emCode = chartData?.emCode;
   const hpi = chartFields?.chiefComplaint?.text;
+  const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
 
   if (primaryDiagnosis && medicalDecision && emCode && hpi) {
     return null;
   }
 
-  const navigateTo = (target: 'hpi' | 'assessment'): void => {
+  const navigateTo = (target: 'chief-complaint' | 'hpi' | 'assessment'): void => {
     if (isInPerson) {
-      const inPersonRoutes: Record<'hpi' | 'assessment', string> = {
-        hpi: getChiefComplaintUrl(appointment?.id || ''),
+      const inPersonRoutes: Record<'chief-complaint' | 'hpi' | 'assessment', string> = {
+        'chief-complaint': getChiefComplaintUrl(appointment?.id || ''),
+        hpi: getHPIUrl(appointment?.id || ''),
         assessment: getAssessmentUrl(appointment?.id || ''),
       };
 
@@ -47,8 +52,8 @@ export const MissingCard: FC = () => {
         navigate(inPersonRoutes[target]);
       });
     } else {
-      const telemedTabs: Record<'hpi' | 'assessment', TelemedAppointmentVisitTabs> = {
-        hpi: TelemedAppointmentVisitTabs.hpi,
+      const telemedTabs: Record<'chief-complaint' | 'assessment', TelemedAppointmentVisitTabs> = {
+        'chief-complaint': TelemedAppointmentVisitTabs.hpi,
         assessment: TelemedAppointmentVisitTabs.assessment,
       };
 
@@ -67,14 +72,24 @@ export const MissingCard: FC = () => {
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {!hpi && (
+          {!chiefComplaint && (
+            <Link
+              sx={{ cursor: 'pointer' }}
+              color="error"
+              onClick={() => navigateTo('chief-complaint')}
+              data-testid={dataTestIds.progressNotePage.ccLink}
+            >
+              Chief Complaint
+            </Link>
+          )}
+          {!hpi && isInPerson && (
             <Link
               sx={{ cursor: 'pointer' }}
               color="error"
               onClick={() => navigateTo('hpi')}
               data-testid={dataTestIds.progressNotePage.hpiLink}
             >
-              Chief Complaint
+              HPI
             </Link>
           )}
           {!primaryDiagnosis && (
