@@ -1,8 +1,8 @@
-import { Button, Chip, CircularProgress, Typography } from '@mui/material';
+import { Button, Chip, CircularProgress, TextField, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
 import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { radiologyLaunchViewer } from 'src/api/api';
+import { radiologyLaunchViewer, savePreliminaryReport } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import radiologyIcon from 'src/themes/ottehr/icons/mui-radiology.svg';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
@@ -21,6 +21,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
 
   const [isLaunchingViewer, setIsLaunchingViewer] = useState(false);
   const [launchViewerError, setLaunchViewerError] = useState<string | null>(null);
+  const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
 
   const { orders, loading } = usePatientRadiologyOrders({
     serviceRequestId,
@@ -29,6 +30,25 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const handleBack = (): void => {
     navigate(-1);
   };
+
+  const handleSavePreliminaryReport = useCallback(async (): Promise<void> => {
+    if (!preliminaryReport) {
+      alert('Please enter a preliminary report before saving.');
+      return;
+    }
+
+    try {
+      if (oystehrZambda) {
+        await savePreliminaryReport(oystehrZambda, { serviceRequestId, preliminaryReport });
+      } else {
+        console.log('oystehrZambda is not defined');
+      }
+      // Handle successful save (e.g., show a success message)
+    } catch (error) {
+      console.error('Error saving preliminary report:', error);
+      // Handle error (e.g., show an error message)
+    }
+  }, [oystehrZambda, serviceRequestId, preliminaryReport]);
 
   const handleViewImageClick = useCallback(async (): Promise<void> => {
     setIsLaunchingViewer(true);
@@ -153,10 +173,43 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 </Box>
               )}
 
+              {order.status === 'performed' && (
+                <Box>
+                  <TextField
+                    id="preliminary-report-field"
+                    label="Preliminary Report"
+                    placeholder="Enter preliminary report for the radiology order"
+                    fullWidth
+                    multiline
+                    rows={2}
+                    size="small"
+                    value={preliminaryReport}
+                    onChange={(e) => setPreliminaryReport(e.target.value)}
+                    sx={{ mt: 2, mb: 2 }}
+                  />
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      sx={{
+                        borderRadius: 28,
+                        padding: '8px 22px',
+                        alignSelf: 'flex-end',
+                        whiteSpace: 'nowrap',
+                        textTransform: 'none',
+                      }}
+                      onClick={handleSavePreliminaryReport}
+                    >
+                      Save Preliminary Report
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+
               {order.result != null ? (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1, textDecoration: 'underline' }}>
-                    Report
+                    Final Report
                   </Typography>
                   <Typography variant="body2">
                     <div dangerouslySetInnerHTML={{ __html: atob(order.result) }} />

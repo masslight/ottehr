@@ -67,3 +67,10 @@ export interface GetRadiologyOrderListZambdaOutput {
   orders: GetRadiologyOrderListZambdaOrder[];
   pagination: Pagination;
 }
+
+export interface SavePreliminaryReportZambdaInput {
+  serviceRequestId: string;
+  preliminaryReport: string;
+}
+
+export type SavePreliminaryReportZambdaOutput = Record<string, never>;
