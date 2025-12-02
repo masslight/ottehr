@@ -12,9 +12,7 @@
         "name": [
           {
             "use": "official",
-            "given": [
-              "Jon"
-            ],
+            "given": ["Jon"],
             "family": "Snow"
           }
         ],
@@ -23,10 +21,7 @@
         "address": [
           {
             "city": "New York",
-            "line": [
-              "20250519 Test Line",
-              "Apt 4B"
-            ],
+            "line": ["20250519 Test Line", "Apt 4B"],
             "state": "NY",
             "country": "US",
             "postalCode": "06001"
@@ -64,9 +59,7 @@
             "id": "primary-care-physician",
             "name": [
               {
-                "given": [
-                  "Provider first name"
-                ],
+                "given": ["Provider first name"],
                 "family": "Provider last name"
               }
             ],
@@ -228,13 +221,11 @@
       "resource": {
         "name": [
           {
-            "given": [
-              "Emergen",
-              "C"
-            ],
+            "given": ["Emergen", "C"],
             "family": "Contact"
           }
         ],
+        "address": [{ "city": "city", "line": ["address", "address 2"], "state": "AL", "postalCode": "12312" }],
         "patient": {
           "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
         },
@@ -436,6 +427,14 @@
             "location": {
               "reference": "Location/{{locationId}}"
             }
+          }
+        ],
+        "account": [
+          {
+            "reference": "urn:uuid:patient-billing-account-1234-5678-90ab-cdef"
+          },
+          {
+            "reference": "urn:uuid:workers-comp-account-1234-5678-90ab-cdef"
           }
         ],
         "extension": [
@@ -1045,6 +1044,44 @@
     {
       "request": {
         "method": "POST",
+        "url": "/List"
+      },
+      "resource": {
+        "resourceType": "List",
+        "status": "current",
+        "mode": "working",
+        "title": "statements",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+              "code": "patient-docs-folder",
+              "display": "Statements"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "UDI",
+                  "display": "Universal Device Identifier"
+                }
+              ]
+            },
+            "value": "statements"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
         "url": "/QuestionnaireResponse"
       },
       "resource": {
@@ -1468,6 +1505,107 @@
             ]
           },
           {
+            "linkId": "employer-information-page",
+            "item": [
+              {
+                "linkId": "employer-name",
+                "answer": [
+                  {
+                    "valueString": "Test Employer Inc"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-address",
+                "answer": [
+                  {
+                    "valueString": "123 Business Street"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-address-2",
+                "answer": [
+                  {
+                    "valueString": "Suite 100"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-city",
+                "answer": [
+                  {
+                    "valueString": "New York"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-state",
+                "answer": [
+                  {
+                    "valueString": "NY"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-zip",
+                "answer": [
+                  {
+                    "valueString": "10001"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-first-name",
+                "answer": [
+                  {
+                    "valueString": "John"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-last-name",
+                "answer": [
+                  {
+                    "valueString": "Doe"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-title",
+                "answer": [
+                  {
+                    "valueString": "HR Manager"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-email",
+                "answer": [
+                  {
+                    "valueString": "a@a.a"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-phone",
+                "answer": [
+                  {
+                    "valueString": "(123) 123-1234"
+                  }
+                ]
+              },
+              {
+                "linkId": "employer-contact-fax",
+                "answer": [
+                  {
+                    "valueString": "(123) 123-1234"
+                  }
+                ]
+              }
+            ]
+          },
+          {
             "linkId": "emergency-contact-page",
             "item": [
               {
@@ -1686,6 +1824,7 @@
         "method": "POST",
         "url": "/Account"
       },
+      "fullUrl": "urn:uuid:patient-billing-account-1234-5678-90ab-cdef",
       "resource": {
         "resourceType": "Account",
         "status": "active",
@@ -1717,9 +1856,7 @@
             "id": "accountGuarantorId",
             "name": [
               {
-                "given": [
-                  "fwe"
-                ],
+                "given": ["fwe"],
                 "family": "sf"
               }
             ],
@@ -1741,9 +1878,7 @@
             "address": [
               {
                 "city": "Cleveland",
-                "line": [
-                  "333 test street"
-                ],
+                "line": ["333 test street"],
                 "state": "OH",
                 "postalCode": "44101"
               }
@@ -1765,6 +1900,111 @@
           {
             "system": "https://api.stripe.com/v1/customers",
             "value": "SKIP_ME_FOR_VALUE_CHECKING"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Organization"
+      },
+      "fullUrl": "urn:uuid:workers-comp-organization-1234-5678-90ab-cdef",
+      "resource": {
+        "resourceType": "Organization",
+        "name": "Test Employer Inc",
+        "type": [
+          {
+            "coding": [
+              {
+                "code": "employer",
+                "system": "http://terminology.hl7.org/CodeSystem/organization-type"
+              }
+            ]
+          }
+        ],
+        "address": [
+          {
+            "line": ["123 Business Street", "Suite 100"],
+            "city": "New York",
+            "state": "NY",
+            "postalCode": "10001"
+          }
+        ],
+        "telecom": [
+          {
+            "system": "phone",
+            "value": "+11231231234"
+          },
+          {
+            "system": "fax",
+            "value": "+11231231234"
+          },
+          {
+            "system": "email",
+            "value": "a@a.a"
+          }
+        ],
+        "contact": [
+          {
+            "name": {
+              "given": ["John"],
+              "family": "Doe"
+            },
+            "telecom": [
+              {
+                "system": "phone",
+                "value": "+11231231234"
+              },
+              {
+                "system": "fax",
+                "value": "+11231231234"
+              },
+              {
+                "system": "email",
+                "value": "a@a.a"
+              }
+            ],
+            "purpose": {
+              "text": "HR Manager"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/Account"
+      },
+      "fullUrl": "urn:uuid:workers-comp-account-1234-5678-90ab-cdef",
+      "resource": {
+        "resourceType": "Account",
+        "status": "active",
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/account-type",
+              "code": "WCOMPACCT",
+              "display": "worker compensation account"
+            }
+          ]
+        },
+        "name": "Test Employer Inc",
+        "subject": [
+          {
+            "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+          }
+        ],
+        "owner": {
+          "reference": "urn:uuid:workers-comp-organization-1234-5678-90ab-cdef"
+        },
+        "guarantor": [
+          {
+            "party": {
+              "reference": "urn:uuid:workers-comp-organization-1234-5678-90ab-cdef",
+              "type": "Organization"
+            }
           }
         ]
       }

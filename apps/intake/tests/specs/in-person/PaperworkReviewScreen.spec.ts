@@ -1,5 +1,6 @@
 // cSpell:ignore networkidle
 import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { QuestionnaireHelper } from 'tests/utils/QuestionnaireHelper';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
@@ -16,6 +17,7 @@ let locator: Locators;
 let uploadPhoto: UploadDocs;
 let commonLocators: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
+const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -84,6 +86,9 @@ test.describe('Paperwork.Review and Submit - Check Complete/Missing chips', () =
     await locator.clickContinueButton();
     await locator.clickContinueButton();
     await locator.clickContinueButton();
+    if (employerInformationPageExists) {
+      await locator.clickContinueButton();
+    }
     await locator.clickContinueButton();
     await paperwork.checkAllChipsAreCompletedInPerson();
     await expect(locator.continueButton).toBeVisible();
