@@ -358,6 +358,10 @@ export const dataTestIds = {
     additionalQuestions: 'additional-questions',
     hpiContainer: 'hpi-container',
   },
+  hpiAndTemplatesPage: {
+    hpiTitle: 'hpi-title',
+    hpiNotes: 'hpi-notes',
+  },
   assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
     medicalDecisionField: 'medical-decision-field',

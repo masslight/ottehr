@@ -179,8 +179,10 @@ test.describe('In-person visit', async () => {
       const progressNotePage = await expectInPersonProgressNotePage(page);
       await progressNotePage.verifyReviewAndSignButtonDisabled();
       await patientInfoPage.sideMenu().clickCcAndIntakeNotes();
-      await patientInfoPage.fillHPI();
-      await patientInfoPage.sideMenu().clickAssessment();
+      await patientInfoPage.fillChiefComplaints();
+      const hpiAndTemplatesPages = await patientInfoPage.sideMenu().clickHpiAndTemplates();
+      await hpiAndTemplatesPages.fillHPI();
+      await hpiAndTemplatesPages.sideMenu().clickAssessment();
       const assessmentPage = await expectAssessmentPage(page);
       await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
       await assessmentPage.selectEmCode(EM_CODE);

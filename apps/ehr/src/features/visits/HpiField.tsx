@@ -5,7 +5,13 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useChartFields } from './shared/hooks/useChartFields';
 import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 
-export const HistoryOfPresentIllnessField: FC = () => {
+type HistoryOfPresentIllnessFieldProps = {
+  label?: string;
+};
+
+export const HistoryOfPresentIllnessField: FC<HistoryOfPresentIllnessFieldProps> = ({
+  label = 'History of Present Illness',
+}) => {
   const { data: chartDataFields } = useChartFields({
     requestedFields: {
       chiefComplaint: {
@@ -44,10 +50,10 @@ export const HistoryOfPresentIllnessField: FC = () => {
             });
           }}
           disabled={isChartDataLoading}
-          label="History of Present Illness"
+          label={label}
           fullWidth
           multiline
-          data-testid={dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes}
+          data-testid={dataTestIds.hpiAndTemplatesPage.hpiNotes}
           InputProps={{
             endAdornment: isLoading && (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -61,7 +67,9 @@ export const HistoryOfPresentIllnessField: FC = () => {
   );
 };
 
-export const HistoryOfPresentIllnessFieldReadOnly: FC = () => {
+export const HistoryOfPresentIllnessFieldReadOnly: FC<HistoryOfPresentIllnessFieldProps> = ({
+  label = 'History of Present Illness',
+}) => {
   const { data: chartFields } = useChartFields({
     requestedFields: {
       chiefComplaint: { _tag: 'chief-complaint' },
@@ -75,7 +83,7 @@ export const HistoryOfPresentIllnessFieldReadOnly: FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       <Typography variant="subtitle2" color="primary.dark">
-        History of Present Illness
+        {label}
       </Typography>
       <Typography variant="body2">{historyOfPresentIllness}</Typography>
     </Box>
