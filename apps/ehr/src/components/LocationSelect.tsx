@@ -5,6 +5,7 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { isLocationVirtual } from 'utils';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { dataTestIds } from '../constants/data-test-ids';
 import { sortLocationsByLabel } from '../helpers';
 import { useApiClients } from '../hooks/useAppClients';
@@ -61,15 +62,13 @@ export default function LocationSelect({
       setLoadingState(LoadingState.loading);
 
       try {
-        const searchResults = (
-          await oystehr.fhir.search<Location | Schedule>({
+        const searchResults = await getAllFhirSearchPages<Location | Schedule>(
+          {
             resourceType: 'Location',
-            params: [
-              { name: '_count', value: '1000' },
-              { name: '_revinclude', value: 'Schedule:actor:Location' },
-            ],
-          })
-        ).unbundle();
+            params: [{ name: '_revinclude', value: 'Schedule:actor:Location' }],
+          },
+          oystehr
+        );
         const locationsResults = searchResults.filter(
           (loc) => loc.resourceType === 'Location' && !isLocationVirtual(loc)
         );

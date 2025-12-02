@@ -799,6 +799,11 @@ const evalCondition = (
   const { question, operator, answerString, answerBoolean, answerDate, answerInteger } = condition;
   const questionValue = recursivePathEval(context, question, questionVal);
 
+  if (operator === 'exists' && answerBoolean !== undefined) {
+    const someAnswer = questionValue?.answer?.[0] !== undefined;
+    return answerBoolean === someAnswer;
+  }
+
   if (answerString !== undefined) {
     const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
     if (operator === '=' && comparisonString === answerString) {

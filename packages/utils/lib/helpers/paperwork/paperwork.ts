@@ -136,7 +136,7 @@ const getConditionalExtension = (
     const answerDate = answerObj?.valueDate;
     if (
       operator !== undefined &&
-      ['=', '!=', '>', '<', '>=', '<='].includes(operator) &&
+      ['exists', '=', '!=', '>', '<', '>=', '<='].includes(operator) &&
       question !== undefined &&
       (answerString !== undefined ||
         answerBoolean !== undefined ||
