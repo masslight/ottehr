@@ -468,6 +468,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         dateOfBirth: bookingData.patientBasicInfo.dob,
         appointmentId: appointmentIds[appointmentIds.length - 1],
         state: bookingData.stateValue,
+        location: bookingData.slotAndLocation.locationTitle,
       };
       console.log('walkInTelemedPatient', JSON.stringify(walkInTelemedPatient));
       writeTestData('walkInTelemedPatient.json', walkInTelemedPatient);

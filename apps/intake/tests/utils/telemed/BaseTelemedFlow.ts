@@ -16,7 +16,6 @@ export interface StartVisitResponse {
   patientBasicInfo: PatientBasicInfo;
   bookingURL: string;
   bookingUUID: string | null;
-  stateValue: string;
 }
 
 export interface PatientBasicInfo {

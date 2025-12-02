@@ -27,9 +27,10 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     await locationOption.click();
     await this.continue();
 
-    return { location: '' };
+    // todo make less flimsy
+    return { locationTitle: location?.split('Working hours')[0] };
   }
-  async startVisitFullFlow(): Promise<StartVisitResponse> {
+  async startVisitFullFlow(): Promise<StartVisitResponse & { stateValue: string }> {
     await this.selectVisitAndContinue();
     const slotAndLocation = await this.selectTimeLocationAndContinue();
     await this.selectDifferentFamilyMemberAndContinue();

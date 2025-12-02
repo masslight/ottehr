@@ -85,4 +85,5 @@ export interface TelemedPrebookPatientTestData extends TelemedPatientTestData {
 
 export interface TelemedWalkInPatientTestData extends TelemedPatientTestData {
   state: string;
+  location: string | null | undefined;
 }
