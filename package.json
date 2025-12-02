@@ -141,7 +141,7 @@
   "devDependencies": {
     "@hookform/devtools": "^4.3.1",
     "@json2csv/plainjs": "^7.0.6",
-    "@playwright/test": "^1.56.1",
+    "@playwright/test": "^1.57.0",
     "@sentry/cli": "^2.27.0",
     "@sentry/vite-plugin": "^2.10.2",
     "@tanstack/eslint-plugin-query": "^5.81.2",

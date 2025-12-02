@@ -90,7 +90,7 @@
     "wavesurfer.js": "^7.10.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.49.0",
+    "@playwright/test": "^1.57.0",
     "@types/react-page-visibility": "^6.4.4",
     "@types/react-window": "^1.8.8",
     "@types/styled-components": "^5.1.34",

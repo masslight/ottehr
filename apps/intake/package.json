@@ -57,6 +57,7 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "tsconfig": "*",
     "vite-plugin-istanbul": "^6.0.2",
     "vitest": "^3.0.4"
