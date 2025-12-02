@@ -262,8 +262,8 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     await test.step('PSI-1. Open Payment option page directly, select insurance flow, fill primary insurance, add secondary insurance', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/payment-option`);
       await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
-      await paperwork.fillInsuranceAllFieldsWithoutCards();
       await paperwork.selectInsurancePayment();
+      await paperwork.fillInsuranceAllFieldsWithoutCards();
       await locator.addSecondaryInsurance.click();
       await expect(locator.secondaryInsuranceHeading).toBeVisible();
     });
@@ -333,20 +333,19 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PSI-9. Upload insurance cards, reload the page, check images are saved', async () => {
-      const uploadedFrontPhoto = await uploadPhoto.fillSecondaryInsuranceFront();
-      const uploadedBackPhoto = await uploadPhoto.fillSecondaryInsuranceBack();
+      await uploadPhoto.fillSecondaryInsuranceFront();
+      await uploadPhoto.fillSecondaryInsuranceBack();
       await page.reload();
-      await paperwork.checkImagesIsSaved(locator.insuranceFrontImage);
-      await paperwork.checkImagesIsSaved(locator.insuranceBackImage);
-      return { uploadedFrontPhoto, uploadedBackPhoto };
+      await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
+      await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
     });
 
     await test.step('PSI-10. Open next page, click [Back] - check images are saved', async () => {
       await locator.clickContinueButton();
       await paperwork.checkCorrectPageOpens('Credit card details');
       await locator.clickBackButton();
-      await paperwork.checkImagesIsSaved(locator.insuranceFrontImage);
-      await paperwork.checkImagesIsSaved(locator.insuranceBackImage);
+      await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
+      await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
     });
   });
 
