@@ -2380,6 +2380,79 @@ describe('Harvest Module', () => {
         },
       });
     });
+
+    const employerQuestionnaireItems: QuestionnaireResponse['item'] = [
+      {
+        linkId: 'employer-name',
+        answer: [{ valueString: 'Wayne Enterprises' }],
+      },
+      {
+        linkId: 'employer-address',
+        answer: [{ valueString: '1007 Mountain Drive' }],
+      },
+      {
+        linkId: 'employer-city',
+        answer: [{ valueString: 'Gotham' }],
+      },
+      {
+        linkId: 'employer-state',
+        answer: [{ valueString: 'NJ' }],
+      },
+      {
+        linkId: 'employer-zip',
+        answer: [{ valueString: '07001' }],
+      },
+      {
+        linkId: 'employer-contact-first-name',
+        answer: [{ valueString: 'Lucius' }],
+      },
+      {
+        linkId: 'employer-contact-last-name',
+        answer: [{ valueString: 'Fox' }],
+      },
+      {
+        linkId: 'employer-contact-phone',
+        answer: [{ valueString: '5551239876' }],
+      },
+    ];
+
+    it('creates employer organization and workers comp account operations when employer data exists', () => {
+      const result = getAccountOperations({
+        patient,
+        questionnaireResponseItem: employerQuestionnaireItems,
+        organizationResources: [],
+        existingCoverages: {},
+      });
+
+      expect(result.employerOrganizationPost).toBeDefined();
+      expect(result.employerOrganizationPost?.resource?.name).toBe('Wayne Enterprises');
+      expect(result.workersCompAccountPost).toBeDefined();
+      const employerReference = result.employerOrganizationPost?.fullUrl;
+      expect(result.workersCompAccountPost?.owner?.reference).toBe(employerReference);
+      expect(result.workersCompAccountPost?.guarantor?.[0]?.party?.reference).toBe(employerReference);
+    });
+
+    it('updates employer organization and workers comp account when resources already exist', () => {
+      const employerOrg: Organization = {
+        resourceType: 'Organization',
+        id: uuidV4(),
+        name: 'Wayne Enterprises',
+      };
+
+      const result = getAccountOperations({
+        patient,
+        questionnaireResponseItem: employerQuestionnaireItems,
+        organizationResources: [],
+        existingCoverages: {},
+        existingWorkersCompAccount: workersCompAccountResource,
+        existingEmployerOrganization: employerOrg,
+      });
+
+      expect(result.employerOrganizationPut?.url).toBe(`Organization/${employerOrg.id}`);
+      expect(result.workersCompAccountPut?.url).toBe(`Account/${workersCompAccountResource.id}`);
+      const updatedAccount = result.workersCompAccountPut?.resource;
+      expect(updatedAccount?.guarantor?.[0]?.party?.reference).toBe(`Organization/${employerOrg.id}`);
+    });
   });
   describe('translating query results into input for the account operations', () => {
     const stubSecondaryCoverage: Coverage = {
@@ -2480,6 +2553,13 @@ describe('Harvest Module', () => {
 
       expect(inputs.coverages.secondary).toBeUndefined();
       expect(inputs.coverages.secondarySubscriber).toBeUndefined();
+    });
+
+    it('should differentiate workers comp account from patient billing account', () => {
+      const resources = [...bundle1, workersCompAccountResource];
+      const inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
+      expect(inputs.account?.id).toBe(bundle1Account.id);
+      expect(inputs.workersCompAccount?.id).toBe(workersCompAccountResource.id);
     });
 
     it('it should have primary and secondary coverage when secondary coverage is added and there is no existing account', () => {
@@ -3602,6 +3682,27 @@ const bundle1Account: Account = {
     versionId: '3728b10d-4f4d-4401-9be4-f4f7f43aa488',
     lastUpdated: '2025-03-01T03:03:27.796Z',
   },
+};
+
+const workersCompAccountResource: Account = {
+  id: '8a733a57-42d8-4b67-9f56-3b6448169b05',
+  resourceType: 'Account',
+  status: 'active',
+  type: {
+    coding: [
+      {
+        system: 'http://terminology.hl7.org/CodeSystem/account-type',
+        code: 'WCOMPACCT',
+        display: 'worker compensation account',
+      },
+    ],
+  },
+  subject: [
+    {
+      reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61',
+      type: 'Patient',
+    },
+  ],
 };
 
 const bundle1RP1: RelatedPerson = {

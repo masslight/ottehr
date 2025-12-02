@@ -15,6 +15,8 @@ export interface PatientAccountAndCoverageResources {
   coverages: OrderedCoveragesWithSubscribers;
   insuranceOrgs: Organization[];
   account?: Account;
+  workersCompAccount?: Account;
+  employerOrganization?: Organization;
   guarantorResource?: RelatedPerson | Patient;
   emergencyContactResource?: RelatedPerson;
 }
