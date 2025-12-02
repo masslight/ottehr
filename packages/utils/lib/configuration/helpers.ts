@@ -5,15 +5,11 @@ import { deepFreezeObject } from '../utils';
 // rather than concatenating them, which is rarely what we want and easy enough to achieve by iterating
 // the full desired list in the override value
 export const mergeAndFreezeConfigObjects = <T>(baseConfig: T, overrideConfig: Partial<T>): T => {
-  const merged = _.mergeWith(
-    JSON.parse(JSON.stringify(baseConfig)),
-    JSON.parse(JSON.stringify(overrideConfig)),
-    (objValue, srcValue) => {
-      if (Array.isArray(objValue)) {
-        return srcValue ?? [];
-      }
+  const merged = _.mergeWith(_.cloneDeep(baseConfig), _.cloneDeep(overrideConfig), (objValue, srcValue) => {
+    if (Array.isArray(objValue)) {
+      return srcValue ?? [];
     }
-  );
+  });
 
   return deepFreezeObject(merged);
 };
