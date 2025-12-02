@@ -33,6 +33,7 @@ import {
   getOrderNumber,
   getOrderNumberFromDr,
   getPractitionerNPIIdentifier,
+  getTestItemCodeFromDr,
   getTimezone,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
@@ -47,7 +48,6 @@ import {
   LabType,
   ObsContentType,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
-  OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM,
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
   OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
@@ -209,10 +209,7 @@ const getResultDataConfigForDrResources = (
     resultInterpretations,
     attachments,
     externalLabResults,
-    testItemCode:
-      diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
-      diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
-      '',
+    testItemCode: getTestItemCodeFromDr(diagnosticReport) || '',
     resultsReceivedDate,
     collectionDate,
   };
@@ -334,10 +331,7 @@ const getResultDataConfig = (
       resultInterpretations,
       attachments,
       externalLabResults,
-      testItemCode:
-        diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
-        diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
-        '',
+      testItemCode: getTestItemCodeFromDr(diagnosticReport) || '',
       resultsReceivedDate,
     };
     const data: ExternalLabResultsData = { ...baseData, ...externalLabData };
