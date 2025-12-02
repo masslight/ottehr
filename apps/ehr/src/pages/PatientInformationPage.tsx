@@ -11,6 +11,7 @@ import { AddInsuranceModal } from 'src/features/visits/shared/components/patient
 import { BreadCrumbs } from 'src/features/visits/shared/components/patient/BreadCrumbs';
 import { ContactContainer } from 'src/features/visits/shared/components/patient/ContactContainer';
 import { EmergencyContactContainer } from 'src/features/visits/shared/components/patient/EmergencyContactContainer';
+import { EmployerInformationContainer } from 'src/features/visits/shared/components/patient/EmployerInformationContainer';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { InsuranceSection } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { PatientDetailsContainer } from 'src/features/visits/shared/components/patient/PatientDetailsContainer';
@@ -332,6 +333,10 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
 
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
   const [openAddInsuranceModal, setOpenAddInsuranceModal] = useState(false);
+  const shouldRenderEmployerSection = useMemo(
+    () => questionnaire?.item?.some((item) => item.linkId === 'employer-information-page') ?? false,
+    [questionnaire]
+  );
 
   useGetInsurancePlans((data) => {
     if (!data) return;
@@ -457,6 +462,9 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     onAddInsurance={() => setOpenAddInsuranceModal(true)}
                   />
                   <ResponsibleInformationContainer isLoading={isFetching || submitQR.isPending} />
+                  {shouldRenderEmployerSection && (
+                    <EmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
+                  )}
                   <EmergencyContactContainer isLoading={isFetching || submitQR.isPending} />
                   <PharmacyContainer isLoading={isFetching || submitQR.isPending} />
                 </Box>
