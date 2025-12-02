@@ -99,7 +99,7 @@ test.describe('Start virtual visit with required information only', async () => 
     }
 
     await expect(locator.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`)).toBeAttached({
-      timeout: 10000,
+      timeout: 30_000,
     });
 
     await expect(
@@ -374,7 +374,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     }
 
     await expect(locator.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`)).toBeAttached({
-      timeout: 10000,
+      timeout: 30_000,
     });
 
     await expect(

@@ -63,7 +63,7 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - card
     await paperwork.checkCorrectPageOpens('Welcome Back!');
     await page
       .getByRole('heading', { name: new RegExp(`.*${bookingData.firstName} ${bookingData.lastName}.*`, 'i') })
-      .click();
+      .click({ noWaitAfter: true });
     await locator.continueButton.click();
     const [year, month, day] = bookingData.dateOfBirth.split('-');
     await fillingInfo.fillCorrectDOB(month, day, year);
