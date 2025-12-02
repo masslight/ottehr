@@ -1,9 +1,12 @@
+import { Locator } from '@playwright/test';
 import {
+  Flags,
   InsuranceOptionalData,
   InsuranceRequiredData,
   PatientDetailsData,
   PrimaryCarePhysicianData,
   ResponsibleParty,
+  TelemedPaperworkData,
 } from 'tests/utils/Paperwork';
 import { GetSlotDetailsResponse } from 'utils';
 

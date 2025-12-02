@@ -67,12 +67,12 @@ interface EmergencyContact {
   zip: string;
 }
 
-interface TelemedPaperworkData {
+export interface TelemedPaperworkData {
   filledValue: string;
   selectedValue: string;
 }
 
-interface Flags {
+export interface Flags {
   covid: string;
   test: string;
   travel: string;
