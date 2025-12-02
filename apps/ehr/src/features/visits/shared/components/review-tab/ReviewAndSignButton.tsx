@@ -162,7 +162,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       throw new Error('api client not defined or appointmentId not provided');
     }
 
-    if (FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && requireSupervisorApproval) {
+    if (isInPerson && FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && requireSupervisorApproval) {
       await updateVisitStatusToAwaitSupervisorApproval();
     } else {
       if (isInPerson) {
