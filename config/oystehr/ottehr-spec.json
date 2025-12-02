@@ -1313,7 +1313,7 @@
       "src": "src/subscriptions/task/sub-generate-statement/index",
       "zip": ".dist/zips/generate-statement.zip",
       "subscription": {
-        "criteria": "Task?code=send-invoice-to-patient|&status=completed",
+        "criteria": "Task?code=|send-invoice-to-patient&status=completed",
         "reason": "Generate statement",
         "event": "update"
       }
@@ -1615,6 +1615,28 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-INVOICE-TO-PATIENT/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_GENERATE_STATEMENT_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Generate statement",
+        "criteria": "Task?code=|send-invoice-to-patient&status=completed",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB_GENERATE_STATEMENT/id}"
         },
         "extension": [
           {
