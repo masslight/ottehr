@@ -62,7 +62,7 @@ export interface AddVisitErrorState {
 
 export type AddVisitPatientInfo = Pick<
   PatientInfo,
-  'id' | 'newPatient' | 'firstName' | 'lastName' | 'dateOfBirth' | 'sex' | 'phoneNumber'
+  'id' | 'newPatient' | 'firstName' | 'middleName' | 'lastName' | 'dateOfBirth' | 'sex' | 'phoneNumber'
 >;
 export interface LocationWithWalkinSchedule extends Location {
   walkinSchedule: Schedule | undefined;

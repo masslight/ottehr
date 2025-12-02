@@ -1,33 +1,15 @@
-import {
-  Box,
-  Button,
-  Dialog,
-  FormControlLabel,
-  Pagination,
-  PaginationItem,
-  Radio,
-  RadioGroup,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Dialog, FormControlLabel, Radio, RadioGroup, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import {
-  PartialSearchOptionsState,
-  SearchOptionsState,
-  SearchResult,
-  SearchResultParsedPatient,
-} from '../patients-search/types';
+import { AddVisitPatientInfo } from 'src/pages/AddPatient';
 
 interface AddVisitPatientSearchDialogProps {
   openSearchResults: boolean;
   setOpenSearchResults: (open: boolean) => void;
-  selectedPatient: SearchResultParsedPatient | undefined;
-  setSelectedPatient: (patient: SearchResultParsedPatient | undefined) => void;
-  searchResult: SearchResult;
-  searchOptions: SearchOptionsState;
-  patientsPerPage: number;
-  search: (params?: PartialSearchOptionsState | undefined) => void;
+  selectedPatient: AddVisitPatientInfo | undefined;
+  setSelectedPatient: (patient: AddVisitPatientInfo | undefined) => void;
+  patients: AddVisitPatientInfo[];
   handleSelectExistingPatient: () => void;
   handleManuallyEnterPatientDetails: () => void;
 }
@@ -36,18 +18,11 @@ export const AddVisitPatientSearchDialog: FC<AddVisitPatientSearchDialogProps> =
   setOpenSearchResults,
   selectedPatient,
   setSelectedPatient,
-  searchResult,
-  searchOptions,
-  patientsPerPage,
-  search,
+  patients,
   handleSelectExistingPatient,
   handleManuallyEnterPatientDetails,
 }) => {
-  const page = Math.floor(searchOptions.pagination.offset / searchOptions.pagination.pageSize) + 1;
-  const paginationCount = Math.ceil(searchResult.pagination.totalItems / patientsPerPage);
-  const showPagination = searchResult?.pagination && paginationCount > 1;
-
-  const getFullNameForSearchedPatient = (patient: SearchResultParsedPatient): string => {
+  const getFullNameFromPatientInfo = (patient: AddVisitPatientInfo): string => {
     return `${patient.firstName}${patient.middleName ? ` ${patient.middleName}` : ''} ${patient.lastName}`;
   };
 
@@ -69,40 +44,17 @@ export const AddVisitPatientSearchDialog: FC<AddVisitPatientSearchDialogProps> =
           <RadioGroup
             onChange={(e) => {
               const id = e.target.value;
-              const patient = searchResult.patients.find((p) => p.id === id);
+              const patient = patients.find((p) => p.id === id);
               setSelectedPatient(patient);
             }}
           >
-            {searchResult?.patients.map((patient) => {
-              const label = `${getFullNameForSearchedPatient(patient)} (DOB: ${DateTime.fromISO(
-                patient?.birthDate || ''
+            {patients.map((patient) => {
+              const label = `${getFullNameFromPatientInfo(patient)} (DOB: ${DateTime.fromISO(
+                patient?.dateOfBirth || ''
               ).toFormat('MMMM dd, yyyy')})`;
               return <FormControlLabel key={patient.id} value={patient.id} control={<Radio />} label={label} />;
             })}
           </RadioGroup>
-          {showPagination && (
-            <Box display="flex" justifyContent="right">
-              <Pagination
-                count={paginationCount}
-                shape="rounded"
-                color="primary"
-                page={page}
-                onChange={(_, newPage) => {
-                  console.log('newPage', newPage);
-                  void search({ pagination: { offset: searchOptions.pagination.pageSize * (newPage - 1) } });
-                }}
-                renderItem={(item) => (
-                  <PaginationItem
-                    {...item}
-                    disabled={
-                      (item.type === 'previous' && !searchResult.pagination.prev) ||
-                      (item.type === 'next' && !searchResult.pagination.next)
-                    }
-                  />
-                )}
-              />
-            </Box>
-          )}
         </Box>
         {selectedPatient && (
           <Box sx={{ marginTop: 2 }}>
@@ -116,7 +68,7 @@ export const AddVisitPatientSearchDialog: FC<AddVisitPatientSearchDialogProps> =
               }}
               onClick={handleSelectExistingPatient}
             >
-              Prefill for {getFullNameForSearchedPatient(selectedPatient)}
+              Prefill for {getFullNameFromPatientInfo(selectedPatient)}
             </Button>
           </Box>
         )}
