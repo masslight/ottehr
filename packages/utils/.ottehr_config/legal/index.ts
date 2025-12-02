@@ -1,3 +1,1 @@
-export const LEGAL_OVERRIDES = {
-  REVIEW_PAGE: [],
-};
+export const LEGAL_OVERRIDES = {};

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { LEGAL_OVERRIDES as OVERRIDES } from '../../../.ottehr_config';
 import { mergeAndFreezeConfigObjects } from '../helpers';
-import { TextWithLinkComposition } from '../types';
+import { DisplayTextSchema, LinkDef, LinkDefSchema, TextWithLinkComposition } from '../types';
 
 console.log('LEGAL OVERRIDES:', OVERRIDES);
 
@@ -18,6 +18,7 @@ const LEGAL_DEFAULTS: LegalConfigSchemaType = {
       textToDisplay: { keyPath: 'reviewAndSubmit.privacyPolicy', nodeType: 'DisplayText' },
       testId: 'privacy-policy-review-screen',
       nodeType: 'Link',
+      tags: ['privacy-policy'],
     },
     {
       keyPath: 'reviewAndSubmit.andPrivacyPolicy',
@@ -28,6 +29,28 @@ const LEGAL_DEFAULTS: LegalConfigSchemaType = {
       textToDisplay: { keyPath: 'reviewAndSubmit.termsAndConditions', nodeType: 'DisplayText' },
       testId: 'terms-conditions-review-screen',
       nodeType: 'Link',
+      tags: ['terms-and-conditions'],
+    },
+  ],
+  PAPERWORK_REVIEW_PAGE: [
+    {
+      literal: 'By proceeding with a visit, you acknowledge that you have reviewed and accept our ',
+      nodeType: 'DisplayText',
+    },
+    {
+      url: '/template.pdf',
+      textToDisplay: { literal: 'Privacy Policy', nodeType: 'DisplayText' },
+      testId: 'privacy-policy-review-screen',
+      nodeType: 'Link',
+      tags: ['privacy-policy'],
+    },
+    { literal: ' and ', nodeType: 'DisplayText' },
+    {
+      url: '/template.pdf',
+      textToDisplay: { keyPath: 'reviewAndSubmit.termsAndConditions', nodeType: 'DisplayText' },
+      testId: 'terms-conditions-review-screen',
+      nodeType: 'Link',
+      tags: ['terms-and-conditions'],
     },
   ],
 };
@@ -35,21 +58,7 @@ const LEGAL_DEFAULTS: LegalConfigSchemaType = {
 const mergedLegalConfig = mergeAndFreezeConfigObjects({ ...LEGAL_DEFAULTS }, { ...OVERRIDES });
 
 const textWithLinkCompositionSchema: z.ZodType<TextWithLinkComposition> = z.array(
-  z.discriminatedUnion('nodeType', [
-    z.object({
-      nodeType: z.literal('DisplayText'),
-      keyPath: z.string(),
-    }),
-    z.object({
-      nodeType: z.literal('Link'),
-      url: z.string(),
-      textToDisplay: z.object({
-        keyPath: z.string(),
-        nodeType: z.literal('DisplayText'),
-      }),
-      testId: z.string().optional(),
-    }),
-  ])
+  z.union([DisplayTextSchema, LinkDefSchema])
 );
 
 const legalConfigSchema = z.record(z.string(), textWithLinkCompositionSchema);
@@ -62,4 +71,28 @@ export const getLegalCompositionForLocation = (locationKey: string): TextWithLin
     return undefined;
   }
   return legalComposition;
+};
+
+export const getPrivacyPolicyLinkDefForLocation = (locationKey: string): LinkDef | undefined => {
+  const legalComposition = getLegalCompositionForLocation(locationKey);
+  if (!legalComposition) {
+    return undefined;
+  }
+  return LinkDefSchema.safeParse(
+    legalComposition.find(
+      (node) => node.nodeType === 'Link' && 'tags' in node && node.tags?.includes('privacy-policy')
+    ) ?? {}
+  )?.data;
+};
+
+export const getTermsAndConditionsLinkDefForLocation = (locationKey: string): LinkDef | undefined => {
+  const legalComposition = getLegalCompositionForLocation(locationKey);
+  if (!legalComposition) {
+    return undefined;
+  }
+  return LinkDefSchema.safeParse(
+    legalComposition.find(
+      (node) => node.nodeType === 'Link' && 'tags' in node && node.tags?.includes('terms-and-conditions')
+    ) ?? {}
+  )?.data;
 };

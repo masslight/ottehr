@@ -19,7 +19,7 @@ export const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({ pageId }
   }
 
   return (
-    <Typography color={theme.palette.text.secondary}>
+    <Typography color={theme.palette.text.secondary} variant="body2">
       {/* this rendering of link and text nodes is pretty generic and could be extracted to its own component at some point */}
       {legalComposition.map((node) => {
         if (node.nodeType === 'Link') {
