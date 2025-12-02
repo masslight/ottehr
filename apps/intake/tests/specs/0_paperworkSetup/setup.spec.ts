@@ -23,6 +23,7 @@ import {
   ReservationModificationPatient,
   TelemedPatientTestData,
   TelemedPrebookPatientTestData,
+  TelemedWalkInPatientTestData,
 } from './types';
 
 const appointmentIds: string[] = [];
@@ -459,13 +460,14 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Write test data to file', async () => {
-      const walkInTelemedPatient: TelemedPatientTestData = {
+      const walkInTelemedPatient: TelemedWalkInPatientTestData = {
         firstName: bookingData.patientBasicInfo.firstName,
         lastName: bookingData.patientBasicInfo.lastName,
         email: bookingData.patientBasicInfo.email,
         birthSex: bookingData.patientBasicInfo.birthSex,
         dateOfBirth: bookingData.patientBasicInfo.dob,
         appointmentId: appointmentIds[appointmentIds.length - 1],
+        state: bookingData.stateValue,
       };
       console.log('walkInTelemedPatient', JSON.stringify(walkInTelemedPatient));
       writeTestData('walkInTelemedPatient.json', walkInTelemedPatient);

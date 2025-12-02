@@ -82,3 +82,7 @@ export interface TelemedPrebookPatientTestData extends TelemedPatientTestData {
   flags: Flags;
   uploadedPhotoCondition: Locator;
 }
+
+export interface TelemedWalkInPatientTestData extends TelemedPatientTestData {
+  state: string;
+}
