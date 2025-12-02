@@ -57,6 +57,8 @@ export const MissingCard: FC = () => {
         assessment: TelemedAppointmentVisitTabs.assessment,
       };
 
+      if (target === 'hpi') return;
+
       useAppTelemedLocalStore.setState({
         currentTab: telemedTabs[target],
       });
