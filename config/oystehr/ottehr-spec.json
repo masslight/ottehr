@@ -1310,7 +1310,7 @@
       "name": "generate-statement",
       "type": "subscription",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/generate-statement/index",
+      "src": "src/subscriptions/task/sub-generate-statement/index",
       "zip": ".dist/zips/generate-statement.zip",
       "subscription": {
         "criteria": "Task?code=send-invoice-to-patient|&status=completed",
