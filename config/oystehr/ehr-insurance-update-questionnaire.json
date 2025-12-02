@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-ehr-insurance-update-1_2_0": {
+    "questionnaire-ehr-insurance-update-1_1_1": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/ehr-insurance-update-questionnaire",
-        "version": "1.2.0",
+        "version": "1.1.1",
         "name": "ehr-insurance-update-questionnaire",
         "title": "EHR Insurance Update Form",
         "status": "active",
