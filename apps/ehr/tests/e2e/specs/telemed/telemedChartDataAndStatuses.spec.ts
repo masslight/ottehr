@@ -571,7 +571,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
       test('Chief complaint HPI and ROS', async () => {
         await test.step('Should add HPI provider notes and ROS', async () => {
           await page
-            .getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes)
+            .getByTestId(dataTestIds.hpiAndTemplatesPage.hpiNotes)
             .locator('textarea')
             .first()
             .fill(providerNote);
