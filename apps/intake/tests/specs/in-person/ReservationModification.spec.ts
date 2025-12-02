@@ -3,11 +3,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CancelPage } from '../../utils/CancelPage';
 import { ModifyPage } from '../../utils/ModifyPage';
-import { InPersonPatientTestData } from '../0_paperworkSetup/types';
+import { ReservationModificationPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
-let patient: InPersonPatientTestData;
+let patient: ReservationModificationPatient;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();

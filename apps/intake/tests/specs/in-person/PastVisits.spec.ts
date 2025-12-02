@@ -59,6 +59,7 @@ test.describe.parallel('Past Visits', async () => {
     const homepage = new Homepage(page);
     let pastVisitsPage: PastVisitsPage;
     const patientFullName = `${appointmentPatient?.firstName} ${appointmentPatient?.lastName}`;
+    expect(appointmentPatient.cancelledSlotDetails).toBeDefined();
 
     await test.step('PV-2.1. Open past visits page', async () => {
       await homepage.navigate();
@@ -79,12 +80,12 @@ test.describe.parallel('Past Visits', async () => {
     await test.step('PV-2.3. Check appointment details', async () => {
       await expect(
         page.getByText(
-          DateTime.fromISO(appointmentPatient.cancelledSlotDetails.startISO)
-            .setZone(appointmentPatient.cancelledSlotDetails.timezoneForDisplay)
+          DateTime.fromISO(appointmentPatient.cancelledSlotDetails!.startISO)
+            .setZone(appointmentPatient.cancelledSlotDetails!.timezoneForDisplay)
             .toFormat("MMMM dd, yyyy 'at' h:mm a")
         )
       ).toBeVisible();
-      await expect(page.getByText(`Visit ID: ${appointmentPatient.cancelledSlotDetails.appointmentId}`)).toBeVisible();
+      await expect(page.getByText(`Visit ID: ${appointmentPatient.cancelledSlotDetails!.appointmentId}`)).toBeVisible();
       await expect(page.getByText('(In-Person)')).toBeVisible();
       await expect(page.getByText('Canceled')).toBeVisible();
     });

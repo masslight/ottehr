@@ -16,18 +16,25 @@ export interface InPersonPatientTestData {
   email: string;
   birthSex: string;
   dateOfBirth: string;
-  appointmentId: string;
-  slot: string | undefined;
-  location: string | null;
+  appointmentId: string | null;
+}
+
+export interface ReservationModificationPatient extends InPersonPatientTestData {
   slotDetails: GetSlotDetailsResponse;
 }
 
 export interface InPersonPatientSelfTestData extends InPersonPatientTestData {
+  slot: string | undefined;
+  location: string | null;
+  slotDetails: GetSlotDetailsResponse;
   state: string;
   cancelledSlotDetails: { appointmentId: string } & GetSlotDetailsResponse;
 }
 
 export interface InPersonPatientNotSelfTestData extends InPersonPatientTestData {
+  slot: string | undefined;
+  location: string | null;
+  slotDetails: GetSlotDetailsResponse;
   state: string;
   patientDetailsData: PatientDetailsData;
   pcpData: PrimaryCarePhysicianData;
@@ -39,7 +46,7 @@ export interface InPersonPatientNotSelfTestData extends InPersonPatientTestData 
     insuranceRequiredData: InsuranceRequiredData;
     insuranceOptionalData: InsuranceOptionalData;
   } | null;
-  responsiblePartyData: ResponsibleParty;
+  responsiblePartyData: ResponsibleParty | null;
 }
 
 export interface TelemedPatientTestData {
@@ -67,7 +74,7 @@ export interface TelemedPrebookPatientTestData extends TelemedPatientTestData {
     insuranceRequiredData: InsuranceRequiredData;
     insuranceOptionalData: InsuranceOptionalData;
   } | null;
-  responsiblePartyData: ResponsibleParty;
+  responsiblePartyData: ResponsibleParty | null;
   medicationData: TelemedPaperworkData;
   allergiesData: TelemedPaperworkData;
   medicalHistoryData: TelemedPaperworkData;

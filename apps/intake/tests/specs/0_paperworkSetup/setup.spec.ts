@@ -16,6 +16,14 @@ import { Paperwork } from '../../utils/Paperwork';
 import { FillingInfo as TelemedFillingInfo } from '../../utils/telemed/FillingInfo';
 import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
 import { TelemedVisitFlow } from '../../utils/telemed/TelemedVisitFlow';
+import {
+  InPersonPatientNotSelfTestData,
+  InPersonPatientSelfTestData,
+  InPersonPatientTestData,
+  ReservationModificationPatient,
+  TelemedPatientTestData,
+  TelemedPrebookPatientTestData,
+} from './types';
 
 const appointmentIds: string[] = [];
 
@@ -117,7 +125,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     await test.step('Save test data', async () => {
-      const cardPaymentSelfPatient = {
+      const cardPaymentSelfPatient: InPersonPatientSelfTestData = {
         firstName: bookingData.firstName,
         lastName: bookingData.lastName,
         email: bookingData.email,
@@ -128,7 +136,10 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
         location,
         state: stateValue,
         slotDetails: slotDetailsRef.current,
-        cancelledSlotDetails: { appointmentId: appointmentIds[appointmentIds.length - 2], ...bookingData.slotDetails },
+        cancelledSlotDetails: {
+          appointmentId: appointmentIds[appointmentIds.length - 2],
+          ...(bookingData.slotDetails as GetSlotDetailsResponse),
+        },
       };
       console.log('cardPaymentSelfPatient', JSON.stringify(cardPaymentSelfPatient));
       writeTestData('cardPaymentSelfPatient.json', cardPaymentSelfPatient);
@@ -196,7 +207,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     await test.step('Save test data', async () => {
-      const insurancePaymentNotSelfPatient = {
+      const insurancePaymentNotSelfPatient: InPersonPatientNotSelfTestData = {
         firstName: bookingData.firstName,
         lastName: bookingData.lastName,
         email: bookingData.email,
@@ -243,7 +254,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     await test.step('Save test data', async () => {
-      const patientWithoutPaperwork = {
+      const patientWithoutPaperwork: InPersonPatientTestData = {
         firstName: bookingData.firstName,
         lastName: bookingData.lastName,
         email: bookingData.email,
@@ -282,7 +293,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     await test.step('Save test data', async () => {
-      const reservationModificationPatient = {
+      const reservationModificationPatient: ReservationModificationPatient = {
         firstName: bookingData.firstName,
         lastName: bookingData.lastName,
         email: bookingData.email,
@@ -363,7 +374,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Write test data to file', async () => {
-      const prebookTelemedPatient = {
+      const prebookTelemedPatient: TelemedPrebookPatientTestData = {
         firstName: bookingData.patientBasicInfo.firstName,
         lastName: bookingData.patientBasicInfo.lastName,
         email: bookingData.patientBasicInfo.email,
@@ -448,7 +459,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Write test data to file', async () => {
-      const walkInTelemedPatient = {
+      const walkInTelemedPatient: TelemedPatientTestData = {
         firstName: bookingData.patientBasicInfo.firstName,
         lastName: bookingData.patientBasicInfo.lastName,
         email: bookingData.patientBasicInfo.email,
@@ -486,7 +497,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Save test data', async () => {
-      const telemedPatientWithoutPaperwork = {
+      const telemedPatientWithoutPaperwork: TelemedPatientTestData = {
         firstName: bookingData.patientBasicInfo.firstName,
         lastName: bookingData.patientBasicInfo.lastName,
         email: bookingData.patientBasicInfo.email,
