@@ -275,6 +275,11 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           documents,
           insuranceOrgs: accountInfo?.insuranceOrgs ?? [],
         });
+      } else if (EMPLOYER_ITEMS.includes(item.linkId)) {
+        return mapEmployerToQuestionnaireResponseItems({
+          items: itemItems,
+          employerOrganization: accountInfo?.employerOrganization,
+        });
       } else if (item.linkId === 'photo-id-page') {
         return itemItems.map((item) => {
           let answer: QuestionnaireResponseItemAnswer[] | undefined;
@@ -369,6 +374,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
     insuranceOrgs,
     emergencyContactResource,
     pharmacy,
+    employerOrganization,
   } = input;
   console.log('making prepopulated items from patient record', coverages, pharmacy);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
@@ -409,6 +415,12 @@ export const makePrepopulatedItemsFromPatientRecord = (
         return mapPharmacyToQuestionnaireResponseItems({
           items: itemItems,
           pharmacyResource: pharmacy,
+        });
+      }
+      if (EMPLOYER_ITEMS.includes(item.linkId)) {
+        return mapEmployerToQuestionnaireResponseItems({
+          items: itemItems,
+          employerOrganization,
         });
       }
       return [];
@@ -955,6 +967,88 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
         answer,
       };
     });
+};
+
+const EMPLOYER_ITEMS = ['employer-information-page'];
+
+interface MapEmployerItemsInput {
+  items: QuestionnaireItem[];
+  employerOrganization?: Organization;
+}
+
+const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): QuestionnaireResponseItem[] => {
+  const { employerOrganization, items } = input;
+  const address = employerOrganization?.address?.[0];
+  const contact = employerOrganization?.contact?.[0];
+
+  const getTelecomValue = (system: string): string | undefined => {
+    const contactValue = contact?.telecom?.find((tel) => tel.system === system && tel.value)?.value;
+    const orgValue = employerOrganization?.telecom?.find((tel) => tel.system === system && tel.value)?.value;
+    return contactValue ?? orgValue;
+  };
+
+  const formatPhone = (value?: string): string | undefined => {
+    if (!value) return undefined;
+    const formatted = formatPhoneNumberDisplay(value);
+    return formatted || value;
+  };
+
+  return items.map((item) => {
+    let answer: QuestionnaireResponseItemAnswer[] | undefined;
+    const { linkId } = item;
+
+    switch (linkId) {
+      case 'employer-name':
+        if (employerOrganization?.name) answer = makeAnswer(employerOrganization.name);
+        break;
+      case 'employer-address':
+        if (address?.line?.[0]) answer = makeAnswer(address.line[0]);
+        break;
+      case 'employer-address-2':
+        if (address?.line?.[1]) answer = makeAnswer(address.line[1]);
+        break;
+      case 'employer-city':
+        if (address?.city) answer = makeAnswer(address.city);
+        break;
+      case 'employer-state':
+        if (address?.state) answer = makeAnswer(address.state);
+        break;
+      case 'employer-zip':
+        if (address?.postalCode) answer = makeAnswer(address.postalCode);
+        break;
+      case 'employer-contact-first-name': {
+        const firstName = contact?.name?.given?.[0];
+        if (firstName) answer = makeAnswer(firstName);
+        break;
+      }
+      case 'employer-contact-last-name':
+        if (contact?.name?.family) answer = makeAnswer(contact.name.family);
+        break;
+      case 'employer-contact-title':
+        if (contact?.purpose?.text) answer = makeAnswer(contact.purpose.text);
+        break;
+      case 'employer-contact-email': {
+        const email = getTelecomValue('email');
+        if (email) answer = makeAnswer(email);
+        break;
+      }
+      case 'employer-contact-phone': {
+        const phone = formatPhone(getTelecomValue('phone'));
+        if (phone) answer = makeAnswer(phone);
+        break;
+      }
+      case 'employer-contact-fax': {
+        const fax = formatPhone(getTelecomValue('fax'));
+        if (fax) answer = makeAnswer(fax);
+        break;
+      }
+    }
+
+    return {
+      linkId,
+      answer,
+    };
+  });
 };
 
 const GUARANTOR_ITEMS = ['responsible-party-section', 'responsible-party-page'];

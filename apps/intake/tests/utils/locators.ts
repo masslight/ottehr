@@ -91,6 +91,18 @@ export class Locators {
   responsiblePartyCity: Locator;
   responsiblePartyState: Locator;
   responsiblePartyZip: Locator;
+  employerName: Locator;
+  employerAddress1: Locator;
+  employerAddress2: Locator;
+  employerCity: Locator;
+  employerState: Locator;
+  employerZip: Locator;
+  employerContactFirstName: Locator;
+  employerContactLastName: Locator;
+  employerContactTitle: Locator;
+  employerContactEmail: Locator;
+  employerContactPhone: Locator;
+  employerContactFax: Locator;
   numberErrorText: Locator;
   zipErrorText: Locator;
   responsiblePartyDOBAnswer: Locator;
@@ -387,6 +399,20 @@ export class Locators {
     this.responsiblePartyCity = page.locator('[id="responsible-party-city"]');
     this.responsiblePartyState = page.locator('[id="responsible-party-state"]');
     this.responsiblePartyZip = page.locator('[id="responsible-party-zip"]');
+
+    // Employer information locators
+    this.employerName = page.locator('[id="employer-name"]');
+    this.employerAddress1 = page.locator('[id="employer-address"]');
+    this.employerAddress2 = page.locator('[id="employer-address-2"]');
+    this.employerCity = page.locator('[id="employer-city"]');
+    this.employerState = page.locator('[id="employer-state"]');
+    this.employerZip = page.locator('[id="employer-zip"]');
+    this.employerContactFirstName = page.locator('[id="employer-contact-first-name"]');
+    this.employerContactLastName = page.locator('[id="employer-contact-last-name"]');
+    this.employerContactTitle = page.locator('[id="employer-contact-title"]');
+    this.employerContactEmail = page.locator('[id="employer-contact-email"]');
+    this.employerContactPhone = page.locator('[id="employer-contact-phone"]');
+    this.employerContactFax = page.locator('[id="employer-contact-fax"]');
 
     // Emergency Contact Information locators
     this.emergencyContactInformationRelationship = page.locator('[id="emergency-contact-relationship"]');
