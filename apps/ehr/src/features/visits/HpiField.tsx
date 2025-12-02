@@ -8,27 +8,27 @@ import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 export const HistoryOfPresentIllnessField: FC = () => {
   const { data: chartDataFields } = useChartFields({
     requestedFields: {
-      historyOfPresentIllness: {
-        _tag: 'history-of-present-illness',
+      chiefComplaint: {
+        _tag: 'chief-complaint',
       },
     },
   });
 
   const methods = useForm({
     defaultValues: {
-      historyOfPresentIllness: chartDataFields?.historyOfPresentIllness?.text || '',
+      historyOfPresentIllness: chartDataFields?.chiefComplaint?.text || '',
     },
   });
 
   useEffect(() => {
-    if (chartDataFields?.historyOfPresentIllness?.text !== undefined) {
-      methods.setValue('historyOfPresentIllness', chartDataFields.historyOfPresentIllness.text);
+    if (chartDataFields?.chiefComplaint?.text !== undefined) {
+      methods.setValue('historyOfPresentIllness', chartDataFields.chiefComplaint.text);
     }
-  }, [chartDataFields?.historyOfPresentIllness?.text, methods]);
+  }, [chartDataFields?.chiefComplaint?.text, methods]);
 
   const { control } = methods;
 
-  const { onValueChange, isLoading, isChartDataLoading } = useDebounceNotesField('historyOfPresentIllness');
+  const { onValueChange, isLoading, isChartDataLoading } = useDebounceNotesField('chiefComplaint');
 
   return (
     <Controller
@@ -64,11 +64,11 @@ export const HistoryOfPresentIllnessField: FC = () => {
 export const HistoryOfPresentIllnessFieldReadOnly: FC = () => {
   const { data: chartFields } = useChartFields({
     requestedFields: {
-      historyOfPresentIllness: { _tag: 'history-of-present-illness' },
+      chiefComplaint: { _tag: 'chief-complaint' },
     },
   });
 
-  const historyOfPresentIllness = chartFields?.historyOfPresentIllness?.text;
+  const historyOfPresentIllness = chartFields?.chiefComplaint?.text;
 
   if (!historyOfPresentIllness) return null;
 

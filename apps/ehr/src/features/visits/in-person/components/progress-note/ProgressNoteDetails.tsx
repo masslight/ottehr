@@ -93,8 +93,8 @@ export const ProgressNoteDetails: FC = () => {
   const vitalsObservations = chartFields?.vitalsObservations;
   const externalLabResults = chartFields?.externalLabResults;
   const inHouseLabResults = chartFields?.inHouseLabResults;
-  const chiefComplaint = chartFields?.chiefComplaint?.text;
-  const hpi = chartFields?.historyOfPresentIllness?.text;
+  const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
+  const hpi = chartFields?.chiefComplaint?.text;
   const ros = chartFields?.ros?.text;
 
   const emCode = chartData?.emCode;

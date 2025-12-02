@@ -6,13 +6,13 @@ import { useChartFields } from '../../../hooks/useChartFields';
 export const HistoryOfPresentIllnessContainer: FC = () => {
   const { data: chartFields } = useChartFields({
     requestedFields: {
-      historyOfPresentIllness: {
-        _tag: 'history-of-present-illness',
+      chiefComplaint: {
+        _tag: 'chief-complaint',
       },
     },
   });
 
-  const historyOfPresentIllness = chartFields?.historyOfPresentIllness?.text;
+  const historyOfPresentIllness = chartFields?.chiefComplaint?.text;
 
   return (
     <Box
