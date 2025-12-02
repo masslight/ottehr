@@ -766,6 +766,7 @@ export default function VisitDetailsPage(): ReactElement {
                 sx={{
                   borderRadius: '20px',
                   textTransform: 'none',
+                  height: 'fit-content',
                 }}
                 loading={paperworkPdfLoading}
                 color="primary"
