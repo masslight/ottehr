@@ -295,31 +295,6 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
       writeTestData('reservationModificationPatient.json', reservationModificationPatient);
     });
   });
-
-  test('Create patient without appointments', async ({ browser }) => {
-    const flowClass = await test.step('Set up playwright', async () => {
-      const context = await browser.newContext();
-      const page = await context.newPage();
-      return new PrebookInPersonFlow(page);
-    });
-
-    const { bookingData } = await test.step('Create patient', async () => {
-      const bookingData = await flowClass.startVisit();
-      return { bookingData };
-    });
-
-    await test.step('Save test data', async () => {
-      const patientWithoutAppointments = {
-        firstName: bookingData.firstName,
-        lastName: bookingData.lastName,
-        email: bookingData.email,
-        birthSex: bookingData.birthSex,
-        dateOfBirth: bookingData.dateOfBirth,
-      };
-      console.log('patientWithoutAppointments', JSON.stringify(patientWithoutAppointments));
-      writeTestData('patientWithoutAppointments.json', patientWithoutAppointments);
-    });
-  });
 });
 
 test.describe.parallel('Telemed: Create test patients and appointments', () => {
