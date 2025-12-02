@@ -1305,6 +1305,18 @@
       "runtime": "nodejs22.x",
       "src": "src/patient/paperwork/get-questionnaire/index",
       "zip": ".dist/zips/get-questionnaire-patient.zip"
+    },
+    "SUB_GENERATE_STATEMENT": {
+      "name": "generate-statement",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-generate-statement/index",
+      "zip": ".dist/zips/generate-statement.zip",
+      "subscription": {
+        "criteria": "Task?code=|send-invoice-to-patient&status=completed",
+        "reason": "Generate statement",
+        "event": "update"
+      }
     }
   },
   "faxNumbers": {
@@ -1603,6 +1615,28 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-INVOICE-TO-PATIENT/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          },
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_GENERATE_STATEMENT_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Generate statement",
+        "criteria": "Task?code=|send-invoice-to-patient&status=completed",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB_GENERATE_STATEMENT/id}"
         },
         "extension": [
           {
@@ -5917,7 +5951,8 @@
             "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
             "Z3:#{var/PROJECT_ID}-discharge-summaries/*",
             "Z3:#{var/PROJECT_ID}-labs/*",
-            "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*"
+            "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*",
+            "Z3:#{var/PROJECT_ID}-statements/*"
           ],
           "action": [
             "Z3:PutObject",
@@ -7111,6 +7146,10 @@
     },
     "INVOICEABLE_PATIENTS_REPORTS": {
       "name": "#{var/PROJECT_ID}-invoiceable-patients-reports",
+      "removalPolicy": "retain"
+    },
+    "STATEMENTS": {
+      "name": "#{var/PROJECT_ID}-statements",
       "removalPolicy": "retain"
     }
   },
