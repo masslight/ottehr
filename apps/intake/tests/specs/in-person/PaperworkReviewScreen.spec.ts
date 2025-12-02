@@ -174,13 +174,13 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Review and Submit', () 
     });
   });
 
-  test('PRS-7. Edit icon opens consent forms page', async () => {
-    await test.step('PRS-7.1. Open Review and submit page directly', async () => {
+  test('PRS-8. Edit icon opens consent forms page', async () => {
+    await test.step('PRS-8.1. Open Review and submit page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/review`);
       await paperwork.checkCorrectPageOpens('Review and submit');
     });
 
-    await test.step('PRS-7.2. Edit opens consent forms', async () => {
+    await test.step('PRS-8.2. Edit opens consent forms', async () => {
       await locator.consentFormsEditButton.click();
       await paperwork.checkCorrectPageOpens('Complete consent forms');
       await locator.clickBackButton();
