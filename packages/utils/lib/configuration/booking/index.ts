@@ -16,6 +16,7 @@ import { BOOKING_OVERRIDES } from '../../../.ottehr_config';
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, OTTEHR_CODE_SYSTEM_BASE_URL } from '../../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../../helpers';
 import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../../types';
+import { mergeAndFreezeConfigObjects } from '../helpers';
 
 const BookingQuestionnaire = Object.values(bookAppointmentQuestionnaireJson.fhirResources)![0]
   .resource as Questionnaire;
@@ -270,9 +271,7 @@ const BOOKING_DEFAULTS = Object.freeze({
   mapBookingQRItemToPatientInfo,
 });
 
-const mergedBookingConfig = _.merge({ ...BOOKING_DEFAULTS }, { ...BOOKING_OVERRIDES });
-
-export const BOOKING_CONFIG = Object.freeze(mergedBookingConfig);
+export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, BOOKING_OVERRIDES);
 
 export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
   return BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes.includes(params.serviceMode) &&
