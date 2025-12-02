@@ -17,6 +17,7 @@ import { ChiefComplaintContainer } from 'src/features/visits/shared/components/r
 import { CPTCodesContainer } from 'src/features/visits/shared/components/review-tab/components/CPTCodesContainer';
 import { EMCodeContainer } from 'src/features/visits/shared/components/review-tab/components/EMCodeContainer';
 import { ExaminationContainer } from 'src/features/visits/shared/components/review-tab/components/ExaminationContainer';
+import { HistoryOfPresentIllnessContainer } from 'src/features/visits/shared/components/review-tab/components/HistoryOfPresentIllnessContainer';
 import { MedicalConditionsContainer } from 'src/features/visits/shared/components/review-tab/components/MedicalConditionsContainer';
 import { MedicalDecisionMakingContainer } from 'src/features/visits/shared/components/review-tab/components/MedicalDecisionMakingContainer';
 import { MedicationsContainer } from 'src/features/visits/shared/components/review-tab/components/MedicationsContainer';
@@ -93,6 +94,7 @@ export const ProgressNoteDetails: FC = () => {
   const externalLabResults = chartFields?.externalLabResults;
   const inHouseLabResults = chartFields?.inHouseLabResults;
   const chiefComplaint = chartFields?.chiefComplaint?.text;
+  const hpi = chartFields?.historyOfPresentIllness?.text;
   const ros = chartFields?.ros?.text;
 
   const emCode = chartData?.emCode;
@@ -101,6 +103,7 @@ export const ProgressNoteDetails: FC = () => {
   const observations = chartData?.observations;
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
+  const showHpi = !!(hpi && hpi.length > 0);
   const showReviewOfSystems = !!(ros && ros.length > 0);
   const showAdditionalQuestions =
     !!(observations && observations.length > 0) || !!(screeningNotes && screeningNotes.length > 0);
@@ -145,6 +148,7 @@ export const ProgressNoteDetails: FC = () => {
 
   const sections = [
     showChiefComplaint && <ChiefComplaintContainer />,
+    showHpi && <HistoryOfPresentIllnessContainer />,
     showReviewOfSystems && <ReviewOfSystemsContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer notes={screeningNotes} />,
     showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,

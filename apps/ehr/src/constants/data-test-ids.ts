@@ -355,6 +355,7 @@ export const dataTestIds = {
     medicalConditionsContainer: 'medical-conditions-container',
     surgicalHistoryContainer: 'surgical-history-container',
     additionalQuestions: 'additional-questions',
+    hpiContainer: 'hpi-container',
   },
   assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',

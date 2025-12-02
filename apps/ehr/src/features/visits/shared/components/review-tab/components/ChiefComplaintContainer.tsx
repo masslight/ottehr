@@ -29,7 +29,7 @@ export const ChiefComplaintContainer: FC = () => {
       data-testid={dataTestIds.telemedEhrFlow.reviewTabChiefComplaintContainer}
     >
       <Typography variant="h5" color="primary.dark">
-        Chief complaint & History of Present Illness
+        Chief complaint
       </Typography>
       <Typography>{chiefComplaint}</Typography>
       {!isInPerson && addToVisitNote && spentTime && (
