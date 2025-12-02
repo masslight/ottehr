@@ -120,7 +120,6 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
         value: 'false',
       });
     }
-    console.log('check the params', JSON.stringify(params));
     const resources = (
       await oystehr.fhir.search<Patient | Person | RelatedPerson>({
         resourceType: 'Patient',

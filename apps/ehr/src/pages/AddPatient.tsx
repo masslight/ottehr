@@ -141,17 +141,6 @@ export default function AddPatient(): JSX.Element {
       return;
     }
 
-    // i think this is an edge case but while testing with very very new patients that had not had their patient info updated
-    // there was no mobile phone and so this field was blank and locked but the "no phone error" was still being thrown
-    // (text is still received even if no mobile number on patient because its recorded for the user)
-    // so now only throwing for new patients
-    if (patientInfo.newPatient && (!patientInfo?.phoneNumber || patientInfo.phoneNumber.length !== 10)) {
-      setErrors({ phone: true });
-      return;
-    } else {
-      setErrors({});
-    }
-
     if ((visitType === VisitType.PreBook || visitType === VisitType.PostTelemed) && slot === undefined) {
       setSelectSlotDialogOpen(true);
       return;

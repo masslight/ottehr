@@ -21,7 +21,7 @@ describe('AddPatient', () => {
     http.post('https://fhir-api.zapehr.com/Location/_search', () => {
       return HttpResponse.json({ greeting: 'hello there' });
     }),
-    http.post('https://fhir-api.zapehr.com/Person/_search', () => {
+    http.post('https://fhir-api.zapehr.com/Patient/_search', () => {
       return HttpResponse.json({ greeting: 'hello there' });
     })
     // http.post('https://project-api.zapehr.com/v1/zambda/get-schedule/execute-public', () => {
