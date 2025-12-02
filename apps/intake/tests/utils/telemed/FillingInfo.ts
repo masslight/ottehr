@@ -178,6 +178,13 @@ export class FillingInfo {
     await this.page.locator('#patient-email').fill(email);
     await this.page.locator('#patient-number').click();
     await this.page.locator('#patient-number').fill(number);
+
+    const preferredCommunicationMethodLocator = this.page.locator('#patient-preferred-communication-method');
+    if (await preferredCommunicationMethodLocator.isVisible()) {
+      await preferredCommunicationMethodLocator.click();
+      await this.page.getByRole('option').first().click();
+    }
+
     return { streetAddress, streetAddress2, patientCity, patientZIP, patientState, email, number };
   }
 
