@@ -76,6 +76,7 @@ import {
   isTelemedAppointment,
   mapOrderStatusToFhir,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MedicationOrderStatusesType,
   MedicationUnitOptions,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   PaymentVariant,
@@ -236,7 +237,9 @@ const createCandidCreateEncounterInput = async (
     practitioner = visitResources.practitioners?.[0] ?? null;
   }
 
-  const medications = await getMedicationAdministrationsForEncounter(oystehr, encounter.id, { onlyAdministered: true });
+  const medications = await getMedicationAdministrationsForEncounter(oystehr, encounter.id, {
+    statuses: ['administered', 'administered-partly'],
+  });
 
   return {
     appointment: appointment,
@@ -1381,7 +1384,7 @@ export function getCandidEncounterIdFromEncounter(encounter: Encounter): string 
 async function getMedicationAdministrationsForEncounter(
   oystehr: Oystehr,
   encounterId: string,
-  filterParams?: { onlyAdministered?: boolean }
+  filterParams?: { statuses: MedicationOrderStatusesType[] }
 ): Promise<MedicationAdministration[] | undefined> {
   const params: SearchParam[] = [
     {
@@ -1393,10 +1396,10 @@ async function getMedicationAdministrationsForEncounter(
       value: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
     },
   ];
-  if (filterParams?.onlyAdministered) {
+  if (filterParams?.statuses?.length && filterParams.statuses.length > 0) {
     params.push({
       name: 'status',
-      value: mapOrderStatusToFhir('administered'),
+      value: filterParams.statuses.map((status) => mapOrderStatusToFhir(status)).join(','),
     });
   }
   const resources = (
