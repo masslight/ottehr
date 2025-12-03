@@ -54,7 +54,7 @@ const bookAppointmentQuestionnaire: {
   version: string | undefined;
   templateQuestionnaire: Questionnaire | undefined;
 } = (() => {
-  const templateResource = Object.values(bookAppointmentQuestionnaireJson.fhirResources)[0]?.resource;
+  const templateResource = _.cloneDeep(BookingQuestionnaire);
   return {
     url: templateResource?.url,
     version: templateResource?.version,
@@ -97,7 +97,109 @@ interface BookingFormPrePopulationInput {
   context: BookingContext;
   patient?: Patient;
 }
-const prepopulateBookingForm = (input: BookingFormPrePopulationInput): QuestionnaireResponseItem[] => {
+
+const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): PatientInfo => {
+  const items = flattenQuestionnaireAnswers(qrItem);
+  const patientInfo: PatientInfo = {};
+  items.forEach((item) => {
+    switch (item.linkId) {
+      case 'existing-patient-id':
+        patientInfo.id = pickFirstValueFromAnswerItem(item, 'string');
+        break;
+      case 'patient-first-name':
+        patientInfo.firstName = pickFirstValueFromAnswerItem(item, 'string');
+        break;
+      case 'patient-middle-name':
+        patientInfo.middleName = pickFirstValueFromAnswerItem(item, 'string');
+        break;
+      case 'patient-last-name':
+        patientInfo.lastName = pickFirstValueFromAnswerItem(item, 'string');
+        break;
+      case 'patient-birthdate':
+        patientInfo.dateOfBirth = pickFirstValueFromAnswerItem(item, 'string');
+        break;
+      case 'authorized-non-legal-guardian':
+        patientInfo.authorizedNonLegalGuardians = pickFirstValueFromAnswerItem(item, 'string');
+        break;
+      case 'patient-email':
+        patientInfo.email = pickFirstValueFromAnswerItem(item, 'string');
+        break;
+      case 'patient-phone-number':
+        patientInfo.phoneNumber = pickFirstValueFromAnswerItem(item, 'string');
+        break;
+      case 'reason-for-visit':
+        patientInfo.reasonForVisit = pickFirstValueFromAnswerItem(item, 'string');
+        break;
+      case 'tell-us-more':
+        patientInfo.reasonAdditional = pickFirstValueFromAnswerItem(item, 'string');
+        break;
+      case 'patient-preferred-name':
+        patientInfo.chosenName = pickFirstValueFromAnswerItem(item, 'string');
+        break;
+      case 'patient-ssn':
+        patientInfo.ssn = pickFirstValueFromAnswerItem(item, 'string');
+        break;
+      case 'patient-birth-sex':
+        patientInfo.sex = PersonSex[pickFirstValueFromAnswerItem(item, 'string') as keyof typeof PersonSex];
+        break;
+      default:
+        break;
+    }
+  });
+  return patientInfo;
+};
+
+type BookingQuestionnaireLinkId = NonNullable<
+  NonNullable<typeof BookingQuestionnaire.item>[number]['item']
+>[number]['linkId'];
+
+const hiddenBookingFields: BookingQuestionnaireLinkId[] = [];
+
+const BOOKING_DEFAULTS = {
+  reasonForVisitOptions: REASON_FOR_VISIT_OPTIONS,
+  cancelReasonOptions: CANCEL_REASON_OPTIONS,
+  serviceCategoriesEnabled: {
+    serviceModes: ['in-person', 'virtual'],
+    visitType: ['prebook'],
+  },
+  hiddenBookingFields,
+  serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
+  intakeQuestionnaires,
+  selectBookingQuestionnaire: (
+    _slot?: Slot
+  ): { url: string; version: string; templateQuestionnaire: Questionnaire } => {
+    // can read properties of slot to determine which questionnaire to return
+    // if desired. by default, we return just a single questionnaire regardless of slot
+    if (
+      bookAppointmentQuestionnaire.url &&
+      bookAppointmentQuestionnaire.version &&
+      bookAppointmentQuestionnaire.templateQuestionnaire
+    ) {
+      return JSON.parse(JSON.stringify(bookAppointmentQuestionnaire));
+    }
+    throw new Error('No booking questionnaire configured');
+  },
+  mapBookingQRItemToPatientInfo,
+};
+
+// todo: it would be nice to use zod to validate the merged booking config shape here
+export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, BOOKING_OVERRIDES);
+
+export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
+  return BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes.includes(params.serviceMode) &&
+    BOOKING_CONFIG.serviceCategoriesEnabled.visitType.includes(params.visitType) &&
+    BOOKING_CONFIG.serviceCategories.length > 1
+    ? true
+    : false;
+};
+
+export const ServiceCategoryCodeSchema = z.enum(
+  BOOKING_CONFIG.serviceCategories.map((category) => category.code) as [string, ...string[]]
+);
+
+export type ServiceCategoryCode = z.infer<typeof ServiceCategoryCodeSchema>;
+
+export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): QuestionnaireResponseItem[] => {
   const {
     patient,
     questionnaire,
@@ -131,7 +233,7 @@ const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Questionn
   )?.value;
 
   // assuming here we never need to collect this when we already have it
-  const shouldShownSSNField = !ssn;
+  const shouldShownSSNField = !ssn && !BOOKING_CONFIG.hiddenBookingFields.includes('patient-ssn');
   const ssnRequired = serviceCategoryCode === 'workmans_comp' && shouldShownSSNField;
 
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
@@ -191,97 +293,3 @@ const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Questionn
 
   return item;
 };
-
-const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): PatientInfo => {
-  const items = flattenQuestionnaireAnswers(qrItem);
-  const patientInfo: PatientInfo = {};
-  items.forEach((item) => {
-    switch (item.linkId) {
-      case 'existing-patient-id':
-        patientInfo.id = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-first-name':
-        patientInfo.firstName = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-middle-name':
-        patientInfo.middleName = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-last-name':
-        patientInfo.lastName = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-birthdate':
-        patientInfo.dateOfBirth = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'authorized-non-legal-guardian':
-        patientInfo.authorizedNonLegalGuardians = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-email':
-        patientInfo.email = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-phone-number':
-        patientInfo.phoneNumber = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'reason-for-visit':
-        patientInfo.reasonForVisit = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'tell-us-more':
-        patientInfo.reasonAdditional = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-preferred-name':
-        patientInfo.chosenName = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-ssn':
-        patientInfo.ssn = pickFirstValueFromAnswerItem(item, 'string');
-        break;
-      case 'patient-birth-sex':
-        patientInfo.sex = PersonSex[pickFirstValueFromAnswerItem(item, 'string') as keyof typeof PersonSex];
-        break;
-      default:
-        break;
-    }
-  });
-  return patientInfo;
-};
-
-const BOOKING_DEFAULTS = {
-  reasonForVisitOptions: REASON_FOR_VISIT_OPTIONS,
-  cancelReasonOptions: CANCEL_REASON_OPTIONS,
-  serviceCategoriesEnabled: {
-    serviceModes: ['in-person', 'virtual'],
-    visitType: ['prebook'],
-  },
-  serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
-  intakeQuestionnaires,
-  selectBookingQuestionnaire: (
-    _slot?: Slot
-  ): { url: string; version: string; templateQuestionnaire: Questionnaire } => {
-    // can read properties of slot to determine which questionnaire to return
-    // if desired. by default, we return just a single questionnaire regardless of slot
-    if (
-      bookAppointmentQuestionnaire.url &&
-      bookAppointmentQuestionnaire.version &&
-      bookAppointmentQuestionnaire.templateQuestionnaire
-    ) {
-      return JSON.parse(JSON.stringify(bookAppointmentQuestionnaire));
-    }
-    throw new Error('No booking questionnaire configured');
-  },
-  prepopulateBookingForm,
-  mapBookingQRItemToPatientInfo,
-};
-
-export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, BOOKING_OVERRIDES);
-
-export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
-  return BOOKING_CONFIG.serviceCategoriesEnabled.serviceModes.includes(params.serviceMode) &&
-    BOOKING_CONFIG.serviceCategoriesEnabled.visitType.includes(params.visitType) &&
-    BOOKING_CONFIG.serviceCategories.length > 1
-    ? true
-    : false;
-};
-
-export const ServiceCategoryCodeSchema = z.enum(
-  BOOKING_CONFIG.serviceCategories.map((category) => category.code) as [string, ...string[]]
-);
-
-export type ServiceCategoryCode = z.infer<typeof ServiceCategoryCodeSchema>;
