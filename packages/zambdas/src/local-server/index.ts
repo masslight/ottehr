@@ -1,6 +1,6 @@
 import cors from 'cors';
 import express, { NextFunction, Request, Response } from 'express';
-import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json';
+import zambdasSpec from '../../../../config/oystehr/zambdas.json';
 import { expressLambda } from './utils';
 
 const app = express();
@@ -15,7 +15,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 app.use(cors());
 
-Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
+Object.entries(zambdasSpec.zambdas).forEach(([_key, spec]) => {
   const executeOrExecutePublic = spec.type === 'http_auth' ? 'execute' : 'execute-public';
   const path = `/local/zambda/${spec.name}/${executeOrExecutePublic}`;
   app.post(path, async (req, res) => {
