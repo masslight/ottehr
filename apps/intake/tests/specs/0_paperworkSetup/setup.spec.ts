@@ -60,7 +60,6 @@ async function bookAppointmentForExistingPatient(
   const { selectedSlot, location } = await flowClass.additionalStepsForPrebook();
   await page
     .getByRole('heading', { name: new RegExp(`.*${bookingData.firstName} ${bookingData.lastName}.*`, 'i') })
-    .locator('input[type="radio"]')
     .click({ timeout: 40_000, noWaitAfter: true, force: true });
   await locator.continueButton.click();
   const [year, month, day] = bookingData.dateOfBirth.split('-');
@@ -361,7 +360,6 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
             'i'
           ),
         })
-        .locator('input[type="radio"]')
         .click({ timeout: 40_000, noWaitAfter: true, force: true });
       await locator.continueButton.click();
       await fillingInfo.fillCorrectDOB(
@@ -448,7 +446,6 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
             'i'
           ),
         })
-        .locator('input[type="radio"]')
         .click({ timeout: 40_000, noWaitAfter: true, force: true });
 
       await locator.continueButton.click();

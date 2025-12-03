@@ -440,8 +440,8 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     });
   });
 
-  const employerInformationTest = employerInformationPageExists ? test : test.skip;
-  employerInformationTest('PEI. Employer information', async () => {
+  test('PEI. Employer information', async () => {
+    test.skip(!employerInformationPageExists, "Employer information page doesn't exist. Skipping test.");
     await test.step('PEI-1. Open employer information page directly', async () => {
       await page.goto(`paperwork/${patient.appointmentId}/employer-information`);
       await paperwork.checkCorrectPageOpens('Employer information');
@@ -466,7 +466,7 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
       return employerInformationData;
     });
 
-    test('PEI-5. Click on [Back] - all values are saved', async () => {
+    await test.step('PEI-5. Click on [Back] - all values are saved', async () => {
       await locator.clickBackButton();
       await paperwork.checkCorrectPageOpens('Employer information');
       await expect(locator.employerName).toHaveValue(employerInformationData.employerName);

@@ -82,7 +82,7 @@ test.describe.parallel('Past Visits', async () => {
         page.getByText(
           DateTime.fromISO(appointmentPatient.cancelledSlotDetails!.startISO)
             .setZone(appointmentPatient.cancelledSlotDetails!.timezoneForDisplay)
-            .toFormat("MMMM dd, yyyy 'at' h:mm a")
+            .toFormat("MMMM d, yyyy 'at' h:mm a")
         )
       ).toBeVisible();
       await expect(page.getByText(`Visit ID: ${appointmentPatient.cancelledSlotDetails!.appointmentId}`)).toBeVisible();
