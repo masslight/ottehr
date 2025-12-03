@@ -67,7 +67,7 @@ export const LEGAL_CONFIG = legalConfigSchema.parse(mergedLegalConfig);
 
 export const getLegalCompositionForLocation = (locationKey: string): TextWithLinkComposition | undefined => {
   const legalComposition = LEGAL_CONFIG[locationKey];
-  if (legalComposition.length === 0) {
+  if (!legalComposition || legalComposition.length === 0) {
     return undefined;
   }
   return legalComposition;
