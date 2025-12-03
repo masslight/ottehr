@@ -1,4 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
+import { getPrivacyPolicyLinkDefForLocation, getTermsAndConditionsLinkDefForLocation } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
@@ -9,6 +10,7 @@ let locator: Locators;
 let visitData: Awaited<ReturnType<PrebookInPersonFlow['goToReviewPage']>>;
 let commonLocators: CommonLocatorsHelper;
 let scheduleOwnerTypeExpected = 'Location';
+const REVIEW_PAGE_ID = 'REVIEW_PAGE';
 
 test.beforeAll(async ({ browser }) => {
   page = await browser.newPage();
@@ -55,7 +57,20 @@ test('RS. Reservation Screen check data is correct', async () => {
   });
 
   await test.step('RS-5. Check links', async () => {
-    await commonLocators.checkLinkOpensPdf(locator.privacyPolicyReviewScreen);
-    await commonLocators.checkLinkOpensPdf(locator.termsAndConditions);
+    const privacyLinkDef = getPrivacyPolicyLinkDefForLocation(REVIEW_PAGE_ID);
+    if (privacyLinkDef === undefined) {
+      await expect(locator.privacyPolicyReviewScreen).not.toBeVisible();
+      return;
+    }
+    const privacyLink = page.locator(`[data-testid="${privacyLinkDef.testId}"]`);
+    await commonLocators.checkLinkOpensPdf(privacyLink);
+
+    const termsLinkDef = getTermsAndConditionsLinkDefForLocation(REVIEW_PAGE_ID);
+    if (termsLinkDef === undefined) {
+      await expect(locator.termsAndConditions).not.toBeVisible();
+      return;
+    }
+    const termsLink = page.locator(`[data-testid="${termsLinkDef.testId}"]`);
+    await commonLocators.checkLinkOpensPdf(termsLink);
   });
 });

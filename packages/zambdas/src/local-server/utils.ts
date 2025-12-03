@@ -5,7 +5,7 @@ import { readFileSync } from 'fs';
 import { IncomingHttpHeaders } from 'http2';
 import _ from 'lodash';
 import { resolve } from 'path';
-import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json';
+import secretsSpec from '../../../../config/oystehr/secrets.json';
 import { Schema } from '../../../spec/src/schema';
 import { REF_REGEX, Schema20250925 } from '../../../spec/src/schema-20250925';
 import { ZambdaInput } from '../shared';
@@ -65,7 +65,7 @@ export async function replaceSecretValue<T>(
       for (const match of refMatches) {
         const [fullMatch, resourceType, resourceName, fieldName] = match;
         const tfRef = schema.getTerraformResourceReference(
-          ottehrSpec as T,
+          secretsSpec as T,
           resourceType as keyof T,
           resourceName,
           fieldName
@@ -107,7 +107,7 @@ async function populateSecrets({ pathToEnvFile, useIac }: { pathToEnvFile: strin
   const envFileContents = configString.length > 2 ? JSON.parse(configString) : null;
 
   const schema = new Schema20250925(
-    [{ path: '../../../../config/oystehr/ottehr-spec.json', spec: ottehrSpec }],
+    [{ path: '../../../../config/oystehr/secrets.json', spec: secretsSpec }],
     envFileContents,
     '',
     ''
@@ -115,7 +115,7 @@ async function populateSecrets({ pathToEnvFile, useIac }: { pathToEnvFile: strin
 
   const takenFromSpec = new Set<string>();
   await Promise.all(
-    Object.entries(ottehrSpec.secrets).map(async ([_key, secret]): Promise<void> => {
+    Object.entries(secretsSpec.secrets).map(async ([_key, secret]): Promise<void> => {
       secrets[secret.name] = await replaceSecretValue(secret, schema, useIac);
       takenFromSpec.add(secret.name);
     })

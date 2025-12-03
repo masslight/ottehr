@@ -4,7 +4,7 @@ import * as esbuild from 'esbuild';
 import { type Options } from 'execa';
 import fs from 'fs';
 import path from 'path';
-import ottehrSpec from '../../config/oystehr/ottehr-spec.json';
+import zambdasSpec from '../../config/oystehr/zambdas.json';
 
 interface ZambdaSpec {
   name: string;
@@ -15,7 +15,7 @@ interface ZambdaSpec {
 }
 
 const zambdasList = (): ZambdaSpec[] => {
-  return Object.entries(ottehrSpec.zambdas).map(([_key, spec]) => {
+  return Object.entries(zambdasSpec.zambdas).map(([_key, spec]) => {
     return spec;
   });
 };

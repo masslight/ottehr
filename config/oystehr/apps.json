@@ -1,0 +1,36 @@
+{
+  "schema-version": "2025-09-25",
+  "apps": {
+    "PATIENT_PORTAL": {
+      "name": "#{var/PATIENT_APP_NAME}",
+      "description": "Patient Portal application with sms authentication",
+      "loginRedirectUri": "#{var/PATIENT_LOGIN_REDIRECT_URL}",
+      "allowedCallbackUrls": [
+        "#{var/PATIENT_ALLOWED_URL_1}",
+        "#{var/PATIENT_ALLOWED_URL_2}",
+        "#{var/PATIENT_ALLOWED_URL_3}",
+        "#{var/PATIENT_ALLOWED_URL_4}"
+      ],
+      "allowedLogoutUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
+      "allowedWebOriginsUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
+      "allowedCORSOriginsUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
+      "loginWithEmailEnabled": true,
+      "passwordlessSMS": true,
+      "mfaEnabled": false,
+      "shouldSendInviteEmail": false,
+      "refreshTokenEnabled": true,
+      "logoUri": "#{var/PATIENT_APP_LOGO_URI}"
+    },
+    "OTTEHR_EHR": {
+      "name": "#{var/EHR_APP_NAME}",
+      "description": "EHR application with email authentication",
+      "loginRedirectUri": "#{var/PROVIDER_LOGIN_REDIRECT_URL}",
+      "allowedCallbackUrls": ["#{var/PROVIDER_ALLOWED_URL_1}", "#{var/PROVIDER_ALLOWED_URL_2}"],
+      "allowedLogoutUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
+      "allowedWebOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
+      "allowedCORSOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}"],
+      "shouldSendInviteEmail": true,
+      "logoUri": "#{var/PROVIDER_APP_LOGO_URI}"
+    }
+  }
+}

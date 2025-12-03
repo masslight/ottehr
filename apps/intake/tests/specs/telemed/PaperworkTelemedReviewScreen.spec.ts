@@ -3,6 +3,7 @@ import { BrowserContext, expect, Page, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { UploadDocs } from 'tests/utils/UploadDocs';
+import { getPrivacyPolicyLinkDefForLocation, getTermsAndConditionsLinkDefForLocation } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
@@ -31,6 +32,7 @@ test.afterAll(async () => {
   await page.close();
   await context.close();
 });
+const REVIEW_PAGE_ID = 'REVIEW_PAGE';
 
 test.describe.parallel('Telemed - Prefilled Paperwork, Review and Submit', () => {
   test('PRS-1. Review and submit', async () => {
@@ -44,11 +46,27 @@ test.describe.parallel('Telemed - Prefilled Paperwork, Review and Submit', () =>
       await expect(locator.locationNamePaperworkReviewScreen).toHaveText(`${patient.location}`);
       // no check-in time for walk-in appointments
       // await expect(locator.checkInTimePaperworkReviewScreen).toHaveText(`${patient.slot}`);
-      await commonLocatorsHelper.checkLinkOpensPdf(locator.privacyPolicyReviewScreen);
-      await commonLocatorsHelper.checkLinkOpensPdf(locator.termsAndConditions);
     });
 
-    await test.step('PRS-1.3. Check Complete/Missing chips', async () => {
+    await test.step('PRS-1.3. Check links', async () => {
+      const privacyLinkDef = getPrivacyPolicyLinkDefForLocation(REVIEW_PAGE_ID);
+      if (privacyLinkDef === undefined) {
+        await expect(locator.privacyPolicyReviewScreen).not.toBeVisible();
+        return;
+      }
+      const privacyLink = page.locator(`[data-testid="${privacyLinkDef.testId}"]`);
+      await commonLocatorsHelper.checkLinkOpensPdf(privacyLink);
+
+      const termsLinkDef = getTermsAndConditionsLinkDefForLocation(REVIEW_PAGE_ID);
+      if (termsLinkDef === undefined) {
+        await expect(locator.termsAndConditions).not.toBeVisible();
+        return;
+      }
+      const termsLink = page.locator(`[data-testid="${termsLinkDef.testId}"]`);
+      await commonLocatorsHelper.checkLinkOpensPdf(termsLink);
+    });
+
+    await test.step('PRS-1.4. Check Complete/Missing chips', async () => {
       await expect(locator.contactInformationChipStatus).toHaveAttribute('data-testid', 'completed');
       await expect(locator.patientDetailsChipStatus).toHaveAttribute('data-testid', 'completed');
       // todo need to change to 'uncompleted' when https://github.com/masslight/ottehr/issues/1594 is fixed
@@ -69,7 +87,7 @@ test.describe.parallel('Telemed - Prefilled Paperwork, Review and Submit', () =>
       await expect(locator.continueButton).toBeVisible();
     });
 
-    await test.step('PRS-1.4. Add Photo IDs, check all chips are completed, [Finish] button is visible', async () => {
+    await test.step('PRS-1.5. Add Photo IDs, check all chips are completed, [Finish] button is visible', async () => {
       await locator.photoIdEditButton.click();
       await paperwork.checkCorrectPageOpens('Photo ID');
       await uploadPhoto.fillPhotoFrontID();
@@ -80,7 +98,7 @@ test.describe.parallel('Telemed - Prefilled Paperwork, Review and Submit', () =>
       await expect(locator.goToWaitingRoomButton).toBeVisible();
     });
 
-    await test.step('PRS-1.5. Select Insurance, fill required fields, check all chips are completed, [Finish] button is visible', async () => {
+    await test.step('PRS-1.6. Select Insurance, fill required fields, check all chips are completed, [Finish] button is visible', async () => {
       await locator.insuranceDetailsEditButton.click();
       await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
       await paperwork.selectInsurancePayment();
@@ -92,7 +110,7 @@ test.describe.parallel('Telemed - Prefilled Paperwork, Review and Submit', () =>
       await expect(locator.goToWaitingRoomButton).toBeVisible();
     });
 
-    await test.step('PRS-1.6. All chips are completed after reload', async () => {
+    await test.step('PRS-1.7. All chips are completed after reload', async () => {
       await page.reload();
       await paperwork.checkAllChipsAreCompletedInPerson();
       await expect(locator.goToWaitingRoomButton).toBeVisible();
