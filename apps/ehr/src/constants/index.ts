@@ -575,6 +575,7 @@ export const FormFields = {
     zip: { key: 'patient-zip', type: 'String' },
     email: { key: 'patient-email', type: 'String' },
     phone: { key: 'patient-number', type: 'String' },
+    preferredCommunicationMethod: { key: 'patient-preferred-communication-method', type: 'String' },
   },
   insurance: [
     {
@@ -644,10 +645,34 @@ export const FormFields = {
     middleName: { key: 'emergency-contact-middle-name', type: 'String', label: 'Middle name' },
     lastName: { key: 'emergency-contact-last-name', type: 'String', label: 'Last name' },
     phone: { key: 'emergency-contact-number', type: 'String', label: 'Phone' },
+    addressAsPatient: {
+      key: 'emergency-contact-address-as-patient',
+      type: 'Boolean',
+      label: "Emergency contact address is the same as patient's address",
+    },
+    streetAddress: { key: 'emergency-contact-address', type: 'String', label: 'Street address' },
+    addressLine2: { key: 'emergency-contact-address-2', type: 'String', label: 'Address line 2 (optional)' },
+    city: { key: 'emergency-contact-city', type: 'String', label: 'City' },
+    state: { key: 'emergency-contact-state', type: 'String', label: 'State' },
+    zip: { key: 'emergency-contact-zip', type: 'String', label: 'Zip' },
   },
   preferredPharmacy: {
     name: { key: 'pharmacy-name', type: 'String', label: 'Pharmacy name' },
     address: { key: 'pharmacy-address', type: 'String', label: 'Pharmacy address' },
+  },
+  employerInformation: {
+    employerName: { key: 'employer-name', type: 'String', label: 'Employer name' },
+    addressLine1: { key: 'employer-address', type: 'String', label: 'Address line 1' },
+    addressLine2: { key: 'employer-address-2', type: 'String', label: 'Address line 2' },
+    city: { key: 'employer-city', type: 'String', label: 'City' },
+    state: { key: 'employer-state', type: 'String', label: 'State' },
+    zip: { key: 'employer-zip', type: 'String', label: 'ZIP' },
+    contactFirstName: { key: 'employer-contact-first-name', type: 'String', label: 'Contact first name' },
+    contactLastName: { key: 'employer-contact-last-name', type: 'String', label: 'Contact last name' },
+    contactTitle: { key: 'employer-contact-title', type: 'String', label: 'Contact title' },
+    contactEmail: { key: 'employer-contact-email', type: 'String', label: 'Contact email' },
+    contactPhone: { key: 'employer-contact-phone', type: 'String', label: 'Contact phone' },
+    contactFax: { key: 'employer-contact-fax', type: 'String', label: 'Contact fax' },
   },
 };
 
@@ -689,3 +714,26 @@ export const ADDITIONAL_QUESTIONS = questionnaireFields.map((field) => ({
   label: field.question,
   field: field.fhirField,
 }));
+
+export const PREFERRED_COMMUNICATION_METHOD_OPTIONS = [
+  {
+    label: 'No preference',
+    value: 'No preference',
+  },
+  {
+    label: 'Email',
+    value: 'Email',
+  },
+  {
+    label: 'Home Phone',
+    value: 'Home Phone',
+  },
+  {
+    label: 'Cell Phone',
+    value: 'Cell Phone',
+  },
+  {
+    label: 'Mail',
+    value: 'Mail',
+  },
+];

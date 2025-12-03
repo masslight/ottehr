@@ -9,6 +9,7 @@ import {
   getConsentStepAnswers,
   getContactInformationAnswers,
   getEmergencyContactStepAnswers,
+  getEmployerInformationStepAnswers,
   getPatientDetailsStepAnswers,
   getPaymentOptionInsuranceAnswers,
   getResponsiblePartyStepAnswers,
@@ -112,6 +113,7 @@ test.describe('In-person visit', async () => {
           insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
         }),
         getResponsiblePartyStepAnswers({}),
+        getEmployerInformationStepAnswers({}),
         getEmergencyContactStepAnswers({}),
         getConsentStepAnswers({}),
       ];

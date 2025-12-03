@@ -9,6 +9,7 @@ import {
   SCHEDULE_EXTENSION_URL,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
 import {
   allPhysicalDefaultLocations,
@@ -20,7 +21,7 @@ const getEnvironment = (): string => {
   const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');
   if (envFlagIndex !== -1 && envFlagIndex < process.argv.length - 1) {
     const env = process.argv[envFlagIndex + 1];
-    const validEnvironments = ['local', 'demo', 'development', 'staging', 'testing'];
+    const validEnvironments = ['local', 'demo', 'development', 'staging', 'testing', 'e2e'];
     if (validEnvironments.includes(env)) {
       return env;
     }
@@ -106,15 +107,19 @@ async function getLocationsForTesting(
   const firstDefaultLocation = allPhysicalDefaultLocations[0];
   const firstDefaultVirtualLocation = virtualDefaultLocations[0];
 
-  const locationsResponse = await oystehr.fhir.search<Location | Schedule>({
-    resourceType: 'Location',
-    params: [
-      {
-        name: '_revinclude',
-        value: 'Schedule:actor:Location',
-      },
-    ],
-  });
+  // Use getAllFhirSearchPages to handle pagination when there are more than 1000 locations
+  const locationsAndSchedules = await getAllFhirSearchPages<Location | Schedule>(
+    {
+      resourceType: 'Location',
+      params: [
+        {
+          name: '_revinclude',
+          value: 'Schedule:actor:Location',
+        },
+      ],
+    },
+    oystehr
+  );
 
   const defaultGroupRelatedResourcesResponse = await oystehr.fhir.search<
     HealthcareService | Location | Practitioner | Schedule
@@ -157,8 +162,6 @@ async function getLocationsForTesting(
   const defaultGroupSchedules = defaultGroupRelatedResources.filter(
     (res): res is Schedule => res.resourceType === 'Schedule'
   );
-
-  const locationsAndSchedules = locationsResponse.unbundle();
   const locations = locationsAndSchedules.filter((res): res is Location => res.resourceType === 'Location');
   const schedules = locationsAndSchedules.filter((res): res is Schedule => res.resourceType === 'Schedule');
 
