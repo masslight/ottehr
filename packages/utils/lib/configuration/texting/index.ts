@@ -15,4 +15,5 @@ type TextingDefaults = typeof TEXTING_DEFAULTS_BASE;
 
 const overrides: Partial<TextingDefaults> = OVERRIDES || {};
 
+// todo: use mergeAndFreezeConfigObjects from helpers.ts
 export const textingConfig = _.merge({ ...TEXTING_DEFAULTS_BASE }, { ...overrides });

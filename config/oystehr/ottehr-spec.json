@@ -755,6 +755,16 @@
         "expression": "cron(0,15,30,45 * * * ? *)"
       }
     },
+    "DAILY-RADIOLOGY-REPORT": {
+      "name": "daily-radiology-report",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "src": "src/cron/daily-radiology-report/index",
+      "zip": ".dist/zips/daily-radiology-report.zip",
+      "schedule": {
+        "expression": "cron(0 9 * * ? *)"
+      }
+    },
     "COMMUNICATION-SUBSCRIPTION": {
       "name": "communication-subscription",
       "type": "subscription",
@@ -1299,12 +1309,12 @@
       "src": "src/ehr/update-invoice-task/index",
       "zip": ".dist/zips/update-invoice-task.zip"
     },
-    "GET-QUESTIONNAIRE-PATIENT": {
-      "name": "get-questionnaire-patient",
+    "GET-BOOKING-QUESTIONNAIRE": {
+      "name": "get-booking-questionnaire",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/patient/paperwork/get-questionnaire/index",
-      "zip": ".dist/zips/get-questionnaire-patient.zip"
+      "src": "src/patient/paperwork/get-booking-questionnaire/index",
+      "zip": ".dist/zips/get-booking-questionnaire.zip"
     },
     "SUB_GENERATE_STATEMENT": {
       "name": "generate-statement",
@@ -5913,8 +5923,7 @@
             "Zambda:Function:ai-interview-start",
             "Zambda:Function:ai-interview-handle-answer",
             "Zambda:Function:ai-interview-persist-consent",
-            "Zambda:Function:get-questionnaire-patient",
-            "Zambda:Function:get-questionnaire"
+            "Zambda:Function:get-booking-questionnaire"
           ],
           "action": ["Zambda:InvokeFunction"],
           "effect": "Allow"
