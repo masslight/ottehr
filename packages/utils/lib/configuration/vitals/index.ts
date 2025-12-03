@@ -25,6 +25,14 @@ const VitalsConfig = {
           { type: 'max', units: 'celsius', value: 38.4 },
         ],
         minAge: { unit: 'months', value: 2 },
+        maxAge: { unit: 'months', value: 144 },
+      },
+      {
+        rules: [
+          { type: 'min', units: 'celsius', value: 36 },
+          { type: 'max', units: 'celsius', value: 38.5 },
+        ],
+        minAge: { unit: 'months', value: 144 },
       },
     ],
   },
@@ -84,6 +92,22 @@ const VitalsConfig = {
           { type: 'max', units: 'bpm', value: 120 },
         ],
         minAge: { unit: 'months', value: 144 },
+        maxAge: { unit: 'months', value: 180 },
+      },
+      {
+        rules: [
+          { type: 'min', units: 'bpm', value: 57 },
+          { type: 'max', units: 'bpm', value: 115 },
+        ],
+        minAge: { unit: 'months', value: 180 },
+        maxAge: { unit: 'months', value: 216 },
+      },
+      {
+        rules: [
+          { type: 'min', units: 'bpm', value: 57 },
+          { type: 'max', units: 'bpm', value: 115 },
+        ],
+        minAge: { unit: 'months', value: 216 },
       },
     ],
   },
@@ -131,10 +155,26 @@ const VitalsConfig = {
       },
       {
         rules: [
-          { type: 'min', units: '', value: 10 },
-          { type: 'max', units: '', value: 30 },
+          { type: 'min', units: '', value: 15 },
+          { type: 'max', units: '', value: 25 },
         ],
         minAge: { unit: 'months', value: 144 },
+        maxAge: { unit: 'months', value: 180 },
+      },
+      {
+        rules: [
+          { type: 'min', units: '', value: 14 },
+          { type: 'max', units: '', value: 23 },
+        ],
+        minAge: { unit: 'months', value: 180 },
+        maxAge: { unit: 'months', value: 216 },
+      },
+      {
+        rules: [
+          { type: 'min', units: '', value: 11 },
+          { type: 'max', units: '', value: 21 },
+        ],
+        minAge: { unit: 'months', value: 216 },
       },
     ],
   },
@@ -162,6 +202,14 @@ const VitalsConfig = {
           {
             rules: [{ type: 'min', units: '', value: 90 }],
             minAge: { unit: 'months', value: 108 },
+            maxAge: { unit: 'months', value: 216 },
+          },
+          {
+            rules: [
+              { type: 'min', units: '', value: 90 },
+              { type: 'max', units: '', value: 140 },
+            ],
+            minAge: { unit: 'months', value: 216 },
           },
         ],
       },
@@ -171,9 +219,34 @@ const VitalsConfig = {
     alertThresholds: [
       {
         rules: [{ type: 'min', units: 'kg', ageSexFunction: getWeightPercentileLow }],
+        maxAge: { unit: 'months', value: 144 },
       },
       {
         rules: [{ type: 'max', units: 'kg', ageSexFunction: getWeightPercentileHigh }],
+        maxAge: { unit: 'months', value: 144 },
+      },
+      {
+        rules: [
+          { type: 'min', units: 'kg', value: 30.5 },
+          { type: 'max', units: 'kg', value: 78.3 },
+        ],
+        minAge: { unit: 'months', value: 144 },
+        maxAge: { unit: 'months', value: 180 },
+      },
+      {
+        rules: [
+          { type: 'min', units: 'kg', value: 43 },
+          { type: 'max', units: 'kg', value: 92 },
+        ],
+        minAge: { unit: 'months', value: 180 },
+        maxAge: { unit: 'months', value: 216 },
+      },
+      {
+        rules: [
+          { type: 'min', units: 'kg', value: 50 },
+          { type: 'max', units: 'kg', value: 150 },
+        ],
+        minAge: { unit: 'months', value: 216 },
       },
     ],
   },
@@ -181,9 +254,34 @@ const VitalsConfig = {
     alertThresholds: [
       {
         rules: [{ type: 'min', units: 'cm', ageSexFunction: getHeightPercentileLow }],
+        maxAge: { unit: 'months', value: 144 },
       },
       {
         rules: [{ type: 'max', units: 'cm', ageSexFunction: getHeightPercentileHigh }],
+        maxAge: { unit: 'months', value: 144 },
+      },
+      {
+        rules: [
+          { type: 'min', units: 'cm', value: 118.5 },
+          { type: 'max', units: 'cm', value: 176.5 },
+        ],
+        minAge: { unit: 'months', value: 144 },
+        maxAge: { unit: 'months', value: 180 },
+      },
+      {
+        rules: [
+          { type: 'min', units: 'cm', value: 151.3 },
+          { type: 'max', units: 'cm', value: 187.8 },
+        ],
+        minAge: { unit: 'months', value: 180 },
+        maxAge: { unit: 'months', value: 216 },
+      },
+      {
+        rules: [
+          { type: 'min', units: 'cm', value: 152.5 },
+          { type: 'max', units: 'cm', value: 201 },
+        ],
+        minAge: { unit: 'months', value: 216 },
       },
     ],
   },

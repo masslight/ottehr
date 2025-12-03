@@ -5,12 +5,15 @@ import {
   DefaultVitalsConfig,
   DOB_DATE_FORMAT,
   getVitalObservationAlertLevel,
+  VitalAlertCriticality,
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
   VitalsDef,
   VitalsHeartbeatObservationDTO,
+  VitalsRespirationRateObservationDTO,
   VitalsSchema,
   VitalsTemperatureObservationDTO,
+  VitalsWeightObservationDTO,
 } from 'utils';
 import { assert, suite } from 'vitest';
 import InvalidAgeUnitsVitals from './data/config-files/vitals-invalid-age-units-spec';
@@ -399,6 +402,69 @@ describe('testing vitals config validation', () => {
       expect(nonAlertingBloodPressureCriticality).toBeUndefined();
     }
   );
+
+  test('applies adult heart rate thresholds based on DOB', () => {
+    const teenPatient = makeTestPatientWithAge({ units: 'years', value: 16 });
+    const patientDOB = teenPatient.birthDate;
+    expect(patientDOB).toBeDefined();
+    assert(patientDOB);
+    const tachyObservation: VitalsHeartbeatObservationDTO = {
+      patientId: teenPatient.id,
+      field: VitalFieldNames.VitalHeartbeat,
+      value: 125,
+      resourceId: randomUUID(),
+    };
+
+    const criticality = getVitalObservationAlertLevel({
+      patientDOB,
+      vitalsObservation: tachyObservation,
+      patientSex: teenPatient.gender,
+    });
+
+    expect(criticality).toBe(VitalAlertCriticality.Abnormal);
+  });
+
+  test('applies adult respiration thresholds for adults', () => {
+    const adultPatient = makeTestPatientWithAge({ units: 'years', value: 30 });
+    const patientDOB = adultPatient.birthDate;
+    expect(patientDOB).toBeDefined();
+    assert(patientDOB);
+    const highRespObservation: VitalsRespirationRateObservationDTO = {
+      patientId: adultPatient.id,
+      field: VitalFieldNames.VitalRespirationRate,
+      value: 22,
+      resourceId: randomUUID(),
+    };
+
+    const criticality = getVitalObservationAlertLevel({
+      patientDOB,
+      vitalsObservation: highRespObservation,
+      patientSex: adultPatient.gender,
+    });
+
+    expect(criticality).toBe(VitalAlertCriticality.Abnormal);
+  });
+
+  test('applies adult weight thresholds for adults', () => {
+    const adultPatient = makeTestPatientWithAge({ units: 'years', value: 30 });
+    const patientDOB = adultPatient.birthDate;
+    expect(patientDOB).toBeDefined();
+    assert(patientDOB);
+    const lowWeightObservation: VitalsWeightObservationDTO = {
+      patientId: adultPatient.id,
+      field: VitalFieldNames.VitalWeight,
+      value: 40,
+      resourceId: randomUUID(),
+    };
+
+    const criticality = getVitalObservationAlertLevel({
+      patientDOB,
+      vitalsObservation: lowWeightObservation,
+      patientSex: adultPatient.gender,
+    });
+
+    expect(criticality).toBe(VitalAlertCriticality.Abnormal);
+  });
 });
 
 interface MutateVitalsOperation {
