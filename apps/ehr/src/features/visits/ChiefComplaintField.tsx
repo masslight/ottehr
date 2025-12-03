@@ -8,23 +8,23 @@ import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 export const ChiefComplaintField: FC = () => {
   const { data: chartDataFields } = useChartFields({
     requestedFields: {
-      chiefComplaint: {
-        _tag: 'chief-complaint',
+      historyOfPresentIllness: {
+        _tag: 'history-of-present-illness',
       },
     },
   });
 
   const methods = useForm({
     defaultValues: {
-      chiefComplaint: chartDataFields?.chiefComplaint?.text || '',
+      chiefComplaint: chartDataFields?.historyOfPresentIllness?.text || '',
     },
   });
 
   useEffect(() => {
-    if (chartDataFields?.chiefComplaint?.text !== undefined) {
-      methods.setValue('chiefComplaint', chartDataFields.chiefComplaint.text);
+    if (chartDataFields?.historyOfPresentIllness?.text !== undefined) {
+      methods.setValue('chiefComplaint', chartDataFields.historyOfPresentIllness.text);
     }
-  }, [chartDataFields?.chiefComplaint?.text, methods]);
+  }, [chartDataFields?.historyOfPresentIllness?.text, methods]);
 
   const { control } = methods;
 
@@ -32,7 +32,7 @@ export const ChiefComplaintField: FC = () => {
     onValueChange: onChiefComplaintChange,
     isLoading: isChiefComplaintLoading,
     isChartDataLoading: isChiefComplaintChartDataLoading,
-  } = useDebounceNotesField('chiefComplaint');
+  } = useDebounceNotesField('historyOfPresentIllness');
 
   return (
     <Controller
@@ -73,11 +73,11 @@ interface ChiefComplaintFieldReadOnlyProps {
 export const ChiefComplaintFieldReadOnly: FC<ChiefComplaintFieldReadOnlyProps> = ({ label = 'Chief Complaint' }) => {
   const { data: chartFields } = useChartFields({
     requestedFields: {
-      chiefComplaint: { _tag: 'chief-complaint' },
+      historyOfPresentIllness: { _tag: 'history-of-present-illness' },
     },
   });
 
-  const chiefComplaint = chartFields?.chiefComplaint?.text;
+  const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
 
   if (!chiefComplaint) return null;
 

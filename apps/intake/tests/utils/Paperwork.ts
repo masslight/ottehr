@@ -462,6 +462,7 @@ export class Paperwork {
     await this.fillStreetAddress();
     await this.fillPatientCity();
     await this.fillPatientZip();
+    await this.fillPreferredCommunicationMethod();
     await expect(this.locator.streetAddress).not.toBeEmpty();
     await expect(this.locator.patientCity).not.toBeEmpty();
     await expect(this.locator.patientState).not.toBeEmpty();
@@ -497,6 +498,14 @@ export class Paperwork {
   async fillPatientZip(): Promise<void> {
     await this.locator.patientZip.fill(PATIENT_ZIP);
     await expect(this.locator.patientZip).toHaveValue(PATIENT_ZIP);
+  }
+  async fillPreferredCommunicationMethod(): Promise<void> {
+    const preferredCommunicationMethodInputPresent = await this.locator.preferredCommunicationMethod.isVisible();
+    if (!preferredCommunicationMethodInputPresent) {
+      return;
+    }
+    await this.locator.preferredCommunicationMethod.click();
+    await this.page.getByRole('option').first().click();
   }
   async fillMobileOptIn(): Promise<void> {
     await this.locator.mobileOptIn.check();

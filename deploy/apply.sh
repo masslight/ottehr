@@ -3,9 +3,10 @@
 # cSpell:disable-next flags
 set -xeuo pipefail
 
-ENV=${1:-local}
+export ENV=${1:-local}
+
 AUTO_APPROVE="--auto-approve"
-if [ "${ENV}" = "local" ]; then
+if [ "${ENV}" = "local" ] && [ "${CI}" != "true" ]; then
   AUTO_APPROVE=""
 fi
 

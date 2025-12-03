@@ -31,6 +31,7 @@ import {
   PATIENT_SEXUAL_ORIENTATION_URL,
   PatientAccountResponse,
   PRACTICE_NAME_URL,
+  PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
 } from '../../types';
 import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId } from '../helpers';
 
@@ -89,6 +90,9 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
     ?.valueCodeableConcept?.coding?.[0]?.display;
   const patientRace = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/race`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
+  const patientPreferredCommunicationMethod = patient.extension?.find(
+    (e) => e.url === PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL
+  )?.valueString;
 
   const pronouns = getPronounsFromExtension(patient);
   const customPronouns = patient.extension?.find(
@@ -182,6 +186,9 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           }
           if (linkId === 'patient-email' && patientEmail) {
             answer = makeAnswer(patientEmail);
+          }
+          if (linkId === 'patient-preferred-communication-method' && patientPreferredCommunicationMethod) {
+            answer = makeAnswer(patientPreferredCommunicationMethod);
           }
           if (linkId === 'mobile-opt-in' && patientSendMarketing !== undefined) {
             answer = makeAnswer(patientSendMarketing, 'Boolean');
@@ -487,6 +494,9 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
   const patientCommonWellConsent = patient.extension?.find(
     (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/common-well-consent`
   )?.valueBoolean;
+  const patientPreferredCommunicationMethod = patient.extension?.find(
+    (e) => e.url === PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL
+  )?.valueString;
 
   return items.map((item) => {
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
@@ -563,6 +573,9 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     }
     if (linkId === 'patient-point-of-discovery' && patientPointOfDiscovery) {
       answer = makeAnswer(patientPointOfDiscovery);
+    }
+    if (linkId === 'patient-preferred-communication-method' && patientPreferredCommunicationMethod) {
+      answer = makeAnswer(patientPreferredCommunicationMethod);
     }
     if (linkId === 'mobile-opt-in' && patientSendMarketing !== undefined) {
       answer = makeAnswer(patientSendMarketing, 'Boolean');

@@ -1,10 +1,11 @@
 import { EditOutlined } from '@mui/icons-material';
-import { IconButton, Link as MuiLink, Table, TableBody, TableCell, TableRow, Tooltip, Typography } from '@mui/material';
+import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography } from '@mui/material';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { TermsAndConditions } from 'src/components/TermsAndConditions';
 import { makeValidationSchema, pickFirstValueFromAnswerItem, ServiceMode, uuidRegex, VisitType } from 'utils';
 import { ValidationError } from 'yup';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
@@ -26,12 +27,12 @@ import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 import { useAppointmentStore } from '../telemed/features/appointments/appointment.store';
 import { useCreateInviteMutation } from '../telemed/features/waiting-room';
-import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { ReviewItem } from '../types';
 import { slugFromLinkId } from './PaperworkPage';
 
+const PAGE_ID = 'PAPERWORK_REVIEW_PAGE';
+
 const ReviewPaperwork = (): JSX.Element => {
-  const openExternalLink = useOpenExternalLink();
   const navigate = useNavigate();
   const { id: appointmentID } = useParams();
   const { pathname } = useLocation();
@@ -384,27 +385,7 @@ const ReviewPaperwork = (): JSX.Element => {
             ))}
         </TableBody>
       </Table>
-      <Typography variant="body2">
-        By proceeding with a visit, you acknowledge that you have reviewed and accept our{' '}
-        <MuiLink
-          sx={{ cursor: 'pointer' }}
-          onClick={() => openExternalLink('/template.pdf')}
-          target="_blank"
-          data-testid={dataTestIds.privacyPolicyReviewScreen}
-        >
-          Privacy Policy
-        </MuiLink>{' '}
-        and{' '}
-        <MuiLink
-          sx={{ cursor: 'pointer' }}
-          onClick={() => openExternalLink('/template.pdf')}
-          target="_blank"
-          data-testid={dataTestIds.termsAndConditionsReviewScreen}
-        >
-          Terms and Conditions of Service
-        </MuiLink>
-        .
-      </Typography>
+      <TermsAndConditions pageId={PAGE_ID} />
       <PageForm
         controlButtons={{
           submitLabel: submitButtonLabel,

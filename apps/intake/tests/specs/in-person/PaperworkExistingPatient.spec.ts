@@ -49,13 +49,14 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
     await paperwork.clickProceedToPaperwork();
     filledPaperwork = await paperwork.fillPaperworkAllFieldsInPerson('insurance', 'not-self');
     await locator.continueButton.click();
+    await page.waitForTimeout(1_000);
     await page.goto('/home');
     await locator.scheduleInPersonVisitButton.click();
     await flowClass.additionalStepsForPrebook();
     await paperwork.checkCorrectPageOpens('Welcome Back!');
     await page
       .getByRole('heading', { name: new RegExp(`.*${bookingData.firstName} ${bookingData.lastName}.*`, 'i') })
-      .click();
+      .click({ noWaitAfter: true });
     await locator.continueButton.click();
     const [year, month, day] = bookingData.dateOfBirth.split('-');
     await fillingInfo.fillCorrectDOB(month, day, year);
