@@ -1,6 +1,12 @@
 // cSpell:ignore networkidle, VVPP
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { BOOKING_CONFIG, chooseJson, CreateAppointmentResponse, shouldShowServiceCategorySelectionPage } from 'utils';
+import {
+  BOOKING_CONFIG,
+  chooseJson,
+  CreateAppointmentResponse,
+  PROJECT_NAME,
+  shouldShowServiceCategorySelectionPage,
+} from 'utils';
 import { Locators } from '../../utils/locators';
 import { Paperwork, PATIENT_ADDRESS, PATIENT_ADDRESS_LINE_2, PATIENT_CITY, PATIENT_ZIP } from '../../utils/Paperwork';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
@@ -77,7 +83,7 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     await locator.continueButton.click();
     await paperwork.checkCorrectPageOpens('Review and submit');
     await locator.reserveButton.click();
-    await paperwork.checkCorrectPageOpens('Thank you for choosing Ottehr!');
+    await paperwork.checkCorrectPageOpens(`Thank you for choosing ${PROJECT_NAME}!`);
   });
   test('VVPP-1 Check Contact information has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/contact-information`);
