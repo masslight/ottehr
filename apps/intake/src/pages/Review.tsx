@@ -1,10 +1,11 @@
 import { EditOutlined } from '@mui/icons-material';
-import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography, useTheme } from '@mui/material';
+import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography } from '@mui/material';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { TermsAndConditions } from 'src/components/TermsAndConditions';
 import {
   APIError,
   APPOINTMENT_CANT_BE_IN_PAST_ERROR,
@@ -43,6 +44,8 @@ const makeFullName = (patient: PatientInfo | undefined): string | undefined => {
   return `${firstName}${middleName ? ` ${middleName}` : ''} ${lastName}`;
 };
 
+const PAGE_ID = 'REVIEW_PAGE';
+
 const Review = (): JSX.Element => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -60,7 +63,6 @@ const Review = (): JSX.Element => {
     completeBooking,
   } = useBookingContext();
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
-  const theme = useTheme();
   const { slotId } = useParams<{ slotId: string }>();
 
   const patientInfo: PatientInfo | undefined = (() => {
@@ -235,17 +237,7 @@ const Review = (): JSX.Element => {
           ))}
         </TableBody>
       </Table>
-      <Typography color={theme.palette.text.secondary}>
-        {t('reviewAndSubmit.byProceeding')}
-        <Link to="/template.pdf" target="_blank" data-testid={dataTestIds.privacyPolicyReviewScreen}>
-          {t('reviewAndSubmit.privacyPolicy')}
-        </Link>{' '}
-        {t('reviewAndSubmit.andPrivacyPolicy')}
-        <Link to="/template.pdf" target="_blank" data-testid={dataTestIds.termsAndConditionsReviewScreen}>
-          {t('reviewAndSubmit.termsAndConditions')}
-        </Link>
-        .
-      </Typography>
+      <TermsAndConditions pageId={PAGE_ID} />
       <PageForm
         controlButtons={useMemo(
           () => ({

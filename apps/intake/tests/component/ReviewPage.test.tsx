@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { DateTime } from 'luxon';
 import { MemoryRouter } from 'react-router-dom';
-import { VisitType } from 'utils';
+import { getPrivacyPolicyLinkDefForLocation, getTermsAndConditionsLinkDefForLocation, VisitType } from 'utils';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import ReviewPage from '../../src/pages/Review';
 
@@ -99,15 +99,25 @@ describe('Review and Submit Screen', () => {
       </MemoryRouter>
     );
 
-    const privacyPolicyLink = screen.getByRole('link', { name: 'Privacy Policy' });
-    expect(privacyPolicyLink).toBeDefined();
-    expect(privacyPolicyLink.getAttribute('href')).toBe('/template.pdf');
-    expect(privacyPolicyLink.getAttribute('target')).toBe('_blank');
+    const privacyLinkDef = getPrivacyPolicyLinkDefForLocation('REVIEW_PAGE');
+    const privacyPolicyLink = screen.queryByRole('link', { name: 'Privacy Policy' });
+    if (privacyLinkDef === undefined) {
+      expect(privacyPolicyLink).toBeNull();
+    } else {
+      expect(privacyPolicyLink).toBeDefined();
+      expect(privacyPolicyLink?.getAttribute('href')).toBe(privacyLinkDef.url);
+      expect(privacyPolicyLink?.getAttribute('target')).toBe('_blank');
+    }
 
-    const termsLink = screen.getByRole('link', { name: 'Terms and Conditions of Service' });
-    expect(termsLink).toBeDefined();
-    expect(termsLink.getAttribute('href')).toBe('/template.pdf');
-    expect(termsLink.getAttribute('target')).toBe('_blank');
+    const termsLinkDef = getTermsAndConditionsLinkDefForLocation('REVIEW_PAGE');
+    const termsLink = screen.queryByRole('link', { name: 'Terms and Conditions of Service' });
+    if (termsLinkDef === undefined) {
+      expect(termsLink).toBeNull();
+    } else {
+      expect(termsLink).toBeDefined();
+      expect(termsLink?.getAttribute('href')).toBe(termsLinkDef.url);
+      expect(termsLink?.getAttribute('target')).toBe('_blank');
+    }
   });
 
   test('Check visit type display differences', () => {
