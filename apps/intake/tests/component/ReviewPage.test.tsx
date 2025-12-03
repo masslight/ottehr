@@ -104,7 +104,7 @@ describe('Review and Submit Screen', () => {
     if (privacyLinkDef === undefined) {
       expect(privacyPolicyLink).toBeNull();
     } else {
-      expect(privacyPolicyLink).toBeDefined();
+      expect(privacyPolicyLink).not.toBeNull();
       expect(privacyPolicyLink?.getAttribute('href')).toBe(privacyLinkDef.url);
       expect(privacyPolicyLink?.getAttribute('target')).toBe('_blank');
     }
@@ -114,7 +114,7 @@ describe('Review and Submit Screen', () => {
     if (termsLinkDef === undefined) {
       expect(termsLink).toBeNull();
     } else {
-      expect(termsLink).toBeDefined();
+      expect(termsLink).not.toBeNull();
       expect(termsLink?.getAttribute('href')).toBe(termsLinkDef.url);
       expect(termsLink?.getAttribute('target')).toBe('_blank');
     }
