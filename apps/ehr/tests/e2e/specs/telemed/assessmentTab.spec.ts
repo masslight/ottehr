@@ -67,7 +67,7 @@ test('Remove MDM and check missing required fields on review and sign page', asy
     await expect(page.getByTestId(dataTestIds.progressNotePage.emCodeLink)).toBeVisible();
     await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
     await expect(page.getByTestId(dataTestIds.progressNotePage.primaryDiagnosisLink)).toBeVisible();
-    await expect(page.getByTestId(dataTestIds.progressNotePage.ccLink)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.progressNotePage.hpiLink)).toBeVisible();
   });
   await page.getByTestId(dataTestIds.progressNotePage.primaryDiagnosisLink).click();
   await assessmentPage.expectDiagnosisDropdown();
