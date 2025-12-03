@@ -500,6 +500,7 @@ export const EditableMedicationCard: React.FC<{
             setInteractionsCheckState({
               status: 'done',
               medicationId: localValues.medicationId,
+              medicationName: interactionsCheckState.medicationName,
               interactions,
             });
           }}

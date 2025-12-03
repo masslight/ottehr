@@ -55,10 +55,17 @@ export abstract class BaseInPersonFlow {
     dateOfBirth: string;
   }> {
     await this.locator.waitUntilLoadingIsFinished();
-    await this.locator.continueOrDifferentFamilyMember();
+
+    try {
+      await this.locator.continueOrDifferentFamilyMember();
+    } catch (error) {
+      console.error(
+        'continueOrDifferentFamilyMember invocation failed, but that is expected if there are no registered patients yet',
+        error
+      );
+    }
 
     await this.locator.clickContinueButton();
-
     const bookingData = await this.fillingInfo.fillNewPatientInfo();
     const dob = await this.fillingInfo.fillDOBgreater18();
     await this.locator.clickContinueButton();
