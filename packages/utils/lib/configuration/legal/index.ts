@@ -3,7 +3,6 @@ import { LEGAL_OVERRIDES as OVERRIDES } from '../../../.ottehr_config';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import { DisplayTextSchema, LinkDef, LinkDefSchema, TextWithLinkComposition } from '../types';
 
-
 export type LegalConfigSchemaType = Record<string, TextWithLinkComposition>;
 
 const LEGAL_DEFAULTS: LegalConfigSchemaType = {
