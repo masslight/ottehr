@@ -237,6 +237,9 @@ const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): Pat
   return patientInfo;
 };
 
+const DEFAULT_PAPERWORK_CREDIT_CARD_DETAILS_COPY =
+  'If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.';
+
 const BOOKING_DEFAULTS = Object.freeze({
   reasonForVisitOptions: REASON_FOR_VISIT_OPTIONS,
   cancelReasonOptions: CANCEL_REASON_OPTIONS,
@@ -262,6 +265,11 @@ const BOOKING_DEFAULTS = Object.freeze({
   },
   prepopulateBookingForm,
   mapBookingQRItemToPatientInfo,
+  paperwork: {
+    creditCardDetails: {
+      copy: DEFAULT_PAPERWORK_CREDIT_CARD_DETAILS_COPY,
+    },
+  },
 });
 
 const mergedBookingConfig = _.merge({ ...BOOKING_DEFAULTS }, { ...BOOKING_OVERRIDES });
