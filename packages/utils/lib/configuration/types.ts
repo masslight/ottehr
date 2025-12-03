@@ -10,14 +10,13 @@ export const DisplayTextSchema = z
     message: 'Either literal or keyPath must be provided',
   });
 
-export const LinkDefSchema = z
-  .object({
-    nodeType: z.literal('Link'),
-    url: z.string(),
-    textToDisplay: DisplayTextSchema,
-    testId: z.string().optional(),
-    tags: z.array(z.string()).optional(),
-  });
+export const LinkDefSchema = z.object({
+  nodeType: z.literal('Link'),
+  url: z.string(),
+  textToDisplay: DisplayTextSchema,
+  testId: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+});
 export type DisplayTextDef = z.infer<typeof DisplayTextSchema>;
 
 export type LinkDef = z.infer<typeof LinkDefSchema>;
