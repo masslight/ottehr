@@ -100,23 +100,23 @@ describe('Review and Submit Screen', () => {
     );
 
     const privacyLinkDef = getPrivacyPolicyLinkDefForLocation('REVIEW_PAGE');
-    const privacyPolicyLink = screen.getByRole('link', { name: 'Privacy Policy' });
+    const privacyPolicyLink = screen.queryByRole('link', { name: 'Privacy Policy' });
     if (privacyLinkDef === undefined) {
-      expect(privacyPolicyLink).toBeUndefined();
+      expect(privacyPolicyLink).toBeNull();
     } else {
       expect(privacyPolicyLink).toBeDefined();
-      expect(privacyPolicyLink.getAttribute('href')).toBe(privacyLinkDef.url);
-      expect(privacyPolicyLink.getAttribute('target')).toBe('_blank');
+      expect(privacyPolicyLink?.getAttribute('href')).toBe(privacyLinkDef.url);
+      expect(privacyPolicyLink?.getAttribute('target')).toBe('_blank');
     }
 
     const termsLinkDef = getTermsAndConditionsLinkDefForLocation('REVIEW_PAGE');
-    const termsLink = screen.getByRole('link', { name: 'Terms and Conditions of Service' });
+    const termsLink = screen.queryByRole('link', { name: 'Terms and Conditions of Service' });
     if (termsLinkDef === undefined) {
-      expect(termsLink).toBeUndefined();
+      expect(termsLink).toBeNull();
     } else {
       expect(termsLink).toBeDefined();
-      expect(termsLink.getAttribute('href')).toBe(termsLinkDef.url);
-      expect(termsLink.getAttribute('target')).toBe('_blank');
+      expect(termsLink?.getAttribute('href')).toBe(termsLinkDef.url);
+      expect(termsLink?.getAttribute('target')).toBe('_blank');
     }
   });
 
