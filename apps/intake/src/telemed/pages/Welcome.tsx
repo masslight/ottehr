@@ -20,8 +20,8 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
       title={`Welcome to ${PROJECT_NAME}`}
       img={ottehrLightBlue}
       imgAlt={`${PROJECT_NAME} icon`}
-      imgWidth={150}
-      isFirstPage={true}
+      imgWidth={100}
+      isFirstPage={false}
       outsideCardComponent={showEmergencyBanner ? <EmergencyBanner /> : undefined}
     >
       <Typography variant="body1">We look forward to helping you soon!</Typography>
@@ -33,7 +33,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <LoadingButton
           variant="contained"
-          color="primary"
+          color="secondary"
           size="large"
           className="next-button"
           type="submit"

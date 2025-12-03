@@ -5,6 +5,7 @@ import { BRANDING_OVERRIDES as OVERRIDES } from '../../../.ottehr_config';
 const overrides: any = OVERRIDES || {};
 const BRANDING_DEFAULTS: any = {
   projectName: 'Ottehr',
+  projectDomain: 'ottehr.com',
   email: {
     logoURL: '',
     supportPhoneNumber: '(202) 555-1212',
@@ -37,6 +38,7 @@ const mergedBrandingConfig = _.merge({ ...BRANDING_DEFAULTS }, { ...overrides })
 
 const BrandingConfigSchema = z.object({
   projectName: z.string().min(1, { message: 'Project name cannot be empty' }),
+  projectDomain: z.string().min(1, { message: 'Project domain cannot be empty' }),
   email: z.object({
     logoURL: z.string().optional(),
     supportPhoneNumber: z.string().optional(),

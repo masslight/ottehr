@@ -1,14 +1,15 @@
+import { BRANDING_CONFIG } from '../configuration/branding';
 import { ottehrExtensionUrl } from '../fhir/systemUrls';
 
 export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
 
 export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
 
-export const PROJECT_NAME = 'Ottehr';
+export const PROJECT_NAME = BRANDING_CONFIG.projectName;
 export const PROJECT_NAME_LOWER = PROJECT_NAME.toLowerCase();
-export const PROJECT_DOMAIN = 'ottehr.com';
+export const PROJECT_DOMAIN = BRANDING_CONFIG.projectDomain;
 export const PROJECT_WEBSITE = `https://${PROJECT_DOMAIN}`;
-export const SUPPORT_EMAIL = 'ottehr-support@ottehr.com';
+export const SUPPORT_EMAIL = BRANDING_CONFIG.email.sender;
 
 export const PATIENT_INDIVIDUAL_PRONOUNS_URL = 'http://hl7.org/fhir/StructureDefinition/individual-pronouns';
 export const PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL =

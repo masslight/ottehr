@@ -200,7 +200,7 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
       lineHeight: '140%',
     },
     h2: {
-      fontSize: 26,
+      fontSize: 28,
       fontWeight: '600',
       fontFamily: headerFonts.join(','),
       lineHeight: '140%',
