@@ -960,10 +960,11 @@ async function drawCommonExternalLabElements(
   }
 
   if (data.resultSpecimenInfo) {
-    console.log('Drawing result specimen info');
-    sectionHasContent = true;
+    console.log('Drawing result specimen info', JSON.stringify(data.resultSpecimenInfo));
+    if (data.resultSpecimenInfo.quantityString || data.resultSpecimenInfo.bodySite) sectionHasContent = true;
 
     if (data.resultSpecimenInfo.quantityString) {
+      console.log('Drawing specimen quantity/volume info');
       pdfClient = drawFieldLine(
         pdfClient,
         textStyles,
@@ -976,12 +977,13 @@ async function drawCommonExternalLabElements(
     }
 
     if (data.resultSpecimenInfo.bodySite) {
+      console.log('Drawing specimen bodysite info');
       pdfClient = drawFieldLine(pdfClient, textStyles, 'Specimen Source:', data.resultSpecimenInfo.bodySite);
       pdfClient.newLine(STANDARD_NEW_LINE);
     }
   }
 
-  if (data.fastingStatus || data.resultSpecimenInfo) {
+  if ((data.fastingStatus || data.resultSpecimenInfo) && sectionHasContent) {
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
