@@ -3,6 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
+  Account,
   Appointment,
   Coding,
   DocumentReference,
@@ -93,6 +94,8 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   }
 
   const tasksFailed: string[] = [];
+  let updatedAccount: Account | undefined;
+  let workersCompAccount: Account | undefined;
 
   console.time('querying for resources to support qr harvest');
   const resources = (
@@ -198,8 +201,13 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   // fetch the latest account resources and update the stripe customer
   try {
     // refetch the patient account resources
-    const { account: updatedAccount, guarantorResource: updatedGuarantorResource } =
-      await getAccountAndCoverageResourcesForPatient(patientResource.id, oystehr);
+    const {
+      account: latestAccount,
+      guarantorResource: updatedGuarantorResource,
+      workersCompAccount: latestWorkersCompAccount,
+    } = await getAccountAndCoverageResourcesForPatient(patientResource.id, oystehr);
+    updatedAccount = latestAccount;
+    workersCompAccount = latestWorkersCompAccount;
     if (updatedAccount && updatedGuarantorResource) {
       console.time('updating stripe customer');
       const stripeClient = getStripeClient(secrets);
@@ -291,7 +299,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   if (qr.status === 'completed' || qr.status === 'amended') {
     try {
-      console.log('adding payment variant extension to encounter');
+      console.log('updating encounter payment variant and account references');
       const paymentOption = flattenedPaperwork.find(
         (response: QuestionnaireResponseItem) => response.linkId === 'payment-option'
       )?.answer?.[0]?.valueString;
@@ -300,21 +308,40 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
         encounterResource,
         patientSelectSelfPay ? PaymentVariant.selfPay : PaymentVariant.insurance
       );
-      await oystehr.fhir.patch<Encounter>({
-        id: encounterResource.id,
-        resourceType: 'Encounter',
-        operations: [
-          {
-            op: encounterResource.extension !== undefined ? 'replace' : 'add',
-            path: '/extension',
-            value: updatedEncounter.extension,
-          },
-        ],
-      });
-      console.log('payment variant extension added to encounter');
+      const encounterPatchOperations: Operation[] = [
+        {
+          op: encounterResource.extension !== undefined ? 'replace' : 'add',
+          path: '/extension',
+          value: updatedEncounter.extension,
+        },
+      ];
+
+      const patientAccountReference = updatedAccount?.id ? `Account/${updatedAccount.id}` : undefined;
+      const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
+      const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(
+        encounterResource.account,
+        [patientAccountReference, workersCompAccountReference]
+      );
+
+      if (accountsChanged && updatedEncounterAccounts) {
+        encounterPatchOperations.push({
+          op: encounterResource.account ? 'replace' : 'add',
+          path: '/account',
+          value: updatedEncounterAccounts,
+        });
+      }
+
+      if (encounterPatchOperations.length) {
+        await oystehr.fhir.patch<Encounter>({
+          id: encounterResource.id,
+          resourceType: 'Encounter',
+          operations: encounterPatchOperations,
+        });
+      }
+      console.log('payment variant and account references updated on encounter');
     } catch (error: unknown) {
-      tasksFailed.push('add payment variant extension to encounter');
-      console.log(`Failed to add payment variant extension to encounter: ${error}`);
+      tasksFailed.push('update encounter payment variant/accounts');
+      console.log(`Failed to update encounter payment variant/accounts: ${error}`);
       captureException(error);
     }
   }
@@ -418,4 +445,35 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   }
 
   return response;
+};
+
+const mergeEncounterAccounts = (
+  existingAccounts: Encounter['account'],
+  references: (string | undefined)[]
+): { accounts?: Encounter['account']; changed: boolean } => {
+  const sanitizedReferences = references.filter((reference): reference is string => Boolean(reference));
+  if (!sanitizedReferences.length) {
+    return { accounts: existingAccounts, changed: false };
+  }
+
+  const normalizedAccounts: Encounter['account'] = existingAccounts ? [...existingAccounts] : [];
+  const existingRefSet = new Set(
+    (existingAccounts ?? [])
+      .map((account) => account.reference)
+      .filter((reference): reference is string => Boolean(reference))
+  );
+  let changed = false;
+
+  sanitizedReferences.forEach((reference) => {
+    if (!existingRefSet.has(reference)) {
+      normalizedAccounts.push({ reference });
+      existingRefSet.add(reference);
+      changed = true;
+    }
+  });
+
+  return {
+    accounts: changed ? normalizedAccounts : existingAccounts,
+    changed,
+  };
 };

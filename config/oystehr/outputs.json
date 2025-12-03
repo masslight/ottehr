@@ -1,0 +1,32 @@
+{
+  "schema-version": "2025-09-25",
+  "outputs": {
+    "MUI_X_LICENSE_KEY": {
+      "value": "#{var/MUI_X_LICENSE_KEY}"
+    },
+    "GTM_ID": {
+      "value": "#{var/GTM_ID}"
+    },
+    "MIXPANEL_TOKEN": {
+      "value": "#{var/MIXPANEL_TOKEN}"
+    },
+    "DEFAULT_WALKIN_LOCATION_NAME": {
+      "value": "${replace(\"#{ref/fhirResources/LOCATION_PHYSICAL_NY/data.name}\", \" \", \"_\")}"
+    },
+    "EHR_APP_NAME": {
+      "value": "#{var/EHR_APP_NAME}"
+    },
+    "EHR_ORGANIZATION_NAME_LONG": {
+      "value": "#{var/EHR_ORGANIZATION_NAME_LONG}"
+    },
+    "EHR_ORGANIZATION_NAME_SHORT": {
+      "value": "#{var/EHR_ORGANIZATION_NAME_SHORT}"
+    },
+    "PATIENT_APP_NAME": {
+      "value": "#{var/PATIENT_APP_NAME}"
+    },
+    "DYNAMSOFT_LICENSE_KEY": {
+      "value": "#{var/DYNAMSOFT_LICENSE_KEY}"
+    }
+  }
+}

@@ -12,14 +12,14 @@ export const ChiefComplaintContainer: FC = () => {
 
   const { data: chartFields } = useChartFields({
     requestedFields: {
-      chiefComplaint: {
-        _tag: 'chief-complaint',
+      historyOfPresentIllness: {
+        _tag: 'history-of-present-illness',
       },
     },
   });
 
   const { isInPerson } = useAppFlags();
-  const chiefComplaint = chartFields?.chiefComplaint?.text;
+  const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
   const addToVisitNote = chartData?.addToVisitNote?.value;
   const spentTime = getSpentTime(encounter.statusHistory);
 
@@ -29,7 +29,7 @@ export const ChiefComplaintContainer: FC = () => {
       data-testid={dataTestIds.telemedEhrFlow.reviewTabChiefComplaintContainer}
     >
       <Typography variant="h5" color="primary.dark">
-        Chief complaint & History of Present Illness
+        Chief complaint
       </Typography>
       <Typography>{chiefComplaint}</Typography>
       {!isInPerson && addToVisitNote && spentTime && (
