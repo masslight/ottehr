@@ -22,9 +22,18 @@ import { getFirstName, getLastName, getMiddleName, PersonSex } from 'utils';
 import { AddVisitPatientSearchDialog } from './AddVisitPatientSearchDialog';
 import { AddVisitPatientSearchFields } from './AddVisitPatientSearchFields';
 
+const defaultSearchFilters = { givenNames: '', lastName: '', phone: '' };
+const readOnlyTextFieldProps: TextFieldProps = {
+  InputProps: {
+    readOnly: true,
+    sx: {
+      pointerEvents: 'none',
+    },
+  },
+};
 interface AddVisitPatientInformationCardProps {
   patientInfo: AddVisitPatientInfo | undefined;
-  setPatientInfo: (info: AddVisitPatientInfo) => void;
+  setPatientInfo: (info: AddVisitPatientInfo | undefined) => void;
   showFields: AddVisitFormState;
   setShowFields: (formState: AddVisitFormState) => void;
   setValidDate: (isValid: boolean) => void;
@@ -45,7 +54,6 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
   setBirthDate,
 }) => {
   const { oystehr } = useApiClients();
-  const defaultSearchFilters = { givenNames: '', lastName: '', phone: '' };
 
   const [openSearchResults, setOpenSearchResults] = useState<boolean>(false);
   const [selectedPatient, setSelectedPatient] = useState<AddVisitPatientInfo | undefined>(undefined);
@@ -57,14 +65,6 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
   const formattedDOB = patientInfo?.dateOfBirth
     ? DateTime.fromISO(patientInfo.dateOfBirth).toFormat('MMMM dd, yyyy')
     : '';
-  const readOnlyTextFieldProps: TextFieldProps = {
-    InputProps: {
-      readOnly: true,
-      sx: {
-        pointerEvents: 'none',
-      },
-    },
-  };
 
   // helpers
   const setSearchField = useCallback(
@@ -129,35 +129,34 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
     const parsedPatients: AddVisitPatientInfo[] = [];
     // todo this can probably be done better / quicker with reduce
     resources.forEach((resource) => {
-      if (resource.resourceType === 'Patient') {
-        const fhirPatient = resource;
-        const relatedPerson = resources.find(
-          (resource) =>
-            resource.resourceType === 'RelatedPerson' &&
-            resource.patient.reference === `Patient/${fhirPatient.id}` &&
-            resource.relationship?.some((rel) => rel.coding?.some((c) => c.code === 'user-relatedperson'))
-        );
-        if (relatedPerson) {
-          const user = resources.find(
-            (resource) =>
-              resource.resourceType === 'Person' &&
-              resource.link?.some((link) => link.target.reference === `RelatedPerson/${relatedPerson.id}`)
-          );
-          if (user) {
-            const formattedPatientInfo: AddVisitPatientInfo = {
-              id: fhirPatient.id,
-              newPatient: false,
-              firstName: getFirstName(fhirPatient),
-              middleName: getMiddleName(fhirPatient),
-              lastName: getLastName(fhirPatient),
-              dateOfBirth: fhirPatient.birthDate,
-              sex: fhirPatient.gender,
-              phoneNumber: user.telecom?.find((telecom) => telecom.system === 'phone')?.value?.replace('+1', ''),
-            };
-            parsedPatients.push(formattedPatientInfo);
-          }
-        }
-      }
+      if (resource.resourceType !== 'Patient') return;
+      const fhirPatient = resource;
+      const relatedPerson = resources.find(
+        (resource) =>
+          resource.resourceType === 'RelatedPerson' &&
+          resource.patient.reference === `Patient/${fhirPatient.id}` &&
+          resource.relationship?.some((rel) => rel.coding?.some((c) => c.code === 'user-relatedperson'))
+      );
+      if (!relatedPerson) return;
+
+      const user = resources.find(
+        (resource) =>
+          resource.resourceType === 'Person' &&
+          resource.link?.some((link) => link.target.reference === `RelatedPerson/${relatedPerson.id}`)
+      );
+      if (!user) return;
+
+      const formattedPatientInfo: AddVisitPatientInfo = {
+        id: fhirPatient.id,
+        newPatient: false,
+        firstName: getFirstName(fhirPatient),
+        middleName: getMiddleName(fhirPatient),
+        lastName: getLastName(fhirPatient),
+        dateOfBirth: fhirPatient.birthDate,
+        sex: fhirPatient.gender,
+        phoneNumber: user.telecom?.find((telecom) => telecom.system === 'phone')?.value?.replace('+1', ''),
+      };
+      parsedPatients.push(formattedPatientInfo);
     });
 
     setPatients(parsedPatients);
@@ -223,6 +222,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
     setSelectedPatient(undefined);
     setBirthDate(null);
     setShowFields('displayPatientSearch');
+    setPatientInfo(undefined);
   };
 
   return (

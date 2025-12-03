@@ -141,6 +141,13 @@ export default function AddPatient(): JSX.Element {
       return;
     }
 
+    if (patientInfo.phoneNumber && patientInfo.phoneNumber.length !== 10) {
+      setErrors({ phone: true });
+      return;
+    } else {
+      setErrors({ ...errors, phone: false });
+    }
+
     if ((visitType === VisitType.PreBook || visitType === VisitType.PostTelemed) && slot === undefined) {
       setSelectSlotDialogOpen(true);
       return;
