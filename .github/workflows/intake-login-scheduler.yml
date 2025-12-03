@@ -1,0 +1,13 @@
+name: Intake Login Scheduler
+
+# This workflow handles the daily scheduled login for Intake E2E tests
+# to maintain fresh authentication tokens in cache
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  scheduled-login:
+    uses: ./.github/workflows/e2e-intake.yml
+    secrets: inherit

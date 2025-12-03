@@ -38,7 +38,7 @@ locals {
   # `1` is the magic number to run a module that checks this local variable.
   # switch which line is commented out to run non-local modules like aws_infra
   # while still in the `local` environment
-  is_local                     = var.environment == "local" ? true : false
+  is_local                     = contains(["local"], var.environment)
   not_local_env_resource_count = local.is_local ? 0 : 1
   # not_local_env_resource_count = 1
 }
