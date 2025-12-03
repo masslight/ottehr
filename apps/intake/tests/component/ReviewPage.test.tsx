@@ -1,13 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import { DateTime } from 'luxon';
 import { MemoryRouter } from 'react-router-dom';
-import { VisitType } from 'utils';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { getPrivacyPolicyLinkDefForLocation, getTermsAndConditionsLinkDefForLocation, VisitType } from 'utils';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import ReviewPage from '../../src/pages/Review';
 
 const mockUseBookingContext = vi.fn();
 vi.mock('../../src/pages/BookingHome', () => ({
   useBookingContext: () => mockUseBookingContext(),
+  PROGRESS_STORAGE_KEY: 'patient-information-progress',
 }));
 
 const mockData = {
@@ -26,6 +27,19 @@ describe('Review and Submit Screen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseBookingContext.mockReturnValue(mockData);
+
+    // Set up sessionStorage with patient information
+    const mockSessionData = {
+      'patient-information-page-1': {
+        'patient-first-name': { linkId: 'patient-first-name', answer: [{ valueString: 'John' }] },
+        'patient-last-name': { linkId: 'patient-last-name', answer: [{ valueString: 'Doe' }] },
+      },
+    };
+    sessionStorage.setItem('patient-information-progress', JSON.stringify(mockSessionData));
+  });
+
+  afterEach(() => {
+    sessionStorage.clear();
   });
 
   test('should render Review page', () => {
@@ -85,15 +99,25 @@ describe('Review and Submit Screen', () => {
       </MemoryRouter>
     );
 
-    const privacyPolicyLink = screen.getByRole('link', { name: 'Privacy Policy' });
-    expect(privacyPolicyLink).toBeDefined();
-    expect(privacyPolicyLink.getAttribute('href')).toBe('/template.pdf');
-    expect(privacyPolicyLink.getAttribute('target')).toBe('_blank');
+    const privacyLinkDef = getPrivacyPolicyLinkDefForLocation('REVIEW_PAGE');
+    const privacyPolicyLink = screen.queryByRole('link', { name: 'Privacy Policy' });
+    if (privacyLinkDef === undefined) {
+      expect(privacyPolicyLink).toBeNull();
+    } else {
+      expect(privacyPolicyLink).toBeDefined();
+      expect(privacyPolicyLink?.getAttribute('href')).toBe(privacyLinkDef.url);
+      expect(privacyPolicyLink?.getAttribute('target')).toBe('_blank');
+    }
 
-    const termsLink = screen.getByRole('link', { name: 'Terms and Conditions of Service' });
-    expect(termsLink).toBeDefined();
-    expect(termsLink.getAttribute('href')).toBe('/template.pdf');
-    expect(termsLink.getAttribute('target')).toBe('_blank');
+    const termsLinkDef = getTermsAndConditionsLinkDefForLocation('REVIEW_PAGE');
+    const termsLink = screen.queryByRole('link', { name: 'Terms and Conditions of Service' });
+    if (termsLinkDef === undefined) {
+      expect(termsLink).toBeNull();
+    } else {
+      expect(termsLink).toBeDefined();
+      expect(termsLink?.getAttribute('href')).toBe(termsLinkDef.url);
+      expect(termsLink?.getAttribute('target')).toBe('_blank');
+    }
   });
 
   test('Check visit type display differences', () => {
@@ -134,6 +158,9 @@ describe('Review and Submit Screen', () => {
   });
 
   test('Check patient name displays "Unknown" when patientInfo is missing', () => {
+    // Clear sessionStorage to simulate missing patient info
+    sessionStorage.clear();
+
     mockUseBookingContext.mockReturnValue({
       ...mockData,
       patientInfo: undefined,

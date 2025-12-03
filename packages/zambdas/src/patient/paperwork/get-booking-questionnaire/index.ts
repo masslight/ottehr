@@ -21,7 +21,7 @@ import {
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { getUser, userHasAccessToPatient } from '../../../shared/auth';
 
-const ZAMBDA_NAME = 'get-questionnaire';
+const ZAMBDA_NAME = 'get-booking-questionnaire';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;

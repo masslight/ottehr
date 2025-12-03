@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { shouldShowServiceCategorySelectionPage } from 'utils';
 import { BaseInPersonFlow } from './BaseInPersonFlow';
 
 export class PrebookInPersonFlow extends BaseInPersonFlow {
@@ -13,7 +14,9 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
     location: string | null;
   }> {
     // Handle service category selection if present
-    await this.fillingInfo.selectFirstServiceCategory();
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
+      await this.fillingInfo.selectFirstServiceCategory();
+    }
 
     await expect(this.locator.firstAvailableTime).toBeVisible();
     const title = await this.locator.pageTitle.textContent();

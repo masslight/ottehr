@@ -2,7 +2,8 @@ import { BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
-import { getFirstName, getLastName } from 'utils';
+import { getFirstName, getLastName, MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils';
+import InHouseMedicationsConfig from '../../../../../../config/oystehr/in-house-medications.json' assert { type: 'json' };
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { DIAGNOSIS_EMPTY_VALUE, Field, ORDERED_BY_EMPTY_VALUE } from '../../page/EditMedicationCard';
 import { InHouseMedicationsPage } from '../../page/in-person/InHouseMedicationsPage';
@@ -19,10 +20,22 @@ const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 
 // cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
-const MEDICATION = 'Acetaminophen (80mg Suppository)';
-const MEDICATION_FOR_ADMINISTERED = 'Albuterol';
-const MEDICATION_FOR_PARTLY_ADMINISTERED = 'Amoxicillin';
-const MEDICATION_FOR_NOT_ADMINISTERED = 'Ventolin HFA';
+const MEDICATION =
+  InHouseMedicationsConfig.fhirResources.MEDICATION_ACETAMINOPHEN_80mg_SUPPOSITORY.resource.identifier.find(
+    (coding) => coding.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
+  )?.value || '';
+const MEDICATION_FOR_ADMINISTERED =
+  InHouseMedicationsConfig.fhirResources.MEDICATION_ALBUTEROL.resource.identifier.find(
+    (coding) => coding.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
+  )?.value || '';
+const MEDICATION_FOR_PARTLY_ADMINISTERED =
+  InHouseMedicationsConfig.fhirResources.MEDICATION_AMOXICILLIN.resource.identifier.find(
+    (coding) => coding.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
+  )?.value || '';
+const MEDICATION_FOR_NOT_ADMINISTERED =
+  InHouseMedicationsConfig.fhirResources.MEDICATION_VENTOLIN_HFA.resource.identifier.find(
+    (coding) => coding.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
+  )?.value || '';
 
 const DOSE = '2';
 const UNITS = 'mg';
@@ -30,7 +43,10 @@ const MANUFACTURER = 'Test';
 const ROUTE = 'Sublingual route';
 const INSTRUCTIONS = 'Instructions';
 
-const NEW_MEDICATION = 'Acetaminophen (325mg Suppository)';
+const NEW_MEDICATION =
+  InHouseMedicationsConfig.fhirResources.MEDICATION_ACETAMINOPHEN_325mg_SUPPOSITORY.resource.identifier.find(
+    (coding) => coding.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
+  )?.value || '';
 const NEW_DOSE = '1';
 const NEW_UNITS = 'g';
 const NEW_MANUFACTURER = 'Edited test';

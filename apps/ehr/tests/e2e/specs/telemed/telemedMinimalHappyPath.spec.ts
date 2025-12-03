@@ -77,7 +77,7 @@ test('Should fill all required fields', async () => {
   await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
 
   await page
-    .getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes)
+    .getByTestId(dataTestIds.hpiAndTemplatesPage.hpiNotes)
     .locator('textarea')
     .first()
     .fill('patient reports a fever');

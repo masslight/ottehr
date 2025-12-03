@@ -1,6 +1,12 @@
 // cSpell:ignore networkidle
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { chooseJson, CreateAppointmentResponse } from 'utils';
+import { QuestionnaireHelper } from 'tests/utils/QuestionnaireHelper';
+import {
+  chooseJson,
+  CreateAppointmentResponse,
+  getPrivacyPolicyLinkDefForLocation,
+  getTermsAndConditionsLinkDefForLocation,
+} from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
@@ -16,6 +22,8 @@ let locator: Locators;
 let uploadPhoto: UploadDocs;
 let commonLocators: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
+const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
+const REVIEW_PAGE_ID = 'PAPERWORK_REVIEW_PAGE';
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -83,6 +91,9 @@ test.describe('Paperwork.Review and Submit - Check Complete/Missing chips', () =
     await locator.clickContinueButton();
     await locator.clickContinueButton();
     await locator.clickContinueButton();
+    if (employerInformationPageExists) {
+      await locator.clickContinueButton();
+    }
     await paperwork.checkAllChipsAreCompletedInPerson();
     await expect(locator.finishButton).toBeVisible();
   });
@@ -111,10 +122,22 @@ test.describe('Paperwork.Review and Submit - Check values', () => {
     await expect(locator.checkInTimePaperworkReviewScreen).toHaveText(`${bookingData.selectedSlot}`);
   });
   test('PRS-9 Check privacy policy link', async () => {
-    await commonLocators.checkLinkOpensPdf(locator.privacyPolicyReviewScreen);
+    const privacyLinkDef = getPrivacyPolicyLinkDefForLocation(REVIEW_PAGE_ID);
+    if (privacyLinkDef === undefined) {
+      await expect(locator.privacyPolicyReviewScreen).not.toBeVisible();
+      return;
+    }
+    const link = page.locator(`[data-testid="${privacyLinkDef.testId}"]`);
+    await commonLocators.checkLinkOpensPdf(link);
   });
   test('PRS-10 Check terms and conditions link', async () => {
-    await commonLocators.checkLinkOpensPdf(locator.termsAndConditions);
+    const termsLinkDef = getTermsAndConditionsLinkDefForLocation(REVIEW_PAGE_ID);
+    if (termsLinkDef === undefined) {
+      await expect(locator.termsAndConditions).not.toBeVisible();
+      return;
+    }
+    const link = page.locator(`[data-testid="${termsLinkDef.testId}"]`);
+    await commonLocators.checkLinkOpensPdf(link);
   });
 });
 test.describe('Paperwork.Review and Submit - Check edit icons', () => {
