@@ -10,18 +10,34 @@ export const AiHpiSuggestion: FC = () => {
     (observation) => observation.field === AiObservationField.HistoryOfPresentIllness
   ) as ObservationTextFieldDTO[];
 
-  if (!aiHistoryOfPresentIllness || aiHistoryOfPresentIllness.length === 0) {
+  const aiMechanismOfInjury = chartData?.observations?.filter(
+    (observation) => observation.field === AiObservationField.MechanismOfInjury
+  ) as ObservationTextFieldDTO[];
+
+  if (
+    (!aiHistoryOfPresentIllness || aiHistoryOfPresentIllness.length === 0) &&
+    (!aiMechanismOfInjury || aiMechanismOfInjury.length === 0)
+  ) {
     return null;
   }
 
   return (
     <>
       <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
-      <AiSuggestion
-        title="History of Present Illness (HPI)"
-        chartData={chartData}
-        content={aiHistoryOfPresentIllness}
-      />
+      {aiMechanismOfInjury && aiMechanismOfInjury.length > 0 && (
+        <>
+          <AiSuggestion
+            title="History of Present Illness (HPI)"
+            chartData={chartData}
+            content={aiHistoryOfPresentIllness}
+          />
+        </>
+      )}
+      {aiHistoryOfPresentIllness && aiHistoryOfPresentIllness.length > 0 && (
+        <>
+          <AiSuggestion title="Mechanism of Injury" chartData={chartData} content={aiMechanismOfInjury} />
+        </>
+      )}
     </>
   );
 };

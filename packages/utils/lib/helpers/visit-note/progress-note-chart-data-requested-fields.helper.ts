@@ -15,6 +15,7 @@ export const vitalsObservationsRequest: SearchParams = {
 
 export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   chiefComplaint: { _tag: 'chief-complaint' },
+  mechanismOfInjury: { _tag: 'mechanism-of-injury' },
   ros: { _tag: 'ros' },
   episodeOfCare: {},
   prescribedMedications: {},

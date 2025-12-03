@@ -38,6 +38,7 @@ export interface AIChatDetails {
 export interface AllChartValues {
   chiefComplaint?: FreeTextNoteDTO;
   historyOfPresentIllness?: FreeTextNoteDTO;
+  mechanismOfInjury?: FreeTextNoteDTO;
   ros?: FreeTextNoteDTO;
   conditions?: MedicalConditionDTO[];
   medications?: MedicationDTO[];
@@ -73,6 +74,7 @@ export type RequestedFields =
   | 'surgicalHistoryNote'
   | 'chiefComplaint'
   | 'historyOfPresentIllness'
+  | 'mechanismOfInjury'
   | 'ros'
   | 'episodeOfCare'
   | 'prescribedMedications'

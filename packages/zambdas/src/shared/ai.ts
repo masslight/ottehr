@@ -2,7 +2,7 @@ import { ChatAnthropic } from '@langchain/anthropic';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { Condition, DocumentReference, Encounter, Observation } from 'fhir/r4b';
+import { Appointment, Condition, DocumentReference, Encounter, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
@@ -14,6 +14,7 @@ import {
   getFormatDuration,
   getSecret,
   MIME_TYPES,
+  OTTEHR_CODE_SYSTEM_BASE_URL,
   PUBLIC_EXTENSION_BASE_URL,
   Secrets,
   SecretsKeys,
@@ -36,6 +37,7 @@ The transcript: `;
 
 const AI_RESPONSE_KEY_TO_FIELD = {
   historyOfPresentIllness: AiObservationField.HistoryOfPresentIllness,
+  mechanismOfInjury: AiObservationField.MechanismOfInjury,
   pastMedicalHistory: AiObservationField.PastMedicalHistory,
   pastSurgicalHistory: AiObservationField.PastSurgicalHistory,
   medicationsHistory: AiObservationField.MedicationsHistory,
@@ -116,10 +118,42 @@ export async function createResourcesFromAiInterview(
   let fields =
     'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history and potential diagnoses';
   // if there is a provider user profile, it is a recording
+  const resources = (
+    await oystehr.fhir.search<Encounter | Appointment>({
+      resourceType: 'Encounter',
+      params: [
+        {
+          name: '_id',
+          value: encounterID,
+        },
+        {
+          name: '_include',
+          value: 'Encounter:appointment',
+        },
+      ],
+    })
+  ).unbundle();
+
+  const encounter = resources.find((resource) => resource.resourceType === 'Encounter');
+  const appointment = resources.find((resource) => resource.resourceType === 'Appointment');
+
+  if (
+    appointment?.serviceCategory?.find(
+      (serviceCategory) =>
+        serviceCategory.coding?.find(
+          (coding) =>
+            coding.system === `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category` && coding.code === 'workmans-comp'
+        )
+    )
+  ) {
+    fields = 'mechanism of injury, ' + fields;
+  }
+
   const source = providerUserProfile ? 'audio-recording' : 'chat';
   if (source === 'audio-recording') {
     fields = 'labs, erx, procedures, ' + fields;
   }
+
   const aiResponseString = (
     await invokeChatbot([{ role: 'user', content: getPrompt(fields) + '\n' + chatTranscript }], secrets)
   ).content.toString();
@@ -131,10 +165,11 @@ export async function createResourcesFromAiInterview(
     console.warn('Failed to parse AI response, attempting to fix JSON format:', error);
     aiResponse = fixAndParseJsonObjectFromString(aiResponseString);
   }
-  const encounter = await oystehr.fhir.get<Encounter>({
-    resourceType: 'Encounter',
-    id: encounterID,
-  });
+
+  if (!encounter) {
+    throw new Error(`Encounter ID ${encounterID} not found`);
+  }
+
   const encounterId = assertDefined(encounter.id, 'encounter.id');
   const patientId = assertDefined(encounter.subject?.reference?.split('/')[1], 'patientId');
   const requests: BatchInputPostRequest<DocumentReference | Observation | Condition>[] = [];
