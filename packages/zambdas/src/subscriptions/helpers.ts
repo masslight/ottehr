@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 
 interface PatchTaskStatusInput {
-  task: Task;
+  task: Pick<Task, 'id'>;
   taskStatusToUpdate: Task['status'];
   statusReasonToUpdate?: string;
 }
