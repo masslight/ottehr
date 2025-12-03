@@ -23,7 +23,6 @@ import PatientFollowup from './features/visits/shared/components/patient/Patient
 import { AppFlagsProvider } from './features/visits/shared/stores/contexts/useAppFlags';
 import EditInsurance from './features/visits/telemed/components/telemed-admin/EditInsurance';
 import EditVirtualLocationPage from './features/visits/telemed/components/telemed-admin/EditVirtualLocationPage';
-import { PatientVisitDetails } from './features/visits/telemed/pages/PatientVisitDetailsPage';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
@@ -215,7 +214,6 @@ function App(): ReactElement {
                   <Route path="/patients" element={<PatientsPage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
-                  <Route path="/patient/:id/details" element={<PatientVisitDetails />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
@@ -254,7 +252,6 @@ function App(): ReactElement {
                   <Route path="/visit/:id" element={<VisitDetailsPage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
-                  <Route path="/patient/:id/details" element={<PatientVisitDetails />} />
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />

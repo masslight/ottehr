@@ -5920,7 +5920,8 @@
             "Zambda:Function:ai-interview-start",
             "Zambda:Function:ai-interview-handle-answer",
             "Zambda:Function:ai-interview-persist-consent",
-            "Zambda:Function:get-questionnaire-patient"
+            "Zambda:Function:get-questionnaire-patient",
+            "Zambda:Function:get-questionnaire"
           ],
           "action": ["Zambda:InvokeFunction"],
           "effect": "Allow"

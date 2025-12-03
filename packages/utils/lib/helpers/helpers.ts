@@ -362,6 +362,7 @@ export const DEMO_VISIT_EMPLOYER_CONTACT_TITLE = 'HR Manager';
 export const DEMO_VISIT_EMPLOYER_CONTACT_EMAIL = 'a@a.a';
 export const DEMO_VISIT_EMPLOYER_CONTACT_PHONE = '(123) 123-1234';
 export const DEMO_VISIT_EMPLOYER_CONTACT_FAX = '(123) 123-1234';
+export const DEMO_PREFERRED_COMMUNICATION_METHOD = 'No preference';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -385,6 +386,7 @@ export function getContactInformationAnswers({
   phoneNumber = '(202) 733-9622',
 
   mobileOptIn = DEMO_VISIT_MARKETING_MESSAGING,
+  preferredCommunicationMethod = DEMO_PREFERRED_COMMUNICATION_METHOD,
 }: {
   willBe18?: boolean;
   isNewPatient?: boolean;
@@ -396,6 +398,7 @@ export function getContactInformationAnswers({
   email?: string;
   phoneNumber?: string;
   mobileOptIn?: boolean;
+  preferredCommunicationMethod?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'contact-information-page',
@@ -474,6 +477,14 @@ export function getContactInformationAnswers({
         answer: [
           {
             valueString: formatPhoneNumberForQuestionnaire(phoneNumber),
+          },
+        ],
+      },
+      {
+        linkId: 'patient-preferred-communication-method',
+        answer: [
+          {
+            valueString: preferredCommunicationMethod,
           },
         ],
       },

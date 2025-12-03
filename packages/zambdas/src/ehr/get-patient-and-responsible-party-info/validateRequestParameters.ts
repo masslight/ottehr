@@ -1,7 +1,12 @@
-import { z } from 'zod';
+import {
+  GetPatientAndResponsiblePartyInfoEndpointInput,
+  GetPatientAndResponsiblePartyInfoEndpointInputSchema,
+} from 'utils';
 import { ZambdaInput } from '../../shared';
 
-export function validateRequestParameters(input: ZambdaInput): { patientId: string } & Pick<ZambdaInput, 'secrets'> {
+export function validateRequestParameters(
+  input: ZambdaInput
+): GetPatientAndResponsiblePartyInfoEndpointInput & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -10,10 +15,7 @@ export function validateRequestParameters(input: ZambdaInput): { patientId: stri
   }
 
   const parsedJSON = JSON.parse(input.body);
-  const schema = z.object({
-    patientId: z.string(),
-  });
-  const { patientId } = schema.parse(parsedJSON);
+  const { patientId } = GetPatientAndResponsiblePartyInfoEndpointInputSchema.parse(parsedJSON);
 
   return {
     patientId,
