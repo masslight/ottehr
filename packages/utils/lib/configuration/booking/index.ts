@@ -233,8 +233,8 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
   )?.value;
 
   // assuming here we never need to collect this when we already have it
-  const shouldShownSSNField = !ssn && !BOOKING_CONFIG.hiddenBookingFields.includes('patient-ssn');
-  const ssnRequired = serviceCategoryCode === 'workmans_comp' && shouldShownSSNField;
+  const shouldShowSSNField = !ssn && !BOOKING_CONFIG.hiddenBookingFields.includes('patient-ssn');
+  const ssnRequired = serviceCategoryCode === 'workmans_comp' && shouldShowSSNField;
 
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
@@ -247,7 +247,7 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
             answer = makeAnswer(patient.id);
           }
           if (linkId === 'should-display-ssn-field') {
-            answer = makeAnswer(shouldShownSSNField, 'Boolean');
+            answer = makeAnswer(shouldShowSSNField, 'Boolean');
           }
           if (linkId === 'ssn-field-required') {
             answer = makeAnswer(ssnRequired, 'Boolean');
