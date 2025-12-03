@@ -427,17 +427,13 @@ export interface LabDocumentBase {
   docRefId: string;
   presignedURL: string;
 }
-export interface LabGeneratedResultDocument extends LabDocumentBase {
-  type: LabDocumentType.labGeneratedResult;
-  relatedResultReferences: string[]; // diagnostic reports linked via DocumentReference.context.related
-}
-export interface OttehrGeneratedResultDocument extends LabDocumentBase {
-  type: LabDocumentType.ottehrGeneratedResult;
-  diagnosticReportId: string;
+export interface LabDocumentRelatedToDiagnosticReport extends LabDocumentBase {
+  type: LabDocumentType.ottehrGeneratedResult | LabDocumentType.labGeneratedResult;
+  diagnosticReportIds: string[]; // lab generated results are one doc ref to many diagnostic reports
 }
 export interface LabDocumentRelatedToServiceRequest extends LabDocumentBase {
   type: LabDocumentType.abn | LabDocumentType.orderPdf;
-  serviceRequestId: string;
+  serviceRequestIds: string[]; // one order pdf doc ref to many service requests
 }
 export interface LabelPdf {
   type: LabDocumentType.label;
@@ -445,18 +441,14 @@ export interface LabelPdf {
   presignedURL: string;
 }
 
-export type LabDocument =
-  | LabGeneratedResultDocument
-  | OttehrGeneratedResultDocument
-  | LabDocumentRelatedToServiceRequest
-  | LabelPdf;
+export type LabDocument = LabDocumentRelatedToDiagnosticReport | LabDocumentRelatedToServiceRequest | LabelPdf;
 
 export interface ExternalLabDocuments {
-  labelPDF: LabelPdf | undefined;
+  labelPDF: LabelPdf | undefined; // only ever returned for the detail page atm
+  labGeneratedResults: LabDocumentRelatedToDiagnosticReport[] | undefined; // only ever returned for the detail page atm
+  resultPDFs: LabDocumentRelatedToDiagnosticReport[] | undefined; // only ever returned for the detail page atm
   orderPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;
   abnPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;
-  labGeneratedResults: LabGeneratedResultDocument[] | undefined;
-  resultPDFs: OttehrGeneratedResultDocument[] | undefined;
 }
 
 export enum UnsolicitedResultsRequestType {

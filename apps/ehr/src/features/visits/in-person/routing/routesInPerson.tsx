@@ -84,6 +84,13 @@ export enum ROUTER_PATH {
 }
 
 export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
+  [ROUTER_PATH.FOLLOW_UP_NOTE]: {
+    path: ROUTER_PATH.FOLLOW_UP_NOTE,
+    modes: ['follow-up'],
+    element: <FollowUpNote />,
+    text: 'Follow-up Note',
+    iconKey: 'Progress Note',
+  },
   [ROUTER_PATH.CC_AND_INTAKE_NOTES]: {
     path: ROUTER_PATH.CC_AND_INTAKE_NOTES,
     modes: ['main', 'readonly'],
@@ -389,14 +396,6 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     path: ROUTER_PATH.REVIEW_AND_SIGN,
     modes: ['main', 'readonly'],
     element: <ProgressNote />,
-    text: 'Review & Sign',
-    iconKey: 'Review & Sign',
-    groupLabel: 'Provider',
-  },
-  [ROUTER_PATH.FOLLOW_UP_NOTE]: {
-    path: ROUTER_PATH.FOLLOW_UP_NOTE,
-    modes: ['follow-up'],
-    element: <FollowUpNote />,
     text: 'Review & Sign',
     iconKey: 'Review & Sign',
     groupLabel: 'Provider',

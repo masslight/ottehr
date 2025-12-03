@@ -517,9 +517,16 @@ export const itemAnswerHasValue = (answerItem: QuestionnaireResponseItemAnswer):
 
 type EnableWhenOperator = 'exists' | '=' | '!=' | '>' | '<' | '>=' | '<=';
 
-const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: boolean | undefined): boolean => {
+const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: any | undefined): boolean => {
   if (operator === 'exists') {
-    return value !== undefined;
+    if (answerValue === true) {
+      return value !== undefined;
+    } else {
+      return value === undefined;
+    }
+  }
+  if (typeof value !== 'boolean') {
+    return operator === '!='; // if value is not boolean, treat as non-match
   }
 
   if (operator === '=') {
@@ -531,6 +538,9 @@ const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: 
 };
 
 const evalString = (operator: EnableWhenOperator, answerValue: string, value: string | undefined): boolean => {
+  if (operator === 'exists') {
+    return value !== undefined;
+  }
   if (operator === '=') {
     return answerValue === value;
   } else if (operator === '!=') {
@@ -607,7 +617,13 @@ const evalEnableWhenItem = (
     return (accum.item ?? []).find((i: any) => i?.linkId && i.linkId === current);
   }, values as any);
 
-  if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
+  if (operator === 'exists' && answerBoolean !== undefined) {
+    return evalBoolean(
+      operator,
+      answerBoolean,
+      pickFirstValueFromAnswerItem(valueDef, itemDef.type === 'boolean' ? 'boolean' : undefined)
+    );
+  } else if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
     return evalBoolean(operator, answerBoolean, pickFirstValueFromAnswerItem(valueDef, 'boolean'));
   } else if (
     (itemDef.type === 'string' || itemDef.type === 'choice' || itemDef.type === 'open-choice') &&
@@ -782,6 +798,11 @@ const evalCondition = (
 ): boolean => {
   const { question, operator, answerString, answerBoolean, answerDate, answerInteger } = condition;
   const questionValue = recursivePathEval(context, question, questionVal);
+
+  if (operator === 'exists' && answerBoolean !== undefined) {
+    const someAnswer = questionValue?.answer?.[0] !== undefined;
+    return answerBoolean === someAnswer;
+  }
 
   if (answerString !== undefined) {
     const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;

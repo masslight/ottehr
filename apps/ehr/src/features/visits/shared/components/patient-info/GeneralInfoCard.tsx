@@ -22,7 +22,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
   return (
     <Paper elevation={3} sx={{ p: 2, boxShadow: '0px 2px 4px -1px rgba(0,0,0,0.1)' }}>
       <Box sx={{ display: 'flex', gap: 3 }}>
-        <ProfileAvatar embracingSquareSize={150} hasEditableInfo={!isReadOnly} />
+        <ProfileAvatar embracingSquareSize={150} showEditButton={true} />
 
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
           <IdentifiersRow id={patientData?.id} />
