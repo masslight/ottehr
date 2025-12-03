@@ -106,6 +106,7 @@ async function bookSecondTelemedAppointment(
     .getByRole('heading', {
       name: new RegExp(`.*${bookingData.patientBasicInfo.firstName} ${bookingData.patientBasicInfo.lastName}.*`, 'i'),
     })
+    .locator('input[type="radio"]')
     .click({ timeout: 40_000, noWaitAfter: true, force: true });
   await locator.continueButton.click();
   await fillingInfo.fillCorrectDOB(
