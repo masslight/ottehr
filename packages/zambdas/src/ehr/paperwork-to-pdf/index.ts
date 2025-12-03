@@ -68,8 +68,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     try {
       presignedUrl = await createPresignedUrl(m2mToken, baseFileUrl, 'upload');
       await uploadObjectToZ3(new Uint8Array(await pdfDocument.save()), presignedUrl);
-    } catch (error: any) {
-      throw new Error(`failed uploading pdf to z3:  ${JSON.stringify(error.message)}`);
+    } catch (error: unknown) {
+      throw new Error('failed uploading pdf to z3', { cause: error });
     }
 
     const { docRefs } = await createFilesDocumentReferences({
