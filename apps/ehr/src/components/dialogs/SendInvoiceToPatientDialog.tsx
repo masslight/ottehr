@@ -93,8 +93,6 @@ export default function SendInvoiceToPatientDialog({
 
   useEffect(() => {
     if (invoiceTask) {
-      console.log(invoiceTask.id);
-      setDisableAllFields(false);
       const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
       if (invoiceTaskInput) {
         const { dueDate, memo, smsTextMessage, amountCents } = invoiceTaskInput;
@@ -104,6 +102,7 @@ export default function SendInvoiceToPatientDialog({
           memo: memo,
           smsTextMessage: smsTextMessage,
         });
+        setDisableAllFields(false);
       }
     }
   }, [invoiceTask, reset]);
@@ -178,6 +177,7 @@ export default function SendInvoiceToPatientDialog({
                     error={!!errors.amount}
                     helperText={errors.amount?.message}
                     required
+                    disabled={disableAllFields}
                   />
                 )}
               />
@@ -192,6 +192,7 @@ export default function SendInvoiceToPatientDialog({
                 rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
                 component="Picker"
                 disabled={disableAllFields}
+                disablePast={true}
               />
             </Grid>
 
