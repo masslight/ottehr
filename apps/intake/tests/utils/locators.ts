@@ -583,7 +583,7 @@ export class Locators {
     }
   }
   async selectDifferentFamilyMember(): Promise<void> {
-    await this.differentFamilyMember.click({ timeout: 40_000, noWaitAfter: true, force: true });
+    await this.differentFamilyMember.click({ force: true });
   }
   async clickContinueButton(awaitNavigation = false): Promise<unknown> {
     await expect(this.continueButton).toBeEnabled();
