@@ -38,7 +38,7 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Progress Note" showIntakeNotesButton={false} />
+      <PageTitle label="Review & Sign" showIntakeNotesButton={false} />
       <MissingCard />
 
       <ProgressNoteDetails />

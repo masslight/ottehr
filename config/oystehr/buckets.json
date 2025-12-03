@@ -1,0 +1,65 @@
+{
+  "schema-version": "2025-09-25",
+  "buckets": {
+    "VISIT_NOTES": {
+      "name": "#{var/PROJECT_ID}-visit-notes",
+      "removalPolicy": "retain"
+    },
+    "CONSENT_FORMS": {
+      "name": "#{var/PROJECT_ID}-consent-forms",
+      "removalPolicy": "retain"
+    },
+    "PRIVACY_POLICY": {
+      "name": "#{var/PROJECT_ID}-privacy-policy",
+      "removalPolicy": "retain"
+    },
+    "INSURANCE_CARDS": {
+      "name": "#{var/PROJECT_ID}-insurance-cards",
+      "removalPolicy": "retain"
+    },
+    "PHOTO_ID_CARDS": {
+      "name": "#{var/PROJECT_ID}-photo-id-cards",
+      "removalPolicy": "retain"
+    },
+    "PATIENT_PHOTOS": {
+      "name": "#{var/PROJECT_ID}-patient-photos",
+      "removalPolicy": "retain"
+    },
+    "SCHOOL_WORK_NOTES": {
+      "name": "#{var/PROJECT_ID}-school-work-notes",
+      "removalPolicy": "retain"
+    },
+    "SCHOOL_WORK_NOTE_TEMPLATES": {
+      "name": "#{var/PROJECT_ID}-school-work-note-templates",
+      "removalPolicy": "retain"
+    },
+    "AUDIO-RECORDINGS": {
+      "name": "#{var/PROJECT_ID}-audio-recordings",
+      "removalPolicy": "retain"
+    },
+    "LABS": {
+      "name": "#{var/PROJECT_ID}-labs",
+      "removalPolicy": "retain"
+    },
+    "RECEIPTS": {
+      "name": "#{var/PROJECT_ID}-receipts",
+      "removalPolicy": "retain"
+    },
+    "PAPERWORK": {
+      "name": "#{var/PROJECT_ID}-exported-questionnaires",
+      "removalPolicy": "retain"
+    },
+    "DISCHARGE_SUMMARIES": {
+      "name": "#{var/PROJECT_ID}-discharge-summaries",
+      "removalPolicy": "retain"
+    },
+    "INVOICEABLE_PATIENTS_REPORTS": {
+      "name": "#{var/PROJECT_ID}-invoiceable-patients-reports",
+      "removalPolicy": "retain"
+    },
+    "STATEMENTS": {
+      "name": "#{var/PROJECT_ID}-statements",
+      "removalPolicy": "retain"
+    }
+  }
+}

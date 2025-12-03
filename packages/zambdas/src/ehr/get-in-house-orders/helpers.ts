@@ -31,7 +31,7 @@ import {
   InHouseOrderListPageItemDTO,
   InHouseOrdersSearchBy,
   isPositiveNumberOrZero,
-  OttehrGeneratedResultDocument,
+  LabDocumentRelatedToDiagnosticReport,
   Pagination,
   TestStatus,
 } from 'utils';
@@ -66,7 +66,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
   specimens: Specimen[],
   observations: Observation[],
   diagnosticReports: DiagnosticReport[],
-  resultsPDFs: OttehrGeneratedResultDocument[],
+  resultsPDFs: LabDocumentRelatedToDiagnosticReport[],
   ENVIRONMENT: string,
   appointmentScheduleMap: Record<string, Schedule>,
   currentPractitioner?: Practitioner
@@ -88,7 +88,9 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
         (dr) => dr.basedOn?.some((ref) => ref.reference === `ServiceRequest/${serviceRequest.id}`)
       );
 
-      const resultsPDF = resultsPDFs.find((pdf) => pdf.diagnosticReportId === relatedDiagnosticReports[0]?.id);
+      // todo labs team should we be validating the number of items in the array is 1?
+      const drId = relatedDiagnosticReports[0]?.id;
+      const resultsPDF = drId ? resultsPDFs.find((pdf) => pdf.diagnosticReportIds.includes(drId)) : undefined;
 
       result.push(
         parseOrderData({
@@ -147,7 +149,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   observations: Observation[];
   appointmentScheduleMap: Record<string, Schedule>;
   cache?: Cache;
-  resultsPDF?: OttehrGeneratedResultDocument;
+  resultsPDF?: LabDocumentRelatedToDiagnosticReport;
   currentPractitionerName?: string;
   currentPractitionerId?: string;
 }): InHouseGetOrdersResponseDTO<SearchBy>['data'][number] => {
@@ -259,7 +261,7 @@ export const getInHouseResources = async (
   observations: Observation[];
   pagination: Pagination;
   diagnosticReports: DiagnosticReport[];
-  resultsPDFs: OttehrGeneratedResultDocument[];
+  resultsPDFs: LabDocumentRelatedToDiagnosticReport[];
   currentPractitioner?: Practitioner;
   appointmentScheduleMap: Record<string, Schedule>;
 }> => {
@@ -292,7 +294,7 @@ export const getInHouseResources = async (
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
 
   let currentPractitioner: Practitioner | undefined;
-  let resultsPDFs: OttehrGeneratedResultDocument[] = [];
+  let resultsPDFs: LabDocumentRelatedToDiagnosticReport[] = [];
 
   if (isDetailPageRequest && userToken) {
     // if more than one ServiceRequest is returned for when this is called from the detail page

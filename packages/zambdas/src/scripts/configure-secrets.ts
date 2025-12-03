@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import fs from 'fs';
-import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json';
+import secretsSpec from '../../../../config/oystehr/secrets.json';
 import { Schema20250925 } from '../../../spec/src/schema-20250925';
 import { replaceSecretValue } from '../local-server/utils';
 import { getAuth0Token } from '../shared/';
@@ -39,14 +39,14 @@ const prepareSecretsFromSpecAndEnv = async (env: string): Promise<Record<string,
   const envFile = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
 
   const schema = new Schema20250925(
-    [{ path: '../../../../config/oystehr/ottehr-spec.json', spec: ottehrSpec }],
+    [{ path: '../../../../config/oystehr/secrets.json', spec: secretsSpec }],
     envFile,
     '',
     ''
   );
   const secrets: Record<string, string> = {};
   await Promise.all(
-    Object.entries(ottehrSpec.secrets).map(async ([_key, secret]) => {
+    Object.entries(secretsSpec.secrets).map(async ([_key, secret]) => {
       secrets[secret.name] = await replaceSecretValue(secret, schema);
     })
   );
