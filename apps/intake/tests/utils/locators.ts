@@ -49,6 +49,7 @@ export class Locators {
   patientZip: Locator;
   patientEmail: Locator;
   patientNumber: Locator;
+  preferredCommunicationMethod: Locator;
   mobileOptIn: Locator;
   patientEthnicity: Locator;
   patientRace: Locator;
@@ -317,6 +318,7 @@ export class Locators {
     this.patientZip = page.locator('[id="patient-zip"]');
     this.patientEmail = page.locator('[id="patient-email"]');
     this.patientNumber = page.locator('[id="patient-number"]');
+    this.preferredCommunicationMethod = page.locator('[id="patient-preferred-communication-method"]');
 
     // Patient details locators
     this.patientEthnicity = page.locator('[id="patient-ethnicity"]');
