@@ -2,6 +2,8 @@ import { expect, Page, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CancelPage } from 'tests/utils/CancelPage';
+import { BaseInPersonFlow } from 'tests/utils/in-person/BaseInPersonFlow';
+import { StartVisitResponse } from 'tests/utils/telemed/BaseTelemedFlow';
 import {
   BOOKING_CONFIG,
   chooseJson,
@@ -36,12 +38,8 @@ function writeTestData(filename: string, data: unknown): void {
   fs.writeFileSync(path.join(testDataPath, filename), JSON.stringify(data, null, 2));
 }
 
-async function bookAppointmentForExistingPatient(
-  bookingData: {
-    firstName: string;
-    lastName: string;
-    dateOfBirth: string;
-  },
+async function bookSecondInPersonAppointment(
+  bookingData: Awaited<ReturnType<BaseInPersonFlow['startVisit']>>,
   playwrightContext: {
     page: Page;
     flowClass: PrebookInPersonFlow;
@@ -73,6 +71,60 @@ async function bookAppointmentForExistingPatient(
     slot: selectedSlot.selectedSlot,
     location,
   };
+}
+
+async function bookSecondTelemedAppointment(
+  bookingData: StartVisitResponse,
+  playwrightContext: {
+    page: Page;
+    flowClass: PrebookTelemedFlow | TelemedVisitFlow;
+    paperwork: Paperwork;
+    locator: Locators;
+    fillingInfo: TelemedFillingInfo;
+    flow: 'prebook' | 'walk-in';
+  }
+): Promise<void> {
+  const { page, flow, flowClass, paperwork, locator, fillingInfo } = playwrightContext;
+  await page.waitForTimeout(1_000);
+  await page.goto('/home');
+  if (flow === 'prebook') {
+    await locator.scheduleVirtualVisitButton.click();
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'prebook' })) {
+      const availableCategories = BOOKING_CONFIG.serviceCategories || [];
+      const firstCategory = availableCategories[0]!;
+
+      if (firstCategory) {
+        await page.getByText(firstCategory.display).click();
+      }
+    }
+    await paperwork.checkCorrectPageOpens('Book a visit');
+  } else {
+    await locator.startVirtualVisitButton.click();
+  }
+  await flowClass.selectTimeLocationAndContinue();
+  await page
+    .getByRole('heading', {
+      name: new RegExp(`.*${bookingData.patientBasicInfo.firstName} ${bookingData.patientBasicInfo.lastName}.*`, 'i'),
+    })
+    .click({ timeout: 40_000, noWaitAfter: true, force: true });
+  await locator.continueButton.click();
+  await fillingInfo.fillCorrectDOB(
+    bookingData.patientBasicInfo.dob.m,
+    bookingData.patientBasicInfo.dob.d,
+    bookingData.patientBasicInfo.dob.y
+  );
+  await locator.continueButton.click();
+  await paperwork.checkCorrectPageOpens('About the patient');
+  await fillingInfo.fillTelemedReasonForVisit();
+  await locator.continueButton.click();
+  await paperwork.checkCorrectPageOpens('Review and submit');
+  if (flow === 'prebook') {
+    await locator.reserveButton.click();
+    await paperwork.checkCorrectPageOpens('Thank you for choosing Ottehr!');
+  } else {
+    await locator.confirmWalkInButton.click();
+    await paperwork.checkCorrectPageOpens('Contact information');
+  }
 }
 
 test.describe.parallel('In-Person: Create test patients and appointments', () => {
@@ -117,7 +169,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     const { slot, location } = await test.step('Book second appointment without filling paperwork', async () => {
-      return await bookAppointmentForExistingPatient(bookingData, {
+      return await bookSecondInPersonAppointment(bookingData, {
         page,
         flowClass,
         paperwork,
@@ -199,7 +251,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     const { slot, location } = await test.step('Book second appointment without filling paperwork', async () => {
-      return await bookAppointmentForExistingPatient(bookingData, {
+      return await bookSecondInPersonAppointment(bookingData, {
         page,
         flowClass,
         paperwork,
@@ -340,40 +392,14 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Book second appointment without filling paperwork', async () => {
-      await page.waitForTimeout(1_000);
-      await page.goto('/home');
-      await locator.scheduleVirtualVisitButton.click();
-      if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'prebook' })) {
-        const availableCategories = BOOKING_CONFIG.serviceCategories || [];
-        const firstCategory = availableCategories[0]!;
-
-        if (firstCategory) {
-          await page.getByText(firstCategory.display).click();
-        }
-      }
-      await paperwork.checkCorrectPageOpens('Book a visit');
-      await prebookFlowClass.selectTimeLocationAndContinue();
-      await page
-        .getByRole('heading', {
-          name: new RegExp(
-            `.*${bookingData.patientBasicInfo.firstName} ${bookingData.patientBasicInfo.lastName}.*`,
-            'i'
-          ),
-        })
-        .click({ timeout: 40_000, noWaitAfter: true, force: true });
-      await locator.continueButton.click();
-      await fillingInfo.fillCorrectDOB(
-        bookingData.patientBasicInfo.dob.m,
-        bookingData.patientBasicInfo.dob.d,
-        bookingData.patientBasicInfo.dob.y
-      );
-      await locator.continueButton.click();
-      await paperwork.checkCorrectPageOpens('About the patient');
-      await fillingInfo.fillTelemedReasonForVisit();
-      await locator.continueButton.click();
-      await paperwork.checkCorrectPageOpens('Review and submit');
-      await locator.reserveButton.click();
-      await paperwork.checkCorrectPageOpens('Thank you for choosing Ottehr!');
+      await bookSecondTelemedAppointment(bookingData, {
+        page,
+        flow: 'prebook',
+        flowClass: prebookFlowClass,
+        paperwork,
+        locator,
+        fillingInfo,
+      });
     });
 
     await test.step('Write test data to file', async () => {
@@ -435,32 +461,14 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Book second appointment without filling paperwork', async () => {
-      await page.waitForTimeout(1_000);
-      await page.goto('/home');
-      await locator.startVirtualVisitButton.click();
-      await walkInFlowClass.selectTimeLocationAndContinue();
-      await page
-        .getByRole('heading', {
-          name: new RegExp(
-            `.*${bookingData.patientBasicInfo.firstName} ${bookingData.patientBasicInfo.lastName}.*`,
-            'i'
-          ),
-        })
-        .click({ timeout: 40_000, noWaitAfter: true, force: true });
-
-      await locator.continueButton.click();
-      await fillingInfo.fillCorrectDOB(
-        bookingData.patientBasicInfo.dob.m,
-        bookingData.patientBasicInfo.dob.d,
-        bookingData.patientBasicInfo.dob.y
-      );
-      await locator.continueButton.click();
-      await paperwork.checkCorrectPageOpens('About the patient');
-      await fillingInfo.fillTelemedReasonForVisit();
-      await locator.continueButton.click();
-      await paperwork.checkCorrectPageOpens('Review and submit');
-      await locator.confirmWalkInButton.click();
-      await paperwork.checkCorrectPageOpens('Contact information');
+      await bookSecondTelemedAppointment(bookingData, {
+        page,
+        flow: 'walk-in',
+        flowClass: walkInFlowClass,
+        paperwork,
+        locator,
+        fillingInfo,
+      });
     });
 
     await test.step('Write test data to file', async () => {
