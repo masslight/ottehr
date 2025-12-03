@@ -21,15 +21,15 @@ export const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({ pageId }
   return (
     <Typography color={theme.palette.text.secondary} variant="body2">
       {/* this rendering of link and text nodes is pretty generic and could be extracted to its own component at some point */}
-      {legalComposition.map((node) => {
+      {legalComposition.map((node, index) => {
         if (node.nodeType === 'Link') {
           return (
-            <Link key={node.testId || node.url} to={node.url} target="_blank" data-testid={node.testId}>
+            <Link key={`${node.testId || node.url}-${index}`} to={node.url} target="_blank" data-testid={node.testId}>
               <TextNode {...node.textToDisplay} />
             </Link>
           );
         } else {
-          return <TextNode key={node.keyPath || node.literal} {...node} />;
+          return <TextNode key={`${node.keyPath || node.literal}-${index}`} {...node} />;
         }
       })}
       {'.'}
