@@ -54,12 +54,14 @@ async function bookAppointmentForExistingPatient(
   location: string | null;
 }> {
   const { page, flowClass, paperwork, locator, fillingInfo } = playwrightContext;
+  await page.waitForTimeout(1_000);
   await page.goto('/home');
   await locator.scheduleInPersonVisitButton.click();
   const { selectedSlot, location } = await flowClass.additionalStepsForPrebook();
   await page
     .getByRole('heading', { name: new RegExp(`.*${bookingData.firstName} ${bookingData.lastName}.*`, 'i') })
-    .click();
+    .locator('input[type="radio"]')
+    .click({ timeout: 40_000, noWaitAfter: true, force: true });
   await locator.continueButton.click();
   const [year, month, day] = bookingData.dateOfBirth.split('-');
   await fillingInfo.fillCorrectDOB(month, day, year);
@@ -339,6 +341,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Book second appointment without filling paperwork', async () => {
+      await page.waitForTimeout(1_000);
       await page.goto('/home');
       await locator.scheduleVirtualVisitButton.click();
       if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'prebook' })) {
@@ -358,7 +361,8 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
             'i'
           ),
         })
-        .click();
+        .locator('input[type="radio"]')
+        .click({ timeout: 40_000, noWaitAfter: true, force: true });
       await locator.continueButton.click();
       await fillingInfo.fillCorrectDOB(
         bookingData.patientBasicInfo.dob.m,
@@ -433,6 +437,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Book second appointment without filling paperwork', async () => {
+      await page.waitForTimeout(1_000);
       await page.goto('/home');
       await locator.startVirtualVisitButton.click();
       await walkInFlowClass.selectTimeLocationAndContinue();
@@ -443,7 +448,9 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
             'i'
           ),
         })
-        .click();
+        .locator('input[type="radio"]')
+        .click({ timeout: 40_000, noWaitAfter: true, force: true });
+
       await locator.continueButton.click();
       await fillingInfo.fillCorrectDOB(
         bookingData.patientBasicInfo.dob.m,

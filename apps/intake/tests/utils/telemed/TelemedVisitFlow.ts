@@ -74,6 +74,7 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     await this.continue();
     await this.completeBooking();
     await expect(this.page.getByText('Please wait, call will start automatically.')).toBeVisible({ timeout: 30000 });
+    await this.page.waitForTimeout(1_000);
     return {
       slotAndLocation,
       patientBasicInfo,
