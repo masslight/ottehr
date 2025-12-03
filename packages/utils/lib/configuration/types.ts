@@ -17,11 +17,7 @@ export const LinkDefSchema = z
     textToDisplay: DisplayTextSchema,
     testId: z.string().optional(),
     tags: z.array(z.string()).optional(),
-  })
-  .refine((data) => Boolean(data.textToDisplay.literal) || Boolean(data.textToDisplay.keyPath), {
-    message: 'Either textToDisplay.literal or textToDisplay.keyPath must be provided',
   });
-
 export type DisplayTextDef = z.infer<typeof DisplayTextSchema>;
 
 export type LinkDef = z.infer<typeof LinkDefSchema>;
