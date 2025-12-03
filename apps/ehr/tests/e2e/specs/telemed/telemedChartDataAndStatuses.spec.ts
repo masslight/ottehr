@@ -606,9 +606,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
       test('HPI provider notes and ROS appear on Review&Sign page', async () => {
         await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
 
-        await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabChiefComplaintContainer)).toHaveText(
-          new RegExp(providerNote)
-        );
+        await expect(page.getByTestId(dataTestIds.progressNotePage.hpiContainer)).toHaveText(new RegExp(providerNote));
         await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabRosContainer)).toHaveText(new RegExp(ROS));
       });
 
@@ -633,13 +631,13 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
         await page
           .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.hpi))
           .click();
-        await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes)).toBeVisible();
+        await expect(page.getByTestId(dataTestIds.hpiAndTemplatesPage.hpiNotes)).toBeVisible();
 
-        await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).locator('textarea').first().fill('');
+        await page.getByTestId(dataTestIds.hpiAndTemplatesPage.hpiNotes).locator('textarea').first().fill('');
         await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).click(); // Click empty space to blur the focused input
         await waitForChartDataDeletion(page);
         await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill('');
-        await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).click();
+        await page.getByTestId(dataTestIds.hpiAndTemplatesPage.hpiNotes).click();
         await waitForChartDataDeletion(page);
       });
 
@@ -775,7 +773,7 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
           .click();
         await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
 
-        await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabChiefComplaintContainer)).not.toHaveText(
+        await expect(page.getByTestId(dataTestIds.progressNotePage.hpiContainer)).not.toHaveText(
           new RegExp(providerNote)
         );
 

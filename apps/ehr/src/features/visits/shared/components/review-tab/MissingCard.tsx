@@ -52,12 +52,12 @@ export const MissingCard: FC = () => {
         navigate(inPersonRoutes[target]);
       });
     } else {
-      const telemedTabs: Record<'chief-complaint' | 'assessment', TelemedAppointmentVisitTabs> = {
-        'chief-complaint': TelemedAppointmentVisitTabs.hpi,
+      const telemedTabs: Record<'hpi' | 'assessment', TelemedAppointmentVisitTabs> = {
+        hpi: TelemedAppointmentVisitTabs.hpi,
         assessment: TelemedAppointmentVisitTabs.assessment,
       };
 
-      if (target === 'hpi') return;
+      if (target === 'chief-complaint') return;
 
       useAppTelemedLocalStore.setState({
         currentTab: telemedTabs[target],
@@ -74,7 +74,7 @@ export const MissingCard: FC = () => {
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {!chiefComplaint && (
+          {!chiefComplaint && isInPerson && (
             <Link
               sx={{ cursor: 'pointer' }}
               color="error"
@@ -84,7 +84,7 @@ export const MissingCard: FC = () => {
               Chief Complaint
             </Link>
           )}
-          {!hpi && isInPerson && (
+          {!hpi && (
             <Link
               sx={{ cursor: 'pointer' }}
               color="error"
