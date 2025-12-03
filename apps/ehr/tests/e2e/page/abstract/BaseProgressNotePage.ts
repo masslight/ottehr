@@ -152,5 +152,21 @@ export abstract class BaseProgressNotePage {
     }
   }
 
+  async verifyMedication(medication: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer).filter({
+        hasText: medication,
+      })
+    ).toBeVisible();
+  }
+
+  async verifyRemovedMedicationIsNotShown(medication: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer).filter({
+        hasText: medication,
+      })
+    ).not.toBeVisible();
+  }
+
   abstract expectLoaded(): Promise<void>;
 }

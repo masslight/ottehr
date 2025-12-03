@@ -612,4 +612,12 @@ export const dataTestIds = {
     vaccinationNoteField: 'vaccination-note-field',
     answerDropdown: 'answer-dropdown',
   },
+
+  medicationsPage: {
+    title: 'medications-title',
+    medicationNoteField: 'medication-note-field',
+    addNoteButton: 'add-medication-note-button',
+    seeMoreButton: 'see-more-button',
+    deleteIcon: 'DeleteOutlinedIcon',
+  },
 };
