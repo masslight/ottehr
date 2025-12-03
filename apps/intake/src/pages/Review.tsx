@@ -1,10 +1,19 @@
 import { EditOutlined } from '@mui/icons-material';
-import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography, useTheme } from '@mui/material';
+import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography } from '@mui/material';
+import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
-import { APIError, APPOINTMENT_CANT_BE_IN_PAST_ERROR, ServiceMode, VisitType } from 'utils';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { TermsAndConditions } from 'src/components/TermsAndConditions';
+import {
+  APIError,
+  APPOINTMENT_CANT_BE_IN_PAST_ERROR,
+  BOOKING_CONFIG,
+  PatientInfo,
+  ServiceMode,
+  VisitType,
+} from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 import { ottehrApi } from '../api';
@@ -13,12 +22,11 @@ import { PageContainer } from '../components';
 import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import PageForm from '../components/PageForm';
 import { useIntakeCommonStore } from '../features/common';
-import { NO_PATIENT_ERROR, PAST_APPT_ERROR } from '../helpers';
+import { NO_PATIENT_ERROR, NO_SLOT_ERROR, PAST_APPT_ERROR } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
-import { useGetFullName } from '../hooks/useGetFullName';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import i18n from '../lib/i18n';
-import { useBookingContext } from './BookingHome';
+import { PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
 
 interface ReviewItem {
   name: string;
@@ -28,14 +36,22 @@ interface ReviewItem {
   path?: string;
 }
 
+const makeFullName = (patient: PatientInfo | undefined): string | undefined => {
+  if (!patient) {
+    return undefined;
+  }
+  const { firstName, middleName, lastName } = patient;
+  return `${firstName}${middleName ? ` ${middleName}` : ''} ${lastName}`;
+};
+
+const PAGE_ID = 'REVIEW_PAGE';
+
 const Review = (): JSX.Element => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const {
-    patientInfo,
     unconfirmedDateOfBirth,
     visitType,
-    slotId,
     scheduleOwnerName,
     scheduleOwnerType,
     scheduleOwnerId,
@@ -47,8 +63,23 @@ const Review = (): JSX.Element => {
     completeBooking,
   } = useBookingContext();
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
-  const patientFullName = useGetFullName(patientInfo);
-  const theme = useTheme();
+  const { slotId } = useParams<{ slotId: string }>();
+
+  const patientInfo: PatientInfo | undefined = (() => {
+    const storedData = sessionStorage.getItem(PROGRESS_STORAGE_KEY);
+    if (!storedData) return undefined;
+    try {
+      const storedItems = Object.entries(JSON.parse(storedData)).map(([key, value]) => ({
+        linkId: key,
+        item: Object.values(value as Record<string, unknown>),
+      })) as QuestionnaireResponseItem[];
+      return BOOKING_CONFIG.mapBookingQRItemToPatientInfo(storedItems);
+    } catch (error) {
+      console.error('Error parsing stored patient information:', error);
+    }
+    return undefined;
+  })();
+  const patientFullName = makeFullName(patientInfo);
 
   const { t } = useTranslation();
 
@@ -63,12 +94,17 @@ const Review = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: false });
 
   const onSubmit = async (): Promise<void> => {
-    console.log('submitting review page', patientInfo);
     try {
       if (!patientInfo) {
         console.log('no patient info error');
         safelyCaptureException(new Error('Patient not selected at appointment submit time'));
         setErrorConfig(NO_PATIENT_ERROR(t));
+        return;
+      }
+      if (!slotId) {
+        console.log('no slotId error');
+        safelyCaptureException(new Error('Slot ID not found'));
+        setErrorConfig(NO_SLOT_ERROR(t));
         return;
       }
       // Validate inputs
@@ -201,17 +237,7 @@ const Review = (): JSX.Element => {
           ))}
         </TableBody>
       </Table>
-      <Typography color={theme.palette.text.secondary}>
-        {t('reviewAndSubmit.byProceeding')}
-        <Link to="/template.pdf" target="_blank" data-testid={dataTestIds.privacyPolicyReviewScreen}>
-          {t('reviewAndSubmit.privacyPolicy')}
-        </Link>{' '}
-        {t('reviewAndSubmit.andPrivacyPolicy')}
-        <Link to="/template.pdf" target="_blank" data-testid={dataTestIds.termsAndConditionsReviewScreen}>
-          {t('reviewAndSubmit.termsAndConditions')}
-        </Link>
-        .
-      </Typography>
+      <TermsAndConditions pageId={PAGE_ID} />
       <PageForm
         controlButtons={useMemo(
           () => ({

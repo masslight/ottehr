@@ -209,7 +209,7 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
     }
     console.log('currentQuestionnaireUrl1', urlForQFetch);
 
-    console.time('get-questionnaire');
+    console.time('get-booking-questionnaire');
     // todo: _revinclude:iterate in the main query to get the questionnaire along with the other main resources
     // this is not currently possible due to an Oystehr bug
     // value sets probably still need to be fetched up separately
@@ -219,7 +219,7 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
       'ip-questionnaire-item-value-set',
       oystehr
     );
-    console.timeEnd('get-questionnaire');
+    console.timeEnd('get-booking-questionnaire');
 
     if (!questionnaire.item) {
       questionnaire.item = [];

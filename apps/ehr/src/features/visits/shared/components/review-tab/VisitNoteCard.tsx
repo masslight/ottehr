@@ -10,10 +10,10 @@ import { SectionList } from '../SectionList';
 import { AdditionalQuestionsContainer } from './components/AdditionalQuestionsContainer';
 import { AllergiesContainer } from './components/AllergiesContainer';
 import { AssessmentContainer } from './components/AssessmentContainer';
-import { ChiefComplaintContainer } from './components/ChiefComplaintContainer';
 import { CPTCodesContainer } from './components/CPTCodesContainer';
 import { EMCodeContainer } from './components/EMCodeContainer';
 import { ExaminationContainer } from './components/ExaminationContainer';
+import { HistoryOfPresentIllnessContainer } from './components/HistoryOfPresentIllnessContainer';
 import { MedicalConditionsContainer } from './components/MedicalConditionsContainer';
 import { MedicalDecisionMakingContainer } from './components/MedicalDecisionMakingContainer';
 import { MedicationsContainer } from './components/MedicationsContainer';
@@ -41,7 +41,7 @@ export const VisitNoteCard: FC = () => {
   });
 
   const { chartData } = useChartData();
-  const chiefComplaint = chartFields?.chiefComplaint?.text;
+  const hpi = chartFields?.chiefComplaint?.text;
   const spentTime = getSpentTime(encounter.statusHistory);
   const ros = chartFields?.ros?.text;
   const diagnoses = chartData?.diagnosis;
@@ -49,7 +49,7 @@ export const VisitNoteCard: FC = () => {
   const emCode = chartData?.emCode;
   const cptCodes = chartData?.cptCodes;
   const prescriptions = chartFields?.prescribedMedications;
-  const showChiefComplaint = !!((chiefComplaint && chiefComplaint.length > 0) || (spentTime && spentTime.length > 0));
+  const showHistoryOfPresentIllness = !!((hpi && hpi.length > 0) || (spentTime && spentTime.length > 0));
   const showReviewOfSystems = !!(ros && ros.length > 0);
   const vitalsObservations = chartFields?.vitalsObservations;
 
@@ -69,7 +69,7 @@ export const VisitNoteCard: FC = () => {
   const sections = [
     <PatientInformationContainer />,
     <VisitDetailsContainer />,
-    showChiefComplaint && <ChiefComplaintContainer />,
+    showHistoryOfPresentIllness && <HistoryOfPresentIllnessContainer />,
     showReviewOfSystems && <ReviewOfSystemsContainer />,
     showVitalsObservations && <PatientVitalsContainer encounterId={encounter?.id} />,
     <MedicationsContainer />,
