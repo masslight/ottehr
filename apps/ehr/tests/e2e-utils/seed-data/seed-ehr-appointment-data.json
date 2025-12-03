@@ -106,6 +106,10 @@
         ],
         "extension": [
           {
+            "url": "https://fhir.ottehr.com/Extension/preferred-communication-method",
+            "valueString": "No preference"
+          },
+          {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/send-marketing",
             "valueBoolean": true
           },
