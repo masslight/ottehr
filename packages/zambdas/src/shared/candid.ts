@@ -72,6 +72,7 @@ import {
   getPayerId,
   getPaymentVariantFromEncounter,
   getSecret,
+  getTimezone,
   INVALID_INPUT_ERROR,
   isTelemedAppointment,
   mapOrderStatusToFhir,
@@ -81,6 +82,7 @@ import {
   PaymentVariant,
   Secrets,
   SecretsKeys,
+  TIMEZONES,
 } from 'utils';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, emCodeOptions } from 'utils/lib/helpers/rcm';
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
@@ -328,10 +330,7 @@ async function candidCreateEncounterRequest(
   let dateOfServiceString: string | undefined;
 
   if (appointmentStart) {
-    const dateOfService = DateTime.fromISO(appointmentStart);
-    if (dateOfService.isValid) {
-      dateOfServiceString = dateOfService.toISODate();
-    }
+    dateOfServiceString = getLocalDateOfService(appointmentStart, location);
   }
 
   // Note: dateOfService field must not be provided as service line date of service is already sent
@@ -409,10 +408,7 @@ async function candidCreateEncounterRequest(
           diagnosisPointers: [primaryDiagnosisIndex],
           dateOfService:
             dateOfServiceString ||
-            assertDefined(
-              DateTime.fromISO(assertDefined(input.appointment.start, 'Appointment start')).toISODate(),
-              'Service line date'
-            ),
+            getLocalDateOfService(assertDefined(appointment.start, 'Appointment start'), location),
         },
       ];
     }),
@@ -1068,6 +1064,11 @@ function convertCoverageRelationshipToCandidRelationship(relationship: string): 
   }
 }
 
+function getLocalDateOfService(appointmentStart: string, location: Location | undefined): string {
+  const timezone = location ? getTimezone(location) : TIMEZONES[0];
+  return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
+}
+
 const fetchFHIRPatientAndAppointmentFromEncounter = async (
   encounterId: string,
   oystehr: Oystehr
@@ -1247,10 +1248,7 @@ async function candidCreateEncounterFromAppointmentRequest(
   let dateOfServiceString: string | undefined;
 
   if (appointmentStart) {
-    const dateOfService = DateTime.fromISO(appointmentStart);
-    if (dateOfService.isValid) {
-      dateOfServiceString = dateOfService.toISODate();
-    }
+    dateOfServiceString = getLocalDateOfService(appointmentStart, location);
   }
 
   const serviceLines: ServiceLineCreate[] = [];
@@ -1272,11 +1270,7 @@ async function candidCreateEncounterFromAppointmentRequest(
       units: ServiceLineUnits.Un,
       diagnosisPointers: [primaryDiagnosisIndex],
       dateOfService:
-        dateOfServiceString ||
-        assertDefined(
-          DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
-          'Service line date'
-        ),
+        dateOfServiceString ?? getLocalDateOfService(assertDefined(appointment.start, 'Appointment start'), location),
     });
   });
 
@@ -1311,7 +1305,7 @@ async function candidCreateEncounterFromAppointmentRequest(
           dateOfService:
             dateOfServiceString ||
             assertDefined(
-              DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
+              getLocalDateOfService(assertDefined(appointment.start, 'Appointment start'), location),
               'Service line date'
             ),
         });
