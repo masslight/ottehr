@@ -1,17 +1,23 @@
 import { Autocomplete, Box, TextField } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { FormTextField } from 'src/components/form';
+import { FormSelect, FormTextField } from 'src/components/form';
 import InputMask from 'src/components/InputMask';
 import { Row, Section } from 'src/components/layout';
-import { FormFields, STATE_OPTIONS } from 'src/constants';
+import { FormFields, PREFERRED_COMMUNICATION_METHOD_OPTIONS, STATE_OPTIONS } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { emailRegex, isPhoneNumberValid, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import inPersonIntakeQuestionnaire from '../../../../../../../../config/oystehr/in-person-intake-questionnaire.json';
 
 const contact = FormFields.patientContactInformation;
 
 export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { control, setValue } = useFormContext();
+
+  const showPreferredCommunicationMethod =
+    Object.values(inPersonIntakeQuestionnaire.fhirResources)[0]
+      .resource.item.find((item) => item.linkId === 'contact-information-page')
+      ?.item.find((item) => item.linkId === 'patient-preferred-communication-method') != null;
 
   return (
     <Section title="Contact information">
@@ -127,6 +133,19 @@ export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
           data-testid={dataTestIds.contactInformationContainer.patientMobile}
         />
       </Row>
+      {showPreferredCommunicationMethod ? (
+        <Row label="Preferred Communication Method" required={true}>
+          <FormSelect
+            name={contact.preferredCommunicationMethod.key}
+            control={control}
+            disabled={isLoading}
+            options={PREFERRED_COMMUNICATION_METHOD_OPTIONS}
+            rules={{
+              required: REQUIRED_FIELD_ERROR_MESSAGE,
+            }}
+          />
+        </Row>
+      ) : null}
     </Section>
   );
 };

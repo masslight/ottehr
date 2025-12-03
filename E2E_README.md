@@ -527,6 +527,31 @@ else
 fi
 ```
 
+## PR Commands
+
+You can use special commands in pull request descriptions to control CI pipeline behavior:
+
+### Skip Commands
+
+| Command                 | Description                                              | Workflow                                |
+| :---------------------- | :------------------------------------------------------- | :-------------------------------------- |
+| `/skip-terraform-apply` | Skips Terraform deployment and resource provisioning     | `terraform-apply-and-test-pipeline.yml` |
+| `/skip-build-and-lint`  | Skips build and linting steps                            | `lint-and-build.yml`                    |
+| `/skip-automated-tests` | Skips all automated tests (unit, component, integration) | `automated-tests.yml`                   |
+| `/skip-intake-e2e`      | Skips Intake E2E tests                                   | `e2e-intake.yml`                        |
+| `/skip-ehr-e2e`         | Skips EHR E2E tests                                      | `e2e-ehr.yml`                           |
+
+### Force Run Commands
+
+| Command           | Description                                                         | Workflow         |
+| :---------------- | :------------------------------------------------------------------ | :--------------- |
+| `/run-intake-e2e` | Forces Intake E2E tests to run even if no relevant changes detected | `e2e-intake.yml` |
+| `/run-ehr-e2e`    | Forces EHR E2E tests to run even if no relevant changes detected    | `e2e-ehr.yml`    |
+
+## Clear all resources
+
+The script is called `clean-up-e2e`.
+
 ## Writing Tests
 
 ### File Structure and Organization
@@ -534,14 +559,16 @@ fi
 **Overall Project Structure:**
 
 ```
+
 .
 ├── apps/
-│   ├── ehr/tests/e2e/             # EHR test files
-│   └── intake/tests/              # Intake test files
-├── packages/zambdas/.env/         # Backend configuration
-├── .github/workflows/             # CI/CD pipelines
-├── scripts/                       # Test execution scripts
-└── turbo.json                     # Monorepo configuration
+│ ├── ehr/tests/e2e/ # EHR test files
+│ └── intake/tests/ # Intake test files
+├── packages/zambdas/.env/ # Backend configuration
+├── .github/workflows/ # CI/CD pipelines
+├── scripts/ # Test execution scripts
+└── turbo.json # Monorepo configuration
+
 ```
 
 **Key Files and Their Purpose:**
@@ -567,20 +594,22 @@ The Intake app has the same structure.
 Note: The following structures are examples and may change over time.
 
 ```
+
 apps/ehr/tests/e2e/
-├── login/                     # Authentication establishment
-├── page/                      # Page object models
-│   ├── abstract/              # Base page classes
-│   ├── in-person/             # In-person visit pages
-│   ├── patient-information/   # Patient info pages
-│   ├── telemed/               # Telemedicine pages
-│   └── ...pages.ts
-├── specs/                     # Primary test scenarios
-├── e2e-readme/                # Documentation
-└── e2e-utils/                 # Healthcare utilities
-    ├── resource-handler.ts    # FHIR resource management
-    ├── auth/                  # Authentication helpers
-    └── seed-data/             # Pre-constructed scenarios
+├── login/ # Authentication establishment
+├── page/ # Page object models
+│ ├── abstract/ # Base page classes
+│ ├── in-person/ # In-person visit pages
+│ ├── patient-information/ # Patient info pages
+│ ├── telemed/ # Telemedicine pages
+│ └── ...pages.ts
+├── specs/ # Primary test scenarios
+├── e2e-readme/ # Documentation
+└── e2e-utils/ # Healthcare utilities
+├── resource-handler.ts # FHIR resource management
+├── auth/ # Authentication helpers
+└── seed-data/ # Pre-constructed scenarios
+
 ```
 
 **Intake Application Structure:**
@@ -588,18 +617,20 @@ apps/ehr/tests/e2e/
 Note: The following structures are examples and may change over time.
 
 ```
+
 apps/intake/
 ├── tests/
-│   ├── e2e-readme/           # Documentation
-│   ├── login/                # Authentication establishment
-│   ├── specs/                # Primary test scenarios
-│   │   ├── in-person/        # In-person booking tests
-│   │   └── telemed/          # Telemedicine booking tests
-│   └── utils/                # Test utilities
-├── playwright/               # Playwright configuration
-├── playwright-report/        # Test reports
-├── test-results/             # Test artifacts
-└── images-for-tests/         # Test assets
+│ ├── e2e-readme/ # Documentation
+│ ├── login/ # Authentication establishment
+│ ├── specs/ # Primary test scenarios
+│ │ ├── in-person/ # In-person booking tests
+│ │ └── telemed/ # Telemedicine booking tests
+│ └── utils/ # Test utilities
+├── playwright/ # Playwright configuration
+├── playwright-report/ # Test reports
+├── test-results/ # Test artifacts
+└── images-for-tests/ # Test assets
+
 ```
 
 This structure separates Ottehr workflow testing (specs), infrastructure concerns (e2e-utils/utils), and user interface abstractions (page objects).

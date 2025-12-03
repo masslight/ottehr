@@ -48,7 +48,7 @@ import fastSeedData from './seed-data/seed-ehr-appointment-data.json' assert { t
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export function getAccessToken(): string {
+export function getAccessTokenFromUserJson(): string {
   const userJsonPath = join(__dirname, '../../playwright/user.json');
   const userData = JSON.parse(readFileSync(userJsonPath, 'utf-8'));
 
@@ -208,7 +208,7 @@ export class ResourceHandler {
       // Create appointment and related resources using zambda
       const appointmentData = await createSampleAppointments({
         oystehr: await this.apiClient,
-        authToken: getAccessToken(),
+        authToken: getAccessTokenFromUserJson(),
         phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
         createAppointmentZambdaId: this.#createAppointmentZambdaId,
         zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,

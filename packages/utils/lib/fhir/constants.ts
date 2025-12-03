@@ -25,6 +25,7 @@ import {
   RECEIPT_CODE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
+  STATEMENT_CODE,
   VISIT_NOTE_SUMMARY_CODE,
 } from '../types';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
@@ -381,6 +382,7 @@ export const BUCKET_NAMES = {
   RECEIPTS: 'receipts',
   PAPERWORK: 'exported-questionnaires',
   DISCHARGE_SUMMARIES: 'discharge-summaries',
+  STATEMENTS: 'statements',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -456,6 +458,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     display: 'Discharge Summary',
     documentTypeCode: DISCHARGE_SUMMARY_CODE,
   },
+  {
+    title: BUCKET_NAMES.STATEMENTS,
+    display: 'Statements',
+    documentTypeCode: STATEMENT_CODE,
+  },
 ];
 
 export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
@@ -488,6 +495,16 @@ export const PATIENT_BILLING_ACCOUNT_TYPE: Account['type'] = {
       system: 'http://terminology.hl7.org/CodeSystem/account-type',
       code: 'PBILLACCT',
       display: 'patient billing account',
+    },
+  ],
+};
+
+export const WORKERS_COMP_ACCOUNT_TYPE: Account['type'] = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      code: 'WCOMPACCT',
+      display: 'worker compensation account',
     },
   ],
 };
