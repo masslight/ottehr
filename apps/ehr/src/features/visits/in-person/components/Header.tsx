@@ -17,7 +17,6 @@ import {
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
-import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
@@ -131,10 +130,9 @@ export const Header = (): JSX.Element => {
   const {
     resources: { appointment, patient, encounter: encounterValues, location: locationResource },
     mappedData,
+    encounter,
     visitState,
     appointmentRefetch,
-    followUpOriginEncounter,
-    followupEncounters,
     selectedEncounterId,
   } = useAppointmentData();
 
@@ -146,26 +144,14 @@ export const Header = (): JSX.Element => {
   });
 
   const { chartData } = useChartData();
-  const { encounter, location } = visitState;
+  const { location } = visitState;
   const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
 
-  const findEncounterById = (id?: string): Encounter | undefined => {
-    if (!id) return undefined;
-    const foundInFollowups = (followupEncounters || []).find((e) => e.id === id);
-    if (foundInFollowups) return foundInFollowups;
-    if (followUpOriginEncounter?.id === id) return followUpOriginEncounter;
-    return undefined;
-  };
-
-  const isMainEncounter = !effectiveEncounterId || effectiveEncounterId === followUpOriginEncounter?.id;
-
-  const currentEncounter = isMainEncounter ? followUpOriginEncounter : findEncounterById(effectiveEncounterId);
-
-  const start = isMainEncounter ? appointment?.start : currentEncounter?.period?.start;
+  const start = encounter?.period?.start ?? appointment?.start;
 
   let locationName = '';
 
-  const locationRef = currentEncounter?.location?.[0]?.location?.reference;
+  const locationRef = encounter?.location?.[0]?.location?.reference;
   if (locationRef) {
     const locationId = locationRef.split('/')[1];
     const allLocations = [...(visitState?.location ? [visitState.location] : []), ...[locationResource]];
