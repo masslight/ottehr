@@ -94,6 +94,7 @@ test.describe('Prebook In person visit - Paperwork submission flow with only req
     await paperwork.skipPhotoID();
     await paperwork.fillConsentForms();
     await commonLocatorsHelper.clickContinue();
+    await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Review and submit');
   });
   test('PRF-9 Submit paperwork', async () => {
