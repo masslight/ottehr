@@ -61,7 +61,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
 
-  const [requireSupervisorApproval, setRequireSupervisorApproval] = useState(false);
+  const [requireSupervisorApproval, setRequireSupervisorApproval] = useState(true);
 
   const { updateVisitStatusToAwaitSupervisorApproval, loading: isPendingSupervisorApproval } =
     usePendingSupervisorApproval({
@@ -162,7 +162,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       throw new Error('api client not defined or appointmentId not provided');
     }
 
-    if (FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && requireSupervisorApproval) {
+    if (isInPerson && FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && requireSupervisorApproval) {
       await updateVisitStatusToAwaitSupervisorApproval();
     } else {
       if (isInPerson) {
@@ -228,6 +228,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
                   <FormControlLabel
                     control={
                       <Checkbox
+                        data-testid={dataTestIds.progressNotePage.supervisorApprovalCheckbox}
                         checked={requireSupervisorApproval}
                         onChange={(e) => setRequireSupervisorApproval(e.target.checked)}
                       />
