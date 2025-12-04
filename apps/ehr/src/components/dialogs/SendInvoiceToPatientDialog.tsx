@@ -145,7 +145,7 @@ export default function SendInvoiceToPatientDialog({
                 <Box sx={{ flexDirection: 'row', display: 'flex' }}>
                   <Typography variant="body2">{patientAndRP?.responsibleParty.email}</Typography>
                   <Typography variant="body2" sx={{ pl: 2 }}>
-                    {patientAndRP?.responsibleParty.fullName}
+                    {patientAndRP?.responsibleParty.phoneNumber}
                   </Typography>
                 </Box>
               </Box>
@@ -167,6 +167,7 @@ export default function SendInvoiceToPatientDialog({
                 control={control}
                 rules={{
                   required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  min: { value: 0.01, message: 'Amount must be greater than 0' },
                 }}
                 render={({ field }) => (
                   <TextField

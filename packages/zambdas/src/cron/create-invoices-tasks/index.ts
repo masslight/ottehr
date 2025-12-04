@@ -141,7 +141,7 @@ async function getEncountersWithoutTask(candid: CandidApiClient, oystehr: Oysteh
         const patientBalanceInCents = itemization?.patientBalanceCents;
         if (patientBalanceInCents && patientBalanceInCents > 0) {
           console.log(
-            `patient: ${pkg.claim.patientExternalId}, claim: ${pkg.claim.claimId}, oyst encounter: ${pkg.encounter.id} balance: `,
+            `patient: ${pkg.claim.patientExternalId}, claim: ${pkg.claim.claimId}, oyst encounter: ${pkg.encounter.id} balance (cents): `,
             patientBalanceInCents
           );
 

@@ -292,7 +292,7 @@ async function sendInvoiceSmsToPatient(
 function fillMessagePlaceholders(message: string, amountCents: number, dueDate: string, invoiceLink?: string): string {
   const clinic = BRANDING_CONFIG.projectName;
   const params: InvoiceMessagesPlaceholders = {
-    clinic: clinic,
+    clinic,
     amount: (amountCents / 100).toString(),
     'due-date': dueDate,
     'invoice-link': invoiceLink,
