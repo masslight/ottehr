@@ -13,6 +13,7 @@ import {
   INVALID_INPUT_ERROR,
   mapQuestionnaireAndValueSetsToItemsList,
   MISSING_REQUEST_BODY,
+  prepopulateBookingForm,
   Secrets,
   SecretsKeys,
   ServiceCategoryCode,
@@ -21,7 +22,7 @@ import {
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { getUser, userHasAccessToPatient } from '../../../shared/auth';
 
-const ZAMBDA_NAME = 'get-questionnaire';
+const ZAMBDA_NAME = 'get-booking-questionnaire';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
@@ -87,7 +88,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetQ
   const valueSets: ValueSet[] = [];
   const allItems = mapQuestionnaireAndValueSetsToItemsList(items, valueSets);
 
-  const prepopulatedItem = BOOKING_CONFIG.prepopulateBookingForm({
+  const prepopulatedItem = prepopulateBookingForm({
     questionnaire,
     context: {
       serviceMode,

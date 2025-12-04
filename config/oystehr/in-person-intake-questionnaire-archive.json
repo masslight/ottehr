@@ -16945,6 +16945,29 @@
                 ]
               },
               {
+                "linkId": "patient-preferred-communication-method",
+                "text": "Preferred Communication Method",
+                "required": true,
+                "type": "choice",
+                "answerOption": [
+                  {
+                    "valueString": "No preference"
+                  },
+                  {
+                    "valueString": "Email"
+                  },
+                  {
+                    "valueString": "Home Phone"
+                  },
+                  {
+                    "valueString": "Cell Phone"
+                  },
+                  {
+                    "valueString": "Mail"
+                  }
+                ]
+              },
+              {
                 "linkId": "mobile-opt-in",
                 "text": "Yes! I would like to receive helpful text messages from Ottehr regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.",
                 "type": "boolean",

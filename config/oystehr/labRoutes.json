@@ -1,0 +1,9 @@
+{
+  "schema-version": "2025-09-25",
+  "labRoutes": {
+    "AUTOLAB": {
+      "accountNumber": "#{var/lab-autolab-account-number}",
+      "labId": "#{var/lab-autolab-lab-id}"
+    }
+  }
+}
