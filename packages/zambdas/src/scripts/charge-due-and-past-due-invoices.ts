@@ -320,7 +320,7 @@ async function main(): Promise<void> {
   } else {
     // Use today's date
     dueDate = new Date();
-    dueDate.setHours(0, 0, 0, 0); // Start of today
+    dueDate.setHours(23, 59, 59, 999); // End of today
     dueDateString = dueDate.toISOString().split('T')[0]; // yyyy-mm-dd format
   }
 

@@ -18,6 +18,7 @@ import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
 import { Encounter } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
@@ -175,7 +176,8 @@ export const Header = (): JSX.Element => {
 
   locationName = locationName || location?.name || '';
 
-  const { date = '', time = '' } = formatDateToMDYWithTime(start) ?? {};
+  const userTimezone = DateTime.local().zoneName;
+  const { date = '', time = '' } = formatDateToMDYWithTime(start, userTimezone) ?? {};
   const visitText = `Visit: ${date} ${time}${locationName ? ` | ${locationName}` : ''}`.trim();
 
   const { visitType } = useGetAppointmentAccessibility();

@@ -100,6 +100,7 @@ export type FormItemType =
   | 'Form list'
   | 'Attachment'
   | 'Credit Card'
+  | 'Medical History'
   | 'Call Out'
   | undefined;
 

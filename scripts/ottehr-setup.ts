@@ -95,6 +95,7 @@ async function createM2M(
               `Z3:${projectId}-audio-recordings/*`,
               `Z3:${projectId}-discharge-summaries/*`,
               `Z3:${projectId}-invoiceable-patients-reports/*`,
+              `Z3:${projectId}-statements/*`,
             ],
             action: ['Z3:PutObject', 'Z3:GetObject'],
             effect: 'Allow',

@@ -55,17 +55,16 @@ import {
   LabDocument,
   LabDocumentBase,
   LabDocumentByRequisition,
+  LabDocumentRelatedToDiagnosticReport,
   LabDocumentRelatedToServiceRequest,
   LabDocumentType,
   LabDrTypeTagCode,
   LabelPdf,
-  LabGeneratedResultDocument,
   LabOrderResultDetails,
   LabType,
   nameLabTest,
   NEUTRAL_RESULT_DR_TAG,
   NonNormalResult,
-  OttehrGeneratedResultDocument,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
@@ -677,13 +676,15 @@ const diagnosticReportIncludesCategory = (
   return !!diagnosticReport.category?.find((cat) => cat?.coding?.find((c) => c.system === system && c.code === code));
 };
 
-const getDocRefRelatedId = (
+const getDocRefRelatedIds = (
   docRef: DocumentReference,
   relatedResourceType: FhirResource['resourceType']
-): string | undefined => {
-  const reference = docRef.context?.related?.find((rel) => rel.reference?.startsWith(`${relatedResourceType}/`))
-    ?.reference;
-  return reference?.split('/')[1];
+): string[] | undefined => {
+  const references = docRef.context?.related?.filter((rel) => rel.reference?.startsWith(`${relatedResourceType}/`));
+  const ids = references
+    ?.map((rel) => rel.reference?.replace(`${relatedResourceType}/`, ''))
+    .filter((id): id is string => id !== undefined);
+  return ids;
 };
 
 /**
@@ -735,12 +736,14 @@ const groupLabDocsByRequisition = (
   if (!labDocuments) return;
 
   const grouped: { [requisitionNumber: string]: LabDocumentRelatedToServiceRequest } = {};
-  labDocuments.forEach((labDoc) => {
-    const serviceRequestId = labDoc.serviceRequestId;
-    const serviceRequest = serviceRequests.find((sr) => sr.id === serviceRequestId);
-    const requisitionNumber = serviceRequest ? getOrderNumber(serviceRequest) : undefined;
-    if (requisitionNumber) {
-      grouped[requisitionNumber] = labDoc;
+  serviceRequests.forEach((serviceRequest) => {
+    const serviceRequestId = serviceRequest.id;
+    if (serviceRequestId) {
+      const requisitionNumber = getOrderNumber(serviceRequest);
+      const labDoc = labDocuments.find((labDoc) => labDoc.serviceRequestIds.includes(serviceRequestId));
+      if (requisitionNumber && labDoc) {
+        grouped[requisitionNumber] = labDoc;
+      }
     }
   });
   return grouped;
@@ -769,29 +772,28 @@ const docRefType = (docRef: DocumentReference): LabDocumentType | undefined => {
 const configLabDocument = (docRef: DocumentReference, presignedURL: string): LabDocument | null => {
   if (!docRef.id) return null;
   const baseInfo: LabDocumentBase = { docRefId: docRef.id, presignedURL };
-  const serviceRequestId = getDocRefRelatedId(docRef, 'ServiceRequest');
-  const diagnosticReportId = getDocRefRelatedId(docRef, 'DiagnosticReport');
+  const serviceRequestIds = getDocRefRelatedIds(docRef, 'ServiceRequest'); // one order pdf doc ref to many service requests
+  const diagnosticReportIds = getDocRefRelatedIds(docRef, 'DiagnosticReport'); // lab generated results are one doc ref to many diagnostic reports
   const type = docRefType(docRef);
   const config = (() => {
     switch (type) {
       case LabDocumentType.abn:
       case LabDocumentType.orderPdf:
-        if (!serviceRequestId) return null;
-        return { type, serviceRequestId, ...baseInfo };
+        if (!serviceRequestIds) return null;
+        return { type, serviceRequestIds, ...baseInfo };
       case LabDocumentType.ottehrGeneratedResult:
-        if (!diagnosticReportId) return null;
-        return { type, diagnosticReportId, ...baseInfo };
+        if (!diagnosticReportIds) return null;
+        return { type, diagnosticReportIds, ...baseInfo };
       case LabDocumentType.labGeneratedResult: {
-        const relatedResultReferences =
-          docRef.context?.related?.map((ref) => ref.reference).filter((ref): ref is string => !!ref) ?? [];
-        return { type, relatedResultReferences, ...baseInfo };
+        const relatedResultDiagnosticReportIds =
+          docRef.context?.related
+            ?.filter((ref) => ref.reference?.startsWith('DiagnosticReport/'))
+            .map((ref) => ref.reference?.replace('DiagnosticReport/', ''))
+            .filter((ref): ref is string => !!ref) ?? [];
+        return { type, diagnosticReportIds: relatedResultDiagnosticReportIds, ...baseInfo };
       }
       case LabDocumentType.label: {
-        return {
-          type,
-          documentReference: docRef,
-          presignedURL,
-        };
+        return { type, documentReference: docRef, presignedURL };
       }
       default:
         return null;
@@ -801,11 +803,11 @@ const configLabDocument = (docRef: DocumentReference, presignedURL: string): Lab
 };
 
 type FetchLabDocumentsRes = {
-  resultPDFs: OttehrGeneratedResultDocument[];
+  resultPDFs: LabDocumentRelatedToDiagnosticReport[];
+  labGeneratedResults: LabDocumentRelatedToDiagnosticReport[];
   labelPDF: LabelPdf | undefined;
   orderPDFs: LabDocumentRelatedToServiceRequest[];
   abnPDFs: LabDocumentRelatedToServiceRequest[];
-  labGeneratedResults: LabGeneratedResultDocument[];
 };
 export const fetchLabDocumentPresignedUrls = async (
   documentReferences: DocumentReference[],
@@ -815,7 +817,7 @@ export const fetchLabDocumentPresignedUrls = async (
     return;
   }
 
-  const pdfPromises: Promise<LabelPdf | LabDocument | null>[] = [];
+  const pdfPromises: Promise<LabDocument | null>[] = [];
   for (const docRef of documentReferences) {
     for (const content of docRef.content) {
       const z3Url = content.attachment?.url;
@@ -837,8 +839,7 @@ export const fetchLabDocumentPresignedUrls = async (
 
   const { resultPDFs, labelPDF, orderPDFs, abnPDFs, labGeneratedResults } = pdfs
     .filter(
-      (result): result is PromiseFulfilledResult<LabelPdf | LabDocument> =>
-        result.status === 'fulfilled' && result.value !== null
+      (result): result is PromiseFulfilledResult<LabDocument> => result.status === 'fulfilled' && result.value !== null
     )
     .reduce(
       (acc: FetchLabDocumentsRes, result) => {
@@ -856,11 +857,12 @@ export const fetchLabDocumentPresignedUrls = async (
             case LabDocumentType.ottehrGeneratedResult:
               acc.resultPDFs.push(result.value);
               break;
+            case LabDocumentType.label:
+              acc.labelPDF = result.value;
+              break;
             default:
               break;
           }
-        } else {
-          acc.labelPDF = result.value;
         }
         return acc;
       },

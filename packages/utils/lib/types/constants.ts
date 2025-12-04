@@ -1,3 +1,5 @@
+import { ottehrExtensionUrl } from '../fhir/systemUrls';
+
 export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
 
 export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
@@ -6,7 +8,7 @@ export const PROJECT_NAME = 'Ottehr';
 export const PROJECT_NAME_LOWER = PROJECT_NAME.toLowerCase();
 export const PROJECT_DOMAIN = 'ottehr.com';
 export const PROJECT_WEBSITE = `https://${PROJECT_DOMAIN}`;
-export const SUPPORT_EMAIL = 'support@ottehr.com';
+export const SUPPORT_EMAIL = 'ottehr-support@ottehr.com';
 
 export const PATIENT_INDIVIDUAL_PRONOUNS_URL = 'http://hl7.org/fhir/StructureDefinition/individual-pronouns';
 export const PATIENT_INDIVIDUAL_PRONOUNS_CUSTOM_URL =
@@ -28,6 +30,7 @@ export const PATIENT_RELEASE_OF_INFO_URL = 'https://fhir.zapehr.com/r4/Structure
 export const PATIENT_RX_HISTORY_CONSENT_STATUS_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/rx-history-consent-status';
 export const PATIENT_DECEASED_NOTE_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/deceased-note';
+export const PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL = ottehrExtensionUrl('preferred-communication-method');
 export const COVERAGE_ADDITIONAL_INFORMATION_URL =
   'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information';
 export const RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL =

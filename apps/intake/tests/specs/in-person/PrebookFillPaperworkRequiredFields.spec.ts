@@ -4,6 +4,7 @@ import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
+import { QuestionnaireHelper } from '../../utils/QuestionnaireHelper';
 
 let page: Page;
 let context: BrowserContext;
@@ -13,6 +14,7 @@ let bookingURL: Awaited<ReturnType<PrebookInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
+const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -69,20 +71,33 @@ test.describe('Prebook In person visit - Paperwork submission flow with only req
   test('PRF-5 Fill responsible party details', async () => {
     await paperwork.fillResponsiblePartyDataSelf();
     await commonLocatorsHelper.clickContinue();
-    await expect(locator.flowHeading).toHaveText('Emergency Contact');
+    if (employerInformationPageExists) {
+      await expect(locator.flowHeading).toHaveText('Employer information');
+    } else {
+      await expect(locator.flowHeading).toHaveText('Emergency Contact');
+    }
   });
-  test('PRF-6 Fill emergency contact details', async () => {
+  if (employerInformationPageExists) {
+    test('PRF-6 Fill employer information', async () => {
+      await paperwork.fillEmployerInformation();
+      await commonLocatorsHelper.clickContinue();
+      await expect(locator.flowHeading).toHaveText('Emergency Contact');
+    });
+  }
+  test('PRF-7 Fill emergency contact details', async () => {
+    await expect(locator.flowHeading).toHaveText('Emergency Contact');
     await paperwork.fillEmergencyContactInformation();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Photo ID');
   });
-  test('PRF-7 Skip photo ID and complete consent forms', async () => {
+  test('PRF-8 Skip photo ID and complete consent forms', async () => {
     await paperwork.skipPhotoID();
     await paperwork.fillConsentForms();
     await commonLocatorsHelper.clickContinue();
+    await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Review and submit');
   });
-  test('PRF-8 Submit paperwork', async () => {
+  test('PRF-9 Submit paperwork', async () => {
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toBeVisible();
     await expect(locator.flowHeading).toHaveText('Thank you for choosing Ottehr!');

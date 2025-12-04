@@ -6,7 +6,6 @@ import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { AiChatBanner } from 'src/components/AiChatBanner';
 import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CheckInZambdaOutput, DATETIME_FULL_NO_YEAR, VisitType } from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
@@ -201,7 +200,6 @@ const CheckIn = (): JSX.Element => {
                 </Grid>
               )}
             </Grid>
-            <AiChatBanner appointmentId={appointmentID ?? ''} />
           </Box>
         </>
       )}

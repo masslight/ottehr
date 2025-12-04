@@ -1,15 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Consent, Encounter, QuestionnaireResponse } from 'fhir/r4b';
-import {
-  AI_QUESTIONNAIRE_ID,
-  createOystehrClient,
-  FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
-  getSecret,
-  Secrets,
-  SecretsKeys,
-  StartInterviewInput,
-} from 'utils';
+import { Encounter, QuestionnaireResponse } from 'fhir/r4b';
+import { AI_QUESTIONNAIRE_ID, createOystehrClient, getSecret, Secrets, SecretsKeys, StartInterviewInput } from 'utils';
 import {
   getAuth0Token,
   topLevelCatch,
@@ -48,9 +40,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const encounterId = await findEncounter(appointmentId, oystehr);
     if (encounterId == null) {
       throw new Error(`Encounter for appointment "${appointmentId}" not found`);
-    }
-    if (!(await consentPresent(appointmentId, oystehr))) {
-      throw new Error(`Patient's consent for  "${appointmentId}" not found`);
     }
     let questionnaireResponse: QuestionnaireResponse;
     const existingQuestionnaireResponse = await findAIInterviewQuestionnaireResponse(encounterId, oystehr);
@@ -99,26 +88,6 @@ async function findEncounter(appointmentId: string, oystehr: Oystehr): Promise<s
       ],
     })
   ).unbundle()[0]?.id;
-}
-
-async function consentPresent(appointmentId: string, oystehr: Oystehr): Promise<boolean> {
-  return (
-    (
-      await oystehr.fhir.search<Consent>({
-        resourceType: 'Consent',
-        params: [
-          {
-            name: 'data',
-            value: 'Appointment/' + appointmentId,
-          },
-          {
-            name: 'category',
-            value: 'http://terminology.hl7.org/CodeSystem/consentcategorycodes|' + FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
-          },
-        ],
-      })
-    ).unbundle().length > 0
-  );
 }
 
 async function findAIInterviewQuestionnaireResponse(

@@ -46,8 +46,8 @@ import {
   LAB_DR_TYPE_TAG,
   LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
   LAB_ORDER_TASK,
+  LabDocumentRelatedToDiagnosticReport,
   LabDrTypeTagCode,
-  LabGeneratedResultDocument,
   LabOrderDetailedPageDTO,
   LabOrderDTO,
   LabOrderHistoryRow,
@@ -56,7 +56,6 @@ import {
   LabOrdersSearchBy,
   LabOrderUnreceivedHistoryRow,
   LabType,
-  OttehrGeneratedResultDocument,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   Pagination,
@@ -2010,8 +2009,8 @@ export const parseLResultsDetails = (
   tasks: Task[],
   practitioners: Practitioner[],
   provenances: Provenance[],
-  labGeneratedResults: LabGeneratedResultDocument[] | undefined,
-  resultPDFs: OttehrGeneratedResultDocument[] | undefined,
+  labGeneratedResults: LabDocumentRelatedToDiagnosticReport[] | undefined,
+  resultPDFs: LabDocumentRelatedToDiagnosticReport[] | undefined,
   cache?: Cache
 ): LabOrderResultDetails[] => {
   console.log('parsing external lab order results for service request', serviceRequest.id);
@@ -2093,9 +2092,10 @@ export const parseLResultsDetails = (
       )[0];
       const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances)?.date || null;
       const labGeneratedResultUrls = labGeneratedResults
-        ?.filter((labDoc) => result.id && labDoc.relatedResultReferences.includes(`DiagnosticReport/${result.id}`))
+        ?.filter((labDoc) => result.id && labDoc.diagnosticReportIds.includes(result.id))
         .map((doc) => doc?.presignedURL);
-      const resultPdfUrl = resultPDFs?.find((pdf) => pdf.diagnosticReportId === result.id)?.presignedURL || null;
+      const resultPdfUrl =
+        resultPDFs?.find((pdf) => result.id && pdf.diagnosticReportIds.includes(result.id))?.presignedURL || null;
       if (details) {
         resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl, labGeneratedResultUrls });
       }

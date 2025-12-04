@@ -575,6 +575,7 @@ export const FormFields = {
     zip: { key: 'patient-zip', type: 'String' },
     email: { key: 'patient-email', type: 'String' },
     phone: { key: 'patient-number', type: 'String' },
+    preferredCommunicationMethod: { key: 'patient-preferred-communication-method', type: 'String' },
   },
   insurance: [
     {
@@ -659,6 +660,20 @@ export const FormFields = {
     name: { key: 'pharmacy-name', type: 'String', label: 'Pharmacy name' },
     address: { key: 'pharmacy-address', type: 'String', label: 'Pharmacy address' },
   },
+  employerInformation: {
+    employerName: { key: 'employer-name', type: 'String', label: 'Employer name' },
+    addressLine1: { key: 'employer-address', type: 'String', label: 'Address line 1' },
+    addressLine2: { key: 'employer-address-2', type: 'String', label: 'Address line 2' },
+    city: { key: 'employer-city', type: 'String', label: 'City' },
+    state: { key: 'employer-state', type: 'String', label: 'State' },
+    zip: { key: 'employer-zip', type: 'String', label: 'ZIP' },
+    contactFirstName: { key: 'employer-contact-first-name', type: 'String', label: 'Contact first name' },
+    contactLastName: { key: 'employer-contact-last-name', type: 'String', label: 'Contact last name' },
+    contactTitle: { key: 'employer-contact-title', type: 'String', label: 'Contact title' },
+    contactEmail: { key: 'employer-contact-email', type: 'String', label: 'Contact email' },
+    contactPhone: { key: 'employer-contact-phone', type: 'String', label: 'Contact phone' },
+    contactFax: { key: 'employer-contact-fax', type: 'String', label: 'Contact fax' },
+  },
 };
 
 export const PatientIdentifyingFields = [
@@ -699,3 +714,26 @@ export const ADDITIONAL_QUESTIONS = questionnaireFields.map((field) => ({
   label: field.question,
   field: field.fhirField,
 }));
+
+export const PREFERRED_COMMUNICATION_METHOD_OPTIONS = [
+  {
+    label: 'No preference',
+    value: 'No preference',
+  },
+  {
+    label: 'Email',
+    value: 'Email',
+  },
+  {
+    label: 'Home Phone',
+    value: 'Home Phone',
+  },
+  {
+    label: 'Cell Phone',
+    value: 'Cell Phone',
+  },
+  {
+    label: 'Mail',
+    value: 'Mail',
+  },
+];
