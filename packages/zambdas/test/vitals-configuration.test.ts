@@ -406,7 +406,6 @@ describe('testing vitals config validation', () => {
   test('applies adult heart rate thresholds based on DOB', () => {
     const teenPatient = makeTestPatientWithAge({ units: 'years', value: 16 });
     const patientDOB = teenPatient.birthDate;
-    expect(patientDOB).toBeDefined();
     assert(patientDOB);
     const tachyObservation: VitalsHeartbeatObservationDTO = {
       patientId: teenPatient.id,
@@ -427,7 +426,6 @@ describe('testing vitals config validation', () => {
   test('applies adult respiration thresholds for adults', () => {
     const adultPatient = makeTestPatientWithAge({ units: 'years', value: 30 });
     const patientDOB = adultPatient.birthDate;
-    expect(patientDOB).toBeDefined();
     assert(patientDOB);
     const highRespObservation: VitalsRespirationRateObservationDTO = {
       patientId: adultPatient.id,
@@ -448,7 +446,6 @@ describe('testing vitals config validation', () => {
   test('applies adult weight thresholds for adults', () => {
     const adultPatient = makeTestPatientWithAge({ units: 'years', value: 30 });
     const patientDOB = adultPatient.birthDate;
-    expect(patientDOB).toBeDefined();
     assert(patientDOB);
     const lowWeightObservation: VitalsWeightObservationDTO = {
       patientId: adultPatient.id,
