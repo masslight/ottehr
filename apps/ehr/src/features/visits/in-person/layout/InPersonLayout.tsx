@@ -7,7 +7,6 @@ import { Sidebar } from '../../shared/components/Sidebar';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useResetAppointmentStore } from '../../shared/hooks/useResetAppointmentStore';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
-import { CommonLayoutBreadcrumbs } from '../components/breadcrumbs/CommonLayoutBreadcrumbs';
 import { Header } from '../components/Header';
 import { InfoAlert } from '../components/InfoAlert';
 import { RecordAudioContainer } from '../components/progress-note/RecordAudioContainer';
@@ -36,9 +35,9 @@ const contentWrapperStyle: React.CSSProperties = {
 
 export const InPersonLayout: React.FC = () => {
   const { encounter } = useAppointmentData();
-  const [recordingAnchorElemement, setRecordingAnchorElement] = React.useState<HTMLButtonElement | null>(null);
+  const [recordingAnchorElement, setRecordingAnchorElement] = React.useState<HTMLButtonElement | null>(null);
   const recordingElementID = 'recording-element';
-  const recordingOpen = Boolean(recordingAnchorElemement);
+  const recordingOpen = Boolean(recordingAnchorElement);
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
 
@@ -96,7 +95,6 @@ export const InPersonLayout: React.FC = () => {
           >
             {(isFollowup || assignedIntakePerformerId) && assignedProviderId ? (
               <>
-                <CommonLayoutBreadcrumbs />
                 <Outlet />
               </>
             ) : (

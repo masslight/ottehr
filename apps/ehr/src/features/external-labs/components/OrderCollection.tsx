@@ -43,7 +43,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     (labOrder.orderStatus === ExternalLabsStatus.pending || labOrder.orderStatus === ExternalLabsStatus.sent);
   const showAOECard = aoe.length > 0;
 
-  // if these are present they will be displayed from ResultItem.tsx so we shouldn't display the SR level requsition number on this component
+  // if these are present they will be displayed from ResultItem.tsx so we shouldn't display the SR level requisition number on this component
   const additionalPlacerIdsMapped = labOrder.resultsDetails.some((result) => result.alternatePlacerId);
 
   const sanitizeFormData = (data: DynamicAOEInput): DynamicAOEInput => {

@@ -4,3 +4,5 @@ export * from './sendgrid';
 export * from './examination';
 export * from './questionnaire';
 export * from './texting';
+export * from './vitals';
+export * from './legal';

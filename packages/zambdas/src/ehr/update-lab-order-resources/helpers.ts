@@ -3,6 +3,7 @@ import { Operation } from 'fast-json-patch';
 import {
   DiagnosticReport,
   DocumentReference,
+  Practitioner,
   Provenance,
   QuestionnaireResponse,
   ServiceRequest,
@@ -12,8 +13,10 @@ import {
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
+  docRefIsAbnAndCurrent,
   DynamicAOEInput,
   EXTERNAL_LAB_ERROR,
+  getFullestAvailableName,
   getPatchBinary,
   LAB_DR_TYPE_TAG,
   OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
@@ -21,7 +24,8 @@ import {
   SpecimenCollectionDateConfig,
   SR_REVOKED_REASON_EXT,
 } from 'utils';
-import { docRefIsAbnAndCurrent, parseAccessionNumberFromDr, populateQuestionnaireResponseItems } from '../shared/labs';
+import { createOwnerReference } from '../../shared/tasks';
+import { parseAccessionNumberFromDr, populateQuestionnaireResponseItems } from '../shared/labs';
 
 export const getSpecimenPatchAndMostRecentCollectionDate = (
   specimenResources: Specimen[],
@@ -121,12 +125,13 @@ export const makeQrPatchRequest = async (
   };
 };
 
-export const makePstCompletePatchRequests = (
+export const makePstCompletePatchRequests = async (
+  oystehr: Oystehr,
   pstTask: Task,
   sr: ServiceRequest,
   practitionerIdFromCurrentUser: string,
   now: DateTime<true>
-): BatchInputRequest<Provenance | Task>[] => {
+): Promise<BatchInputRequest<Provenance | Task>[]> => {
   const curUserReference = { reference: `Practitioner/${practitionerIdFromCurrentUser}` };
   const provenanceFhirUrl = `urn:uuid:${uuid()}`;
 
@@ -145,6 +150,38 @@ export const makePstCompletePatchRequests = (
     },
   };
 
+  const pstTaskOperations: Operation[] = [
+    {
+      op: 'add',
+      path: '/relevantHistory',
+      value: [
+        {
+          reference: provenanceFhirUrl,
+        },
+      ],
+    },
+    {
+      op: 'replace',
+      path: '/status',
+      value: 'completed',
+    },
+  ];
+
+  if (!pstTask.owner) {
+    const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: practitionerIdFromCurrentUser,
+    });
+    pstTaskOperations.push({
+      path: '/owner',
+      op: 'add',
+      value: createOwnerReference(
+        practitionerIdFromCurrentUser,
+        getFullestAvailableName(currentUserPractitioner) ?? ''
+      ),
+    });
+  }
+
   const requests: BatchInputRequest<Provenance | Task>[] = [
     {
       method: 'POST',
@@ -155,22 +192,7 @@ export const makePstCompletePatchRequests = (
     getPatchBinary({
       resourceType: 'Task',
       resourceId: pstTask.id || 'unknown',
-      patchOperations: [
-        {
-          op: 'add',
-          path: '/relevantHistory',
-          value: [
-            {
-              reference: provenanceFhirUrl,
-            },
-          ],
-        },
-        {
-          op: 'replace',
-          path: '/status',
-          value: 'completed',
-        },
-      ],
+      patchOperations: pstTaskOperations,
     }),
   ];
 
@@ -190,12 +212,14 @@ export const handleMatchUnsolicitedRequest = async ({
   taskId,
   diagnosticReportId,
   patientToMatchId,
+  practitionerIdFromCurrentUser,
   srToMatchId,
 }: {
   oystehr: Oystehr;
   taskId: string;
   diagnosticReportId: string;
   patientToMatchId: string;
+  practitionerIdFromCurrentUser: string;
   srToMatchId?: string;
 }): Promise<void> => {
   console.log('getting the diagnostic report', diagnosticReportId);
@@ -237,10 +261,32 @@ export const handleMatchUnsolicitedRequest = async ({
   }
 
   console.log('formatting fhir patch requests to handle matching unsolicited results');
+  const task = await oystehr.fhir.get<Task>({
+    resourceType: 'Task',
+    id: taskId,
+  });
+
+  const taskOperations: Operation[] = [{ op: 'replace', path: '/status', value: 'completed' }];
+
+  if (!task.owner) {
+    const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: practitionerIdFromCurrentUser,
+    });
+    taskOperations.push({
+      path: '/owner',
+      op: 'add',
+      value: createOwnerReference(
+        practitionerIdFromCurrentUser,
+        getFullestAvailableName(currentUserPractitioner) ?? ''
+      ),
+    });
+  }
+
   const markTaskAsCompleteRequest: BatchInputPatchRequest<Task> = {
     method: 'PATCH',
     url: `Task/${taskId}`,
-    operations: [{ op: 'replace', path: '/status', value: 'completed' }],
+    operations: taskOperations,
   };
 
   const updatedDiagnosticReport: DiagnosticReport = { ...diagnosticReportResource };
@@ -390,4 +436,80 @@ export const handleRejectedAbn = async ({
 
   console.log('revoking the service request due to rejected abn');
   await oystehr.fhir.transaction({ requests: [srPatch, provenancePost] });
+};
+
+export const handleRejectedUnsolicitedResult = async ({
+  oystehr,
+  taskId,
+}: {
+  oystehr: Oystehr;
+  taskId: string;
+}): Promise<void> => {
+  console.log('searching for task and diagnostic report within handleRejectedUnsolicitedResult');
+  const resources = (
+    await oystehr.fhir.search<Task | DiagnosticReport>({
+      resourceType: 'Task',
+      params: [
+        {
+          name: '_id',
+          value: taskId,
+        },
+        {
+          name: '_include:iterate',
+          value: 'Task:based-on',
+        },
+      ],
+    })
+  ).unbundle();
+
+  console.log('number of resources returned from search:', resources.length);
+
+  const { fhirTask, fhirDiagnosticReport } = resources.reduce(
+    (acc: { fhirTask: Task | undefined; fhirDiagnosticReport: DiagnosticReport | undefined }, resource) => {
+      if (resource.resourceType === 'Task') acc.fhirTask = resource;
+      if (resource.resourceType === 'DiagnosticReport') acc.fhirDiagnosticReport = resource;
+      return acc;
+    },
+    { fhirTask: undefined, fhirDiagnosticReport: undefined }
+  );
+
+  if (!fhirTask)
+    throw new Error(`Something has gone awry getting this task during handleRejectedUnsolicitedResult: ${taskId}`);
+
+  const requests: BatchInputPatchRequest<Task | DiagnosticReport>[] = [
+    {
+      method: 'PATCH',
+      url: `Task/${taskId}`,
+      operations: [
+        {
+          op: 'replace',
+          path: '/status',
+          value: 'cancelled',
+        },
+      ],
+    },
+  ];
+
+  // this means it was matched and is being rejected AFTER being matched
+  if (fhirDiagnosticReport && fhirDiagnosticReport.subject?.reference?.startsWith('Patient/')) {
+    console.log(
+      'it appears this unsolicited result has been matched to a patient - the subject patient will be removed and the task will be cancelled'
+    );
+    requests.push({
+      method: 'PATCH',
+      url: `DiagnosticReport/${fhirDiagnosticReport.id}`,
+      operations: [
+        {
+          op: 'remove',
+          path: '/subject',
+        },
+      ],
+    });
+  } else {
+    console.log(
+      'this unsolicited result is being rejected before matching to a patient, the only action to be taken is cancelling the task'
+    );
+  }
+
+  await oystehr.fhir.transaction({ requests });
 };

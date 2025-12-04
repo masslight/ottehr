@@ -4,6 +4,7 @@ import { CircularProgress, Grid, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
 import { Loader } from '../../Loader';
 import { useNoteHandlers } from '../hooks/useNoteHandlers';
@@ -67,6 +68,7 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
         <Grid container spacing={1} alignItems="center" sx={{ p: 3 }}>
           <Grid item xs>
             <TextFieldStyled
+              data-testid={dataTestIds.screeningPage.screeningNoteField}
               onKeyDown={(event: React.KeyboardEvent) => {
                 if (event.key === 'Enter' && !event.shiftKey) {
                   event.preventDefault();

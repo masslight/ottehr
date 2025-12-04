@@ -1,6 +1,7 @@
 import {
   QuestionnaireItem,
   QuestionnaireItemEnableWhen,
+  QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
@@ -16,6 +17,7 @@ import {
   pickFirstValueFromAnswerItem,
   QuestionnaireItemConditionDefinition,
   REQUIRED_FIELD_ERROR_MESSAGE,
+  ssnRegex,
   zipRegex,
 } from 'utils';
 import * as Yup from 'yup';
@@ -72,6 +74,10 @@ const makeValidatableItem = (
   if (ZIP_CODE_FIELDS.includes(item.linkId) || item.dataType === 'ZIP') {
     regex = zipRegex;
     regexError = 'ZIP Code must be 5 numbers';
+  }
+  if (item.dataType === 'SSN') {
+    regex = ssnRegex;
+    regexError = 'SSN must be in the format xxx-xx-xxxx';
   }
 
   return {
@@ -295,7 +301,7 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
 export const makeValidationSchema = (
   items: IntakeQuestionnaireItem[],
   pageId?: string,
-  externalContext?: { values: any; items: any }
+  externalContext?: { values: any; items: any; questionnaireResponse?: QuestionnaireResponse }
 ): any => {
   if (pageId !== undefined) {
     // we are validating one page of the questionnaire
@@ -511,9 +517,16 @@ export const itemAnswerHasValue = (answerItem: QuestionnaireResponseItemAnswer):
 
 type EnableWhenOperator = 'exists' | '=' | '!=' | '>' | '<' | '>=' | '<=';
 
-const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: boolean | undefined): boolean => {
+const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: any | undefined): boolean => {
   if (operator === 'exists') {
-    return value !== undefined;
+    if (answerValue === true) {
+      return value !== undefined;
+    } else {
+      return value === undefined;
+    }
+  }
+  if (typeof value !== 'boolean') {
+    return operator === '!='; // if value is not boolean, treat as non-match
   }
 
   if (operator === '=') {
@@ -525,6 +538,9 @@ const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: 
 };
 
 const evalString = (operator: EnableWhenOperator, answerValue: string, value: string | undefined): boolean => {
+  if (operator === 'exists') {
+    return value !== undefined;
+  }
   if (operator === '=') {
     return answerValue === value;
   } else if (operator === '!=') {
@@ -601,7 +617,13 @@ const evalEnableWhenItem = (
     return (accum.item ?? []).find((i: any) => i?.linkId && i.linkId === current);
   }, values as any);
 
-  if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
+  if (operator === 'exists' && answerBoolean !== undefined) {
+    return evalBoolean(
+      operator,
+      answerBoolean,
+      pickFirstValueFromAnswerItem(valueDef, itemDef.type === 'boolean' ? 'boolean' : undefined)
+    );
+  } else if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
     return evalBoolean(operator, answerBoolean, pickFirstValueFromAnswerItem(valueDef, 'boolean'));
   } else if (
     (itemDef.type === 'string' || itemDef.type === 'choice' || itemDef.type === 'open-choice') &&
@@ -623,33 +645,68 @@ const evalEnableWhenItem = (
   }
 };
 
+const evalStatusCondition = (questionVal: any, questionnaireResponse?: QuestionnaireResponse): boolean => {
+  const { operator, answerString, answerCoding } = questionVal;
+  const currentStatus = questionnaireResponse?.status;
+
+  switch (operator) {
+    case 'exists':
+      return !!currentStatus;
+
+    case '=':
+      if (answerString) {
+        return currentStatus === answerString;
+      }
+      if (answerCoding) {
+        return currentStatus === answerCoding.code;
+      }
+      return false;
+
+    case '!=':
+      if (answerString) {
+        return currentStatus !== answerString;
+      }
+      if (answerCoding) {
+        return currentStatus !== answerCoding.code;
+      }
+      return false;
+
+    case 'in':
+      if (answerString && currentStatus) {
+        const allowedStatuses = answerString.split(',').map((s: string) => s.trim());
+        return allowedStatuses.includes(currentStatus);
+      }
+      return false;
+
+    default:
+      return false;
+  }
+};
+
 export const evalEnableWhen = (
   item: IntakeQuestionnaireItem,
   items: IntakeQuestionnaireItem[],
-  values: { [itemLinkId: string]: QuestionnaireResponseItem }
+  values: { [itemLinkId: string]: QuestionnaireResponseItem },
+  questionnaireResponse?: QuestionnaireResponse
 ): boolean => {
   const { enableWhen, enableBehavior = 'all' } = item;
   if (enableWhen === undefined || enableWhen.length === 0) {
     return true;
   }
 
+  const evaluate = (ew: QuestionnaireItemEnableWhen): boolean => {
+    if (ew.question === '$status') {
+      return evalStatusCondition(ew, questionnaireResponse);
+    }
+    return evalEnableWhenItem(ew, values, items);
+  };
+
   if (enableBehavior === 'any') {
-    const verdict = enableWhen.some((ew) => {
-      const enabled = evalEnableWhenItem(ew, values, items);
-      return enabled;
-    });
-    return verdict;
+    return enableWhen.some(evaluate);
   } else if (enableBehavior === 'all') {
-    const verdict = enableWhen.every((ew) => {
-      const enabled = evalEnableWhenItem(ew, values, items);
-      return enabled;
-    });
-    return verdict;
+    return enableWhen.every(evaluate);
   } else {
-    const verdict = enableWhen.every((ew) => {
-      return evalEnableWhenItem(ew, values, items);
-    });
-    return verdict;
+    return enableWhen.every(evaluate);
   }
 };
 
@@ -741,6 +798,11 @@ const evalCondition = (
 ): boolean => {
   const { question, operator, answerString, answerBoolean, answerDate, answerInteger } = condition;
   const questionValue = recursivePathEval(context, question, questionVal);
+
+  if (operator === 'exists' && answerBoolean !== undefined) {
+    const someAnswer = questionValue?.answer?.[0] !== undefined;
+    return answerBoolean === someAnswer;
+  }
 
   if (answerString !== undefined) {
     const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;

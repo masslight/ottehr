@@ -1,4 +1,4 @@
-import { ottehrCodeSystemUrl } from '../../fhir/systemUrls';
+import { ottehrCodeSystemUrl, ottehrExtensionUrl } from '../../fhir/systemUrls';
 
 // todo review all this systems and codes
 export const MEDICATION_TYPE_SYSTEM = 'virtual-medication-type';
@@ -34,3 +34,8 @@ export const INTERACTIONS_UNAVAILABLE = 'interactions-unavailable';
 export const VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM = ottehrCodeSystemUrl(
   'vaccine-administration-emergency-contact-relationship'
 );
+
+export const MVX_CODE_SYSTEM_URL = 'http://hl7.org/fhir/sid/mvx';
+export const CVX_CODE_SYSTEM_URL = 'http://hl7.org/fhir/sid/cvx';
+export const VACCINE_ADMINISTRATION_CODES_EXTENSION_URL = ottehrExtensionUrl('vaccine-administration-codes');
+export const VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL = ottehrExtensionUrl('vaccine-administration-vis-date');

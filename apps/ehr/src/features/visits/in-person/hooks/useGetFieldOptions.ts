@@ -1,11 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
-import { useEffect, useState } from 'react';
-import { UNIT_OPTIONS } from 'src/shared/utils';
-import { isLocationVirtual, MedicationApplianceRoutes, medicationApplianceRoutes, RoleType } from 'utils';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  DiagnosisDTO,
+  isLocationVirtual,
+  MedicationApplianceRoutes,
+  medicationApplianceRoutes,
+  RoleType,
+  UNIT_OPTIONS,
+} from 'utils';
 import { getEmployees } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
+import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
+import { useMainEncounterChartData } from '../../shared/hooks/useMainEncounterChartData';
 import { useGetMedicationList } from '../../shared/stores/appointment/appointment.queries';
 import { useAppointmentData, useChartData } from '../../shared/stores/appointment/appointment.store';
 import { Option } from '../components/medication-administration/medicationTypes';
@@ -72,7 +80,14 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
   const { encounter } = useAppointmentData();
   const { chartData, isChartDataLoading } = useChartData();
   const encounterId = encounter?.id;
-  const diagnosis = chartData?.diagnosis;
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
+  const { data: mainEncounterChartData } = useMainEncounterChartData(isFollowup);
+
+  const diagnosis = useMemo<DiagnosisDTO[]>(
+    () => (isFollowup ? mainEncounterChartData?.diagnosis || [] : chartData?.diagnosis || []),
+    [mainEncounterChartData?.diagnosis, chartData?.diagnosis, isFollowup]
+  );
 
   const diagnosisSelectOptions: Option[] =
     diagnosis?.map((item) => ({

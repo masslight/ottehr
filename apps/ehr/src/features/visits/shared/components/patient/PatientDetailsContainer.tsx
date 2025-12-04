@@ -1,5 +1,5 @@
-import { Box, Divider, MenuItem, Select, Typography, useTheme } from '@mui/material';
-import { HumanName, Patient } from 'fhir/r4b';
+import { Box, Divider, MenuItem, Select, Stack, Typography, useTheme } from '@mui/material';
+import { HumanName, Patient, QuestionnaireItem } from 'fhir/r4b';
 import { FC, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { FormSelect, FormTextField } from 'src/components/form';
@@ -14,6 +14,7 @@ import {
 } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { LANGUAGE_OPTIONS, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import inPersonIntakeQuestionnaire from '../../../../../../../../config/oystehr/in-person-intake-questionnaire.json';
 import ShowMoreButton from './ShowMoreButton';
 
 const FormFields = AllFormFields.patientDetails;
@@ -33,6 +34,14 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
 
   const genderIdentityCurrentValue = watch(FormFields.genderIdentity.key);
   const isNonBinaryGender = genderIdentityCurrentValue === 'Non-binary gender identity';
+  const languageValue = watch(FormFields.language.key);
+
+  const questionnaireLanguageOptions =
+    (
+      Object.values(inPersonIntakeQuestionnaire.fhirResources)[0]
+        .resource.item.find((item) => item.linkId === 'patient-details-page')
+        ?.item.find((item) => item.linkId === 'preferred-language') as QuestionnaireItem | undefined
+    )?.answerOption?.map((option) => option.valueString) ?? [];
 
   return (
     <Section title="Patient details">
@@ -184,28 +193,47 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
         <Box sx={{ display: 'flex', alignItems: 'center', flex: '0 1 30%' }}>
           <Typography sx={{ color: theme.palette.primary.dark }}>Preferred language</Typography>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
-          <Controller
-            name={FormFields.language.key}
-            control={control}
-            render={({ field }) => (
-              <Select
-                {...field}
-                value={field.value || ''}
-                variant="standard"
+        <Stack sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
+          <Box width="100%">
+            <Controller
+              name={FormFields.language.key}
+              control={control}
+              render={({ field }) => (
+                <Select
+                  {...field}
+                  value={field.value || ''}
+                  variant="standard"
+                  disabled={isLoading}
+                  sx={{ width: '100%' }}
+                  data-testid={dataTestIds.patientDetailsContainer.preferredLanguage}
+                >
+                  {Object.entries(LANGUAGE_OPTIONS)
+                    .filter(([_key, value]) => questionnaireLanguageOptions.includes(value))
+                    .map(([key, value]) => (
+                      <MenuItem key={value} value={value}>
+                        {key}
+                      </MenuItem>
+                    ))}
+                </Select>
+              )}
+            />
+          </Box>
+          {languageValue === 'Other' ? (
+            <Box width="100%">
+              <FormTextField
+                name={FormFields.otherLanguage.key}
+                control={control}
                 disabled={isLoading}
-                sx={{ width: '100%' }}
-                data-testid={dataTestIds.patientDetailsContainer.preferredLanguage}
-              >
-                {Object.entries(LANGUAGE_OPTIONS).map(([key, value]) => (
-                  <MenuItem key={value} value={value}>
-                    {key}
-                  </MenuItem>
-                ))}
-              </Select>
-            )}
-          />
-        </Box>
+                rules={{
+                  validate: (value: string) => {
+                    if (value === '') return REQUIRED_FIELD_ERROR_MESSAGE;
+                    return true;
+                  },
+                }}
+              />
+            </Box>
+          ) : null}
+        </Stack>
       </Box>
       <Box
         sx={{

@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 // cSpell:ignore Providerid
 import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import {
@@ -39,7 +39,7 @@ import { Sex } from 'candidhealth/api/resources/preEncounter/resources/common/ty
 import { Coverage as CandidPreEncounterCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/Coverage';
 import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/MutableCoverage';
 import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
-import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
+import { MeasurementUnitCode, ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -50,6 +50,7 @@ import {
   Extension,
   Identifier,
   Location,
+  MedicationAdministration,
   Organization,
   Patient,
   Practitioner,
@@ -62,12 +63,21 @@ import {
   FHIR_IDENTIFIER_NPI,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
+  getCptCodeFromMedication,
+  getDosageFromMA,
+  getHcpcsCodeFromMedication,
+  getMedicationFromMA,
+  getNdcCodeFromMedication,
   getOptionalSecret,
   getPayerId,
   getPaymentVariantFromEncounter,
   getSecret,
   INVALID_INPUT_ERROR,
   isTelemedAppointment,
+  mapOrderStatusToFhir,
+  MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MedicationOrderStatusesType,
+  MedicationUnitOptions,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   PaymentVariant,
   Secrets,
@@ -121,6 +131,7 @@ interface CreateEncounterInput {
   diagnoses: Condition[];
   procedures: Procedure[];
   insuranceResources?: InsuranceResources;
+  medications?: MedicationAdministration[];
 }
 
 const STUB_BILLING_PROVIDER_DATA: BillingProviderData = {
@@ -226,6 +237,10 @@ const createCandidCreateEncounterInput = async (
     practitioner = visitResources.practitioners?.[0] ?? null;
   }
 
+  const medications = await getMedicationAdministrationsForEncounter(oystehr, encounter.id, {
+    statuses: ['administered', 'administered-partly'],
+  });
+
   return {
     appointment: appointment,
     location,
@@ -277,6 +292,7 @@ const createCandidCreateEncounterInput = async (
           payor: coveragePayor!,
         }
       : undefined,
+    medications,
   };
 };
 
@@ -383,8 +399,8 @@ async function candidCreateEncounterRequest(
         return [];
       }
 
-      const isEandMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
-      if (isEandMCode && isTelemedAppointment(appointment)) {
+      const isEAndMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
+      if (isEAndMCode && isTelemedAppointment(appointment)) {
         modifiers = ['95'];
       }
       return [
@@ -1177,7 +1193,17 @@ async function candidCreateEncounterFromAppointmentRequest(
   input: CreateEncounterInput,
   apiClient: CandidApiClient
 ): Promise<EncounterCreateFromPreEncounter> {
-  const { appointment, encounter, patient, practitioner, diagnoses, procedures, insuranceResources, location } = input;
+  const {
+    appointment,
+    encounter,
+    patient,
+    practitioner,
+    diagnoses,
+    procedures,
+    insuranceResources,
+    location,
+    medications,
+  } = input;
   const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
   const practitionerName = assertDefined(practitioner.name?.[0], 'Practitioner name');
   const billingProviderData = insuranceResources
@@ -1230,6 +1256,72 @@ async function candidCreateEncounterFromAppointmentRequest(
     }
   }
 
+  const serviceLines: ServiceLineCreate[] = [];
+  procedures.forEach((procedure) => {
+    const procedureCode = procedure.code?.coding?.[0].code;
+    let modifiers: ProcedureModifier[] = [];
+    if (procedureCode == null) {
+      return;
+    }
+
+    const isEAndMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
+    if (isEAndMCode && isTelemedAppointment(appointment)) {
+      modifiers = ['95'];
+    }
+    serviceLines.push({
+      procedureCode: procedureCode,
+      modifiers,
+      quantity: Decimal('1'),
+      units: ServiceLineUnits.Un,
+      diagnosisPointers: [primaryDiagnosisIndex],
+      dateOfService:
+        dateOfServiceString ||
+        assertDefined(
+          DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
+          'Service line date'
+        ),
+    });
+  });
+
+  if (medications) {
+    console.log(`Adding medications to service lines, medications: ${medications.length}`);
+    medications.forEach((medicationAdministration) => {
+      const medication = getMedicationFromMA(medicationAdministration);
+      if (!medication) return;
+      const ndc = getNdcCodeFromMedication(medication);
+      const cpt = getCptCodeFromMedication(medication);
+      const hcpcs = getHcpcsCodeFromMedication(medication);
+      const procedureCode = cpt || hcpcs;
+
+      const dosageFromMA = getDosageFromMA(medicationAdministration);
+      if (dosageFromMA === undefined) return;
+      const candidMeasurement = mapMedicationToCandidMeasurement(dosageFromMA.units);
+      console.log(
+        `medication: ${medicationAdministration?.id}, ndc: ${ndc}, procedureCode: ${procedureCode}, dose: ${dosageFromMA.dose}`
+      );
+      if (procedureCode && ndc && dosageFromMA && candidMeasurement) {
+        serviceLines.push({
+          procedureCode,
+          quantity: Decimal('1'), // ???
+          units: ServiceLineUnits.Un,
+          diagnosisPointers: [primaryDiagnosisIndex],
+          drugIdentification: {
+            serviceIdQualifier: 'N4',
+            nationalDrugCode: ndc, // this ndc code has to be 5-4-2 format to match N4 code
+            nationalDrugUnitCount: Decimal(dosageFromMA.dose.toString()),
+            measurementUnitCode: candidMeasurement,
+          },
+          dateOfService:
+            dateOfServiceString ||
+            assertDefined(
+              DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
+              'Service line date'
+            ),
+        });
+      }
+    });
+  }
+
   // Note: dateOfService field must not be provided as service line date of service is already sent
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
@@ -1273,33 +1365,7 @@ async function candidCreateEncounterFromAppointmentRequest(
       'Location place of service code'
     ),
     diagnoses: candidDiagnoses,
-    serviceLines: procedures.flatMap<ServiceLineCreate>((procedure) => {
-      const procedureCode = procedure.code?.coding?.[0].code;
-      let modifiers: ProcedureModifier[] = [];
-      if (procedureCode == null) {
-        return [];
-      }
-
-      const isEandMCode = emCodeOptions.some((emCodeOption) => emCodeOption.code === procedureCode);
-      if (isEandMCode && isTelemedAppointment(appointment)) {
-        modifiers = ['95'];
-      }
-      return [
-        {
-          procedureCode: procedureCode,
-          modifiers,
-          quantity: Decimal('1'),
-          units: ServiceLineUnits.Un,
-          diagnosisPointers: [primaryDiagnosisIndex],
-          dateOfService:
-            dateOfServiceString ||
-            assertDefined(
-              DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
-              'Service line date'
-            ),
-        },
-      ];
-    }),
+    serviceLines,
   };
 }
 
@@ -1313,4 +1379,50 @@ export const makeBusinessIdentifierForCandidPayment = (candidPaymentId: string):
 
 export function getCandidEncounterIdFromEncounter(encounter: Encounter): string | undefined {
   return encounter.identifier?.find((idn) => idn.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM)?.value;
+}
+
+async function getMedicationAdministrationsForEncounter(
+  oystehr: Oystehr,
+  encounterId: string,
+  filterParams?: { statuses: MedicationOrderStatusesType[] }
+): Promise<MedicationAdministration[] | undefined> {
+  const params: SearchParam[] = [
+    {
+      name: 'context',
+      value: `Encounter/${encounterId}`,
+    },
+    {
+      name: '_tag',
+      value: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+    },
+  ];
+  if (filterParams?.statuses?.length && filterParams.statuses.length > 0) {
+    params.push({
+      name: 'status',
+      value: filterParams.statuses.map((status) => mapOrderStatusToFhir(status)).join(','),
+    });
+  }
+  const resources = (
+    await oystehr.fhir.search<MedicationAdministration>({
+      resourceType: 'MedicationAdministration',
+      params: params,
+    })
+  ).unbundle();
+  if (!resources || resources.length === 0) return undefined;
+  return resources as MedicationAdministration[];
+}
+
+export function mapMedicationToCandidMeasurement(units: MedicationUnitOptions): MeasurementUnitCode | undefined {
+  switch (units) {
+    case 'mg':
+      return MeasurementUnitCode.Milligram;
+    case 'ml':
+      return MeasurementUnitCode.Milliliters;
+    case 'unit':
+      return MeasurementUnitCode.Units;
+    case 'g':
+      return MeasurementUnitCode.Grams;
+    default:
+      return MeasurementUnitCode.InternationalUnit; // todo ??? i have unhandled 'cc' and 'application' cases
+  }
 }

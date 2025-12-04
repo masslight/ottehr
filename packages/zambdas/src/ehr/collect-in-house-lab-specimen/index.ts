@@ -1,11 +1,12 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Encounter, FhirResource, ServiceRequest, Specimen, Task } from 'fhir/r4b';
+import { Encounter, FhirResource, Practitioner, ServiceRequest, Specimen, Task } from 'fhir/r4b';
 import {
   CollectInHouseLabSpecimenParameters,
   CollectInHouseLabSpecimenZambdaOutput,
   getAttendingPractitionerId,
+  getFullestAvailableName,
   getSecret,
   IN_HOUSE_LAB_TASK,
   Secrets,
@@ -20,7 +21,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { createTask, getTaskLocation } from '../../shared/tasks';
+import { createOwnerReference, createTask, getTaskLocation } from '../../shared/tasks';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'collect-in-house-lab-specimen';
@@ -51,7 +52,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const { encounterId, serviceRequestId, data } = validatedParameters;
 
-    const [serviceRequestResources, tasksCSTResources, userPractitionerId, encounter] = await Promise.all([
+    const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+
+    const [serviceRequestResources, tasksCSTResources, userPractitioner, encounter] = await Promise.all([
       oystehr.fhir.get<ServiceRequest>({
         resourceType: 'ServiceRequest',
         id: serviceRequestId,
@@ -71,7 +74,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           ],
         })
         .then((bundle) => bundle.unbundle()),
-      getMyPractitionerId(oystehrCurrentUser),
+      oystehr.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: userPractitionerId,
+      }),
       oystehr.fhir.get<Encounter>({
         resourceType: 'Encounter',
         id: encounterId,
@@ -152,6 +158,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const collectionTaskUpdateConfig: Task = {
       ...collectionTask,
       status: 'completed',
+      owner: collectionTask.owner
+        ? collectionTask.owner
+        : createOwnerReference(userPractitioner.id ?? '', getFullestAvailableName(userPractitioner) ?? ''),
     };
 
     const inputResultTaskConfig = createTask({

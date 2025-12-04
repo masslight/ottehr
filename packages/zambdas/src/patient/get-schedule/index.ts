@@ -1,8 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Location, Schedule } from 'fhir/r4b';
+import { Coding, Location, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AvailableLocationInformation,
+  BOOKING_CONFIG,
   FHIR_RESOURCE_NOT_FOUND,
   fhirTypeForScheduleType,
   getAvailableSlotsForSchedules,
@@ -65,6 +66,20 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     //console.log('owner retrieved from getScheduleUtil:', JSON.stringify(scheduleOwner, null, 2));
     console.log('scheduleMetaData', JSON.stringify(metadata, null, 2));
 
+    const { serviceCategoryCode } = validatedParameters;
+
+    const serviceCategory = BOOKING_CONFIG.serviceCategories.find((sc) => sc.code === serviceCategoryCode);
+    const serviceCategories: Coding[] | undefined = serviceCategory
+      ? [
+          {
+            system: serviceCategory.system,
+            code: serviceCategory.code,
+          },
+        ]
+      : undefined;
+
+    console.log('SERVICE CATEGORIES FOR SLOT GENERATION:', JSON.stringify(serviceCategories, null, 2));
+
     console.time('synchronous_data_processing');
     const { telemedAvailable: tmSlots, availableSlots: regularSlots } = await getAvailableSlotsForSchedules(
       {
@@ -72,6 +87,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
         scheduleList,
         numDays: selectedDate ? 1 : undefined,
         selectedDate,
+        serviceCategories,
       },
       oystehr
     );

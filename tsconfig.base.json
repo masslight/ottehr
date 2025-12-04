@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "esnext",
-    "lib": ["esnext.array", "dom"],
+    "lib": ["esnext", "dom"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "newLine": "lf",

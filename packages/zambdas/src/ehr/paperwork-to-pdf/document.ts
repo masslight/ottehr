@@ -236,20 +236,14 @@ function collectImageItems(
 }
 
 function fetchQuestionnaire(questionnaire: string, oystehr: Oystehr): Promise<Questionnaire> {
-  if (questionnaire.includes('|')) {
-    const [questionnaireURL, questionnaireVersion] = questionnaire.split('|');
-    return getCanonicalQuestionnaire(
-      {
-        url: questionnaireURL,
-        version: questionnaireVersion,
-      },
-      oystehr
-    );
-  }
-  return oystehr.fhir.get({
-    resourceType: 'Questionnaire',
-    id: questionnaire,
-  });
+  const [questionnaireURL, questionnaireVersion] = questionnaire.split('|');
+  return getCanonicalQuestionnaire(
+    {
+      url: questionnaireURL,
+      version: questionnaireVersion,
+    },
+    oystehr
+  );
 }
 
 async function downloadImage(url: string, oystehr: Oystehr): Promise<ArrayBuffer> {

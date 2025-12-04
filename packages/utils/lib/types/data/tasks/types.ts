@@ -42,3 +42,10 @@ export const MANUAL_TASK = {
     patient: 'patient',
   },
 } as const;
+
+export enum TaskAlertCode {
+  abnormalLabResult = 'abnormal-lab-result',
+}
+export const TaskAlertDisplay = {
+  [TaskAlertCode.abnormalLabResult]: 'This result contains an abnormal result',
+};

@@ -30,7 +30,10 @@ import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
   DiagnosisDTO,
   DiagnosticReportDrivenResultDTO,
+  docRefIsAbnAndCurrent,
+  docRefIsOrderPDFAndCurrent,
   EMPTY_PAGINATION,
+  ExternalLabDocuments,
   externalLabOrderIsManual,
   ExternalLabsStatus,
   getAccountNumberFromLocationAndOrganization,
@@ -41,18 +44,15 @@ import {
   isPositiveNumberOrZero,
   LAB_DR_TYPE_TAG,
   LAB_ORDER_TASK,
-  LabDocument,
+  LabDocumentRelatedToDiagnosticReport,
   LabDrTypeTagCode,
-  LabelPdf,
   LabOrderDetailedPageDTO,
   LabOrderDTO,
   LabOrderHistoryRow,
   LabOrderListPageDTO,
-  LabOrderPDF,
   LabOrderResultDetails,
   LabOrdersSearchBy,
   LabOrderUnreceivedHistoryRow,
-  LabResultPDF,
   LabType,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
@@ -71,10 +71,9 @@ import {
 } from 'utils';
 import { sendErrors } from '../../shared';
 import {
+  configAllExternalLabDocuments,
   diagnosticReportIsReflex,
   diagnosticReportSpecificResultType,
-  docRefIsAbnAndCurrent,
-  fetchLabDocumentPresignedUrls,
   formatResourcesIntoDiagnosticReportLabDTO,
   groupResourcesByDr,
   parseAccessionNumberFromDr,
@@ -103,11 +102,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   provenances: Provenance[],
   organizations: Organization[],
   questionnaires: QuestionnaireData[],
-  labGeneratedResults: LabDocument[],
-  resultPDFs: LabResultPDF[],
-  labelPDF: LabelPdf | undefined,
-  orderPDF: LabOrderPDF | undefined,
-  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabDocument } | undefined,
+  labDocuments: ExternalLabDocuments | undefined,
   specimens: Specimen[],
   appointmentScheduleMap: Record<string, Schedule>,
   ENVIRONMENT: string
@@ -139,11 +134,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
           provenances,
           organizations,
           questionnaires,
-          labGeneratedResults,
-          resultPDFs,
-          labelPDF,
-          orderPDF,
-          abnPDFsByRequisitionNumber,
+          labDocuments,
           specimens,
           appointmentScheduleMap,
           cache,
@@ -201,11 +192,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   provenances,
   organizations,
   questionnaires,
-  labGeneratedResults,
-  resultPDFs,
-  labelPDF,
-  orderPDF,
-  abnPDFsByRequisitionNumber,
+  labDocuments,
   specimens,
   appointmentScheduleMap,
   cache,
@@ -221,11 +208,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   provenances: Provenance[];
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
-  labGeneratedResults: LabDocument[];
-  resultPDFs: LabResultPDF[];
-  labelPDF: LabelPdf | undefined;
-  orderPDF: LabOrderPDF | undefined;
-  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabDocument } | undefined;
+  labDocuments: ExternalLabDocuments | undefined;
   specimens: Specimen[];
   appointmentScheduleMap: Record<string, Schedule>;
   cache?: Cache;
@@ -245,8 +228,12 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   console.log('formatting external lab listPageDTO');
   const requisitionNumber = getOrderNumber(serviceRequest);
   const abnPdfUrl =
-    requisitionNumber && abnPDFsByRequisitionNumber
-      ? abnPDFsByRequisitionNumber[requisitionNumber]?.presignedURL
+    requisitionNumber && labDocuments?.abnPDFsByRequisitionNumber
+      ? labDocuments?.abnPDFsByRequisitionNumber[requisitionNumber]?.presignedURL
+      : undefined;
+  const orderPdfUrl =
+    requisitionNumber && labDocuments?.orderPDFsByRequisitionNumber
+      ? labDocuments?.orderPDFsByRequisitionNumber[requisitionNumber]?.presignedURL
       : undefined;
 
   const listPageDTO: LabOrderListPageDTO = {
@@ -267,6 +254,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     encounterTimezone: parseTimezoneForAppointmentSchedule(appointment, appointmentScheduleMap),
     orderNumber: requisitionNumber,
     abnPdfUrl,
+    orderPdfUrl,
     location: parseLocation(serviceRequest, locations),
   };
 
@@ -291,14 +279,13 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
         tasks,
         practitioners,
         provenances,
-        labGeneratedResults,
-        resultPDFs,
+        labDocuments?.labGeneratedResults,
+        labDocuments?.resultPDFs,
         cache
       ),
       questionnaire: questionnaires,
       samples: parseSamples(serviceRequest, specimens),
-      labelPdfUrl: labelPDF?.presignedURL,
-      orderPdfUrl: orderPDF?.presignedURL,
+      labelPdfUrl: labDocuments?.labelPDF?.presignedURL,
     };
 
     return detailedPageDTO as LabOrderDTO<SearchBy>;
@@ -520,11 +507,7 @@ export const getLabResources = async (
   provenances: Provenance[];
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
-  labGeneratedResults: LabDocument[];
-  resultPDFs: LabResultPDF[];
-  labelPDF: LabelPdf | undefined;
-  orderPDF: LabOrderPDF | undefined;
-  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabDocument } | undefined;
+  labDocuments: ExternalLabDocuments | undefined;
   specimens: Specimen[];
   patientLabItems: PatientLabItem[];
   appointmentScheduleMap: Record<string, Schedule>;
@@ -638,34 +621,18 @@ export const getLabResources = async (
 
   const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
 
-  let labGeneratedResults: LabDocument[] = [];
-  let resultPDFs: LabResultPDF[] = [];
-  let labelPDF: LabelPdf | undefined;
-  let orderPDF: LabOrderPDF | undefined;
-  let abnPDFs: LabDocument[] | undefined;
-
-  // todo labs team - future dev to make order pdfs available from the patient chart labs table
+  let labDocuments: ExternalLabDocuments | undefined;
   if (isDetailPageRequest) {
-    const documents = await fetchLabDocumentPresignedUrls(documentReferences, m2mToken);
-    if (documents) {
-      resultPDFs = documents.resultPDFs;
-      labelPDF = documents.labelPDF;
-      orderPDF = documents.orderPDF;
-      labGeneratedResults = documents.labGeneratedResults;
-    }
+    labDocuments = await configAllExternalLabDocuments(documentReferences, serviceRequests, m2mToken);
   } else {
-    const abnDocRefs = documentReferences.filter((docRef) => {
-      return docRefIsAbnAndCurrent(docRef);
+    // we don't need all types of doc refs for the list view page therefore no need to fetch their presigned urls
+    const filteredDocRefs = documentReferences.filter((docRef) => {
+      return docRefIsAbnAndCurrent(docRef) || docRefIsOrderPDFAndCurrent(docRef);
     });
-    if (abnDocRefs) {
-      const documents = await fetchLabDocumentPresignedUrls(abnDocRefs, m2mToken);
-      if (documents) {
-        abnPDFs = documents.abnPDFs;
-      }
+    if (filteredDocRefs.length) {
+      labDocuments = await configAllExternalLabDocuments(documentReferences, serviceRequests, m2mToken);
     }
   }
-
-  const abnPDFsByRequisitionNumber = groupAbnPDFsByRequisition(abnPDFs, serviceRequests);
 
   const locations = srLocationIds.length ? srLocationsBundle.unbundle() : [];
   console.log('These are the returned locations', JSON.stringify(locations));
@@ -685,11 +652,7 @@ export const getLabResources = async (
     provenances,
     organizations,
     questionnaires,
-    resultPDFs,
-    labGeneratedResults,
-    labelPDF,
-    orderPDF,
-    abnPDFsByRequisitionNumber,
+    labDocuments,
     specimens,
     pagination,
     patientLabItems,
@@ -2022,8 +1985,8 @@ export const parseLResultsDetails = (
   tasks: Task[],
   practitioners: Practitioner[],
   provenances: Provenance[],
-  labGeneratedResults: LabDocument[],
-  resultPDFs: LabResultPDF[],
+  labGeneratedResults: LabDocumentRelatedToDiagnosticReport[] | undefined,
+  resultPDFs: LabDocumentRelatedToDiagnosticReport[] | undefined,
   cache?: Cache
 ): LabOrderResultDetails[] => {
   console.log('parsing external lab order results for service request', serviceRequest.id);
@@ -2104,12 +2067,13 @@ export const parseLResultsDetails = (
         compareDates(a.authoredOn, b.authoredOn)
       )[0];
       const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances)?.date || null;
-      const labGeneratedResultUrl = labGeneratedResults.find(
-        (doc) => doc.documentReference.context?.related?.some((ref) => result.id && ref.reference?.includes(result.id))
-      )?.presignedURL;
-      const resultPdfUrl = resultPDFs.find((pdf) => pdf.diagnosticReportId === result.id)?.presignedURL || null;
+      const labGeneratedResultUrls = labGeneratedResults
+        ?.filter((labDoc) => result.id && labDoc.diagnosticReportIds.includes(result.id))
+        .map((doc) => doc?.presignedURL);
+      const resultPdfUrl =
+        resultPDFs?.find((pdf) => result.id && pdf.diagnosticReportIds.includes(result.id))?.presignedURL || null;
       if (details) {
-        resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl, labGeneratedResultUrl });
+        resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl, labGeneratedResultUrls });
       }
     });
   });
@@ -2570,32 +2534,12 @@ export const getAllServiceRequestsForPatient = async (
   return allServiceRequests;
 };
 
-// todo labs team eventually we will record the requisition number on the abn doc ref and then we wont need to do this mapping
-const groupAbnPDFsByRequisition = (
-  abnPDFs: LabDocument[] | undefined,
-  serviceRequests: ServiceRequest[]
-): { [requisitionNumber: string]: LabDocument } | undefined => {
-  if (!abnPDFs) return;
-  const abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabDocument } = {};
-  abnPDFs.forEach((pdf) => {
-    const docRef = pdf.documentReference;
-    // abn doc refs will be linked to all the service requests within an order,
-    // they will all have the same requisition number so we can just grab the first one
-    const firstServiceRequestId = docRef.context?.related
-      ?.find((resource) => resource.reference?.startsWith('ServiceRequest/'))
-      ?.reference?.replace('ServiceRequest/', '');
-    const serviceRequest = serviceRequests.find((sr) => sr.id === firstServiceRequestId);
-    const requisitionNumber = serviceRequest ? getOrderNumber(serviceRequest) : undefined;
-    if (requisitionNumber) {
-      abnPDFsByRequisitionNumber[requisitionNumber] = pdf;
-    }
-  });
-  return abnPDFsByRequisitionNumber;
-};
-
 const parseLocation = (serviceRequest: ServiceRequest, locations: Location[]): Location | undefined => {
   console.log(`Parsing location for ServiceRequest/${serviceRequest.id}`);
-  console.log(`These are the possible Locations`, locations);
+  console.log(
+    `These are the possible Locations`,
+    locations.map((location) => location.id)
+  );
   if (!serviceRequest.locationReference || !serviceRequest.locationReference.length || !locations.length)
     return undefined;
 
@@ -2607,6 +2551,6 @@ const parseLocation = (serviceRequest: ServiceRequest, locations: Location[]): L
   }
   const location = locations.find((loc) => `Location/${loc.id}` === locationRef);
 
-  console.log(`parsed location from ServiceRequest/${serviceRequest.id}: ${JSON.stringify(location)}`);
+  console.log(`parsed location from ServiceRequest/${serviceRequest.id}: ${location?.id}`);
   return location;
 };

@@ -26,6 +26,7 @@ import {
   ExamCardComponent,
   examConfig,
   ExamObservationDTO,
+  ExternalLabDocuments,
   formatDateTimeToZone,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
@@ -40,8 +41,7 @@ import {
   isDropdownComponent,
   isInPersonAppointment,
   isMultiSelectComponent,
-  LabOrderPDF,
-  LabResultPDF,
+  LabDocumentRelatedToDiagnosticReport,
   mapDispositionTypeToLabel,
   mapVitalsToDisplay,
   NOTE_TYPE,
@@ -78,8 +78,7 @@ type AllChartData = {
     provenances: Provenance[];
     organizations: Organization[];
     questionnaires: QuestionnaireData[];
-    resultPDFs: LabResultPDF[];
-    orderPDF: LabOrderPDF | undefined;
+    labDocuments: ExternalLabDocuments | undefined;
     specimens: Specimen[];
     patientLabItems: PatientLabItem[];
     appointmentScheduleMap: Record<string, Schedule>;
@@ -97,7 +96,7 @@ type AllChartData = {
     observations: Observation[];
     pagination: Pagination;
     diagnosticReports: DiagnosticReport[];
-    resultsPDFs: LabResultPDF[];
+    resultsPDFs: LabDocumentRelatedToDiagnosticReport[];
     currentPractitioner?: Practitioner;
     appointmentScheduleMap: Record<string, Schedule>;
   };

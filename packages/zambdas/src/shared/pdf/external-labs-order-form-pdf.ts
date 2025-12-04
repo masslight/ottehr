@@ -3,11 +3,16 @@ import { Address, Coverage, FhirResource, HumanName, Patient, RelatedPerson } fr
 import { min } from 'lodash';
 import { DateTime } from 'luxon';
 import {
+  BRANDING_CONFIG,
   BUCKET_NAMES,
+  CoverageOrgRank,
   FHIR_IDENTIFIER_NPI,
   formatPhoneNumberDisplay,
   getFullestAvailableName,
+  LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
+  LabPaymentMethod,
   ORDER_ITEM_UNKNOWN,
+  PaymentResources,
   Secrets,
 } from 'utils';
 import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/submit-lab-order/helpers';
@@ -17,7 +22,7 @@ import { drawFieldLineBoldHeader, getPdfClientForLabsPDFs, LabsPDFTextStyleConfi
 import { getLabFileName } from './labs-results-form-pdf';
 import { ICON_STYLE, STANDARD_NEW_LINE, SUB_HEADER_FONT_SIZE } from './pdf-consts';
 import { BLACK_LINE_STYLE, PdfInfo, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
-import { CoverageAndOrgForOrderForm, ExternalLabOrderFormData, OrderFormInsuranceInfo, PdfClient } from './types';
+import { ExternalLabOrderFormData, OrderFormInsuranceInfo, PdfClient } from './types';
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
   const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
@@ -92,6 +97,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
   const yPosAtStartOfLocation = pdfClient.getY();
   let yPosAtEndOfLocation = yPosAtStartOfLocation;
   if (
+    data.brandingProjectName ||
     data.locationName ||
     data.locationStreetAddress ||
     data.locationCity ||
@@ -100,6 +106,10 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
     data.locationPhone ||
     data.locationFax
   ) {
+    if (data.brandingProjectName) {
+      pdfClient.drawTextSequential(data.brandingProjectName, textStyles.textBold, leftColumnBounds);
+      pdfClient.newLine(STANDARD_NEW_LINE);
+    }
     if (data.locationName) {
       pdfClient.drawTextSequential(data.locationName, textStyles.textBold, leftColumnBounds);
       pdfClient.newLine(STANDARD_NEW_LINE);
@@ -244,7 +254,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
   }
 
   // Test Details
-  console.log('Drawing test deails section');
+  console.log('Drawing test details section');
   pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
   pdfClient.drawTextSequential('Labs', textStyles.header);
 
@@ -331,13 +341,36 @@ export function getOrderFormDataConfig(
     location,
     isManualOrder,
     isPscOrder,
-    coveragesAndOrgs,
+    paymentResources,
   } = resources;
 
-  const coverage = coveragesAndOrgs?.length ? coveragesAndOrgs?.[0].coverage : undefined;
   // this is the same logic we use in oystehr to determine PV1-20
-  const coverageType = coverage?.type?.coding?.[0]?.code; // assumption: we'll use the first code in the list
-  const billClass = !coverage || coverageType === 'pay' ? 'Patient Bill (P)' : 'Third-Party Bill (T)';
+  const getBillClass = (paymentResources: PaymentResources): string => {
+    let coverage: Coverage | undefined;
+    if (paymentResources.type === LabPaymentMethod.Insurance) {
+      coverage = paymentResources.coverageAndOrgs[0].coverage;
+    } else {
+      // client bill or self pay
+      coverage = paymentResources.coverage;
+    }
+
+    const coverageType = coverage?.type?.coding?.[0]?.code; // assumption: we'll use the first code in the list
+    if (!coverage || coverageType === 'pay') {
+      return 'Patient Bill (P)';
+    } else if (coverageType === LAB_CLIENT_BILL_COVERAGE_TYPE_CODING.code) {
+      return 'Client Bill (C)';
+    } else {
+      return 'Third-Party Bill (T)';
+    }
+  };
+  const billClass = getBillClass(paymentResources);
+
+  const insuranceDetails =
+    paymentResources.type === LabPaymentMethod.Insurance
+      ? getInsuranceDetails(paymentResources.coverageAndOrgs, patient, oystehr)
+      : undefined;
+
+  const brandingProjectName = BRANDING_CONFIG.projectName;
 
   const dataConfig: ExternalLabOrderFormData = {
     locationName: location?.name,
@@ -348,6 +381,7 @@ export function getOrderFormDataConfig(
     locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
     locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
     labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
+    brandingProjectName,
     accountNumber,
     orderNumber: orderNumber || ORDER_ITEM_UNKNOWN,
     providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
@@ -367,7 +401,7 @@ export function getOrderFormDataConfig(
     dateIncludedInFileName: testDetails[0].serviceRequestCreatedDate,
     orderPriority: testDetails[0].testPriority || ORDER_ITEM_UNKNOWN, // used for file name
     billClass,
-    insuranceDetails: getInsuranceDetails(coveragesAndOrgs, patient, oystehr),
+    insuranceDetails,
     testDetails,
     isManualOrder,
     isPscOrder,
@@ -377,15 +411,15 @@ export function getOrderFormDataConfig(
 }
 
 function getInsuranceDetails(
-  coveragesAndOrgs: CoverageAndOrgForOrderForm[] | undefined,
+  insuranceCoveragesAndOrgs: CoverageOrgRank[] | undefined,
   patient: Patient,
   oystehr: Oystehr
 ): OrderFormInsuranceInfo[] | undefined {
-  if (!coveragesAndOrgs || !coveragesAndOrgs.length) return undefined;
+  if (!insuranceCoveragesAndOrgs || !insuranceCoveragesAndOrgs.length) return undefined;
 
   const insuranceInfo: OrderFormInsuranceInfo[] = [];
-  coveragesAndOrgs.forEach((covAndOrg) => {
-    const { coverage, insuranceOrganization, coverageRank } = covAndOrg;
+  insuranceCoveragesAndOrgs.forEach((covAndOrg) => {
+    const { coverage, payorOrg: insuranceOrganization, coverageRank } = covAndOrg;
     const { insuredName, insuredAddress } = getInsuredInfoFromCoverageSubscriber(coverage, patient);
     insuranceInfo.push({
       insuranceName: insuranceOrganization?.name,
@@ -459,7 +493,7 @@ function drawInsuranceDetail(
       case 2:
         return 'Secondary';
       case 3:
-        return 'Terciary';
+        return 'Tertiary';
       default:
         return 'Additional';
     }

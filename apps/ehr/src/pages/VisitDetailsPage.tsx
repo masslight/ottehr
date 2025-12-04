@@ -15,6 +15,7 @@ import {
   Paper,
   Select,
   Skeleton,
+  Stack,
   TextField,
   Typography,
   useMediaQuery,
@@ -751,7 +752,7 @@ export default function VisitDetailsPage(): ReactElement {
         <Grid container direction="row">
           <Grid item xs={0.25}></Grid>
           <Grid item xs={11.5}>
-            <Grid container direction="row">
+            <Grid container direction="row" sx={{ justifyContent: 'space-between' }}>
               <Grid item xs={6}>
                 <CustomBreadcrumbs
                   chain={[
@@ -760,21 +761,20 @@ export default function VisitDetailsPage(): ReactElement {
                   ]}
                 />
               </Grid>
-              <Grid item container xs={6} justifyContent="flex-end">
-                <LoadingButton
-                  variant="outlined"
-                  sx={{
-                    borderRadius: '20px',
-                    textTransform: 'none',
-                  }}
-                  loading={paperworkPdfLoading}
-                  color="primary"
-                  disabled={isLoadingDocuments || !patient?.id}
-                  onClick={downloadPaperworkPdf}
-                >
-                  Paperwork PDF
-                </LoadingButton>
-              </Grid>
+              <LoadingButton
+                variant="outlined"
+                sx={{
+                  borderRadius: '20px',
+                  textTransform: 'none',
+                  height: 'fit-content',
+                }}
+                loading={paperworkPdfLoading}
+                color="primary"
+                disabled={isLoadingDocuments || !patient?.id}
+                onClick={downloadPaperworkPdf}
+              >
+                Paperwork PDF
+              </LoadingButton>
             </Grid>
             {/* page title row */}
             <Grid container direction="row" marginTop={1}>
@@ -1185,46 +1185,15 @@ export default function VisitDetailsPage(): ReactElement {
                 )}
               </Grid>
             )}
-            <Grid item sx={{ paddingTop: 2, paddingRight: isInPerson ? 3.5 : 0 }}>
-              <>
-                <Button
-                  variant="outlined"
-                  sx={{
-                    alignSelf: 'center',
-                    marginLeft: { xs: 0, sm: isInPerson ? 1 : 0 },
-                    borderRadius: '20px',
-                    textTransform: 'none',
-                  }}
-                  color="error"
-                  onClick={() => setIssueDialogOpen(true)}
-                >
-                  Report Issue
-                </Button>
-                <ReportIssueDialog
-                  open={issueDialogOpen}
-                  handleClose={() => setIssueDialogOpen(false)}
-                  oystehr={oystehr}
-                  patient={patient}
-                  appointment={appointment}
-                  encounter={encounter}
-                  locationId={visitDetailsData.visitLocationId}
-                  setSnackbarOpen={setSnackbarOpen}
-                  setToastType={setToastType}
-                  setToastMessage={setToastMessage}
-                />
-              </>
-            </Grid>
           </Grid>
         )}
         <Grid container direction="row">
           <Grid item sx={{ marginLeft: { xs: 0, sm: 8 }, marginTop: 2, marginBottom: 50 }}>
-            <>
+            <Stack direction="row" spacing={1} useFlexGap>
               <LoadingButton
                 loading={activityLogsLoading}
                 variant="outlined"
                 sx={{
-                  alignSelf: 'center',
-                  marginLeft: 'auto',
                   borderRadius: '20px',
                   textTransform: 'none',
                 }}
@@ -1234,12 +1203,19 @@ export default function VisitDetailsPage(): ReactElement {
               >
                 View activity logs
               </LoadingButton>
-              <ActivityLogDialog
-                open={activityLogDialogOpen}
-                handleClose={() => setActivityLogDialogOpen(false)}
-                logs={activityLogs || []}
-              />
-            </>
+              <LoadingButton
+                loading={loading}
+                variant="outlined"
+                sx={{
+                  borderRadius: '20px',
+                  textTransform: 'none',
+                }}
+                color="error"
+                onClick={() => setIssueDialogOpen(true)}
+              >
+                Report Issue
+              </LoadingButton>
+            </Stack>
           </Grid>
         </Grid>
         {/* Update details modal */}
@@ -1359,6 +1335,25 @@ export default function VisitDetailsPage(): ReactElement {
             ) : undefined
           }
         />
+        <ActivityLogDialog
+          open={activityLogDialogOpen}
+          handleClose={() => setActivityLogDialogOpen(false)}
+          logs={activityLogs || []}
+        />
+        {encounter && (
+          <ReportIssueDialog
+            open={issueDialogOpen}
+            handleClose={() => setIssueDialogOpen(false)}
+            oystehr={oystehr}
+            patient={patient}
+            appointment={appointment}
+            encounter={encounter}
+            locationId={visitDetailsData.visitLocationId}
+            setSnackbarOpen={setSnackbarOpen}
+            setToastType={setToastType}
+            setToastMessage={setToastMessage}
+          />
+        )}
         <Snackbar
           open={snackbarOpen}
           autoHideDuration={6000}

@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { List } from 'fhir/r4b';
-import globalTemplateHolderJSON from '../../../../config/oystehr/global-template-holder-list.json';
 import globalTemplates from '../../../../config/oystehr/global-templates.json';
 import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from './helpers';
@@ -38,28 +37,30 @@ const recreateGlobalTemplates = async (config: any): Promise<void> => {
     await oystehr.fhir.delete({ resourceType: 'List', id: oldGlobalTemplatesHolder.id! });
   }
 
-  console.log('\n--------- Creating new templates ---------\n');
+  // Now managed by IaC
 
-  const globalTemplatesAny = globalTemplates as any; // For some reason the json typing is not working but i can deal
+  // console.log('\n--------- Creating new templates ---------\n');
 
-  const newTemplateIds = [];
-  for (const templateJSON of Object.values(globalTemplatesAny.fhirResources)) {
-    const resource = (templateJSON as any).resource as List;
-    if (resource.title === undefined) {
-      console.log('Skipping template with undefined title: ', JSON.stringify(templateJSON, null, 2));
-      continue;
-    }
-    const newTemplate = await oystehr.fhir.create(resource);
-    console.log(`Created FHIR Template: ${newTemplate.title}, with id: ${newTemplate.id}`);
-    newTemplateIds.push(newTemplate.id!);
-  }
+  // const globalTemplatesAny = globalTemplates as any; // For some reason the json typing is not working but i can deal
 
-  console.log('\n--------- Creating new global template holder ---------\n');
+  // const newTemplateIds = [];
+  // for (const templateJSON of Object.values(globalTemplatesAny.fhirResources)) {
+  //   const resource = (templateJSON as any).resource as List;
+  //   if (resource.title === undefined) {
+  //     console.log('Skipping template with undefined title: ', JSON.stringify(templateJSON, null, 2));
+  //     continue;
+  //   }
+  //   const newTemplate = await oystehr.fhir.create(resource);
+  //   console.log(`Created FHIR Template: ${newTemplate.title}, with id: ${newTemplate.id}`);
+  //   newTemplateIds.push(newTemplate.id!);
+  // }
 
-  const newGlobalTemplateResource = globalTemplateHolderJSON.fhirResources.GlobalTemplatesHolderList.resource;
-  newGlobalTemplateResource.entry = newTemplateIds.map((id: string) => ({ item: { reference: `List/${id}` } }));
-  const globalTemplateHolder = await oystehr.fhir.create(newGlobalTemplateResource as List);
-  console.log('All done! global template holder for validation, ', JSON.stringify(globalTemplateHolder, null, 2));
+  // console.log('\n--------- Creating new global template holder ---------\n');
+
+  // const newGlobalTemplateResource = globalTemplateHolderJSON.fhirResources.GlobalTemplatesHolderList.resource;
+  // newGlobalTemplateResource.entry = newTemplateIds.map((id: string) => ({ item: { reference: `List/${id}` } }));
+  // const globalTemplateHolder = await oystehr.fhir.create(newGlobalTemplateResource as List);
+  // console.log('All done! global template holder for validation, ', JSON.stringify(globalTemplateHolder, null, 2));
 };
 
 const getTemplates = async (oystehr: Oystehr): Promise<List[]> => {

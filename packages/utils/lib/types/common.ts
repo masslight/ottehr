@@ -481,6 +481,8 @@ export const FacilitiesTelemed: FacilityInfo[] = [
 export interface InHouseMedicationInfo {
   name: string;
   NDC: string;
+  CPT?: string;
+  HCPCS?: string;
   erxData: {
     id: string;
   };
@@ -728,6 +730,10 @@ export interface CanonicalUrl {
 export type Timezone = (typeof TIMEZONES)[number];
 export interface GetVisitLabelInput {
   encounterId: string;
+}
+
+export interface GetVisitDetailsPDFInput {
+  appointmentId: string;
 }
 
 export type PersistedFhirResource<T extends FhirResource> = T & {

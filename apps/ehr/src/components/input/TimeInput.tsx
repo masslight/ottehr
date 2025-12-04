@@ -22,7 +22,7 @@ export const TimeInput: React.FC<Props> = ({ name, label, required, validate, da
       control={control}
       rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false, validate: validate }}
       render={({ field, fieldState: { error } }) => (
-        <Box id="myid" sx={{ width: '100%' }}>
+        <Box id="myId" sx={{ width: '100%' }}>
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <DesktopTimePicker
               sx={{ width: '100% ' }}

@@ -11,6 +11,7 @@ import {
   formatPhoneNumber,
   getPatchBinary,
   getPatientResourceWithVerifiedPhoneNumber,
+  makeSSNIdentifier,
   normalizePhoneNumber,
   PATIENT_NOT_FOUND_ERROR,
   PatientInfo,
@@ -324,6 +325,25 @@ export function creatingPatientUpdateRequest(
       value: patientDateOfBirth,
     });
   }
+  if (patient.ssn) {
+    const identifier = makeSSNIdentifier(patient.ssn);
+    const newIdentifier = (maybeFhirPatient.identifier ?? []).filter((id) => id.system !== identifier.system);
+    newIdentifier.push(identifier);
+    if (maybeFhirPatient.identifier) {
+      // identifier exists
+      patientPatchOperations.push({
+        op: 'replace',
+        path: `/identifier`,
+        value: newIdentifier,
+      });
+    } else {
+      patientPatchOperations.push({
+        op: 'add',
+        path: `/identifier`,
+        value: newIdentifier,
+      });
+    }
+  }
 
   if (patientPatchOperations.length >= 1) {
     console.log('getting patch binary for patient operations');
@@ -464,6 +484,10 @@ export function creatingPatientCreateRequest(
       url: FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url,
       valueString: String(patient.authorizedNonLegalGuardians),
     });
+  }
+  if (patient.ssn) {
+    const identifier = makeSSNIdentifier(patient.ssn);
+    patientResource.identifier = [identifier];
   }
 
   console.log('creating patient request for new patient resource');

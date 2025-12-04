@@ -136,7 +136,7 @@ const getConditionalExtension = (
     const answerDate = answerObj?.valueDate;
     if (
       operator !== undefined &&
-      ['=', '!=', '>', '<', '>=', '<='].includes(operator) &&
+      ['exists', '=', '!=', '>', '<', '>=', '<='].includes(operator) &&
       question !== undefined &&
       (answerString !== undefined ||
         answerBoolean !== undefined ||
@@ -385,10 +385,6 @@ export const getQuestionnaireItemsAndProgress = async (
           name: '_id',
           value: questionnaireResponseId,
         },
-        {
-          name: '_include',
-          value: 'QuestionnaireResponse:questionnaire',
-        },
       ],
     })
   ).unbundle();
@@ -399,18 +395,22 @@ export const getQuestionnaireItemsAndProgress = async (
     return res.resourceType === 'QuestionnaireResponse';
   }) as QuestionnaireResponse | undefined;
 
-  const questionnaire: Questionnaire | undefined = results.find((res) => {
-    if (res.resourceType === 'Questionnaire') {
-      // this in-memory filtering is a workaround for an Oystehr search bug: https://github.com/masslight/zapehr/issues/6051
-      const q = res as Questionnaire;
-      return `${q.url}|${q.version}` === qr?.questionnaire;
-    }
-    return false;
-  }) as Questionnaire | undefined;
-
-  if (!questionnaire || !qr) {
+  if (!qr) {
     return undefined;
   }
+
+  if (!qr.questionnaire) {
+    throw new Error(`QuestionnaireResponse with id ${questionnaireResponseId} is missing "questionnaire" field`);
+  }
+
+  const [questionnaireURL, questionnaireVersion] = qr.questionnaire.split('|');
+  const questionnaire = await getCanonicalQuestionnaire(
+    {
+      url: questionnaireURL,
+      version: questionnaireVersion,
+    },
+    oystehr
+  );
 
   const [sourceQuestionnaireUrl, sourceQuestionnaireVersion] = qr?.questionnaire?.split('|') ?? [null, null];
 

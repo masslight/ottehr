@@ -8,12 +8,6 @@ export abstract class BaseProgressNotePage {
     this.#page = page;
   }
 
-  async fillHPI(): Promise<void> {
-    const hpiTextField = this.#page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes);
-    await expect(hpiTextField).toBeVisible();
-    await hpiTextField.locator('textarea').first().fill('The patient reports having a cough for 3 days.');
-  }
-
   async clickDischargeButton(): Promise<void> {
     const dischargeButton = this.#page.getByTestId(dataTestIds.progressNotePage.dischargeButton);
     await expect(dischargeButton).toBeVisible();
@@ -118,5 +112,45 @@ export abstract class BaseProgressNotePage {
       surgery
     );
   }
+
+  async verifyInHouseMedication(medication: {
+    medication: string;
+    dose: string;
+    units: string;
+    route: string;
+    givenBy?: string;
+    instructions: string;
+    status: string;
+  }): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.inHouseMedicationItem).filter({
+        hasText:
+          medication.medication +
+          ', ' +
+          medication.dose +
+          ' ' +
+          medication.units +
+          ', ' +
+          medication.route +
+          ', ' +
+          (medication.givenBy ? 'given by ' + medication.givenBy + ', ' : '') +
+          'instructions: ' +
+          medication.instructions +
+          ', ' +
+          medication.status,
+      })
+    ).toBeVisible();
+  }
+
+  async verifyScreening(lines: string[]): Promise<void> {
+    for (const line of lines) {
+      await expect(
+        this.#page.getByTestId(dataTestIds.progressNotePage.additionalQuestions).filter({
+          hasText: line,
+        })
+      ).toBeVisible();
+    }
+  }
+
   abstract expectLoaded(): Promise<void>;
 }

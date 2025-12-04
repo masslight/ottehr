@@ -202,13 +202,13 @@ describe.skip('qr page validation tests', () => {
 
   vi.setConfig({ testTimeout: 100_000 });
   beforeAll(async () => {
-    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_SECRET } = S;
+    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } = S;
     const SECRETS = {
       FHIR_API: FHIR_API,
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-      AUTH0_CLIENT: AUTH0_CLIENT,
-      AUTH0_SECRET: AUTH0_SECRET,
+      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
+      AUTH0_SECRET: AUTH0_SECRET_TESTS,
     };
 
     const token = await getAuth0Token(SECRETS);
@@ -312,13 +312,13 @@ describe.skip('full qr validation tests', () => {
   vi.setConfig({ testTimeout: 100_000 });
 
   beforeAll(async () => {
-    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_SECRET } = S;
+    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } = S;
     const SECRETS = {
       FHIR_API: FHIR_API,
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-      AUTH0_CLIENT: AUTH0_CLIENT,
-      AUTH0_SECRET: AUTH0_SECRET,
+      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
+      AUTH0_SECRET: AUTH0_SECRET_TESTS,
     };
 
     const token = await getAuth0Token(SECRETS);

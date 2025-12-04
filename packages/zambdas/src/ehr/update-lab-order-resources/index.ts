@@ -7,6 +7,7 @@ import {
   Encounter,
   FhirResource,
   Observation,
+  Practitioner,
   Provenance,
   QuestionnaireResponse,
   Reference,
@@ -18,6 +19,7 @@ import { DateTime } from 'luxon';
 import {
   DYMO_30334_LABEL_CONFIG,
   getAccountNumberFromLocationAndOrganization,
+  getFullestAvailableName,
   getOrderNumber,
   getPatchBinary,
   getPatientFirstName,
@@ -44,11 +46,13 @@ import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
 } from '../../shared/pdf/labs-results-form-pdf';
+import { createOwnerReference } from '../../shared/tasks';
 import { diagnosticReportSpecificResultType, getExternalLabOrderResourcesViaServiceRequest } from '../shared/labs';
 import {
   getSpecimenPatchAndMostRecentCollectionDate,
   handleMatchUnsolicitedRequest,
   handleRejectedAbn,
+  handleRejectedUnsolicitedResult,
   makePstCompletePatchRequests,
   makeQrPatchRequest,
   makeSpecimenPatchRequest,
@@ -151,21 +155,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       case LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask: {
         console.log('handling cancel task to match unsolicited result');
         const { taskId } = validatedParameters;
-        await oystehr.fhir.batch({
-          requests: [
-            getPatchBinary({
-              resourceType: 'Task',
-              resourceId: taskId,
-              patchOperations: [
-                {
-                  op: 'replace',
-                  path: '/status',
-                  value: 'cancelled',
-                },
-              ],
-            }),
-          ],
-        });
+        await handleRejectedUnsolicitedResult({ oystehr, taskId });
         return {
           statusCode: 200,
           body: JSON.stringify({
@@ -176,7 +166,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       case LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult: {
         const { taskId, diagnosticReportId, srToMatchId, patientToMatchId } = validatedParameters;
         console.log('handling match unsolicited result');
-        await handleMatchUnsolicitedRequest({ oystehr, taskId, diagnosticReportId, srToMatchId, patientToMatchId });
+        await handleMatchUnsolicitedRequest({
+          oystehr,
+          taskId,
+          diagnosticReportId,
+          srToMatchId,
+          patientToMatchId,
+          practitionerIdFromCurrentUser,
+        });
         return {
           statusCode: 200,
           body: JSON.stringify({
@@ -324,6 +321,21 @@ const handleReviewedEvent = async ({
       : []),
   ];
 
+  if (!task.owner) {
+    const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: practitionerIdFromCurrentUser,
+    });
+    taskPatchOperations.push({
+      path: '/owner',
+      op: 'add',
+      value: createOwnerReference(
+        practitionerIdFromCurrentUser,
+        getFullestAvailableName(currentUserPractitioner) ?? ''
+      ),
+    });
+  }
+
   const taskPatchRequest = getPatchBinary({
     resourceType: 'Task',
     resourceId: taskId,
@@ -461,7 +473,8 @@ const handleSaveCollectionData = async (
   let presignedLabelURL: string | undefined = undefined;
   // update pst task to complete, add agent and relevant history (provenance created)
   // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask
-  const pstCompletedRequests = makePstCompletePatchRequests(
+  const pstCompletedRequests = await makePstCompletePatchRequests(
+    oystehr,
     preSubmissionTask,
     serviceRequest,
     practitionerIdFromCurrentUser,

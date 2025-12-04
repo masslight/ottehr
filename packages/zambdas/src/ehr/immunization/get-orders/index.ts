@@ -4,6 +4,7 @@ import { Coding, Extension, MedicationAdministration, RelatedPerson } from 'fhir
 import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_NDC,
+  CVX_CODE_SYSTEM_URL,
   getCoding,
   GetImmunizationOrdersRequest,
   GetImmunizationOrdersResponse,
@@ -14,10 +15,13 @@ import {
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+  MVX_CODE_SYSTEM_URL,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
   SecretsKeys,
+  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+  VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -29,13 +33,9 @@ import {
 } from '../../../shared';
 import {
   CONTAINED_EMERGENCY_CONTACT_ID,
-  CVX_CODE_SYSTEM_URL,
   getContainedMedication,
   IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
   IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL,
-  MVX_CODE_SYSTEM_URL,
-  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-  VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from '../common';
 
 let m2mToken: string;
@@ -124,7 +124,7 @@ function mapMedicationAdministrationToImmunizationOrder(
   const administrationCodesExtensions = (medicationAdministration.extension ?? []).filter(
     (extension) => extension.url === VACCINE_ADMINISTRATION_CODES_EXTENSION_URL
   );
-  const emergencyContactReatedPerson = medicationAdministration.contained?.find(
+  const emergencyContactRelatedPerson = medicationAdministration.contained?.find(
     (resource) => resource.id === CONTAINED_EMERGENCY_CONTACT_ID
   ) as RelatedPerson;
   const locationCoding = getCoding(medicationAdministration.dosage?.site, MEDICATION_APPLIANCE_LOCATION_SYSTEM);
@@ -168,13 +168,13 @@ function mapMedicationAdministrationToImmunizationOrder(
             visGivenDate: medicationAdministration.extension?.find(
               (e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
             )?.valueDate,
-            emergencyContact: emergencyContactReatedPerson
+            emergencyContact: emergencyContactRelatedPerson
               ? {
-                  fullName: emergencyContactReatedPerson.name?.[0].text ?? '',
-                  mobile: emergencyContactReatedPerson.telecom?.[0].value ?? '',
+                  fullName: emergencyContactRelatedPerson.name?.[0].text ?? '',
+                  mobile: emergencyContactRelatedPerson.telecom?.[0].value ?? '',
                   relationship:
                     getCoding(
-                      emergencyContactReatedPerson.relationship,
+                      emergencyContactRelatedPerson.relationship,
                       VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM
                     )?.code ?? '',
                 }

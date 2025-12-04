@@ -51,3 +51,8 @@ export const ensureM2MPractitionerProfile = async (token: string): Promise<void>
   });
   expect(m2mPractitioner).toBeDefined();
 };
+
+export enum m2mClientMockType {
+  mockProvider = 'mock-provider',
+  mockPatient = 'mock-patient',
+}

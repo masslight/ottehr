@@ -8,10 +8,12 @@ import {
   getTestNameOrCodeFromDr,
   LAB_ORDER_TASK,
   LabType,
+  NonNormalResult,
   Secrets,
   SecretsKeys,
+  TaskAlertCode,
 } from 'utils';
-import { diagnosticReportSpecificResultType } from '../../../ehr/shared/labs';
+import { diagnosticReportSpecificResultType, nonNonNormalTagsContained } from '../../../ehr/shared/labs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   createExternalLabResultPDF,
@@ -129,8 +131,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       });
     }
 
+    const nonNormalResult = nonNonNormalTagsContained(diagnosticReport);
+    if (nonNormalResult) console.log('nonNormalResult:', nonNormalResult);
+    if (nonNormalResult?.includes(NonNormalResult.Abnormal)) {
+      taskInput.push({
+        type: LAB_ORDER_TASK.input.alert,
+        valueString: TaskAlertCode.abnormalLabResult,
+      });
+    }
+
     // Don't show "preliminary" result task on the tasks board
-    const showTaskOnBoard = diagnosticReport.status !== 'preliminary';
+    // we do need to show tasks for if the preliminary result is unsolicited otherwise theres no way for users to see it
+    const showTaskOnBoard = diagnosticReport.status !== 'preliminary' || isUnsolicited;
+    console.log('showTaskOnBoard', showTaskOnBoard);
 
     const newTask = createTask(
       {

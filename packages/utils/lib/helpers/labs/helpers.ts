@@ -1,10 +1,17 @@
-import { DiagnosticReport, DocumentReference, Location, Organization, ServiceRequest } from 'fhir/r4b';
+import { Coverage, DiagnosticReport, DocumentReference, Location, Organization, ServiceRequest } from 'fhir/r4b';
 import {
+  CreateLabPaymentMethod,
+  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   LAB_ACCOUNT_NUMBER_SYSTEM,
+  LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
   LAB_DOC_REF_TAG_hl7_TRANSMISSION,
+  LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_RESULT_DOC_REF_CODING_CODE,
+  LabPaymentMethod,
   LabsTableColumn,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   ORDER_NUMBER_LEN,
+  OYSTEHR_LAB_DOC_CATEGORY_CODING,
   OYSTEHR_LAB_GENERATED_RESULT_CATEGORY_CODING,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
@@ -179,6 +186,40 @@ export const getTestNameOrCodeFromDr = (dr: DiagnosticReport): string => {
   return testDescription;
 };
 
+export function paymentMethodFromCoverage(coverage: Coverage): CreateLabPaymentMethod {
+  let paymentMethod = LabPaymentMethod.Insurance;
+  const coverageTypeFromCoding = coverage.type?.coding?.[0]?.code;
+  switch (coverageTypeFromCoding) {
+    case 'pay':
+      paymentMethod = LabPaymentMethod.SelfPay;
+      break;
+    case LAB_CLIENT_BILL_COVERAGE_TYPE_CODING.code:
+      paymentMethod = LabPaymentMethod.ClientBill;
+      break;
+  }
+  return paymentMethod;
+}
+
+export function serviceRequestPaymentMethod(
+  serviceRequest: ServiceRequest,
+  coverages: Coverage[]
+): CreateLabPaymentMethod | undefined {
+  const insuranceCoverageRef = serviceRequest?.insurance?.find(
+    (insurance) => insurance.reference?.startsWith('Coverage/')
+  );
+  if (!insuranceCoverageRef) return LabPaymentMethod.SelfPay;
+  const coverageId = insuranceCoverageRef.reference?.replace('Coverage/', '');
+  const coverage = coverages.find((coverage) => coverage.id === coverageId);
+  if (!coverage) {
+    console.warn(`Warning: unable to determine the payment method of this service request ${serviceRequest.id}
+      coverages passed: ${coverages.map((coverage) => coverage.id)}`);
+    return;
+  }
+  const paymentMethod = paymentMethodFromCoverage(coverage);
+  console.log('service request payment method and id', paymentMethod, serviceRequest.id);
+  return paymentMethod;
+}
+
 export const docRefIsLabGeneratedResult = (docRef: DocumentReference): boolean => {
   return !!docRef.category?.find(
     (cat) =>
@@ -195,4 +236,41 @@ export const docRefIsOgHl7Transmission = (docRef: DocumentReference): boolean =>
     (tag) =>
       tag.system === LAB_DOC_REF_TAG_hl7_TRANSMISSION.system && tag.code === LAB_DOC_REF_TAG_hl7_TRANSMISSION.code
   );
+};
+
+export const docRefIsOrderPDFAndCurrent = (docRef: DocumentReference): boolean => {
+  const isCurrent = docRef.status === 'current';
+  const isOrderPdf = !!docRef.type?.coding?.find(
+    (code) => code.system === LAB_ORDER_DOC_REF_CODING_CODE.system && code.code === LAB_ORDER_DOC_REF_CODING_CODE.code
+  );
+  return isCurrent && isOrderPdf;
+};
+
+export const docRefIsLabelPDFAndCurrent = (docRef: DocumentReference): boolean => {
+  const isCurrent = docRef.status === 'current';
+  const isLabelPdf = !!docRef.type?.coding?.find(
+    (code) =>
+      code.system === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.system && code.code === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
+  );
+  return isCurrent && isLabelPdf;
+};
+
+export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
+  const isCurrent = docRef.status === 'current';
+  const isAbn = !!docRef.category?.some(
+    (cat) =>
+      cat.coding?.some(
+        (code) =>
+          code.code === OYSTEHR_LAB_DOC_CATEGORY_CODING.code && code.system === OYSTEHR_LAB_DOC_CATEGORY_CODING.system
+      )
+  );
+  return isCurrent && isAbn;
+};
+
+export const docRefIsOttehrGeneratedResultAndCurrent = (docRef: DocumentReference): boolean => {
+  const isCurrent = docRef.status === 'current';
+  const isResult = !!docRef.type?.coding?.some(
+    (c) => c.system === LAB_RESULT_DOC_REF_CODING_CODE.system && c.code === LAB_RESULT_DOC_REF_CODING_CODE.code
+  );
+  return isCurrent && isResult;
 };

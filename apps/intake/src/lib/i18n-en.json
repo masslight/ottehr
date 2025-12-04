@@ -745,8 +745,8 @@
   },
   "reviewAndSubmit": {
     "byProceeding": "By proceeding with a visit, you acknowledge that you have reviewed and accept our ",
-    "privacyPolicy": "Privacy Policy ",
-    "andPrivacyPolicy": "and ",
+    "privacyPolicy": "Privacy Policy",
+    "andPrivacyPolicy": " and ",
     "termsAndConditions": "Terms and Conditions of Service",
     "contactInfoLabel": "Contact information",
     "backButtonReview": "Back",

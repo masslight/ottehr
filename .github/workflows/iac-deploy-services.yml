@@ -33,7 +33,7 @@ on:
 jobs:
   deploy:
     env:
-      NODE_VERSION: "20"
+      NODE_VERSION: "22"
       NODE_OPTIONS: "--max_old_space_size=8192"
       ENVIRONMENT: ${{ github.event.inputs.environment }}
       # Override these values, or populate vars and secrets
@@ -131,7 +131,7 @@ jobs:
         id: copy-import-file
         continue-on-error: true
         run: |
-          cp secrets/terraform/${{ env.ENVIRONMENT }}_import.tf deploy/aws_infra
+          cp secrets/terraform/${{ env.ENVIRONMENT }}_import.tf deploy
 
       # If this succeeds, we will use the CDK config and deploy apps through AWS CDK
       # If it fails, we will deploy using npm scripts and the AWS SDK

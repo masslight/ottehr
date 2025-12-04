@@ -54,6 +54,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     throw MISSING_REQUIRED_PARAMETERS(['slotId']);
   }
 
+  console.log('patient input:', JSON.stringify(patient));
   // Patient details
   const missingRequiredPatientFields: string[] = [];
   if (Boolean(patient.firstName) === false) {
@@ -77,7 +78,6 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (missingRequiredPatientFields.length > 0) {
     throw MISSING_REQUIRED_PARAMETERS(missingRequiredPatientFields.map((field) => `patient.${field}`));
   }
-
   const isInvalidPatientDate = !DateTime.fromISO(patient.dateOfBirth).isValid;
   if (isInvalidPatientDate) {
     throw INVALID_INPUT_ERROR('"patient.dateOfBirth" was not read as a valid date');

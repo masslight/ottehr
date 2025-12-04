@@ -493,6 +493,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     appointmentType: {
       text: visitType,
     },
+    serviceCategory: slot?.serviceCategory,
     description: reasonForVisit,
     status: initialAppointmentStatus,
     created: now.toISO() ?? '',
@@ -559,11 +560,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     'prepopulated items for patient questionnaire response before adding previous response',
     JSON.stringify(item)
   );
-
-  const questionnaireID = questionnaire.id;
-  if (!questionnaireID) {
-    throw new Error('Missing questionnaire id');
-  }
 
   const questionnaireResponseResource: QuestionnaireResponse = {
     resourceType: 'QuestionnaireResponse',

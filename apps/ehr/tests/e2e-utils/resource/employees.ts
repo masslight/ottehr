@@ -4,7 +4,7 @@ import Oystehr, { UserInviteParams } from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
 import {
   allLicensesForPractitioner,
-  createFetchClientWithOystAuth,
+  createFetchClientWithOystehrAuth,
   getFirstName,
   getLastName,
   getMiddleName,
@@ -187,11 +187,14 @@ export async function inviteTestEmployeeUser(
 ): Promise<TestEmployee | undefined> {
   const oystehrProjectId = process.env.PROJECT_ID;
   if (!oystehrProjectId) throw new Error('secret PROJECT_ID is not set');
-  const { oystFetch } = createFetchClientWithOystAuth({ authToken, projectId: oystehrProjectId });
-  const rolesRaw = await oystFetch<{ id: string; name: string }[]>('GET', 'https://project-api.zapehr.com/v1/iam/role');
+  const { oystehrFetch } = createFetchClientWithOystehrAuth({ authToken, projectId: oystehrProjectId });
+  const rolesRaw = await oystehrFetch<{ id: string; name: string }[]>(
+    'GET',
+    'https://project-api.zapehr.com/v1/iam/role'
+  );
   const providerRoleId = rolesRaw.find((role) => role.name === RoleType.Provider)?.id;
   if (!providerRoleId) throw new Error(`Didn't found any role with name: ${RoleType.Provider}`);
-  const response = await oystFetch<UserResponse>(
+  const response = await oystehrFetch<UserResponse>(
     'POST',
     'https://project-api.zapehr.com/v1/user/invite',
     invitationParamsForEmployee(employee, [providerRoleId])
@@ -207,8 +210,8 @@ export async function removeUser(
 ): Promise<void> {
   const oystehrProjectId = process.env.PROJECT_ID;
   if (!oystehrProjectId) throw new Error('secret PROJECT_ID is not set');
-  const { oystFetch } = createFetchClientWithOystAuth({ authToken, projectId: oystehrProjectId });
-  const removeUser = oystFetch('DELETE', `https://project-api.zapehr.com/v1/user/${userId}`);
+  const { oystehrFetch } = createFetchClientWithOystehrAuth({ authToken, projectId: oystehrProjectId });
+  const removeUser = oystehrFetch('DELETE', `https://project-api.zapehr.com/v1/user/${userId}`);
   const removeUserPractitioner = oystehr.fhir.delete({ resourceType: 'Practitioner', id: practitionerId });
   await Promise.all([removeUser, removeUserPractitioner]);
 

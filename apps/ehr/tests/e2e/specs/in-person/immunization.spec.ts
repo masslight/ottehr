@@ -8,11 +8,9 @@ import { openImmunizationPage } from 'tests/e2e/page/in-person/Immunization/Immu
 import { expectMarTab } from 'tests/e2e/page/in-person/Immunization/MarTab';
 import { OrderDetailsSection } from 'tests/e2e/page/in-person/Immunization/OrderDetailsSection';
 import { VaccineDetailsTab } from 'tests/e2e/page/in-person/Immunization/VaccineDetailsTab';
-import {
-  InPersonProgressNotePage,
-  openInPersonProgressNotePage,
-} from 'tests/e2e/page/in-person/InPersonProgressNotePage';
+import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
+import { expectPatientInfoPage } from 'tests/e2e/page/PatientInfo';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import { getFirstName, getLastName, medicationApplianceLocations, medicationApplianceRoutes } from 'utils';
 import vaccines from '../../../../../../config/oystehr/vaccines.json' assert { type: 'json' };
@@ -77,7 +75,7 @@ const ADMINISTRATION_DETAILS: AdministrationDetails = {
 const PENDING = 'PENDING';
 const ADMINISTERED = 'ADMINISTERED';
 const PARTLY_ADMINISTERED = 'PARTLY-ADMINISTERED';
-const NOT_ADMINISTRED = 'NOT-ADMINISTERED';
+const NOT_ADMINISTERED = 'NOT-ADMINISTERED';
 const CANCELLED = 'CANCELLED';
 const PATIENT_REFUSED = 'Patient refused';
 
@@ -206,20 +204,18 @@ test.describe('Immunization Page mutating tests', () => {
     await marTab.verifyVaccinePresent({
       ...VACCINE_A,
       givenPerson: await getCurrentPractitionerName(),
-      status: NOT_ADMINISTRED,
+      status: NOT_ADMINISTERED,
       reason: PATIENT_REFUSED,
     });
   });
 
   async function setupPractitioners(page: Page): Promise<void> {
-    const progressNotePage = new InPersonProgressNotePage(page);
     const inPersonHeader = new InPersonHeader(page);
     await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
     await inPersonHeader.verifyStatus('pending');
     await inPersonHeader.selectIntakePractitioner();
     await inPersonHeader.selectProviderPractitioner();
-    await inPersonHeader.clickSwitchModeButton('provider');
-    await progressNotePage.expectLoaded();
+    await expectPatientInfoPage(page);
   }
 
   async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {

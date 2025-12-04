@@ -1,12 +1,13 @@
 import * as z from 'zod';
-import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../../api';
+import { VITALS_OVERRIDES } from '../../../.ottehr_config';
+import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../../types/api';
 import {
   getHeightPercentileHigh,
   getHeightPercentileLow,
   getWeightPercentileHigh,
   getWeightPercentileLow,
 } from './weightPercentiles';
-// for safety, we apply a schema to our vitals config to make sure no typological errors were made
+
 const VitalsConfig = {
   'vital-temperature': {
     alertThresholds: [
@@ -292,12 +293,19 @@ const VitalsBloodPressureSchema = VitalsObjectSchema.extend({
   { message: 'vital-blood-pressure object may only define components' }
 );
 
+const VitalsWeightSchema = VitalsObjectSchema.extend({
+  unit: z
+    .enum(['kg', 'lbs'] as const)
+    .optional()
+    .default('kg'),
+});
+
 export const VitalsMap = z.object({
   'vital-temperature': VitalsObjectSchema.optional(),
   'vital-heartbeat': VitalsObjectSchema.optional(),
   'vital-oxygen-sat': VitalsObjectSchema.optional(),
   'vital-respiration-rate': VitalsObjectSchema.optional(),
-  'vital-weight': VitalsObjectSchema.optional(),
+  'vital-weight': VitalsWeightSchema.optional().default({ unit: 'kg' }),
   'vital-height': VitalsObjectSchema.optional(),
   'vital-blood-pressure': VitalsBloodPressureSchema.optional(),
   'vital-vision': VitalsVisionSchema.optional(),
@@ -317,3 +325,5 @@ export const VitalsDef = (config?: any): VitalsSchema => {
 export type AlertThreshold = z.infer<typeof AlertThresholdSchema>;
 
 export type AlertRule = ReturnType<typeof ConstraintSchema.parse>;
+
+export const vitalsConfig = VitalsDef(VITALS_OVERRIDES);

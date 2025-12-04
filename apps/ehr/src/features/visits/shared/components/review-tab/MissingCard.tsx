@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getAssessmentUrl } from 'src/features/visits/in-person/routing/helpers';
+import { getAssessmentUrl, getChiefComplaintUrl, getHPIUrl } from 'src/features/visits/in-person/routing/helpers';
 import { TelemedAppointmentVisitTabs } from 'utils';
 import { useChartFields } from '../../hooks/useChartFields';
 import { useAppointmentData, useAppTelemedLocalStore, useChartData } from '../../stores/appointment/appointment.store';
@@ -22,6 +22,9 @@ export const MissingCard: FC = () => {
       chiefComplaint: {
         _tag: 'chief-complaint',
       },
+      historyOfPresentIllness: {
+        _tag: 'history-of-present-illness',
+      },
     },
   });
 
@@ -31,30 +34,34 @@ export const MissingCard: FC = () => {
   const medicalDecision = chartFields?.medicalDecision?.text;
   const emCode = chartData?.emCode;
   const hpi = chartFields?.chiefComplaint?.text;
+  const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
 
   if (primaryDiagnosis && medicalDecision && emCode && hpi) {
     return null;
   }
 
-  const navigateToTab = (): void => {
+  const navigateTo = (target: 'chief-complaint' | 'hpi' | 'assessment'): void => {
     if (isInPerson) {
+      const inPersonRoutes: Record<'chief-complaint' | 'hpi' | 'assessment', string> = {
+        'chief-complaint': getChiefComplaintUrl(appointment?.id || ''),
+        hpi: getHPIUrl(appointment?.id || ''),
+        assessment: getAssessmentUrl(appointment?.id || ''),
+      };
+
       requestAnimationFrame(() => {
-        navigate(getAssessmentUrl(appointment?.id || ''));
+        navigate(inPersonRoutes[target]);
       });
     } else {
-      useAppTelemedLocalStore.setState({ currentTab: TelemedAppointmentVisitTabs.assessment });
-    }
-  };
+      const telemedTabs: Record<'hpi' | 'assessment', TelemedAppointmentVisitTabs> = {
+        hpi: TelemedAppointmentVisitTabs.hpi,
+        assessment: TelemedAppointmentVisitTabs.assessment,
+      };
 
-  const scrollOrNavigateToHPI = (): void => {
-    if (isInPerson) {
-      const headings = Array.from(document.querySelectorAll('h6'));
-      const hpiHeading = headings.find((heading) => heading.textContent === 'Chief Complaint & HPI');
-      if (hpiHeading) {
-        hpiHeading.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    } else {
-      useAppTelemedLocalStore.setState({ currentTab: TelemedAppointmentVisitTabs.hpi });
+      if (target === 'chief-complaint') return;
+
+      useAppTelemedLocalStore.setState({
+        currentTab: telemedTabs[target],
+      });
     }
   };
 
@@ -67,11 +74,21 @@ export const MissingCard: FC = () => {
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {!chiefComplaint && isInPerson && (
+            <Link
+              sx={{ cursor: 'pointer' }}
+              color="error"
+              onClick={() => navigateTo('chief-complaint')}
+              data-testid={dataTestIds.progressNotePage.ccLink}
+            >
+              Chief Complaint
+            </Link>
+          )}
           {!hpi && (
             <Link
               sx={{ cursor: 'pointer' }}
               color="error"
-              onClick={scrollOrNavigateToHPI}
+              onClick={() => navigateTo('hpi')}
               data-testid={dataTestIds.progressNotePage.hpiLink}
             >
               HPI
@@ -81,7 +98,7 @@ export const MissingCard: FC = () => {
             <Link
               sx={{ cursor: 'pointer' }}
               color="error"
-              onClick={navigateToTab}
+              onClick={() => navigateTo('assessment')}
               data-testid={dataTestIds.progressNotePage.primaryDiagnosisLink}
             >
               Primary diagnosis
@@ -91,7 +108,7 @@ export const MissingCard: FC = () => {
             <Link
               sx={{ cursor: 'pointer' }}
               color="error"
-              onClick={navigateToTab}
+              onClick={() => navigateTo('assessment')}
               data-testid={dataTestIds.progressNotePage.medicalDecisionLink}
             >
               Medical decision making
@@ -101,7 +118,7 @@ export const MissingCard: FC = () => {
             <Link
               sx={{ cursor: 'pointer' }}
               color="error"
-              onClick={navigateToTab}
+              onClick={() => navigateTo('assessment')}
               data-testid={dataTestIds.progressNotePage.emCodeLink}
             >
               E&M code

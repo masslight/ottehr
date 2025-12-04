@@ -1,6 +1,6 @@
 // cSpell:ignore networkidle, VVPP
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { chooseJson, CreateAppointmentResponse } from 'utils';
+import { BOOKING_CONFIG, chooseJson, CreateAppointmentResponse, shouldShowServiceCategorySelectionPage } from 'utils';
 import { Locators } from '../../utils/locators';
 import { Paperwork, PATIENT_ADDRESS, PATIENT_ADDRESS_LINE_2, PATIENT_CITY, PATIENT_ZIP } from '../../utils/Paperwork';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
@@ -48,6 +48,14 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     await page.goto('/home');
     await page.waitForTimeout(10000); // Wait for the harvest of first appointment to finish because these tests check pre-population which depends on harvest.
     await locator.scheduleVirtualVisitButton.click();
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
+      const availableCategories = BOOKING_CONFIG.serviceCategories || [];
+      const firstCategory = availableCategories[0]!;
+
+      if (firstCategory) {
+        await page.getByText(firstCategory.display).click();
+      }
+    }
     await paperwork.checkCorrectPageOpens('Book a visit');
     await flowClass.selectTimeLocationAndContinue();
     await page

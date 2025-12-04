@@ -1,5 +1,5 @@
 import { GridSize } from '@mui/system';
-import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
+import { QuestionnaireItemAnswerOption, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { useMemo } from 'react';
 import {
   EMAIL_FIELDS,
@@ -71,6 +71,11 @@ const addStyleInfo = (item: IntakeQuestionnaireItem): StyledQuestionnaireItem =>
     placeholder = 'Street, City, Zip Code';
   }
 
+  if (item.dataType === 'SSN') {
+    placeholder = 'XXX-XX-XXXX';
+    mask = '000-00-0000';
+  }
+
   return {
     ...item,
     hideControlLabel: hidesLabel,
@@ -91,12 +96,13 @@ const applyItemStyleOverrides = (
   allItems: IntakeQuestionnaireItem[],
   values: {
     [itemLinkId: string]: QuestionnaireResponseItem;
-  }
+  },
+  questionnaireResponse?: QuestionnaireResponse
 ): StyledQuestionnaireItem[] => {
   // console.log('values for required determination', values);
   return items.map((item) => {
     const styledItem = addStyleInfo(item);
-    const displayStrategy = getItemDisplayStrategy(item, allItems, values);
+    const displayStrategy = getItemDisplayStrategy(item, allItems, values, questionnaireResponse);
     styledItem.displayStrategy = displayStrategy;
     styledItem.isRequired = evalRequired(item, values);
     styledItem.text = evalItemText(item, values);
@@ -112,22 +118,23 @@ interface UseStyleItemsInputs {
 const filterHiddenItems = (
   pageItems: IntakeQuestionnaireItem[],
   allItems: IntakeQuestionnaireItem[],
-  initialValues: { [itemLinkId: string]: QuestionnaireResponseItem }
+  initialValues: { [itemLinkId: string]: QuestionnaireResponseItem },
+  questionnaireResponse?: QuestionnaireResponse
 ): IntakeQuestionnaireItem[] => {
   return pageItems.filter((item) => {
-    const displayStrategy = getItemDisplayStrategy(item, allItems, initialValues);
+    const displayStrategy = getItemDisplayStrategy(item, allItems, initialValues, questionnaireResponse);
     return displayStrategy !== 'hidden';
   });
 };
 
 export const useStyledItems = (input: UseStyleItemsInputs): StyledQuestionnaireItem[] => {
-  const { allItems } = usePaperworkContext();
+  const { allItems, questionnaireResponse } = usePaperworkContext();
   const { allFields: allValues } = useQRState();
   const { formItems: items } = input;
   return useMemo(() => {
-    const selectedItems = filterHiddenItems(items, allItems, allValues);
-    return applyItemStyleOverrides(selectedItems, allItems, allValues);
-  }, [allItems, allValues, items]);
+    const selectedItems = filterHiddenItems(items, allItems, allValues, questionnaireResponse);
+    return applyItemStyleOverrides(selectedItems, allItems, allValues, questionnaireResponse);
+  }, [allItems, allValues, items, questionnaireResponse]);
 };
 
 interface StyledAnswerOption extends QuestionnaireItemAnswerOption {

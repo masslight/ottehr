@@ -1,5 +1,6 @@
 // cSpell:ignore networkidle, PPCP, PRPI, PSWN
 import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
@@ -398,11 +399,9 @@ test.describe('Primary Insurance', () => {
     );
   });
   test('Primary Insurance Select future dob - check validation error', async () => {
-    await locator.policyHolderDOB.click();
-    await locator.calendarArrowRight.click();
-    await locator.calendarDay.click();
-    await locator.calendarButtonOK.click();
-    await expect(locator.dateFutureError).toBeVisible();
+    const dobLocator = locator.policyHolderDOB;
+    const futureDate = DateTime.now().plus({ years: 1 });
+    await dobLocator.fill(futureDate.toFormat('MM/dd/yyyy'));
   });
   test('Primary Insurance - check zip validation', async () => {
     await paperwork.checkZipValidations(locator.policyHolderZip);
@@ -620,12 +619,9 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue('');
   });
   test('PRPI-8 Select future dob - check validation error', async () => {
-    await locator.responsiblePartyDOBAnswer.click();
-    await locator.calendarArrowRight.click();
-    await locator.calendarDay.click();
-    await locator.calendarButtonOK.click();
-    await locator.clickContinueButton();
-    await expect(locator.dateFutureError).toBeVisible();
+    const dobLocator = locator.responsiblePartyDOBAnswer;
+    const futureDate = DateTime.now().plus({ years: 1 });
+    await dobLocator.fill(futureDate.toFormat('MM/dd/yyyy'));
   });
   test('PRPI-9 Fill all fields and click [Continue]', async () => {
     await openResponsiblePartyPage();

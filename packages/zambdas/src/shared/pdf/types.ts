@@ -1,4 +1,13 @@
-import { Coverage, Organization, Practitioner } from 'fhir/r4b';
+import {
+  Appointment,
+  DocumentReference,
+  Location,
+  Organization,
+  Patient,
+  Practitioner,
+  QuestionnaireResponse,
+  RelatedPerson,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
@@ -8,12 +17,13 @@ import {
   LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   ObservationDTO,
+  OrderedCoveragesWithSubscribers,
   QuantityComponent,
   SupportedObsImgAttachmentTypes,
   VitalsVisitNoteData,
 } from 'utils';
 import { testDataForOrderForm } from '../../ehr/submit-lab-order/helpers';
-import { Column } from './pdf-utils';
+import { Column, PdfInfo } from './pdf-utils';
 
 export interface PageElementStyle {
   side?: 'left' | 'right' | 'center';
@@ -74,15 +84,30 @@ export interface PdfClient {
     bounds?: { leftBound: number; rightBound: number }
   ) => { endXPos: number; endYPos: number };
   drawImage: (img: PDFImage, styles: ImageStyle, textStyle?: TextStyle) => void;
+  drawLabelValueRow: (
+    label: string,
+    value: string,
+    labelStyle: TextStyle,
+    valueStyle: TextStyle,
+    options?: {
+      drawDivider?: boolean;
+      dividerStyle?: LineStyle;
+      dividerMargin?: number;
+      defaultValue?: string;
+      spacing?: number;
+    }
+  ) => void;
   newLine: (yDrop: number) => void;
   getX: () => number;
   getY: () => number;
+  getPageTopY: () => number;
   setX: (x: number) => void;
   setY: (y: number) => void;
   save: () => Promise<Uint8Array>;
   embedFont: (path: Buffer) => Promise<PDFFont>;
   embedStandardFont: (font: StandardFonts) => Promise<PDFFont>;
   embedImage: (file: Buffer) => Promise<PDFImage>;
+  embedJpg: (file: Buffer) => Promise<PDFImage>;
   embedPdfFromBase64: (base64String: string) => Promise<void>;
   embedImageFromBase64: (base64String: string, imgType: SupportedObsImgAttachmentTypes) => Promise<void>;
   drawSeparatedLine: (lineStyle: LineStyle) => void;
@@ -144,12 +169,6 @@ interface LabsData {
   isPscOrder: boolean;
 }
 
-export type CoverageAndOrgForOrderForm = {
-  coverage: Coverage;
-  insuranceOrganization: Organization;
-  coverageRank: number;
-};
-
 export type OrderFormInsuranceInfo = {
   insuranceRank: number;
   insuredName?: string;
@@ -163,12 +182,13 @@ export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessmen
   billClass: string;
   testDetails: testDataForOrderForm[];
   insuranceDetails?: OrderFormInsuranceInfo[];
+  brandingProjectName?: string;
 }
 
 export interface ExternalLabResult {
   resultCodeAndDisplay: string;
   loincCodeAndDisplay: string;
-  snowmedDisplay: string;
+  snomedDisplay: string;
   resultInterpretation?: string;
   resultInterpretationDisplay?: string;
   resultValue: string;
@@ -387,7 +407,190 @@ export interface LabOrder {
   testItemName: string;
 }
 
-export type DischargeSummaryData = {
+export interface PdfData {
+  attachmentDocRefs?: string[];
+}
+
+export interface PdfStyles {
+  textStyles: Record<string, TextStyle>;
+  lineStyles: Record<string, LineStyle>;
+  colors?: Record<string, Color>;
+}
+
+export interface PdfAssets {
+  fonts: Record<string, PDFFont>;
+  icons?: Record<string, PDFImage>;
+  images?: Record<string, PDFImage>;
+}
+
+export interface AssetPaths {
+  fonts?: Record<string, string>;
+  icons?: Record<string, string>;
+}
+
+export interface ImageReference {
+  url: string;
+  key: string;
+}
+
+export interface PdfHeaderSection<TData extends PdfData, TSectionData = any> {
+  dataSelector: (data: TData) => TSectionData | undefined;
+  shouldRender?: (data: TSectionData) => boolean;
+  render: (client: PdfClient, data: TSectionData, styles: PdfStyles, assets: PdfAssets) => void;
+}
+
+export interface PdfSection<TData, TSectionData> {
+  title?: string;
+  dataSelector: (data: TData) => TSectionData | undefined;
+  shouldRender?: (sectionData: TSectionData) => boolean;
+  preferredWidth?: 'full' | 'column';
+  extractImages?: (sectionData: TSectionData) => ImageReference[];
+  render: (client: PdfClient, sectionData: TSectionData, styles: PdfStyles, assets: PdfAssets) => void;
+}
+
+export interface VisitInfo extends PdfData {
+  type: string;
+  time: string;
+  date: string;
+  location?: string;
+  reasonForVisit: string;
+}
+
+export interface PatientInfo extends PdfData {
+  fullName: string;
+  preferredName: string;
+  dob: string;
+  sex: Gender;
+  id: string;
+  phone: string;
+  reasonForVisit: string;
+}
+
+export interface ContactInfo extends PdfData {
+  streetAddress: string;
+  addressLineOptional: string;
+  city: string;
+  state: string;
+  zip: string;
+  patientMobile: string;
+  patientEmail: string;
+  sendMarketingMessages: boolean;
+}
+
+export interface PatientDetails extends PdfData {
+  patientsEthnicity: string;
+  patientsRace: string;
+  pronouns: string;
+  howDidYouHearAboutUs: string;
+  preferredLanguage: string;
+  pcpName: string;
+  pcpPracticeName: string;
+  pcpAddress: string;
+  pcpPhone: string;
+}
+
+export interface Documents extends PdfData {
+  photoIdFront?: any;
+  photoIdBack?: any;
+  insuranceCardFront?: any;
+  insuranceCardBack?: any;
+  secondaryInsuranceCardFront?: any;
+  secondaryInsuranceCardBack?: any;
+}
+export interface Insurance {
+  insuranceCarrier: string;
+  memberId: string;
+  policyHoldersName: string;
+  policyHoldersDateOfBirth: string;
+  policyHoldersSex: Gender;
+  streetAddress: string;
+  addressLineOptional: string;
+  city: string;
+  state: string;
+  zip: string;
+  relationship: string;
+  additionalInformation: string;
+}
+
+export interface InsuranceInfo extends PdfData {
+  primary: Insurance;
+  secondary: Insurance;
+}
+
+export interface ResponsiblePartyInfo extends PdfData {
+  relationship: string;
+  fullName: string;
+  dob: string;
+  sex: string;
+  phone: string;
+  email: string;
+  streetAddress: string;
+  addressLineOptional: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
+export interface consentFormsInfo extends PdfData {
+  isSigned: boolean;
+  signature: string;
+  fullName: string;
+  relationship: string;
+  date: string;
+  ip: string;
+}
+
+export interface VisitDetailsInput {
+  patient: Patient;
+  appointment: Appointment;
+  location?: Location;
+  timezone: string;
+  physician?: Practitioner;
+  pharmacy?: Organization;
+  coverages: OrderedCoveragesWithSubscribers;
+  insuranceOrgs: Organization[];
+  guarantorResource?: RelatedPerson | Patient;
+  documents: DocumentReference[];
+  questionnaireResponse?: QuestionnaireResponse;
+}
+
+export interface VisitDataInput {
+  appointment: Appointment;
+  location?: Location;
+  timezone: string;
+}
+
+export interface PatientDataInput {
+  patient: Patient;
+  appointment: Appointment;
+}
+
+export interface PatientDetailsInput {
+  patient: Patient;
+  physician?: Practitioner;
+}
+
+export interface InsuranceDataInput {
+  coverages: OrderedCoveragesWithSubscribers;
+  insuranceOrgs: Organization[];
+}
+
+export interface ResponsiblePartyInput {
+  guarantorResource?: RelatedPerson | Patient;
+}
+
+export interface UploadMetadata {
+  patientId: string;
+  fileName: string;
+  bucketName: string;
+}
+
+export type PdfResult = {
+  pdfInfo: PdfInfo;
+  attached?: string[];
+};
+
+export interface DischargeSummaryData extends PdfData {
   patient: {
     fullName: string;
     dob: string;
@@ -443,8 +646,18 @@ export type DischargeSummaryData = {
   workSchoolExcuse?: { note: string }[];
   documentsAttached?: boolean;
   attachmentDocRefs?: string[];
-};
+}
 
+export interface VisitDetailsData extends PdfData {
+  visit: VisitInfo;
+  patient: PatientInfo;
+  contact: ContactInfo;
+  details: PatientDetails;
+  insurances: InsuranceInfo;
+  responsibleParty: ResponsiblePartyInfo;
+  consentForms: consentFormsInfo;
+  documents: Documents;
+}
 export interface GetPaymentDataResponse {
   chargeUuid: string;
   amount: number;

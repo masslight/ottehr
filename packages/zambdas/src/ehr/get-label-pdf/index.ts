@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { getPresignedURL, getSecret, LabelPdf, MIME_TYPES, SecretsKeys } from 'utils';
+import { getPresignedURL, getSecret, LabDocumentType, LabelPdf, MIME_TYPES, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -42,7 +42,7 @@ export const index = wrapHandler('get-label-pdf', async (input: ZambdaInput): Pr
 
     const labelPdfs: LabelPdf[] = [];
 
-    await Promise.allSettled(
+    await Promise.allSettled<LabelPdf>(
       labelDocRefs.map(async (labelDocRef) => {
         const url = labelDocRef.content.find((content) => content.attachment.contentType === MIME_TYPES.PDF)?.attachment
           .url;
@@ -57,6 +57,7 @@ export const index = wrapHandler('get-label-pdf', async (input: ZambdaInput): Pr
         }
 
         return {
+          type: LabDocumentType.label,
           documentReference: labelDocRef,
           presignedURL,
         };
