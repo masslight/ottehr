@@ -11,9 +11,8 @@ import {
   useTheme,
 } from '@mui/material';
 import { Elements } from '@stripe/react-stripe-js';
-import { loadStripe } from '@stripe/stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { AddCreditCardForm } from 'ui-components';
+import { AddCreditCardForm, loadStripe } from 'ui-components';
 import { BOOKING_CONFIG, CreditCardInfo } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
 import { dataTestIds } from '../../../helpers/data-test-ids';

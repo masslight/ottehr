@@ -1,12 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference, MedicationRequest } from 'fhir/r4b';
-import {
-  FileURLs,
-  getPresignedURL,
-  MEDICATION_DISPENSABLE_DRUG_ID,
-  PaymentDataResponse,
-  PrescribedMedication,
-} from 'utils';
+import { FileURLs, getPresignedURL, MEDICATION_DISPENSABLE_DRUG_ID, PrescribedMedication } from 'utils';
 
 async function makePresignedURLFromDocumentReference(
   resource: DocumentReference,
@@ -57,33 +51,6 @@ export function getDocumentType(resource: DocumentReference): string | null {
 
 export function isDocumentPublished(documentReference: DocumentReference): boolean {
   return documentReference.docStatus === PdfDocumentReferencePublishedStatuses.published;
-}
-
-export async function getPaymentDataRequest(
-  apiUrl: string,
-  token: string,
-  encounterId?: string
-): Promise<PaymentDataResponse> {
-  const serviceUrl = `${apiUrl}/payment/charge/status`;
-
-  console.debug(`Getting payment data at ${serviceUrl} for encounter ${encounterId}`);
-
-  if (encounterId === undefined) {
-    throw new Error('Encounter ID must be specified for payments.');
-  }
-
-  return fetch(serviceUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    method: 'POST',
-    body: JSON.stringify({ encounterId: encounterId }),
-  }).then((response) => {
-    if (!response.ok) {
-      throw new Error(`Error getting charge status for the encounter. Status: ${response.statusText}`);
-    }
-    return response.json();
-  });
 }
 
 export async function getMedications(oystehr: Oystehr, encounterId?: string): Promise<PrescribedMedication[]> {
