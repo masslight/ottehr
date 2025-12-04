@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-in-person-previsit-1_1_0": {
+    "questionnaire-in-person-previsit-1_1_1": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "name": "in-person_pre-visit_paperwork",
         "title": "in-person pre-visit paperwork",
         "status": "active",
@@ -3063,58 +3063,162 @@
                 "type": "choice",
                 "required": true,
                 "answerOption": [
-                  { "valueString": "AL" },
-                  { "valueString": "AK" },
-                  { "valueString": "AZ" },
-                  { "valueString": "AR" },
-                  { "valueString": "CA" },
-                  { "valueString": "CO" },
-                  { "valueString": "CT" },
-                  { "valueString": "DE" },
-                  { "valueString": "DC" },
-                  { "valueString": "FL" },
-                  { "valueString": "GA" },
-                  { "valueString": "HI" },
-                  { "valueString": "ID" },
-                  { "valueString": "IL" },
-                  { "valueString": "IN" },
-                  { "valueString": "IA" },
-                  { "valueString": "KS" },
-                  { "valueString": "KY" },
-                  { "valueString": "LA" },
-                  { "valueString": "ME" },
-                  { "valueString": "MD" },
-                  { "valueString": "MA" },
-                  { "valueString": "MI" },
-                  { "valueString": "MN" },
-                  { "valueString": "MS" },
-                  { "valueString": "MO" },
-                  { "valueString": "MT" },
-                  { "valueString": "NE" },
-                  { "valueString": "NV" },
-                  { "valueString": "NH" },
-                  { "valueString": "NJ" },
-                  { "valueString": "NM" },
-                  { "valueString": "NY" },
-                  { "valueString": "NC" },
-                  { "valueString": "ND" },
-                  { "valueString": "OH" },
-                  { "valueString": "OK" },
-                  { "valueString": "OR" },
-                  { "valueString": "PA" },
-                  { "valueString": "RI" },
-                  { "valueString": "SC" },
-                  { "valueString": "SD" },
-                  { "valueString": "TN" },
-                  { "valueString": "TX" },
-                  { "valueString": "UT" },
-                  { "valueString": "VT" },
-                  { "valueString": "VA" },
-                  { "valueString": "VI" },
-                  { "valueString": "WA" },
-                  { "valueString": "WV" },
-                  { "valueString": "WI" },
-                  { "valueString": "WY" }
+                  {
+                    "valueString": "AL"
+                  },
+                  {
+                    "valueString": "AK"
+                  },
+                  {
+                    "valueString": "AZ"
+                  },
+                  {
+                    "valueString": "AR"
+                  },
+                  {
+                    "valueString": "CA"
+                  },
+                  {
+                    "valueString": "CO"
+                  },
+                  {
+                    "valueString": "CT"
+                  },
+                  {
+                    "valueString": "DE"
+                  },
+                  {
+                    "valueString": "DC"
+                  },
+                  {
+                    "valueString": "FL"
+                  },
+                  {
+                    "valueString": "GA"
+                  },
+                  {
+                    "valueString": "HI"
+                  },
+                  {
+                    "valueString": "ID"
+                  },
+                  {
+                    "valueString": "IL"
+                  },
+                  {
+                    "valueString": "IN"
+                  },
+                  {
+                    "valueString": "IA"
+                  },
+                  {
+                    "valueString": "KS"
+                  },
+                  {
+                    "valueString": "KY"
+                  },
+                  {
+                    "valueString": "LA"
+                  },
+                  {
+                    "valueString": "ME"
+                  },
+                  {
+                    "valueString": "MD"
+                  },
+                  {
+                    "valueString": "MA"
+                  },
+                  {
+                    "valueString": "MI"
+                  },
+                  {
+                    "valueString": "MN"
+                  },
+                  {
+                    "valueString": "MS"
+                  },
+                  {
+                    "valueString": "MO"
+                  },
+                  {
+                    "valueString": "MT"
+                  },
+                  {
+                    "valueString": "NE"
+                  },
+                  {
+                    "valueString": "NV"
+                  },
+                  {
+                    "valueString": "NH"
+                  },
+                  {
+                    "valueString": "NJ"
+                  },
+                  {
+                    "valueString": "NM"
+                  },
+                  {
+                    "valueString": "NY"
+                  },
+                  {
+                    "valueString": "NC"
+                  },
+                  {
+                    "valueString": "ND"
+                  },
+                  {
+                    "valueString": "OH"
+                  },
+                  {
+                    "valueString": "OK"
+                  },
+                  {
+                    "valueString": "OR"
+                  },
+                  {
+                    "valueString": "PA"
+                  },
+                  {
+                    "valueString": "RI"
+                  },
+                  {
+                    "valueString": "SC"
+                  },
+                  {
+                    "valueString": "SD"
+                  },
+                  {
+                    "valueString": "TN"
+                  },
+                  {
+                    "valueString": "TX"
+                  },
+                  {
+                    "valueString": "UT"
+                  },
+                  {
+                    "valueString": "VT"
+                  },
+                  {
+                    "valueString": "VA"
+                  },
+                  {
+                    "valueString": "VI"
+                  },
+                  {
+                    "valueString": "WA"
+                  },
+                  {
+                    "valueString": "WV"
+                  },
+                  {
+                    "valueString": "WI"
+                  },
+                  {
+                    "valueString": "WY"
+                  }
                 ],
                 "extension": [
                   {
@@ -3567,6 +3671,135 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
                     "valueString": "protected"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "attorney-mva-page",
+            "text": "Attorney for Motor Vehicle Accident",
+            "type": "group",
+            "item": [
+              {
+                "linkId": "attorney-mva-has-attorney",
+                "text": "Do you have an attorney?",
+                "type": "choice",
+                "required": true,
+                "answerOption": [
+                  {
+                    "valueString": "I have an attorney"
+                  },
+                  {
+                    "valueString": "I do not have an attorney"
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
+                    "valueString": "Radio"
+                  }
+                ]
+              },
+              {
+                "linkId": "attorney-mva-firm",
+                "text": "Firm",
+                "type": "string",
+                "required": true,
+                "enableWhen": [
+                  {
+                    "question": "attorney-mva-has-attorney",
+                    "operator": "=",
+                    "answerString": "I have an attorney"
+                  }
+                ],
+                "enableBehavior": "all"
+              },
+              {
+                "linkId": "attorney-mva-first-name",
+                "text": "First name",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "attorney-mva-has-attorney",
+                    "operator": "=",
+                    "answerString": "I have an attorney"
+                  }
+                ],
+                "enableBehavior": "all"
+              },
+              {
+                "linkId": "attorney-mva-last-name",
+                "text": "Last name",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "attorney-mva-has-attorney",
+                    "operator": "=",
+                    "answerString": "I have an attorney"
+                  }
+                ],
+                "enableBehavior": "all"
+              },
+              {
+                "linkId": "attorney-mva-email",
+                "text": "Email",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "attorney-mva-has-attorney",
+                    "operator": "=",
+                    "answerString": "I have an attorney"
+                  }
+                ],
+                "enableBehavior": "all",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Email"
+                  }
+                ]
+              },
+              {
+                "linkId": "attorney-mva-mobile",
+                "text": "Mobile",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "attorney-mva-has-attorney",
+                    "operator": "=",
+                    "answerString": "I have an attorney"
+                  }
+                ],
+                "enableBehavior": "all",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Phone Number"
+                  }
+                ]
+              },
+              {
+                "linkId": "attorney-mva-fax",
+                "text": "Fax",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "attorney-mva-has-attorney",
+                    "operator": "=",
+                    "answerString": "I have an attorney"
+                  }
+                ],
+                "enableBehavior": "all",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Phone Number"
                   }
                 ]
               }
