@@ -485,6 +485,42 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
   });
 
+  test('Create walk-in patient to check patient validation and for waiting room tests', async ({ browser, page }) => {
+    const walkInFlowClass = await test.step('Set up playwright', async () => {
+      const context = await browser.newContext();
+      page = await context.newPage();
+      page.on('response', async (response) => {
+        if (response.url().includes('/create-appointment/')) {
+          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+          if (!appointmentIds.includes(appointmentId)) {
+            appointmentIds.push(appointmentId);
+          }
+        }
+      });
+
+      return new TelemedVisitFlow(page);
+    });
+
+    const bookingData = await test.step('Book appointment and check flow', async () => {
+      return await walkInFlowClass.startVisitFullFlow(true);
+    });
+
+    await test.step('Write test data to file', async () => {
+      const waitingRoomPatient: TelemedWalkInPatientTestData = {
+        firstName: bookingData.patientBasicInfo.firstName,
+        lastName: bookingData.patientBasicInfo.lastName,
+        email: bookingData.patientBasicInfo.email,
+        birthSex: bookingData.patientBasicInfo.birthSex,
+        dateOfBirth: bookingData.patientBasicInfo.dob,
+        appointmentId: appointmentIds[appointmentIds.length - 1],
+        state: bookingData.stateValue,
+        location: bookingData.slotAndLocation.locationTitle,
+      };
+      console.log('waitingRoomPatient', JSON.stringify(waitingRoomPatient));
+      writeTestData('waitingRoomPatient.json', waitingRoomPatient);
+    });
+  });
+
   test('Create patient without filling in paperwork', async ({ browser, page }) => {
     const { prebookFlowClass, paperwork } = await test.step('Set up playwright', async () => {
       const context = await browser.newContext();
