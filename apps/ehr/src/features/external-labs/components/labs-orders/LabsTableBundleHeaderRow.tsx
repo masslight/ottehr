@@ -57,7 +57,7 @@ export const LabsTableBundleHeaderRow = ({
       await refetchLabOrders();
     } catch (e) {
       const error = e as OystehrSdkError;
-      console.log('error', JSON.stringify(error));
+      console.error('error', JSON.stringify(error));
       setNoteError(error.message ?? 'Error saving note');
     }
     setSavingNote(false);

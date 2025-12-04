@@ -1,5 +1,6 @@
 // cSpell:ignore RFRT
 import {
+  Communication,
   Coverage,
   DocumentReference,
   Encounter,
@@ -137,7 +138,7 @@ export type LabOrderListPageDTO = {
   abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_LAB_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
   orderPdfUrl: string | undefined; // will exist after order is submitted, DocRef containing LAB_ORDER_DOC_REF_CODING_CODE type
   location: Location | undefined; // Location that ordered the test. Was previously not required for lab orders, so can be undefined
-  orderLevelNote: string | undefined; // communication where cat === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY and sr is contained in basedOn
+  orderLevelNote: string | undefined; // communication where cat === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY and sr is referenced in basedOn
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
@@ -460,6 +461,10 @@ export interface ExternalLabDocuments {
   resultPDFs: LabDocumentRelatedToDiagnosticReport[] | undefined; // only ever returned for the detail page atm
   orderPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;
   abnPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;
+}
+
+export interface ExternalLabCommunications {
+  orderLevelNotes: Communication[] | undefined;
 }
 
 export enum UnsolicitedResultsRequestType {

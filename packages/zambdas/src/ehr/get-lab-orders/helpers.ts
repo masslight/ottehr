@@ -34,6 +34,7 @@ import {
   docRefIsAbnAndCurrent,
   docRefIsOrderPDFAndCurrent,
   EMPTY_PAGINATION,
+  ExternalLabCommunications,
   ExternalLabDocuments,
   externalLabOrderIsManual,
   ExternalLabsStatus,
@@ -44,7 +45,7 @@ import {
   getOrderNumberFromDr,
   isPositiveNumberOrZero,
   LAB_DR_TYPE_TAG,
-  LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
+  LAB_ORDER_LEVEL_NOTE_CATEGORY,
   LAB_ORDER_TASK,
   LabDocumentRelatedToDiagnosticReport,
   LabDrTypeTagCode,
@@ -107,7 +108,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   labDocuments: ExternalLabDocuments | undefined,
   specimens: Specimen[],
   appointmentScheduleMap: Record<string, Schedule>,
-  communications: Communication[],
+  communications: ExternalLabCommunications | undefined,
   ENVIRONMENT: string
 ): LabOrderDTO<SearchBy>[] => {
   console.log('mapResourcesToLabOrderDTOs');
@@ -216,7 +217,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   labDocuments: ExternalLabDocuments | undefined;
   specimens: Specimen[];
   appointmentScheduleMap: Record<string, Schedule>;
-  communications: Communication[];
+  communications: ExternalLabCommunications | undefined;
   cache?: Cache;
 }): LabOrderDTO<SearchBy> => {
   console.log('parsing external lab order data');
@@ -241,7 +242,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     requisitionNumber && labDocuments?.orderPDFsByRequisitionNumber
       ? labDocuments?.orderPDFsByRequisitionNumber[requisitionNumber]?.presignedURL
       : undefined;
-  const { orderLevelNote } = parseLabCommunications(communications, serviceRequest);
+  const { orderLevelNote } = parseLabCommunicationsForServiceRequest(communications, serviceRequest);
 
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
@@ -519,7 +520,7 @@ export const getLabResources = async (
   specimens: Specimen[];
   patientLabItems: PatientLabItem[];
   appointmentScheduleMap: Record<string, Schedule>;
-  communications: Communication[];
+  communications: ExternalLabCommunications | undefined;
 }> => {
   // does not include the location on the SR
   const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
@@ -855,7 +856,7 @@ export const extractLabResources = (
   documentReferences: DocumentReference[];
   appointments: Appointment[];
   appointmentScheduleMap: Record<string, Schedule>;
-  communications: Communication[];
+  communications: ExternalLabCommunications | undefined;
 } => {
   console.log('extracting lab resources');
   console.log(`${resources.length} resources total`);
@@ -875,7 +876,7 @@ export const extractLabResources = (
   const slots: Slot[] = [];
   const scheduleMap: Record<string, Schedule> = {};
   const appointmentScheduleMap: Record<string, Schedule> = {};
-  const communications: Communication[] = [];
+  const orderLevelNotes: Communication[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -916,7 +917,8 @@ export const extractLabResources = (
         scheduleMap[scheduleId] = resource;
       }
     } else if (resource.resourceType === 'Communication') {
-      if (isLabCommunication(resource)) communications.push(resource);
+      const labCommType = labOrderCommunicationType(resource);
+      if (labCommType === 'order-level-note') orderLevelNotes.push(resource);
     }
   }
 
@@ -932,6 +934,13 @@ export const extractLabResources = (
         appointmentScheduleMap[appointment.id] = schedule;
       }
     }
+  }
+
+  let communications: ExternalLabCommunications | undefined;
+  if (orderLevelNotes.length > 0) {
+    communications = {
+      orderLevelNotes,
+    };
   }
 
   return {
@@ -2579,22 +2588,32 @@ const parseLocation = (serviceRequest: ServiceRequest, locations: Location[]): L
   return location;
 };
 
-const isLabCommunication = (communication: Communication): boolean => {
-  return !!communication.category?.find(
-    (cat) => cat.coding?.find((code) => code.system === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.system)
+export const labOrderCommunicationType = (communication: Communication): 'order-level-note' | undefined => {
+  let commType = undefined;
+  communication.category?.forEach(
+    (cat) =>
+      cat.coding?.forEach((code) => {
+        if (code.system === LAB_ORDER_LEVEL_NOTE_CATEGORY.system) {
+          if (code.code === LAB_ORDER_LEVEL_NOTE_CATEGORY.code) {
+            commType = 'order-level-note';
+          }
+        }
+      })
   );
+  return commType;
 };
-// i think at some point we will have another communication (clinical info note for OBR13) we should expand on this helper function for that
-const parseLabCommunications = (
-  communications: Communication[],
+// at some point we will have another communication (clinical info note for OBR13) we should expand on this helper function for that
+const parseLabCommunicationsForServiceRequest = (
+  communications: ExternalLabCommunications | undefined,
   serviceRequest: ServiceRequest
 ): { orderLevelNote: string | undefined } => {
   const note = { orderLevelNote: undefined };
-  const orderLevelNoteCommunication = communications?.find(
+  if (!communications) return note;
+  const { orderLevelNotes } = communications;
+  const orderLevelNoteCommunication = orderLevelNotes?.find(
     (comm) =>
-      comm.category?.find(
-        (cat) => cat.coding?.find((code) => code.system === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.system)
-      ) && comm.basedOn?.some((ref) => ref.reference === `ServiceRequest/${serviceRequest.id}`)
+      comm.category?.find((cat) => cat.coding?.find((code) => code.system === LAB_ORDER_LEVEL_NOTE_CATEGORY.system)) &&
+      comm.basedOn?.some((ref) => ref.reference === `ServiceRequest/${serviceRequest.id}`)
   );
   if (!orderLevelNoteCommunication) return note;
   const contentString = orderLevelNoteCommunication?.payload?.map((content) => content.contentString).join('; '); // this should only ever be one item in the array

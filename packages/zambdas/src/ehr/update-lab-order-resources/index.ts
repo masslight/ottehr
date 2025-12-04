@@ -194,25 +194,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           }),
         };
       }
-      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote: {
-        const { requisitionNumber, note } = validatedParameters;
-        console.log('handling add order level note');
-        await handleAddOrderLevelNote({ oystehr, requisitionNumber, note });
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            message: `Successfully created order level note communication`,
-          }),
-        };
-      }
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote:
       case LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote: {
-        const { requisitionNumber, note } = validatedParameters;
-        console.log('handling update order level note');
-        await handleUpdateOrderLevelNote({ oystehr, requisitionNumber, note });
+        const { requisitionNumber, note, event } = validatedParameters;
+        const actionWord = event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote ? 'created' : 'updated';
+        if (event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote) {
+          console.log('handling add order level note');
+          await handleAddOrderLevelNote({ oystehr, requisitionNumber, note });
+        } else if (event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote) {
+          console.log('handling update order level note');
+          await handleUpdateOrderLevelNote({ oystehr, requisitionNumber, note });
+        }
         return {
           statusCode: 200,
           body: JSON.stringify({
-            message: `Successfully updated order level note communication`,
+            message: `Successfully ${actionWord} order level note communication`,
           }),
         };
       }

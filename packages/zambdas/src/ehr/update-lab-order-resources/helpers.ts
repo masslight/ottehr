@@ -4,7 +4,6 @@ import {
   Communication,
   DiagnosticReport,
   DocumentReference,
-  Encounter,
   Practitioner,
   Provenance,
   QuestionnaireResponse,
@@ -21,7 +20,7 @@ import {
   getFullestAvailableName,
   getPatchBinary,
   LAB_DR_TYPE_TAG,
-  LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
+  LAB_ORDER_LEVEL_NOTE_CATEGORY,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_SAME_TRANSMISSION_DR_REF_URL,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
@@ -527,38 +526,18 @@ export const handleAddOrderLevelNote = async ({
   requisitionNumber: string;
   note: string;
 }): Promise<void> => {
-  const resourceSearch = (
-    await oystehr.fhir.search<ServiceRequest | Encounter>({
+  const serviceRequests = (
+    await oystehr.fhir.search<ServiceRequest>({
       resourceType: 'ServiceRequest',
       params: [
         {
           name: 'identifier',
           value: `${OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM}|${requisitionNumber}`,
         },
-        {
-          name: '_include:iterate',
-          value: 'ServiceRequest:encounter',
-        },
       ],
     })
   ).unbundle();
-  console.log(`resource search for handleAddOrderLevelNote returned ${resourceSearch.length}`);
-
-  const { serviceRequests, encounters } = resourceSearch.reduce(
-    (acc: { serviceRequests: ServiceRequest[]; encounters: Encounter[] }, resource) => {
-      if (resource.resourceType === 'ServiceRequest') acc.serviceRequests.push(resource);
-      if (resource.resourceType === 'Encounter') acc.encounters.push(resource);
-      return acc;
-    },
-    { serviceRequests: [], encounters: [] }
-  );
-
-  if (encounters.length !== 1) {
-    throw Error(
-      `All service requests in an order bundle should be linked to the same encounter. However, more than one encounter was found for this order ${requisitionNumber}`
-    );
-  }
-  const encounter = encounters[0];
+  console.log(`serviceRequests for handleAddOrderLevelNote returned ${serviceRequests.length}`);
 
   const communicationConfig: Communication = {
     resourceType: 'Communication',
@@ -570,10 +549,9 @@ export const handleAddOrderLevelNote = async ({
       },
     ],
     basedOn: serviceRequests.map((sr) => ({ reference: `ServiceRequest/${sr.id}` })),
-    encounter: { reference: `Encounter/${encounter.id}` },
     category: [
       {
-        coding: [LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY],
+        coding: [LAB_ORDER_LEVEL_NOTE_CATEGORY],
       },
     ],
     payload: [{ contentString: note }],
@@ -602,7 +580,7 @@ export const handleUpdateOrderLevelNote = async ({
         },
         {
           name: 'category',
-          value: `${LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.system}|${LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.code}`,
+          value: `${LAB_ORDER_LEVEL_NOTE_CATEGORY.system}|${LAB_ORDER_LEVEL_NOTE_CATEGORY.code}`,
         },
       ],
     })
@@ -622,14 +600,17 @@ export const handleUpdateOrderLevelNote = async ({
 
   if (note) {
     console.log('Updating order level note');
-    await oystehr.fhir.update<Communication>({
-      ...communication,
-      payload: [
-        {
-          contentString: note,
-        },
-      ],
-    });
+    await oystehr.fhir.update<Communication>(
+      {
+        ...communication,
+        payload: [
+          {
+            contentString: note,
+          },
+        ],
+      },
+      { optimisticLockingVersionId: communication.meta?.versionId }
+    );
   } else {
     if (!communication.id) throw new Error(`no id for this communication ?? ${JSON.stringify(communication)}`);
     console.log('note was sent as an empty string, we will delete the communication');
