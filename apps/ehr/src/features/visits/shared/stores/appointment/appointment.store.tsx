@@ -305,8 +305,13 @@ const selectAppointmentData = (
   const parsed = parseBundle(data);
   const appointment = data?.find((resource: FhirResource) => resource.resourceType === 'Appointment') as Appointment;
   const patient = data?.find((resource: FhirResource) => resource.resourceType === 'Patient') as Patient;
-  const location = (data?.filter((resource: FhirResource) => resource.resourceType === 'Location') as Location[]).find(
-    (location) => !isLocationVirtual(location)
+
+  const appointmentLocationRef = appointment?.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))
+    ?.actor?.reference;
+  const appointmentLocationId = appointmentLocationRef?.split('/')?.pop();
+  const location = data.find(
+    (resource): resource is Location =>
+      resource.resourceType === 'Location' && resource.id === appointmentLocationId && !isLocationVirtual(resource)
   );
 
   const followUpOriginEncounter = data?.find(
@@ -412,6 +417,10 @@ const useGetAppointment = (
               {
                 name: '_revinclude:iterate',
                 value: 'Encounter:appointment',
+              },
+              {
+                name: '_include:iterate',
+                value: 'Encounter:location',
               },
               {
                 name: '_revinclude:iterate',
