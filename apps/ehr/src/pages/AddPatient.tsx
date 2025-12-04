@@ -2,46 +2,37 @@ import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
-  CircularProgress,
-  Dialog,
   FormControl,
-  FormControlLabel,
   Grid,
   InputLabel,
   MenuItem,
   Paper,
-  Radio,
-  RadioGroup,
   Select,
   TextField,
   Typography,
-  useTheme,
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
-import { Location, Patient, Person, RelatedPerson, Schedule, Slot } from 'fhir/r4b';
+import { Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
-import { PatternFormat } from 'react-number-format';
 import { useNavigate } from 'react-router-dom';
+import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
 import {
   BOOKING_CONFIG,
   CreateAppointmentInputParams,
   CreateSlotParams,
   getAppointmentDurationFromSlot,
-  getContactEmailForPatientAccount,
-  getFullName,
   GetScheduleRequestParams,
   GetScheduleResponse,
   getTimezone,
-  PRIVATE_EXTENSION_BASE_URL,
+  PatientInfo,
   ScheduleType,
   ServiceMode,
   SLUG_SYSTEM,
 } from 'utils';
 import { createAppointment, createSlot, getLocations } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
-import DateSearch from '../components/DateSearch';
 import { CustomDialog } from '../components/dialogs/CustomDialog';
 import LocationSelect from '../components/LocationSelect';
 import SlotPicker from '../components/SlotPicker';
@@ -49,31 +40,30 @@ import { MAXIMUM_CHARACTER_LIMIT } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { EmailUserValue, PersonSex, VisitType } from '../types/types';
-
-const mapSelectedPatientEmailUser = (selectedPatientEmailUser: string | undefined): EmailUserValue | undefined => {
-  if (!selectedPatientEmailUser) {
-    return undefined;
-  }
-
-  const EmailUserMapper = {
-    'Patient (Self)': 'Patient (Self)',
-    Patient: 'Patient (Self)',
-    'Parent/Guardian': 'Parent/Guardian',
-  };
-
-  if (Object.keys(EmailUserMapper).includes(selectedPatientEmailUser)) {
-    const key = selectedPatientEmailUser as keyof typeof EmailUserMapper;
-    return EmailUserMapper[key] as EmailUserValue;
-  }
-  return undefined;
-};
+import { VisitType } from '../types/types';
 
 type SlotLoadingState =
   | { status: 'initial'; input: undefined }
   | { status: 'loading'; input: undefined }
   | { status: 'loaded'; input: string };
 
+export type AddVisitFormState =
+  | 'existingPatientSelected'
+  | 'manuallyEnterPatientDetails'
+  | 'initialPatientSearch'
+  | 'displayPatientSearch';
+
+export interface AddVisitErrorState {
+  submit?: boolean;
+  phone?: boolean;
+  search?: boolean;
+  searchEntry?: boolean;
+}
+
+export type AddVisitPatientInfo = Pick<
+  PatientInfo,
+  'id' | 'newPatient' | 'firstName' | 'middleName' | 'lastName' | 'dateOfBirth' | 'sex' | 'phoneNumber'
+>;
 export interface LocationWithWalkinSchedule extends Location {
   walkinSchedule: Schedule | undefined;
 }
@@ -83,43 +73,32 @@ export default function AddPatient(): JSX.Element {
   const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule | undefined>(
     storedLocation ? JSON.parse(storedLocation) : undefined
   );
-  const [firstName, setFirstName] = useState<string>('');
-  const [lastName, setLastName] = useState<string>('');
-  const [birthDate, setBirthDate] = useState<DateTime | null>(null);
-  const [sex, setSex] = useState<PersonSex | ''>('');
-  const [mobilePhone, setMobilePhone] = useState<string>('');
+  const [birthDate, setBirthDate] = useState<DateTime | null>(null); // i would love to not have to handle this state but i think the date search component would have to change and i dont want to touch that right now
+  const [patientInfo, setPatientInfo] = useState<AddVisitPatientInfo | undefined>(undefined);
   const [reasonForVisit, setReasonForVisit] = useState<string>('');
   const [reasonForVisitAdditional, setReasonForVisitAdditional] = useState<string>('');
   const [visitType, setVisitType] = useState<VisitType>();
   const [slot, setSlot] = useState<Slot | undefined>();
   const [loading, setLoading] = useState<boolean>(false);
-  const [searching, setSearching] = useState<boolean>(false);
-  const [errors, setErrors] = useState<{ submit?: boolean; phone?: boolean; search?: boolean }>({
+  const [errors, setErrors] = useState<AddVisitErrorState>({
     submit: false,
     phone: false,
     search: false,
+    searchEntry: false,
   });
   const [loadingSlotState, setLoadingSlotState] = useState<SlotLoadingState>({ status: 'initial', input: undefined });
   const [locationWithSlotData, setLocationWithSlotData] = useState<GetScheduleResponse | undefined>(undefined);
   const [validDate, setValidDate] = useState<boolean>(true);
   const [selectSlotDialogOpen, setSelectSlotDialogOpen] = useState<boolean>(false);
   const [validReasonForVisit, setValidReasonForVisit] = useState<boolean>(true);
-  const [openSearchResults, setOpenSearchResults] = useState<boolean>(false);
-  const [patients, setPatients] = useState<Patient[] | undefined>(undefined);
-  const [selectedPatient, setSelectedPatient] = useState<Patient | undefined>(undefined);
-  const [showFields, setShowFields] = useState<{ prefillForSelected?: boolean; forcePatientSearch?: boolean }>({
-    prefillForSelected: false,
-    forcePatientSearch: true,
-  });
+  const [showFields, setShowFields] = useState<AddVisitFormState>('initialPatientSearch');
 
   // console.log('slot', slot);
 
   // general variables
-  const theme = useTheme();
   const navigate = useNavigate();
-  const { oystehr, oystehrZambda } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const reasonForVisitErrorMessage = `Input cannot be more than ${MAXIMUM_CHARACTER_LIMIT} characters`;
-  const phoneNumberErrorMessage = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
 
   const handleAdditionalReasonForVisitChange = (newValue: string): void => {
     setValidReasonForVisit(newValue.length <= MAXIMUM_CHARACTER_LIMIT);
@@ -157,19 +136,23 @@ export default function AddPatient(): JSX.Element {
   // handle functions
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
+    if (!patientInfo) {
+      setErrors({ search: true });
+      return;
+    }
 
-    if (mobilePhone.length !== 10) {
+    if (patientInfo.phoneNumber && patientInfo.phoneNumber.length !== 10) {
       setErrors({ phone: true });
       return;
     } else {
-      setErrors({});
+      setErrors({ ...errors, phone: false });
     }
 
     if ((visitType === VisitType.PreBook || visitType === VisitType.PostTelemed) && slot === undefined) {
       setSelectSlotDialogOpen(true);
       return;
     }
-    if (showFields.forcePatientSearch) {
+    if (showFields.includes('PatientSearch')) {
       setErrors({ search: true });
       return;
     } else {
@@ -179,30 +162,6 @@ export default function AddPatient(): JSX.Element {
     if (validDate && validReasonForVisit) {
       setLoading(true);
 
-      let selectedPatientEmail, selectedPatientEmailUser;
-      if (selectedPatient) {
-        selectedPatientEmailUser = mapSelectedPatientEmailUser(
-          selectedPatient.extension?.find((ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/form-user`)
-            ?.valueString as any
-        );
-        if (selectedPatientEmailUser) {
-          if (selectedPatientEmailUser !== 'Parent/Guardian') {
-            selectedPatientEmail = selectedPatient.telecom?.find((telecom) => telecom.system === 'email')?.value;
-          } else if (selectedPatientEmailUser === 'Parent/Guardian') {
-            const guardianContact = selectedPatient.contact?.find(
-              (contact) =>
-                contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian')
-            );
-            selectedPatientEmail = guardianContact?.telecom?.find((telecom) => telecom.system === 'email')?.value;
-          }
-        }
-      }
-
-      const emailToUse = selectedPatientEmail;
-      let emailUser = selectedPatientEmailUser;
-      if (emailUser == undefined && emailToUse) {
-        emailUser = 'Parent/Guardian';
-      }
       console.log('slot', slot);
       if (!oystehrZambda) throw new Error('Zambda client not found');
       let createSlotInput: CreateSlotParams;
@@ -240,14 +199,8 @@ export default function AddPatient(): JSX.Element {
       const persistedSlot = await createSlot(createSlotInput, oystehrZambda);
       const zambdaParams: CreateAppointmentInputParams = {
         patient: {
-          id: selectedPatient?.id,
-          newPatient: !selectedPatient,
-          firstName: (selectedPatient?.name?.[0].given?.join(' ') || firstName)?.trim(),
-          lastName: (selectedPatient?.name?.[0].family || lastName)?.trim(),
-          dateOfBirth: selectedPatient?.birthDate || birthDate?.toISODate() || undefined,
-          sex: (selectedPatient?.gender as PersonSex) || sex || undefined,
-          phoneNumber: mobilePhone,
-          email: emailToUse,
+          ...patientInfo,
+          dateOfBirth: patientInfo?.dateOfBirth || birthDate?.toISODate() || undefined,
           reasonForVisit: reasonForVisit,
           reasonAdditional: reasonForVisitAdditional !== '' ? reasonForVisitAdditional : undefined,
         },
@@ -270,73 +223,6 @@ export default function AddPatient(): JSX.Element {
         }
       }
     }
-  };
-  // console.log(slot);
-
-  const handlePatientSearch = async (e: any): Promise<void> => {
-    e.preventDefault();
-    if (mobilePhone.length !== 10) {
-      setErrors({ ...errors, phone: true });
-      return;
-    }
-    setSearching(true);
-    setErrors({ ...errors, search: false });
-    setShowFields({ ...showFields, forcePatientSearch: false });
-
-    if (!oystehr) {
-      return;
-    }
-    const resources = (
-      await oystehr.fhir.search<Patient | Person | RelatedPerson>({
-        resourceType: 'Person',
-        params: [
-          {
-            name: 'telecom',
-            value: `+1${mobilePhone}`,
-          },
-          {
-            name: '_include',
-            value: 'Person:relatedperson',
-          },
-          {
-            name: '_include:iterate',
-            value: 'RelatedPerson:patient',
-          },
-        ],
-      })
-    ).unbundle();
-    const patients = resources.filter(
-      (resourceTemp): resourceTemp is Patient => resourceTemp.resourceType === 'Patient'
-    );
-    patients.sort(sortPatientsByName);
-    setPatients(patients);
-    setOpenSearchResults(true);
-    setSearching(false);
-  };
-
-  const sortPatientsByName = (a: Patient, b: Patient): number => {
-    const lastNameA = a?.name?.[0].family;
-    const lastNameB = b?.name?.[0].family;
-    const firstNameA = a?.name?.[0].given?.join(' ');
-    const firstNameB = b?.name?.[0].given?.join(' ');
-    if (lastNameA && lastNameB && firstNameA && firstNameB) {
-      // sort by last name
-      if (lastNameA < lastNameB) {
-        return -1;
-      } else if (lastNameA > lastNameB) {
-        return 1;
-      } else {
-        // if same last name, sort by first name
-        return firstNameA.localeCompare(firstNameB);
-      }
-    } else {
-      return 0;
-    }
-  };
-
-  const handleSelectPatient = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const selected = patients?.find((patient) => patient.id === event.target.value);
-    setSelectedPatient(selected);
   };
 
   return (
@@ -378,224 +264,20 @@ export default function AddPatient(): JSX.Element {
                 </Box>
 
                 {/* Patient information */}
-                <Box>
-                  <Typography variant="h4" color="primary.dark" sx={{ marginTop: 4 }}>
-                    Patient information
-                  </Typography>
-                  <Box marginTop={2}>
-                    <Grid container>
-                      <Grid item xs={8}>
-                        <PatternFormat
-                          data-testid={dataTestIds.addPatientPage.mobilePhoneInput}
-                          customInput={TextField}
-                          value={mobilePhone}
-                          format="(###) ###-####"
-                          mask=" "
-                          label="Mobile Phone"
-                          variant="outlined"
-                          placeholder="(XXX) XXX-XXXX"
-                          fullWidth
-                          required
-                          error={errors.phone}
-                          helperText={errors?.phone ? phoneNumberErrorMessage : ''}
-                          onValueChange={(values, sourceInfo) => {
-                            if (sourceInfo.source === 'event') {
-                              setMobilePhone(values.value);
-                              if (errors.phone && values.value.length === 10) {
-                                setErrors({ ...errors, phone: false });
-                              }
-                            }
-                          }}
-                        />
-                      </Grid>
-                      <Grid
-                        item
-                        xs={4}
-                        sx={{ display: 'flex', justifyContent: 'center', flexDirection: 'column', padding: '0 8px' }}
-                      >
-                        <LoadingButton
-                          data-testid={dataTestIds.addPatientPage.searchForPatientsButton}
-                          variant="contained"
-                          onClick={(event) => handlePatientSearch(event)}
-                          loading={searching}
-                          sx={{
-                            borderRadius: 100,
-                            textTransform: 'none',
-                            fontWeight: 600,
-                          }}
-                        >
-                          Search for Patients
-                        </LoadingButton>
-                      </Grid>
-                    </Grid>
-                  </Box>
-                  <Dialog
-                    open={openSearchResults}
-                    onClose={() => {
-                      setSelectedPatient(undefined);
-                      setOpenSearchResults(false);
-                    }}
-                  >
-                    <Box
-                      sx={{ minWidth: '600px', borderRadius: '4px', p: '35px', maxHeight: '450px', overflow: 'scroll' }}
-                    >
-                      <Box>
-                        <Typography
-                          variant="h4"
-                          sx={{ fontWeight: '600 !important', color: theme.palette.primary.main, marginBottom: '4px' }}
-                        >
-                          Select an Existing Patient
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <RadioGroup onChange={(e) => handleSelectPatient(e)}>
-                          {patients?.map((patient) => {
-                            const label = `${getFullName(patient)} (DOB: ${DateTime.fromISO(
-                              patient?.birthDate || ''
-                            ).toFormat('MMMM dd, yyyy')})`;
-                            return (
-                              <FormControlLabel key={patient.id} value={patient.id} control={<Radio />} label={label} />
-                            );
-                          })}
-                        </RadioGroup>
-                      </Box>
-                      {selectedPatient && (
-                        <Box sx={{ marginTop: 2 }}>
-                          <Button
-                            data-testid={dataTestIds.addPatientPage.prefillForButton}
-                            variant="outlined"
-                            sx={{
-                              borderRadius: 100,
-                              textTransform: 'none',
-                              fontWeight: 600,
-                            }}
-                            onClick={() => {
-                              setShowFields({ ...showFields, prefillForSelected: true });
-                              setOpenSearchResults(false);
-                            }}
-                          >
-                            Prefill for {getFullName(selectedPatient)}
-                          </Button>
-                        </Box>
-                      )}
-                      <Box sx={{ marginTop: 2 }}>
-                        <Button
-                          data-testid={dataTestIds.addPatientPage.patientNotFoundButton}
-                          variant="contained"
-                          sx={{
-                            borderRadius: 100,
-                            textTransform: 'none',
-                            fontWeight: 600,
-                          }}
-                          onClick={() => {
-                            setSelectedPatient(undefined);
-                            setShowFields({ ...showFields, prefillForSelected: false });
-                            setOpenSearchResults(false);
-                          }}
-                        >
-                          Patient Not Found - Add Manually
-                        </Button>
-                      </Box>
-                    </Box>
-                  </Dialog>
-                  {searching && (
-                    <Box sx={{ display: 'flex', justifyContent: 'center' }} marginTop={2}>
-                      <CircularProgress />
-                    </Box>
-                  )}
-                  {showFields.prefillForSelected && selectedPatient && (
-                    <Box marginTop={3}>
-                      <Typography
-                        variant="h4"
-                        color="primary.dark"
-                        data-testid={dataTestIds.addPatientPage.prefilledPatientName}
-                      >
-                        {getFullName(selectedPatient)}
-                      </Typography>
-                      <Typography data-testid={dataTestIds.addPatientPage.prefilledPatientBirthday}>
-                        Birthday: {DateTime.fromISO(selectedPatient?.birthDate || '').toFormat('MMMM dd, yyyy')}
-                      </Typography>
-                      <Typography data-testid={dataTestIds.addPatientPage.prefilledPatientBirthSex}>
-                        Birth Sex: {selectedPatient.gender}
-                      </Typography>
-                      <Typography data-testid={dataTestIds.addPatientPage.prefilledPatientEmail}>
-                        Email: {getContactEmailForPatientAccount(selectedPatient) ?? 'not found'}
-                      </Typography>
-                    </Box>
-                  )}
-                  {!showFields.forcePatientSearch && !showFields.prefillForSelected && !searching && (
-                    <Box marginTop={2}>
-                      <Box>
-                        <Grid container direction="row" justifyContent="space-between">
-                          <Grid item xs={5.85}>
-                            <TextField
-                              data-testid={dataTestIds.addPatientPage.firstNameInput}
-                              label="First Name"
-                              variant="outlined"
-                              required
-                              fullWidth
-                              value={firstName.trimStart()}
-                              onChange={(event) => {
-                                setFirstName(event.target.value);
-                              }}
-                            ></TextField>
-                          </Grid>
-                          <Grid item xs={5.85}>
-                            <TextField
-                              data-testid={dataTestIds.addPatientPage.lastNameInput}
-                              label="Last Name"
-                              variant="outlined"
-                              required
-                              fullWidth
-                              value={lastName.trimStart()}
-                              onChange={(event) => {
-                                setLastName(event.target.value);
-                              }}
-                            ></TextField>
-                          </Grid>
-                        </Grid>
-                      </Box>
-
-                      <Box marginTop={2}>
-                        <Grid container direction="row" justifyContent="space-between">
-                          <Grid item xs={5.85}>
-                            <DateSearch
-                              date={birthDate}
-                              setDate={setBirthDate}
-                              defaultValue={null}
-                              label="Date of birth"
-                              required
-                              setIsValidDate={setValidDate}
-                            ></DateSearch>
-                          </Grid>
-                          <Grid item xs={5.85}>
-                            <FormControl fullWidth>
-                              <InputLabel id="sex-at-birth-label">Sex at birth *</InputLabel>
-                              <Select
-                                data-testid={dataTestIds.addPatientPage.sexAtBirthDropdown}
-                                labelId="sex-at-birth-label"
-                                id="sex-at-birth-select"
-                                value={sex}
-                                label="Sex at birth *"
-                                required
-                                onChange={(event) => {
-                                  setSex(event.target.value as PersonSex);
-                                }}
-                              >
-                                <MenuItem value={PersonSex.Male}>Male</MenuItem>
-                                <MenuItem value={PersonSex.Female}>Female</MenuItem>
-                                <MenuItem value={PersonSex.Intersex}>Intersex</MenuItem>
-                              </Select>
-                            </FormControl>
-                          </Grid>
-                        </Grid>
-                      </Box>
-                    </Box>
-                  )}
-                </Box>
+                <AddVisitPatientInformationCard
+                  patientInfo={patientInfo}
+                  setPatientInfo={setPatientInfo}
+                  showFields={showFields}
+                  setShowFields={setShowFields}
+                  setValidDate={setValidDate}
+                  errors={errors}
+                  setErrors={setErrors}
+                  birthDate={birthDate}
+                  setBirthDate={setBirthDate}
+                />
 
                 {/* Visit Information */}
-                {!showFields.forcePatientSearch && !searching && (
+                {showFields !== 'initialPatientSearch' && (
                   <Box marginTop={4}>
                     <Typography variant="h4" color="primary.dark">
                       Visit information
@@ -683,14 +365,6 @@ export default function AddPatient(): JSX.Element {
                   </Box>
                 )}
 
-                {showFields.forcePatientSearch && (
-                  <Box marginTop={4}>
-                    <Typography variant="body1" color="primary.dark">
-                      Please enter the mobile number and search for existing patients before proceeding.
-                    </Typography>
-                  </Box>
-                )}
-
                 {/* form buttons */}
                 <Box marginTop={4}>
                   {errors.submit && (
@@ -707,7 +381,7 @@ export default function AddPatient(): JSX.Element {
                     data-testid={dataTestIds.addPatientPage.addButton}
                     variant="contained"
                     type="submit"
-                    loading={loading || searching}
+                    loading={loading}
                     sx={{
                       borderRadius: 100,
                       textTransform: 'none',

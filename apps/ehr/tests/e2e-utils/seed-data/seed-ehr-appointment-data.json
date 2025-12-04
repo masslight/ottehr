@@ -1244,6 +1244,9 @@
                 ]
               }
             ]
+          },
+          {
+            "linkId": "medical-history-page"
           }
         ],
         "authored": "{{date}}T15:10:58.605+00:00",
