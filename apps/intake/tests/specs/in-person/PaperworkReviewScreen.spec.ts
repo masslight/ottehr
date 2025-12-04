@@ -76,8 +76,9 @@ test.describe('Paperwork.Review and Submit - Check Complete/Missing chips', () =
     await uploadPhoto.fillPhotoBackID();
     await locator.clickContinueButton();
     await locator.clickContinueButton();
+    await locator.clickContinueButton();
     await paperwork.checkAllChipsAreCompletedInPerson();
-    await expect(locator.finishButton).toBeVisible();
+    await expect(locator.continueButton).toBeVisible();
   });
   test('PRS-3 Select Insurance, fill required fields, check all chips are completed, [Finish] button is visible', async () => {
     await locator.insuranceDetailsEditButton.click();
@@ -94,13 +95,14 @@ test.describe('Paperwork.Review and Submit - Check Complete/Missing chips', () =
     if (employerInformationPageExists) {
       await locator.clickContinueButton();
     }
+    await locator.clickContinueButton();
     await paperwork.checkAllChipsAreCompletedInPerson();
-    await expect(locator.finishButton).toBeVisible();
+    await expect(locator.continueButton).toBeVisible();
   });
   test('PRS-4 All chips are completed after reload', async () => {
     await page.reload();
     await paperwork.checkAllChipsAreCompletedInPerson();
-    await expect(locator.finishButton).toBeVisible();
+    await expect(locator.continueButton).toBeVisible();
   });
 });
 test.describe('Paperwork.Review and Submit - Check values', () => {
