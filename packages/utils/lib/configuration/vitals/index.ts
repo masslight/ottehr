@@ -100,14 +100,6 @@ const VitalsConfig = {
           { type: 'max', units: 'bpm', value: 115 },
         ],
         minAge: { unit: 'months', value: 180 },
-        maxAge: { unit: 'months', value: 216 },
-      },
-      {
-        rules: [
-          { type: 'min', units: 'bpm', value: 57 },
-          { type: 'max', units: 'bpm', value: 115 },
-        ],
-        minAge: { unit: 'months', value: 216 },
       },
     ],
   },
@@ -202,7 +194,6 @@ const VitalsConfig = {
           {
             rules: [{ type: 'min', units: '', value: 90 }],
             minAge: { unit: 'months', value: 108 },
-            maxAge: { unit: 'months', value: 216 },
           },
           {
             rules: [
