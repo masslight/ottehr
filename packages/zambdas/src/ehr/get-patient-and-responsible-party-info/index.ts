@@ -69,7 +69,6 @@ async function performEffect(
   if (!patientDob) throw new Error('Date of birth was not found for patient');
   if (!responsiblePartyEmail) throw new Error('Email was not found for responsible party');
   if (!patientGenderLabel) throw new Error('Gender was not found for patient');
-  if (!responsiblePartyPhoneNumber) throw new Error('Phone number was not found for responsible party');
   return {
     patient: {
       fullName: patientName,
