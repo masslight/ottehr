@@ -21,7 +21,7 @@ describe('AddPatient', () => {
     http.post('https://fhir-api.zapehr.com/Location/_search', () => {
       return HttpResponse.json({ greeting: 'hello there' });
     }),
-    http.post('https://fhir-api.zapehr.com/Person/_search', () => {
+    http.post('https://fhir-api.zapehr.com/Patient/_search', () => {
       return HttpResponse.json({ greeting: 'hello there' });
     })
     // http.post('https://project-api.zapehr.com/v1/zambda/get-schedule/execute-public', () => {
@@ -107,7 +107,7 @@ describe('AddPatient', () => {
     );
 
     await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
-    const errorMessage = screen.getByText('Phone number must be 10 digits in the format (xxx) xxx-xxxx');
+    const errorMessage = screen.getByText('Please enter at least one search term');
     expect(errorMessage).toBeVisible();
   });
 
@@ -147,11 +147,13 @@ describe('AddPatient', () => {
       .getByTestId(dataTestIds.addPatientPage.mobilePhoneInput)
       .querySelector('input');
     expect(phoneNumberEntryField).toBeInTheDocument();
-    expect(phoneNumberEntryField).toHaveAttribute('required');
+    // this is no longer required because there are three possible search terms however there are other tests in here checking that you can't add / search without a number
+    // expect(phoneNumberEntryField).toHaveAttribute('required');
 
     await user.click(phoneNumberEntryField!);
     await user.paste('1234567890'); // Sufficiently valid phone number
     await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
+    await user.click(screen.getByTestId(dataTestIds.addPatientPage.patientNotFoundButton));
 
     // If this is visible then we are ready to test the broader form validations
     const firstNameInput = screen.getByTestId(dataTestIds.addPatientPage.firstNameInput).querySelector('input');

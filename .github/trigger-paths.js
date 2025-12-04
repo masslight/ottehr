@@ -36,6 +36,7 @@ const PATHS = {
   ehrAppDir: 'apps/ehr/',
 
   iacConfigDir: 'config/oystehr/',
+  configDir: 'config/',
 };
 
 const intakeTriggers = [
@@ -76,6 +77,11 @@ Object.values(PATHS).forEach((path) => {
   }
 });
 
+const terraformApplyTriggers = [
+  PATHS.configDir,
+  PATHS.zambdaSubscriptionsDir,
+];
+
 module.exports = {
   e2e: {
     intake: e2eIntakeTriggers,
@@ -87,5 +93,9 @@ module.exports = {
       throw new Error(`App "${appName}" not found in e2e configuration`);
     }
     return this.e2e[appName];
+  },
+
+  getTerraformApplyPaths() {
+    return terraformApplyTriggers;
   },
 };
