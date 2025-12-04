@@ -16,8 +16,8 @@ export const GetPatientAndResponsiblePartyInfoEndpointOutputSchema = z.object({
     phoneNumber: z.string(),
   }),
   responsibleParty: z.object({
-    fullName: z.string(), // todo, check different variants of responsible party, self, spose ...
-    phoneNumber: z.string().optional(), // todo and what data and where will be stored
+    fullName: z.string(),
+    phoneNumber: z.string().optional(),
     email: z.string(),
   }),
 });

@@ -76,7 +76,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         throw new Error(`Failed to finalize invoice, response status: ${finalized.status}`);
       console.log('Invoice finalized: ', finalized.status);
 
-      console.log('Sending invoice to patient (with email)');
+      console.log(`Sending invoice to recipient email recorded in stripe: ${finalized.customer_email}`);
       const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id);
       console.log('Invoice sent: ', sendInvoiceResponse.status);
 
