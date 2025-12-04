@@ -8,7 +8,7 @@ const INTEGRATION_TEST = process.env.INTEGRATION_TEST || 'false';
 const isUI = process.argv.includes('--ui');
 const isLoginOnly = process.argv.includes('--login-only');
 const isSpecsOnly = process.argv.includes('--specs-only');
-const isEnvWithZambdaLocalServer = ENV === 'local';
+const isEnvWithZambdaLocalServer = ENV === 'local' || ENV === 'e2e';
 const isEnvWithFrontendLocalServer = ENV === 'local' || ENV === 'e2e' || isCI;
 const testFileArg = process.argv.find((arg) => arg.startsWith('--test-file='));
 const testFile = testFileArg ? testFileArg.split('=')[1] : undefined;
