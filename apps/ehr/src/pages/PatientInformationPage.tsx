@@ -27,10 +27,10 @@ import {
   InsurancePlanDTO,
   makePrepopulatedItemsFromPatientRecord,
   OrderedCoveragesWithSubscribers,
+  PATIENT_RECORD_CONFIG,
   PatientAccountResponse,
   pruneEmptySections,
 } from 'utils';
-import ehrInsuranceUpdateFormJson from '../../../../config/oystehr/ehr-insurance-update-questionnaire.json';
 import { CustomDialog } from '../components/dialogs';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
@@ -163,16 +163,10 @@ const usePatientData = (
     patientId: id ?? null,
   });
 
-  const maybeQuestionnaire = Object.values(ehrInsuranceUpdateFormJson.fhirResources).find(
-    (q) =>
-      q.resource.resourceType === 'Questionnaire' &&
-      q.resource.status === 'active' &&
-      q.resource.url.includes('ehr-insurance-update-questionnaire')
-  )?.resource as Questionnaire | undefined;
-  if (!maybeQuestionnaire) {
+  const questionnaire = PATIENT_RECORD_CONFIG.ehrPatientRecordForm.templateQuestionnaire;
+  if (!questionnaire) {
     throw new Error('Could not find insurance update questionnaire in config');
   }
-  const questionnaire = maybeQuestionnaire;
 
   const coverages: CoverageWithPriority[] = useMemo(() => {
     if (!insuranceData?.coverages) return [];

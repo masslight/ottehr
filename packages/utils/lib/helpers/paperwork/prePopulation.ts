@@ -11,6 +11,7 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
+import _ from 'lodash';
 import { capitalize } from 'lodash-es';
 import { DateTime } from 'luxon';
 import {
@@ -360,6 +361,7 @@ export const extractFirstValueFromAnswer = (
 
 export interface PrePopulationFromPatientRecordInput extends PatientAccountResponse {
   questionnaire: Questionnaire;
+  overriddenItems?: QuestionnaireResponseItem[];
 }
 
 export const makePrepopulatedItemsFromPatientRecord = (
@@ -375,7 +377,25 @@ export const makePrepopulatedItemsFromPatientRecord = (
     emergencyContactResource,
     pharmacy,
     employerOrganization,
+    overriddenItems = [],
   } = input;
+
+  // allows passing in pre-prepopulated logical fields
+  const mergeQuestionnaireResponseItems = (
+    defaultItems: QuestionnaireResponseItem[],
+    overrides: QuestionnaireResponseItem[]
+  ): QuestionnaireResponseItem[] => {
+    return defaultItems.map((defaultItem) => {
+      if (defaultItem.answer === undefined) {
+        const existingOverride = overrides.find((oi) => oi.linkId === defaultItem.linkId && oi.answer !== undefined);
+        if (existingOverride) {
+          return { ...existingOverride };
+        }
+      }
+      return defaultItem;
+    });
+  };
+
   console.log('making prepopulated items from patient record', coverages, pharmacy);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
@@ -427,7 +447,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
     })();
     return {
       linkId: item.linkId,
-      item: populatedItem,
+      item: mergeQuestionnaireResponseItems(populatedItem, overriddenItems),
     };
   });
 
@@ -476,8 +496,6 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     patientSex = 'Intersex';
   }
 
-  const patientDOB = patient.birthDate;
-
   const patientSexualOrientation = patient.extension?.find((e) => e.url === PATIENT_SEXUAL_ORIENTATION_URL)
     ?.valueCodeableConcept?.coding?.[0]?.display;
   const patientGenderIdentity = patient.extension?.find((e) => e.url === PATIENT_GENDER_IDENTITY_URL)
@@ -500,7 +518,17 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
 
   return items.map((item) => {
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
-    const { linkId } = item;
+    const { linkId, initial } = item;
+
+    let initialBooleanValue: boolean | undefined;
+    let initialStringValue: string | undefined;
+
+    if (initial) {
+      initialBooleanValue = initial?.[0]?.valueBoolean;
+      initialStringValue = initial?.[0]?.valueString;
+    }
+
+    const patientDOB = patient.birthDate;
 
     if (linkId === 'patient-birthdate' && patientDOB) {
       answer = makeAnswer(patientDOB);
@@ -538,8 +566,8 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     if (linkId === 'patient-city' && patientCity) {
       answer = makeAnswer(patientCity);
     }
-    if (linkId === 'patient-state' && patientState) {
-      answer = makeAnswer(patientState);
+    if (linkId === 'patient-state' && (patientState || initialStringValue)) {
+      answer = makeAnswer(patientState ?? initialStringValue);
     }
     if (linkId === 'patient-zip' && patientPostalCode) {
       answer = makeAnswer(patientPostalCode);
@@ -594,6 +622,8 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     }
     if (linkId === 'common-well-consent' && patientCommonWellConsent !== undefined) {
       answer = makeAnswer(patientCommonWellConsent, 'Boolean');
+    } else if (linkId === 'common-well-consent' && initialBooleanValue !== undefined) {
+      answer = makeAnswer(initialBooleanValue, 'Boolean');
     }
     return {
       linkId,

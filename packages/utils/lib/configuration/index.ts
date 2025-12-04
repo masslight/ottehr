@@ -6,3 +6,4 @@ export * from './questionnaire';
 export * from './texting';
 export * from './vitals';
 export * from './legal';
+export * from './patient-record';

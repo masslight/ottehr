@@ -16,6 +16,23 @@
             "text": "Patient information",
             "item": [
               {
+                "linkId": "should-display-ssn-field",
+                "type": "boolean",
+                "required": false,
+                "readOnly": true,
+                "initial": [
+                  {
+                    "valueBoolean": false
+                  }
+                ]
+              },
+              {
+                "linkId": "ssn-field-required",
+                "type": "boolean",
+                "required": false,
+                "readOnly": true
+              },
+              {
                 "linkId": "patient-last-name",
                 "type": "string",
                 "required": true
@@ -84,6 +101,46 @@
                   },
                   {
                     "valueString": "Intersex"
+                  }
+                ]
+              },
+              {
+                "linkId": "patient-ssn",
+                "text": "SSN",
+                "type": "string",
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "should-display-ssn-field",
+                    "operator": "=",
+                    "answerBoolean": true
+                  }
+                ],
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "SSN"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "hidden"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                        "valueString": "ssn-field-required"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                        "valueString": "="
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                        "valueBoolean": true
+                      }
+                    ]
                   }
                 ]
               }
