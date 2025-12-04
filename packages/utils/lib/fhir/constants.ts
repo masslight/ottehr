@@ -124,6 +124,9 @@ export const FHIR_EXTENSION = {
     insuranceRequirements: {
       url: `${PUBLIC_EXTENSION_BASE_URL}/insurance-requirements`,
     },
+    notes: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/notes`,
+    },
   },
   QuestionnaireResponse: {
     ipAddress: {

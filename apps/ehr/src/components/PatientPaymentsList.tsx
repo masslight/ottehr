@@ -3,6 +3,8 @@ import {
   Box,
   Button,
   capitalize,
+  CircularProgress,
+  Container,
   FormControlLabel,
   Paper,
   Radio,
@@ -22,15 +24,19 @@ import { DocumentReference, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, Fragment, ReactElement, useEffect, useState } from 'react';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetEncounter } from 'src/hooks/useEncounter';
+import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
 import {
   APIError,
   APIErrorCode,
   CashOrCardPayment,
+  FHIR_EXTENSION,
   getPaymentVariantFromEncounter,
   isApiError,
+  PatientPaymentBenefit,
   PatientPaymentDTO,
   PaymentVariant,
   PostPatientPaymentInput,
@@ -68,6 +74,7 @@ export default function PatientPaymentList({
   responsibleParty,
 }: PaymentListProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
+  const apiClient = useOystehrAPIClient();
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
@@ -88,6 +95,38 @@ export default function PatientPaymentList({
     encounterId,
     disabled: !encounterId || !patient?.id,
   });
+  const { data: insuranceData } = useGetPatientAccount({
+    apiClient,
+    patientId: patient?.id ?? null,
+  });
+
+  const { data: insuranceCoverages } = useGetPatientCoverages({
+    apiClient,
+    patientId: patient?.id ?? null,
+  });
+
+  function getPaymentAmountFromPatientBenefit({
+    coverage,
+    code,
+    coverageCode,
+    levelCode,
+    periodCode,
+  }: {
+    coverage: PatientPaymentBenefit[];
+    code: string;
+    coverageCode: string;
+    levelCode: string;
+    periodCode: string;
+  }): number | undefined {
+    return coverage?.find(
+      (item) =>
+        item.code === code &&
+        item.coverageCode === coverageCode &&
+        item.levelCode === levelCode &&
+        item.periodCode === periodCode
+    )?.amountInUSD;
+  }
+
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
 
   const stripeCustomerDeletedError =
@@ -233,6 +272,33 @@ export default function PatientPaymentList({
     return null;
   })();
 
+  const insurance = insuranceCoverages?.coverages?.primary?.identifier?.find(
+    (temp) => temp.type?.coding?.find((temp) => temp.code === 'MB')
+  )?.assigner;
+  const insuranceOrganization = insuranceCoverages?.insuranceOrgs?.find(
+    (organization) => organization.id === insurance?.reference?.replace('Organization/', '')
+  );
+  const insuranceName = insuranceOrganization?.name;
+  const insuranceNotes = insuranceOrganization?.extension?.find(
+    (extensionTemp) => extensionTemp.url === FHIR_EXTENSION.InsurancePlan.notes.url
+  )?.valueString;
+
+  const copayAmount = getPaymentAmountFromPatientBenefit({
+    coverage: insuranceData?.coverageChecks?.[0]?.copay || [],
+    code: 'UC',
+    coverageCode: 'B',
+    levelCode: 'IND',
+    periodCode: '27',
+  });
+
+  const remainingDeductibleAmount = getPaymentAmountFromPatientBenefit({
+    coverage: insuranceData?.coverageChecks?.[0]?.deductible || [],
+    code: '30',
+    coverageCode: 'C',
+    levelCode: 'IND',
+    periodCode: '29',
+  });
+
   return (
     <Paper
       sx={{
@@ -269,6 +335,64 @@ export default function PatientPaymentList({
           label="Self-pay"
         />
       </RadioGroup>
+      <Container
+        style={{
+          backgroundColor: theme.palette.background.default,
+          borderRadius: 4,
+          paddingTop: 10,
+          paddingBottom: 10,
+        }}
+      >
+        <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
+          Payment Considerations
+        </Typography>
+        {insuranceData ? (
+          <>
+            <Table style={{ tableLayout: 'fixed' }}>
+              <TableBody>
+                <TableRow>
+                  <TableCell style={{ fontSize: '16px' }}>Insurance Carrier</TableCell>
+                  <TableCell style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'right' }}>
+                    {insuranceName ? insuranceName : 'Unknown'}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell style={{ fontSize: '16px' }}>Copay</TableCell>
+                  <TableCell style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'right' }}>
+                    {copayAmount ? `$${copayAmount}` : 'Unknown'}
+                  </TableCell>
+                </TableRow>
+                <TableRow sx={{ '&:last-child td': { borderBottom: 'none' } }}>
+                  <TableCell style={{ fontSize: '16px' }}>Remaining Deductible</TableCell>
+                  <TableCell style={{ fontSize: '16px', fontWeight: 'bold', textAlign: 'right' }}>
+                    {remainingDeductibleAmount ? `$${remainingDeductibleAmount}` : 'Unknown'}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+            {insuranceNotes && (
+              <Container
+                style={{
+                  backgroundColor: '#2169F514',
+                  borderRadius: 4,
+                  marginTop: 5,
+                  paddingTop: 10,
+                  paddingBottom: 10,
+                }}
+              >
+                <Typography variant="body1" sx={{ color: theme.palette.primary.dark, fontWeight: 'bold' }}>
+                  Notes
+                </Typography>
+                <Typography variant="body1" style={{ whiteSpace: 'pre' }}>
+                  {insuranceNotes}
+                </Typography>
+              </Container>
+            )}
+          </>
+        ) : (
+          <CircularProgress />
+        )}
+      </Container>
       {stripeCustomerDeletedError && <StripeErrorAlert />}
       {!stripeCustomerDeletedError && (
         <>

@@ -97,6 +97,7 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
     await paperwork.skipPhotoID();
     await paperwork.fillConsentForms();
     await commonLocatorsHelper.clickContinue();
+    await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Review and submit');
   });
   test('SNPRF-9 Submit paperwork', async () => {

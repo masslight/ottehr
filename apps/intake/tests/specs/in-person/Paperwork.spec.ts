@@ -558,7 +558,7 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     const consentFormsData = await test.step('PCF-6. Fill all fields and click on [Continue]', async () => {
       const consentFormsData = await paperwork.fillConsentForms();
       await locator.clickContinueButton();
-      await paperwork.checkCorrectPageOpens('Review and submit');
+      await paperwork.checkCorrectPageOpens('Medical history');
       return consentFormsData;
     });
 

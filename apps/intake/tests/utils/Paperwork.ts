@@ -245,6 +245,8 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     await this.fillConsentForms();
     await this.locator.clickContinueButton();
+    // skip medical history
+    await this.locator.clickContinueButton();
     return {
       stateValue,
       patientDetailsData: {
@@ -460,6 +462,8 @@ export class Paperwork {
     await expect(this.locator.flowHeading).toHaveText('Photo ID');
     await this.skipPhotoID();
     await this.fillConsentForms();
+    await this.locator.clickContinueButton();
+    // skip medical history
     await this.locator.clickContinueButton();
     await expect(this.locator.flowHeading).toHaveText('Review and submit');
     return { stateValue };
