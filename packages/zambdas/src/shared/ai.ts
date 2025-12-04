@@ -1,4 +1,5 @@
-import { ChatAnthropic } from '@langchain/anthropic';
+import { AnthropicMessagesModelId, ChatAnthropic } from '@langchain/anthropic';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
@@ -22,6 +23,26 @@ import {
 import { makeObservationResource } from './chart-data/index';
 import { assertDefined } from './helpers';
 import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.helpers';
+
+export class ClaudeClient {
+  chatbot: ChatAnthropic;
+
+  constructor(anthropicApiKey: string, model: AnthropicMessagesModelId = 'claude-haiku-4-5-20251001') {
+    this.chatbot = new ChatAnthropic({
+      model,
+      anthropicApiKey,
+      temperature: 0,
+      clientOptions: {
+        timeout: 5000, // 5 seconds (in milliseconds)
+        maxRetries: 5, // Number of retries on failure
+      },
+    });
+  }
+
+  async invoke(input: BaseMessageLike[]): Promise<AIMessageChunk> {
+    return this.chatbot.invoke(input);
+  }
+}
 
 let chatbot: ChatAnthropic;
 // let chatbotVertexAI: ChatVertexAI;
@@ -292,13 +313,13 @@ Only suggest diagnoses that are supported by the clinical information provided. 
 }
 
 export async function generateIcdTenCodesFromNotes(
+  aiClient: BaseChatModel,
   hpiText: string | undefined,
-  mdmText: string | undefined,
-  secrets: Secrets | null
+  mdmText: string | undefined
 ): Promise<{ diagnosis: string; icd10: string }[]> {
   try {
     const prompt = getIcdTenCodesPrompt(hpiText, mdmText);
-    const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
+    const aiResponseString = (await aiClient.invoke([{ role: 'user', content: prompt }])).content.toString();
 
     console.log(`AI ICD-10 codes response: "${aiResponseString}"`);
     let aiResponse;

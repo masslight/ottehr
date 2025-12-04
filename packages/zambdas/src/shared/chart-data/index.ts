@@ -22,6 +22,7 @@ import {
   Reference,
   Resource,
   ServiceRequest,
+  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -82,6 +83,7 @@ import {
   SchoolWorkNoteExcuseDocFileDTO,
   SchoolWorkNoteType,
   SNOMEDCodeConceptInterface,
+  TaskCoding,
   VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
@@ -1730,4 +1732,17 @@ function getMedicationDosage(medication: MedicationStatement, medicationType: st
     return `${doseQuantity.value} ${doseQuantity.unit}`;
   }
   return medication.dosage?.[0].text;
+}
+
+export function makeEncounterTaskResource(encounterId: string, coding: TaskCoding): Task {
+  return {
+    resourceType: 'Task',
+    status: 'requested',
+    intent: 'order',
+    focus: { reference: `Encounter/${encounterId}` },
+    encounter: { reference: `Encounter/${encounterId}` },
+    code: {
+      coding: [coding],
+    },
+  };
 }
