@@ -310,3 +310,5 @@ export const LAB_CLIENT_BILL_COVERAGE_TYPE_CODING = {
 };
 
 export const LAB_OBS_VALUE_WITH_PRECISION_EXT = 'https://extensions.fhir.oystehr.com/obx-5-quantity-with-precision';
+
+export const DEFAULT_OYSTEHR_LABS_HL7_SYSTEM = '(HL7_V2)';
