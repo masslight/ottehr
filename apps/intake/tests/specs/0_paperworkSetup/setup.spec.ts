@@ -364,7 +364,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
 });
 
 test.describe.parallel('Telemed: Create test patients and appointments', () => {
-  test('Create prebook patient with self-pay and card payment prebook appointment', async ({ browser, page }) => {
+  test('Create patient without self-pay with insurance payment prebook appointment', async ({ browser, page }) => {
     const { prebookFlowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
       const context = await browser.newContext();
       page = await context.newPage();
@@ -429,10 +429,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
   });
 
-  test('Create walk-in patient without self-pay with insurance payment walk-in appointment', async ({
-    browser,
-    page,
-  }) => {
+  test('Create patient with self-pay and card payment walk-in appointment', async ({ browser, page }) => {
     const { walkInFlowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
       const context = await browser.newContext();
       page = await context.newPage();
