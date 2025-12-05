@@ -22,6 +22,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const [isLaunchingViewer, setIsLaunchingViewer] = useState(false);
   const [launchViewerError, setLaunchViewerError] = useState<string | null>(null);
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
+  const [isSavingPreliminaryReport, setIsSavingPreliminaryReport] = useState(false);
   const [isSendingForFinalRead, setIsSendingForFinalRead] = useState(false);
 
   const { orders, loading } = usePatientRadiologyOrders({
@@ -38,16 +39,19 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
       return;
     }
 
+    setIsSavingPreliminaryReport(true);
     try {
       if (oystehrZambda) {
         await savePreliminaryReport(oystehrZambda, { serviceRequestId, preliminaryReport });
+        window.location.reload();
       } else {
         console.log('oystehrZambda is not defined');
       }
-      // Handle successful save (e.g., show a success message)
     } catch (error) {
       console.error('Error saving preliminary report:', error);
-      // Handle error (e.g., show an error message)
+      alert('An error occurred while saving preliminary report');
+    } finally {
+      setIsSavingPreliminaryReport(false);
     }
   }, [oystehrZambda, serviceRequestId, preliminaryReport]);
 
@@ -218,8 +222,10 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                         textTransform: 'none',
                       }}
                       onClick={handleSavePreliminaryReport}
+                      disabled={isSavingPreliminaryReport}
+                      endIcon={isSavingPreliminaryReport ? <CircularProgress size={16} color="inherit" /> : null}
                     >
-                      Save Preliminary Report
+                      {isSavingPreliminaryReport ? '' : 'Save Preliminary Report'}
                     </Button>
                   </Box>
                 </Box>
@@ -280,8 +286,9 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 }}
                 onClick={handleSendForFinalRead}
                 disabled={isSendingForFinalRead}
+                endIcon={isSendingForFinalRead ? <CircularProgress size={16} color="inherit" /> : null}
               >
-                {isSendingForFinalRead ? 'Sending...' : 'Send for Final Read'}
+                {isSendingForFinalRead ? '' : 'Send for Final Read'}
               </Button>
             )}
           </Box>
