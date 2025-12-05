@@ -27,6 +27,7 @@ import {
   formatDateToMDYWithTime,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
+  getFullestAvailableName,
   getInsuranceNameFromCoverage,
   PaymentVariant,
   PRACTITIONER_CODINGS,
@@ -128,10 +129,14 @@ export const Header = (): JSX.Element => {
   const theme = useTheme();
 
   const {
-    resources: { appointment, patient, encounter: encounterValues, location: locationResource },
+    resources: { appointment: appointmentValues, patient, encounter: encounterValues },
     mappedData,
+    appointment,
+    practitioners,
+    group,
+    location,
+    locations,
     encounter,
-    visitState,
     appointmentRefetch,
     selectedEncounterId,
   } = useAppointmentData();
@@ -143,31 +148,56 @@ export const Header = (): JSX.Element => {
     patientId: patient?.id ?? null,
   });
 
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
+
   const { chartData } = useChartData();
-  const { location } = visitState;
+
   const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
 
-  const start = encounter?.period?.start ?? appointment?.start;
+  const start = encounter?.period?.start ?? appointmentValues?.start;
 
-  let locationName = '';
+  let optionalVisitLabel = '';
 
-  const locationRef = encounter?.location?.[0]?.location?.reference;
-  if (locationRef) {
-    const locationId = locationRef.split('/')[1];
-    const allLocations = [...(visitState?.location ? [visitState.location] : []), ...[locationResource]];
-    const matchedLocation = allLocations.find((loc) => loc?.id === locationId);
+  if (isFollowup) {
+    const locationRef = encounter?.location?.[0]?.location?.reference;
+    if (locationRef) {
+      const locationId = locationRef.split('/')[1];
+      const matchedLocation = locations.find((location) => location?.id === locationId);
 
-    locationName = matchedLocation?.name ?? '';
+      optionalVisitLabel = matchedLocation?.name ?? '';
+    }
+  } else {
+    if (!optionalVisitLabel && appointment?.participant?.length) {
+      const nonPatientParticipant = appointment.participant.find(
+        (p) => typeof p?.actor?.reference === 'string' && !p.actor.reference.includes('Patient/')
+      );
+
+      const ref = nonPatientParticipant?.actor?.reference;
+
+      if (ref) {
+        const [type, id] = ref.split('/');
+
+        if (type === 'Location' && location?.name) {
+          optionalVisitLabel = location.name;
+        }
+
+        if (type === 'HealthcareService' && group?.name) {
+          optionalVisitLabel = group.name;
+        }
+
+        const visitOwner = practitioners?.find((p) => p?.id === id);
+        if (type === 'Practitioner' && visitOwner) {
+          optionalVisitLabel = getFullestAvailableName(visitOwner) ?? '';
+        }
+      }
+    }
   }
-
-  locationName = locationName || location?.name || '';
 
   const userTimezone = DateTime.local().zoneName;
   const { date = '', time = '' } = formatDateToMDYWithTime(start, userTimezone) ?? {};
-  const visitText = `Visit: ${date} ${time}${locationName ? ` | ${locationName}` : ''}`.trim();
+  const visitText = `Visit: ${date} ${time}${optionalVisitLabel ? ` | ${optionalVisitLabel}` : ''}`.trim();
 
-  const { visitType } = useGetAppointmentAccessibility();
-  const isFollowup = visitType === 'follow-up';
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
   const paymentVariant = formatLabelValue(
@@ -217,7 +247,7 @@ export const Header = (): JSX.Element => {
     }
   }, [shouldRefetchPractitioners, refetch]);
 
-  const reasonForVisit = formatLabelValue(appointment?.description, 'Reason for Visit');
+  const reasonForVisit = formatLabelValue(appointmentValues?.description, 'Reason for Visit');
   const userId = formatLabelValue(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const {
@@ -329,7 +359,7 @@ export const Header = (): JSX.Element => {
                   <Grid item>
                     <Link
                       component={RouterLink}
-                      to={`/visit/${appointment?.id}`}
+                      to={`/visit/${appointmentValues?.id}`}
                       variant="body2"
                       sx={{
                         color: theme.palette.text.secondary,

@@ -12,6 +12,7 @@ import {
   DocumentReference,
   Encounter,
   FhirResource,
+  HealthcareService,
   Location,
   Patient,
   Practitioner,
@@ -58,7 +59,9 @@ export type AppointmentTelemedState = {
   patient: Patient | undefined;
   location: Location | undefined;
   locationVirtual: Location | undefined;
-  practitioner?: Practitioner;
+  locations: Location[];
+  practitioners?: Practitioner[];
+  group?: HealthcareService;
   followUpOriginEncounter: Encounter;
   encounter: Encounter;
   followupEncounters?: Encounter[];
@@ -135,7 +138,8 @@ const APPOINTMENT_INITIAL: AppointmentTelemedState & AppointmentRawResourcesStat
   patient: undefined,
   location: undefined,
   locationVirtual: undefined,
-  practitioner: undefined,
+  locations: [],
+  practitioners: [],
   followUpOriginEncounter: {} as Encounter,
   encounter: {} as Encounter,
   followupEncounters: [],
@@ -289,6 +293,8 @@ export type AppointmentResources =
   | DocumentReference
   | Encounter
   | Location
+  | HealthcareService
+  | Practitioner
   | Patient
   | QuestionnaireResponse;
 
@@ -333,12 +339,10 @@ const selectAppointmentData = (
     appointment,
     patient,
     location,
-    locationVirtual: (
-      data?.filter((resource: FhirResource) => resource.resourceType === 'Location') as Location[]
-    ).find(isLocationVirtual),
-    practitioner: data?.find(
-      (resource: FhirResource) => resource.resourceType === 'Practitioner'
-    ) as unknown as Practitioner,
+    locationVirtual: (data?.filter((resource) => resource.resourceType === 'Location') || []).find(isLocationVirtual),
+    locations: data?.filter((resource): resource is Location => resource.resourceType === 'Location'),
+    practitioners: data?.filter((resource): resource is Practitioner => resource.resourceType === 'Practitioner'),
+    group: data?.find((resource): resource is HealthcareService => resource.resourceType === 'HealthcareService'),
     followUpOriginEncounter,
     encounter: followUpOriginEncounter, // Default to main encounter, will be updated by hook
     followupEncounters,
@@ -409,6 +413,14 @@ const useGetAppointment = (
               {
                 name: '_include',
                 value: 'Appointment:location',
+              },
+              {
+                name: '_include',
+                value: 'Appointment:practitioner',
+              },
+              {
+                name: '_include',
+                value: 'Appointment:actor:HealthcareService',
               },
               {
                 name: '_include:iterate',
