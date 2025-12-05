@@ -32,6 +32,7 @@ const BRANDING_DEFAULTS: any = {
   },*/
 };
 
+// todo: use mergeAndFreezeConfigObjects from helpers.ts
 const mergedBrandingConfig = _.merge({ ...BRANDING_DEFAULTS }, { ...overrides });
 
 const BrandingConfigSchema = z.object({

@@ -41,11 +41,11 @@ import {
   isDropdownComponent,
   isInPersonAppointment,
   isMultiSelectComponent,
+  LabDocumentRelatedToDiagnosticReport,
   mapDispositionTypeToLabel,
   mapVitalsToDisplay,
   NOTE_TYPE,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
-  OttehrGeneratedResultDocument,
   Pagination,
   PatientLabItem,
   patientScreeningQuestionsConfig,
@@ -96,7 +96,7 @@ type AllChartData = {
     observations: Observation[];
     pagination: Pagination;
     diagnosticReports: DiagnosticReport[];
-    resultsPDFs: OttehrGeneratedResultDocument[];
+    resultsPDFs: LabDocumentRelatedToDiagnosticReport[];
     currentPractitioner?: Practitioner;
     appointmentScheduleMap: Record<string, Schedule>;
   };

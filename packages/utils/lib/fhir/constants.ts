@@ -124,6 +124,9 @@ export const FHIR_EXTENSION = {
     insuranceRequirements: {
       url: `${PUBLIC_EXTENSION_BASE_URL}/insurance-requirements`,
     },
+    notes: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/notes`,
+    },
   },
   QuestionnaireResponse: {
     ipAddress: {
@@ -661,7 +664,7 @@ export const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
 export const TASK_ASSIGNED_DATE_TIME_EXTENSION_URL = ottehrExtensionUrl('task-assigned-date-time');
 
 export const RCM_TASK_SYSTEM = ottehrCodeSystemUrl('rcm-task');
-// note: be careful, one of these codes are hardcoded in ottehr-spec.json in SUB-SEND-INVOICE-TO-PATIENT endpoint
+// note: be careful, one of these codes are hardcoded in zambdas config file in SUB-SEND-INVOICE-TO-PATIENT endpoint
 export enum RcmTaskCode {
   sendInvoiceToPatient = 'send-invoice-to-patient',
   sendInvoiceOutputInvoiceId = 'send-invoice-output-invoice-Id',

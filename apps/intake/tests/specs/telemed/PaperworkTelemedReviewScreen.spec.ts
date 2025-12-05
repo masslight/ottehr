@@ -1,6 +1,11 @@
 // cSpell:ignore networkidle, PRST
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { chooseJson, CreateAppointmentResponse } from 'utils';
+import {
+  chooseJson,
+  CreateAppointmentResponse,
+  getPrivacyPolicyLinkDefForLocation,
+  getTermsAndConditionsLinkDefForLocation,
+} from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
@@ -39,6 +44,7 @@ test.afterAll(async () => {
   await page.close();
   await context.close();
 });
+const REVIEW_PAGE_ID = 'REVIEW_PAGE';
 
 test.describe('Paperwork.Review and Submit - Check Complete/Missing chips', () => {
   test.describe.configure({ mode: 'serial' });
@@ -127,10 +133,22 @@ test.describe('Paperwork.Review and Submit - Check values', () => {
     );
   });
   test('PRST-9 Check privacy policy link', async () => {
-    await commonLocatorsHelper.checkLinkOpensPdf(locator.privacyPolicyReviewScreen);
+    const privacyLinkDef = getPrivacyPolicyLinkDefForLocation(REVIEW_PAGE_ID);
+    if (privacyLinkDef === undefined) {
+      await expect(locator.privacyPolicyReviewScreen).not.toBeVisible();
+      return;
+    }
+    const link = page.locator(`[data-testid="${privacyLinkDef.testId}"]`);
+    await commonLocatorsHelper.checkLinkOpensPdf(link);
   });
   test('PRST-10 Check terms and conditions link', async () => {
-    await commonLocatorsHelper.checkLinkOpensPdf(locator.termsAndConditions);
+    const termsLinkDef = getTermsAndConditionsLinkDefForLocation(REVIEW_PAGE_ID);
+    if (termsLinkDef === undefined) {
+      await expect(locator.termsAndConditions).not.toBeVisible();
+      return;
+    }
+    const link = page.locator(`[data-testid="${termsLinkDef.testId}"]`);
+    await commonLocatorsHelper.checkLinkOpensPdf(link);
   });
 });
 test.describe('Paperwork.Review and Submit - Check edit icons', () => {

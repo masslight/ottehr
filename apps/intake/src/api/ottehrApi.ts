@@ -450,7 +450,7 @@ class API {
 
   async getQuestionnaire(input: GetQuestionnaireParams, zambdaClient: ZambdaClient): Promise<GetQuestionnaireResponse> {
     try {
-      const response = await zambdaClient.execute('get-questionnaire-patient', input);
+      const response = await zambdaClient.execute('get-booking-questionnaire', input);
       const jsonToUse = chooseJson(response);
       return jsonToUse as GetQuestionnaireResponse;
     } catch (error: unknown) {

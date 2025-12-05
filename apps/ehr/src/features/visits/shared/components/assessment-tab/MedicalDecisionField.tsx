@@ -26,8 +26,11 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
   });
 
   useEffect(() => {
-    if (!methods.getValues('medicalDecision') && chartData?.medicalDecision?.text) {
-      methods.setValue('medicalDecision', chartData.medicalDecision.text);
+    const newValue = chartData?.medicalDecision?.text || '';
+    const currentValue = methods.getValues('medicalDecision');
+
+    if (newValue !== currentValue) {
+      methods.setValue('medicalDecision', newValue);
     }
   }, [chartData?.medicalDecision?.text, methods]);
 

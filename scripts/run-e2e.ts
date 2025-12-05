@@ -2,15 +2,16 @@ import { execSync, spawn } from 'child_process';
 import { DateTime } from 'luxon';
 import path from 'path';
 
+const isCI = Boolean(process.env.CI);
 const ENV = process.env.ENV?.trim?.() || 'local';
 const INTEGRATION_TEST = process.env.INTEGRATION_TEST || 'false';
 const isUI = process.argv.includes('--ui');
 const isLoginOnly = process.argv.includes('--login-only');
 const isSpecsOnly = process.argv.includes('--specs-only');
-const isLocal = ENV === 'local';
+const isEnvWithZambdaLocalServer = ENV === 'local';
+const isEnvWithFrontendLocalServer = ENV === 'local' || ENV === 'e2e' || isCI;
 const testFileArg = process.argv.find((arg) => arg.startsWith('--test-file='));
 const testFile = testFileArg ? testFileArg.split('=')[1] : undefined;
-const isCI = Boolean(process.env.CI);
 const supportedApps = ['ehr', 'intake'] as const;
 
 const ports = {
@@ -26,6 +27,7 @@ const envMapping = {
     development: 'development',
     staging: 'staging',
     testing: 'testing',
+    e2e: 'e2e',
   },
   intake: {
     local: 'default',
@@ -33,6 +35,7 @@ const envMapping = {
     development: 'development',
     staging: 'staging',
     testing: 'testing',
+    e2e: 'e2e',
   },
 } as const;
 
@@ -163,10 +166,13 @@ const waitForZambdas = async (): Promise<void> => {
 };
 
 const startApps = async (): Promise<void> => {
-  startZambdas();
-  console.log('Waiting for zambdas to be ready...');
-  await waitForZambdas();
-  console.log('Zambdas are ready');
+  if (isEnvWithZambdaLocalServer) {
+    startZambdas();
+    console.log('Waiting for zambdas to be ready...');
+    await waitForZambdas();
+    console.log('Zambdas are ready');
+  }
+
   for (const app of supportedApps) {
     console.log(`Starting ${app} application...`);
     await startApp(app);
@@ -271,7 +277,7 @@ async function main(): Promise<void> {
   clearPorts();
   await setupTestDeps();
 
-  if (isLocal || isCI) {
+  if (isEnvWithFrontendLocalServer) {
     await startApps();
   }
 
