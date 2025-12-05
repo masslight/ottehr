@@ -5,6 +5,7 @@ import { DiagnosticReport, Reference } from 'fhir/r5';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
+  createOurDiagnosticReport,
   fetchServiceRequestFromAdvaPACS,
   getSecret,
   RoleType,
@@ -80,9 +81,19 @@ async function performEffect(
 
   // Create a DiagnosticReport in AdvaPACS with the preliminary report
   console.group('Creating DiagnosticReport in AdvaPACS');
-  await createDiagnosticReportInAdvaPACS(advaPacsServiceRequest, preliminaryReport, secrets);
+  const advaPacsDiagnosticReport = await createDiagnosticReportInAdvaPACS(
+    advaPacsServiceRequest,
+    preliminaryReport,
+    secrets
+  );
   console.groupEnd();
   console.debug('DiagnosticReport created successfully in AdvaPACS');
+
+  // Create a DiagnosticReport in Oystehr with the preliminary report
+  console.group('Creating DiagnosticReport in Oystehr');
+  await createOurDiagnosticReport(serviceRequest, advaPacsDiagnosticReport, oystehr);
+  console.groupEnd();
+  console.debug('DiagnosticReport created successfully in Oystehr');
 
   return {};
 }

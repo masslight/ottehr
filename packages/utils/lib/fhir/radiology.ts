@@ -1,4 +1,6 @@
-import { ServiceRequest } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { getSecret, Secrets, SecretsKeys } from 'utils';
 
 // cSpell:ignore: ACSN, PLAC
@@ -82,4 +84,50 @@ export const fetchServiceRequestFromAdvaPACS = async (
   }
 
   return maybeAdvaPACSSr.entry[0].resource as ServiceRequest;
+};
+
+export const createOurDiagnosticReport = async (
+  serviceRequest: ServiceRequest,
+  pacsDiagnosticReport: DiagnosticReport,
+  oystehr: Oystehr
+): Promise<void> => {
+  const diagnosticReportToCreate: DiagnosticReport = {
+    resourceType: 'DiagnosticReport',
+    status: pacsDiagnosticReport.status,
+    subject: serviceRequest.subject,
+    basedOn: [
+      {
+        reference: `ServiceRequest/${serviceRequest.id}`,
+      },
+    ],
+    identifier: [
+      {
+        system: ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
+        value: pacsDiagnosticReport.id,
+      },
+    ],
+    code: pacsDiagnosticReport.code ?? {
+      // Advapacs does not send a code even though it is required in the FHIR spec
+      coding: [
+        {
+          system: 'http://loinc.org',
+          code: '18748-4',
+          display: 'Radiology Report',
+        },
+      ],
+    },
+    presentedForm: pacsDiagnosticReport.presentedForm,
+  };
+
+  if (pacsDiagnosticReport.status === 'preliminary') {
+    diagnosticReportToCreate.extension = [
+      {
+        url: DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+        valueDateTime: DateTime.now().toISO(),
+      },
+    ];
+  }
+
+  const createResult = await oystehr.fhir.create<DiagnosticReport>(diagnosticReportToCreate);
+  console.log('Created our DiagnosticReport: ', JSON.stringify(createResult, null, 2));
 };
