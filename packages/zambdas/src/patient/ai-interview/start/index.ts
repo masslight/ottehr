@@ -23,7 +23,7 @@ import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
 
-const INITIAL_USER_MESSAGE = `Perform a medical history intake session in the manner of a physician  preparing me or my dependent for an urgent care visit, without using a fake name:
+const INITIAL_USER_MESSAGE_URGENT_CARE = `Perform a medical history intake session in the manner of a physician preparing me or my dependent for an urgent care visit, without using a fake name:
 •	Use a friendly and concerned physician's tone
 •	Determine who the patient is
 •	Ask only one question at a time.
@@ -34,7 +34,7 @@ const INITIAL_USER_MESSAGE = `Perform a medical history intake session in the ma
 •	If I give vague or incomplete answers, ask a brief follow-up before moving on.
 •	When you have gathered all useful information, end by saying: "No further questions, thanks for chatting. We've sent the information to your nurse or doctor to review. ${INTERVIEW_COMPLETED}"`;
 
-const INITIAL_USER_MESSAGE_2 = `Perform a medical history intake session in the manner of a physician doing patient intake for a potential job related injury.
+const INITIAL_USER_MESSAGE_INJURY_JOB = `Perform a medical history intake session in the manner of a physician doing patient intake for a potential job related injury.
 • Use a friendly and concerned physician's tone, but do not give yourself a name
 • Determine who the patient is
 • Ask only one question at a time.
@@ -42,7 +42,6 @@ const INITIAL_USER_MESSAGE_2 = `Perform a medical history intake session in the 
 • Don't number the questions.
 
 Be sure to cover the following:
-
 When did the injury happen?
 How did the injury happen?
 What body part(s) got injured?
@@ -55,7 +54,6 @@ Body part(s) affected
 Symptoms noted at time of injury
 
 If this was related to an auto-accident, cover these topics:
-
 Patient's role (driver, passenger, pedestrian, cyclist)
 Type of collision (rear-end, T-bone, head-on, rollover, etc.)
 Speed estimate (if available)
@@ -64,7 +62,6 @@ Any loss of consciousness
 Immediate symptoms
 
 If time permits ask about past medical history, past surgical history, medications, allergies, family history, social history, hospitalizations, and relevant review of systems.
-
 • Phrase questions in a clear, patient-friendly way that keeps the conversation moving quickly.
 • If I give vague or incomplete answers, ask a brief follow-up before moving on.
 • When you have gathered all useful information, end by saying: "No further questions, thanks for chatting. We've sent the information to your nurse or doctor to review. ${INTERVIEW_COMPLETED}"`;
@@ -113,7 +110,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
     let questionnaireResponse: QuestionnaireResponse;
     const existingQuestionnaireResponse = await findAIInterviewQuestionnaireResponse(encounterId, oystehr);
-    let prompt = INITIAL_USER_MESSAGE;
+    let prompt = INITIAL_USER_MESSAGE_URGENT_CARE;
 
     if (
       appointment.serviceCategory?.find(
@@ -125,7 +122,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       )
     ) {
       console.log('Using workers compensation prompt');
-      prompt = INITIAL_USER_MESSAGE_2;
+      prompt = INITIAL_USER_MESSAGE_INJURY_JOB;
     }
 
     if (existingQuestionnaireResponse != null) {
@@ -222,7 +219,7 @@ async function createQuestionnaireResponse(
         linkId: '0',
         answer: [
           {
-            valueString: INITIAL_USER_MESSAGE,
+            valueString: prompt,
           },
         ],
       },

@@ -174,7 +174,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     if (mechanismOfInjury) {
-      // convert mechanism of injury to Conditions preserve FHIR resource ID, add to encounter
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
           makeConditionResource(encounterId, patient.id, mechanismOfInjury, 'mechanism-of-injury')

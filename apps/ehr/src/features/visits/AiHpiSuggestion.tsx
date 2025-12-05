@@ -24,7 +24,7 @@ export const AiHpiSuggestion: FC = () => {
   return (
     <>
       <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
-      {aiMechanismOfInjury && aiMechanismOfInjury.length > 0 && (
+      {aiHistoryOfPresentIllness && aiHistoryOfPresentIllness.length > 0 && (
         <>
           <AiSuggestion
             title="History of Present Illness (HPI)"
@@ -33,7 +33,7 @@ export const AiHpiSuggestion: FC = () => {
           />
         </>
       )}
-      {aiHistoryOfPresentIllness && aiHistoryOfPresentIllness.length > 0 && (
+      {aiMechanismOfInjury && aiMechanismOfInjury.length > 0 && (
         <>
           <AiSuggestion title="Mechanism of Injury" chartData={chartData} content={aiMechanismOfInjury} />
         </>

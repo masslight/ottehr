@@ -8,8 +8,6 @@ import { useDebounceNotesField } from './shared/hooks/useDebounceNotesField';
 
 const mechanismOfInjurySuggestion = (
   <Tooltip
-    // open={true}
-    // placement="bottom-start"
     componentsProps={{
       tooltip: {
         sx: {
