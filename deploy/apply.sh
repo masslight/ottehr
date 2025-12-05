@@ -6,7 +6,7 @@ set -xeuo pipefail
 export ENV=${1:-local}
 
 AUTO_APPROVE="--auto-approve"
-if [ "${ENV}" = "local" ] && [ "${CI}" != "true" ]; then
+if [ "${ENV}" = "local" ] && [ "${CI:-false}" != "true" ]; then
   AUTO_APPROVE=""
 fi
 

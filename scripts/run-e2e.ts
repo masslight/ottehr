@@ -130,7 +130,17 @@ const setupTestDeps = async (): Promise<void> => {
         env: { ...process.env },
         cwd: path.join(process.cwd(), `apps/${app}`),
       });
+    } catch (error) {
+      console.error(`Failed to run setup-test-deps.js for ${app}`);
+      console.error(error?.message);
+      console.error(error?.stack);
+      clearPorts();
+      process.exit(1);
+    }
+  }
 
+  for (const app of supportedApps) {
+    try {
       // Run the e2e-test-setup.sh script with skip-prompts and current environment
       console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
       execSync(`bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV}`, {
@@ -138,7 +148,7 @@ const setupTestDeps = async (): Promise<void> => {
         env: { ...process.env, ENV },
       });
     } catch (error) {
-      console.error(`Failed to run setup-test-deps.js for ${app}`);
+      console.error(`Failed to run e2e-test-setup.js for ${app}`);
       console.error(error?.message);
       console.error(error?.stack);
       clearPorts();
