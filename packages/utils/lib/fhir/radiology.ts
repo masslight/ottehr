@@ -27,6 +27,10 @@ export const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL =
   'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-code';
 export const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL =
   'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-value-string';
+export const SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL =
+  'https://fhir.ottehr.com/Extension/service-request-needs-to-be-sent-to-teleradiology';
+export const SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL =
+  'https://fhir.ottehr.com/Extension/service-request-has-been-sent-to-teleradiology';
 
 /**
  * Fetches a ServiceRequest from AdvaPACS using the accession number

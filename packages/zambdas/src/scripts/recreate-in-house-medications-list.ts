@@ -1,6 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication } from 'fhir/r4b';
 import {
+  CODE_SYSTEM_CPT,
+  CODE_SYSTEM_HCPCS,
   CODE_SYSTEM_NDC,
   getMedicationName,
   InHouseMedicationInfo,
@@ -61,6 +63,22 @@ function createMedicationResource(inHouseMedInfo: InHouseMedicationInfo): Medica
           system: MEDICATION_DISPENSABLE_DRUG_ID,
           code: `${inHouseMedInfo.erxData.id}`, // drug id from erx medication search
         },
+        ...(inHouseMedInfo.CPT
+          ? [
+              {
+                system: CODE_SYSTEM_CPT,
+                code: inHouseMedInfo.CPT,
+              },
+            ]
+          : []),
+        ...(inHouseMedInfo.HCPCS
+          ? [
+              {
+                system: CODE_SYSTEM_HCPCS,
+                code: inHouseMedInfo.HCPCS,
+              },
+            ]
+          : []),
       ],
     },
   };

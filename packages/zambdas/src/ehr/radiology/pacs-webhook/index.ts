@@ -4,7 +4,19 @@ import { Operation } from 'fast-json-patch';
 import { DiagnosticReport, ServiceRequest } from 'fhir/r4b';
 import { ImagingStudy as ImagingStudyR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  ACCESSION_NUMBER_CODE_SYSTEM,
+  ADVAPACS_FHIR_BASE_URL,
+  ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
+  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+  getSecret,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
+  ORDER_TYPE_CODE_SYSTEM,
+  Secrets,
+  SecretsKeys,
+  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -12,16 +24,6 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import {
-  ACCESSION_NUMBER_CODE_SYSTEM,
-  ADVAPACS_FHIR_BASE_URL,
-  ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
-  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
-  HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
-  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
-  ORDER_TYPE_CODE_SYSTEM,
-  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
-} from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types

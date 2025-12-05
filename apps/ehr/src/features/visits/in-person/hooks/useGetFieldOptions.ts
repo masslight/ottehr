@@ -1,8 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
 import { useEffect, useMemo, useState } from 'react';
-import { UNIT_OPTIONS } from 'src/shared/utils';
-import { DiagnosisDTO, isLocationVirtual, MedicationApplianceRoutes, medicationApplianceRoutes, RoleType } from 'utils';
+import {
+  DiagnosisDTO,
+  isLocationVirtual,
+  MedicationApplianceRoutes,
+  medicationApplianceRoutes,
+  RoleType,
+  UNIT_OPTIONS,
+} from 'utils';
 import { getEmployees } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';

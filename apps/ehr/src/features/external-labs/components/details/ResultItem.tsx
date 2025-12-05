@@ -62,7 +62,9 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
         </Box>
       </Box>
 
-      {(resultDetails.resultType === 'final' || resultDetails.resultType === 'cancelled') && (
+      {(resultDetails.resultType === 'final' ||
+        resultDetails.resultType === 'cancelled' ||
+        resultDetails.resultType === 'corrected') && (
         <FinalCardView
           isUnsolicited={isUnsolicitedPage}
           resultPdfUrl={resultDetails.resultPdfUrl}
@@ -70,12 +72,11 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
           onMarkAsReviewed={onMarkAsReviewed}
           loading={loading}
           taskId={resultDetails.taskId}
-          labGeneratedResultUrl={resultDetails.labGeneratedResultUrl}
+          labGeneratedResultUrls={resultDetails.labGeneratedResultUrls}
         />
       )}
 
-      {/* todo will configure this for unsolicited results post mvp */}
-      {!isUnsolicitedPage && resultDetails.resultType === 'preliminary' && (
+      {resultDetails.resultType === 'preliminary' && (
         <PrelimCardView
           resultPdfUrl={resultDetails.resultPdfUrl}
           receivedDate={resultDetails.receivedDate}

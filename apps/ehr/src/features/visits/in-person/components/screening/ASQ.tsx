@@ -1,6 +1,7 @@
 import { Alert, FormControl, Grid, MenuItem, Paper, Select, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useAppointmentData, useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -104,6 +105,7 @@ export const ASQ: React.FC = () => {
               ASQ
             </Typography>
             <Select
+              data-testid={dataTestIds.screeningPage.asqQuestion}
               value={asqValue}
               onChange={(e) => {
                 handleASQChange(e.target.value as ASQKeys);

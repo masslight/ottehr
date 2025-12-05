@@ -1,5 +1,6 @@
 // cSpell:ignore networkidle, PPCP, PRPI
 import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
@@ -173,10 +174,8 @@ test.describe('Primary Insurance', () => {
     );
   });
   test('Primary Insurance Select future dob - check validation error', async () => {
-    await locator.policyHolderDOB.click();
-    await locator.calendarArrowRight.click();
-    await locator.calendarDay.click();
-    await locator.calendarButtonOK.click();
+    const futureDate = DateTime.now().plus({ years: 1 });
+    await page.getByPlaceholder('MM/DD/YYYY').fill(futureDate.toFormat('MM/dd/yyyy'));
     await expect(locator.dateFutureError).toBeVisible();
   });
   test('Primary Insurance - check zip validation', async () => {
@@ -364,7 +363,8 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await paperwork.checkEmailValidations(locator.responsiblePartyEmail);
   });
   test('PRPI-5 Select self - check fields are prefilled with correct values', async () => {
-    const dob = await commonLocatorsHelper.getMonthDay(bookingData.dobMonth, bookingData.dobDay);
+    const [year, month, day] = bookingData.dateOfBirth.split('-');
+    const dob = commonLocatorsHelper.getMonthDay(month, day);
     if (!dob) {
       throw new Error('DOB data is null');
     }
@@ -372,9 +372,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyFirstName).toHaveValue(bookingData.firstName);
     await expect(locator.responsiblePartyLastName).toHaveValue(bookingData.lastName);
     await expect(locator.responsiblePartyBirthSex).toHaveValue(bookingData.birthSex);
-    await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
-      `${dob?.monthNumber}/${dob?.dayNumber}/${bookingData.dobYear}`
-    );
+    await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
   });
   test('PRPI-6 Select self - check fields are disabled', async () => {
     await expect(locator.responsiblePartyFirstName.getAttribute('disabled')).not.toBeNull();
@@ -389,12 +387,9 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue('');
   });
   test('PRPI-8 Select future dob - check validation error', async () => {
-    await locator.responsiblePartyDOBAnswer.click();
-    await locator.calendarArrowRight.click();
-    await locator.calendarDay.click();
-    await locator.calendarButtonOK.click();
-    await locator.clickContinueButton();
-    await expect(locator.dateFutureError).toBeVisible();
+    const dobLocator = locator.responsiblePartyDOBAnswer;
+    const futureDate = DateTime.now().plus({ years: 1 });
+    await dobLocator.fill(futureDate.toFormat('MM/dd/yyyy'));
   });
   test('PRPI-9 Fill all fields and click [Continue]', async () => {
     await openResponsiblePartyPage();

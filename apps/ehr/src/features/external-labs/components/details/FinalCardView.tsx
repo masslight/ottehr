@@ -18,7 +18,7 @@ interface FinalCardViewProps {
   onMarkAsReviewed: () => void;
   loading: boolean;
   taskId?: string; // only for unsolicited
-  labGeneratedResultUrl?: string;
+  labGeneratedResultUrls?: string[];
 }
 
 export const FinalCardView: FC<FinalCardViewProps> = ({
@@ -28,7 +28,7 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
   onMarkAsReviewed,
   loading,
   taskId,
-  labGeneratedResultUrl,
+  labGeneratedResultUrls,
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -41,7 +41,7 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
 
   // todo later, this function is pretty much duplicated from /external-labs/pages/UnsolicitedResultsMatch.tsx
   // we should deduplicate
-  const handleReject = (): void => {
+  const handleRejectUnsolicitedResult = (): void => {
     if (taskId) {
       cancelTask(
         {
@@ -50,10 +50,10 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
         },
         {
           onSuccess: async () => {
-            await queryClient.invalidateQueries({
-              queryKey: [GET_TASKS_KEY],
-              exact: false,
-            });
+            await Promise.all([
+              queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false }),
+              queryClient.invalidateQueries({ queryKey: ['get unsolicited results resources'], exact: false }),
+            ]);
             navigate('/tasks');
           },
           onError: (error) => {
@@ -108,11 +108,11 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
         >
           View Results
         </Button>
-        {labGeneratedResultUrl && (
+        {labGeneratedResultUrls && (
           <Button
             variant="outlined"
             startIcon={<BiotechOutlinedIcon />}
-            onClick={() => openPdf(labGeneratedResultUrl)}
+            onClick={async () => await Promise.all(labGeneratedResultUrls.map((pdfUrl) => openPdf(pdfUrl)))}
             sx={{ borderRadius: '50px', textTransform: 'none', ml: '8px' }}
           >
             View Lab Generated Results
@@ -152,7 +152,7 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
                 }}
                 color="error"
                 size={'medium'}
-                onClick={handleReject}
+                onClick={handleRejectUnsolicitedResult}
               >
                 Reject
               </LoadingButton>

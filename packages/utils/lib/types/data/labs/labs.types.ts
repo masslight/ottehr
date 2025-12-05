@@ -12,6 +12,7 @@ import {
 } from 'fhir/r4b';
 import { DiagnosisDTO, LAB_DR_TYPE_TAG, Pagination } from '../..';
 
+// todo labs team - we should do some assessing of all our type files, our types feel a bit unorganized and as a result i think we have some redundancy
 export interface OrderableItemSearchResult {
   item: OrderableItem;
   lab: OrderableItemLab;
@@ -97,7 +98,7 @@ export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceived
 export type LabOrderResultDetails = {
   testItem: string;
   testType: 'ordered' | LabDrTypeTagCode;
-  resultType: 'final' | 'preliminary' | 'cancelled';
+  resultType: 'final' | 'preliminary' | 'cancelled' | 'corrected';
   labStatus: ExternalLabsStatus;
   diagnosticReportId: string;
   taskId: string;
@@ -105,7 +106,7 @@ export type LabOrderResultDetails = {
   reviewedDate: string | null;
   resultPdfUrl: string | null;
   alternatePlacerId: string | undefined; // DR.identifier (system ==== OYSTEHR_LABS_ADDITIONAL_PLACER_ID_SYSTEM)
-  labGeneratedResultUrl?: string;
+  labGeneratedResultUrls?: string[];
 };
 
 export type QuestionnaireData = {
@@ -134,6 +135,7 @@ export type LabOrderListPageDTO = {
   encounterTimezone: string | undefined; // used to format dates correctly on the front end
   orderNumber: string | undefined; // ServiceRequest.identifier.value (system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
   abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_LAB_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
+  orderPdfUrl: string | undefined; // will exist after order is submitted, DocRef containing LAB_ORDER_DOC_REF_CODING_CODE type
   location: Location | undefined; // Location that ordered the test. Was previously not required for lab orders, so can be undefined
 };
 
@@ -144,7 +146,6 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   questionnaire: QuestionnaireData[];
   samples: sampleDTO[];
   labelPdfUrl?: string; // will exist after test is marked ready
-  orderPdfUrl?: string; // will exist after order is submitted
 };
 
 export type UnsolicitedLabListPageDTO = {
@@ -212,6 +213,7 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
 type orderBundleDTO = {
   bundleName: string;
   abnPdfUrl: string | undefined;
+  orderPdfUrl: string | undefined;
   orders: (LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO)[];
 };
 export type LabOrderListPageDTOGrouped = {
@@ -411,26 +413,51 @@ export interface GetLabelPdfParameters {
   contextRelatedReference: Reference;
   searchParams: { name: string; value: string }[];
 }
-export interface LabDocument {
-  type: 'abn' | 'lab-generated-result';
-  documentReference: DocumentReference;
+export interface LabDocumentByRequisition {
+  [requisitionNumber: string]: LabDocument;
+}
+export enum LabDocumentType {
+  labGeneratedResult = 'lab-generated-result',
+  ottehrGeneratedResult = 'ottehr-generated-result',
+  abn = 'abn',
+  orderPdf = 'order-pdf',
+  label = 'label',
+}
+export interface LabDocumentBase {
+  docRefId: string;
   presignedURL: string;
+}
+export interface LabGeneratedResultDocument extends LabDocumentBase {
+  type: LabDocumentType.labGeneratedResult;
+  relatedResultReferences: string[]; // diagnostic reports linked via DocumentReference.context.related
+}
+export interface OttehrGeneratedResultDocument extends LabDocumentBase {
+  type: LabDocumentType.ottehrGeneratedResult;
+  diagnosticReportId: string;
+}
+export interface LabDocumentRelatedToServiceRequest extends LabDocumentBase {
+  type: LabDocumentType.abn | LabDocumentType.orderPdf;
+  serviceRequestId: string;
 }
 export interface LabelPdf {
+  type: LabDocumentType.label;
   documentReference: DocumentReference;
   presignedURL: string;
 }
 
-export type LabOrderPDF = {
-  presignedURL: string;
-  serviceRequestId: string;
-  docRefId: string;
-};
+export type LabDocument =
+  | LabGeneratedResultDocument
+  | OttehrGeneratedResultDocument
+  | LabDocumentRelatedToServiceRequest
+  | LabelPdf;
 
-export type LabResultPDF = {
-  presignedURL: string;
-  diagnosticReportId: string;
-};
+export interface ExternalLabDocuments {
+  labelPDF: LabelPdf | undefined;
+  orderPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;
+  abnPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;
+  labGeneratedResults: LabGeneratedResultDocument[] | undefined;
+  resultPDFs: OttehrGeneratedResultDocument[] | undefined;
+}
 
 export enum UnsolicitedResultsRequestType {
   UNSOLICITED_RESULTS_ICON = 'unsolicited-results-icon',

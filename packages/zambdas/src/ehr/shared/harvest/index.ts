@@ -83,7 +83,6 @@ import {
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   isValidUUID,
-  LanguageOption,
   mapBirthSexToGender,
   OrderedCoverages,
   OrderedCoveragesWithSubscribers,
@@ -141,6 +140,12 @@ interface EmergencyContact {
   lastName: string;
   relationship: 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
   number: string;
+  addressLine?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  addressSameAsPatient?: boolean;
 }
 
 interface PolicyHolder {
@@ -881,21 +886,23 @@ export function createMasterRecordPatchOperations(
         // Special handler for preferred-language
         if (item.linkId === 'preferred-language') {
           const currentValue = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
-          if (isAnswerEmpty) {
+          const otherItem = flattenedPaperwork.find((item) => item.linkId === 'other-preferred-language');
+          const otherValue = otherItem ? extractValueFromItem(otherItem) : undefined;
+          const newValue = value === 'Other' ? otherValue : value;
+          if (!newValue || newValue === '') {
             if (currentValue) {
               const operation = getPatchOperationToRemovePreferredLanguage(patient);
               if (operation) tempOperations.patient.push(operation);
             }
             return;
-          } else if (value !== currentValue) {
+          } else if (newValue !== currentValue) {
             const operation = getPatchOperationToAddOrUpdatePreferredLanguage(
-              value as LanguageOption,
+              newValue as string,
               path,
               patient,
-              currentValue as LanguageOption | undefined
+              currentValue as string | undefined
             );
-
-            if (operation) tempOperations.patient.push(operation);
+            tempOperations.patient.push(operation);
           }
           return;
         }
@@ -1145,14 +1152,33 @@ export const createUpdatePharmacyPatchOps = (
   patient: Patient,
   flattenedItems: QuestionnaireResponseItem[]
 ): Operation[] => {
-  const inputPharmacyName = getAnswer('pharmacy-name', flattenedItems)?.valueString;
-  const inputPharmacyAddress = getAnswer('pharmacy-address', flattenedItems)?.valueString;
-  const newContained = (patient.contained ?? []).filter((resource) => resource.id !== PATIENT_CONTAINED_PHARMACY_ID);
-  const newExtensions = (patient.extension ?? []).filter(
-    (extension) => extension.url !== PREFERRED_PHARMACY_EXTENSION_URL
-  );
+  const pharmacyNameAnswer = getAnswer('pharmacy-name', flattenedItems);
+  const pharmacyAddressAnswer = getAnswer('pharmacy-address', flattenedItems);
+
+  // Check if pharmacy fields are present in the questionnaire response
+  const hasPharmacyFields = pharmacyNameAnswer !== undefined || pharmacyAddressAnswer !== undefined;
+
+  // Check if patient currently has pharmacy data
+  const hasExistingPharmacy =
+    patient.contained?.some((resource) => resource.id === PATIENT_CONTAINED_PHARMACY_ID) ||
+    patient.extension?.some((extension) => extension.url === PREFERRED_PHARMACY_EXTENSION_URL);
+
+  // If no pharmacy fields in questionnaire and no existing pharmacy, no action needed
+  if (!hasPharmacyFields && !hasExistingPharmacy) {
+    return [];
+  }
+
+  const inputPharmacyName = pharmacyNameAnswer?.valueString;
+  const inputPharmacyAddress = pharmacyAddressAnswer?.valueString;
+
+  const operations: Operation[] = [];
+
+  const currentContained = patient.contained ?? [];
+  const filteredContained = currentContained.filter((resource) => resource.id !== PATIENT_CONTAINED_PHARMACY_ID);
+
+  // Add new pharmacy if provided
   if (inputPharmacyName || inputPharmacyAddress) {
-    const pharmacy: Organization = {
+    filteredContained.push({
       resourceType: 'Organization',
       id: PATIENT_CONTAINED_PHARMACY_ID,
       name: inputPharmacyName ?? '-',
@@ -1164,31 +1190,58 @@ export const createUpdatePharmacyPatchOps = (
             },
           ]
         : undefined,
-    };
-    newContained.push(pharmacy);
-    newExtensions.push({
+    });
+  }
+
+  // Create contained operation
+  if (patient.contained || filteredContained.length > 0) {
+    if (filteredContained.length === 0) {
+      operations.push({
+        op: 'remove',
+        path: '/contained',
+      });
+    } else {
+      operations.push({
+        op: patient.contained ? 'replace' : 'add',
+        path: '/contained',
+        value: filteredContained,
+      });
+    }
+  }
+
+  // Handle extension
+  const currentExtensions = patient.extension ?? [];
+  const filteredExtensions = currentExtensions.filter(
+    (extension) => extension.url !== PREFERRED_PHARMACY_EXTENSION_URL
+  );
+
+  // Add pharmacy reference if we have pharmacy data
+  if (inputPharmacyName || inputPharmacyAddress) {
+    filteredExtensions.push({
       url: PREFERRED_PHARMACY_EXTENSION_URL,
       valueReference: {
         reference: '#' + PATIENT_CONTAINED_PHARMACY_ID,
       },
     });
-    const containedOp = patient.contained ? 'replace' : 'add';
-    const extensionOp = patient.extension ? 'replace' : 'add';
-    const patchOps: Operation[] = [
-      {
-        op: containedOp,
-        path: '/contained',
-        value: newContained,
-      },
-      {
-        op: extensionOp,
-        path: '/extension',
-        value: newExtensions,
-      },
-    ];
-    return patchOps;
   }
-  return [];
+
+  // Create extension operation
+  if (patient.extension || filteredExtensions.length > 0) {
+    if (filteredExtensions.length === 0) {
+      operations.push({
+        op: 'remove',
+        path: '/extension',
+      });
+    } else {
+      operations.push({
+        op: patient.extension ? 'replace' : 'add',
+        path: '/extension',
+        value: filteredExtensions,
+      });
+    }
+  }
+
+  return operations;
 };
 
 function separateResourceUpdates(
@@ -1789,6 +1842,8 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
 export function extractEmergencyContact(items: QuestionnaireResponseItem[]): EmergencyContact | undefined {
   const findAnswer = (linkId: string): string | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+  const findBooleanAnswer = (linkId: string): boolean | undefined =>
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueBoolean;
 
   const contact: EmergencyContact = {
     middleName: findAnswer('emergency-contact-middle-name') ?? '',
@@ -1796,6 +1851,12 @@ export function extractEmergencyContact(items: QuestionnaireResponseItem[]): Eme
     lastName: findAnswer('emergency-contact-last-name') ?? '',
     relationship: findAnswer('emergency-contact-relationship') as 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other',
     number: findAnswer('emergency-contact-number') ?? '',
+    addressLine: findAnswer('emergency-contact-address') ?? undefined,
+    addressLine2: findAnswer('emergency-contact-address-2') ?? undefined,
+    city: findAnswer('emergency-contact-city') ?? undefined,
+    state: findAnswer('emergency-contact-state') ?? undefined,
+    zip: findAnswer('emergency-contact-zip') ?? undefined,
+    addressSameAsPatient: findBooleanAnswer('emergency-contact-address-as-patient'),
   };
 
   if (contact.firstName && contact.lastName && contact.number && contact.relationship) {
@@ -1803,6 +1864,37 @@ export function extractEmergencyContact(items: QuestionnaireResponseItem[]): Eme
   }
   return undefined;
 }
+
+const buildEmergencyContactAddress = (contact: EmergencyContact, patient: Patient): Address | undefined => {
+  if (contact.addressSameAsPatient) {
+    const patientAddress = patient.address?.[0];
+    if (patientAddress) {
+      return {
+        line: patientAddress.line ? [...patientAddress.line] : undefined,
+        city: patientAddress.city,
+        state: patientAddress.state,
+        postalCode: patientAddress.postalCode,
+      };
+    }
+  }
+
+  const { addressLine, addressLine2, city, state, zip } = contact;
+  const hasAddressData = addressLine || addressLine2 || city || state || zip;
+  if (!hasAddressData) {
+    return undefined;
+  }
+
+  const address: Address = {
+    line: [addressLine, addressLine2].filter(Boolean) as string[],
+    city,
+    state,
+    postalCode: zip,
+  };
+  if (!address.line?.length) {
+    delete address.line;
+  }
+  return address;
+};
 
 // note: this function assumes items have been flattened before being passed in
 interface InsuranceDetails {
@@ -2051,6 +2143,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   const guarantorData = extractAccountGuarantor(flattenedItems);
 
   const emergencyContactData = extractEmergencyContact(flattenedItems);
+  const emergencyContactAddress =
+    emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData, patient) : undefined;
   /*console.log(
     'insurance plan resources',
     JSON.stringify(insurancePlanResources, null, 2),
@@ -2207,6 +2301,11 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         ],
       },
     ];
+    if (emergencyContactAddress) {
+      emergencyContactResourceToPut.address = [emergencyContactAddress];
+    } else {
+      delete emergencyContactResourceToPut.address;
+    }
     puts.push({
       method: 'PUT',
       url: `RelatedPerson/${existingEmergencyContact.id}`,
@@ -2246,6 +2345,9 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         system: 'phone',
       },
     ];
+    if (emergencyContactAddress) {
+      emergencyContactResourceToCreate.address = [emergencyContactAddress];
+    }
     emergencyContactPost = {
       method: 'POST',
       url: 'RelatedPerson',

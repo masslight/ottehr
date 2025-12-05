@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { DEPLOYED_TELEMED_LOCATIONS } from 'utils';
+import { BOOKING_CONFIG, DEPLOYED_TELEMED_LOCATIONS, shouldShowServiceCategorySelectionPage } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { BaseTelemedFlow, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
 
@@ -34,6 +34,14 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
 
   async startVisitFullFlow(): Promise<StartVisitResponse> {
     await this.selectVisitAndContinue();
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
+      const availableCategories = BOOKING_CONFIG.serviceCategories || [];
+      const firstCategory = availableCategories[0]!;
+
+      if (firstCategory) {
+        await this.page.getByText(firstCategory.display).click();
+      }
+    }
     const slotAndLocation = await this.selectTimeLocationAndContinue();
     await this.selectDifferentFamilyMemberAndContinue();
     const patientBasicInfo = await this.fillNewPatientDataAndContinue();

@@ -16,10 +16,6 @@ import { createMedicationCopy } from '../create-update-medication-order/helpers'
 
 export const CONTAINED_MEDICATION_ID = 'medication';
 export const CONTAINED_EMERGENCY_CONTACT_ID = 'emergencyContact';
-export const MVX_CODE_SYSTEM_URL = 'http://hl7.org/fhir/sid/mvx';
-export const CVX_CODE_SYSTEM_URL = 'http://hl7.org/fhir/sid/cvx';
-export const VACCINE_ADMINISTRATION_CODES_EXTENSION_URL = ottehrExtensionUrl('vaccine-administration-codes');
-export const VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL = ottehrExtensionUrl('vaccine-administration-vis-date');
 export const IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL = ottehrExtensionUrl(
   'immunization-order-created-date-time'
 );

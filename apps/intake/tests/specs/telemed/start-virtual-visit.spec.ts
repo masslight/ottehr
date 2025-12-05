@@ -176,7 +176,7 @@ test.describe('Start virtual visit with required information only', async () => 
         )}`
       )
     ).toBeVisible();
-    await expect(page.locator("input[type='text'][id='email']")).toHaveValue(patientInfo?.email || '');
+    await expect(page.locator('#patient-email')).toHaveValue(patientInfo?.email || '');
   });
 
   test('Should fill in reason for visit', async () => {
@@ -193,10 +193,8 @@ test.describe('Start virtual visit with required information only', async () => 
     await fillingInfo.fillCorrectDOB(dob?.randomMonth ?? '', dob?.randomDay ?? '', dob?.randomYear ?? '');
     await clickContinueButton();
     await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
-
-    await expect(page.locator('#reasonForVisit')).toHaveText('Select...');
     const Reason = await fillingInfo.fillTelemedReasonForVisit();
-    await expect(page.locator('#reasonForVisit')).toHaveText(Reason);
+    await expect(page.locator('#reason-for-visit')).toHaveValue(Reason);
   });
 
   test("Should fill in correct patient's DOB", async () => {
@@ -409,7 +407,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
         )}`
       )
     ).toBeVisible();
-    await expect(page.locator("input[type='text'][id='email']")).toHaveValue(patientInfo?.email || '');
+    await expect(page.locator('#patient-email')).toHaveValue(patientInfo?.email || '');
   });
 
   test('Should fill in reason for visit', async () => {
@@ -427,9 +425,8 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
 
     await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
 
-    await expect(page.locator('#reasonForVisit')).toHaveText('Select...');
     const Reason = await fillingInfo.fillTelemedReasonForVisit();
-    await expect(page.locator('#reasonForVisit')).toHaveText(Reason);
+    await expect(page.locator('#reason-for-visit')).toHaveValue(Reason);
   });
 
   test('Should land on first paperwork page when appointment created', async () => {

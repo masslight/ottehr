@@ -1,5 +1,5 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { chooseJson, CreateAppointmentResponse } from 'utils';
+import { BOOKING_CONFIG, chooseJson, CreateAppointmentResponse, shouldShowServiceCategorySelectionPage } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { Locators } from '../../utils/locators';
 import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
@@ -38,6 +38,14 @@ test.afterAll(async () => {
 
 test('Should select state and time', async () => {
   await telemedFlow.selectVisitAndContinue();
+  if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
+    const availableCategories = BOOKING_CONFIG.serviceCategories || [];
+    const firstCategory = availableCategories[0]!;
+
+    if (firstCategory) {
+      await page.getByText(firstCategory.display).click();
+    }
+  }
   const slotAndLocation = await telemedFlow.selectTimeLocationAndContinue();
   firstAvailableTime = slotAndLocation.selectedSlot?.fullSlot ?? '';
   location = slotAndLocation.location!;
