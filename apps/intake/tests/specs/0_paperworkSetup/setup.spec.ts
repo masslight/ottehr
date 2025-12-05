@@ -106,7 +106,7 @@ async function bookSecondTelemedAppointment(
     .getByRole('heading', {
       name: new RegExp(`.*${bookingData.patientBasicInfo.firstName} ${bookingData.patientBasicInfo.lastName}.*`, 'i'),
     })
-    .locator('input[type="radio"]')
+    // .locator('input[type="radio"]')
     .click({ timeout: 40_000, noWaitAfter: true, force: true });
   await locator.continueButton.click();
   await fillingInfo.fillCorrectDOB(
@@ -239,7 +239,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
       await paperwork.clickProceedToPaperwork();
       const { stateValue, patientDetailsData, pcpData, insuranceData, secondaryInsuranceData, responsiblePartyData } =
         await paperwork.fillPaperworkAllFieldsInPerson('insurance', 'not-self');
-      await locator.finishButton.click();
+      await locator.continueButton.click();
       return {
         bookingData,
         stateValue,
