@@ -31,6 +31,7 @@ const AI_OBSERVATION_FIELDS = {
   [AiObservationField.Labs]: 'Labs',
   [AiObservationField.eRX]: 'eRX',
   [AiObservationField.Procedures]: 'Procedures',
+  [AiObservationField.MechanismOfInjury]: 'Mechanism of Injury',
 };
 
 interface OttehrAiProps {

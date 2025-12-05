@@ -2,7 +2,7 @@ import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest, ZambdaCreatePa
 import { Subscription } from 'fhir/r4b';
 import fs from 'fs';
 import { SubscriptionZambdaDetails } from 'utils';
-import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json';
+import zambdasSpec from '../../../../config/oystehr/zambdas.json';
 import { getAuth0Token } from '../shared';
 
 interface DeployZambda {
@@ -20,7 +20,7 @@ interface DeployZambda {
 
 const ZAMBDAS: { [name: string]: DeployZambda } = {};
 
-Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
+Object.entries(zambdasSpec.zambdas).forEach(([_key, spec]) => {
   const anySpec = spec as any;
   if (spec.type !== 'http_open' && spec.type !== 'http_auth' && spec.type !== 'subscription' && spec.type !== 'cron') {
     throw new Error('Invalid zambda type found in spec file. Must be one of: http_open, http_auth, subscription, cron');

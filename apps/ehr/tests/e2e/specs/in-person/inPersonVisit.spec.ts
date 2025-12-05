@@ -9,6 +9,7 @@ import {
   getConsentStepAnswers,
   getContactInformationAnswers,
   getEmergencyContactStepAnswers,
+  getEmployerInformationStepAnswers,
   getPatientDetailsStepAnswers,
   getPaymentOptionInsuranceAnswers,
   getResponsiblePartyStepAnswers,
@@ -112,6 +113,7 @@ test.describe('In-person visit', async () => {
           insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
         }),
         getResponsiblePartyStepAnswers({}),
+        getEmployerInformationStepAnswers({}),
         getEmergencyContactStepAnswers({}),
         getConsentStepAnswers({}),
       ];
@@ -179,14 +181,20 @@ test.describe('In-person visit', async () => {
       const progressNotePage = await expectInPersonProgressNotePage(page);
       await progressNotePage.verifyReviewAndSignButtonDisabled();
       await patientInfoPage.sideMenu().clickCcAndIntakeNotes();
-      await patientInfoPage.fillHPI();
-      await patientInfoPage.sideMenu().clickAssessment();
+      await patientInfoPage.fillChiefComplaints();
+      const hpiAndTemplatesPages = await patientInfoPage.sideMenu().clickHpiAndTemplates();
+      await hpiAndTemplatesPages.fillHPI();
+      await hpiAndTemplatesPages.sideMenu().clickAssessment();
       const assessmentPage = await expectAssessmentPage(page);
       await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
       await assessmentPage.selectEmCode(EM_CODE);
       await patientInfoPage.sideMenu().clickReviewAndSign();
       await progressNotePage.clickDischargeButton();
       await progressNotePage.clickReviewAndSignButton();
+      const supervisorCheckbox = page.getByTestId(dataTestIds.progressNotePage.supervisorApprovalCheckbox);
+      if (await supervisorCheckbox.isVisible()) {
+        await supervisorCheckbox.uncheck();
+      }
       await progressNotePage.clickSignButton();
       await patientInfoPage.inPersonHeader().verifyStatus('completed');
       await openVisitsPage(page);

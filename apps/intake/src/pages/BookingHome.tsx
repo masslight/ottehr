@@ -70,6 +70,7 @@ const useBookingStore = create<BookingState & BookingStoreActions>()(
           patientInfo: undefined,
           unconfirmedDateOfBirth: undefined,
         }));
+        sessionStorage.removeItem(PROGRESS_STORAGE_KEY);
       },
       handleLogout: () => {
         set(() => ({
@@ -105,6 +106,8 @@ export const useBookingContext = (): BookAppointmentContext => {
     ...outletContext,
   };
 };
+
+export const PROGRESS_STORAGE_KEY = 'patient-information-progress';
 
 // cSpell:ignore prepatient
 const isPostPatientSelectionPath = (basePath: string, pathToCheck: string): boolean => {
