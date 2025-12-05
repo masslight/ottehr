@@ -13,6 +13,7 @@ import {
   INVALID_INPUT_ERROR,
   mapQuestionnaireAndValueSetsToItemsList,
   MISSING_REQUEST_BODY,
+  prepopulateBookingForm,
   Secrets,
   SecretsKeys,
   ServiceCategoryCode,
@@ -87,7 +88,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetQ
   const valueSets: ValueSet[] = [];
   const allItems = mapQuestionnaireAndValueSetsToItemsList(items, valueSets);
 
-  const prepopulatedItem = BOOKING_CONFIG.prepopulateBookingForm({
+  const prepopulatedItem = prepopulateBookingForm({
     questionnaire,
     context: {
       serviceMode,

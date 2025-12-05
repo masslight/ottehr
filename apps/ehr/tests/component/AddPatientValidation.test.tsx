@@ -62,7 +62,7 @@ describe('AddPatient - Validation Tests', () => {
 
     await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
 
-    const errorMessage = screen.getByText('Phone number must be 10 digits in the format (xxx) xxx-xxxx');
+    const errorMessage = screen.getByText('Please enter at least one search term');
     expect(errorMessage).toBeVisible();
   });
 

@@ -188,17 +188,21 @@ export interface CoverageBenefitInfo {
 
   inNetwork: boolean;
 }
-export interface CopayBenefit extends CoverageBenefitInfo {
-  coverageCode: 'B';
-}
 export interface CoinsuranceBenefit extends CoverageBenefitInfo {
   coverageCode: 'A';
 }
-export type PatientPaymentBenefit = CopayBenefit | CoinsuranceBenefit;
+export interface CopayBenefit extends CoverageBenefitInfo {
+  coverageCode: 'B';
+}
+export interface DeductibleBenefit extends CoverageBenefitInfo {
+  coverageCode: 'C';
+}
+export type PatientPaymentBenefit = CopayBenefit | CoinsuranceBenefit | DeductibleBenefit;
 export interface InsuranceCheckStatusWithDate {
   status: InsuranceEligibilityCheckStatus;
   dateISO: string;
   copay?: PatientPaymentBenefit[];
+  deductible?: PatientPaymentBenefit[];
   errors?: { code: CodeableConcept }[];
 }
 

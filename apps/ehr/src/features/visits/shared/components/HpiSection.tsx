@@ -5,6 +5,7 @@ import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { AiHpiSuggestion } from '../../AiHpiSuggestion';
 import { ChiefComplaintFieldReadOnly } from '../../ChiefComplaintField';
 import { HistoryOfPresentIllnessField, HistoryOfPresentIllnessFieldReadOnly } from '../../HpiField';
+import { MechanismOfInjuryField, MechanismOfInjuryFieldReadOnly } from '../../MechanismOfInjuryField';
 import { ReasonForVisitFieldReadOnly } from '../../ReasonForVisitField';
 import { RosField, RosFieldReadOnly } from '../../RosField';
 import { useGetAppointmentAccessibility } from '../hooks/useGetAppointmentAccessibility';
@@ -51,7 +52,7 @@ export const HPISection: FC = () => {
             </Typography>
 
             {isReadOnly ? <HistoryOfPresentIllnessFieldReadOnly /> : <HistoryOfPresentIllnessField />}
-
+            {isReadOnly ? <MechanismOfInjuryFieldReadOnly /> : <MechanismOfInjuryField />}
             {isReadOnly ? <RosFieldReadOnly /> : <RosField />}
           </Stack>
         }

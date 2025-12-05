@@ -186,6 +186,10 @@ export async function getChartData(
     addRequestIfNeeded({ field: 'historyOfPresentIllness', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }
 
+  if (requestedFields?.mechanismOfInjury) {
+    addRequestIfNeeded({ field: 'mechanismOfInjury', resourceType: 'Condition', defaultSearchBy: 'encounter' });
+  }
+
   if (requestedFields?.ros) {
     addRequestIfNeeded({ field: 'ros', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }

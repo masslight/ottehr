@@ -1,0 +1,234 @@
+name: Deploy and Test Pipeline (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      should_run_deploy:
+        required: true
+        type: boolean
+      node_version:
+        required: true
+        type: string
+      aws_deploy_role:
+        required: true
+        type: string
+      secrets_repository:
+        required: true
+        type: string
+      run_automated_tests:
+        required: false
+        type: boolean
+        default: true
+      run_ehr_e2e:
+        required: false
+        type: boolean
+        default: true
+      run_intake_e2e:
+        required: false
+        type: boolean
+        default: true
+      pr_body:
+        required: false
+        type: string
+        default: ''
+      github_ref:
+        required: true
+        type: string
+      is_pull_request:
+        required: true
+        type: boolean
+
+jobs:
+  deploy:
+    if: inputs.should_run_deploy
+    runs-on: ubuntu-latest-8-cores
+    timeout-minutes: 25
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
+    steps:
+      - name: Log deployment info
+        run: |
+          echo "Deploying to environment: ${{ inputs.environment }}"
+          echo "Branch: ${{ inputs.github_ref }}"
+
+      - name: Checkout repository
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: HashiCorp - Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "1.12.2"
+
+      - name: Cache node modules
+        id: npm-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            deploy/node_modules
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-cache-
+
+      - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Check out secrets repo
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
+        with:
+          repository: ${{ inputs.secrets_repository }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          path: 'secrets'
+
+      - name: Copy secrets to appropriate locations
+        run: |
+          npm exec -- tsx ./scripts/secrets.ts populate ${{ inputs.environment }}
+          npm exec -- tsx ./scripts/secrets.ts validate ${{ inputs.environment }}
+
+      - name: Configure AWS Credentials
+        id: configure-aws-credentials
+        uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3.0.2
+        with:
+          role-to-assume: ${{ inputs.aws_deploy_role }}
+          aws-region: us-east-1
+          output-credentials: true
+
+      - name: Configure AWS CLI
+        run: |
+          aws_profile=$(grep '"aws_profile"' "scripts/deploy/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+          if [ -z "$aws_profile" ]; then
+            aws_profile=$(grep "profile" "deploy/backend.config" | sed 's/.* = "\(.*\)".*/\1/')
+          fi
+          profile="${aws_profile:-ottehr}"
+          echo "Using AWS profile: ${profile}"
+          aws configure --profile "${profile}" set aws_access_key_id ${{ steps.configure-aws-credentials.outputs.aws-access-key-id }}
+          aws configure --profile "${profile}" set aws_secret_access_key ${{ steps.configure-aws-credentials.outputs.aws-secret-access-key }}
+          aws configure --profile "${profile}" set aws_session_token ${{ steps.configure-aws-credentials.outputs.aws-session-token }}
+          aws configure --profile "${profile}" set region us-east-1
+
+      - name: Deploy Ottehr Resources Using Terraform
+        working-directory: deploy
+        run: |
+          ENV="${{ inputs.environment }}"
+          npm run terraform-init -- -input=false
+          npm run apply-$ENV
+
+  automated-tests:
+    needs: deploy
+    if: |
+      always() && !cancelled() &&
+      (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
+      inputs.run_automated_tests &&
+      !contains(inputs.pr_body, '/skip-automated-tests')
+    uses: ./.github/workflows/automated-tests.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+
+  ehr-e2e-tests:
+    needs: deploy
+    if: |
+      always() && !cancelled() &&
+      (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
+      inputs.run_ehr_e2e
+    uses: ./.github/workflows/e2e-ehr.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+
+  intake-e2e-tests:
+    needs: deploy
+    if: |
+      always() && !cancelled() &&
+      (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
+      inputs.run_intake_e2e
+    uses: ./.github/workflows/e2e-intake.yml
+    secrets: inherit
+    with:
+      environment: ${{ inputs.environment }}
+
+  # Create status check aliases for required checks
+  status-aliases:
+    needs: [deploy, ehr-e2e-tests, intake-e2e-tests]
+    if: always() && !cancelled() && inputs.is_pull_request
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Check for skip commands
+        env:
+          HAS_SKIP_BUILD_AND_LINT: ${{ contains(inputs.pr_body, '/skip-build-and-lint') }}
+          HAS_SKIP_AUTOMATED_TESTS: ${{ contains(inputs.pr_body, '/skip-automated-tests') }}
+          HAS_SKIP_EHR_E2E: ${{ contains(inputs.pr_body, '/skip-ehr-e2e') }}
+          HAS_SKIP_INTAKE_E2E: ${{ contains(inputs.pr_body, '/skip-intake-e2e') }}
+        run: |
+          FOUND_COMMANDS=()
+          
+          [ "$HAS_SKIP_BUILD_AND_LINT" == "true" ] && FOUND_COMMANDS+=("/skip-build-and-lint")
+          [ "$HAS_SKIP_AUTOMATED_TESTS" == "true" ] && FOUND_COMMANDS+=("/skip-automated-tests")
+          [ "$HAS_SKIP_EHR_E2E" == "true" ] && FOUND_COMMANDS+=("/skip-ehr-e2e")
+          [ "$HAS_SKIP_INTAKE_E2E" == "true" ] && FOUND_COMMANDS+=("/skip-intake-e2e")
+          
+          if [ ${#FOUND_COMMANDS[@]} -gt 0 ]; then
+            echo "Found skip commands in PR description:"
+            for cmd in "${FOUND_COMMANDS[@]}"; do
+              echo "  - $cmd"
+            done
+            echo ""
+            echo "Skip commands are not allowed for merging. Please remove them before merging."
+            exit 1
+          fi
+          
+          echo "No skip commands found"
+
+      - name: Create EHR E2E status alias
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ehrJob = '${{ needs.ehr-e2e-tests.result }}';
+            // Treat skipped as success (tests skipped due to no relevant changes is acceptable)
+            const conclusion = ehrJob === 'success' || ehrJob === 'skipped' ? 'success' : ehrJob === 'failure' ? 'failure' : 'error';
+            const description = ehrJob === 'skipped' ? 'EHR E2E tests: skipped (no relevant changes)' : `EHR E2E tests: ${conclusion}`;
+
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: conclusion,
+              context: 'ehr-e2e-tests',
+              description: description,
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            });
+
+      - name: Create Intake E2E status alias
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const intakeJob = '${{ needs.intake-e2e-tests.result }}';
+            // Treat skipped as success (tests skipped due to no relevant changes is acceptable)
+            const conclusion = intakeJob === 'success' || intakeJob === 'skipped' ? 'success' : intakeJob === 'failure' ? 'failure' : 'error';
+            const description = intakeJob === 'skipped' ? 'Intake E2E tests: skipped (no relevant changes)' : `Intake E2E tests: ${conclusion}`;
+
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: conclusion,
+              context: 'intake-e2e-tests',
+              description: description,
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            });

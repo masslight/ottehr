@@ -1,6 +1,5 @@
 {
   "schema-version": "2025-09-25",
-
   "zambdas": {
     "VERSION": {
       "name": "version",
@@ -724,6 +723,18 @@
       "subscription": {
         "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email|visit-note-pdf-and-email&status=requested",
         "reason": "create visit note PDF and send email",
+        "event": "create"
+      }
+    },
+    "SUB-RECOMMEND-DIAGNOSIS-CODES": {
+      "name": "sub-recommend-diagnosis-codes",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-recommend-diagnosis-codes/index",
+      "zip": ".dist/zips/sub-recommend-diagnosis-codes.zip",
+      "subscription": {
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|recommend-diagnosis-codes&status=requested",
+        "reason": "recommend diagnosis codes for encounter",
         "event": "create"
       }
     },
