@@ -899,7 +899,7 @@ const getExistingOrderLevelNote = (
       )
   );
   console.log('number of notesForThisOrder found', notesForThisOrder.length);
-  if (!notesForThisOrder) return;
+  if (notesForThisOrder.length === 0) return;
   if (notesForThisOrder.length > 1) {
     throw new Error(
       `Resources for this bundle are misconfigured. More than one order level note exists. These are the Ids: ${notesForThisOrder.map(
