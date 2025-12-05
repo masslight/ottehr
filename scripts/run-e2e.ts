@@ -8,7 +8,7 @@ const INTEGRATION_TEST = process.env.INTEGRATION_TEST || 'false';
 const isUI = process.argv.includes('--ui');
 const isLoginOnly = process.argv.includes('--login-only');
 const isSpecsOnly = process.argv.includes('--specs-only');
-const isEnvWithZambdaLocalServer = ENV === 'local';
+const isEnvWithZambdaLocalServer = ENV === 'local' || ENV === 'e2e';
 const isEnvWithFrontendLocalServer = ENV === 'local' || ENV === 'e2e' || isCI;
 const testFileArg = process.argv.find((arg) => arg.startsWith('--test-file='));
 const testFile = testFileArg ? testFileArg.split('=')[1] : undefined;
@@ -130,7 +130,17 @@ const setupTestDeps = async (): Promise<void> => {
         env: { ...process.env },
         cwd: path.join(process.cwd(), `apps/${app}`),
       });
+    } catch (error) {
+      console.error(`Failed to run setup-test-deps.js for ${app}`);
+      console.error(error?.message);
+      console.error(error?.stack);
+      clearPorts();
+      process.exit(1);
+    }
+  }
 
+  for (const app of supportedApps) {
+    try {
       // Run the e2e-test-setup.sh script with skip-prompts and current environment
       console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
       execSync(`bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV}`, {
@@ -138,7 +148,7 @@ const setupTestDeps = async (): Promise<void> => {
         env: { ...process.env, ENV },
       });
     } catch (error) {
-      console.error(`Failed to run setup-test-deps.js for ${app}`);
+      console.error(`Failed to run e2e-test-setup.js for ${app}`);
       console.error(error?.message);
       console.error(error?.stack);
       clearPorts();

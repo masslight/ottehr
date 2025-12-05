@@ -72,8 +72,6 @@ jobs:
 
       - name: Check if Intake changes are relevant
         id: check
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           # For schedule or workflow_dispatch, run unconditionally
           # Also checking for workflow_call to support explicit calls without PR context or environment
@@ -85,7 +83,7 @@ jobs:
           fi
           
           # Check for force run command in PR description
-          if [[ "$PR_BODY" == *"/run-intake-e2e"* ]]; then
+          if [ "${{ contains(github.event.pull_request.body || '', '/run-intake-e2e') }}" == "true" ]; then
              echo "Force run enabled via PR command /run-intake-e2e"
              echo "should-run=true" >> $GITHUB_OUTPUT
              echo "skip-reason=" >> $GITHUB_OUTPUT
@@ -93,7 +91,7 @@ jobs:
           fi
 
           # Check for skip command in PR description
-          if [[ "$PR_BODY" == *"/skip-intake-e2e"* ]]; then
+          if [ "${{ contains(github.event.pull_request.body || '', '/skip-intake-e2e') }}" == "true" ]; then
              echo "Intake E2E tests skipped via /skip-intake-e2e command"
              echo "should-run=false" >> $GITHUB_OUTPUT
              echo "skip-reason=Skipped via /skip-intake-e2e command" >> $GITHUB_OUTPUT

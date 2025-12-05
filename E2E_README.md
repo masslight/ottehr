@@ -533,20 +533,20 @@ You can use special commands in pull request descriptions to control CI pipeline
 
 ### Skip Commands
 
-| Command                 | Description                                              | Workflow                                |
-| :---------------------- | :------------------------------------------------------- | :-------------------------------------- |
-| `/skip-terraform-apply` | Skips Terraform deployment and resource provisioning     | `terraform-apply-and-test-pipeline.yml` |
-| `/skip-build-and-lint`  | Skips build and linting steps                            | `lint-and-build.yml`                    |
-| `/skip-automated-tests` | Skips all automated tests (unit, component, integration) | `automated-tests.yml`                   |
-| `/skip-intake-e2e`      | Skips Intake E2E tests                                   | `e2e-intake.yml`                        |
-| `/skip-ehr-e2e`         | Skips EHR E2E tests                                      | `e2e-ehr.yml`                           |
+| Command                 | Description                                              | Workflow              |
+| :---------------------- | :------------------------------------------------------- | :-------------------- |
+| `/skip-build-and-lint`  | Skips build and linting steps                            | `lint-and-build.yml`  |
+| `/skip-automated-tests` | Skips all automated tests (unit, component, integration) | `automated-tests.yml` |
+| `/skip-intake-e2e`      | Skips Intake E2E tests                                   | `e2e-intake.yml`      |
+| `/skip-ehr-e2e`         | Skips EHR E2E tests                                      | `e2e-ehr.yml`         |
 
 ### Force Run Commands
 
-| Command           | Description                                                         | Workflow         |
-| :---------------- | :------------------------------------------------------------------ | :--------------- |
-| `/run-intake-e2e` | Forces Intake E2E tests to run even if no relevant changes detected | `e2e-intake.yml` |
-| `/run-ehr-e2e`    | Forces EHR E2E tests to run even if no relevant changes detected    | `e2e-ehr.yml`    |
+| Command                | Description                                                              | Workflow                                |
+| :--------------------- | :----------------------------------------------------------------------- | :-------------------------------------- |
+| `/run-terraform-apply` | Forces Terraform Apply to run even if no changes in config/subscriptions | `terraform-apply-and-test-pipeline.yml` |
+| `/run-intake-e2e`      | Forces Intake E2E tests to run even if no relevant changes detected      | `e2e-intake.yml`                        |
+| `/run-ehr-e2e`         | Forces EHR E2E tests to run even if no relevant changes detected         | `e2e-ehr.yml`                           |
 
 ## Clear all resources
 
