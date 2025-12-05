@@ -1179,6 +1179,14 @@ const mapResourceToChartDataFields = (
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Condition' &&
+    chartDataResourceHasMetaTagByCode(resource, 'mechanism-of-injury') &&
+    resourceReferencesEncounter(resource, encounterId)
+  ) {
+    logDuplicationWarning(data.mechanismOfInjury, 'chart-data duplication warning: "mechanismOfInjury" already exists');
+    data.mechanismOfInjury = makeFreeTextNoteDTO(resource);
+    resourceMapped = true;
+  } else if (
+    resource?.resourceType === 'Condition' &&
     chartDataResourceHasMetaTagByCode(resource, 'ros') &&
     resourceReferencesEncounter(resource, encounterId)
   ) {
