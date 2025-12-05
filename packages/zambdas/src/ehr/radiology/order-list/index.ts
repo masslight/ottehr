@@ -15,6 +15,8 @@ import {
   RoleType,
   Secrets,
   SecretsKeys,
+  SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
+  SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
   SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
@@ -251,12 +253,23 @@ const parseResultsToOrder = (
   const finalReportData = bestFinalReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/html')
     ?.data;
 
+  // Check if order is being or was sent for final read and we are awaiting the final read.
+  const existingExtensions = serviceRequest.extension;
+  const hasNeedsFinalReadExtension = existingExtensions?.some(
+    (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
+  );
+  const hasBeenSentExtension = existingExtensions?.some(
+    (ext) => ext.url === SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL
+  );
+
   if (serviceRequest.status === 'active') {
     status = RadiologyOrderStatus.pending;
   } else if (serviceRequest.status === 'completed' && !preliminaryDiagnosticReport && !bestFinalReport) {
     status = RadiologyOrderStatus.performed;
-  } else if (preliminaryDiagnosticReport && !bestFinalReport) {
+  } else if (preliminaryDiagnosticReport && !(hasNeedsFinalReadExtension || hasBeenSentExtension) && !bestFinalReport) {
     status = RadiologyOrderStatus.preliminary;
+  } else if (preliminaryDiagnosticReport && (hasNeedsFinalReadExtension || hasBeenSentExtension) && !bestFinalReport) {
+    status = RadiologyOrderStatus.pendingFinal;
   } else if (bestFinalReport) {
     // && myReviewTask?.status === 'ready') {
     status = RadiologyOrderStatus.final;
@@ -357,7 +370,7 @@ const buildHistory = (
   if (performedHistoryExtensionValue) {
     history.push({
       status: RadiologyOrderStatus.performed,
-      performer: 'See AdvaPACS',
+      performer: '',
       date: performedHistoryExtensionValue,
     });
   }
@@ -371,21 +384,39 @@ const buildHistory = (
   if (diagnosticReportPreliminaryReadTimeExtensionValueFromBest) {
     history.push({
       status: RadiologyOrderStatus.preliminary,
-      performer: 'See AdvaPACS',
+      performer: '',
       date: diagnosticReportPreliminaryReadTimeExtensionValueFromBest,
     });
   } else if (diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary) {
     history.push({
       status: RadiologyOrderStatus.preliminary,
-      performer: 'See AdvaPACS',
+      performer: '',
       date: diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary,
     });
+  }
+
+  // Check if order is being or was sent for final read and we are awaiting the final read.
+  const existingExtensions = serviceRequest.extension;
+  const hasNeedsFinalReadExtension = existingExtensions?.some(
+    (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
+  );
+  if (hasNeedsFinalReadExtension) {
+    const needsFinalReadExtensionValue = existingExtensions?.find(
+      (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
+    )?.valueDateTime;
+    if (needsFinalReadExtensionValue) {
+      history.push({
+        status: RadiologyOrderStatus.pendingFinal,
+        performer: '',
+        date: needsFinalReadExtensionValue,
+      });
+    }
   }
 
   if (bestDiagnosticReport?.issued) {
     history.push({
       status: RadiologyOrderStatus.final,
-      performer: 'See AdvaPACS',
+      performer: '',
       date: bestDiagnosticReport.issued,
     });
   }

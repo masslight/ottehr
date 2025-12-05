@@ -1,11 +1,9 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { ServiceRequest } from 'fhir/r4b';
 import { readdirSync } from 'fs';
 import { DateTime } from 'luxon';
 import path from 'path';
 import {
-  getPatchBinary,
-  getPatchOperationToRemoveExtension,
   getPatchOperationToUpdateExtension,
   SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
@@ -68,10 +66,34 @@ const loadProjectConfigurations = async (): Promise<ProjectConfig[]> => {
 
 const findServiceRequestsToSend = async (oystehr: any): Promise<any[]> => {
   // 1. Fetch ServiceRequests that need to be sent to teleradiology
+
+  const twoWeeksAgo = DateTime.now().minus({ weeks: 2 });
   const serviceRequests = await oystehr.fhir.search({
     resourceType: 'ServiceRequest',
-    params: [{ name: 'status', value: 'pending' }],
+    params: [
+      { name: 'status', value: 'completed' },
+      {
+        name: 'authored',
+        value: `ge${twoWeeksAgo.toISODate()}`,
+      },
+    ],
   });
+
+  const serviceRequestsToSend: ServiceRequest[] = [];
+  for (const sr of serviceRequests.entry || []) {
+    const serviceRequest = sr.resource as ServiceRequest;
+    const existingExtensions = serviceRequest.extension || [];
+    const needsToBeSent = existingExtensions.some(
+      (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
+    );
+    const hasBeenSent = existingExtensions.some(
+      (ext) => ext.url === SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL
+    );
+
+    if (needsToBeSent && !hasBeenSent) {
+      serviceRequestsToSend.push(serviceRequest);
+    }
+  }
 
   return serviceRequests;
 };
@@ -102,39 +124,20 @@ const _sendWithMirth = async (serviceRequests: ServiceRequest[]): Promise<Servic
 };
 
 const patchServiceRequests = async (serviceRequests: ServiceRequest[], oystehr: Oystehr): Promise<void> => {
-  const patchOperations: BatchInputRequest<ServiceRequest>[] = [];
-
   for (const sr of serviceRequests) {
     const hasBeenSentOperation = getPatchOperationToUpdateExtension(sr, {
       url: SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
-      valueDate: DateTime.now().toISO(),
+      valueDateTime: DateTime.now().toISO(),
     });
     if (hasBeenSentOperation) {
-      const patchBinary = getPatchBinary({
-        resourceId: sr.id!,
+      await oystehr.fhir.patch({
         resourceType: 'ServiceRequest',
-        patchOperations: [hasBeenSentOperation],
+        id: sr.id as string,
+        operations: [hasBeenSentOperation],
       });
-      patchOperations.push(patchBinary);
-    }
-    const removeNeedsToBeSentOperation = getPatchOperationToRemoveExtension(sr, {
-      url: SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
-    });
-    if (removeNeedsToBeSentOperation) {
-      const patchBinary = getPatchBinary({
-        resourceId: sr.id!,
-        resourceType: 'ServiceRequest',
-        patchOperations: [removeNeedsToBeSentOperation],
-      });
-      patchOperations.push(patchBinary);
+      console.log(`Patched ServiceRequest ${sr.id} as sent to teleradiology.`);
     }
   }
-
-  const batchResponse = await oystehr.fhir.batch({
-    requests: patchOperations,
-  });
-
-  console.log('Patched ServiceRequests as sent to teleradiology: ', batchResponse);
 };
 
 const sendStudiesToTeleradiology = async (config: ProjectConfig): Promise<void> => {

@@ -2,7 +2,7 @@ import { Button, Chip, CircularProgress, TextField, Typography } from '@mui/mate
 import { Box, Stack, useTheme } from '@mui/system';
 import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { radiologyLaunchViewer, savePreliminaryReport } from 'src/api/api';
+import { radiologyLaunchViewer, savePreliminaryReport, sendForFinalRead } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import radiologyIcon from 'src/themes/ottehr/icons/mui-radiology.svg';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
@@ -22,6 +22,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const [isLaunchingViewer, setIsLaunchingViewer] = useState(false);
   const [launchViewerError, setLaunchViewerError] = useState<string | null>(null);
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
+  const [isSendingForFinalRead, setIsSendingForFinalRead] = useState(false);
 
   const { orders, loading } = usePatientRadiologyOrders({
     serviceRequestId,
@@ -49,6 +50,24 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
       // Handle error (e.g., show an error message)
     }
   }, [oystehrZambda, serviceRequestId, preliminaryReport]);
+
+  const handleSendForFinalRead = useCallback(async (): Promise<void> => {
+    setIsSendingForFinalRead(true);
+    try {
+      if (oystehrZambda) {
+        await sendForFinalRead(oystehrZambda, { serviceRequestId });
+        // Optionally refresh the orders or show a success message
+        window.location.reload();
+      } else {
+        console.log('oystehrZambda is not defined');
+      }
+    } catch (error) {
+      console.error('Error sending for final read:', error);
+      alert('An error occurred while sending for final read');
+    } finally {
+      setIsSendingForFinalRead(false);
+    }
+  }, [oystehrZambda, serviceRequestId]);
 
   const handleViewImageClick = useCallback(async (): Promise<void> => {
     setIsLaunchingViewer(true);
@@ -259,12 +278,10 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                   padding: '8px 22px',
                   textTransform: 'none',
                 }}
-                onClick={() => {
-                  // TODO: Implement send for final read functionality
-                  console.log('Send for final read clicked');
-                }}
+                onClick={handleSendForFinalRead}
+                disabled={isSendingForFinalRead}
               >
-                Send for Final Read
+                {isSendingForFinalRead ? 'Sending...' : 'Send for Final Read'}
               </Button>
             )}
           </Box>

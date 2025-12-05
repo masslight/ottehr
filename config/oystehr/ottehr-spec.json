@@ -949,6 +949,13 @@
       "src": "src/ehr/radiology/save-preliminary-report/index",
       "zip": ".dist/zips/radiology-save-preliminary-report.zip"
     },
+    "RADIOLOGY-SEND-FOR-FINAL-READ": {
+      "name": "radiology-send-for-final-read",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/radiology/send-for-final-read/index",
+      "zip": ".dist/zips/radiology-send-for-final-read.zip"
+    },
     "GET-LAB-ORDERS": {
       "name": "get-lab-orders",
       "type": "http_auth",

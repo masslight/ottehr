@@ -136,6 +136,7 @@ export const getPatchOperationToUpdateExtension = (
   newExtension: { url: Extension['url'] } & (
     | { valueString: Extension['valueString'] }
     | { valueDate: Extension['valueDate'] }
+    | { valueDateTime: Extension['valueDateTime'] }
     | { valueBoolean: Extension['valueBoolean'] }
   )
 ): Operation | undefined => {
@@ -162,6 +163,11 @@ export const getPatchOperationToUpdateExtension = (
       }
     } else if ('valueDate' in newExtension && 'valueDate' in existingExt) {
       if (existingExt.valueDate !== newExtension.valueDate) {
+        extension[existingExtIndex] = newExtension;
+        requiresUpdate = true;
+      }
+    } else if ('valueDateTime' in newExtension && 'valueDateTime' in existingExt) {
+      if (existingExt.valueDateTime !== newExtension.valueDateTime) {
         extension[existingExtIndex] = newExtension;
         requiresUpdate = true;
       }
