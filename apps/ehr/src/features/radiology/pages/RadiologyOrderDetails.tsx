@@ -1,8 +1,9 @@
+import { LoadingButton } from '@mui/lab';
 import { Button, Chip, CircularProgress, TextField, Typography } from '@mui/material';
 import { Box, Stack, useTheme } from '@mui/system';
 import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { radiologyLaunchViewer, savePreliminaryReport, sendForFinalRead } from 'src/api/api';
+import { radiologyLaunchViewer } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import radiologyIcon from 'src/themes/ottehr/icons/mui-radiology.svg';
 import { PageTitleStyled } from '../../visits/shared/components/PageTitle';
@@ -22,56 +23,21 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const [isLaunchingViewer, setIsLaunchingViewer] = useState(false);
   const [launchViewerError, setLaunchViewerError] = useState<string | null>(null);
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
-  const [isSavingPreliminaryReport, setIsSavingPreliminaryReport] = useState(false);
-  const [isSendingForFinalRead, setIsSendingForFinalRead] = useState(false);
 
-  const { orders, loading } = usePatientRadiologyOrders({
+  const {
+    orders,
+    loading,
+    handleSavePreliminaryReport,
+    handleSendForFinalRead,
+    isSavingPreliminaryReport,
+    isSendingForFinalRead,
+  } = usePatientRadiologyOrders({
     serviceRequestId,
   });
 
   const handleBack = (): void => {
     navigate(-1);
   };
-
-  const handleSavePreliminaryReport = useCallback(async (): Promise<void> => {
-    if (!preliminaryReport) {
-      alert('Please enter a preliminary report before saving.');
-      return;
-    }
-
-    setIsSavingPreliminaryReport(true);
-    try {
-      if (oystehrZambda) {
-        await savePreliminaryReport(oystehrZambda, { serviceRequestId, preliminaryReport });
-        window.location.reload();
-      } else {
-        console.log('oystehrZambda is not defined');
-      }
-    } catch (error) {
-      console.error('Error saving preliminary report:', error);
-      alert('An error occurred while saving preliminary report');
-    } finally {
-      setIsSavingPreliminaryReport(false);
-    }
-  }, [oystehrZambda, serviceRequestId, preliminaryReport]);
-
-  const handleSendForFinalRead = useCallback(async (): Promise<void> => {
-    setIsSendingForFinalRead(true);
-    try {
-      if (oystehrZambda) {
-        await sendForFinalRead(oystehrZambda, { serviceRequestId });
-        // Optionally refresh the orders or show a success message
-        window.location.reload();
-      } else {
-        console.log('oystehrZambda is not defined');
-      }
-    } catch (error) {
-      console.error('Error sending for final read:', error);
-      alert('An error occurred while sending for final read');
-    } finally {
-      setIsSendingForFinalRead(false);
-    }
-  }, [oystehrZambda, serviceRequestId]);
 
   const handleViewImageClick = useCallback(async (): Promise<void> => {
     setIsLaunchingViewer(true);
@@ -197,7 +163,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               )}
 
               {order.status === 'performed' && !order.preliminaryReport && (
-                <Box>
+                <Box sx={{ mt: 2 }}>
                   <TextField
                     id="preliminary-report-field"
                     label="Preliminary Report"
@@ -208,26 +174,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                     size="small"
                     value={preliminaryReport}
                     onChange={(e) => setPreliminaryReport(e.target.value)}
-                    sx={{ mt: 2, mb: 2 }}
                   />
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      sx={{
-                        borderRadius: 28,
-                        padding: '8px 22px',
-                        alignSelf: 'flex-end',
-                        whiteSpace: 'nowrap',
-                        textTransform: 'none',
-                      }}
-                      onClick={handleSavePreliminaryReport}
-                      disabled={isSavingPreliminaryReport}
-                      endIcon={isSavingPreliminaryReport ? <CircularProgress size={16} color="inherit" /> : null}
-                    >
-                      {isSavingPreliminaryReport ? '' : 'Save Preliminary Report'}
-                    </Button>
-                  </Box>
                 </Box>
               )}
 
@@ -275,8 +222,9 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               Back
             </Button>
 
-            {order.status === 'preliminary' && (
-              <Button
+            {order.status === 'performed' && !order.preliminaryReport && (
+              <LoadingButton
+                loading={isSavingPreliminaryReport}
                 variant="contained"
                 color="primary"
                 sx={{
@@ -284,12 +232,26 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                   padding: '8px 22px',
                   textTransform: 'none',
                 }}
-                onClick={handleSendForFinalRead}
-                disabled={isSendingForFinalRead}
-                endIcon={isSendingForFinalRead ? <CircularProgress size={16} color="inherit" /> : null}
+                onClick={() => handleSavePreliminaryReport(serviceRequestId, preliminaryReport || '')}
               >
-                {isSendingForFinalRead ? '' : 'Send for Final Read'}
-              </Button>
+                Save Preliminary Report
+              </LoadingButton>
+            )}
+
+            {order.status === 'preliminary' && (
+              <LoadingButton
+                loading={isSendingForFinalRead}
+                variant="contained"
+                color="primary"
+                sx={{
+                  borderRadius: 28,
+                  padding: '8px 22px',
+                  textTransform: 'none',
+                }}
+                onClick={() => handleSendForFinalRead(serviceRequestId)}
+              >
+                Send for Final Read
+              </LoadingButton>
             )}
           </Box>
         </Stack>

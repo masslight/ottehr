@@ -413,11 +413,11 @@ const buildHistory = (
     }
   }
 
-  if (bestDiagnosticReport?.issued) {
+  if (bestDiagnosticReport) {
     history.push({
       status: RadiologyOrderStatus.final,
       performer: '',
-      date: bestDiagnosticReport.issued,
+      date: bestDiagnosticReport.issued || bestDiagnosticReport.meta?.lastUpdated || '',
     });
   }
 
