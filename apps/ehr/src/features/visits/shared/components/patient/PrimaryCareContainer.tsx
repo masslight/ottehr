@@ -4,10 +4,9 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { FormTextField } from 'src/components/form';
 import InputMask from 'src/components/InputMask';
 import { Row, Section } from 'src/components/layout';
-import { FormFields } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-const primaryCare = FormFields.primaryCarePhysician;
+import { isPhoneNumberValid, PATIENT_RECORD_CONFIG, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+const primaryCare = PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician;
 export const PrimaryCareContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { control, watch, setValue } = useFormContext();
 

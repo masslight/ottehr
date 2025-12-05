@@ -97,6 +97,7 @@ export const dataTestIds = {
     patientSuffix: 'patient-suffix',
     patientPreferredName: 'patient-preferred-name',
     patientPreferredPronouns: 'patient-preferred-pronouns',
+    patientSSN: 'patient-ssn',
   },
   contactInformationContainer: {
     streetAddress: 'street-address',

@@ -18,7 +18,6 @@ import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { FormSelect, FormTextField, LabeledField, Option } from 'src/components/form';
 import { BasicDatePicker } from 'src/components/form/DatePicker';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { FormFields, RELATIONSHIP_TO_INSURED_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
 import { useUpdatePatientAccount } from 'src/hooks/useGetPatient';
@@ -28,6 +27,7 @@ import {
   InsurancePlanType,
   InsurancePlanTypes,
   isPostalCodeValid,
+  PATIENT_RECORD_CONFIG,
   REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
 
@@ -39,7 +39,7 @@ interface AddInsuranceModalProps {
   onClose: () => void;
 }
 
-const insurance = FormFields.insurance[0];
+const insurance = PATIENT_RECORD_CONFIG.FormFields.insurance[0];
 
 export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
   open,
@@ -338,7 +338,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   name={insurance.birthSex.key}
                   control={control}
                   defaultValue={''}
-                  options={SEX_OPTIONS}
+                  options={PATIENT_RECORD_CONFIG.formValueSets.birthSexOptions}
                   rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
                 />
               </LabeledField>
@@ -354,7 +354,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   name={insurance.relationship.key}
                   control={control}
                   defaultValue={''}
-                  options={RELATIONSHIP_TO_INSURED_OPTIONS}
+                  options={PATIENT_RECORD_CONFIG.formValueSets.relationshipToInsuredOptions}
                   rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
                 />
               </LabeledField>
@@ -405,13 +405,18 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   defaultValue={null}
                   rules={{
                     required: REQUIRED_FIELD_ERROR_MESSAGE,
-                    validate: (value) => !value || STATE_OPTIONS.some((option) => option.value === value),
+                    validate: (value) =>
+                      !value ||
+                      PATIENT_RECORD_CONFIG.formValueSets.stateOptions.some((option) => option.value === value),
                   }}
                   render={({ field: { onChange, value }, fieldState: { error } }) => (
                     <Autocomplete
                       data-testid={dataTestIds.addInsuranceDialog.state}
-                      options={STATE_OPTIONS}
-                      value={(STATE_OPTIONS.find((option) => option.value === value) || null) as Option}
+                      options={PATIENT_RECORD_CONFIG.formValueSets.stateOptions}
+                      value={
+                        (PATIENT_RECORD_CONFIG.formValueSets.stateOptions.find((option) => option.value === value) ||
+                          null) as Option
+                      }
                       getOptionLabel={(option) => option.label || ''}
                       isOptionEqualToValue={(option, value) => option?.value === value?.value || (!option && !value)}
                       onChange={(_, newValue) => {

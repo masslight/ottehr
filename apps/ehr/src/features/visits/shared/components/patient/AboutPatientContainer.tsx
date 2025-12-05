@@ -3,18 +3,17 @@ import { useFormContext } from 'react-hook-form';
 import { FormSelect, FormTextField } from 'src/components/form';
 import { BasicDatePicker } from 'src/components/form/DatePicker';
 import { Row, Section } from 'src/components/layout';
-import { FormFields, PRONOUN_OPTIONS, SEX_OPTIONS } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { PATIENT_RECORD_CONFIG, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 
-const { patientSummary } = FormFields;
+const { patientSummary } = PATIENT_RECORD_CONFIG.FormFields;
 
 export const AboutPatientContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { control } = useFormContext();
 
   return (
     <Section title="Patient information">
-      <Row label="Last name" inputId={patientSummary.lastName.key} required>
+      <Row label={patientSummary.lastName.label} inputId={patientSummary.lastName.key} required>
         <FormTextField
           name={patientSummary.lastName.key}
           control={control}
@@ -24,7 +23,7 @@ export const AboutPatientContainer: FC<{ isLoading: boolean }> = ({ isLoading })
           data-testid={dataTestIds.patientInformationContainer.patientLastName}
         />
       </Row>
-      <Row label="First name" inputId={patientSummary.firstName.key} required>
+      <Row label={patientSummary.firstName.label} inputId={patientSummary.firstName.key} required>
         <FormTextField
           name={patientSummary.firstName.key}
           control={control}
@@ -34,7 +33,7 @@ export const AboutPatientContainer: FC<{ isLoading: boolean }> = ({ isLoading })
           data-testid={dataTestIds.patientInformationContainer.patientFirstName}
         />
       </Row>
-      <Row label="Middle name" inputId={patientSummary.middleName.key}>
+      <Row label={patientSummary.middleName.label} inputId={patientSummary.middleName.key}>
         <FormTextField
           name={patientSummary.middleName.key}
           control={control}
@@ -43,7 +42,7 @@ export const AboutPatientContainer: FC<{ isLoading: boolean }> = ({ isLoading })
           data-testid={dataTestIds.patientInformationContainer.patientMiddleName}
         />
       </Row>
-      <Row label="Suffix" inputId={patientSummary.suffix.key}>
+      <Row label={patientSummary.suffix.label} inputId={patientSummary.suffix.key}>
         <FormTextField
           name={patientSummary.suffix.key}
           control={control}
@@ -52,7 +51,7 @@ export const AboutPatientContainer: FC<{ isLoading: boolean }> = ({ isLoading })
           data-testid={dataTestIds.patientInformationContainer.patientSuffix}
         />
       </Row>
-      <Row label="Preferred name" inputId={patientSummary.preferredName.key}>
+      <Row label={patientSummary.preferredName.label} inputId={patientSummary.preferredName.key}>
         <FormTextField
           name={patientSummary.preferredName.key}
           control={control}
@@ -61,7 +60,7 @@ export const AboutPatientContainer: FC<{ isLoading: boolean }> = ({ isLoading })
           data-testid={dataTestIds.patientInformationContainer.patientPreferredName}
         />
       </Row>
-      <Row label="Date of birth" inputId={patientSummary.birthDate.key} required>
+      <Row label={patientSummary.birthDate.label} inputId={patientSummary.birthDate.key} required>
         <BasicDatePicker
           id={patientSummary.birthDate.key}
           name={patientSummary.birthDate.key}
@@ -72,25 +71,34 @@ export const AboutPatientContainer: FC<{ isLoading: boolean }> = ({ isLoading })
           component="Field"
         />
       </Row>
-      <Row label="Preferred pronouns">
+      <Row label={patientSummary.pronouns.label}>
         <FormSelect
           name={patientSummary.pronouns.key}
           control={control}
-          options={PRONOUN_OPTIONS}
+          options={PATIENT_RECORD_CONFIG.formValueSets.pronounOptions}
           disabled={isLoading}
           data-testid={dataTestIds.patientInformationContainer.patientPreferredPronouns}
         />
       </Row>
-      <Row label="Birth sex" required>
+      <Row label={patientSummary.birthSex.label} required>
         <FormSelect
           name={patientSummary.birthSex.key}
           control={control}
           disabled={isLoading}
-          options={SEX_OPTIONS}
+          options={PATIENT_RECORD_CONFIG.formValueSets.birthSexOptions}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
           data-testid={dataTestIds.patientInformationContainer.patientBirthSex}
+        />
+      </Row>
+      <Row label={patientSummary.ssn.label} inputId={patientSummary.ssn.key}>
+        <FormTextField
+          name={patientSummary.ssn.key}
+          control={control}
+          disabled={isLoading}
+          id={patientSummary.ssn.key}
+          data-testid={dataTestIds.patientInformationContainer.patientSSN}
         />
       </Row>
     </Section>

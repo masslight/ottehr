@@ -6,17 +6,17 @@ import { FormSelect, FormTextField } from 'src/components/form';
 import { BasicDatePicker } from 'src/components/form/DatePicker';
 import InputMask from 'src/components/InputMask';
 import { Row, Section } from 'src/components/layout';
-import { FormFields, RELATIONSHIP_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   DOB_DATE_FORMAT,
   emailRegex,
   isPhoneNumberValid,
   isPostalCodeValid,
+  PATIENT_RECORD_CONFIG,
   REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
 
-const { responsibleParty, patientSummary, patientContactInformation } = FormFields;
+const { responsibleParty, patientSummary, patientContactInformation } = PATIENT_RECORD_CONFIG.FormFields;
 
 export const ResponsibleInformationContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { control, watch, getValues, setValue } = useFormContext();
@@ -79,10 +79,11 @@ export const ResponsibleInformationContainer: FC<{ isLoading: boolean }> = ({ is
           name={responsibleParty.relationship.key}
           control={control}
           disabled={isLoading}
-          options={RELATIONSHIP_OPTIONS}
+          options={PATIENT_RECORD_CONFIG.formValueSets.relationshipOptions}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value: string) => RELATIONSHIP_OPTIONS.some((option) => option.value === value),
+            validate: (value: string) =>
+              PATIENT_RECORD_CONFIG.formValueSets.relationshipOptions.some((option) => option.value === value),
           }}
         />
       </Row>
@@ -132,7 +133,7 @@ export const ResponsibleInformationContainer: FC<{ isLoading: boolean }> = ({ is
         <FormSelect
           name={responsibleParty.birthSex.key}
           control={control}
-          options={SEX_OPTIONS}
+          options={PATIENT_RECORD_CONFIG.formValueSets.birthSexOptions}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
@@ -218,7 +219,7 @@ export const ResponsibleInformationContainer: FC<{ isLoading: boolean }> = ({ is
             render={({ field: { value }, fieldState: { error } }) => {
               return (
                 <Autocomplete
-                  options={STATE_OPTIONS.map((option) => option.value)}
+                  options={PATIENT_RECORD_CONFIG.formValueSets.stateOptions.map((option) => option.value)}
                   value={value ?? ''}
                   data-testid={dataTestIds.responsiblePartyInformationContainer.state}
                   onChange={(_, newValue) => {

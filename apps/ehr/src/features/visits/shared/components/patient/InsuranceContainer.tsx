@@ -20,16 +20,7 @@ import { FormSelect, FormTextField } from 'src/components/form';
 import { BasicDatePicker } from 'src/components/form/DatePicker';
 import { Row, Section } from 'src/components/layout';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
-import {
-  FormFields as AllFormFields,
-  INSURANCE_COVERAGE_OPTIONS,
-  InsurancePriorityOptions,
-  PatientAddressFields,
-  PatientIdentifyingFields,
-  RELATIONSHIP_TO_INSURED_OPTIONS,
-  SEX_OPTIONS,
-  STATE_OPTIONS,
-} from 'src/constants';
+import { PatientAddressFields, PatientIdentifyingFields } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { usePatientStore } from 'src/state/patient.store';
@@ -43,6 +34,7 @@ import {
   InsurancePlanTypes,
   isPostalCodeValid,
   mapEligibilityCheckResultToSimpleStatus,
+  PATIENT_RECORD_CONFIG,
   PatientPaymentBenefit,
   REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
@@ -145,7 +137,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   const { control, setValue, watch } = useFormContext();
 
   const { FormFields, LocalAddressFields, LocalIdentifyingFields } = useMemo(() => {
-    const insurance = AllFormFields.insurance[ordinal - 1];
+    const insurance = PATIENT_RECORD_CONFIG.FormFields.insurance[ordinal - 1];
 
     const LocalAddressFields = [
       insurance.streetAddress.key,
@@ -386,12 +378,14 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           name={FormFields.insurancePriority.key}
           control={control}
           defaultValue={ordinal === 1 ? 'Primary' : 'Secondary'}
-          options={INSURANCE_COVERAGE_OPTIONS}
+          options={PATIENT_RECORD_CONFIG.formValueSets.insurancePriorityOptions}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value, context) => {
               // todo: this validation concept would be good to lift into the paperwork validation engine
-              const otherGroupKey = InsurancePriorityOptions.find((key) => key !== FormFields.insurancePriority.key);
+              const otherGroupKey = PATIENT_RECORD_CONFIG.formValueSets.insurancePriorityOptions.find(
+                (key) => key.value !== FormFields.insurancePriority.key
+              )?.value;
               let otherGroupValue: 'Primary' | 'Secondary' | undefined;
               if (otherGroupKey) {
                 otherGroupValue = context[otherGroupKey];
@@ -560,7 +554,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             <FormSelect
               name={FormFields.birthSex.key}
               control={control}
-              options={SEX_OPTIONS}
+              options={PATIENT_RECORD_CONFIG.formValueSets.birthSexOptions}
               disabled={selfSelected}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
@@ -635,7 +629,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
                 render={({ field: { value }, fieldState: { error } }) => {
                   return (
                     <Autocomplete
-                      options={STATE_OPTIONS.map((option) => option.value)}
+                      options={PATIENT_RECORD_CONFIG.formValueSets.stateOptions.map((option) => option.value)}
                       disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[3])}
                       value={value ?? ''}
                       onChange={(_, newValue) => {
@@ -681,7 +675,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             <FormSelect
               name={FormFields.relationship.key}
               control={control}
-              options={RELATIONSHIP_TO_INSURED_OPTIONS}
+              options={PATIENT_RECORD_CONFIG.formValueSets.relationshipToInsuredOptions}
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
           </Row>

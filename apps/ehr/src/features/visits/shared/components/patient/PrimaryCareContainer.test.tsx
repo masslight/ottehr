@@ -2,8 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { InputHTMLAttributes } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { FormFields } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { PATIENT_RECORD_CONFIG } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
 import { PrimaryCareContainer } from './PrimaryCareContainer';
 
@@ -28,12 +28,12 @@ const TestWrapper = ({
   const TestForm = (): JSX.Element => {
     const methods = useForm({
       defaultValues: {
-        [FormFields.primaryCarePhysician.active.key]: true,
-        [FormFields.primaryCarePhysician.firstName.key]: '',
-        [FormFields.primaryCarePhysician.lastName.key]: '',
-        [FormFields.primaryCarePhysician.practiceName.key]: '',
-        [FormFields.primaryCarePhysician.address.key]: '',
-        [FormFields.primaryCarePhysician.phone.key]: '',
+        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.active.key]: true,
+        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.firstName.key]: '',
+        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.lastName.key]: '',
+        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.practiceName.key]: '',
+        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.address.key]: '',
+        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.phone.key]: '',
         ...defaultValues,
       },
     });
@@ -51,12 +51,12 @@ describe('PrimaryCareContainer', () => {
   const user = userEvent.setup();
 
   const filledFieldValues = {
-    [FormFields.primaryCarePhysician.active.key]: true,
-    [FormFields.primaryCarePhysician.firstName.key]: 'Dr. Jane',
-    [FormFields.primaryCarePhysician.lastName.key]: 'Smith',
-    [FormFields.primaryCarePhysician.practiceName.key]: 'Family Medical Center',
-    [FormFields.primaryCarePhysician.address.key]: '123 Main St, AnyTown, ST 12345',
-    [FormFields.primaryCarePhysician.phone.key]: '(555) 123-4567',
+    [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.active.key]: true,
+    [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.firstName.key]: 'Dr. Jane',
+    [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.lastName.key]: 'Smith',
+    [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.practiceName.key]: 'Family Medical Center',
+    [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.address.key]: '123 Main St, AnyTown, ST 12345',
+    [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.phone.key]: '(555) 123-4567',
   };
 
   it('should display correct checkbox label', () => {
@@ -113,13 +113,21 @@ describe('PrimaryCareContainer', () => {
     const addressInput = getFieldInput(dataTestIds.primaryCarePhysicianContainer.address);
     const mobileInput = getFieldInput(dataTestIds.primaryCarePhysicianContainer.mobile);
 
-    expect(firstNameInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.firstName.key] as string);
-    expect(lastNameInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.lastName.key] as string);
-    expect(practiceNameInput).toHaveValue(
-      filledFieldValues[FormFields.primaryCarePhysician.practiceName.key] as string
+    expect(firstNameInput).toHaveValue(
+      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.firstName.key] as string
     );
-    expect(addressInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.address.key] as string);
-    expect(mobileInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.phone.key] as string);
+    expect(lastNameInput).toHaveValue(
+      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.lastName.key] as string
+    );
+    expect(practiceNameInput).toHaveValue(
+      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.practiceName.key] as string
+    );
+    expect(addressInput).toHaveValue(
+      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.address.key] as string
+    );
+    expect(mobileInput).toHaveValue(
+      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.phone.key] as string
+    );
 
     await user.click(pcpCheckbox);
     expect(pcpCheckbox).toBeChecked();
@@ -143,12 +151,20 @@ describe('PrimaryCareContainer', () => {
       expect(mobileInput).toBeVisible();
     });
 
-    expect(firstNameInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.firstName.key] as string);
-    expect(lastNameInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.lastName.key] as string);
-    expect(practiceNameInput).toHaveValue(
-      filledFieldValues[FormFields.primaryCarePhysician.practiceName.key] as string
+    expect(firstNameInput).toHaveValue(
+      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.firstName.key] as string
     );
-    expect(addressInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.address.key] as string);
-    expect(mobileInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.phone.key] as string);
+    expect(lastNameInput).toHaveValue(
+      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.lastName.key] as string
+    );
+    expect(practiceNameInput).toHaveValue(
+      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.practiceName.key] as string
+    );
+    expect(addressInput).toHaveValue(
+      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.address.key] as string
+    );
+    expect(mobileInput).toHaveValue(
+      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.phone.key] as string
+    );
   });
 });

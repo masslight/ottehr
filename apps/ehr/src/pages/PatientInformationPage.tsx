@@ -33,7 +33,7 @@ import {
 } from 'utils';
 import { CustomDialog } from '../components/dialogs';
 import { LoadingScreen } from '../components/LoadingScreen';
-import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
+import { InsurancePriorityFields } from '../constants';
 import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import {
   useGetInsurancePlans,
@@ -419,7 +419,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
 
   if (!patient) return null;
 
-  const currentlyAssignedPriorities = watch(InsurancePriorityOptions);
+  const currentlyAssignedPriorities = watch(InsurancePriorityFields);
 
   return (
     <div>
@@ -491,7 +491,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
         onClose={() => setOpenAddInsuranceModal(false)}
         questionnaire={questionnaire ?? { resourceType: 'Questionnaire', status: 'draft' }}
         patientId={patient.id ?? ''}
-        priorityOptions={INSURANCE_COVERAGE_OPTIONS.filter(
+        priorityOptions={PATIENT_RECORD_CONFIG.formValueSets.insurancePriorityOptions.filter(
           (option) => !currentlyAssignedPriorities.includes(option.value)
         )}
       />

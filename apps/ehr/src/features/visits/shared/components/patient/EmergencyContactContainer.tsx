@@ -4,15 +4,10 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { FormSelect, FormTextField } from 'src/components/form';
 import InputMask from 'src/components/InputMask';
 import { Row, Section } from 'src/components/layout';
-import {
-  EMERGENCY_CONTACT_RELATIONSHIP_OPTIONS,
-  FormFields as AllFormFields,
-  PatientAddressFields,
-  STATE_OPTIONS,
-} from 'src/constants';
-import { isPhoneNumberValid, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { PatientAddressFields } from 'src/constants';
+import { isPhoneNumberValid, isPostalCodeValid, PATIENT_RECORD_CONFIG, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 
-const { emergencyContact: FormFields } = AllFormFields;
+const { emergencyContact: FormFields } = PATIENT_RECORD_CONFIG.FormFields;
 
 export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { control, watch, setValue } = useFormContext();
@@ -47,11 +42,13 @@ export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoadin
         <FormSelect
           name={FormFields.relationship.key}
           control={control}
-          options={EMERGENCY_CONTACT_RELATIONSHIP_OPTIONS}
+          options={PATIENT_RECORD_CONFIG.formValueSets.emergencyContactRelationshipOptions}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value: string) =>
-              EMERGENCY_CONTACT_RELATIONSHIP_OPTIONS.some((option) => option.value === value),
+              PATIENT_RECORD_CONFIG.formValueSets.emergencyContactRelationshipOptions.some(
+                (option) => option.value === value
+              ),
           }}
           id={FormFields.relationship.key}
           disabled={isLoading}
@@ -152,7 +149,7 @@ export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoadin
             control={control}
             render={({ field: { value }, fieldState: { error } }) => (
               <Autocomplete
-                options={STATE_OPTIONS.map((option) => option.value)}
+                options={PATIENT_RECORD_CONFIG.formValueSets.stateOptions.map((option) => option.value)}
                 value={value ?? ''}
                 onChange={(_, newValue) => {
                   setValue(FormFields.state.key, newValue ?? '');

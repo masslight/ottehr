@@ -4,20 +4,12 @@ import { FC, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { FormSelect, FormTextField } from 'src/components/form';
 import { Row, Section } from 'src/components/layout';
-import {
-  ETHNICITY_OPTIONS,
-  FormFields as AllFormFields,
-  GENDER_IDENTITY_OPTIONS,
-  POINT_OF_DISCOVERY_OPTIONS,
-  RACE_OPTIONS,
-  SEXUAL_ORIENTATION_OPTIONS,
-} from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { LANGUAGE_OPTIONS, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { LANGUAGE_OPTIONS, PATIENT_RECORD_CONFIG, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import inPersonIntakeQuestionnaire from '../../../../../../../../config/oystehr/in-person-intake-questionnaire.json';
 import ShowMoreButton from './ShowMoreButton';
 
-const FormFields = AllFormFields.patientDetails;
+const FormFields = PATIENT_RECORD_CONFIG.FormFields.patientDetails;
 interface PatientDetailsContainerProps {
   patient: Patient;
   isLoading: boolean;
@@ -78,7 +70,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           name={FormFields.ethnicity.key}
           control={control}
           disabled={isLoading}
-          options={ETHNICITY_OPTIONS}
+          options={PATIENT_RECORD_CONFIG.formValueSets.ethnicityOptions}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
@@ -89,7 +81,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           name={FormFields.race.key}
           control={control}
           disabled={isLoading}
-          options={RACE_OPTIONS}
+          options={PATIENT_RECORD_CONFIG.formValueSets.raceOptions}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
@@ -100,7 +92,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           disabled={isLoading}
           name={FormFields.sexualOrientation.key}
           control={control}
-          options={SEXUAL_ORIENTATION_OPTIONS}
+          options={PATIENT_RECORD_CONFIG.formValueSets.sexualOrientationOptions}
         />
       </Row>
       <Row label="Gender identity" dataTestId={dataTestIds.patientDetailsContainer.genderIdentity}>
@@ -108,7 +100,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           disabled={isLoading}
           name={FormFields.genderIdentity.key}
           control={control}
-          options={GENDER_IDENTITY_OPTIONS}
+          options={PATIENT_RECORD_CONFIG.formValueSets.genderIdentityOptions}
         />
       </Row>
       {isNonBinaryGender && (
@@ -140,7 +132,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           disabled={isLoading}
           name={FormFields.pointOfDiscovery.key}
           control={control}
-          options={POINT_OF_DISCOVERY_OPTIONS}
+          options={PATIENT_RECORD_CONFIG.formValueSets.pointOfDiscoveryOptions}
         />
       </Row>
       <Box

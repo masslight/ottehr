@@ -4,11 +4,10 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { FormTextField } from 'src/components/form';
 import InputMask from 'src/components/InputMask';
 import { Row, Section } from 'src/components/layout';
-import { FormFields, STATE_OPTIONS } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { emailRegex, isPhoneNumberValid, isPostalCodeValid } from 'utils';
+import { emailRegex, isPhoneNumberValid, isPostalCodeValid, PATIENT_RECORD_CONFIG } from 'utils';
 
-const { employerInformation } = FormFields;
+const { employerInformation } = PATIENT_RECORD_CONFIG.FormFields;
 
 export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { control, setValue } = useFormContext();
@@ -52,7 +51,7 @@ export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoa
             control={control}
             render={({ field: { value }, fieldState: { error } }) => (
               <Autocomplete
-                options={STATE_OPTIONS.map((option) => option.value)}
+                options={PATIENT_RECORD_CONFIG.formValueSets.stateOptions.map((option) => option.value)}
                 value={value ?? ''}
                 disableClearable
                 onChange={(_, newValue) => {

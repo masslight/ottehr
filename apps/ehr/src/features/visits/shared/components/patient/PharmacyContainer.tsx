@@ -2,9 +2,9 @@ import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { FormTextField } from 'src/components/form';
 import { Row, Section } from 'src/components/layout';
-import { FormFields } from 'src/constants';
+import { PATIENT_RECORD_CONFIG } from 'utils';
 
-const fields = FormFields.preferredPharmacy;
+const fields = PATIENT_RECORD_CONFIG.FormFields.preferredPharmacy;
 
 export const PharmacyContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { control } = useFormContext();

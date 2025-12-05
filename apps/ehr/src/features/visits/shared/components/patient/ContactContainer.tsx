@@ -4,12 +4,17 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { FormSelect, FormTextField } from 'src/components/form';
 import InputMask from 'src/components/InputMask';
 import { Row, Section } from 'src/components/layout';
-import { FormFields, PREFERRED_COMMUNICATION_METHOD_OPTIONS, STATE_OPTIONS } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { emailRegex, isPhoneNumberValid, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import {
+  emailRegex,
+  isPhoneNumberValid,
+  isPostalCodeValid,
+  PATIENT_RECORD_CONFIG,
+  REQUIRED_FIELD_ERROR_MESSAGE,
+} from 'utils';
 import inPersonIntakeQuestionnaire from '../../../../../../../../config/oystehr/in-person-intake-questionnaire.json';
 
-const contact = FormFields.patientContactInformation;
+const contact = PATIENT_RECORD_CONFIG.FormFields.patientContactInformation;
 
 export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { control, setValue } = useFormContext();
@@ -60,7 +65,7 @@ export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
             render={({ field: { value }, fieldState: { error } }) => {
               return (
                 <Autocomplete
-                  options={STATE_OPTIONS.map((option) => option.value)}
+                  options={PATIENT_RECORD_CONFIG.formValueSets.stateOptions.map((option) => option.value)}
                   value={value ?? ''}
                   data-testid={dataTestIds.contactInformationContainer.state}
                   onChange={(_, newValue) => {
@@ -139,7 +144,7 @@ export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
             name={contact.preferredCommunicationMethod.key}
             control={control}
             disabled={isLoading}
-            options={PREFERRED_COMMUNICATION_METHOD_OPTIONS}
+            options={PATIENT_RECORD_CONFIG.formValueSets.preferredCommunicationMethodOptions}
             rules={{
               required: REQUIRED_FIELD_ERROR_MESSAGE,
             }}
