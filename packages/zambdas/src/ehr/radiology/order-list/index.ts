@@ -253,7 +253,7 @@ const parseResultsToOrder = (
 
   if (serviceRequest.status === 'active') {
     status = RadiologyOrderStatus.pending;
-  } else if (serviceRequest.status === 'completed' && !bestFinalReport) {
+  } else if (serviceRequest.status === 'completed' && !preliminaryDiagnosticReport && !bestFinalReport) {
     status = RadiologyOrderStatus.performed;
   } else if (preliminaryDiagnosticReport && !bestFinalReport) {
     status = RadiologyOrderStatus.preliminary;

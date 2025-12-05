@@ -236,20 +236,38 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
 
           <RadiologyOrderHistoryCard orderHistory={order.history} />
 
-          <Button
-            variant="outlined"
-            color="primary"
-            sx={{
-              borderRadius: 28,
-              padding: '8px 22px',
-              alignSelf: 'flex-start',
-              marginTop: 2,
-              textTransform: 'none',
-            }}
-            onClick={handleBack}
-          >
-            Back
-          </Button>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, mt: 2 }}>
+            <Button
+              variant="outlined"
+              color="primary"
+              sx={{
+                borderRadius: 28,
+                padding: '8px 22px',
+                textTransform: 'none',
+              }}
+              onClick={handleBack}
+            >
+              Back
+            </Button>
+
+            {order.status === 'preliminary' && (
+              <Button
+                variant="contained"
+                color="primary"
+                sx={{
+                  borderRadius: 28,
+                  padding: '8px 22px',
+                  textTransform: 'none',
+                }}
+                onClick={() => {
+                  // TODO: Implement send for final read functionality
+                  console.log('Send for final read clicked');
+                }}
+              >
+                Send for Final Read
+              </Button>
+            )}
+          </Box>
         </Stack>
       </div>
     </WithRadiologyBreadcrumbs>

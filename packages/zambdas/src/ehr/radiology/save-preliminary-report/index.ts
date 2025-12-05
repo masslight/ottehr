@@ -2,9 +2,18 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
 import { DiagnosticReport, Reference } from 'fhir/r5';
-import { getSecret, RoleType, SavePreliminaryReportZambdaOutput, Secrets, SecretsKeys, User } from 'utils';
+import {
+  ACCESSION_NUMBER_CODE_SYSTEM,
+  ADVAPACS_FHIR_BASE_URL,
+  fetchServiceRequestFromAdvaPACS,
+  getSecret,
+  RoleType,
+  SavePreliminaryReportZambdaOutput,
+  Secrets,
+  SecretsKeys,
+  User,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
-import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_FHIR_BASE_URL, fetchServiceRequestFromAdvaPACS } from '../shared';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
