@@ -77,7 +77,7 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Review and Submit', () 
       await expect(locator.continueButton).toBeVisible();
     });
 
-    await test.step('PRS-1.5. Add Photo IDs, check all chips are completed, [Finish] button is visible', async () => {
+    await test.step('PRS-1.5. Add Photo IDs, check all chips are completed, [Continue] button is visible', async () => {
       await locator.photoIdEditButton.click();
       await paperwork.checkCorrectPageOpens('Photo ID');
       await uploadPhoto.fillPhotoFrontID();
@@ -85,10 +85,10 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Review and Submit', () 
       await locator.clickContinueButton();
       await page.goto(`paperwork/${patient.appointmentId}/review`);
       await paperwork.checkAllChipsAreCompletedInPerson();
-      await expect(locator.finishButton).toBeVisible();
+      await expect(locator.continueButton).toBeVisible();
     });
 
-    await test.step('PRS-1.6. Select Insurance, fill required fields, check all chips are completed, [Finish] button is visible', async () => {
+    await test.step('PRS-1.6. Select Insurance, fill required fields, check all chips are completed, [Continue] button is visible', async () => {
       await locator.insuranceDetailsEditButton.click();
       await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
       await paperwork.selectInsurancePayment();
@@ -97,13 +97,13 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Review and Submit', () 
       await locator.clickContinueButton();
       await page.goto(`paperwork/${patient.appointmentId}/review`);
       await paperwork.checkAllChipsAreCompletedInPerson();
-      await expect(locator.finishButton).toBeVisible();
+      await expect(locator.continueButton).toBeVisible();
     });
 
     await test.step('PRS-1.7. All chips are completed after reload', async () => {
       await page.reload();
       await paperwork.checkAllChipsAreCompletedInPerson();
-      await expect(locator.finishButton).toBeVisible();
+      await expect(locator.continueButton).toBeVisible();
     });
   });
 
