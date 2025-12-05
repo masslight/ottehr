@@ -115,7 +115,6 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
       await test.step('PPCP-5. Fill all fields and click [Continue] - Preferred pharmacy opens', async () => {
         await locator.clickBackButton();
         const pcpData = await paperwork.fillPrimaryCarePhysician();
-        await paperwork.fillPrimaryCarePhysician();
         await locator.clickContinueButton();
         await paperwork.checkCorrectPageOpens('Preferred pharmacy');
         return pcpData;
