@@ -4,10 +4,8 @@ import {
   Autocomplete,
   Box,
   Button,
-  Checkbox,
   Chip,
   CircularProgress,
-  FormControlLabel,
   IconButton,
   TextField,
   Typography,
@@ -16,8 +14,7 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { FormSelect, FormTextField } from 'src/components/form';
-import { BasicDatePicker } from 'src/components/form/DatePicker';
+import { FormSelect } from 'src/components/form';
 import { Row, Section } from 'src/components/layout';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
 import { PatientAddressFields, PatientIdentifyingFields } from 'src/constants';
@@ -32,7 +29,6 @@ import {
   InsurancePlanDTO,
   InsurancePlanType,
   InsurancePlanTypes,
-  isPostalCodeValid,
   mapEligibilityCheckResultToSimpleStatus,
   PATIENT_RECORD_CONFIG,
   PatientPaymentBenefit,
@@ -40,6 +36,7 @@ import {
 } from 'utils';
 import { CopayWidget } from './CopayWidget';
 import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
+import PatientRecordFormField from './PatientRecordFormField';
 import ShowMoreButton from './ShowMoreButton';
 
 type InsuranceContainerProps = {
@@ -156,6 +153,15 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     ];
     return { FormFields: insurance, LocalAddressFields, LocalIdentifyingFields };
   }, [ordinal]);
+
+  const {
+    hiddenFormFields: allHiddenFields,
+    requiredFormFields: allRequiredFields,
+    hiddenFormSections,
+  } = PATIENT_RECORD_CONFIG;
+
+  const hiddenFields = allHiddenFields.insurance;
+  const requiredFields = allRequiredFields.insurance;
 
   const patientAddressData = watch(PatientAddressFields);
   const patientIdentifyingData = watch(PatientIdentifyingFields);
@@ -363,6 +369,10 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     return undefined;
   };
 
+  if (hiddenFormSections.includes(`insurance-section${ordinal === 2 ? '-2' : ''}`)) {
+    return null;
+  }
+
   return (
     <Section title="Insurance information" dataTestId="insuranceContainer" titleWidget={<TitleWidget />}>
       <Box
@@ -476,19 +486,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           }}
         />
       </Row>
-      <Row
-        label="Member ID"
-        required
-        inputId={FormFields.memberId.key}
-        dataTestId={dataTestIds.insuranceContainer.memberId}
-      >
-        <FormTextField
-          id={FormFields.memberId.key}
-          name={FormFields.memberId.key}
-          control={control}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-        />
-      </Row>
+      <PatientRecordFormField
+        item={FormFields.memberId}
+        isLoading={false}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <ShowMoreButton
           onClick={toggleMoreInfo}
@@ -498,198 +501,107 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       </Box>
       {showMoreInfo && (
         <>
-          <Row
-            label="Policy holder's first name"
-            required
-            inputId={FormFields.firstName.key}
-            dataTestId={dataTestIds.insuranceContainer.policyHoldersFirstName}
-          >
-            <FormTextField
-              id={FormFields.firstName.key}
-              name={FormFields.firstName.key}
-              disabled={selfSelected}
-              control={control}
-              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-            />
-          </Row>
-          <Row
-            label="Policy holder's middle name"
-            inputId={FormFields.middleName.key}
-            dataTestId={dataTestIds.insuranceContainer.policyHoldersMiddleName}
-          >
-            <FormTextField
-              id={FormFields.middleName.key}
-              name={FormFields.middleName.key}
-              control={control}
-              disabled={selfSelected}
-            />
-          </Row>
-          <Row
-            label="Policy holder's last name"
-            required
-            inputId={FormFields.lastName.key}
-            dataTestId={dataTestIds.insuranceContainer.policyHoldersLastName}
-          >
-            <FormTextField
-              id={FormFields.lastName.key}
-              name={FormFields.lastName.key}
-              disabled={selfSelected}
-              control={control}
-              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-            />
-          </Row>
-          <Row
-            label="Policy holder's date of birth"
-            required
-            dataTestId={dataTestIds.insuranceContainer.policyHoldersDateOfBirth}
-          >
-            <BasicDatePicker
-              name={FormFields.birthDate.key}
-              control={control}
-              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              disabled={selfSelected}
-            />
-          </Row>
-          <Row label="Policy holder's sex" required dataTestId={dataTestIds.insuranceContainer.policyHoldersSex}>
-            <FormSelect
-              name={FormFields.birthSex.key}
-              control={control}
-              options={PATIENT_RECORD_CONFIG.formValueSets.birthSexOptions}
-              disabled={selfSelected}
-              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-            />
-          </Row>
+          <PatientRecordFormField
+            item={FormFields.firstName}
+            isLoading={false}
+            disabled={selfSelected && Boolean(patientIdentifyingData[0])}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          <PatientRecordFormField
+            item={FormFields.middleName}
+            isLoading={false}
+            disabled={selfSelected && Boolean(patientIdentifyingData[1])}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          <PatientRecordFormField
+            item={FormFields.lastName}
+            isLoading={false}
+            disabled={selfSelected && Boolean(patientIdentifyingData[2])}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          <PatientRecordFormField
+            item={FormFields.birthDate}
+            isLoading={false}
+            disabled={selfSelected && Boolean(patientIdentifyingData[3])}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          <PatientRecordFormField
+            item={FormFields.birthSex}
+            isLoading={false}
+            disabled={selfSelected && Boolean(patientIdentifyingData[4])}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
-              <Controller
-                key={sameAsPatientAddress}
-                name={FormFields.policyHolderAddressAsPatient.key}
-                control={control}
-                render={({ field: { value, ...field } }) => (
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        {...field}
-                        data-testid={dataTestIds.insuranceContainer.policyHolderAddressCheckbox}
-                        checked={value}
-                        onChange={(e) => {
-                          const checked = (e.target as HTMLInputElement).checked;
-                          setValue(FormFields.policyHolderAddressAsPatient.key, checked, { shouldDirty: true });
-                        }}
-                        disabled={selfSelected}
-                      />
-                    }
-                    label={<Typography>Policy holder address is the same as patient's address</Typography>}
-                  />
-                )}
+              <PatientRecordFormField
+                item={FormFields.policyHolderAddressAsPatient}
+                isLoading={false}
+                requiredFormFields={requiredFields}
+                hiddenFormFields={hiddenFields}
+                disabled={selfSelected}
+                omitRowWrapper
               />
             </Box>
           </Box>
-          <Row
-            label="Street address"
-            inputId={FormFields.streetAddress.key}
-            required
-            dataTestId={dataTestIds.insuranceContainer.streetAddress}
-          >
-            <FormTextField
-              id={FormFields.streetAddress.key}
-              name={FormFields.streetAddress.key}
-              disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[0])}
-              control={control}
-              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-            />
-          </Row>
-          <Row
-            label="Address line 2"
-            inputId={FormFields.addressLine2.key}
-            dataTestId={dataTestIds.insuranceContainer.addressLine2}
-          >
-            <FormTextField
-              id={FormFields.addressLine2.key}
-              name={FormFields.addressLine2.key}
-              disabled={sameAsPatientAddress || selfSelected}
-              control={control}
-            />
-          </Row>
+          <PatientRecordFormField
+            item={FormFields.streetAddress}
+            isLoading={false}
+            disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[0])}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          <PatientRecordFormField
+            item={FormFields.addressLine2}
+            isLoading={false}
+            disabled={sameAsPatientAddress || selfSelected}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
           <Row label="City, State, ZIP" required>
             <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormTextField
-                data-testid={dataTestIds.insuranceContainer.city}
-                name={FormFields.city.key}
+              <PatientRecordFormField
+                item={FormFields.city}
+                isLoading={false}
                 disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[2])}
-                control={control}
-                rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                requiredFormFields={requiredFields}
+                hiddenFormFields={hiddenFields}
+                omitRowWrapper
               />
-              <Controller
-                name={FormFields.state.key}
-                control={control}
-                rules={{
-                  required: REQUIRED_FIELD_ERROR_MESSAGE,
-                }}
-                render={({ field: { value }, fieldState: { error } }) => {
-                  return (
-                    <Autocomplete
-                      options={PATIENT_RECORD_CONFIG.formValueSets.stateOptions.map((option) => option.value)}
-                      disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[3])}
-                      value={value ?? ''}
-                      onChange={(_, newValue) => {
-                        if (newValue) {
-                          setValue(FormFields.state.key, newValue);
-                        } else {
-                          setValue(FormFields.state.key, '');
-                        }
-                      }}
-                      disableClearable
-                      fullWidth
-                      renderInput={(params) => (
-                        <TextField
-                          data-testid={dataTestIds.insuranceContainer.state}
-                          {...params}
-                          variant="standard"
-                          error={!!error}
-                          required
-                          helperText={error?.message}
-                        />
-                      )}
-                    />
-                  );
-                }}
+              <PatientRecordFormField
+                item={FormFields.state}
+                isLoading={false}
+                disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[3])}
+                requiredFormFields={requiredFields}
+                hiddenFormFields={hiddenFields}
+                omitRowWrapper
               />
-              <FormTextField
-                data-testid={dataTestIds.insuranceContainer.zip}
-                name={FormFields.zip.key}
-                control={control}
+              <PatientRecordFormField
+                item={FormFields.zip}
+                isLoading={false}
                 disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[4])}
-                rules={{
-                  validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
-                  required: REQUIRED_FIELD_ERROR_MESSAGE,
-                }}
+                requiredFormFields={requiredFields}
+                hiddenFormFields={hiddenFields}
+                omitRowWrapper
               />
             </Box>
           </Row>
-          <Row
-            label="Patient’s relationship to insured"
-            required
-            dataTestId={dataTestIds.insuranceContainer.relationship}
-          >
-            <FormSelect
-              name={FormFields.relationship.key}
-              control={control}
-              options={PATIENT_RECORD_CONFIG.formValueSets.relationshipToInsuredOptions}
-              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-            />
-          </Row>
-          <Row
-            label="Additional insurance information"
-            inputId={FormFields.additionalInformation.key}
-            dataTestId={dataTestIds.insuranceContainer.additionalInformation}
-          >
-            <FormTextField
-              id={FormFields.additionalInformation.key}
-              name={FormFields.additionalInformation.key}
-              control={control}
-            />
-          </Row>
+          <PatientRecordFormField
+            item={FormFields.relationship}
+            isLoading={false}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
+          <PatientRecordFormField
+            item={FormFields.additionalInformation}
+            isLoading={false}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+          />
           <LoadingButton
             data-testid={dataTestIds.insuranceContainer.removeButton}
             onClick={handleRemoveInsurance}

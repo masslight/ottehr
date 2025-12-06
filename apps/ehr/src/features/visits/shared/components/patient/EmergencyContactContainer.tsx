@@ -1,16 +1,23 @@
-import { Autocomplete, Box, Checkbox, FormControlLabel, TextField } from '@mui/material';
+import { Box } from '@mui/material';
 import { FC, useEffect, useMemo } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
-import { FormSelect, FormTextField } from 'src/components/form';
-import InputMask from 'src/components/InputMask';
+import { useFormContext } from 'react-hook-form';
 import { Row, Section } from 'src/components/layout';
 import { PatientAddressFields } from 'src/constants';
-import { isPhoneNumberValid, isPostalCodeValid, PATIENT_RECORD_CONFIG, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { PATIENT_RECORD_CONFIG } from 'utils';
+import PatientRecordFormField from './PatientRecordFormField';
 
 const { emergencyContact: FormFields } = PATIENT_RECORD_CONFIG.FormFields;
+const {
+  hiddenFormFields: allHiddenFields,
+  requiredFormFields: allRequiredFields,
+  hiddenFormSections,
+} = PATIENT_RECORD_CONFIG;
+
+const hiddenFields = allHiddenFields.emergencyContact;
+const requiredFields = allRequiredFields.emergencyContact;
 
 export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
-  const { control, watch, setValue } = useFormContext();
+  const { watch, setValue } = useFormContext();
 
   const emergencyAddressFields = useMemo(
     () => [
@@ -36,142 +43,93 @@ export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoadin
     }
   }, [emergencyAddressData, emergencyAddressFields, patientAddressData, sameAsPatientAddress, setValue]);
 
+  if (hiddenFormSections.includes('emergency-contact-section')) {
+    return null;
+  }
+
   return (
     <Section title="Emergency contact information">
-      <Row label={FormFields.relationship.label} required>
-        <FormSelect
-          name={FormFields.relationship.key}
-          control={control}
-          options={PATIENT_RECORD_CONFIG.formValueSets.emergencyContactRelationshipOptions}
-          rules={{
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value: string) =>
-              PATIENT_RECORD_CONFIG.formValueSets.emergencyContactRelationshipOptions.some(
-                (option) => option.value === value
-              ),
-          }}
-          id={FormFields.relationship.key}
-          disabled={isLoading}
-        />
-      </Row>
-      <Row label={FormFields.firstName.label} required inputId={FormFields.firstName.key}>
-        <FormTextField
-          name={FormFields.firstName.key}
-          control={control}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-          id={FormFields.firstName.key}
-          disabled={isLoading}
-        />
-      </Row>
-      <Row label={FormFields.middleName.label} inputId={FormFields.middleName.key}>
-        <FormTextField
-          name={FormFields.middleName.key}
-          control={control}
-          id={FormFields.middleName.key}
-          disabled={isLoading}
-        />
-      </Row>
-      <Row label={FormFields.lastName.label} required inputId={FormFields.lastName.key}>
-        <FormTextField
-          name={FormFields.lastName.key}
-          control={control}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-          id={FormFields.lastName.key}
-          disabled={isLoading}
-        />
-      </Row>
-      <Row label={FormFields.phone.label} required inputId={FormFields.phone.key}>
-        <FormTextField
-          id={FormFields.phone.key}
-          name={FormFields.phone.key}
-          control={control}
-          inputProps={{ mask: '(000) 000-0000' }}
-          InputProps={{
-            inputComponent: InputMask as any,
-          }}
-          rules={{
-            validate: (value: string) => {
-              if (!value) return true;
-              return (
-                isPhoneNumberValid(value) ||
-                'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number'
-              );
-            },
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-          }}
-          disabled={isLoading}
-        />
-      </Row>
-      <Row label=" ">
-        <Controller
-          name={FormFields.addressAsPatient.key}
-          control={control}
-          render={({ field: { value, ...field } }) => (
-            <FormControlLabel
-              control={
-                <Checkbox
-                  {...field}
-                  checked={value ?? false}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                  disabled={isLoading}
-                />
-              }
-              label={FormFields.addressAsPatient.label}
-            />
-          )}
-        />
-      </Row>
-      <Row label={FormFields.streetAddress.label} inputId={FormFields.streetAddress.key}>
-        <FormTextField
-          name={FormFields.streetAddress.key}
-          control={control}
-          id={FormFields.streetAddress.key}
-          disabled={isLoading || (sameAsPatientAddress && Boolean(patientAddressData[0]))}
-        />
-      </Row>
-      <Row label={FormFields.addressLine2.label} inputId={FormFields.addressLine2.key}>
-        <FormTextField
-          name={FormFields.addressLine2.key}
-          control={control}
-          id={FormFields.addressLine2.key}
-          disabled={isLoading || sameAsPatientAddress}
-        />
-      </Row>
+      <PatientRecordFormField
+        item={FormFields.relationship}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.firstName}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.firstName}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.middleName}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.lastName}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.phone}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.addressAsPatient}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.streetAddress}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+        disabled={sameAsPatientAddress && Boolean(patientAddressData[0])}
+      />
+      <PatientRecordFormField
+        item={FormFields.addressLine2}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+        disabled={sameAsPatientAddress}
+      />
       <Row label="City, State, ZIP">
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <FormTextField
-            name={FormFields.city.key}
-            control={control}
-            disabled={isLoading || (sameAsPatientAddress && Boolean(patientAddressData[2]))}
+          <PatientRecordFormField
+            item={FormFields.city}
+            isLoading={isLoading}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+            disabled={sameAsPatientAddress && Boolean(patientAddressData[2])}
+            omitRowWrapper
           />
-          <Controller
-            name={FormFields.state.key}
-            control={control}
-            render={({ field: { value }, fieldState: { error } }) => (
-              <Autocomplete
-                options={PATIENT_RECORD_CONFIG.formValueSets.stateOptions.map((option) => option.value)}
-                value={value ?? ''}
-                onChange={(_, newValue) => {
-                  setValue(FormFields.state.key, newValue ?? '');
-                }}
-                fullWidth
-                renderInput={(params) => (
-                  <TextField {...params} variant="standard" error={!!error} helperText={error?.message} />
-                )}
-                disabled={isLoading || (sameAsPatientAddress && Boolean(patientAddressData[3]))}
-              />
-            )}
+          <PatientRecordFormField
+            item={FormFields.state}
+            isLoading={isLoading}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+            disabled={sameAsPatientAddress && Boolean(patientAddressData[3])}
+            omitRowWrapper
           />
-          <FormTextField
-            name={FormFields.zip.key}
-            control={control}
-            rules={{
-              validate: (value: string) => {
-                if (!value) return true;
-                return isPostalCodeValid(value) || 'Must be 5 digits';
-              },
-            }}
-            disabled={isLoading || (sameAsPatientAddress && Boolean(patientAddressData[4]))}
+          <PatientRecordFormField
+            item={FormFields.zip}
+            isLoading={isLoading}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+            disabled={sameAsPatientAddress && Boolean(patientAddressData[4])}
+            omitRowWrapper
           />
         </Box>
       </Row>

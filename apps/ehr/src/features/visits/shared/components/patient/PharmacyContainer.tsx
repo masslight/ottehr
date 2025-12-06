@@ -1,22 +1,34 @@
 import { FC } from 'react';
-import { useFormContext } from 'react-hook-form';
-import { FormTextField } from 'src/components/form';
-import { Row, Section } from 'src/components/layout';
+import { Section } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
+import PatientRecordFormField from './PatientRecordFormField';
 
 const fields = PATIENT_RECORD_CONFIG.FormFields.preferredPharmacy;
+const {
+  hiddenFormFields: allHiddenFields,
+  requiredFormFields: allRequiredFields,
+  hiddenFormSections,
+} = PATIENT_RECORD_CONFIG;
+
+const hiddenFields = allHiddenFields.preferredPharmacy;
+const requiredFields = allRequiredFields.preferredPharmacy;
 
 export const PharmacyContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
-  const { control } = useFormContext();
+  if (hiddenFormSections.includes('preferred-pharmacy-section')) {
+    return null;
+  }
 
   return (
     <Section title="Preferred pharmacy">
-      <Row label={fields.name.label} inputId={fields.name.key}>
-        <FormTextField name={fields.name.key} control={control} id={fields.name.key} disabled={isLoading} />
-      </Row>
-      <Row label={fields.address.label} inputId={fields.address.key}>
-        <FormTextField name={fields.address.key} control={control} id={fields.address.key} disabled={isLoading} />
-      </Row>
+      {Object.values(fields).map((item) => (
+        <PatientRecordFormField
+          key={item.key}
+          item={item}
+          isLoading={isLoading}
+          hiddenFormFields={hiddenFields}
+          requiredFormFields={requiredFields}
+        />
+      ))}
     </Section>
   );
 };
