@@ -3,25 +3,19 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { CandidApi, CandidApiClient } from 'candidhealth';
 import { InventoryRecord, InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
-import { Account, Encounter, Patient, RelatedPerson, Resource, Task } from 'fhir/r4b';
+import { Encounter, Resource, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createCandidApiClient,
   createReference,
-  getActiveAccountGuarantorReference,
   getCandidInventoryPagesRecursive,
-  getEmailForIndividual,
-  getFullName,
-  getPatientReferenceFromAccount,
   getResourcesFromBatchInlineRequests,
   getSecret,
-  getSMSNumberForIndividual,
   PrefilledInvoiceInfo,
   RCM_TASK_SYSTEM,
   RcmTaskCode,
   RcmTaskCodings,
   SecretsKeys,
-  takeContainedOrFind,
   textingConfig,
 } from 'utils';
 import { createInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
@@ -30,7 +24,6 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getCandidEncounterIdFromEncounter,
-  getRelatedPersonForPatient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -39,6 +32,17 @@ import {
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'sub-create-invoices-tasks';
+
+type EncounterWithoutTaskPkg = {
+  encounter: Encounter;
+  patientBalanceInCents: number;
+};
+
+interface EncounterPackage {
+  encounter: Encounter;
+  claim: InventoryRecord;
+  tasks?: Task[];
+}
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -67,37 +71,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-async function getPrefilledInvoiceInfo(oystehr: Oystehr, patientId: string): Promise<PrefilledInvoiceInfo> {
+async function getPrefilledInvoiceInfo(patientBalanceInCents: number): Promise<PrefilledInvoiceInfo> {
   try {
-    const patientResources = await getFhirPatientResources({ oystehr, patientId });
     const smsMessageFromSecret = textingConfig.invoicing.smsMessage;
     const memoFromSecret = textingConfig.invoicing.stripeMemoMessage;
     const dueDateFromSecret = textingConfig.invoicing.dueDateInDays;
-    if (patientResources) {
-      const { responsibleParty } = patientResources;
-      const email = getEmailForIndividual(responsibleParty);
-      if (!email) throw new Error('Email was not found for responsible party');
-      return {
-        recipientName: getFullName(responsibleParty),
-        recipientEmail: email,
-        recipientPhoneNumber: patientResources.phoneNumber,
-        smsTextMessage: smsMessageFromSecret,
-        memo: memoFromSecret,
-        dueDate: DateTime.now().plus({ days: dueDateFromSecret }).toISODate(),
-      };
-    }
-    throw new Error(`Prefilled info cannot be filled for patient: ${patientId}`);
+    const dueDate = DateTime.now().plus({ days: dueDateFromSecret }).toISODate();
+
+    return {
+      smsTextMessage: smsMessageFromSecret,
+      memo: memoFromSecret,
+      dueDate,
+      amountCents: patientBalanceInCents,
+    };
   } catch (error) {
     console.error('Error fetching prefilled invoice info: ', error);
     throw new Error('Error fetching prefilled invoice info: ' + error);
   }
 }
 
-async function createTaskForEncounter(oystehr: Oystehr, encounter: Encounter): Promise<void> {
+async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterWithoutTaskPkg): Promise<void> {
   try {
+    const { encounter } = encounterPkg;
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
     if (!patientId) throw new Error('Patient ID not found in encounter: ' + encounter.id);
-    const prefilledInvoiceInfo = await getPrefilledInvoiceInfo(oystehr, patientId);
+    const prefilledInvoiceInfo = await getPrefilledInvoiceInfo(encounterPkg.patientBalanceInCents);
 
     const task: Task = {
       resourceType: 'Task',
@@ -115,7 +113,7 @@ async function createTaskForEncounter(oystehr: Oystehr, encounter: Encounter): P
   }
 }
 
-async function getEncountersWithoutTask(candid: CandidApiClient, oystehr: Oystehr): Promise<Encounter[]> {
+async function getEncountersWithoutTask(candid: CandidApiClient, oystehr: Oystehr): Promise<EncounterWithoutTaskPkg[]> {
   console.log('getting candid claims');
   const inventoryPages = await getCandidInventoryPagesRecursive({
     candid,
@@ -128,22 +126,26 @@ async function getEncountersWithoutTask(candid: CandidApiClient, oystehr: Oysteh
   const claimsFetched = inventoryPages?.claims;
   console.log('fetched claims: ', claimsFetched?.length);
   if (claimsFetched?.length && claimsFetched.length > 0) {
+    console.log('getting itemizations and encounters');
     const [itemizationResponse, encounterPackagesResponse] = await Promise.all([
       getItemizationToClaimIdMap(candid, claimsFetched),
       getEncounterTasksPackages(oystehr, claimsFetched),
     ]);
 
-    const encountersWithoutTask: Encounter[] = [];
+    console.log('fetched itemizations: ', Object.keys(itemizationResponse).length);
+    console.log('fetched encounters: ', encounterPackagesResponse.length);
+    const encountersWithoutTask: EncounterWithoutTaskPkg[] = [];
     encounterPackagesResponse.forEach((pkg) => {
       if (!pkg.tasks || pkg.tasks.length === 0) {
         const itemization = itemizationResponse[pkg.claim.claimId];
-        if (itemization.patientBalanceCents > 0) {
+        const patientBalanceInCents = itemization?.patientBalanceCents;
+        if (patientBalanceInCents && patientBalanceInCents > 0) {
           console.log(
-            `patient: ${pkg.claim.patientExternalId}, claim: ${pkg.claim.claimId}, oyst encounter: ${pkg.encounter.id} balance: `,
-            itemization.patientBalanceCents / 100
+            `patient: ${pkg.claim.patientExternalId}, claim: ${pkg.claim.claimId}, oyst encounter: ${pkg.encounter.id} balance (cents): `,
+            patientBalanceInCents
           );
 
-          encountersWithoutTask.push(pkg.encounter);
+          encountersWithoutTask.push({ encounter: pkg.encounter, patientBalanceInCents });
         }
       }
     });
@@ -167,12 +169,6 @@ async function getItemizationToClaimIdMap(
     }
   });
   return itemizationToClaimIdMap;
-}
-
-interface EncounterPackage {
-  encounter: Encounter;
-  claim: InventoryRecord;
-  tasks?: Task[];
 }
 
 async function getEncounterTasksPackages(oystehr: Oystehr, claims: InventoryRecord[]): Promise<EncounterPackage[]> {
@@ -207,57 +203,4 @@ async function getEncounterTasksPackages(oystehr: Oystehr, claims: InventoryReco
     }
   });
   return result;
-}
-
-async function getFhirPatientResources(input: {
-  oystehr: Oystehr;
-  patientId: string;
-}): Promise<{ patient: Patient; responsibleParty: RelatedPerson; phoneNumber: string } | undefined> {
-  const { patientId, oystehr } = input;
-  try {
-    console.log('🔍 Fetching FHIR resources for invoiceable patients...');
-
-    const [resourcesResponse, relatedPerson] = await Promise.all([
-      oystehr.fhir.search({
-        resourceType: 'Patient',
-        params: [
-          {
-            name: '_id',
-            value: patientId,
-          },
-          {
-            name: '_revinclude',
-            value: 'Account:patient',
-          },
-        ],
-      }),
-      getRelatedPersonForPatient(patientId, oystehr),
-    ]);
-    const resources = resourcesResponse.unbundle();
-    console.log('Fetched FHIR resources:', resources.length);
-
-    const patient = resources.find((resource) => resource.resourceType === 'Patient') as Patient;
-    const account = resources.find(
-      (resource) =>
-        resource.resourceType === 'Account' && getPatientReferenceFromAccount(resource as Account)?.includes(patientId)
-    ) as Account;
-    if (!patient || !account) return undefined;
-
-    if (!relatedPerson) throw new Error(`No related person found for patient: ${patientId}`);
-    const phoneNumber = getSMSNumberForIndividual(relatedPerson);
-    if (!phoneNumber) throw new Error(`No verified phone number found for patient: ${patientId}`);
-
-    const responsiblePartyRef = getActiveAccountGuarantorReference(account);
-    if (!responsiblePartyRef) throw new Error(`No responsible party reference found for account: ${account.id}`);
-    const responsibleParty = takeContainedOrFind(responsiblePartyRef, resources as Resource[], account) as
-      | RelatedPerson
-      | undefined;
-    if (!responsibleParty) throw new Error(`No responsible party found for account: ${account.id}`);
-
-    return { patient, responsibleParty, phoneNumber };
-  } catch (error) {
-    const errorMessage = `Error fetching FHIR resources for patient ${patientId}: ${error}`;
-    console.error(errorMessage);
-    throw new Error(errorMessage);
-  }
 }

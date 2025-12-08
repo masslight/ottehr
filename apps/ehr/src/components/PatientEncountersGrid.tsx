@@ -39,6 +39,7 @@ import {
   AppointmentType,
   FollowUpVisitHistoryRow,
   formatMinutes,
+  GetPatientAndResponsiblePartyInfoEndpointOutput,
   PatientVisitListResponse,
   PrefilledInvoiceInfo,
   ServiceMode,
@@ -184,6 +185,22 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           sortDirection,
         });
         return result.output as PatientVisitListResponse;
+      }
+
+      throw new Error('api client not defined or patient id is not provided');
+    },
+    enabled: Boolean(patient?.id) && Boolean(oystehrZambda),
+  });
+
+  const { data: patientAndRpForInvoiceData, isLoading: patientAndRPLoading } = useQuery({
+    queryKey: [`get-patient-and-responsible-party-info`, { patientId }],
+    queryFn: async (): Promise<GetPatientAndResponsiblePartyInfoEndpointOutput> => {
+      if (oystehrZambda && patient?.id) {
+        const result = await oystehrZambda.zambda.execute({
+          id: 'get-patient-and-responsible-party-info',
+          patientId: patient.id,
+        });
+        return result.output as GetPatientAndResponsiblePartyInfoEndpointOutput;
       }
 
       throw new Error('api client not defined or patient id is not provided');
@@ -373,13 +390,13 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           <Tooltip title={tooltipText} placement="top">
             <Box>
               <RoundedButton
-                disabled={buttonDisabled}
+                disabled={buttonDisabled || patientAndRPLoading}
                 color={buttonColor}
                 onClick={() => {
                   setSelectedInvoiceTask(lastEncounterTask);
                 }}
               >
-                Invoice
+                Send Invoice
               </RoundedButton>
             </Box>
           </Tooltip>
@@ -595,9 +612,10 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         title="Send invoice"
         modalOpen={selectedInvoiceTask !== undefined}
         handleClose={() => setSelectedInvoiceTask(undefined)}
-        submitButtonName="Send"
+        submitButtonName="Send Invoice"
         onSubmit={sendInvoice}
         invoiceTask={selectedInvoiceTask}
+        patientAndRP={patientAndRpForInvoiceData}
       />
     </Paper>
   );

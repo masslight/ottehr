@@ -1,13 +1,11 @@
 import { Task } from 'fhir/r4b';
-import { parseInvoiceTaskInput, PrefilledInvoiceInfo } from 'utils';
+import { MISSING_REQUEST_BODY, parseInvoiceTaskInput, PrefilledInvoiceInfo } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): { task: Task; encounterId: string; prefilledInfo: PrefilledInvoiceInfo } & Pick<ZambdaInput, 'secrets'> {
-  if (!input.body) {
-    throw new Error('No request body provided');
-  }
+  if (!input.body) throw MISSING_REQUEST_BODY;
 
   const inputRes = JSON.parse(input.body);
 

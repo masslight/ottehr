@@ -1169,6 +1169,13 @@
         "reason": "Generate statement",
         "event": "update"
       }
+    },
+    "GET-PATIENT-AND-RESPONSIBLE-PARTY-INFO": {
+      "name": "get-patient-and-responsible-party-info",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-patient-and-responsible-party-info/index",
+      "zip": ".dist/zips/get-patient-and-responsible-party-info.zip"
     }
   },
   "fhirResources": {
