@@ -1,27 +1,13 @@
-import { Task } from 'fhir/r4b';
 import { Secrets } from 'utils';
-import z from 'zod';
 import { ZambdaInput } from '../../shared';
+import { TaskSubscriptionInput } from './sub-send-claim';
 
-const taskSubscriptionSchema = z.object({
-  task: z.object({}).passthrough(),
-  secrets: z.record(z.string(), z.string()).nullable(),
-});
-
-export type TaskSubscriptionInput = { task: Task; secrets: Secrets };
-
-export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionInput {
+export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionInput & { secrets: Secrets } {
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
-  const data = JSON.parse(input.body);
-  const parsedData = taskSubscriptionSchema.safeParse(data);
-  if (!parsedData.success) {
-    throw new Error(`Invalid task subscription input: ${JSON.stringify(parsedData.error.issues)}`);
-  }
-
-  const task = parsedData.data.task as unknown as Task;
+  const task = JSON.parse(input.body);
 
   if (task.resourceType !== 'Task') {
     throw new Error(`resource parsed should be a task but was a ${task.resourceType}`);

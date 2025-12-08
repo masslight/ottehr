@@ -17,7 +17,7 @@ import { validateRequestParameters } from '../validateRequestParameters';
 
 export interface TaskSubscriptionInput {
   task: Task;
-  secrets: Secrets | null;
+  secrets: Secrets;
 }
 
 type TaskStatus =
