@@ -1,5 +1,6 @@
 import {
   Appointment,
+  Consent,
   DocumentReference,
   Location,
   Organization,
@@ -554,6 +555,7 @@ export interface VisitDetailsInput {
   insuranceOrgs: Organization[];
   guarantorResource?: RelatedPerson | Patient;
   documents: DocumentReference[];
+  consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
 }
 
@@ -580,6 +582,12 @@ export interface InsuranceDataInput {
 
 export interface ResponsiblePartyInput {
   guarantorResource?: RelatedPerson | Patient;
+}
+
+export interface ConsentsDataInput {
+  consents: Consent[];
+  questionnaireResponse?: QuestionnaireResponse;
+  timezone: string;
 }
 
 export interface UploadMetadata {

@@ -32,6 +32,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     insuranceOrgs,
     guarantorResource,
     documents,
+    consents,
     questionnaireResponse,
   } = input;
 
@@ -42,7 +43,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     details: composePatientDetailsData({ patient, physician }),
     insurances: composeInsuranceData({ coverages, insuranceOrgs }),
     responsibleParty: composeResponsiblePartyData({ guarantorResource }),
-    consentForms: composeConsentFormsData(questionnaireResponse),
+    consentForms: composeConsentFormsData({ consents, questionnaireResponse, timezone }),
     documents: composeDocumentsData(documents),
   };
 };

@@ -1,7 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, Secrets, SecretsKeys, VisitDetailsResponse } from 'utils';
-import { getRelatedResources } from '../../../patient/appointment/helpers';
+import { Organization, Practitioner } from 'fhir/r4b';
+import {
+  getConsentAndRelatedDocRefsForAppointment,
+  getSecret,
+  Secrets,
+  SecretsKeys,
+  VisitDetailsResponse,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -12,6 +18,7 @@ import {
 import { makeVisitDetailsPdfDocumentReference } from '../../../shared/pdf/make-visit-details-document-reference';
 import { createVisitDetailsPdf } from '../../../shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
+import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../shared/harvest';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'visit-details-to-pdf';
@@ -70,15 +77,20 @@ export const performEffect = async (
 
   console.log('Chart data received');
 
-  const relatedResources = await getRelatedResources(oystehr, patient.id);
-  const { accountInfo, documents } = relatedResources;
+  const [docRefsAndConsents, accountResources] = await Promise.all([
+    getConsentAndRelatedDocRefsForAppointment({ appointmentId, patientId: patient.id }, oystehr),
+    getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
+  ]);
+  const { consents, docRefs } = docRefsAndConsents;
 
-  if (!accountInfo) {
-    throw new Error(`Related resources not loaded`);
-  }
+  const { coverages, insuranceOrgs, guarantorResource } = accountResources;
+  const primaryCarePhysician = accountResources.patient?.contained?.find(
+    (resource) => resource.resourceType === 'Practitioner' && resource.active === true
+  ) as Practitioner;
 
-  const { coverages, insuranceOrgs, guarantorResource, primaryCarePhysician, pharmacy } = accountInfo;
-
+  const pharmacy = accountResources.patient?.contained?.find(
+    (resource) => resource.resourceType === 'Organization' && resource.id === PATIENT_CONTAINED_PHARMACY_ID
+  ) as Organization;
   const { pdfInfo, attached } = await createVisitDetailsPdf(
     {
       patient,
@@ -90,7 +102,8 @@ export const performEffect = async (
       coverages,
       insuranceOrgs,
       guarantorResource,
-      documents,
+      documents: docRefs || [],
+      consents: consents || [],
       questionnaireResponse,
     },
     secrets,
