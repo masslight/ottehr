@@ -30,6 +30,7 @@ import {
   PATIENT_RECORD_CONFIG,
   PatientAccountResponse,
   pruneEmptySections,
+  VALUE_SETS,
 } from 'utils';
 import { CustomDialog } from '../components/dialogs';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -491,7 +492,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
         onClose={() => setOpenAddInsuranceModal(false)}
         questionnaire={questionnaire ?? { resourceType: 'Questionnaire', status: 'draft' }}
         patientId={patient.id ?? ''}
-        priorityOptions={PATIENT_RECORD_CONFIG.formValueSets.insurancePriorityOptions.filter(
+        priorityOptions={VALUE_SETS.insurancePriorityOptions.filter(
           (option) => !currentlyAssignedPriorities.includes(option.value)
         )}
       />

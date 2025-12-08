@@ -1,23 +1,22 @@
 import { Box } from '@mui/material';
 import { FC, useEffect, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { Row, Section } from 'src/components/layout';
+import { Row } from 'src/components/layout';
 import { PatientAddressFields } from 'src/constants';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
+import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
 
-const { emergencyContact: FormFields } = PATIENT_RECORD_CONFIG.FormFields;
-const {
-  hiddenFormFields: allHiddenFields,
-  requiredFormFields: allRequiredFields,
-  hiddenFormSections,
-} = PATIENT_RECORD_CONFIG;
-
-const hiddenFields = allHiddenFields.emergencyContact;
-const requiredFields = allRequiredFields.emergencyContact;
+const { emergencyContact } = PATIENT_RECORD_CONFIG.FormFields;
 
 export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { watch, setValue } = useFormContext();
+
+  const {
+    hiddenFields,
+    requiredFields,
+    items: FormFields,
+  } = usePatientRecordFormSection({ formSection: emergencyContact });
 
   const emergencyAddressFields = useMemo(
     () => [
@@ -27,7 +26,13 @@ export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoadin
       FormFields.state.key,
       FormFields.zip.key,
     ],
-    []
+    [
+      FormFields.addressLine2.key,
+      FormFields.city.key,
+      FormFields.state.key,
+      FormFields.streetAddress.key,
+      FormFields.zip.key,
+    ]
   );
 
   const patientAddressData = watch(PatientAddressFields);
@@ -43,12 +48,8 @@ export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoadin
     }
   }, [emergencyAddressData, emergencyAddressFields, patientAddressData, sameAsPatientAddress, setValue]);
 
-  if (hiddenFormSections.includes('emergency-contact-section')) {
-    return null;
-  }
-
   return (
-    <Section title="Emergency contact information">
+    <PatientRecordFormSection formSection={emergencyContact}>
       <PatientRecordFormField
         item={FormFields.relationship}
         isLoading={isLoading}
@@ -133,6 +134,6 @@ export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoadin
           />
         </Box>
       </Row>
-    </Section>
+    </PatientRecordFormSection>
   );
 };

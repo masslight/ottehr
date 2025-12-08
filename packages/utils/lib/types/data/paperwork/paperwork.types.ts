@@ -5,6 +5,7 @@ import {
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
+import z from 'zod';
 import { AvailableLocationInformation, FileURLs, PatientBaseInfo } from '../../common';
 import { PaperworkResponse } from '../paperwork.types';
 import type { VisitType } from '../telemed/appointments/create-appointment.types';
@@ -53,13 +54,14 @@ const QuestionnaireDataTypes = [
   'Call Out',
   'SSN',
 ] as const;
-export type QuestionnaireDataType = (typeof QuestionnaireDataTypes)[number];
+export const QuestionnaireDataTypeSchema = z.enum(QuestionnaireDataTypes);
+export type QuestionnaireDataType = typeof QuestionnaireDataTypeSchema._type;
 export const validateQuestionnaireDataType = (str: any): QuestionnaireDataType | undefined => {
   if (str === undefined) {
     return undefined;
   }
   if (typeof str === 'string') {
-    return QuestionnaireDataTypes.includes(str as QuestionnaireDataType) ? (str as QuestionnaireDataType) : undefined;
+    return QuestionnaireDataTypeSchema.safeParse(str).data;
   }
   return undefined;
 };

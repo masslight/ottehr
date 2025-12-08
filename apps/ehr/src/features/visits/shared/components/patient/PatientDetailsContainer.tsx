@@ -5,17 +5,10 @@ import { useFormContext } from 'react-hook-form';
 import { Row, Section } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
+import { usePatientRecordFormSection } from './PatientRecordFormSection';
 import ShowMoreButton from './ShowMoreButton';
 
-const FormFields = PATIENT_RECORD_CONFIG.FormFields.patientDetails;
-const {
-  hiddenFormFields: allHiddenFields,
-  requiredFormFields: allRequiredFields,
-  hiddenFormSections,
-} = PATIENT_RECORD_CONFIG;
-
-const hiddenFields = allHiddenFields.patientDetails;
-const requiredFields = allRequiredFields.patientDetails;
+const patientDetailsSection = PATIENT_RECORD_CONFIG.FormFields.patientDetails;
 interface PatientDetailsContainerProps {
   patient: Patient;
   isLoading: boolean;
@@ -24,11 +17,13 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
   const theme = useTheme();
   const { watch } = useFormContext();
 
-  const [showAllPreviousNames, setShowAllPreviousNames] = useState(false);
+  const {
+    items: FormFields,
+    hiddenFields,
+    requiredFields,
+  } = usePatientRecordFormSection({ formSection: patientDetailsSection });
 
-  if (hiddenFormSections.includes('patient-details-section')) {
-    return null;
-  }
+  const [showAllPreviousNames, setShowAllPreviousNames] = useState(false);
 
   if (!patient) return null;
 

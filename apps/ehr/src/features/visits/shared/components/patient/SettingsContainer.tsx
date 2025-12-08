@@ -21,11 +21,11 @@ import { usePatientStore } from 'src/state/patient.store';
 import {
   createLocalDateTime,
   PATIENT_DECEASED_NOTE_URL,
-  PATIENT_RECORD_CONFIG,
   PATIENT_RELEASE_OF_INFO_URL,
   PATIENT_RX_HISTORY_CONSENT_STATUS_URL,
   patientFieldPaths,
   REQUIRED_FIELD_ERROR_MESSAGE,
+  VALUE_SETS,
 } from 'utils';
 
 export const SettingsContainer: FC = () => {
@@ -84,11 +84,10 @@ export const SettingsContainer: FC = () => {
           name={patientFieldPaths.rxHistoryConsentStatus}
           control={control}
           defaultValue={rxHistoryConsentStatus}
-          options={PATIENT_RECORD_CONFIG.formValueSets.rxHistoryConsentOptions}
+          options={VALUE_SETS.rxHistoryConsentOptions}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value: string) =>
-              PATIENT_RECORD_CONFIG.formValueSets.rxHistoryConsentOptions.some((option) => option.value === value),
+            validate: (value: string) => VALUE_SETS.rxHistoryConsentOptions.some((option) => option.value === value),
           }}
         />
       </Row>

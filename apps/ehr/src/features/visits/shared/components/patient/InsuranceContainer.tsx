@@ -1,42 +1,27 @@
 import { RefreshRounded } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
-import {
-  Autocomplete,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  IconButton,
-  TextField,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Box, Button, Chip, CircularProgress, IconButton, Typography, useTheme } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
-import { FormSelect } from 'src/components/form';
-import { Row, Section } from 'src/components/layout';
+import { useFormContext } from 'react-hook-form';
+import { Row } from 'src/components/layout';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
 import { PatientAddressFields, PatientIdentifyingFields } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { usePatientStore } from 'src/state/patient.store';
 import {
   chooseJson,
   CoverageCheckWithDetails,
   EligibilityCheckSimpleStatus,
   InsuranceEligibilityCheckStatus,
-  InsurancePlanDTO,
-  InsurancePlanType,
-  InsurancePlanTypes,
   mapEligibilityCheckResultToSimpleStatus,
   PATIENT_RECORD_CONFIG,
   PatientPaymentBenefit,
-  REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
 import { CopayWidget } from './CopayWidget';
 import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
 import PatientRecordFormField from './PatientRecordFormField';
+import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
 import ShowMoreButton from './ShowMoreButton';
 
 type InsuranceContainerProps = {
@@ -114,6 +99,8 @@ interface SimpleStatusCheckWithDate {
   errors?: Array<{ code: { coding?: Array<{ code?: string; display?: string }>; text?: string } }>;
 }
 
+const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
+
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   ordinal,
   patientId,
@@ -122,7 +109,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   handleRemoveClick,
 }) => {
   const theme = useTheme();
-  const { insurancePlans } = usePatientStore();
+  const { oystehrZambda } = useApiClients();
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [showEligibilityDetails, setShowEligibilityDetails] = useState(false);
@@ -131,37 +118,33 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     mapInitialStatus(initialEligibilityCheck)
   );
 
-  const { control, setValue, watch } = useFormContext();
-
-  const { FormFields, LocalAddressFields, LocalIdentifyingFields } = useMemo(() => {
-    const insurance = PATIENT_RECORD_CONFIG.FormFields.insurance[ordinal - 1];
-
-    const LocalAddressFields = [
-      insurance.streetAddress.key,
-      insurance.addressLine2.key,
-      insurance.city.key,
-      insurance.state.key,
-      insurance.zip.key,
-    ];
-
-    const LocalIdentifyingFields = [
-      insurance.firstName.key,
-      insurance.middleName.key,
-      insurance.lastName.key,
-      insurance.birthDate.key,
-      insurance.birthSex.key,
-    ];
-    return { FormFields: insurance, LocalAddressFields, LocalIdentifyingFields };
-  }, [ordinal]);
+  const { setValue, watch } = useFormContext();
 
   const {
-    hiddenFormFields: allHiddenFields,
-    requiredFormFields: allRequiredFields,
-    hiddenFormSections,
-  } = PATIENT_RECORD_CONFIG;
+    items: FormFields,
+    hiddenFields,
+    requiredFields,
+  } = usePatientRecordFormSection({ formSection: insuranceSection, ordinal: ordinal - 1 });
 
-  const hiddenFields = allHiddenFields.insurance;
-  const requiredFields = allRequiredFields.insurance;
+  const { LocalAddressFields, LocalIdentifyingFields } = useMemo(
+    () => ({
+      LocalAddressFields: [
+        FormFields.streetAddress.key,
+        FormFields.addressLine2.key,
+        FormFields.city.key,
+        FormFields.state.key,
+        FormFields.zip.key,
+      ],
+      LocalIdentifyingFields: [
+        FormFields.firstName.key,
+        FormFields.middleName.key,
+        FormFields.lastName.key,
+        FormFields.birthDate.key,
+        FormFields.birthSex.key,
+      ],
+    }),
+    [FormFields]
+  );
 
   const patientAddressData = watch(PatientAddressFields);
   const patientIdentifyingData = watch(PatientIdentifyingFields);
@@ -205,8 +188,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   const handleRemoveInsurance = (): void => {
     handleRemoveClick?.();
   };
-
-  const { oystehrZambda } = useApiClients();
 
   const recheckEligibility = useMutation({
     mutationFn: async () => {
@@ -369,12 +350,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     return undefined;
   };
 
-  if (hiddenFormSections.includes(`insurance-section${ordinal === 2 ? '-2' : ''}`)) {
-    return null;
-  }
-
   return (
-    <Section title="Insurance information" dataTestId="insuranceContainer" titleWidget={<TitleWidget />}>
+    <PatientRecordFormSection formSection={insuranceSection} ordinal={ordinal - 1} titleWidget={<TitleWidget />}>
       <Box
         sx={{
           marginLeft: '12px',
@@ -383,109 +360,24 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       >
         <CopayWidget copay={copayBenefits} />
       </Box>
-      <Row label="Type" required dataTestId={dataTestIds.insuranceContainer.type}>
-        <FormSelect
-          name={FormFields.insurancePriority.key}
-          control={control}
-          defaultValue={ordinal === 1 ? 'Primary' : 'Secondary'}
-          options={PATIENT_RECORD_CONFIG.formValueSets.insurancePriorityOptions}
-          rules={{
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value, context) => {
-              // todo: this validation concept would be good to lift into the paperwork validation engine
-              const otherGroupKey = PATIENT_RECORD_CONFIG.formValueSets.insurancePriorityOptions.find(
-                (key) => key.value !== FormFields.insurancePriority.key
-              )?.value;
-              let otherGroupValue: 'Primary' | 'Secondary' | undefined;
-              if (otherGroupKey) {
-                otherGroupValue = context[otherGroupKey];
-              }
-              if (otherGroupValue === value) {
-                return `Account may not have two ${value.toLowerCase()} insurance plans`;
-              }
-              return true;
-            },
-          }}
-        />
-      </Row>
-      <Row label="Insurance carrier" required dataTestId={dataTestIds.insuranceContainer.insuranceCarrier}>
-        <Controller
-          name={FormFields.insuranceCarrier.key}
-          control={control}
-          rules={{
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value) => insurancePlans.some((option) => `Organization/${option.id}` === value?.reference),
-          }}
-          render={({ field: { value }, fieldState: { error } }) => {
-            const isLoading = insurancePlans.length === 0;
-
-            const selectedOption = insurancePlans.find((option) => `Organization/${option.id}` === value?.reference);
-            return (
-              <Autocomplete
-                options={insurancePlans}
-                loading={isLoading}
-                loadingText={'Loading...'}
-                value={selectedOption ?? ({} as InsurancePlanDTO)}
-                isOptionEqualToValue={(option, value) => {
-                  return option?.id === value?.id;
-                }}
-                getOptionLabel={(option) =>
-                  option.payerId || option.name ? `${option?.payerId || 'N/A'} - ${option?.name || 'N/A'}` : ''
-                }
-                onChange={(_, newValue) => {
-                  if (newValue) {
-                    setValue(
-                      FormFields.insuranceCarrier.key,
-                      { reference: `Organization/${newValue.id}`, display: newValue.name },
-                      { shouldDirty: true }
-                    );
-                  } else {
-                    setValue(FormFields.insuranceCarrier.key, null);
-                  }
-                }}
-                disableClearable
-                fullWidth
-                renderInput={(params) => (
-                  <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
-                )}
-              />
-            );
-          }}
-        />
-      </Row>
-      <Row label="Insurance Type" dataTestId={dataTestIds.insuranceContainer.insurancePlanType}>
-        <Controller
-          name={FormFields.insurancePlanType.key}
-          control={control}
-          rules={{
-            validate: (value) => !value || InsurancePlanTypes.some((option) => option.candidCode === value),
-          }}
-          render={({ field: { value }, fieldState: { error } }) => {
-            const selectedOption = InsurancePlanTypes.find((option) => option.candidCode === `${value}`);
-            return (
-              <Autocomplete
-                options={InsurancePlanTypes}
-                value={selectedOption ?? ({} as InsurancePlanType)}
-                isOptionEqualToValue={(option, value) => option?.candidCode === value?.candidCode}
-                getOptionLabel={(option) =>
-                  option.candidCode || option.label ? `${option.candidCode} - ${option.label}` : ''
-                }
-                onChange={(_, newValue) => {
-                  if (newValue) {
-                    setValue(FormFields.insurancePlanType.key, newValue.candidCode, { shouldDirty: true });
-                  } else {
-                    setValue(FormFields.insurancePlanType.key, null, { shouldDirty: true });
-                  }
-                }}
-                fullWidth
-                renderInput={(params) => (
-                  <TextField {...params} variant="standard" error={!!error} helperText={error?.message} />
-                )}
-              />
-            );
-          }}
-        />
-      </Row>
+      <PatientRecordFormField
+        item={FormFields.insurancePriority}
+        isLoading={false}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.insuranceCarrier}
+        isLoading={false}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.insurancePlanType}
+        isLoading={false}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
       <PatientRecordFormField
         item={FormFields.memberId}
         isLoading={false}
@@ -499,7 +391,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           dataTestId={dataTestIds.insuranceContainer.showMoreButton}
         />
       </Box>
-      {showMoreInfo && (
+      {showMoreInfo ? (
         <>
           <PatientRecordFormField
             item={FormFields.firstName}
@@ -622,6 +514,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             Remove This Insurance
           </LoadingButton>
         </>
+      ) : (
+        <></>
       )}
 
       <EligibilityDetailsDialog
@@ -631,6 +525,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         simpleStatus={eligibilityStatus?.status}
         errorDetails={getErrorDetailsFromCoverageResponse(getCurrentEligibilityData())}
       />
-    </Section>
+    </PatientRecordFormSection>
   );
 };

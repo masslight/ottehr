@@ -79,7 +79,6 @@ import {
   INSURANCE_CARD_CODE,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
-  InsurancePlanTypes,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   isValidUUID,
@@ -113,6 +112,7 @@ import {
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   takeContainedOrFind,
   uploadPDF,
+  VALUE_SETS,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
@@ -2251,7 +2251,8 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
   };
-  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === typeCode)?.coverageCoding;
+  const coverageTypeCoding = VALUE_SETS.insuranceTypeOptions.find((planType) => planType.candidCode === typeCode)
+    ?.coverageCoding;
   if (coverageTypeCoding) coverage.type?.coding?.push(coverageTypeCoding);
 
   if (additionalInformation) {
@@ -3521,6 +3522,8 @@ export const getAccountAndCoverageResourcesForPatient = async (
     })
   ).unbundle();
   console.timeEnd('querying for Patient account resources');
+
+  console.log(`fetched ${accountAndCoverageResources?.length} resources related to Patient/${patientId}`);
 
   const patientResource = accountAndCoverageResources.find(
     (r) => r.resourceType === 'Patient' && r.id === patientId

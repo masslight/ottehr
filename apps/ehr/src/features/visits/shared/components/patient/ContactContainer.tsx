@@ -1,14 +1,11 @@
 import { Box } from '@mui/material';
 import { FC } from 'react';
-import { Row, Section } from 'src/components/layout';
+import { Row } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
+import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
 
-const contact = PATIENT_RECORD_CONFIG.FormFields.patientContactInformation;
-const { hiddenFormFields: allHiddenFields, requiredFormFields: allRequiredFields } = PATIENT_RECORD_CONFIG;
-const hiddenFormFields = allHiddenFields.patientContactInformation;
-const requiredFormFields = allRequiredFields.patientContactInformation;
-
+const contactSection = PATIENT_RECORD_CONFIG.FormFields.patientContactInformation;
 export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   /*
   // this is just something that is known about the implementation ahead of time, so we can code it
@@ -20,8 +17,16 @@ export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
       ?.item.find((item) => item.linkId === 'patient-preferred-communication-method') != null;
   */
 
+  const {
+    items: contact,
+    hiddenFields: hiddenFormFields,
+    requiredFields: requiredFormFields,
+  } = usePatientRecordFormSection({
+    formSection: contactSection,
+  });
+
   return (
-    <Section title="Contact information">
+    <PatientRecordFormSection formSection={contactSection}>
       <PatientRecordFormField
         item={contact.streetAddress}
         hiddenFormFields={hiddenFormFields}
@@ -77,6 +82,6 @@ export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
         requiredFormFields={requiredFormFields}
         isLoading={isLoading}
       />
-    </Section>
+    </PatientRecordFormSection>
   );
 };

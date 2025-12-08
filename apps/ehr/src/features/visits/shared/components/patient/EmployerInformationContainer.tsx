@@ -1,42 +1,30 @@
 import { Box } from '@mui/material';
 import { FC } from 'react';
-import { Row, Section } from 'src/components/layout';
-import { dataTestIds } from 'src/constants/data-test-ids';
+import { Row } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import PatientRecordFormField from './PatientRecordFormField';
+import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
 
 const { employerInformation } = PATIENT_RECORD_CONFIG.FormFields;
-const {
-  hiddenFormFields: allHiddenFields,
-  requiredFormFields: allRequiredFields,
-  hiddenFormSections,
-} = PATIENT_RECORD_CONFIG;
-
-const hiddenFields = allHiddenFields.employerInformation;
-const requiredFields = allRequiredFields.employerInformation;
 
 export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
-  // todo: take this item from config
-  if (hiddenFormSections.includes('employer-information-page')) {
-    return null;
-  }
-
+  const { items, hiddenFields, requiredFields } = usePatientRecordFormSection({ formSection: employerInformation });
   return (
-    <Section title="Employer information" dataTestId={dataTestIds.employerInformationContainer.id}>
+    <PatientRecordFormSection formSection={employerInformation}>
       <PatientRecordFormField
-        item={employerInformation.employerName}
+        item={items.employerName}
         isLoading={isLoading}
         hiddenFormFields={hiddenFields}
         requiredFormFields={requiredFields}
       />
       <PatientRecordFormField
-        item={employerInformation.addressLine1}
+        item={items.addressLine1}
         isLoading={isLoading}
         hiddenFormFields={hiddenFields}
         requiredFormFields={requiredFields}
       />
       <PatientRecordFormField
-        item={employerInformation.addressLine2}
+        item={items.addressLine2}
         isLoading={isLoading}
         hiddenFormFields={hiddenFields}
         requiredFormFields={requiredFields}
@@ -44,21 +32,21 @@ export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoa
       <Row label="City, State, ZIP">
         <Box sx={{ display: 'flex', gap: 2 }}>
           <PatientRecordFormField
-            item={employerInformation.city}
+            item={items.city}
             isLoading={isLoading}
             hiddenFormFields={hiddenFields}
             requiredFormFields={requiredFields}
             omitRowWrapper
           />
           <PatientRecordFormField
-            item={employerInformation.state}
+            item={items.state}
             isLoading={isLoading}
             hiddenFormFields={hiddenFields}
             requiredFormFields={requiredFields}
             omitRowWrapper
           />
           <PatientRecordFormField
-            item={employerInformation.zip}
+            item={items.zip}
             isLoading={isLoading}
             hiddenFormFields={hiddenFields}
             requiredFormFields={requiredFields}
@@ -67,41 +55,41 @@ export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoa
         </Box>
       </Row>
       <PatientRecordFormField
-        item={employerInformation.contactFirstName}
+        item={items.contactFirstName}
         isLoading={isLoading}
         hiddenFormFields={hiddenFields}
         requiredFormFields={requiredFields}
       />
       <PatientRecordFormField
-        item={employerInformation.contactLastName}
+        item={items.contactLastName}
         isLoading={isLoading}
         hiddenFormFields={hiddenFields}
         requiredFormFields={requiredFields}
       />
       <PatientRecordFormField
-        item={employerInformation.contactTitle}
+        item={items.contactTitle}
         isLoading={isLoading}
         hiddenFormFields={hiddenFields}
         requiredFormFields={requiredFields}
       />
       <PatientRecordFormField
-        item={employerInformation.contactEmail}
+        item={items.contactEmail}
         isLoading={isLoading}
         hiddenFormFields={hiddenFields}
         requiredFormFields={requiredFields}
       />
       <PatientRecordFormField
-        item={employerInformation.contactPhone}
+        item={items.contactPhone}
         isLoading={isLoading}
         hiddenFormFields={hiddenFields}
         requiredFormFields={requiredFields}
       />
       <PatientRecordFormField
-        item={employerInformation.contactFax}
+        item={items.contactFax}
         isLoading={isLoading}
         hiddenFormFields={hiddenFields}
         requiredFormFields={requiredFields}
       />
-    </Section>
+    </PatientRecordFormSection>
   );
 };
