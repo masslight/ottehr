@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { DATE_FORMAT, genderMap, getFormattedPatientFullName, standardizePhoneNumber } from 'utils';
+import { DATE_FORMAT, FHIR_EXTENSION, genderMap, getFormattedPatientFullName, standardizePhoneNumber } from 'utils';
 import { DataComposer } from '../pdf-common';
 import { PatientDataInput, PatientInfo, PdfSection } from '../types';
 
@@ -11,8 +11,11 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
   const id = patient.id ?? '';
   const phone = standardizePhoneNumber(patient.telecom?.find((telecom) => telecom.system === 'phone')?.value) ?? '';
   const reasonForVisit = appointment.description ?? '';
+  const authorizedNonlegalGuardians =
+    patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ||
+    'none';
 
-  return { fullName, preferredName, dob, sex, id, phone, reasonForVisit };
+  return { fullName, preferredName, dob, sex, id, phone, reasonForVisit, authorizedNonlegalGuardians };
 };
 
 export const createPatientHeader = <TData extends { patient?: PatientInfo }>(): PdfSection<TData, PatientInfo> => ({
@@ -67,6 +70,16 @@ export const createPatientInfoSection = <TData extends { patient?: PatientInfo }
     client.drawLabelValueRow(
       'Reason for visit',
       patientInfo.reasonForVisit,
+      styles.textStyles.regular,
+      styles.textStyles.regular,
+      {
+        drawDivider: true,
+        dividerMargin: 8,
+      }
+    );
+    client.drawLabelValueRow(
+      'Authorized non-legal guardian(s)',
+      patientInfo.authorizedNonlegalGuardians,
       styles.textStyles.regular,
       styles.textStyles.regular,
       { spacing: 16 }

@@ -465,6 +465,7 @@ export interface PatientInfo extends PdfData {
   id: string;
   phone: string;
   reasonForVisit: string;
+  authorizedNonlegalGuardians: string;
 }
 
 export interface ContactInfo extends PdfData {
