@@ -834,19 +834,25 @@
                     "valueString": "I have insurance",
                     "extension": [
                       {
-                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enabled-when",
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
                         "valueString": "appointment-service-category != occupational-medicine"
                       }
                     ]
                   },
                   {
-                    "valueString": "I will pay without insurance"
+                    "valueString": "I will pay without insurance",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label-when",
+                        "valueString": "appointment-service-category = occupational-medicine : Self"
+                      }
+                    ]
                   },
                   {
                     "valueString": "Employer",
                     "extension": [
                       {
-                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enabled-when",
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
                         "valueString": "appointment-service-category = occupational-medicine"
                       }
                     ]

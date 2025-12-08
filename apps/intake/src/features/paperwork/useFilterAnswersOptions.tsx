@@ -9,7 +9,7 @@ export const useFilterAnswersOptions = (options: QuestionnaireItemAnswerOption[]
   return options.filter((option) => {
     const enabledWhenExpression = getExtension(
       option,
-      'https://fhir.zapehr.com/r4/StructureDefinitions/answer-enabled-when'
+      'https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when'
     )?.valueString;
 
     if (!enabledWhenExpression) {
