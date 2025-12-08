@@ -55,8 +55,6 @@ jobs:
 
       - name: Check if EHR changes are relevant
         id: check
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           # For workflow_call or workflow_dispatch, check event type
           # If strictly workflow_dispatch, run unconditionally
@@ -67,7 +65,7 @@ jobs:
           fi
           
           # Check for force run command in PR description
-          if [[ "$PR_BODY" == *"/run-ehr-e2e"* ]]; then
+          if [ "${{ contains(github.event.pull_request.body || '', '/run-ehr-e2e') }}" == "true" ]; then
              echo "Force run enabled via PR command /run-ehr-e2e"
              echo "should-run=true" >> $GITHUB_OUTPUT
              echo "skip-reason=" >> $GITHUB_OUTPUT
@@ -75,7 +73,7 @@ jobs:
           fi
 
           # Check for skip command in PR description
-          if [[ "$PR_BODY" == *"/skip-ehr-e2e"* ]]; then
+          if [ "${{ contains(github.event.pull_request.body || '', '/skip-ehr-e2e') }}" == "true" ]; then
              echo "EHR E2E tests skipped via /skip-ehr-e2e command"
              echo "should-run=false" >> $GITHUB_OUTPUT
              echo "skip-reason=Skipped via /skip-ehr-e2e command" >> $GITHUB_OUTPUT

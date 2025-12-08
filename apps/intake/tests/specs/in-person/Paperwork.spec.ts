@@ -534,9 +534,15 @@ test.describe('Consent forms - Check and fill all fields', () => {
   test('PCF-7 Consent Forms - Fill all data and click on [Continue]', async () => {
     consentFormsData = await paperwork.fillConsentForms();
     await locator.clickContinueButton();
+    const medicalHistoryPageTitle = 'Medical history';
+    await paperwork.checkCorrectPageOpens(medicalHistoryPageTitle);
+    await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Review and submit');
   });
   test('PCF-8 Consent Forms - Check that values are saved after coming back', async () => {
+    await locator.clickBackButton();
+    const medicalHistoryPageTitle = 'Medical history';
+    await paperwork.checkCorrectPageOpens(medicalHistoryPageTitle);
     await locator.clickBackButton();
     await paperwork.checkCorrectPageOpens('Complete consent forms');
     await expect(locator.hipaaAcknowledgement).toBeChecked();

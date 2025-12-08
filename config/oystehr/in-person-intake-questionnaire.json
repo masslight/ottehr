@@ -4069,6 +4069,23 @@
                 ]
               }
             ]
+          },
+          {
+            "linkId": "medical-history-page",
+            "text": "Medical history",
+            "type": "group",
+            "item": [
+              {
+                "linkId": "medical-history-questionnaire",
+                "type": "boolean",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                    "valueString": "Medical History"
+                  }
+                ]
+              }
+            ]
           }
         ]
       }

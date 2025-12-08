@@ -7,7 +7,7 @@ import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import {
   PATIENT_BIRTH_DATE_LONG,
   PATIENT_BIRTH_DATE_SHORT,
-  PATIENT_EMAIL,
+  // PATIENT_EMAIL,
   PATIENT_FIRST_NAME,
   PATIENT_LAST_NAME,
   PATIENT_PHONE_NUMBER,
@@ -150,7 +150,7 @@ async function createAppointment(
     await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
     await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
     await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_INPUT_GENDER);
-    await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
+    // await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL); // this has been removed
     await addPatientPage.selectReasonForVisit(PATIENT_REASON_FOR_VISIT);
   } else {
     await addPatientPage.clickPatientNotFoundButton();

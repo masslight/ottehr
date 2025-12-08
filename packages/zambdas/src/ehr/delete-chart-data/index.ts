@@ -69,6 +69,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       encounterId,
       chiefComplaint,
       historyOfPresentIllness,
+      mechanismOfInjury,
       ros,
       conditions,
       medications,
@@ -120,6 +121,9 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     }
     if (historyOfPresentIllness) {
       deleteOrUpdateRequests.push(deleteResourceRequest('Condition', historyOfPresentIllness.resourceId!));
+    }
+    if (mechanismOfInjury) {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', mechanismOfInjury.resourceId!));
     }
     if (ros) {
       deleteOrUpdateRequests.push(deleteResourceRequest('Condition', ros.resourceId!));
