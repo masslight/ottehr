@@ -820,6 +820,27 @@
                     "valueString": "Who is paying for the visit?"
                   }
                 ]
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question",
+                    "valueString": "appointment-service-category"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator",
+                    "valueString": "="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer",
+                    "valueString": "workmans-comp"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text",
+                    "valueString": "Who is responsible for the claim?"
+                  }
+                ]
               }
             ],
             "type": "group",
@@ -836,12 +857,20 @@
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
                         "valueString": "appointment-service-category != occupational-medicine"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label-when",
+                        "valueString": "appointment-service-category = workmans-comp : Insurance"
                       }
                     ]
                   },
                   {
                     "valueString": "I will pay without insurance",
                     "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
+                        "valueString": "appointment-service-category != workmans-comp"
+                      },
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label-when",
                         "valueString": "appointment-service-category = occupational-medicine : Self"
@@ -854,6 +883,10 @@
                       {
                         "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
                         "valueString": "appointment-service-category = occupational-medicine"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
+                        "valueString": "appointment-service-category = workmans-comp"
                       }
                     ]
                   }

@@ -1,5 +1,5 @@
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
-import { getExtension } from 'utils';
+import { FieldValues } from 'react-hook-form';
 import { useQRState } from './useFormHelpers';
 
 const OPERATORS = ['=', '!='];
@@ -7,41 +7,55 @@ const OPERATORS = ['=', '!='];
 export const useFilterAnswersOptions = (options: QuestionnaireItemAnswerOption[]): QuestionnaireItemAnswerOption[] => {
   const { allFields: allValues } = useQRState();
   return options.filter((option) => {
-    const enabledWhenExpression = getExtension(
-      option,
-      'https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when'
-    )?.valueString;
+    const enabledWhenExtensions =
+      option.extension?.filter(
+        (extension) => extension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when'
+      ) ?? [];
 
-    if (!enabledWhenExpression) {
+    if (enabledWhenExtensions.length === 0) {
       return true;
     }
 
-    let tokens: string[] = [];
-    let usedOperator = '';
-
-    for (const operator of OPERATORS) {
-      tokens = enabledWhenExpression.split(` ${operator} `);
-      if (tokens.length === 2) {
-        usedOperator = operator;
-        break;
+    for (const extension of enabledWhenExtensions) {
+      if (evaluateExpression(extension.valueString, allValues)) {
+        return true;
       }
     }
 
-    if (tokens.length != 2) {
-      return true;
-    }
-
-    const [targetLinkId, targetAnswer] = tokens;
-    const actualTargetValue = allValues[targetLinkId]?.answer?.[0]?.valueString;
-
-    if (usedOperator === '!=') {
-      return actualTargetValue !== targetAnswer;
-    }
-
-    if (usedOperator === '=') {
-      return actualTargetValue === targetAnswer;
-    }
-
-    return true;
+    return false;
   });
 };
+
+function evaluateExpression(expression: string | undefined, allValues: FieldValues): boolean {
+  if (!expression) {
+    return false;
+  }
+
+  let tokens: string[] = [];
+  let usedOperator = '';
+
+  for (const operator of OPERATORS) {
+    tokens = expression.split(` ${operator} `);
+    if (tokens.length === 2) {
+      usedOperator = operator;
+      break;
+    }
+  }
+
+  if (tokens.length != 2) {
+    return false;
+  }
+
+  const [targetLinkId, targetAnswer] = tokens;
+  const actualTargetValue = allValues[targetLinkId]?.answer?.[0]?.valueString;
+
+  if (usedOperator === '!=') {
+    return actualTargetValue !== targetAnswer;
+  }
+
+  if (usedOperator === '=') {
+    return actualTargetValue === targetAnswer;
+  }
+
+  return false;
+}
