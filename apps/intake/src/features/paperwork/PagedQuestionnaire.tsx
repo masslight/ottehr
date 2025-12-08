@@ -1,3 +1,4 @@
+import { yupResolver } from '@hookform/resolvers/yup';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
   Box,
@@ -11,6 +12,7 @@ import {
   IconButton,
   InputBaseComponentProps,
   InputProps,
+  Stack,
   SxProps,
   TextField,
   Theme,
@@ -20,18 +22,20 @@ import {
 } from '@mui/material';
 import _ from 'lodash';
 import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
+import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
 import { useBeforeUnload } from 'react-router-dom';
 import { usePaperworkStore } from 'src/pages/PaperworkPage';
 import {
   IntakeQuestionnaireItem,
+  makeValidationSchema,
   pickFirstValueFromAnswerItem,
   QuestionnaireFormFields,
   QuestionnaireItemGroupType,
   SIGNATURE_FIELDS,
   stripMarkdownLink,
 } from 'utils';
+import { AnyObjectSchema } from 'yup';
 import {
   BoldPurpleInputLabel,
   ControlButtons,
@@ -69,6 +73,8 @@ interface PagedQuestionnaireOptions {
 interface PagedQuestionnaireInput {
   items: IntakeQuestionnaireItem[];
   pageId: string;
+  pageItem?: IntakeQuestionnaireItem;
+  patientName?: string;
   defaultValues?: QuestionnaireFormFields;
   options?: PagedQuestionnaireOptions;
   isSaving?: boolean;
@@ -176,19 +182,35 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
 const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   items,
   pageId,
+  pageItem,
+  patientName,
   defaultValues,
   options = {},
   isSaving,
   onSubmit,
   saveProgress,
 }) => {
+  const { paperwork, allItems, questionnaireResponse: questionnaireResponseResource } = usePaperworkContext();
   const [cache, setCache] = useState({
     pageId,
     items,
     defaultValues,
   });
+  const validationSchema = makeValidationSchema(items, pageId, {
+    values: paperwork,
+    items: allItems,
+    questionnaireResponse: questionnaireResponseResource,
+  }) as AnyObjectSchema;
 
-  const { reset } = useFormContext();
+  const methods = useForm({
+    mode: 'onSubmit', // onBlur doesn't seem to work but we use onBlur of FormControl in NestedInput to implement the desired behavior
+    reValidateMode: 'onChange',
+    context: paperwork,
+    defaultValues,
+    shouldFocusError: true,
+    resolver: yupResolver(validationSchema, { abortEarly: false }),
+  });
+  const { reset } = methods;
 
   useEffect(() => {
     if (
@@ -203,13 +225,45 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
     }
   }, [cache, defaultValues, items, reset, pageId]);
   return (
-    <PaperworkFormRoot
-      items={items}
-      onSubmit={onSubmit}
-      saveProgress={saveProgress}
-      options={options}
-      parentIsSaving={isSaving}
-    />
+    <FormProvider {...methods}>
+      {pageItem && patientName ? <PaperworkPageTitle pageItem={pageItem} patientName={patientName} /> : null}
+      <PaperworkFormRoot
+        items={items}
+        onSubmit={onSubmit}
+        saveProgress={saveProgress}
+        options={options}
+        parentIsSaving={isSaving}
+      />
+    </FormProvider>
+  );
+};
+
+interface PaperworkPageTitleProps {
+  pageItem: IntakeQuestionnaireItem;
+  patientName: string;
+}
+
+const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, patientName }) => {
+  const theme = useTheme();
+  const [styledPageItem] = useStyledItems({ formItems: [pageItem] });
+  return (
+    <Stack style={{ marginBottom: '16px' }}>
+      <Typography
+        sx={{
+          width: { xs: '100%', md: '100%' },
+        }}
+        variant="h2"
+        color="primary.main"
+        data-testid="flow-page-title"
+      >
+        {styledPageItem.text}
+      </Typography>
+      {patientName && (
+        <Typography variant="body2" color={theme.palette.secondary.main} fontSize={'18px'}>
+          {patientName}
+        </Typography>
+      )}
+    </Stack>
   );
 };
 
