@@ -22,12 +22,14 @@ export function createInvoiceTaskInput(input: PrefilledInvoiceInfo): TaskInput[]
   });
 }
 
-export function parseInvoiceTaskInput(invoiceTask: Task): PrefilledInvoiceInfo | undefined {
+export function parseInvoiceTaskInput(invoiceTask: Task): PrefilledInvoiceInfo {
   const dueDate = getInvoiceTaskInputFieldByCode('dueDate', invoiceTask);
   const memo = getInvoiceTaskInputFieldByCode('memo', invoiceTask);
   const smsTextMessage = getInvoiceTaskInputFieldByCode('smsTextMessage', invoiceTask);
   const amount = getInvoiceTaskInputFieldByCode('amountCents', invoiceTask);
-  if (!dueDate || !smsTextMessage || !amount) return undefined;
+  if (!dueDate || !smsTextMessage || !amount)
+    throw new Error('Missing invoice task input fields dueDate, smsTextMessage, or amountCents');
+  if (isNaN(parseInt(amount))) throw new Error('Invalid amountCents value');
   return {
     dueDate,
     memo,

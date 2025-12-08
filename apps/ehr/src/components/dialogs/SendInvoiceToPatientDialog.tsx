@@ -93,16 +93,20 @@ export default function SendInvoiceToPatientDialog({
 
   useEffect(() => {
     if (invoiceTask) {
-      const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
-      if (invoiceTaskInput) {
-        const { dueDate, memo, smsTextMessage, amountCents } = invoiceTaskInput;
-        reset({
-          amount: amountCents / 100,
-          dueDate: dueDate,
-          memo: memo,
-          smsTextMessage: smsTextMessage,
-        });
-        setDisableAllFields(false);
+      try {
+        const invoiceTaskInput = parseInvoiceTaskInput(invoiceTask);
+        if (invoiceTaskInput) {
+          const { dueDate, memo, smsTextMessage, amountCents } = invoiceTaskInput;
+          reset({
+            amount: amountCents / 100,
+            dueDate: dueDate,
+            memo: memo,
+            smsTextMessage: smsTextMessage,
+          });
+          setDisableAllFields(false);
+        }
+      } catch {
+        /* empty */
       }
     }
   }, [invoiceTask, reset]);

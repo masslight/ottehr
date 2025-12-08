@@ -23,6 +23,8 @@ export enum APIErrorCode {
   SCHEDULE_OWNER_NOT_FOUND = 4018,
   SLOT_UNAVAILABLE = 4019,
   USER_ALREADY_EXISTS = 4020,
+  PATIENT_PHONE_NOT_FOUND = 4021,
+  RESOURCE_INCOMPLETE_FOR_OPERATION = 4022,
   // 41xx
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
@@ -31,6 +33,7 @@ export enum APIErrorCode {
   MISSING_REQUIRED_PARAMETERS = 4201,
   INVALID_RESOURCE_ID = 4202,
   MISSING_AUTH_TOKEN = 4203,
+  MISSING_REQUEST_SECRETS = 4204,
   // 43xx
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
@@ -242,6 +245,11 @@ export const MISSING_REQUEST_BODY = {
   message: 'The request was missing a required request body',
 };
 
+export const MISSING_REQUEST_SECRETS = {
+  code: APIErrorCode.MISSING_REQUEST_SECRETS,
+  message: 'The request was missing secrets required to process it',
+};
+
 export const FHIR_RESOURCE_NOT_FOUND = (resourceType: FhirResource['resourceType']): APIError => ({
   code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
   message: `The requested ${resourceType} resource could not be found`,
@@ -349,6 +357,18 @@ export const USER_ALREADY_EXISTS_ERROR = {
 export const APPOINTMENT_ALREADY_EXISTS_ERROR = {
   code: APIErrorCode.APPOINTMENT_ALREADY_EXISTS,
   message: 'An appointment can not be created because the slot provided is already attached to an Appointment resource',
+};
+
+export const PATIENT_PHONE_NOT_FOUND_ERROR = {
+  code: APIErrorCode.PATIENT_PHONE_NOT_FOUND,
+  message: 'Patient phone number not found',
+};
+
+export const RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.RESOURCE_INCOMPLETE_FOR_OPERATION,
+    message,
+  };
 };
 
 export const GENERIC_STRIPE_PAYMENT_ERROR = {

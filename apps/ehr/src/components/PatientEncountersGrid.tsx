@@ -192,7 +192,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     enabled: Boolean(patient?.id) && Boolean(oystehrZambda),
   });
 
-  const { data: patientAndRpForInvoiceData } = useQuery({
+  const { data: patientAndRpForInvoiceData, isLoading: patientAndRPLoading } = useQuery({
     queryKey: [`get-patient-and-responsible-party-info`, { patientId }],
     queryFn: async (): Promise<GetPatientAndResponsiblePartyInfoEndpointOutput> => {
       if (oystehrZambda && patient?.id) {
@@ -390,7 +390,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           <Tooltip title={tooltipText} placement="top">
             <Box>
               <RoundedButton
-                disabled={buttonDisabled}
+                disabled={buttonDisabled || patientAndRPLoading}
                 color={buttonColor}
                 onClick={() => {
                   setSelectedInvoiceTask(lastEncounterTask);
