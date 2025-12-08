@@ -1332,3 +1332,14 @@ export const parseAccessionNumberFromDr = (result: DiagnosticReport): string => 
 
   return NOT_FOUND;
 };
+
+// todo labs team - this logic will change when we implement workers comp, but for now
+// we will just ignore those types of accounts to restore functionality
+export const accountIsPatientBill = (account: Account): boolean => {
+  const patientBillSystem = PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0].system;
+  const patientBillCode = PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0].code;
+  const isPatientBill = account.type?.coding?.some(
+    (coding) => coding.system === patientBillSystem && coding.code === patientBillCode
+  );
+  return !!isPatientBill;
+};

@@ -20,7 +20,7 @@ import {
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types';
-import { sortCoveragesByPriority } from '../shared/labs';
+import { accountIsPatientBill, sortCoveragesByPriority } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -132,7 +132,13 @@ const getResources = async (
       if (labGuid) labOrgsGUIDs.push(labGuid);
     }
     if (resource.resourceType === 'Coverage') coverages.push(resource as Coverage);
-    if (resource.resourceType === 'Account') accounts.push(resource as Account);
+    if (resource.resourceType === 'Account') {
+      // todo labs team - this logic will change when we implement workers comp, but for now
+      // we will just ignore those types of accounts to restore functionality
+      if (accountIsPatientBill(resource)) {
+        accounts.push(resource as Account);
+      }
+    }
     if (resource.resourceType === 'Location') {
       const loc = resource as Location;
       if (
@@ -217,11 +223,13 @@ const getLabs = async (
 };
 
 const getCoverageInfo = (accounts: Account[], coverages: Coverage[]): CreateLabCoverageInfo[] => {
-  if (accounts.length !== 1)
+  if (accounts.length !== 1) {
+    console.log('accounts.length', accounts.length);
     // there should only be one active account
     throw EXTERNAL_LAB_ERROR(
       'Please update responsible party information - patient must have one active account record to represent a guarantor to external lab orders'
     );
+  }
   const patientAccount = accounts[0];
   if (!patientAccount.guarantor) {
     throw EXTERNAL_LAB_ERROR(
