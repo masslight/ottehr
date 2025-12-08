@@ -1,7 +1,6 @@
 import { Page, test } from '@playwright/test';
-import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { addProcessIdMetaTagToAppointment, waitForResponseWithData } from 'test-utils';
+import { waitForResponseWithData } from 'test-utils';
 import { unpackFhirResponse } from 'utils';
 import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
@@ -38,6 +37,9 @@ const resourceHandler = new ResourceHandler(PROCESS_ID);
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/visits/add');
+});
+test.afterAll(async () => {
+  await resourceHandler.cleanupResources();
 });
 
 // Note: Simple validation tests have been migrated to component tests
@@ -175,15 +177,6 @@ async function createAppointment(
   if (!response.appointmentId) {
     throw new Error('Appointment ID should be present in the response');
   }
-
-  // todo remove this when using resource-handler instead
-  // Add process ID meta tag
-  const oystehr = await ResourceHandler.getOystehr();
-  const appointment = await oystehr.fhir.get<Appointment>({
-    resourceType: 'Appointment',
-    id: response.appointmentId,
-  });
-  await oystehr.fhir.update(addProcessIdMetaTagToAppointment(appointment, PROCESS_ID));
 
   return { appointmentId: response.appointmentId, slotTime };
 }
