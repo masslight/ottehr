@@ -461,6 +461,7 @@ export interface PatientInfo extends PdfData {
   fullName: string;
   preferredName: string;
   dob: string;
+  unconfirmedDOB?: string;
   sex: Gender;
   id: string;
   phone: string;

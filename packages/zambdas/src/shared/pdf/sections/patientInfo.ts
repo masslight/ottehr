@@ -1,5 +1,12 @@
 import { DateTime } from 'luxon';
-import { DATE_FORMAT, FHIR_EXTENSION, genderMap, getFormattedPatientFullName, standardizePhoneNumber } from 'utils';
+import {
+  DATE_FORMAT,
+  FHIR_EXTENSION,
+  genderMap,
+  getFormattedPatientFullName,
+  getUnconfirmedDOBForAppointment,
+  standardizePhoneNumber,
+} from 'utils';
 import { DataComposer } from '../pdf-common';
 import { PatientDataInput, PatientInfo, PdfSection } from '../types';
 
@@ -7,6 +14,7 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
   const fullName = getFormattedPatientFullName(patient, { skipNickname: true }) ?? '';
   const preferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0] ?? '';
   const dob = patient?.birthDate ? DateTime.fromFormat(patient?.birthDate, DATE_FORMAT).toFormat('MM.dd.yyyy') : '';
+  const unconfirmedDOB = getUnconfirmedDOBForAppointment(appointment);
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
   const id = patient.id ?? '';
   const phone = standardizePhoneNumber(patient.telecom?.find((telecom) => telecom.system === 'phone')?.value) ?? '';
@@ -15,7 +23,7 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
     patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ||
     'none';
 
-  return { fullName, preferredName, dob, sex, id, phone, reasonForVisit, authorizedNonlegalGuardians };
+  return { fullName, preferredName, dob, unconfirmedDOB, sex, id, phone, reasonForVisit, authorizedNonlegalGuardians };
 };
 
 export const createPatientHeader = <TData extends { patient?: PatientInfo }>(): PdfSection<TData, PatientInfo> => ({
@@ -53,16 +61,18 @@ export const createPatientInfoSection = <TData extends { patient?: PatientInfo }
         dividerMargin: 8,
       }
     );
-    client.drawLabelValueRow(
-      'Date of birth (Unmatched)',
-      patientInfo.dob,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
-      }
-    );
+    if (patientInfo.unconfirmedDOB) {
+      client.drawLabelValueRow(
+        'Date of birth (Unmatched)',
+        patientInfo.unconfirmedDOB,
+        styles.textStyles.regular,
+        styles.textStyles.regular,
+        {
+          drawDivider: true,
+          dividerMargin: 8,
+        }
+      );
+    }
     client.drawLabelValueRow('Birth sex', patientInfo.sex, styles.textStyles.regular, styles.textStyles.regular, {
       drawDivider: true,
       dividerMargin: 8,
