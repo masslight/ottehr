@@ -18,8 +18,7 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { patchTaskStatus } from '../helpers';
-import { TaskSubscriptionInput } from './sub-send-claim';
-import { validateRequestParameters } from './validateRequestParameters';
+import { TaskSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
 
 export const getDocReferenceIDFromFocus = (task: Task): string => {
   const ref = task.focus?.reference;
