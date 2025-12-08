@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-fde9c753-8a66-479a-9f0c-8cdac09a9284",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-888ffe1d-770f-4b0e-9de7-c26c6b9d6125"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-869ebd57-fcbc-48f2-8a4e-cb332496fd99"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Nontender"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "nontender",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

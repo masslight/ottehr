@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-9ab6bde7-b7e9-4b7d-9574-4dbe608fb3dd",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-888ffe1d-770f-4b0e-9de7-c26c6b9d6125"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-869ebd57-fcbc-48f2-8a4e-cb332496fd99"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "TM bulging, erythematous"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "right-ear-tm-bulging-erythematous",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}
