@@ -13,7 +13,7 @@ const questionnaires: Array<Questionnaire> = [
   ...Object.values(ehrInsuranceUpdateQuestionnaire.fhirResources).map((r) => r.resource as Questionnaire),
   ...Object.values(virtualIntakeQuestionnaire.fhirResources).map((r) => r.resource as Questionnaire),
   ...Object.values(virtualIntakeQuestionnaireArchive.fhirResources).map((r) => r.resource as Questionnaire),
-  //...Object.values(inPersonIntakeQuestionnaireArchive.fhirResources).map((r) => r.resource as Questionnaire),
+  ...Object.values(inPersonIntakeQuestionnaireArchive.fhirResources).map((r) => r.resource as Questionnaire),
 ];
 
 // throws an error if unable to find exactly 1 matching resource
@@ -23,12 +23,7 @@ export const getCanonicalQuestionnaire = async (
 ): Promise<Questionnaire> => {
   const { url, version } = canonical;
 
-  console.log('getCanonicalQuestionnaire BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB');
-
   const maybeQuestionnaireFromFile = questionnaires.find((q) => q.url === url && q.version === version);
-
-  console.log('maybeQuestionnaireFromFile: ' + JSON.stringify(maybeQuestionnaireFromFile, null, 2));
-
   // if we found the Q in the local file, return it
   if (maybeQuestionnaireFromFile) {
     return JSON.parse(JSON.stringify(maybeQuestionnaireFromFile));
