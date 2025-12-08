@@ -1,8 +1,11 @@
 import { expect, Page, test } from '@playwright/test';
+import { Appointment } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as path from 'path';
+import { addProcessIdMetaTagToAppointment } from 'test-utils';
 import { CancelPage } from 'tests/utils/CancelPage';
 import { BaseInPersonFlow } from 'tests/utils/in-person/BaseInPersonFlow';
+import { ResourceHandler } from 'tests/utils/resource-handler';
 import { StartVisitResponse } from 'tests/utils/telemed/BaseTelemedFlow';
 import {
   BOOKING_CONFIG,
@@ -29,6 +32,36 @@ import {
 } from './types';
 
 const appointmentIds: string[] = [];
+
+function addAppointmentToIdsAndAddMetaTag(page: Page, processId: string): void {
+  page.on('response', async (response) => {
+    if (response.url().includes('/create-appointment/')) {
+      const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+      if (!appointmentIds.includes(appointmentId)) {
+        appointmentIds.push(appointmentId);
+      }
+      const oystehr = await ResourceHandler.getOystehr();
+      const appointment = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: appointmentId,
+      });
+      await oystehr.fhir.update(addProcessIdMetaTagToAppointment(appointment, processId));
+    }
+  });
+}
+
+function updateSlotDetailsCurrentRef(
+  page: Page,
+  slotDetailsRef: {
+    current: GetSlotDetailsResponse;
+  }
+): void {
+  page.on('response', async (response) => {
+    if (response.url().includes('/get-slot-details/')) {
+      slotDetailsRef.current = chooseJson(await response.json()) as GetSlotDetailsResponse;
+    }
+  });
+}
 
 function writeTestData(filename: string, data: unknown): void {
   const testDataPath = 'test-data';
@@ -131,21 +164,11 @@ async function bookSecondTelemedAppointment(
 test.describe.parallel('In-Person: Create test patients and appointments', () => {
   test('Create patient with self-pay and card payment appointment', async ({ page }) => {
     const slotDetailsRef: { current: GetSlotDetailsResponse } = { current: {} as GetSlotDetailsResponse };
+    const processId = 'in-person-self-pay-card-' + Date.now();
 
     const { flowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
-      page.on('response', async (response) => {
-        if (response.url().includes('/create-appointment/')) {
-          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
-          if (!appointmentIds.includes(appointmentId)) {
-            appointmentIds.push(appointmentId);
-          }
-        }
-      });
-      page.on('response', async (response) => {
-        if (response.url().includes('/get-slot-details/')) {
-          slotDetailsRef.current = chooseJson(await response.json()) as GetSlotDetailsResponse;
-        }
-      });
+      addAppointmentToIdsAndAddMetaTag(page, processId);
+      updateSlotDetailsCurrentRef(page, slotDetailsRef);
       const flowClass = new PrebookInPersonFlow(page);
       const paperwork = new Paperwork(page);
       const locator = new Locators(page);
@@ -203,21 +226,11 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
 
   test('Create patient without self-pay with insurance payment appointment', async ({ page }) => {
     const slotDetailsRef: { current: GetSlotDetailsResponse } = { current: {} as GetSlotDetailsResponse };
+    const processId = 'in-person-no-self-pay-insurance-' + Date.now();
 
     const { flowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
-      page.on('response', async (response) => {
-        if (response.url().includes('/create-appointment/')) {
-          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
-          if (!appointmentIds.includes(appointmentId)) {
-            appointmentIds.push(appointmentId);
-          }
-        }
-      });
-      page.on('response', async (response) => {
-        if (response.url().includes('/get-slot-details/')) {
-          slotDetailsRef.current = chooseJson(await response.json()) as GetSlotDetailsResponse;
-        }
-      });
+      addAppointmentToIdsAndAddMetaTag(page, processId);
+      updateSlotDetailsCurrentRef(page, slotDetailsRef);
       const flowClass = new PrebookInPersonFlow(page);
       const paperwork = new Paperwork(page);
       const locator = new Locators(page);
@@ -284,18 +297,11 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
   });
 
-  test('Create patient without filling in paperwork', async ({ browser, page }) => {
+  test('Create patient without filling in paperwork', async ({ page }) => {
+    const processId = 'in-person-no-paperwork-' + Date.now();
+
     const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
-      const context = await browser.newContext();
-      const page = await context.newPage();
-      page.on('response', async (response) => {
-        if (response.url().includes('/create-appointment/')) {
-          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
-          if (!appointmentIds.includes(appointmentId)) {
-            appointmentIds.push(appointmentId);
-          }
-        }
-      });
+      addAppointmentToIdsAndAddMetaTag(page, processId);
       const flowClass = new PrebookInPersonFlow(page);
       const paperwork = new Paperwork(page);
       return { flowClass, paperwork };
@@ -322,19 +328,12 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
   });
 
-  test('Create patient without filling in paperwork for reservation modification', async ({ browser, page }) => {
+  test('Create patient without filling in paperwork for reservation modification', async ({ page }) => {
+    const processId = 'in-person-reservation-modification-' + Date.now();
+
     const slotDetailsRef: { current: GetSlotDetailsResponse } = { current: {} as GetSlotDetailsResponse };
     const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
-      const context = await browser.newContext();
-      const page = await context.newPage();
-      page.on('response', async (response) => {
-        if (response.url().includes('/create-appointment/')) {
-          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
-          if (!appointmentIds.includes(appointmentId)) {
-            appointmentIds.push(appointmentId);
-          }
-        }
-      });
+      addAppointmentToIdsAndAddMetaTag(page, processId);
       const flowClass = new PrebookInPersonFlow(page);
       const paperwork = new Paperwork(page);
       return { flowClass, paperwork };
@@ -364,18 +363,11 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
 });
 
 test.describe.parallel('Telemed: Create test patients and appointments', () => {
-  test('Create patient without self-pay with insurance payment prebook appointment', async ({ browser, page }) => {
+  test('Create patient without self-pay with insurance payment prebook appointment', async ({ page }) => {
+    const processId = 'telemed-prebook-' + Date.now();
+
     const { prebookFlowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
-      const context = await browser.newContext();
-      page = await context.newPage();
-      page.on('response', async (response) => {
-        if (response.url().includes('/create-appointment/')) {
-          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
-          if (!appointmentIds.includes(appointmentId)) {
-            appointmentIds.push(appointmentId);
-          }
-        }
-      });
+      addAppointmentToIdsAndAddMetaTag(page, processId);
       const prebookFlowClass = new PrebookTelemedFlow(page);
       const paperwork = new Paperwork(page);
       const locator = new Locators(page);
@@ -429,19 +421,11 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
   });
 
-  test('Create patient with self-pay and card payment walk-in appointment', async ({ browser, page }) => {
-    const { walkInFlowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
-      const context = await browser.newContext();
-      page = await context.newPage();
-      page.on('response', async (response) => {
-        if (response.url().includes('/create-appointment/')) {
-          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
-          if (!appointmentIds.includes(appointmentId)) {
-            appointmentIds.push(appointmentId);
-          }
-        }
-      });
+  test('Create patient with self-pay and card payment walk-in appointment', async ({ page }) => {
+    const processId = 'telemed-walk-in-' + Date.now();
 
+    const { walkInFlowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
+      addAppointmentToIdsAndAddMetaTag(page, processId);
       const walkInFlowClass = new TelemedVisitFlow(page);
       const paperwork = new Paperwork(page);
       const locator = new Locators(page);
@@ -485,19 +469,11 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
   });
 
-  test('Create walk-in patient to check patient validation and for waiting room tests', async ({ browser, page }) => {
-    const walkInFlowClass = await test.step('Set up playwright', async () => {
-      const context = await browser.newContext();
-      page = await context.newPage();
-      page.on('response', async (response) => {
-        if (response.url().includes('/create-appointment/')) {
-          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
-          if (!appointmentIds.includes(appointmentId)) {
-            appointmentIds.push(appointmentId);
-          }
-        }
-      });
+  test('Create walk-in patient to check patient validation and for waiting room tests', async ({ page }) => {
+    const processId = 'telemed-waiting-room-' + Date.now();
 
+    const walkInFlowClass = await test.step('Set up playwright', async () => {
+      addAppointmentToIdsAndAddMetaTag(page, processId);
       return new TelemedVisitFlow(page);
     });
 
@@ -521,18 +497,11 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
   });
 
-  test('Create patient without filling in paperwork', async ({ browser, page }) => {
+  test('Create patient without filling in paperwork', async ({ page }) => {
+    const processId = 'telemed-no-paperwork-' + Date.now();
+
     const { prebookFlowClass, paperwork } = await test.step('Set up playwright', async () => {
-      const context = await browser.newContext();
-      const page = await context.newPage();
-      page.on('response', async (response) => {
-        if (response.url().includes('/create-appointment/')) {
-          const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
-          if (!appointmentIds.includes(appointmentId)) {
-            appointmentIds.push(appointmentId);
-          }
-        }
-      });
+      addAppointmentToIdsAndAddMetaTag(page, processId);
       const prebookFlowClass = new PrebookTelemedFlow(page);
       const paperwork = new Paperwork(page);
       return { prebookFlowClass, paperwork };
