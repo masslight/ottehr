@@ -1,7 +1,7 @@
 import { Page, test } from '@playwright/test';
 import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { waitForResponseWithData } from 'test-utils';
+import { addProcessIdMetaTagToAppointment, waitForResponseWithData } from 'test-utils';
 import { unpackFhirResponse } from 'utils';
 import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
@@ -176,6 +176,7 @@ async function createAppointment(
     throw new Error('Appointment ID should be present in the response');
   }
 
+  // todo remove this when using resource-handler instead
   // Add process ID meta tag
   const oystehr = await ResourceHandler.getOystehr();
   const appointment = await oystehr.fhir.get<Appointment>({
@@ -186,22 +187,3 @@ async function createAppointment(
 
   return { appointmentId: response.appointmentId, slotTime };
 }
-
-// todo remove this when using resource-handler instead
-const addProcessIdMetaTagToAppointment = (appointment: Appointment, processId: string): Appointment => {
-  const existingMeta = appointment.meta || { tag: [] };
-  const existingTags = existingMeta.tag ?? [];
-  return {
-    ...appointment,
-    meta: {
-      ...existingMeta,
-      tag: [
-        ...existingTags,
-        {
-          system: 'E2E_TEST_RESOURCE_PROCESS_ID',
-          code: processId,
-        },
-      ],
-    },
-  };
-};

@@ -1,5 +1,6 @@
 import { exec as execCb } from 'node:child_process';
 import { promisify } from 'node:util';
+import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 
 const exec = promisify(execCb);
@@ -32,4 +33,22 @@ export const cleanAppointment = async (appointmentId: string, env: string): Prom
     console.error(error);
     return false;
   }
+};
+
+export const addProcessIdMetaTagToAppointment = (appointment: Appointment, processId: string): Appointment => {
+  const existingMeta = appointment.meta || { tag: [] };
+  const existingTags = existingMeta.tag ?? [];
+  return {
+    ...appointment,
+    meta: {
+      ...existingMeta,
+      tag: [
+        ...existingTags,
+        {
+          system: 'E2E_TEST_RESOURCE_PROCESS_ID',
+          code: processId,
+        },
+      ],
+    },
+  };
 };
