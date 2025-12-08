@@ -114,14 +114,6 @@ jobs:
         id: check
         run: |
           ENV="${{ steps.env.outputs.environment }}"
-          
-          # For local environment, always skip apply
-          if [[ "$ENV" == "local" ]]; then
-            echo "Local environment detected - skipping Terraform Apply"
-            echo "should-run-apply=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
           # For workflow_dispatch on e2e environment, check skip_terraform_apply input
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             if [ "${{ inputs.skip_terraform_apply }}" == "true" ]; then

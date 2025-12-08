@@ -200,7 +200,9 @@ jobs:
         with:
           script: |
             const ehrJob = '${{ needs.ehr-e2e-tests.result }}';
-            const conclusion = ehrJob === 'success' ? 'success' : ehrJob === 'failure' ? 'failure' : 'error';
+            // Treat skipped as success (tests skipped due to no relevant changes is acceptable)
+            const conclusion = ehrJob === 'success' || ehrJob === 'skipped' ? 'success' : ehrJob === 'failure' ? 'failure' : 'error';
+            const description = ehrJob === 'skipped' ? 'EHR E2E tests: skipped (no relevant changes)' : `EHR E2E tests: ${conclusion}`;
 
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
@@ -208,7 +210,7 @@ jobs:
               sha: context.sha,
               state: conclusion,
               context: 'ehr-e2e-tests',
-              description: `EHR E2E tests: ${conclusion}`,
+              description: description,
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
 
@@ -217,7 +219,9 @@ jobs:
         with:
           script: |
             const intakeJob = '${{ needs.intake-e2e-tests.result }}';
-            const conclusion = intakeJob === 'success' ? 'success' : intakeJob === 'failure' ? 'failure' : 'error';
+            // Treat skipped as success (tests skipped due to no relevant changes is acceptable)
+            const conclusion = intakeJob === 'success' || intakeJob === 'skipped' ? 'success' : intakeJob === 'failure' ? 'failure' : 'error';
+            const description = intakeJob === 'skipped' ? 'Intake E2E tests: skipped (no relevant changes)' : `Intake E2E tests: ${conclusion}`;
 
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
@@ -225,6 +229,6 @@ jobs:
               sha: context.sha,
               state: conclusion,
               context: 'intake-e2e-tests',
-              description: `Intake E2E tests: ${conclusion}`,
+              description: description,
               target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
