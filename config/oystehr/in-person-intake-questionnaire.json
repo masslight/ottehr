@@ -799,6 +799,27 @@
                     ]
                   }
                 ]
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question",
+                    "valueString": "appointment-service-category"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator",
+                    "valueString": "="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer",
+                    "valueString": "occupational-medicine"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text",
+                    "valueString": "Who is paying for the visit?"
+                  }
+                ]
               }
             ],
             "type": "group",
@@ -2480,6 +2501,18 @@
                         "valueString": "64290-0"
                       }
                     ]
+                  }
+                ]
+              },
+              {
+                "linkId": "appointment-service-category",
+                "type": "string",
+                "required": true,
+                "readOnly": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "hidden"
                   }
                 ]
               }

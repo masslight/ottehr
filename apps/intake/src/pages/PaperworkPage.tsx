@@ -1,4 +1,5 @@
 // cSpell:ignore tokenful
+import { yupResolver } from '@hookform/resolvers/yup';
 import { Close } from '@mui/icons-material';
 import {
   Box,
@@ -16,8 +17,10 @@ import {
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { t } from 'i18next';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useQRState } from 'src/features/paperwork/useFormHelpers';
 import { useGetPaymentMethods, useSetupPaymentMethod } from 'src/telemed/features/paperwork';
 import {
   APIError,
@@ -27,16 +30,19 @@ import {
   convertQuestionnaireItemToQRLinkIdMap,
   evalComplexValidationTrigger,
   evalEnableWhen,
+  evalItemText,
   findQuestionnaireResponseItemLinkId,
   flattenIntakeQuestionnaireItems,
   getSelectors,
   IntakeQuestionnaireItem,
   isApiError,
+  makeValidationSchema,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   QuestionnaireFormFields,
   UCGetPaperworkResponse,
   uuidRegex,
 } from 'utils';
+import { AnyObjectSchema } from 'yup';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ottehrApi } from '../api';
@@ -334,6 +340,8 @@ export const PaperworkPage: FC = () => {
 
   const patientFullName = useGetFullName(paperworkPatient);
 
+  const { allFields: allValues } = useQRState();
+
   const { pageName, currentPage, currentIndex, empty, questionnaireItems } = useMemo(() => {
     const empty = {
       items: [],
@@ -354,7 +362,7 @@ export const PaperworkPage: FC = () => {
       return empty;
     }
 
-    const pageName = currentPage.text;
+    const pageName = evalItemText(); currentPage.text;
     const questionnaireItems = currentPage.item ?? [];
     const currentIndex = paperworkPages.findIndex((pageTemp) => pageTemp.linkId === currentPage.linkId);
     return { pageName, currentPage, currentIndex, empty: false, questionnaireItems };
@@ -538,44 +546,61 @@ export const PaperworkPage: FC = () => {
     ]
   );
 
+  const validationSchema = makeValidationSchema(questionnaireItems, currentPage?.linkId ?? '', {
+    values: completedPaperwork,
+    items: allItems,
+    questionnaireResponse,
+  }) as AnyObjectSchema;
+
+  const methods = useForm({
+    mode: 'onSubmit', // onBlur doesn't seem to work but we use onBlur of FormControl in NestedInput to implement the desired behavior
+    reValidateMode: 'onChange',
+    context: completedPaperwork,
+    defaultValues: paperworkGroupDefaults,
+    shouldFocusError: true,
+    resolver: yupResolver(validationSchema, { abortEarly: false }),
+  });
+
   return (
-    <PageContainer
-      title={pageName ?? ''}
-      patientFullName={
-        pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName
-      }
-    >
-      {empty ? (
-        <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <CircularProgress />
-        </Box> // can we do something better than an infinite loader here?
-      ) : (
-        <>
-          <PagedQuestionnaire
-            onSubmit={finishPaperworkPage}
-            pageId={currentPage?.linkId ?? ''}
-            options={{ controlButtons }}
-            items={questionnaireItems}
-            defaultValues={paperworkGroupDefaults}
-            isSaving={loading}
-            saveProgress={(data) => {
-              const pageId = currentPage?.linkId;
-              if (pageId) {
-                saveProgress(pageId, data);
-              }
-            }}
-          />
-          <ComplexValidationRoadblock
-            open={validationRoadblockConfig !== undefined}
-            title={validationRoadblockConfig?.title ?? ''}
-            message={validationRoadblockConfig?.message ?? ''}
-            onRetryClick={validationRoadblockConfig?.onRetryClick}
-            onContinueClick={validationRoadblockConfig?.onContinueClick}
-            type={validationRoadblockConfig?.type ?? 'failure'}
-          />
-        </>
-      )}
-    </PageContainer>
+    <FormProvider {...methods}>
+      <PageContainer
+        title={pageName ?? ''}
+        patientFullName={
+          pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName
+        }
+      >
+        {empty ? (
+          <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CircularProgress />
+          </Box> // can we do something better than an infinite loader here?
+        ) : (
+          <>
+            <PagedQuestionnaire
+              onSubmit={finishPaperworkPage}
+              pageId={currentPage?.linkId ?? ''}
+              options={{ controlButtons }}
+              items={questionnaireItems}
+              defaultValues={paperworkGroupDefaults}
+              isSaving={loading}
+              saveProgress={(data) => {
+                const pageId = currentPage?.linkId;
+                if (pageId) {
+                  saveProgress(pageId, data);
+                }
+              }}
+            />
+            <ComplexValidationRoadblock
+              open={validationRoadblockConfig !== undefined}
+              title={validationRoadblockConfig?.title ?? ''}
+              message={validationRoadblockConfig?.message ?? ''}
+              onRetryClick={validationRoadblockConfig?.onRetryClick}
+              onContinueClick={validationRoadblockConfig?.onContinueClick}
+              type={validationRoadblockConfig?.type ?? 'failure'}
+            />
+          </>
+        )}
+      </PageContainer>
+    </FormProvider>
   );
 };
 

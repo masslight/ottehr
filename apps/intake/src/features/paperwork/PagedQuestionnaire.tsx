@@ -1,4 +1,3 @@
-import { yupResolver } from '@hookform/resolvers/yup';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
   Box,
@@ -21,20 +20,18 @@ import {
 } from '@mui/material';
 import _ from 'lodash';
 import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
+import { Controller, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
 import { useBeforeUnload } from 'react-router-dom';
 import { usePaperworkStore } from 'src/pages/PaperworkPage';
 import {
   IntakeQuestionnaireItem,
-  makeValidationSchema,
   pickFirstValueFromAnswerItem,
   QuestionnaireFormFields,
   QuestionnaireItemGroupType,
   SIGNATURE_FIELDS,
   stripMarkdownLink,
 } from 'utils';
-import { AnyObjectSchema } from 'yup';
 import {
   BoldPurpleInputLabel,
   ControlButtons,
@@ -185,27 +182,13 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   onSubmit,
   saveProgress,
 }) => {
-  const { paperwork, allItems, questionnaireResponse: questionnaireResponseResource } = usePaperworkContext();
   const [cache, setCache] = useState({
     pageId,
     items,
     defaultValues,
   });
-  const validationSchema = makeValidationSchema(items, pageId, {
-    values: paperwork,
-    items: allItems,
-    questionnaireResponse: questionnaireResponseResource,
-  }) as AnyObjectSchema;
 
-  const methods = useForm({
-    mode: 'onSubmit', // onBlur doesn't seem to work but we use onBlur of FormControl in NestedInput to implement the desired behavior
-    reValidateMode: 'onChange',
-    context: paperwork,
-    defaultValues,
-    shouldFocusError: true,
-    resolver: yupResolver(validationSchema, { abortEarly: false }),
-  });
-  const { reset } = methods;
+  const { reset } = useFormContext();
 
   useEffect(() => {
     if (
@@ -220,15 +203,13 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
     }
   }, [cache, defaultValues, items, reset, pageId]);
   return (
-    <FormProvider {...methods}>
-      <PaperworkFormRoot
-        items={items}
-        onSubmit={onSubmit}
-        saveProgress={saveProgress}
-        options={options}
-        parentIsSaving={isSaving}
-      />
-    </FormProvider>
+    <PaperworkFormRoot
+      items={items}
+      onSubmit={onSubmit}
+      saveProgress={saveProgress}
+      options={options}
+      parentIsSaving={isSaving}
+    />
   );
 };
 
