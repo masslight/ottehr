@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-78b3b167-538c-4228-9f61-302c04ebf21e",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-ba34fbe5-b89c-472a-aabc-520364afd81b"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-5a31594f-df89-4dec-b6ad-579c81b915fc"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "Intercostal"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "intercostal",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}
