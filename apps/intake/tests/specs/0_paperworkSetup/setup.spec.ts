@@ -32,6 +32,10 @@ import {
 } from './types';
 
 const appointmentIds: string[] = [];
+const processId = process.env.PLAYWRIGHT_SUITE_ID;
+if (!processId) {
+  throw new Error('Global setup has failed us.');
+}
 
 function addAppointmentToIdsAndAddMetaTag(page: Page, processId: string): void {
   page.on('response', async (response) => {
@@ -163,7 +167,6 @@ async function bookSecondTelemedAppointment(
 test.describe.parallel('In-Person: Create test patients and appointments', () => {
   test('Create patient with self-pay and card payment appointment', async ({ page }) => {
     const slotDetailsRef: { current: GetSlotDetailsResponse } = { current: {} as GetSlotDetailsResponse };
-    const processId = 'failsafe-in-person-self-pay-card-' + Date.now();
 
     const { flowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
@@ -225,7 +228,6 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
 
   test('Create patient without self-pay with insurance payment appointment', async ({ page }) => {
     const slotDetailsRef: { current: GetSlotDetailsResponse } = { current: {} as GetSlotDetailsResponse };
-    const processId = 'failsafe-in-person-no-self-pay-insurance-' + Date.now();
 
     const { flowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
@@ -297,8 +299,6 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
   });
 
   test('Create patient without filling in paperwork', async ({ page }) => {
-    const processId = 'failsafe-in-person-no-paperwork-' + Date.now();
-
     const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       const flowClass = new PrebookInPersonFlow(page);
@@ -328,8 +328,6 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
   });
 
   test('Create patient without filling in paperwork for reservation modification', async ({ page }) => {
-    const processId = 'failsafe-in-person-reservation-modification-' + Date.now();
-
     const slotDetailsRef: { current: GetSlotDetailsResponse } = { current: {} as GetSlotDetailsResponse };
     const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
@@ -363,8 +361,6 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
 
 test.describe.parallel('Telemed: Create test patients and appointments', () => {
   test('Create patient without self-pay with insurance payment prebook appointment', async ({ page }) => {
-    const processId = 'failsafe-telemed-prebook-' + Date.now();
-
     const { prebookFlowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       const prebookFlowClass = new PrebookTelemedFlow(page);
@@ -421,8 +417,6 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
   });
 
   test('Create patient with self-pay and card payment walk-in appointment', async ({ page }) => {
-    const processId = 'failsafe-telemed-walk-in-' + Date.now();
-
     const { walkInFlowClass, paperwork, locator, fillingInfo } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       const walkInFlowClass = new TelemedVisitFlow(page);
@@ -469,8 +463,6 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
   });
 
   test('Create walk-in patient to check patient validation and for waiting room tests', async ({ page }) => {
-    const processId = 'failsafe-telemed-waiting-room-' + Date.now();
-
     const walkInFlowClass = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       return new TelemedVisitFlow(page);
@@ -497,8 +489,6 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
   });
 
   test('Create patient without filling in paperwork', async ({ page }) => {
-    const processId = 'failsafe-telemed-no-paperwork-' + Date.now();
-
     const { prebookFlowClass, paperwork } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       const prebookFlowClass = new PrebookTelemedFlow(page);
