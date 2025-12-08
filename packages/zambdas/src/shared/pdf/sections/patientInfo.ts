@@ -1,11 +1,10 @@
 import { DateTime } from 'luxon';
-import { DATE_FORMAT, genderMap, standardizePhoneNumber } from 'utils';
+import { DATE_FORMAT, genderMap, getFormattedPatientFullName, standardizePhoneNumber } from 'utils';
 import { DataComposer } from '../pdf-common';
 import { PatientDataInput, PatientInfo, PdfSection } from '../types';
-import { getPatientLastFirstName } from '../visit-details-pdf/visit-note-pdf-creation';
 
 export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = ({ patient, appointment }) => {
-  const fullName = getPatientLastFirstName(patient) ?? '';
+  const fullName = getFormattedPatientFullName(patient, { skipNickname: true }) ?? '';
   const preferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0] ?? '';
   const dob = patient?.birthDate ? DateTime.fromFormat(patient?.birthDate, DATE_FORMAT).toFormat('MM.dd.yyyy') : '';
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
