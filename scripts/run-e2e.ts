@@ -92,7 +92,7 @@ const startZambdas = (): void => {
   spawn('cross-env', [`ENV=${envMapping['ehr'][ENV]}`, 'npm', 'run', `zambdas:start:iac`], {
     shell: true,
     stdio: 'inherit',
-    env: { ...process.env, ENV: envMapping['ehr'][ENV], PLAYWRIGHT_SUITE_ID: pwSuiteId },
+    env: { ...process.env, ENV: envMapping['ehr'][ENV] },
   });
 };
 
