@@ -83,6 +83,7 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Review and Submit', () 
       await uploadPhoto.fillPhotoFrontID();
       await uploadPhoto.fillPhotoBackID();
       await locator.clickContinueButton();
+      await page.waitForTimeout(1_000);
       await page.goto(`paperwork/${patient.appointmentId}/review`);
       await paperwork.checkAllChipsAreCompletedInPerson();
       await expect(locator.continueButton).toBeVisible();
@@ -95,6 +96,7 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Review and Submit', () 
       await expect(locator.insuranceHeading).toBeVisible();
       await paperwork.fillInsuranceRequiredFields(false);
       await locator.clickContinueButton();
+      await page.waitForTimeout(1_000);
       await page.goto(`paperwork/${patient.appointmentId}/review`);
       await paperwork.checkAllChipsAreCompletedInPerson();
       await expect(locator.continueButton).toBeVisible();

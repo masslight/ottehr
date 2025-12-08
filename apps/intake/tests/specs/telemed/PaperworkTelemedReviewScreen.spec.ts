@@ -93,6 +93,7 @@ test.describe.parallel('Telemed - Prefilled Paperwork, Review and Submit', () =>
       await uploadPhoto.fillPhotoFrontID();
       await uploadPhoto.fillPhotoBackID();
       await locator.clickContinueButton();
+      await page.waitForTimeout(1_000);
       await page.goto(`paperwork/${patient.appointmentId}/review`);
       await paperwork.checkAllChipsAreCompletedTelemed();
       await expect(locator.goToWaitingRoomButton).toBeVisible();
@@ -105,6 +106,7 @@ test.describe.parallel('Telemed - Prefilled Paperwork, Review and Submit', () =>
       await expect(locator.insuranceHeading).toBeVisible();
       await paperwork.fillInsuranceRequiredFields(false);
       await locator.clickContinueButton();
+      await page.waitForTimeout(1_000);
       await page.goto(`paperwork/${patient.appointmentId}/review`);
       await paperwork.checkAllChipsAreCompletedInPerson();
       await expect(locator.goToWaitingRoomButton).toBeVisible();
