@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-649201d3-7999-4539-b001-7d5267e2cfef",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-888ffe1d-770f-4b0e-9de7-c26c6b9d6125"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-869ebd57-fcbc-48f2-8a4e-cb332496fd99"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "C/w pityriasis rosea"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "cw-pityriasis-rosea",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

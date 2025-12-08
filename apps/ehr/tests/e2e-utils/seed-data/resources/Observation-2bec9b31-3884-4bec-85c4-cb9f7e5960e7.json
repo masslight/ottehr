@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-2bec9b31-3884-4bec-85c4-cb9f7e5960e7",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-888ffe1d-770f-4b0e-9de7-c26c6b9d6125"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-869ebd57-fcbc-48f2-8a4e-cb332496fd99"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "Dry mucous membranes"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "dry-mucous-membranes",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

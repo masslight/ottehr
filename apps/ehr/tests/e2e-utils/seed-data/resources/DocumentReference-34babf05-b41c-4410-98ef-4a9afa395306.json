@@ -1,0 +1,51 @@
+{
+  "fullUrl": "urn:uuid:DocumentReference-34babf05-b41c-4410-98ef-4a9afa395306",
+  "request": {
+    "method": "POST",
+    "url": "/DocumentReference"
+  },
+  "resource": {
+    "resourceType": "DocumentReference",
+    "status": "current",
+    "type": {
+      "coding": [
+        {
+          "system": "http://loinc.org",
+          "code": "64292-6",
+          "display": "Privacy Policy"
+        }
+      ],
+      "text": "HIPAA Acknowledgement forms"
+    },
+    "date": "{{date}}T15:20:34.740Z",
+    "content": [
+      {
+        "attachment": {
+          "url": "https://project-api.zapehr.com/v1/z3/db1f485e-c968-42d1-8e83-f7f160a3d71e-consent-forms/888ffe1d-770f-4b0e-9de7-c26c6b9d6125/1765207234740-hipaa-acknowledgement.pdf",
+          "contentType": "application/pdf",
+          "title": "HIPAA Acknowledgement"
+        }
+      }
+    ],
+    "subject": {
+      "reference": "urn:uuid:Patient-888ffe1d-770f-4b0e-9de7-c26c6b9d6125"
+    },
+    "context": {
+      "related": [
+        {
+          "reference": "urn:uuid:Appointment-462fc90d-aab7-4df0-814a-7bca2a34d828"
+        }
+      ]
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "OTTEHR-IP"
+        },
+        {
+          "code": "OTTEHR-TM"
+        }
+      ]
+    }
+  }
+}
