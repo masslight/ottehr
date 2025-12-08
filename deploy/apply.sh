@@ -27,5 +27,5 @@ fi
 npm run terraform-init
 
 # To debug without applying, uncomment the plan command and comment out the apply command
-terraform apply -no-color -parallelism=20 -var-file="${ENV}.tfvars" "${AUTO_APPROVE}"
+TF_LOG=debug terraform apply -no-color -parallelism=20 -var-file="${ENV}.tfvars" "${AUTO_APPROVE}"
 # terraform plan -no-color -parallelism=20 -var-file="${ENV}.tfvars"
