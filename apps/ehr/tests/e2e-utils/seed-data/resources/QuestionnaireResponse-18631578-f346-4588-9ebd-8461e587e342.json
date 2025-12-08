@@ -1,0 +1,700 @@
+{
+  "fullUrl": "urn:uuid:QuestionnaireResponse-18631578-f346-4588-9ebd-8461e587e342",
+  "request": {
+    "method": "POST",
+    "url": "/QuestionnaireResponse"
+  },
+  "resource": {
+    "resourceType": "QuestionnaireResponse",
+    "questionnaire": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.1.2",
+    "status": "completed",
+    "subject": {
+      "reference": "urn:uuid:Patient-95ea4ab2-4886-42e9-b792-31556ea78a34"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-c7f10129-c378-4790-a382-b7d88dfcefe8"
+    },
+    "item": [
+      {
+        "linkId": "contact-information-page",
+        "item": [
+          {
+            "linkId": "patient-will-be-18",
+            "answer": [
+              {
+                "valueBoolean": true
+              }
+            ]
+          },
+          {
+            "linkId": "is-new-qrs-patient",
+            "answer": [
+              {
+                "valueBoolean": true
+              }
+            ]
+          },
+          {
+            "linkId": "patient-first-name",
+            "answer": [
+              {
+                "valueString": "Jon"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-last-name",
+            "answer": [
+              {
+                "valueString": "Snow"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-birthdate",
+            "answer": [
+              {
+                "valueString": "2002-07-07"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-birth-sex",
+            "answer": [
+              {
+                "valueString": "Male"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-birth-sex-missing"
+          },
+          {
+            "linkId": "patient-street-address",
+            "answer": [
+              {
+                "valueString": "20250519 Test Line"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-street-address-2",
+            "answer": [
+              {
+                "valueString": "Apt 4B"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-city",
+            "answer": [
+              {
+                "valueString": "New York"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-state",
+            "answer": [
+              {
+                "valueString": "NY"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-zip",
+            "answer": [
+              {
+                "valueString": "06001"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-email",
+            "answer": [
+              {
+                "valueString": "john.doe.202505193@example.com"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-number",
+            "answer": [
+              {
+                "valueString": "(212) 025-0519"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-preferred-communication-method",
+            "answer": [
+              {
+                "valueString": "No preference"
+              }
+            ]
+          },
+          {
+            "linkId": "mobile-opt-in",
+            "answer": [
+              {
+                "valueBoolean": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "patient-details-page",
+        "item": [
+          {
+            "linkId": "patient-ethnicity",
+            "answer": [
+              {
+                "valueString": "Decline to Specify"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-race",
+            "answer": [
+              {
+                "valueString": "Native Hawaiian or Other Pacific Islander"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-pronouns",
+            "answer": [
+              {
+                "valueString": "She/her"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-pronouns-custom"
+          },
+          {
+            "linkId": "patient-point-of-discovery",
+            "answer": [
+              {
+                "valueString": "Friend/Family"
+              }
+            ]
+          },
+          {
+            "linkId": "preferred-language",
+            "answer": [
+              {
+                "valueString": "English"
+              }
+            ]
+          },
+          {
+            "linkId": "other-preferred-language"
+          }
+        ]
+      },
+      {
+        "linkId": "primary-care-physician-page",
+        "item": [
+          {
+            "linkId": "pcp-first",
+            "answer": [
+              {
+                "valueString": "Provider first name"
+              }
+            ]
+          },
+          {
+            "linkId": "pcp-last",
+            "answer": [
+              {
+                "valueString": "Provider last name"
+              }
+            ]
+          },
+          {
+            "linkId": "pcp-practice",
+            "answer": [
+              {
+                "valueString": "Practice name"
+              }
+            ]
+          },
+          {
+            "linkId": "pcp-address",
+            "answer": [
+              {
+                "valueString": "441 4th Street, NW"
+              }
+            ]
+          },
+          {
+            "linkId": "pcp-number",
+            "answer": [
+              {
+                "valueString": "(202) 456-7890"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "pharmacy-page",
+        "item": [
+          {
+            "linkId": "pharmacy-name",
+            "answer": [
+              {
+                "valueString": "Test pharmacy"
+              }
+            ]
+          },
+          {
+            "linkId": "pharmacy-address",
+            "answer": [
+              {
+                "valueString": "Test pharmacy address"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "payment-option-page",
+        "item": [
+          {
+            "linkId": "appointment-service-category",
+            "answer": [
+              {
+                "valueString": "urgent-care"
+              }
+            ]
+          },
+          {
+            "linkId": "payment-option",
+            "answer": [
+              {
+                "valueString": "I will pay without insurance"
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-carrier"
+          },
+          {
+            "linkId": "insurance-member-id"
+          },
+          {
+            "linkId": "policy-holder-first-name"
+          },
+          {
+            "linkId": "policy-holder-middle-name"
+          },
+          {
+            "linkId": "policy-holder-last-name"
+          },
+          {
+            "linkId": "policy-holder-date-of-birth"
+          },
+          {
+            "linkId": "policy-holder-birth-sex"
+          },
+          {
+            "linkId": "policy-holder-address-as-patient"
+          },
+          {
+            "linkId": "policy-holder-address"
+          },
+          {
+            "linkId": "policy-holder-address-additional-line"
+          },
+          {
+            "linkId": "policy-holder-city"
+          },
+          {
+            "linkId": "policy-holder-state"
+          },
+          {
+            "linkId": "policy-holder-zip"
+          },
+          {
+            "linkId": "patient-relationship-to-insured"
+          },
+          {
+            "linkId": "insurance-card-front"
+          },
+          {
+            "linkId": "insurance-card-back"
+          },
+          {
+            "linkId": "insurance-eligibility-verification-status"
+          },
+          {
+            "linkId": "display-secondary-insurance"
+          },
+          {
+            "linkId": "secondary-insurance"
+          }
+        ]
+      },
+      {
+        "linkId": "card-payment-page"
+      },
+      {
+        "linkId": "responsible-party-page",
+        "item": [
+          {
+            "linkId": "responsible-party-relationship",
+            "answer": [
+              {
+                "valueString": "Legal Guardian"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-first-name",
+            "answer": [
+              {
+                "valueString": "fwe"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-last-name",
+            "answer": [
+              {
+                "valueString": "sf"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-date-of-birth",
+            "answer": [
+              {
+                "valueString": "1900-05-13"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-birth-sex",
+            "answer": [
+              {
+                "valueString": "Intersex"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-address-as-patient"
+          },
+          {
+            "linkId": "responsible-party-address",
+            "answer": [
+              {
+                "valueString": "333 test street"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-address-2"
+          },
+          {
+            "linkId": "responsible-party-city",
+            "answer": [
+              {
+                "valueString": "Cleveland"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-state",
+            "answer": [
+              {
+                "valueString": "OH"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-zip",
+            "answer": [
+              {
+                "valueString": "44101"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-number",
+            "answer": [
+              {
+                "valueString": "(240) 333-3333"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-email",
+            "answer": [
+              {
+                "valueString": "ibenham+test@masslight.com"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "employer-information-page",
+        "item": [
+          {
+            "linkId": "employer-name",
+            "answer": [
+              {
+                "valueString": "Test Employer Inc"
+              }
+            ]
+          },
+          {
+            "linkId": "employer-address",
+            "answer": [
+              {
+                "valueString": "123 Business Street"
+              }
+            ]
+          },
+          {
+            "linkId": "employer-address-2",
+            "answer": [
+              {
+                "valueString": "Suite 100"
+              }
+            ]
+          },
+          {
+            "linkId": "employer-city",
+            "answer": [
+              {
+                "valueString": "New York"
+              }
+            ]
+          },
+          {
+            "linkId": "employer-state",
+            "answer": [
+              {
+                "valueString": "NY"
+              }
+            ]
+          },
+          {
+            "linkId": "employer-zip",
+            "answer": [
+              {
+                "valueString": "10001"
+              }
+            ]
+          },
+          {
+            "linkId": "employer-contact-first-name",
+            "answer": [
+              {
+                "valueString": "John"
+              }
+            ]
+          },
+          {
+            "linkId": "employer-contact-last-name",
+            "answer": [
+              {
+                "valueString": "Doe"
+              }
+            ]
+          },
+          {
+            "linkId": "employer-contact-title",
+            "answer": [
+              {
+                "valueString": "HR Manager"
+              }
+            ]
+          },
+          {
+            "linkId": "employer-contact-email",
+            "answer": [
+              {
+                "valueString": "a@a.a"
+              }
+            ]
+          },
+          {
+            "linkId": "employer-contact-phone",
+            "answer": [
+              {
+                "valueString": "(123) 123-1234"
+              }
+            ]
+          },
+          {
+            "linkId": "employer-contact-fax",
+            "answer": [
+              {
+                "valueString": "(123) 123-1234"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "emergency-contact-page",
+        "item": [
+          {
+            "linkId": "emergency-contact-relationship",
+            "answer": [
+              {
+                "valueString": "Spouse"
+              }
+            ]
+          },
+          {
+            "linkId": "emergency-contact-first-name",
+            "answer": [
+              {
+                "valueString": "Emergen"
+              }
+            ]
+          },
+          {
+            "linkId": "emergency-contact-middle-name",
+            "answer": [
+              {
+                "valueString": "C"
+              }
+            ]
+          },
+          {
+            "linkId": "emergency-contact-last-name",
+            "answer": [
+              {
+                "valueString": "Contact"
+              }
+            ]
+          },
+          {
+            "linkId": "emergency-contact-number",
+            "answer": [
+              {
+                "valueString": "(123) 123-1234"
+              }
+            ]
+          },
+          {
+            "linkId": "emergency-contact-address-as-patient"
+          },
+          {
+            "linkId": "emergency-contact-address",
+            "answer": [
+              {
+                "valueString": "address"
+              }
+            ]
+          },
+          {
+            "linkId": "emergency-contact-address-2",
+            "answer": [
+              {
+                "valueString": "address 2"
+              }
+            ]
+          },
+          {
+            "linkId": "emergency-contact-city",
+            "answer": [
+              {
+                "valueString": "city"
+              }
+            ]
+          },
+          {
+            "linkId": "emergency-contact-state",
+            "answer": [
+              {
+                "valueString": "AL"
+              }
+            ]
+          },
+          {
+            "linkId": "emergency-contact-zip",
+            "answer": [
+              {
+                "valueString": "12312"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "photo-id-page",
+        "item": [
+          {
+            "linkId": "photo-id-front"
+          },
+          {
+            "linkId": "photo-id-back"
+          }
+        ]
+      },
+      {
+        "linkId": "consent-forms-page",
+        "item": [
+          {
+            "linkId": "hipaa-acknowledgement",
+            "answer": [
+              {
+                "valueBoolean": true
+              }
+            ]
+          },
+          {
+            "linkId": "consent-to-treat",
+            "answer": [
+              {
+                "valueBoolean": true
+              }
+            ]
+          },
+          {
+            "linkId": "signature",
+            "answer": [
+              {
+                "valueString": "Signature text"
+              }
+            ]
+          },
+          {
+            "linkId": "full-name",
+            "answer": [
+              {
+                "valueString": "TEST-FIRST-NAME TEST-LAST-NAME"
+              }
+            ]
+          },
+          {
+            "linkId": "consent-form-signer-relationship",
+            "answer": [
+              {
+                "valueString": "Self"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "linkId": "medical-history-page"
+      }
+    ],
+    "authored": "{{date}}T16:28:37.984+00:00",
+    "extension": [
+      {
+        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/ip-address",
+        "valueString": "Unknown"
+      }
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-9802e0ea-05fc-4c20-9a71-d5ff3ec17c0f",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-95ea4ab2-4886-42e9-b792-31556ea78a34"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-c7f10129-c378-4790-a382-b7d88dfcefe8"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "TM with fluid"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "right-ear-tm-with-fluid",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

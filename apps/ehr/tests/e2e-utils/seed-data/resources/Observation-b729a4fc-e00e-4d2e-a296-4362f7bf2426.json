@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-b729a4fc-e00e-4d2e-a296-4362f7bf2426",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-95ea4ab2-4886-42e9-b792-31556ea78a34"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-c7f10129-c378-4790-a382-b7d88dfcefe8"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "C/w impetigo"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "cw-impetigo",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "fullUrl": "urn:uuid:Account-fa7d9b93-f8a5-4a05-9ff3-04934efba0cf",
+  "request": {
+    "method": "POST",
+    "url": "/Account"
+  },
+  "resource": {
+    "resourceType": "Account",
+    "status": "active",
+    "type": {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/account-type",
+          "code": "PBILLACCT",
+          "display": "patient billing account"
+        }
+      ]
+    },
+    "subject": [
+      {
+        "reference": "urn:uuid:Patient-95ea4ab2-4886-42e9-b792-31556ea78a34"
+      }
+    ],
+    "guarantor": [
+      {
+        "party": {
+          "reference": "#accountGuarantorId",
+          "type": "RelatedPerson"
+        }
+      }
+    ],
+    "contained": [
+      {
+        "resourceType": "RelatedPerson",
+        "id": "accountGuarantorId",
+        "name": [
+          {
+            "given": [
+              "fwe"
+            ],
+            "family": "sf"
+          }
+        ],
+        "birthDate": "1900-05-13",
+        "gender": "other",
+        "telecom": [
+          {
+            "value": "+12403333333",
+            "system": "phone"
+          },
+          {
+            "value": "ibenham+test@masslight.com",
+            "system": "email"
+          }
+        ],
+        "patient": {
+          "reference": "urn:uuid:Patient-95ea4ab2-4886-42e9-b792-31556ea78a34"
+        },
+        "address": [
+          {
+            "city": "Cleveland",
+            "line": [
+              "333 test street"
+            ],
+            "state": "OH",
+            "postalCode": "44101"
+          }
+        ],
+        "relationship": [
+          {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype",
+                "code": "other",
+                "display": "Legal Guardian"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "identifier": [
+      {
+        "system": "https://api.stripe.com/v1/customers",
+        "value": "cus_TZFoijh5ESCMKf"
+      }
+    ]
+  }
+}

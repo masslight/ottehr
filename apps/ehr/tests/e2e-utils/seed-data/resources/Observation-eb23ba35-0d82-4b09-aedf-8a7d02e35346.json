@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-eb23ba35-0d82-4b09-aedf-8a7d02e35346",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-95ea4ab2-4886-42e9-b792-31556ea78a34"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-c7f10129-c378-4790-a382-b7d88dfcefe8"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Normal canals"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "normal-canals",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}
