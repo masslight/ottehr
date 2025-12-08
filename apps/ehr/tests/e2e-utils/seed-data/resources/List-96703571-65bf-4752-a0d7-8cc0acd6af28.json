@@ -1,0 +1,39 @@
+{
+  "fullUrl": "urn:uuid:List-96703571-65bf-4752-a0d7-8cc0acd6af28",
+  "request": {
+    "method": "POST",
+    "url": "/List"
+  },
+  "resource": {
+    "resourceType": "List",
+    "status": "current",
+    "mode": "working",
+    "title": "discharge-summaries",
+    "code": {
+      "coding": [
+        {
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+          "code": "patient-docs-folder",
+          "display": "Discharge Summary"
+        }
+      ]
+    },
+    "subject": {
+      "reference": "urn:uuid:Patient-ba34fbe5-b89c-472a-aabc-520364afd81b"
+    },
+    "identifier": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+              "code": "UDI",
+              "display": "Universal Device Identifier"
+            }
+          ]
+        },
+        "value": "discharge-summaries"
+      }
+    ]
+  }
+}
