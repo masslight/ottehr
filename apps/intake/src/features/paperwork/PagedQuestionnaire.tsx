@@ -60,6 +60,7 @@ import RadioInput from './components/RadioInput';
 import RadioListInput from './components/RadioListInput';
 import { usePaperworkContext } from './context';
 import { useAutoFillValues } from './useAutofill';
+import { useFilterAnswersOptions } from './useFilterAnswersOptions';
 import { getPaperworkFieldId, useFieldError, usePaperworkFormHelpers, useQRState } from './useFormHelpers';
 import { StyledQuestionnaireItem, useStyledItems } from './useStyleItems';
 import { getInputTypeForItem } from './utils';
@@ -558,7 +559,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
   } = usePaperworkFormHelpers({ item, renderValue: value, renderOnChange: onChange, fieldId });
 
   const error = useFieldError(fieldId);
-  const answerOptions = item.answerOption ?? [];
+  const answerOptions = useFilterAnswersOptions(item.answerOption ?? []);
   const colorForButton = unwrappedValue ? theme.palette.destructive.main : theme.palette.primary.main;
   let attachmentType: AttachmentType = 'image';
   if (item.dataType === 'PDF') {
