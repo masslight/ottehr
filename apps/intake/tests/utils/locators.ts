@@ -583,16 +583,23 @@ export class Locators {
     }
   }
   async selectDifferentFamilyMember(): Promise<void> {
-    await this.page.waitForTimeout(1_000);
     const selectPatientPage = this.page.getByRole('heading', { name: 'Welcome Back!' });
     const patientInfoPage = this.page.getByRole('heading', { name: 'About the patient' });
-    if (await selectPatientPage.isVisible()) {
-      await this.differentFamilyMember
-        .locator('input[type="radio"]')
-        .click({ timeout: 40_000, noWaitAfter: true, force: true });
-    } else if (await patientInfoPage.isVisible()) {
-      // sometimes there are no registered patients so the select patient page isn't shown. the next step expects us to
-      // be on the about the patient page anyway so do nothing
+
+    try {
+      await Promise.race([
+        selectPatientPage.waitFor({ state: 'visible', timeout: 10_000 }),
+        patientInfoPage.waitFor({ state: 'visible', timeout: 10_000 }),
+      ]);
+
+      if (await selectPatientPage.isVisible()) {
+        await this.differentFamilyMember
+          .locator('input[type="radio"]')
+          .click({ timeout: 40_000, noWaitAfter: true, force: true });
+      }
+      // if we're on the patient info page, then the select patient page was skipped. do nothing
+    } catch {
+      throw new Error('Timeout waiting for either "Welcome Back!" or "About the patient" heading');
     }
   }
   async clickContinueButton(awaitNavigation = false): Promise<unknown> {
