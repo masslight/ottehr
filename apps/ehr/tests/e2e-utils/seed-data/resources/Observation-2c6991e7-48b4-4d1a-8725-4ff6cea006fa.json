@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-2c6991e7-48b4-4d1a-8725-4ff6cea006fa",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-ba34fbe5-b89c-472a-aabc-520364afd81b"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-5a31594f-df89-4dec-b6ad-579c81b915fc"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "Limping, refusal to bear weight"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "limping-refusal-to-bear-weight",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

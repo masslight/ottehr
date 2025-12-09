@@ -1,5 +1,6 @@
-import { BatchInputDeleteRequest } from '@oystehr/sdk';
+import { BatchInputDeleteRequest, BatchInputPatchRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Communication } from 'fhir/r4b';
 import { DeleteLabOrderZambdaOutput, getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -8,7 +9,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getLabOrderRelatedResources, makeDeleteResourceRequest } from './helpers';
+import { getLabOrderRelatedResources, makeCommunicationRequest, makeDeleteResourceRequest } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -25,10 +26,8 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const { serviceRequest, questionnaireResponse, task, labConditions } = await getLabOrderRelatedResources(
-      oystehr,
-      validatedParameters
-    );
+    const { serviceRequest, questionnaireResponse, task, labConditions, communications } =
+      await getLabOrderRelatedResources(oystehr, validatedParameters);
 
     if (!serviceRequest) {
       return {
@@ -37,36 +36,37 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
       };
     }
 
-    const deleteRequests: BatchInputDeleteRequest[] = [];
+    const requests: (BatchInputDeleteRequest | BatchInputPatchRequest<Communication>)[] = [];
 
-    deleteRequests.push(makeDeleteResourceRequest('ServiceRequest', serviceRequestId));
+    requests.push(makeDeleteResourceRequest('ServiceRequest', serviceRequestId));
 
     if (questionnaireResponse?.id) {
-      deleteRequests.push(makeDeleteResourceRequest('QuestionnaireResponse', questionnaireResponse.id));
+      requests.push(makeDeleteResourceRequest('QuestionnaireResponse', questionnaireResponse.id));
     }
 
     if (task?.id) {
-      deleteRequests.push(makeDeleteResourceRequest('Task', task.id));
+      requests.push(makeDeleteResourceRequest('Task', task.id));
     }
 
     labConditions.forEach((condition) => {
       if (condition.id) {
-        deleteRequests.push(makeDeleteResourceRequest('Condition', condition.id));
+        requests.push(makeDeleteResourceRequest('Condition', condition.id));
       }
     });
 
-    if (deleteRequests.length > 0) {
+    const communicationRequest = makeCommunicationRequest(communications?.orderLevelNotes, serviceRequest);
+    if (communicationRequest) requests.push(communicationRequest);
+
+    if (requests.length > 0) {
       console.log(
         `Deleting external lab order for service request id: ${serviceRequestId}; request: ${JSON.stringify(
-          deleteRequests,
+          requests,
           null,
           2
         )}`
       );
 
-      await oystehr.fhir.transaction({
-        requests: deleteRequests,
-      });
+      await oystehr.fhir.transaction({ requests });
     }
 
     const response: DeleteLabOrderZambdaOutput = {};
