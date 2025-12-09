@@ -57,7 +57,7 @@ export default function VisitsOverview(): React.ReactElement {
 
   const getDateRange = useCallback(
     (filter: string, selectedDate?: string): { start: string; end: string } => {
-      const now = DateTime.now().setZone('America/New_York');
+      const now = DateTime.now();
 
       switch (filter) {
         case 'today':
@@ -84,15 +84,15 @@ export default function VisitsOverview(): React.ReactElement {
           };
         case 'custom': {
           if (!selectedDate) return { start: '', end: '' };
-          const customDateTime = DateTime.fromISO(selectedDate).setZone('America/New_York');
+          const customDateTime = DateTime.fromISO(selectedDate);
           return {
             start: customDateTime.startOf('day').toISO() ?? '',
             end: customDateTime.endOf('day').toISO() ?? '',
           };
         }
         case 'customRange': {
-          const startDateTime = DateTime.fromISO(customStartDate).setZone('America/New_York');
-          const endDateTime = DateTime.fromISO(customEndDate).setZone('America/New_York');
+          const startDateTime = DateTime.fromISO(customStartDate);
+          const endDateTime = DateTime.fromISO(customEndDate);
           return {
             start: startDateTime.startOf('day').toISO() ?? '',
             end: endDateTime.endOf('day').toISO() ?? '',
