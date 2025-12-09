@@ -33,15 +33,11 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'sub-create-invoices-tasks';
 
-type EncounterWithoutTaskPkg = {
-  encounter: Encounter;
-  patientBalanceInCents: number;
-};
-
 interface EncounterPackage {
   encounter: Encounter;
   claim: InventoryRecord;
-  tasks?: Task[];
+  invoiceTask?: Task;
+  amountCents: number;
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -51,12 +47,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = createOystehrClient(m2mToken, secrets);
     const candid = createCandidApiClient(secrets);
 
-    const encountersWithoutATask = await getEncountersWithoutTask(candid, oystehr);
-    console.log('encounters without task: ', encountersWithoutATask.length);
+    const encounterPackages = await getEncountersWithTaskAndAmount(candid, oystehr);
+
+    const encountersWithoutATask = encounterPackages.filter((pkg) => !pkg.invoiceTask && pkg.amountCents > 0);
+    const encountersWithReadyTask = encounterPackages.filter((pkg) => pkg.invoiceTask?.status === 'ready');
+    console.log('encounters without a task: ', encountersWithoutATask.length);
+    console.log('encounters with pending task: ', encountersWithReadyTask.length);
 
     const promises: Promise<void>[] = [];
     encountersWithoutATask.forEach((encounter) => {
       promises.push(createTaskForEncounter(oystehr, encounter));
+    });
+    encountersWithReadyTask.forEach((encounter) => {
+      promises.push(updateTaskForEncounter(oystehr, encounter));
     });
     await Promise.all(promises);
 
@@ -90,12 +93,15 @@ async function getPrefilledInvoiceInfo(patientBalanceInCents: number): Promise<P
   }
 }
 
-async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterWithoutTaskPkg): Promise<void> {
+async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterPackage): Promise<void> {
   try {
-    const { encounter } = encounterPkg;
+    const { encounter, claim, amountCents } = encounterPkg;
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
     if (!patientId) throw new Error('Patient ID not found in encounter: ' + encounter.id);
-    const prefilledInvoiceInfo = await getPrefilledInvoiceInfo(encounterPkg.patientBalanceInCents);
+    const prefilledInvoiceInfo = await getPrefilledInvoiceInfo(amountCents);
+    console.log(
+      `Creating task. patient: ${claim.patientExternalId}, claim: ${claim.claimId}, oyst encounter: ${encounter.id} balance (cents): ${amountCents}`
+    );
 
     const task: Task = {
       resourceType: 'Task',
@@ -113,7 +119,29 @@ async function createTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterW
   }
 }
 
-async function getEncountersWithoutTask(candid: CandidApiClient, oystehr: Oystehr): Promise<EncounterWithoutTaskPkg[]> {
+async function updateTaskForEncounter(oystehr: Oystehr, encounterPkg: EncounterPackage): Promise<void> {
+  try {
+    const { encounter, claim, invoiceTask, amountCents } = encounterPkg;
+    if (!invoiceTask?.id) {
+      console.error('Task cannot be updated for encounter: ', encounter.id);
+      return;
+    }
+    const prefilledInvoiceInfo = await getPrefilledInvoiceInfo(amountCents);
+    console.log(
+      `Updating task. patient: ${claim.patientExternalId}, claim: ${claim.claimId}, oyst encounter: ${encounter.id} balance (cents): ${amountCents}`
+    );
+
+    await oystehr.fhir.patch({
+      resourceType: 'Task',
+      id: invoiceTask.id,
+      operations: [{ op: 'replace', path: '/input', value: createInvoiceTaskInput(prefilledInvoiceInfo) }],
+    });
+  } catch (error) {
+    captureException(error);
+  }
+}
+
+async function getEncountersWithTaskAndAmount(candid: CandidApiClient, oystehr: Oystehr): Promise<EncounterPackage[]> {
   console.log('getting candid claims');
   const inventoryPages = await getCandidInventoryPagesRecursive({
     candid,
@@ -129,27 +157,18 @@ async function getEncountersWithoutTask(candid: CandidApiClient, oystehr: Oysteh
     console.log('getting itemizations and encounters');
     const [itemizationResponse, encounterPackagesResponse] = await Promise.all([
       getItemizationToClaimIdMap(candid, claimsFetched),
-      getEncounterTasksPackages(oystehr, claimsFetched),
+      getEncountersWithTaskFhir(oystehr, claimsFetched),
     ]);
 
     console.log('fetched itemizations: ', Object.keys(itemizationResponse).length);
     console.log('fetched encounters: ', encounterPackagesResponse.length);
-    const encountersWithoutTask: EncounterWithoutTaskPkg[] = [];
+    const packages: EncounterPackage[] = [];
     encounterPackagesResponse.forEach((pkg) => {
-      if (!pkg.tasks || pkg.tasks.length === 0) {
-        const itemization = itemizationResponse[pkg.claim.claimId];
-        const patientBalanceInCents = itemization?.patientBalanceCents;
-        if (patientBalanceInCents && patientBalanceInCents > 0) {
-          console.log(
-            `patient: ${pkg.claim.patientExternalId}, claim: ${pkg.claim.claimId}, oyst encounter: ${pkg.encounter.id} balance (cents): `,
-            patientBalanceInCents
-          );
-
-          encountersWithoutTask.push({ encounter: pkg.encounter, patientBalanceInCents });
-        }
-      }
+      const itemization = itemizationResponse[pkg.claim.claimId];
+      const patientBalanceInCents = itemization?.patientBalanceCents;
+      packages.push({ ...pkg, amountCents: patientBalanceInCents });
     });
-    return encountersWithoutTask;
+    return packages;
   }
   return [];
 }
@@ -171,7 +190,10 @@ async function getItemizationToClaimIdMap(
   return itemizationToClaimIdMap;
 }
 
-async function getEncounterTasksPackages(oystehr: Oystehr, claims: InventoryRecord[]): Promise<EncounterPackage[]> {
+async function getEncountersWithTaskFhir(
+  oystehr: Oystehr,
+  claims: InventoryRecord[]
+): Promise<Omit<EncounterPackage, 'amountCents'>[]> {
   const promises: Promise<Resource[]>[] = [];
   promises.push(
     getResourcesFromBatchInlineRequests(
@@ -191,15 +213,15 @@ async function getEncounterTasksPackages(oystehr: Oystehr, claims: InventoryReco
       )
   ) as Task[];
 
-  const result: EncounterPackage[] = [];
+  const result: Omit<EncounterPackage, 'amountCents'>[] = [];
   claims.forEach((claim) => {
     const encounter = resourcesResponse.find(
       (res) =>
         res.resourceType === 'Encounter' && claim.encounterId === getCandidEncounterIdFromEncounter(res as Encounter)
     ) as Encounter;
     if (encounter?.id) {
-      const encounterTasks = tasks.filter((task) => task.encounter?.reference === createReference(encounter).reference);
-      result.push({ encounter, claim, tasks: encounterTasks });
+      const invoiceTask = tasks.find((task) => task.encounter?.reference === createReference(encounter).reference);
+      result.push({ encounter, claim, invoiceTask });
     }
   });
   return result;
