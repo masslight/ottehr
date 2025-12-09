@@ -26,6 +26,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
   const {
     patient,
     appointment,
+    encounter,
     location,
     timezone,
     physician,
@@ -46,7 +47,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     pharmacy: composePharmacyData(pharmacy),
     insurances: composeInsuranceData({ coverages, insuranceOrgs }),
     responsibleParty: composeResponsiblePartyData({ guarantorResource }),
-    consentForms: composeConsentFormsData({ consents, questionnaireResponse, timezone }),
+    consentForms: composeConsentFormsData({ encounter, consents, questionnaireResponse, timezone }),
     documents: composeDocumentsData(documents),
   };
 };

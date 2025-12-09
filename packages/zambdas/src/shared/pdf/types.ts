@@ -2,6 +2,7 @@ import {
   Appointment,
   Consent,
   DocumentReference,
+  Encounter,
   Location,
   Organization,
   Patient,
@@ -542,6 +543,7 @@ export interface consentFormsInfo extends PdfData {
   relationship: string;
   date: string;
   ip: string;
+  consentIsAttested: boolean;
 }
 
 export interface pharmacyInfo extends PdfData {
@@ -551,6 +553,7 @@ export interface pharmacyInfo extends PdfData {
 
 export interface VisitDetailsInput {
   patient: Patient;
+  encounter: Encounter;
   appointment: Appointment;
   location?: Location;
   timezone: string;
@@ -590,6 +593,7 @@ export interface ResponsiblePartyInput {
 }
 
 export interface ConsentsDataInput {
+  encounter: Encounter;
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
   timezone: string;

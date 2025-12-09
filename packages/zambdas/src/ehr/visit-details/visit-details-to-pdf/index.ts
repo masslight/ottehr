@@ -95,6 +95,7 @@ export const performEffect = async (
     {
       patient,
       appointment,
+      encounter,
       location,
       timezone: effectiveTimezone,
       physician: primaryCarePhysician,
