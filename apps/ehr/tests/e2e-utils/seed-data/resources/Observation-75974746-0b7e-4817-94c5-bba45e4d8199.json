@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-75974746-0b7e-4817-94c5-bba45e4d8199",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-ba34fbe5-b89c-472a-aabc-520364afd81b"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-5a31594f-df89-4dec-b6ad-579c81b915fc"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "C/w Coxsackievirus"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "cw-coxsackievirus",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}
