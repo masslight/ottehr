@@ -138,7 +138,8 @@ export type LabOrderListPageDTO = {
   abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_LAB_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
   orderPdfUrl: string | undefined; // will exist after order is submitted, DocRef containing LAB_ORDER_DOC_REF_CODING_CODE type
   location: Location | undefined; // Location that ordered the test. Was previously not required for lab orders, so can be undefined
-  orderLevelNote: string | undefined; // communication where cat === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY and sr is referenced in basedOn
+  orderLevelNote: string | undefined; // communication where cat === LAB_ORDER_LEVEL_NOTE_CATEGORY and sr is referenced in basedOn
+  clinicalInfoNote: string | undefined; // communication where cat === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY and sr is referenced in basedOn (these notes should be one to one with SRs)
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
@@ -465,7 +466,8 @@ export interface ExternalLabDocuments {
 }
 
 export interface ExternalLabCommunications {
-  orderLevelNotes: Communication[] | undefined;
+  orderLevelNotes: Communication[];
+  clinicalInfoNotes: Communication[];
 }
 
 export enum UnsolicitedResultsRequestType {

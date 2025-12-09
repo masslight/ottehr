@@ -150,6 +150,14 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           </Box>
         )}
 
+        {labOrder.clinicalInfoNote && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body1">
+              <span style={{ fontWeight: 500 }}>Clinical Info Note: </span> {labOrder.clinicalInfoNote}
+            </Typography>
+          </Box>
+        )}
+
         <Box sx={{ mb: 2 }}>
           <OrderHistoryCard
             isPSCPerformed={labOrder.isPSC}

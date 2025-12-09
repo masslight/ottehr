@@ -311,7 +311,8 @@ export const LAB_CLIENT_BILL_COVERAGE_TYPE_CODING = {
 
 export const LAB_OBS_VALUE_WITH_PRECISION_EXT = 'https://extensions.fhir.oystehr.com/obx-5-quantity-with-precision';
 
-const LABS_COMMUNICATION_CATEGORY_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/lab-communication-type';
+export const LABS_COMMUNICATION_CATEGORY_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-communication-type';
 export const LAB_ORDER_LEVEL_NOTE_CATEGORY = {
   system: LABS_COMMUNICATION_CATEGORY_SYSTEM,
   code: 'order-level-note',
