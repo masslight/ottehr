@@ -9,12 +9,13 @@ import {
   createCandidApiClient,
   createFilesDocumentReferences,
   formatDateToMDYWithTime,
-  GenerateStatementInput,
+  getExtension,
   getSecret,
   OTTEHR_MODULE,
   Secrets,
   SecretsKeys,
   STATEMENT_CODE,
+  USER_TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
 import {
@@ -24,7 +25,6 @@ import {
   createPresignedUrl,
   getAuth0Token,
   getCandidEncounterIdFromEncounter,
-  resolveTimezone,
   topLevelCatch,
   uploadObjectToZ3,
   validateJsonBody,
@@ -43,10 +43,11 @@ interface StatementResources {
   encounter: Encounter;
   patient: Patient;
   location: Location | undefined;
-  timezone: string;
 }
 
-interface GenerateStatementInputValidated extends GenerateStatementInput {
+interface GenerateStatementInputValidated {
+  encounterId: string;
+  userTimezone: string;
   secrets: Secrets;
 }
 
@@ -57,7 +58,7 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const { encounterId, secrets } = validateInput(input);
+    const { encounterId, userTimezone, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
@@ -100,6 +101,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const pdfDocument = await generatePdf({
       ...resources,
       itemizationResponse,
+      timezone: userTimezone,
       responsibleParty: guarantorResource,
       procedureNameProvider: async (procedureCode: string): Promise<string> => {
         return getProcedureCodeTitle(procedureCode, secrets);
@@ -146,7 +148,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     ).unbundle();
 
     const { date: appointmentDate, time: appointmentTime } =
-      formatDateToMDYWithTime(resources.appointment?.start, resources.timezone) ?? {};
+      formatDateToMDYWithTime(resources.appointment?.start, userTimezone) ?? {};
 
     const { docRefs } = await createFilesDocumentReferences({
       files: [
@@ -223,6 +225,7 @@ function validateInput(input: ZambdaInput): GenerateStatementInputValidated {
 
   return {
     encounterId: validateString(task.encounter?.reference?.split('/')[1], 'encounterId'),
+    userTimezone: getExtension(task, USER_TIMEZONE_EXTENSION_URL)?.valueString ?? 'EDT',
     secrets: assertDefined(input.secrets, 'input.secrets'),
   };
 }
@@ -255,10 +258,6 @@ const getResources = async (encounterId: string, oystehr: Oystehr): Promise<Stat
           name: '_include:iterate',
           value: 'Appointment:location',
         },
-        {
-          name: '_revinclude:iterate',
-          value: 'Schedule:actor:Location',
-        },
       ],
     })
   ).unbundle();
@@ -282,18 +281,11 @@ const getResources = async (encounterId: string, oystehr: Oystehr): Promise<Stat
     return item.resourceType === 'Location';
   }) as Location;
 
-  const schedule: Schedule | undefined = items.find((item: Resource) => {
-    return item.resourceType === 'Schedule';
-  }) as Schedule;
-
-  const timezone = resolveTimezone(schedule, location, 'America/New_York');
-
   return {
     appointment,
     encounter,
     patient,
     location,
-    timezone,
   };
 };
 

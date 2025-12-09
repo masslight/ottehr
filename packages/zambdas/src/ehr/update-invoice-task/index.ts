@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createInvoiceTaskInput, getSecret, SecretsKeys } from 'utils';
+import { Task } from 'fhir/r4b';
+import { createInvoiceTaskInput, getSecret, SecretsKeys, USER_TIMEZONE_EXTENSION_URL } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -16,29 +17,30 @@ const ZAMBDA_NAME = 'update-invoice-task';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParams = validateRequestParameters(input);
-    const { secrets, taskId, status, prefilledInfo } = validatedParams;
+    const { secrets, taskId, status, prefilledInvoiceInfo, userTimezone } = validatedParams;
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const taskInput = createInvoiceTaskInput(prefilledInfo);
+    const taskInput = createInvoiceTaskInput(prefilledInvoiceInfo);
 
-    await oystehr.fhir.patch({
+    const task = await oystehr.fhir.get<Task>({
       resourceType: 'Task',
       id: taskId,
-      operations: [
-        {
-          op: 'replace',
-          path: '/status',
-          value: status,
-        },
-        {
-          op: 'replace',
-          path: '/input',
-          value: taskInput,
-        },
-      ],
     });
+
+    task.status = status as any;
+    task.input = taskInput;
+
+    if (!task.extension) {
+      task.extension = [];
+    }
+    task.extension.push({
+      url: USER_TIMEZONE_EXTENSION_URL,
+      valueString: userTimezone,
+    });
+
+    await oystehr.fhir.update(task);
 
     return {
       statusCode: 200,
