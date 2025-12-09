@@ -2,6 +2,7 @@ export * from './booking';
 export * from './branding';
 export * from './sendgrid';
 export * from './examination';
+export * from './medications';
 export * from './questionnaire';
 export * from './texting';
 export * from './vitals';

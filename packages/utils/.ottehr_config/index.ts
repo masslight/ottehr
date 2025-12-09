@@ -1,5 +1,6 @@
 export * from './booking';
 export * from './branding';
+export * from './medications';
 export * from './sendgrid';
 export * from './examination';
 export * from './screening-questions';
