@@ -49,7 +49,7 @@ function addAppointmentToIdsAndAddMetaTag(page: Page, processId: string): void {
         resourceType: 'Appointment',
         id: appointmentId,
       });
-      await oystehr.fhir.update(addProcessIdMetaTagToAppointment(appointment, processId));
+      await oystehr.fhir.update(addProcessIdMetaTagToAppointment(appointment, `failsafe-${processId}`));
     }
   });
 }
