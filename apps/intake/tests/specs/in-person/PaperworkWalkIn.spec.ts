@@ -1,4 +1,5 @@
 // cSpell:ignore SNPRF
+import Oystehr from '@oystehr/sdk';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -26,6 +27,7 @@ const locationName = process.env.LOCATION;
 const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
 
 const PROCESS_ID = `PaperworkWalkIn.spec.ts-${DateTime.now().toMillis()}`;
+let oystehr: Oystehr;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -36,7 +38,9 @@ test.beforeAll(async ({ browser }) => {
       if (!appointmentIds.includes(appointmentId)) {
         appointmentIds.push(appointmentId);
       }
-      const oystehr = await ResourceHandler.getOystehr();
+      const resourceHandler = new ResourceHandler();
+      await resourceHandler.initApi();
+      oystehr = resourceHandler.apiClient;
       const appointment = await oystehr.fhir.get<Appointment>({
         resourceType: 'Appointment',
         id: appointmentId,
@@ -59,7 +63,7 @@ test.afterAll(async () => {
       },
     ],
   };
-  await cleanAppointmentGraph(metaTag, await ResourceHandler.getOystehr());
+  await cleanAppointmentGraph(metaTag, oystehr);
 });
 
 test.describe.serial('Start now In person visit - Paperwork submission flow with only required fields', () => {

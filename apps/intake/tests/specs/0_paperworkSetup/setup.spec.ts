@@ -44,7 +44,9 @@ function addAppointmentToIdsAndAddMetaTag(page: Page, processId: string): void {
       if (!appointmentIds.includes(appointmentId)) {
         appointmentIds.push(appointmentId);
       }
-      const oystehr = await ResourceHandler.getOystehr();
+      const resourceHandler = new ResourceHandler();
+      await resourceHandler.initApi();
+      const oystehr = resourceHandler.apiClient;
       const appointment = await oystehr.fhir.get<Appointment>({
         resourceType: 'Appointment',
         id: appointmentId,
