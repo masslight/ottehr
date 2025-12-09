@@ -36,7 +36,7 @@ test.beforeAll(async ({ browser }) => {
         resourceType: 'Appointment',
         id: appointmentId,
       });
-      await oystehr.fhir.update(addProcessIdMetaTagToAppointment(appointment, `PaperworkWalkIn.spec.ts-${PROCESS_ID}`));
+      await oystehr.fhir.update(addProcessIdMetaTagToAppointment(appointment, PROCESS_ID));
     }
   });
   paperwork = new Paperwork(page);
