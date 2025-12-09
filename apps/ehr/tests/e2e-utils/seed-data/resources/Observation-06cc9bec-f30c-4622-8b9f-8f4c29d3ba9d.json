@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-06cc9bec-f30c-4622-8b9f-8f4c29d3ba9d",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-ba34fbe5-b89c-472a-aabc-520364afd81b"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-5a31594f-df89-4dec-b6ad-579c81b915fc"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Nasal mucosa normal"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "nasal-mucosa-normal",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

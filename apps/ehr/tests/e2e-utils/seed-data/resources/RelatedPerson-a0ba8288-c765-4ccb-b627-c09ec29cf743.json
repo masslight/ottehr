@@ -1,0 +1,50 @@
+{
+  "fullUrl": "urn:uuid:RelatedPerson-a0ba8288-c765-4ccb-b627-c09ec29cf743",
+  "request": {
+    "method": "POST",
+    "url": "/RelatedPerson"
+  },
+  "resource": {
+    "name": [
+      {
+        "given": [
+          "Emergen",
+          "C"
+        ],
+        "family": "Contact"
+      }
+    ],
+    "address": [
+      {
+        "city": "city",
+        "line": [
+          "address",
+          "address 2"
+        ],
+        "state": "AL",
+        "postalCode": "12312"
+      }
+    ],
+    "patient": {
+      "reference": "urn:uuid:Patient-ba34fbe5-b89c-472a-aabc-520364afd81b"
+    },
+    "telecom": [
+      {
+        "value": "+11231231234",
+        "system": "phone"
+      }
+    ],
+    "relationship": [
+      {
+        "coding": [
+          {
+            "code": "EP",
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0131",
+            "display": "Spouse"
+          }
+        ]
+      }
+    ],
+    "resourceType": "RelatedPerson"
+  }
+}
