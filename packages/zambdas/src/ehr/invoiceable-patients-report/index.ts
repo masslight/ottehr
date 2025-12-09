@@ -12,6 +12,7 @@ import {
   InvoiceablePatientReport,
   InvoiceablePatientReportFail,
   InvoiceablePatientsReport,
+  PATIENT_BILLING_ACCOUNT_TYPE,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -28,6 +29,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { accountMatchesType } from '../shared/harvest';
 import { getCandidItemizationMap, InvoiceableClaim, mapResourcesToInvoiceablePatient } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -168,9 +170,11 @@ async function getInvoiceablePatientsReport(input: {
         patientToIdMap[resource.id] = resource as Patient;
       }
       if (resource.resourceType === 'Account') {
-        const patientId = getPatientReferenceFromAccount(resource as Account)?.split('/')[1];
+        const account = resource as Account;
+        if (!accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE)) return;
+        const patientId = getPatientReferenceFromAccount(account)?.split('/')[1];
         if (patientId) {
-          accountsToPatientIdMap[patientId] = resource as Account;
+          accountsToPatientIdMap[patientId] = account;
         }
       }
       if (resource.resourceType === 'Appointment') {
