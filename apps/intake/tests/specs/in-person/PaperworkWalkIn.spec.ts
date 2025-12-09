@@ -4,7 +4,12 @@ import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { addProcessIdMetaTagToAppointment } from 'test-utils';
 import { ResourceHandler } from 'tests/utils/resource-handler';
-import { chooseJson, CreateAppointmentResponse } from 'utils';
+import {
+  chooseJson,
+  cleanAppointmentGraph,
+  CreateAppointmentResponse,
+  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+} from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
@@ -46,6 +51,15 @@ test.beforeAll(async ({ browser }) => {
 test.afterAll(async () => {
   await page.close();
   await context.close();
+  const metaTag: Appointment['meta'] = {
+    tag: [
+      {
+        system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+        code: PROCESS_ID,
+      },
+    ],
+  };
+  await cleanAppointmentGraph(metaTag, await ResourceHandler.getOystehr());
 });
 
 test.describe.serial('Start now In person visit - Paperwork submission flow with only required fields', () => {

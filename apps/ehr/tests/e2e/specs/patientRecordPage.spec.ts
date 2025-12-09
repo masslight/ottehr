@@ -762,6 +762,7 @@ test.describe('Patient Record Page tests with zero patient data filled in', asyn
     if (!appointmentId) {
       throw new Error('Appointment ID should be present in the response');
     }
+    await resourceHandler.tagAppointmentForCleanup(appointmentId);
 
     const patientId = await resourceHandler.patientIdByAppointmentId(appointmentId);
     const patientInformationPage = await openPatientInformationPage(page, patientId);
