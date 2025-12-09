@@ -544,6 +544,11 @@ export interface consentFormsInfo extends PdfData {
   ip: string;
 }
 
+export interface pharmacyInfo extends PdfData {
+  name: string;
+  address: string;
+}
+
 export interface VisitDetailsInput {
   patient: Patient;
   appointment: Appointment;
@@ -668,6 +673,7 @@ export interface VisitDetailsData extends PdfData {
   responsibleParty: ResponsiblePartyInfo;
   consentForms: consentFormsInfo;
   documents: Documents;
+  pharmacy: pharmacyInfo;
 }
 export interface GetPaymentDataResponse {
   chargeUuid: string;
