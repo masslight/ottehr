@@ -1444,6 +1444,24 @@
           }
         ]
       }
+    },
+    "SUB_RECOMMEND_DIAGNOSIS_CODES_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Recommend diagnosis codes",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|recommend-diagnosis-codes&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-RECOMMEND-DIAGNOSIS-CODES/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
     }
   }
 }
