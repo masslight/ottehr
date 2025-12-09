@@ -1,5 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
-import { formatPhoneNumberForQuestionnaire } from 'utils';
+import { formatPhoneNumberForQuestionnaire, PATIENT_RECORD_CONFIG } from 'utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { AddInsuranceDialog } from './patient-information/AddInsuranceDialog';
 import { PatientHeader } from './PatientHeader';
@@ -33,33 +33,39 @@ export enum Field {
   GENDER_IDENTITY_ADDITIONAL_FIELD,
 }
 
+const patientSummary = PATIENT_RECORD_CONFIG.FormFields.patientSummary.items;
+const contactInformation = PATIENT_RECORD_CONFIG.FormFields.patientContactInformation.items;
+const patientDetails = PATIENT_RECORD_CONFIG.FormFields.patientDetails.items;
+const responsibleParty = PATIENT_RECORD_CONFIG.FormFields.responsibleParty.items;
+const primaryCarePhysician = PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items;
+
 const FIELD_TO_TEST_ID = new Map<Field, string>()
-  .set(Field.PATIENT_LAST_NAME, dataTestIds.patientInformationContainer.patientLastName)
-  .set(Field.PATIENT_FIRST_NAME, dataTestIds.patientInformationContainer.patientFirstName)
-  .set(Field.PATIENT_DOB, dataTestIds.patientInformationContainer.patientDateOfBirth)
-  .set(Field.PATIENT_GENDER, dataTestIds.patientInformationContainer.patientBirthSex)
-  .set(Field.DEMO_VISIT_STREET_ADDRESS, dataTestIds.contactInformationContainer.streetAddress)
-  .set(Field.DEMO_VISIT_CITY, dataTestIds.contactInformationContainer.city)
-  .set(Field.DEMO_VISIT_STATE, dataTestIds.contactInformationContainer.state)
-  .set(Field.DEMO_VISIT_ZIP, dataTestIds.contactInformationContainer.zip)
-  .set(Field.PATIENT_EMAIL, dataTestIds.contactInformationContainer.patientEmail)
-  .set(Field.PATIENT_PHONE_NUMBER, dataTestIds.contactInformationContainer.patientMobile)
-  .set(Field.DEMO_VISIT_PATIENT_ETHNICITY, dataTestIds.patientDetailsContainer.patientsEthnicity)
-  .set(Field.DEMO_VISIT_PATIENT_RACE, dataTestIds.patientDetailsContainer.patientsRace)
-  .set(Field.DEMO_VISIT_RESPONSIBLE_RELATIONSHIP, dataTestIds.responsiblePartyInformationContainer.relationshipDropdown)
-  .set(Field.DEMO_VISIT_RESPONSIBLE_FIRST_NAME, dataTestIds.responsiblePartyInformationContainer.firstName)
-  .set(Field.DEMO_VISIT_RESPONSIBLE_LAST_NAME, dataTestIds.responsiblePartyInformationContainer.lastName)
-  .set(Field.DEMO_VISIT_RESPONSIBLE_BIRTHDATE, dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
-  .set(Field.DEMO_VISIT_RESPONSIBLE_PHONE, dataTestIds.responsiblePartyInformationContainer.phoneInput)
-  .set(Field.DEMO_VISIT_RESPONSIBLE_EMAIL, dataTestIds.responsiblePartyInformationContainer.emailInput)
-  .set(Field.DEMO_VISIT_POINT_OF_DISCOVERY, dataTestIds.patientDetailsContainer.sendMarketingMessages)
-  .set(Field.DEMO_VISIT_PREFERRED_LANGUAGE, dataTestIds.patientDetailsContainer.preferredLanguage)
-  .set(Field.DEMO_VISIT_PROVIDER_FIRST_NAME, dataTestIds.primaryCarePhysicianContainer.firstName)
-  .set(Field.DEMO_VISIT_PROVIDER_LAST_NAME, dataTestIds.primaryCarePhysicianContainer.lastName)
-  .set(Field.DEMO_VISIT_PRACTICE_NAME, dataTestIds.primaryCarePhysicianContainer.practiceName)
-  .set(Field.DEMO_VISIT_PHYSICIAN_ADDRESS, dataTestIds.primaryCarePhysicianContainer.address)
-  .set(Field.DEMO_VISIT_PHYSICIAN_MOBILE, dataTestIds.primaryCarePhysicianContainer.mobile)
-  .set(Field.GENDER_IDENTITY_ADDITIONAL_FIELD, dataTestIds.patientDetailsContainer.pleaseSpecifyField);
+  .set(Field.PATIENT_LAST_NAME, patientSummary.lastName.key)
+  .set(Field.PATIENT_FIRST_NAME, patientSummary.firstName.key)
+  .set(Field.PATIENT_DOB, patientSummary.birthDate.key)
+  .set(Field.PATIENT_GENDER, patientSummary.birthSex.key)
+  .set(Field.DEMO_VISIT_STREET_ADDRESS, contactInformation.streetAddress.key)
+  .set(Field.DEMO_VISIT_CITY, contactInformation.city.key)
+  .set(Field.DEMO_VISIT_STATE, contactInformation.state.key)
+  .set(Field.DEMO_VISIT_ZIP, contactInformation.zip.key)
+  .set(Field.PATIENT_EMAIL, contactInformation.email.key)
+  .set(Field.PATIENT_PHONE_NUMBER, contactInformation.phone.key)
+  .set(Field.DEMO_VISIT_PATIENT_ETHNICITY, patientDetails.ethnicity.key)
+  .set(Field.DEMO_VISIT_PATIENT_RACE, patientDetails.race.key)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_RELATIONSHIP, responsibleParty.relationship.key)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_FIRST_NAME, responsibleParty.firstName.key)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_LAST_NAME, responsibleParty.lastName.key)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_BIRTHDATE, responsibleParty.birthDate.key)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_PHONE, responsibleParty.phone.key)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_EMAIL, responsibleParty.email.key)
+  .set(Field.DEMO_VISIT_POINT_OF_DISCOVERY, patientDetails.sendMarketing.key)
+  .set(Field.DEMO_VISIT_PREFERRED_LANGUAGE, patientDetails.language.key)
+  .set(Field.DEMO_VISIT_PROVIDER_FIRST_NAME, primaryCarePhysician.firstName.key)
+  .set(Field.DEMO_VISIT_PROVIDER_LAST_NAME, primaryCarePhysician.lastName.key)
+  .set(Field.DEMO_VISIT_PRACTICE_NAME, primaryCarePhysician.practiceName.key)
+  .set(Field.DEMO_VISIT_PHYSICIAN_ADDRESS, primaryCarePhysician.address.key)
+  .set(Field.DEMO_VISIT_PHYSICIAN_MOBILE, primaryCarePhysician.phone.key)
+  .set(Field.GENDER_IDENTITY_ADDITIONAL_FIELD, patientDetails.genderIdentityDetails.key);
 
 export class PatientInformationPage {
   #page: Page;
@@ -81,243 +87,211 @@ export class PatientInformationPage {
     return this.#insuranceCards[index];
   }
 
+  inputByName(name: string): Locator {
+    return this.#page.locator(`input[name="${name}"]`);
+  }
+
+  inputById(id: string): Locator {
+    return this.#page.locator(`#${id}`).locator('input');
+  }
+
+  selectById(id: string): Locator {
+    return this.#page.locator(`#${id}`);
+  }
+
+  errorForField(fieldKey: string, errorText: string): Locator {
+    // First try to find error within the wrapper with ID (for regular fields)
+    // Then fall back to finding it near the input by name (for grouped fields like city/state/zip)
+    const wrapperSelector = this.#page.locator(`#${fieldKey}`);
+    const inputSelector = this.#page.locator(`input[name="${fieldKey}"]`);
+
+    return wrapperSelector
+      .getByText(errorText)
+      .or(inputSelector.locator('xpath=ancestor::*[contains(@class, "MuiFormControl-root")]').getByText(errorText));
+  }
+
   async verifyPatientFirstNameFieldEnabled(): Promise<void> {
     await expect(
-      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientFirstName).locator('input')
+      this.inputByName(patientSummary.firstName.key)
+      // this.#page.getByTestId(dataTestIds.patientInformationContainer.patientFirstName).locator('input')
     ).toBeEnabled();
   }
 
   async enterPatientLastName(patientLastName: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.patientInformationContainer.patientLastName)
-      .locator('input')
-      .fill(patientLastName);
+    await this.inputByName(patientSummary.lastName.key).fill(patientLastName);
   }
 
   async verifyPatientLastName(patientLastName: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientLastName).locator('input')
-    ).toHaveValue(patientLastName);
+    await expect(this.inputByName(patientSummary.lastName.key)).toHaveValue(patientLastName);
   }
 
   async clearPatientLastName(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientLastName).locator('input').clear();
+    await this.inputByName(patientSummary.lastName.key).clear();
   }
 
   async verifyValidationErrorShown(field: Field): Promise<void> {
-    await expect(
-      this.#page.getByTestId(FIELD_TO_TEST_ID.get(field)!).locator('p:text("This field is required")')
-    ).toBeVisible();
+    await expect(this.errorForField(FIELD_TO_TEST_ID.get(field)!, 'This field is required')).toBeVisible();
   }
 
   async enterPatientFirstName(patientFirstName: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.patientInformationContainer.patientFirstName)
-      .locator('input')
-      .fill(patientFirstName);
+    await this.inputByName(patientSummary.firstName.key).fill(patientFirstName);
   }
 
   async verifyPatientFirstName(patientFirstName: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientFirstName).locator('input')
-    ).toHaveValue(patientFirstName);
+    await expect(this.inputByName(patientSummary.firstName.key)).toHaveValue(patientFirstName);
   }
 
   async clearPatientFirstName(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientFirstName).locator('input').clear();
+    await this.inputByName(patientSummary.firstName.key).clear();
   }
 
   async enterPatientMiddleName(patientMiddleName: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.patientInformationContainer.patientMiddleName)
-      .locator('input')
-      .fill(patientMiddleName);
+    await this.inputByName(patientSummary.middleName.key).fill(patientMiddleName);
   }
 
   async verifyPatientMiddleName(patientMiddleName: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientMiddleName).locator('input')
-    ).toHaveValue(patientMiddleName);
+    await expect(this.inputByName(patientSummary.middleName.key)).toHaveValue(patientMiddleName);
   }
 
   async enterPatientSuffix(patientSuffix: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.patientInformationContainer.patientSuffix)
-      .locator('input')
-      .fill(patientSuffix);
+    await this.inputByName(patientSummary.suffix.key).fill(patientSuffix);
   }
 
   async verifyPatientSuffix(patientSuffix: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientSuffix).locator('input')
-    ).toHaveValue(patientSuffix);
+    await expect(this.inputByName(patientSummary.suffix.key)).toHaveValue(patientSuffix);
   }
 
   async enterPatientPreferredName(patientPreferredName: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.patientInformationContainer.patientPreferredName)
-      .locator('input')
-      .fill(patientPreferredName);
+    await this.inputByName(patientSummary.preferredName.key).fill(patientPreferredName);
   }
 
   async verifyPatientPreferredName(patientPreferredName: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientPreferredName).locator('input')
-    ).toHaveValue(patientPreferredName);
+    await expect(this.inputByName(patientSummary.preferredName.key)).toHaveValue(patientPreferredName);
   }
 
   async enterPatientDateOfBirth(patientDateOfBirth: string): Promise<void> {
-    const locator = this.#page.getByTestId(dataTestIds.patientInformationContainer.patientDateOfBirth).locator('input');
+    const locator = this.inputByName(patientSummary.birthDate.key);
     await locator.click();
     await locator.pressSequentially(patientDateOfBirth);
   }
 
   async verifyPatientDateOfBirth(patientDateOfBirth: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientDateOfBirth).locator('input')
-    ).toHaveValue(patientDateOfBirth);
+    await expect(this.inputByName(patientSummary.birthDate.key)).toHaveValue(patientDateOfBirth);
   }
 
   async clearPatientDateOfBirth(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientDateOfBirth).locator('input').clear();
+    await this.inputByName(patientSummary.birthDate.key).clear();
   }
 
   async selectPatientPreferredPronouns(pronouns: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientPreferredPronouns).click();
-    await this.#page.getByText(pronouns, { exact: true }).click();
+    await this.selectById(patientSummary.pronouns.key).click();
+    await this.#page.getByRole('option', { name: pronouns, exact: true }).click();
   }
 
   async verifyPatientPreferredPronouns(patientPreferredPronouns: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientPreferredPronouns).locator('input')
-    ).toHaveValue(patientPreferredPronouns);
+    await expect(this.inputByName(patientSummary.pronouns.key)).toHaveValue(patientPreferredPronouns);
   }
 
   async selectPatientBirthSex(birthSex: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientBirthSex).click();
-    await this.#page.locator('li').getByText(birthSex, { exact: true }).click();
+    await this.selectById(patientSummary.birthSex.key).click();
+    await this.#page.getByRole('option', { name: birthSex, exact: true }).click();
   }
 
   async verifyPatientBirthSex(patientBirthSex: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientInformationContainer.patientBirthSex).locator('input')
-    ).toHaveValue(patientBirthSex);
+    await expect(this.inputByName(patientSummary.birthSex.key)).toHaveValue(patientBirthSex);
   }
 
   async clearPatientBirthSex(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientBirthSex).locator('input').clear();
+    await this.inputByName(patientSummary.birthSex.key).clear();
   }
 
   async enterStreetAddress(streetAddress: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.contactInformationContainer.streetAddress)
-      .locator('input')
-      .fill(streetAddress);
+    await this.inputByName(contactInformation.streetAddress.key).fill(streetAddress);
   }
 
   async verifyStreetAddress(streetAddress: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.contactInformationContainer.streetAddress).locator('input')
-    ).toHaveValue(streetAddress);
+    await expect(this.inputByName(contactInformation.streetAddress.key)).toHaveValue(streetAddress);
   }
 
   async clearStreetAddress(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.streetAddress).locator('input').clear();
+    await this.inputByName(contactInformation.streetAddress.key).clear();
   }
 
   async enterAddressLineOptional(addressLineOptional: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.contactInformationContainer.addressLineOptional)
-      .locator('input')
-      .fill(addressLineOptional);
+    await this.inputByName(contactInformation.addressLine2.key).fill(addressLineOptional);
   }
 
   async verifyAddressLineOptional(addressLineOptional: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.contactInformationContainer.addressLineOptional).locator('input')
-    ).toHaveValue(addressLineOptional);
+    await expect(this.inputByName(contactInformation.addressLine2.key)).toHaveValue(addressLineOptional);
   }
 
   async enterCity(city: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.city).locator('input').fill(city);
+    await this.inputByName(contactInformation.city.key).fill(city);
   }
 
   async verifyCity(city: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.contactInformationContainer.city).locator('input')).toHaveValue(
-      city
-    );
+    await expect(this.inputByName(contactInformation.city.key)).toHaveValue(city);
   }
 
   async clearCity(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.city).locator('input').clear();
+    await this.inputByName(contactInformation.city.key).clear();
   }
 
   async selectState(state: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.state).click();
-    await this.#page.getByText(state, { exact: true }).click();
+    await this.selectById(contactInformation.state.key).click();
+    await this.#page.getByRole('option', { name: state, exact: true }).click();
   }
 
   async verifyState(state: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.contactInformationContainer.state).locator('input')).toHaveValue(
-      state
-    );
+    await expect(this.inputByName(contactInformation.state.key)).toHaveValue(state);
   }
 
   async enterZip(zip: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.zip).locator('input').fill(zip);
+    await this.inputByName(contactInformation.zip.key).fill(zip);
   }
 
   async verifyZip(zip: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.contactInformationContainer.zip).locator('input')).toHaveValue(zip);
+    await expect(this.inputByName(contactInformation.zip.key)).toHaveValue(zip);
   }
 
   async verifyValidationErrorZipField(): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.contactInformationContainer.zip).locator('p:text("Must be 5 digits")')
-    ).toBeVisible();
+    await expect(this.errorForField(contactInformation.zip.key, 'Must be 5 digits')).toBeVisible();
   }
 
   async clearZip(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.zip).locator('input').clear();
+    await this.inputByName(contactInformation.zip.key).clear();
   }
 
   async enterPatientEmail(email: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.patientEmail).locator('input').fill(email);
+    await this.inputByName(contactInformation.email.key).fill(email);
   }
 
   async verifyPatientEmail(email: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.contactInformationContainer.patientEmail).locator('input')
-    ).toHaveValue(email);
+    await expect(this.inputByName(contactInformation.email.key)).toHaveValue(email);
   }
 
   async clearPatientEmail(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.patientEmail).locator('input').clear();
+    await this.inputByName(contactInformation.email.key).clear();
   }
 
   async verifyValidationErrorInvalidEmail(): Promise<void> {
     await expect(
-      this.#page
-        .getByTestId(dataTestIds.contactInformationContainer.patientEmail)
-        .locator('p:text("Must be in the format \\"email@example.com\\"")')
+      this.errorForField(contactInformation.email.key, 'Must be in the format "email@example.com"')
     ).toBeVisible();
   }
 
   async enterPatientMobile(patientMobile: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.contactInformationContainer.patientMobile)
-      .locator('input')
-      .fill(patientMobile);
+    await this.inputByName(contactInformation.phone.key).fill(patientMobile);
   }
 
   async verifyPatientMobile(patientMobile: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.contactInformationContainer.patientMobile).locator('input')
-    ).toHaveValue(formatPhoneNumberForQuestionnaire(patientMobile));
+    await expect(this.inputByName(contactInformation.phone.key)).toHaveValue(
+      formatPhoneNumberForQuestionnaire(patientMobile)
+    );
   }
 
   async clearPatientMobile(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.contactInformationContainer.patientMobile).locator('input').click();
+    await this.selectById(contactInformation.phone.key).click();
     for (let i = 0; i <= 20; i++) {
       await this.#page.keyboard.press('Backspace');
     }
@@ -325,320 +299,278 @@ export class PatientInformationPage {
 
   async verifyValidationErrorInvalidMobile(): Promise<void> {
     await expect(
-      this.#page
-        .getByTestId(dataTestIds.contactInformationContainer.patientMobile)
-        .locator('p:text("Phone number must be 10 digits in the format (xxx) xxx-xxxx")')
+      this.errorForField(contactInformation.phone.key, 'Phone number must be 10 digits in the format (xxx) xxx-xxxx')
+    ).toBeVisible();
+  }
+  async enterHomePhoneNumber(homePhoneNumber: string): Promise<void> {
+    await this.inputByName(contactInformation.homePhone.key).fill(homePhoneNumber);
+  }
+
+  async verifyHomePhoneNumber(homePhoneNumber: string): Promise<void> {
+    await expect(this.inputByName(contactInformation.homePhone.key)).toHaveValue(
+      formatPhoneNumberForQuestionnaire(homePhoneNumber)
+    );
+  }
+
+  async clearHomePhoneNumber(): Promise<void> {
+    await this.selectById(contactInformation.homePhone.key).click();
+    for (let i = 0; i <= 20; i++) {
+      await this.#page.keyboard.press('Backspace');
+    }
+  }
+  async verifyValidationErrorInvalidPhoneFromHomeNumber(): Promise<void> {
+    await expect(
+      this.errorForField(
+        contactInformation.homePhone.key,
+        'Phone number must be 10 digits in the format (xxx) xxx-xxxx'
+      )
     ).toBeVisible();
   }
 
   async selectPatientEthnicity(patientEthnicity: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsEthnicity).click();
-    await this.#page.locator('li').getByText(patientEthnicity, { exact: true }).click();
+    await this.selectById(patientDetails.ethnicity.key).click();
+    await this.#page.getByRole('option', { name: patientEthnicity, exact: true }).click();
   }
 
   async verifyPatientEthnicity(patientEthnicity: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsEthnicity).locator('input')
-    ).toHaveValue(patientEthnicity);
+    await expect(this.inputByName(patientDetails.ethnicity.key)).toHaveValue(patientEthnicity);
   }
 
   async selectPatientRace(patientRace: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsRace).click();
-    await this.#page.locator('li').getByText(patientRace, { exact: true }).click();
+    await this.selectById(patientDetails.race.key).click();
+    await this.#page.getByRole('option', { name: patientRace, exact: true }).click();
   }
 
   async verifyPatientRace(patientRace: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsRace).locator('input')).toHaveValue(
-      patientRace
-    );
+    await expect(this.inputByName(patientDetails.race.key)).toHaveValue(patientRace);
   }
 
   async selectHowDidYouHear(howDidYouHear: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.howDidYouHearAboutUs).click();
-    await this.#page.getByText(howDidYouHear, { exact: true }).click();
+    await this.selectById(patientDetails.pointOfDiscovery.key).click();
+    await this.#page.getByRole('option', { name: howDidYouHear, exact: true }).click();
   }
 
   async verifyHowDidYouHear(howDidYouHear: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientDetailsContainer.howDidYouHearAboutUs).locator('input')
-    ).toHaveValue(howDidYouHear);
+    await expect(this.inputByName(patientDetails.pointOfDiscovery.key)).toHaveValue(howDidYouHear);
   }
 
-  async selectMarketingMessaging(marketingMessaging: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.sendMarketingMessages).click();
-    await this.#page.getByText(marketingMessaging, { exact: true }).click();
+  async selectMarketingMessaging(selected: boolean): Promise<void> {
+    const input = this.inputByName(patientDetails.sendMarketing.key);
+    const isChecked = await input.isChecked();
+    if (isChecked !== selected) {
+      await input.click();
+    }
   }
 
-  async verifyMarketingMessaging(marketingMessaging: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.patientDetailsContainer.sendMarketingMessages)).toHaveText(
-      marketingMessaging
-    );
+  async verifyMarketingMessaging(marketingMessaging: boolean): Promise<void> {
+    if (marketingMessaging) {
+      await expect(this.inputByName(patientDetails.sendMarketing.key)).toBeChecked();
+    } else {
+      await expect(this.inputByName(patientDetails.sendMarketing.key)).not.toBeChecked();
+    }
+
+    //await expect(this.byName(patientDetails.sendMarketing.key)).toHaveText(marketingMessaging);
   }
 
   async selectPreferredLanguage(preferredLanguage: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.preferredLanguage).click();
-    await this.#page.getByText(preferredLanguage, { exact: true }).click();
+    await this.selectById(patientDetails.language.key).click();
+    await this.#page.getByRole('option', { name: preferredLanguage, exact: true }).click();
   }
 
   async verifyPreferredLanguage(preferredLanguage: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientDetailsContainer.preferredLanguage).locator('input')
-    ).toHaveValue(preferredLanguage);
+    await expect(this.inputByName(patientDetails.language.key)).toHaveValue(preferredLanguage);
   }
 
   async selectSexualOrientation(sexualOrientation: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.sexualOrientation).click();
-    await this.#page.getByText(sexualOrientation, { exact: true }).click();
+    await this.selectById(patientDetails.sexualOrientation.key).click();
+    await this.#page.getByRole('option', { name: sexualOrientation, exact: true }).click();
   }
 
   async verifySexualOrientation(sexualOrientation: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientDetailsContainer.sexualOrientation).locator('input')
-    ).toHaveValue(sexualOrientation);
+    await expect(this.inputByName(patientDetails.sexualOrientation.key)).toHaveValue(sexualOrientation);
   }
 
   async selectGenderIdentity(genderIdentity: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.genderIdentity).click();
-    await this.#page.locator('li').getByText(genderIdentity, { exact: true }).click();
+    await this.selectById(patientDetails.genderIdentity.key).click();
+    await this.#page.getByRole('option', { name: genderIdentity, exact: true }).click();
   }
 
   async verifyGenderIdentity(genderIdentity: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.patientDetailsContainer.genderIdentity)).toHaveText(genderIdentity);
+    await expect(this.inputByName(patientDetails.genderIdentity.key)).toHaveText(genderIdentity);
   }
 
   async verifyOtherGenderFieldIsVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.pleaseSpecifyField).locator('input').isVisible();
+    await this.inputByName(patientDetails.genderIdentityDetails.key).isVisible();
   }
 
   async verifyOtherGenderFieldIsNotVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.pleaseSpecifyField).locator('input').isHidden();
+    await this.inputByName(patientDetails.genderIdentityDetails.key).isHidden();
   }
 
   async enterOtherGenderField(specifyInput: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.patientDetailsContainer.pleaseSpecifyField)
-      .locator('input')
-      .fill(specifyInput);
+    await this.inputByName(patientDetails.genderIdentityDetails.key).fill(specifyInput);
   }
 
   async verifyOtherGenderInput(specifyInput: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientDetailsContainer.pleaseSpecifyField).locator('input')
-    ).toHaveValue(specifyInput);
+    await expect(this.inputByName(patientDetails.genderIdentityDetails.key)).toHaveValue(specifyInput);
   }
 
   async selectCommonWellConsent(commonWellConsent: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.commonWellConsent).click();
-    await this.#page.getByText(commonWellConsent, { exact: true }).click();
+    await this.selectById(patientDetails.commonWellConsent.key).click();
+    await this.#page.getByRole('option', { name: commonWellConsent, exact: true }).click();
   }
 
   async verifyCommonWellConsent(commonWellConsent: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.patientDetailsContainer.commonWellConsent)).toHaveText(
-      commonWellConsent
-    );
+    await expect(this.inputByName(patientDetails.commonWellConsent.key)).toHaveText(commonWellConsent);
   }
 
   async selectRelationshipFromResponsibleContainer(relationship: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.relationshipDropdown).click();
-    await this.#page.locator('li').getByText(relationship, { exact: true }).click();
+    await this.selectById(responsibleParty.relationship.key).click();
+    await this.#page.getByRole('option', { name: relationship, exact: true }).click();
   }
 
   async verifyRelationshipFromResponsibleContainer(relationship: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.relationshipDropdown).locator('input')
-    ).toHaveValue(relationship);
+    await expect(this.inputByName(responsibleParty.relationship.key)).toHaveValue(relationship);
   }
 
   async enterFirstNameFromResponsibleContainer(firstName: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.firstName)
-      .locator('input')
-      .fill(firstName);
+    await this.inputByName(responsibleParty.firstName.key).fill(firstName);
   }
 
   async verifyFirstNameFromResponsibleContainer(firstName: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.firstName).locator('input')
-    ).toHaveValue(firstName);
+    await expect(this.inputByName(responsibleParty.firstName.key)).toHaveValue(firstName);
   }
 
   async clearFirstNameFromResponsibleContainer(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.firstName).locator('input').clear();
+    await this.inputByName(responsibleParty.firstName.key).clear();
   }
 
   async enterLastNameFromResponsibleContainer(lastName: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.lastName)
-      .locator('input')
-      .fill(lastName);
+    await this.inputByName(responsibleParty.lastName.key).fill(lastName);
   }
 
   async verifyLastNameFromResponsibleContainer(lastName: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.lastName).locator('input')
-    ).toHaveValue(lastName);
+    await expect(this.inputByName(responsibleParty.lastName.key)).toHaveValue(lastName);
   }
 
   async clearLastNameFromResponsibleContainer(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.lastName).locator('input').clear();
+    await this.inputByName(responsibleParty.lastName.key).clear();
   }
 
   async enterDateOfBirthFromResponsibleContainer(dateOfBirth: string): Promise<void> {
-    const locator = this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
-      .locator('input');
+    const locator = this.inputByName(responsibleParty.birthDate.key);
     await locator.click();
     await locator.pressSequentially(dateOfBirth);
   }
 
   async verifyDateOfBirthFromResponsibleContainer(dateOfBirth: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown).locator('input')
-    ).toHaveValue(dateOfBirth);
+    await expect(this.inputByName(responsibleParty.birthDate.key)).toHaveValue(dateOfBirth);
   }
 
   async verifyValidationErrorForDateOfBirth(): Promise<void> {
     await expect(
-      this.#page
-        .getByTestId(dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
-        .locator('p:text("Responsible party should be older than 18 years")')
+      this.errorForField(responsibleParty.birthDate.key, 'Responsible party should be older than 18 years')
     ).toBeVisible();
   }
 
   async clearDateOfBirthFromResponsibleContainer(): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
-      .locator('input')
-      .clear();
+    await this.inputByName(responsibleParty.birthDate.key).clear();
   }
 
   async selectBirthSexFromResponsibleContainer(birthSex: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.birthSexDropdown).click();
-    await this.#page.locator('li').getByText(birthSex, { exact: true }).click();
+    await this.selectById(responsibleParty.birthSex.key).click();
+    await this.#page.getByRole('option', { name: birthSex, exact: true }).click();
   }
 
   async verifyBirthSexFromResponsibleContainer(birthSex: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.birthSexDropdown).locator('input')
-    ).toHaveValue(birthSex);
+    await expect(this.inputByName(responsibleParty.birthSex.key)).toHaveValue(birthSex);
   }
 
   async clearBirthSexFromResponsibleContainer(): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.birthSexDropdown)
-      .locator('input')
-      .clear();
+    await this.inputByName(responsibleParty.birthSex.key).clear();
   }
 
   async enterPhoneFromResponsibleContainer(phone: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput)
-      .locator('input')
-      .fill(phone);
+    await this.inputByName(responsibleParty.phone.key).fill(phone);
   }
 
   async verifyPhoneFromResponsibleContainer(phone: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input')
-    ).toHaveValue(phone);
+    await expect(this.inputByName(responsibleParty.phone.key)).toHaveValue(phone);
   }
 
   async clearPhoneFromResponsibleContainer(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input').clear();
+    await this.inputByName(responsibleParty.phone.key).clear();
   }
 
   async enterEmailFromResponsibleContainer(email: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput)
-      .locator('input')
-      .fill(email);
+    await this.inputByName(responsibleParty.email.key).fill(email);
   }
 
   async verifyEmailFromResponsibleContainer(email: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput).locator('input')
-    ).toHaveValue(email);
+    await expect(this.inputByName(responsibleParty.email.key)).toHaveValue(email);
   }
 
   async clearEmailFromResponsibleContainer(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput).locator('input').clear();
+    await this.inputByName(responsibleParty.email.key).clear();
   }
 
   async enterStreetLine1FromResponsibleContainer(line1: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.addressLine1)
-      .locator('input')
-      .fill(line1);
+    await this.inputByName(responsibleParty.addressLine1.key).fill(line1);
   }
 
   async verifyStreetLine1FromResponsibleContainer(line1: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.addressLine1).locator('input')
-    ).toHaveValue(line1);
+    await expect(this.inputByName(responsibleParty.addressLine1.key)).toHaveValue(line1);
   }
 
   async clearStreetLine1FromResponsibleContainer(): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.addressLine1)
-      .locator('input')
-      .clear();
+    await this.inputByName(responsibleParty.addressLine1.key).clear();
   }
 
   async enterResponsiblePartyCity(city: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.city).locator('input').fill(city);
+    await this.inputByName(responsibleParty.city.key).fill(city);
   }
 
   async verifyResponsiblePartyCity(city: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.city).locator('input')
-    ).toHaveValue(city);
+    await expect(this.inputByName(responsibleParty.city.key)).toHaveValue(city);
   }
 
   async clearResponsiblePartyCity(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.city).locator('input').clear();
+    await this.inputByName(responsibleParty.city.key).clear();
   }
 
   async selectResponsiblePartyState(state: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.state).click();
-    await this.#page.getByText(state, { exact: true }).click();
+    await this.selectById(responsibleParty.state.key).click();
+    await this.#page.getByRole('option', { name: state, exact: true }).click();
   }
 
   async verifyResponsiblePartyState(state: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.state).locator('input')
-    ).toHaveValue(state);
+    await expect(this.inputByName(responsibleParty.state.key)).toHaveValue(state);
   }
 
   async enterResponsiblePartyZip(zip: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.zip).locator('input').fill(zip);
+    await this.inputByName(responsibleParty.zip.key).fill(zip);
   }
 
   async verifyResponsiblePartyZip(zip: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.zip).locator('input')
-    ).toHaveValue(zip);
+    await expect(this.inputByName(responsibleParty.zip.key)).toHaveValue(zip);
   }
 
   async verifyResponsiblePartyValidationErrorZipField(): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.zip).locator('p:text("Must be 5 digits")')
-    ).toBeVisible();
+    await expect(this.errorForField(responsibleParty.zip.key, 'Must be 5 digits')).toBeVisible();
   }
 
   async clearResponsiblePartyZip(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.zip).locator('input').clear();
+    await this.inputByName(responsibleParty.zip.key).clear();
   }
 
   async verifyValidationErrorInvalidPhoneFromResponsibleContainer(): Promise<void> {
     await expect(
-      this.#page
-        .getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput)
-        .locator('p:text("Phone number must be 10 digits in the format (xxx) xxx-xxxx")')
+      this.errorForField(responsibleParty.phone.key, 'Phone number must be 10 digits in the format (xxx) xxx-xxxx')
     ).toBeVisible();
   }
   async selectReleaseOfInfo(releaseOfInfo: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.userSettingsContainer.releaseOfInfoDropdown).click();
-    await this.#page.getByText(releaseOfInfo, { exact: true }).click();
+    await this.#page.getByRole('option', { name: releaseOfInfo, exact: true }).click();
   }
 
   async verifyReleaseOfInfo(releaseOfInfo: string): Promise<void> {
@@ -649,7 +581,7 @@ export class PatientInformationPage {
 
   async selectRxHistoryConsent(rxHistoryConsent: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.userSettingsContainer.RxHistoryConsentDropdown).click();
-    await this.#page.getByText(rxHistoryConsent, { exact: true }).click();
+    await this.#page.getByRole('option', { name: rxHistoryConsent, exact: true }).click();
   }
 
   async verifyRxHistoryConsent(rxHistoryConsent: string): Promise<void> {
@@ -672,18 +604,11 @@ export class PatientInformationPage {
   }
 
   async setCheckboxOff(): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.primaryCarePhysicianContainer.pcpCheckbox)
-      .locator('input')
-      .setChecked(false);
+    await this.inputByName(primaryCarePhysician.active.key).setChecked(false);
   }
 
   async verifyCheckboxOff(): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.pcpCheckbox).locator('input')
-    ).toBeChecked({
-      checked: false,
-    });
+    await expect(this.inputByName(primaryCarePhysician.active.key)).not.toBeChecked();
   }
 
   async verifyLoadingScreenIsNotVisible(): Promise<void> {
@@ -691,138 +616,116 @@ export class PatientInformationPage {
   }
 
   async setCheckboxOn(): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.primaryCarePhysicianContainer.pcpCheckbox)
-      .locator('input')
-      .setChecked(true);
+    await this.inputByName(primaryCarePhysician.active.key).setChecked(true);
   }
 
   async verifyCheckboxOn(): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.pcpCheckbox).locator('input')
-    ).toBeChecked({
-      checked: true,
-    });
+    await expect(this.inputByName(primaryCarePhysician.active.key)).toBeChecked();
   }
   async enterFirstNameFromPcp(firstName: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName).locator('input').fill(firstName);
+    await this.inputByName(primaryCarePhysician.firstName.key).fill(firstName);
   }
 
   async verifyFirstNameFromPcp(firstName: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName).locator('input')
-    ).toHaveValue(firstName);
+    await expect(this.inputByName(primaryCarePhysician.firstName.key)).toHaveValue(firstName);
   }
 
   async verifyFirstNameFromPcpIsVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName).locator('input').isVisible();
+    await this.inputByName(primaryCarePhysician.firstName.key).isVisible();
   }
 
   async verifyFirstNameFromPcpIsNotVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName).locator('input').isHidden();
+    await this.inputByName(primaryCarePhysician.firstName.key).isHidden();
   }
 
   async clearFirstNameFromPcp(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName).locator('input').clear();
+    await this.inputByName(primaryCarePhysician.firstName.key).clear();
   }
 
   async enterLastNameFromPcp(lastName: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName).locator('input').fill(lastName);
+    await this.inputByName(primaryCarePhysician.lastName.key).fill(lastName);
   }
 
   async verifyLastNameFromPcp(lastName: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName).locator('input')
-    ).toHaveValue(lastName);
+    await expect(this.inputByName(primaryCarePhysician.lastName.key)).toHaveValue(lastName);
   }
 
   async verifyLastNameFromPcpIsVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName).locator('input').isVisible();
+    await this.inputByName(primaryCarePhysician.lastName.key).isVisible();
   }
 
   async verifyLastNameFromPcpIsNotVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName).locator('input').isHidden();
+    await this.inputByName(primaryCarePhysician.lastName.key).isHidden();
   }
 
   async clearLastNameFromPcp(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName).locator('input').clear();
+    await this.inputByName(primaryCarePhysician.lastName.key).clear();
   }
 
   async enterPracticeNameFromPcp(practiceName: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName)
-      .locator('input')
-      .fill(practiceName);
+    await this.inputByName(primaryCarePhysician.practiceName.key).fill(practiceName);
   }
 
   async verifyPracticeNameFromPcp(practiceName: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName).locator('input')
-    ).toHaveValue(practiceName);
+    await expect(this.inputByName(primaryCarePhysician.practiceName.key)).toHaveValue(practiceName);
   }
 
   async verifyPracticeNameFromPcpIsVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName).locator('input').isVisible();
+    await this.inputByName(primaryCarePhysician.practiceName.key).isVisible();
   }
 
   async verifyPracticeNameFromPcpIsNotVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName).locator('input').isHidden();
+    await this.inputByName(primaryCarePhysician.practiceName.key).isHidden();
   }
 
   async clearPracticeNameFromPcp(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName).locator('input').clear();
+    await this.inputByName(primaryCarePhysician.practiceName.key).clear();
   }
 
   async enterAddressFromPcp(address: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.address).locator('input').fill(address);
+    await this.inputByName(primaryCarePhysician.address.key).fill(address);
   }
 
   async verifyAddressFromPcp(address: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.address).locator('input')
-    ).toHaveValue(address);
+    await expect(this.inputByName(primaryCarePhysician.address.key)).toHaveValue(address);
   }
 
   async verifyAddressFromPcpIsVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.address).locator('input').isVisible();
+    await this.inputByName(primaryCarePhysician.address.key).isVisible();
   }
 
   async verifyAddressFromPcpIsNotVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.address).locator('input').isHidden();
+    await this.inputByName(primaryCarePhysician.address.key).isHidden();
   }
 
   async clearAddressFromPcp(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.address).locator('input').clear();
+    await this.inputByName(primaryCarePhysician.address.key).clear();
   }
 
   async enterMobileFromPcp(mobile: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input').fill(mobile);
+    await this.inputByName(primaryCarePhysician.phone.key).fill(mobile);
   }
 
   async verifyMobileFromPcp(mobile: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input')).toHaveValue(
-      mobile
-    );
+    await expect(this.inputByName(primaryCarePhysician.phone.key)).toHaveValue(mobile);
   }
 
   async verifyMobileFromPcpIsVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input').isVisible();
+    await this.inputByName(primaryCarePhysician.phone.key).isVisible();
   }
 
   async verifyMobileFromPcpIsNotVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input').isHidden();
+    await this.inputByName(primaryCarePhysician.phone.key).isHidden();
   }
 
   async verifyValidationErrorInvalidPhoneFromPcp(): Promise<void> {
     await expect(
-      this.#page
-        .getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile)
-        .locator('p:text("Phone number must be 10 digits in the format (xxx) xxx-xxxx")')
+      this.errorForField(primaryCarePhysician.phone.key, 'Phone number must be 10 digits in the format (xxx) xxx-xxxx')
     ).toBeVisible();
   }
 
   async clearMobileFromPcp(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input').clear();
+    await this.inputByName(primaryCarePhysician.phone.key).clear();
   }
 
   async clickAddInsuranceButton(): Promise<AddInsuranceDialog> {

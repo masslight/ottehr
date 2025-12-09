@@ -152,7 +152,7 @@ const FormFields = {
       },
     },
     hiddenFields: [],
-    patientContactInformation: [
+    requiredFields: [
       'patient-street-address',
       'patient-city',
       'patient-zip',
@@ -313,6 +313,7 @@ const FormFields = {
       active: { key: 'pcp-active', type: 'boolean', label: "Patient doesn't have a PCP at this time" },
     },
     hiddenFields: [],
+    requiredFields: [],
   },
   responsibleParty: {
     linkId: 'responsible-party-section',
@@ -327,7 +328,12 @@ const FormFields = {
       firstName: { key: 'responsible-party-first-name', type: 'string', label: 'First name' },
       lastName: { key: 'responsible-party-last-name', type: 'string', label: 'Last name' },
       birthDate: { key: 'responsible-party-date-of-birth', type: 'date', label: 'Date of birth', dataType: 'DOB' },
-      birthSex: { key: 'responsible-party-birth-sex', type: 'string', label: 'Birth sex' },
+      birthSex: {
+        key: 'responsible-party-birth-sex',
+        type: 'choice',
+        label: 'Birth sex',
+        options: formValueSets.birthSexOptions,
+      },
       phone: { key: 'responsible-party-number', type: 'string', label: 'Phone', dataType: 'Phone Number' },
       email: { key: 'responsible-party-email', type: 'string', label: 'Email', dataType: 'Email' },
       addressLine1: { key: 'responsible-party-address', type: 'string', label: 'Street Address' },
@@ -337,6 +343,17 @@ const FormFields = {
       zip: { key: 'responsible-party-zip', type: 'string', label: 'Zip', dataType: 'ZIP' },
     },
     hiddenFields: [],
+    requiredFields: [
+      'responsible-party-relationship',
+      'responsible-party-first-name',
+      'responsible-party-last-name',
+      'responsible-party-date-of-birth',
+      'responsible-party-address',
+      'responsible-party-city',
+      'responsible-party-state',
+      'responsible-party-zip',
+      'responsible-party-email',
+    ],
   },
   emergencyContact: {
     linkId: 'emergency-contact-section',
@@ -364,6 +381,12 @@ const FormFields = {
       zip: { key: 'emergency-contact-zip', type: 'string', label: 'Zip', dataType: 'ZIP' },
     },
     hiddenFields: [],
+    requiredFields: [
+      'emergency-contact-relationship',
+      'emergency-contact-first-name',
+      'emergency-contact-last-name',
+      'emergency-contact-number',
+    ],
   },
   preferredPharmacy: {
     linkId: 'preferred-pharmacy-section',
@@ -373,6 +396,7 @@ const FormFields = {
       address: { key: 'pharmacy-address', type: 'string', label: 'Pharmacy address' },
     },
     hiddenFields: [],
+    requiredFields: [],
   },
   employerInformation: {
     linkId: 'employer-information-page',
@@ -393,6 +417,7 @@ const FormFields = {
     },
   },
   hiddenFields: [],
+  requiredFields: [],
 };
 
 const FormFieldsValueTypeSchema = z

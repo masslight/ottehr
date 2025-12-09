@@ -30,8 +30,14 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
   const previousNames = patient.name?.filter((name) => name.use === 'old').reverse() || [];
 
   const genderIdentityCurrentValue = watch(FormFields.genderIdentity.key);
+  console.log('genderIdentityCurrentValue');
+  // todo: this needs to come from config/value sets
   const isNonBinaryGender = genderIdentityCurrentValue === 'Non-binary gender identity';
   const languageValue = watch(FormFields.language.key);
+
+  if (isNonBinaryGender) {
+    requiredFields.push(FormFields.genderIdentityDetails.key);
+  }
 
   /*
   todo - move this into value sets config

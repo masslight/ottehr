@@ -54,7 +54,7 @@ const PatientRecordFormField: FC<PatientRecordFormFieldProps> = ({
     if (item.dataType === 'ZIP') {
       rules.pattern = {
         value: /^\d{5}(-\d{4})?$/,
-        message: 'Please enter a valid ZIP code',
+        message: 'Must be 5 digits',
       };
     }
     if (item.dataType === 'DOB') {
@@ -73,7 +73,7 @@ const PatientRecordFormField: FC<PatientRecordFormFieldProps> = ({
     if (item.dataType === 'Phone Number') {
       rules.pattern = {
         value: /^\(\d{3}\) \d{3}-\d{4}$/,
-        message: 'Please enter a valid phone number',
+        message: 'Phone number must be 10 digits in the format (xxx) xxx-xxxx',
       };
     }
     if (item.dataType === 'SSN') {
@@ -94,7 +94,7 @@ const PatientRecordFormField: FC<PatientRecordFormFieldProps> = ({
     if (item.dataType === 'Email') {
       rules.pattern = {
         value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-        message: 'Please enter a valid email address',
+        message: 'Must be in the format "email@example.com"',
       };
     }
     if (item.key === 'insurance-priority' || item.key === 'insurance-priority-2') {
@@ -140,6 +140,7 @@ const PatientRecordFormField: FC<PatientRecordFormFieldProps> = ({
           return (
             <DynamicReferenceField
               item={item}
+              id={omitRowWrapper ? item.key : undefined}
               optionStrategy={{
                 type: 'answerSource',
                 answerSource: {
@@ -156,11 +157,16 @@ const PatientRecordFormField: FC<PatientRecordFormFieldProps> = ({
               name={item.key}
               control={control}
               rules={rules}
-              render={({ field: { value }, fieldState: { error } }) => {
-                const selectedOption = item.options?.find((option) => option.value === value);
+              render={({ field, fieldState: { error } }) => {
+                const selectedOption = item.options?.find((option) => option.value === field.value) ?? {
+                  label: '',
+                  value: '',
+                };
                 return (
                   <Autocomplete
+                    {...field}
                     options={item.options ?? []}
+                    id={omitRowWrapper ? item.key : undefined}
                     value={selectedOption}
                     // data-testid={dataTestIds.contactInformationContainer.state}
                     onChange={(_, newValue) => {
@@ -176,6 +182,7 @@ const PatientRecordFormField: FC<PatientRecordFormFieldProps> = ({
                     renderInput={(params) => (
                       <TextField
                         {...params}
+                        name={item.key}
                         variant="standard"
                         error={!!error}
                         helperText={error?.message}
@@ -191,6 +198,7 @@ const PatientRecordFormField: FC<PatientRecordFormFieldProps> = ({
         return (
           <FormSelect
             name={item.key}
+            id={omitRowWrapper ? item.key : undefined}
             control={control}
             disabled={isDisabled}
             options={item.options || []}
@@ -201,7 +209,7 @@ const PatientRecordFormField: FC<PatientRecordFormFieldProps> = ({
       case 'date':
         return (
           <BasicDatePicker
-            id={item.key}
+            id={omitRowWrapper ? item.key : undefined}
             name={item.key}
             control={control}
             disabled={isDisabled}
@@ -220,8 +228,8 @@ const PatientRecordFormField: FC<PatientRecordFormFieldProps> = ({
                 control={
                   <Checkbox
                     {...field}
-                    checked={value ?? false}
-                    onChange={(e) => field.onChange(e.target.checked)}
+                    checked={item.key === 'pcp-active' ? !(value ?? false) : value ?? false} // this is incredibly silly but needed to invert the logic for this one field
+                    onChange={(e) => field.onChange(item.key === 'pcp-active' ? !e.target.checked : e.target.checked)}
                     disabled={isDisabled}
                   />
                 }
@@ -237,7 +245,7 @@ const PatientRecordFormField: FC<PatientRecordFormFieldProps> = ({
             control={control}
             disabled={isDisabled}
             rules={rules}
-            id={item.key}
+            id={omitRowWrapper ? item.key : undefined}
             key={item.key}
             inputProps={{ mask, placeholder }}
             InputProps={mask ? { inputComponent: InputMask as any } : undefined}
@@ -270,9 +278,10 @@ type AnswerSourceStrategy = {
 interface DynamicReferenceFieldProps {
   item: Omit<FormFieldsItem, 'options'>;
   optionStrategy: ValueSetStrategy | AnswerSourceStrategy;
+  id?: string;
 }
 
-const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ optionStrategy, item }) => {
+const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ optionStrategy, item, id }) => {
   const { oystehrZambda } = useApiClients();
   const { control, setValue } = useFormContext();
   const optionsInput = (() => {
@@ -330,6 +339,7 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ optionStrategy,
           <Autocomplete
             options={insuranceOptions ?? []}
             loading={isLoading || isRefetching}
+            id={id}
             loadingText={'Loading...'}
             value={selectedOption ?? {}}
             isOptionEqualToValue={(option, value) => {

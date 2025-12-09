@@ -17,6 +17,9 @@ export const PrimaryCareContainer: FC<{ isLoading: boolean }> = ({ isLoading }) 
   const isActive = watch(primaryCare.active.key, true);
 
   const contentFields = Object.values(primaryCare).filter((field) => field.key !== 'pcp-active');
+  if (isActive) {
+    requiredFields.push(...['pcp-first', 'pcp-last']);
+  }
 
   return (
     <PatientRecordFormSection formSection={primaryCareSection}>

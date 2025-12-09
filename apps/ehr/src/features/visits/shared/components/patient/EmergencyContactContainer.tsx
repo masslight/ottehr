@@ -63,12 +63,6 @@ export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoadin
         hiddenFormFields={hiddenFields}
       />
       <PatientRecordFormField
-        item={FormFields.firstName}
-        isLoading={isLoading}
-        requiredFormFields={requiredFields}
-        hiddenFormFields={hiddenFields}
-      />
-      <PatientRecordFormField
         item={FormFields.middleName}
         isLoading={isLoading}
         requiredFormFields={requiredFields}

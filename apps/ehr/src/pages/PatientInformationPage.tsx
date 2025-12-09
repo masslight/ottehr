@@ -66,6 +66,7 @@ const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
 
 const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): Record<string, any> => {
   const flattened = flattenItems(currentItemValues);
+  console.log('Flattened items for form defaults:', flattened);
   return flattened.reduce((acc: Record<string, any>, item: QuestionnaireResponseItem) => {
     const value = getAnyAnswer(item);
     acc[item.linkId] = value;
