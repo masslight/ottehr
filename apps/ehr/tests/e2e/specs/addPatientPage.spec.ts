@@ -1,7 +1,8 @@
 import { Page, test } from '@playwright/test';
+import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { waitForResponseWithData } from 'test-utils';
-import { unpackFhirResponse } from 'utils';
+import { addProcessIdMetaTagToAppointment, waitForResponseWithData } from 'test-utils';
+import { chooseJson, unpackFhirResponse } from 'utils';
 import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import {
@@ -37,6 +38,17 @@ const resourceHandler = new ResourceHandler(PROCESS_ID);
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/visits/add');
+  page.on('response', async (response) => {
+    if (response.url().includes('/create-appointment/')) {
+      const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+      const oystehr = await ResourceHandler.getOystehr();
+      const appointment = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: appointmentId,
+      });
+      await oystehr.fhir.update(addProcessIdMetaTagToAppointment(appointment, PROCESS_ID));
+    }
+  });
 });
 test.afterAll(async () => {
   await resourceHandler.cleanupResources();
