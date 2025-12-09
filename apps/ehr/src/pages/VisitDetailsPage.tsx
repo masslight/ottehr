@@ -32,6 +32,7 @@ import { useParams } from 'react-router-dom';
 import {
   createZ3Object,
   generatePaperworkPdf,
+  getOrCreateVisitDetailsPdf,
   getPatientVisitDetails,
   getPatientVisitFiles,
   updatePatientVisitDetails,
@@ -199,6 +200,7 @@ export default function VisitDetailsPage(): ReactElement {
   const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
   const [paperworkPdfLoading, setPaperworkPdfLoading] = React.useState<boolean>(false);
+  const [visitDetailsPdfLoading, setVisitDetailsPdfLoading] = React.useState<boolean>(false);
 
   const [consentAttested, setConsentAttested] = useState<boolean | null>(null);
 
@@ -737,6 +739,26 @@ export default function VisitDetailsPage(): ReactElement {
     }
   };
 
+  const downloadVisitDetailsPdf = async (): Promise<void> => {
+    if (!appointmentID) {
+      enqueueSnackbar('No appointment ID found.', { variant: 'error' });
+      return;
+    }
+
+    setVisitDetailsPdfLoading(true);
+
+    try {
+      const response = await getOrCreateVisitDetailsPdf(oystehrZambda!, {
+        appointmentId: appointmentID,
+      });
+      await downloadDocument(response.documentReference.split('/')[1]);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('Failed to generate PDF.', { variant: 'error' });
+    } finally {
+      setVisitDetailsPdfLoading(false);
+    }
+  };
   return (
     <PageContainer>
       <>
@@ -760,6 +782,21 @@ export default function VisitDetailsPage(): ReactElement {
                     { link: '#', children: appointment?.id || <Skeleton width={150} /> },
                   ]}
                 />
+              </Grid>
+              <Grid item container xs={6} justifyContent="flex-end">
+                <LoadingButton
+                  variant="outlined"
+                  sx={{
+                    borderRadius: '20px',
+                    textTransform: 'none',
+                  }}
+                  loading={visitDetailsPdfLoading}
+                  color="primary"
+                  disabled={isLoadingDocuments || !encounter?.id}
+                  onClick={downloadVisitDetailsPdf}
+                >
+                  Visit Details PDF
+                </LoadingButton>
               </Grid>
             </Grid>
             {/* page title row */}
