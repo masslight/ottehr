@@ -309,6 +309,7 @@ export type CreateLabOrderParameters = {
   psc: boolean;
   orderingLocation: ModifiedOrderingLocation;
   selectedPaymentMethod: CreateLabPaymentMethod;
+  clinicalInfoNotes?: string;
 };
 
 export type CreateLabOrderZambdaOutput = Record<string, never>;

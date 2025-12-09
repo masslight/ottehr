@@ -317,5 +317,10 @@ export const LAB_ORDER_LEVEL_NOTE_CATEGORY = {
   code: 'order-level-note',
   display: 'Lab Order Note',
 };
+export const LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY = {
+  system: LABS_COMMUNICATION_CATEGORY_SYSTEM,
+  code: 'clinical-info',
+  display: 'Relevant clinical information',
+};
 
 export const DEFAULT_OYSTEHR_LABS_HL7_SYSTEM = '(HL7_V2)';
