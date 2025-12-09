@@ -17,6 +17,7 @@ export function validateRequestParameters(
 
   const prefilledInfo = parseInvoiceTaskInput(task);
   if (!prefilledInfo) throw new Error('Prefilled info is not found');
+  if (prefilledInfo.amountCents <= 0) throw new Error('Amount is not valid');
 
   const encounterId = task.encounter?.reference?.split('/')[1];
   if (!encounterId) throw new Error('Encounter id is not found');
