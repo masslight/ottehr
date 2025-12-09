@@ -1,5 +1,9 @@
 // cSpell:ignore SNPRF
 import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { Appointment } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { addProcessIdMetaTagToAppointment } from 'test-utils';
+import { ResourceHandler } from 'tests/utils/resource-handler';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
@@ -16,6 +20,8 @@ const appointmentIds: string[] = [];
 const locationName = process.env.LOCATION;
 const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
 
+const PROCESS_ID = `PaperworkWalkIn.spec.ts-${DateTime.now().toMillis()}`;
+
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
@@ -25,6 +31,12 @@ test.beforeAll(async ({ browser }) => {
       if (!appointmentIds.includes(appointmentId)) {
         appointmentIds.push(appointmentId);
       }
+      const oystehr = await ResourceHandler.getOystehr();
+      const appointment = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: appointmentId,
+      });
+      await oystehr.fhir.update(addProcessIdMetaTagToAppointment(appointment, `PaperworkWalkIn.spec.ts-${PROCESS_ID}`));
     }
   });
   paperwork = new Paperwork(page);
