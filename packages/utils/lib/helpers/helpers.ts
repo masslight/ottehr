@@ -287,10 +287,11 @@ export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): 
 }
 
 export const formatPhoneNumberForQuestionnaire = (phone: string): string => {
-  if (phone.length !== 10) {
+  const phoneDigits = phone.replace(/\D/g, '');
+  if (phoneDigits.length !== 10) {
     throw new Error('Invalid phone number');
   }
-  return `(${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6)}`;
+  return `(${phoneDigits.slice(0, 3)}) ${phoneDigits.slice(3, 6)}-${phoneDigits.slice(6)}`;
 };
 
 export const objectToDateString = (dateObj: { year: string; month: string; day: string }): string => {
