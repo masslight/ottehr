@@ -1,4 +1,4 @@
-import { Autocomplete, Box, TextField } from '@mui/material';
+import { Autocomplete, Box, TextField, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { FormTextField } from 'src/components/form';
@@ -12,9 +12,10 @@ const { employerInformation } = FormFields;
 
 export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { control, setValue } = useFormContext();
+  const theme = useTheme();
 
   return (
-    <Section title="Employer information" dataTestId={dataTestIds.employerInformationContainer.id}>
+    <Section title="Employer Information" dataTestId={dataTestIds.employerInformationContainer.id}>
       <Row label={employerInformation.employerName.label}>
         <FormTextField
           name={employerInformation.employerName.key}
@@ -81,6 +82,7 @@ export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoa
           />
         </Box>
       </Row>
+      <Typography sx={{ color: theme.palette.primary.dark, fontWeight: 600 }}>Employer Contact</Typography>
       <Row label={employerInformation.contactFirstName.label}>
         <FormTextField
           name={employerInformation.contactFirstName.key}
