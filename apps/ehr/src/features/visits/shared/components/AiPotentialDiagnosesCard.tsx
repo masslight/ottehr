@@ -5,14 +5,21 @@ import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { FC, useState } from 'react';
 import React from 'react';
 import { CPTCodeDTO, DiagnosisDTO } from 'utils';
+import { useChartFields } from '../hooks/useChartFields';
 import { useRecommendBillingSuggestions } from '../stores/appointment/appointment.queries';
 import { useChartData } from '../stores/appointment/appointment.store';
 
 export const AiPotentialDiagnosesCard: FC = () => {
   const theme = useTheme();
-  const { chartData } = useChartData();
   const [visible, setVisible] = useState<boolean>(true);
-  const aiPotentialDiagnoses = chartData?.aiPotentialDiagnosis ?? [];
+  const { chartData } = useChartData();
+  const { data: chartFieldsData } = useChartFields({
+    requestedFields: {
+      aiPotentialDiagnosis: {},
+    },
+    refetchInterval: 5000,
+  });
+  const aiPotentialDiagnoses = chartFieldsData?.aiPotentialDiagnosis ?? [];
   const { mutateAsync: recommendBillingSuggestions } = useRecommendBillingSuggestions();
   const [billingSuggestions, setBillingSuggestions] = useState<string | undefined>(undefined);
 

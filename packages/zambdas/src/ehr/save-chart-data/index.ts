@@ -305,10 +305,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const mdmText = medicalDecision?.text;
 
     // If either HPI or MDM is being updated and has meaningful content, generate AI suggestions
-    if (
-      (hpiText || mdmText) &&
-      (chiefComplaint?.createICDRecommendations || medicalDecision?.createICDRecommendations)
-    ) {
+    if (hpiText || mdmText) {
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
           makeEncounterTaskResource(encounterId, { system: OttehrTaskSystem, code: 'recommend-diagnosis-codes' })
