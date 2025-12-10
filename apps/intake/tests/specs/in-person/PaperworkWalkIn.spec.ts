@@ -55,15 +55,13 @@ test.beforeAll(async ({ browser }) => {
 test.afterAll(async () => {
   await page.close();
   await context.close();
-  const metaTag: Appointment['meta'] = {
-    tag: [
-      {
-        system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-        code: PROCESS_ID,
-      },
-    ],
-  };
-  await cleanAppointmentGraph(metaTag, oystehr);
+  await cleanAppointmentGraph(
+    {
+      system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+      code: PROCESS_ID,
+    },
+    oystehr
+  );
 });
 
 test.describe.serial('Start now In person visit - Paperwork submission flow with only required fields', () => {
