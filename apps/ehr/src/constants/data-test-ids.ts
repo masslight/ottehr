@@ -178,6 +178,15 @@ export const dataTestIds = {
     contactPhone: 'employer-information-container-contact-phone',
     contactFax: 'employer-information-container-contact-fax',
   },
+  attorneyInformationContainer: {
+    id: 'attorney-information-container',
+    firm: 'attorney-information-container-firm',
+    firstName: 'attorney-information-container-first-name',
+    lastName: 'attorney-information-container-last-name',
+    email: 'attorney-information-container-email',
+    mobile: 'attorney-information-container-mobile',
+    fax: 'attorney-information-container-fax',
+  },
 
   userSettingsContainer: {
     releaseOfInfoDropdown: 'release-of-info-dropdown',

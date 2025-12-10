@@ -674,6 +674,14 @@ export const FormFields = {
     contactPhone: { key: 'employer-contact-phone', type: 'String', label: 'Contact phone' },
     contactFax: { key: 'employer-contact-fax', type: 'String', label: 'Contact fax' },
   },
+  attorneyInformation: {
+    firm: { key: 'attorney-mva-firm', type: 'String', label: 'Firm' },
+    firstName: { key: 'attorney-mva-first-name', type: 'String', label: 'First name' },
+    lastName: { key: 'attorney-mva-last-name', type: 'String', label: 'Last name' },
+    email: { key: 'attorney-mva-email', type: 'String', label: 'Email' },
+    mobile: { key: 'attorney-mva-mobile', type: 'String', label: 'Mobile' },
+    fax: { key: 'attorney-mva-fax', type: 'String', label: 'Fax' },
+  },
 };
 
 export const PatientIdentifyingFields = [

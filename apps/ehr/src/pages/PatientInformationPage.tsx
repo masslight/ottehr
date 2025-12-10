@@ -8,6 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
 import { ActionBar } from 'src/features/visits/shared/components/patient/ActionBar';
 import { AddInsuranceModal } from 'src/features/visits/shared/components/patient/AddInsuranceModal';
+import { AttorneyInformationContainer } from 'src/features/visits/shared/components/patient/AttorneyInformationContainer';
 import { BreadCrumbs } from 'src/features/visits/shared/components/patient/BreadCrumbs';
 import { ContactContainer } from 'src/features/visits/shared/components/patient/ContactContainer';
 import { EmergencyContactContainer } from 'src/features/visits/shared/components/patient/EmergencyContactContainer';
@@ -337,6 +338,10 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     () => questionnaire?.item?.some((item) => item.linkId === 'employer-information-page') ?? false,
     [questionnaire]
   );
+  const shouldRenderAttorneySection = useMemo(
+    () => questionnaire?.item?.some((item) => item.linkId === 'attorney-mva-page') ?? false,
+    [questionnaire]
+  );
 
   useGetInsurancePlans((data) => {
     if (!data) return;
@@ -464,6 +469,9 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                   <ResponsibleInformationContainer isLoading={isFetching || submitQR.isPending} />
                   {shouldRenderEmployerSection && (
                     <EmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
+                  )}
+                  {shouldRenderAttorneySection && (
+                    <AttorneyInformationContainer isLoading={isFetching || submitQR.isPending} />
                   )}
                   <EmergencyContactContainer isLoading={isFetching || submitQR.isPending} />
                   <PharmacyContainer isLoading={isFetching || submitQR.isPending} />
