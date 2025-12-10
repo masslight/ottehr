@@ -81,6 +81,7 @@ export enum QuestionnaireItemGroupType {
 export interface AnswerOptionSource {
   resourceType: FhirResource['resourceType'];
   query: string;
+  prependedIdentifier?: string;
 }
 
 export interface AnswerLoadingOptions {

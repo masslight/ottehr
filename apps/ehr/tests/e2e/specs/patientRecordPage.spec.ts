@@ -28,6 +28,7 @@ import {
   DEMO_VISIT_STREET_ADDRESS,
   DEMO_VISIT_STREET_ADDRESS_OPTIONAL,
   DEMO_VISIT_ZIP,
+  PATIENT_RECORD_CONFIG,
   unpackFhirResponse,
 } from 'utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
@@ -75,7 +76,7 @@ const NEW_PATIENT_GENDER_IDENTITY = 'Female';
 const NEW_PATIENT_HOW_DID_YOU_HEAR = 'Webinar';
 const NEW_SEND_MARKETING_MESSAGES = false;
 const NEW_PREFERRED_LANGUAGE = 'Spanish';
-const NEW_COMMON_WELL_CONSENT = 'Yes';
+const NEW_COMMON_WELL_CONSENT = true;
 const NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER = 'Parent';
 const NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER = 'First name';
 const NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER = 'Last name';
@@ -95,34 +96,62 @@ const NEW_PHYSICIAN_MOBILE = '(202) 222-2222';
 const NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD = 'testing gender';
 const NEW_REASON_FOR_VISIT = BOOKING_CONFIG.reasonForVisitOptions[0];
 
+const patientSummary = PATIENT_RECORD_CONFIG.FormFields.patientSummary.items;
+const contactInformation = PATIENT_RECORD_CONFIG.FormFields.patientContactInformation.items;
+const patientDetails = PATIENT_RECORD_CONFIG.FormFields.patientDetails.items;
+const responsibleParty = PATIENT_RECORD_CONFIG.FormFields.responsibleParty.items;
+const primaryCarePhysician = PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items;
+const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
+
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
 
 const populateAllRequiredFields = async (patientInformationPage: PatientInformationPage): Promise<void> => {
-  await patientInformationPage.enterPatientLastName(NEW_PATIENT_LAST_NAME);
+  // Patient Summary fields
+  await patientInformationPage.enterTextFieldValue(patientSummary.lastName.key, NEW_PATIENT_LAST_NAME);
+  await patientInformationPage.enterTextFieldValue(patientSummary.firstName.key, NEW_PATIENT_FIRST_NAME);
+  await patientInformationPage.enterDateFieldValue(patientSummary.birthDate.key, NEW_PATIENT_DATE_OF_BIRTH);
+  await patientInformationPage.selectFieldOption(patientSummary.birthSex.key, NEW_PATIENT_BIRTH_SEX);
 
-  await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
-  await patientInformationPage.enterPatientDateOfBirth(NEW_PATIENT_DATE_OF_BIRTH);
-  await patientInformationPage.selectPatientBirthSex(NEW_PATIENT_BIRTH_SEX);
-  await patientInformationPage.enterStreetAddress(NEW_STREET_ADDRESS);
-  await patientInformationPage.enterCity(NEW_CITY);
-  await patientInformationPage.selectState(NEW_STATE);
-  await patientInformationPage.enterZip(NEW_ZIP);
-  await patientInformationPage.enterPatientEmail(NEW_PATIENT_EMAIL);
-  await patientInformationPage.enterPatientMobile(NEW_PATIENT_MOBILE);
-  await patientInformationPage.selectPatientEthnicity(NEW_PATIENT_ETHNICITY);
-  await patientInformationPage.selectPatientRace(NEW_PATIENT_RACE);
-  await patientInformationPage.selectRelationshipFromResponsibleContainer(NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER);
-  await patientInformationPage.enterFirstNameFromResponsibleContainer(NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER);
-  await patientInformationPage.enterLastNameFromResponsibleContainer(NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER);
-  await patientInformationPage.enterDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
-  await patientInformationPage.selectBirthSexFromResponsibleContainer(NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER);
-  await patientInformationPage.enterPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
-  await patientInformationPage.enterEmailFromResponsibleContainer(NEW_EMAIL_FROM_RESPONSIBLE_CONTAINER);
-  await patientInformationPage.enterStreetLine1FromResponsibleContainer(NEW_ADDRESS_RESPONSIBLE_PARTY);
-  await patientInformationPage.enterResponsiblePartyCity(NEW_CITY_RESPONSIBLE_PARTY);
-  await patientInformationPage.selectResponsiblePartyState(NEW_STATE_RESPONSIBLE_PARTY);
-  await patientInformationPage.enterResponsiblePartyZip(NEW_ZIP_RESPONSIBLE_PARTY);
+  // Contact Information fields
+  await patientInformationPage.enterTextFieldValue(contactInformation.streetAddress.key, NEW_STREET_ADDRESS);
+  await patientInformationPage.enterTextFieldValue(contactInformation.city.key, NEW_CITY);
+  await patientInformationPage.selectFieldOption(contactInformation.state.key, NEW_STATE);
+  await patientInformationPage.enterTextFieldValue(contactInformation.zip.key, NEW_ZIP);
+  await patientInformationPage.enterTextFieldValue(contactInformation.email.key, NEW_PATIENT_EMAIL);
+  await patientInformationPage.enterPhoneFieldValue(contactInformation.phone.key, NEW_PATIENT_MOBILE);
+
+  // Patient Details fields
+  await patientInformationPage.selectFieldOption(patientDetails.ethnicity.key, NEW_PATIENT_ETHNICITY);
+  await patientInformationPage.selectFieldOption(patientDetails.race.key, NEW_PATIENT_RACE);
+
+  // Responsible Party fields
+  await patientInformationPage.selectFieldOption(
+    responsibleParty.relationship.key,
+    NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
+  );
+  await patientInformationPage.enterTextFieldValue(
+    responsibleParty.firstName.key,
+    NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER
+  );
+  await patientInformationPage.enterTextFieldValue(
+    responsibleParty.lastName.key,
+    NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER
+  );
+  await patientInformationPage.enterDateFieldValue(
+    responsibleParty.birthDate.key,
+    NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER
+  );
+  await patientInformationPage.selectFieldOption(
+    responsibleParty.birthSex.key,
+    NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER
+  );
+  await patientInformationPage.enterPhoneFieldValue(responsibleParty.phone.key, NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
+  await patientInformationPage.enterTextFieldValue(responsibleParty.email.key, NEW_EMAIL_FROM_RESPONSIBLE_CONTAINER);
+  await patientInformationPage.enterTextFieldValue(responsibleParty.addressLine1.key, NEW_ADDRESS_RESPONSIBLE_PARTY);
+  await patientInformationPage.enterTextFieldValue(responsibleParty.city.key, NEW_CITY_RESPONSIBLE_PARTY);
+  await patientInformationPage.selectFieldOption(responsibleParty.state.key, NEW_STATE_RESPONSIBLE_PARTY);
+  await patientInformationPage.enterTextFieldValue(responsibleParty.zip.key, NEW_ZIP_RESPONSIBLE_PARTY);
 };
 
 test.describe('Patient Record Page tests', () => {
@@ -154,79 +183,104 @@ test.describe('Patient Record Page tests', () => {
   });
 
   test('Verify required data from Patient info block is displayed correctly', async () => {
-    await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
-    await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
-    await patientInformationPage.verifyPatientDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
-    await patientInformationPage.verifyPatientBirthSex(PATIENT_GENDER);
+    await patientInformationPage.verifyTextFieldValue(patientSummary.lastName.key, PATIENT_LAST_NAME);
+    await patientInformationPage.verifyTextFieldValue(patientSummary.firstName.key, PATIENT_FIRST_NAME);
+    await patientInformationPage.verifyDateFieldValue(patientSummary.birthDate.key, PATIENT_BIRTH_DATE_SHORT);
+    await patientInformationPage.verifySelectFieldValue(patientSummary.birthSex.key, PATIENT_GENDER);
   });
 
   test('Verify required data from Contact info block is displayed correctly', async () => {
-    await patientInformationPage.verifyStreetAddress(DEMO_VISIT_STREET_ADDRESS);
-    await patientInformationPage.verifyAddressLineOptional(DEMO_VISIT_STREET_ADDRESS_OPTIONAL);
-    await patientInformationPage.verifyCity(DEMO_VISIT_CITY);
-    await patientInformationPage.verifyState(DEMO_VISIT_STATE);
-    await patientInformationPage.verifyZip(DEMO_VISIT_ZIP);
-    await patientInformationPage.verifyPatientEmail(PATIENT_EMAIL);
-    await patientInformationPage.verifyPatientMobile(PATIENT_PHONE_NUMBER);
+    await patientInformationPage.verifyTextFieldValue(contactInformation.streetAddress.key, DEMO_VISIT_STREET_ADDRESS);
+    await patientInformationPage.verifyTextFieldValue(
+      contactInformation.addressLine2.key,
+      DEMO_VISIT_STREET_ADDRESS_OPTIONAL
+    );
+    await patientInformationPage.verifyTextFieldValue(contactInformation.city.key, DEMO_VISIT_CITY);
+    await patientInformationPage.verifySelectFieldValue(contactInformation.state.key, DEMO_VISIT_STATE);
+    await patientInformationPage.verifyTextFieldValue(contactInformation.zip.key, DEMO_VISIT_ZIP);
+    await patientInformationPage.verifyTextFieldValue(contactInformation.email.key, PATIENT_EMAIL);
+    await patientInformationPage.verifyPhoneFieldValue(contactInformation.phone.key, PATIENT_PHONE_NUMBER);
   });
 
   test('Verify data from Responsible party information block is displayed correctly', async () => {
-    await patientInformationPage.verifyRelationshipFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
-    await patientInformationPage.verifyFirstNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_FIRST_NAME);
-    await patientInformationPage.verifyLastNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_LAST_NAME);
-    await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(
+    await patientInformationPage.verifySelectFieldValue(
+      responsibleParty.relationship.key,
+      DEMO_VISIT_RESPONSIBLE_RELATIONSHIP
+    );
+    await patientInformationPage.verifyTextFieldValue(
+      responsibleParty.firstName.key,
+      DEMO_VISIT_RESPONSIBLE_FIRST_NAME
+    );
+    await patientInformationPage.verifyTextFieldValue(responsibleParty.lastName.key, DEMO_VISIT_RESPONSIBLE_LAST_NAME);
+    await patientInformationPage.verifyDateFieldValue(
+      responsibleParty.birthDate.key,
       DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH +
         '/' +
         DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY +
         '/' +
         DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR
     );
-    await patientInformationPage.verifyBirthSexFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_BIRTH_SEX);
-    await patientInformationPage.verifyPhoneFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_PHONE);
-    await patientInformationPage.verifyEmailFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_EMAIL);
+    await patientInformationPage.verifySelectFieldValue(
+      responsibleParty.birthSex.key,
+      DEMO_VISIT_RESPONSIBLE_BIRTH_SEX
+    );
+    await patientInformationPage.verifyPhoneFieldValue(responsibleParty.phone.key, DEMO_VISIT_RESPONSIBLE_PHONE);
+    await patientInformationPage.verifyTextFieldValue(responsibleParty.email.key, DEMO_VISIT_RESPONSIBLE_EMAIL);
   });
 
   test('Verify entered by patient data from Patient details block is displayed correctly', async () => {
-    await patientInformationPage.verifyPatientEthnicity(DEMO_VISIT_PATIENT_ETHNICITY);
-    await patientInformationPage.verifyPatientRace(DEMO_VISIT_PATIENT_RACE);
-    await patientInformationPage.verifyHowDidYouHear(DEMO_VISIT_POINT_OF_DISCOVERY);
-    await patientInformationPage.verifyMarketingMessaging(DEMO_VISIT_MARKETING_MESSAGING);
+    await patientInformationPage.verifySelectFieldValue(patientDetails.ethnicity.key, DEMO_VISIT_PATIENT_ETHNICITY);
+    await patientInformationPage.verifySelectFieldValue(patientDetails.race.key, DEMO_VISIT_PATIENT_RACE);
+    await patientInformationPage.verifySelectFieldValue(
+      patientDetails.pointOfDiscovery.key,
+      DEMO_VISIT_POINT_OF_DISCOVERY
+    );
+    await patientInformationPage.verifyBooleanFieldHasExpectedValue(
+      patientDetails.sendMarketing.key,
+      DEMO_VISIT_MARKETING_MESSAGING
+    );
     // no test for CommonWell consent?
-    await patientInformationPage.verifyPreferredLanguage(DEMO_VISIT_PREFERRED_LANGUAGE);
+    await patientInformationPage.verifySelectFieldValue(patientDetails.language.key, DEMO_VISIT_PREFERRED_LANGUAGE);
   });
 
   test('Verify data from Primary Care Physician block is displayed correctly', async () => {
-    await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
-    await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
-    await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
-    await patientInformationPage.verifyAddressFromPcp(DEMO_VISIT_PHYSICIAN_ADDRESS);
-    await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
+    await patientInformationPage.verifyTextFieldValue(
+      primaryCarePhysician.firstName.key,
+      DEMO_VISIT_PROVIDER_FIRST_NAME
+    );
+    await patientInformationPage.verifyTextFieldValue(primaryCarePhysician.lastName.key, DEMO_VISIT_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyTextFieldValue(primaryCarePhysician.practiceName.key, DEMO_VISIT_PRACTICE_NAME);
+    await patientInformationPage.verifyTextFieldValue(primaryCarePhysician.address.key, DEMO_VISIT_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyPhoneFieldValue(primaryCarePhysician.phone.key, DEMO_VISIT_PHYSICIAN_MOBILE);
   });
 
   test('Check validation error is displayed for invalid phone number from Primary Care Physician block', async () => {
-    await patientInformationPage.clearMobileFromPcp();
-    await patientInformationPage.enterMobileFromPcp('2222245');
+    await patientInformationPage.clearPhoneField(primaryCarePhysician.phone.key);
+    await patientInformationPage.enterPhoneFieldValue(primaryCarePhysician.phone.key, '2222245');
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyValidationErrorInvalidPhoneFromPcp();
   });
 
   test('Check all fields from Primary Care Physician block are hidden when checkbox is checked', async () => {
-    await patientInformationPage.setCheckboxOn();
-    await patientInformationPage.verifyFirstNameFromPcpIsNotVisible();
-    await patientInformationPage.verifyLastNameFromPcpIsNotVisible();
-    await patientInformationPage.verifyPracticeNameFromPcpIsNotVisible();
-    await patientInformationPage.verifyAddressFromPcpIsNotVisible();
-    await patientInformationPage.verifyMobileFromPcpIsNotVisible();
+    await patientInformationPage.selectBooleanField(primaryCarePhysician.active.key, true);
+    await patientInformationPage.verifyFieldIsHidden(primaryCarePhysician.firstName.key);
+    await patientInformationPage.verifyFieldIsHidden(primaryCarePhysician.lastName.key);
+    await patientInformationPage.verifyFieldIsHidden(primaryCarePhysician.practiceName.key);
+    await patientInformationPage.verifyFieldIsHidden(primaryCarePhysician.address.key);
+    await patientInformationPage.verifyFieldIsHidden(primaryCarePhysician.phone.key);
   });
 
   test.skip('Check all fields from Primary Care Physician block after toggling the checkbox on and off', async () => {
-    await patientInformationPage.setCheckboxOff();
+    await patientInformationPage.selectBooleanField(primaryCarePhysician.active.key, false);
 
-    await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
-    await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
-    await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
-    await patientInformationPage.verifyAddressFromPcp(DEMO_VISIT_PHYSICIAN_ADDRESS);
-    await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
+    await patientInformationPage.verifyTextFieldValue(
+      primaryCarePhysician.firstName.key,
+      DEMO_VISIT_PROVIDER_FIRST_NAME
+    );
+    await patientInformationPage.verifyTextFieldValue(primaryCarePhysician.lastName.key, DEMO_VISIT_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyTextFieldValue(primaryCarePhysician.practiceName.key, DEMO_VISIT_PRACTICE_NAME);
+    await patientInformationPage.verifyTextFieldValue(primaryCarePhysician.address.key, DEMO_VISIT_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyPhoneFieldValue(primaryCarePhysician.phone.key, DEMO_VISIT_PHYSICIAN_MOBILE);
   });
 
   //to do: uncomment when https://github.com/masslight/ottehr/issues/2200 will be fixed
@@ -249,18 +303,18 @@ test.describe('Patient Record Page tests', () => {
   });*/
 
   test('Click on [Cancel] button, user stays on Patient Profile page', async () => {
-    await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
+    await patientInformationPage.enterTextFieldValue(patientSummary.firstName.key, NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
     const discardChangesDialog = await expectDialog(page);
     await discardChangesDialog.clickCancelButton();
-    await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
+    await patientInformationPage.verifyTextFieldValue(patientSummary.firstName.key, NEW_PATIENT_FIRST_NAME);
   });
 
   test('Click on [x] icon, user stays on Patient Profile page', async () => {
     await patientInformationPage.clickCloseButton();
     const discardChangesDialog = await expectDialog(page);
     await discardChangesDialog.clickCloseButton();
-    await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
+    await patientInformationPage.verifyTextFieldValue(patientSummary.firstName.key, NEW_PATIENT_FIRST_NAME);
   });
 
   test('Click on Patients Name breadcrumb, Patient Record page is opened', async ({ page }) => {
@@ -280,13 +334,13 @@ test.describe('Patient Record Page tests', () => {
   test('Click on [Discard changes] button, Patient Record page is opened', async ({ page }) => {
     await page.goto('/patient/' + resourceHandler.patient.id);
     let patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
+    await patientInformationPage.enterTextFieldValue(patientSummary.firstName.key, NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
     const discardChangesDialog = await expectDialog(page);
     await discardChangesDialog.clickProceedButton();
     await expectPatientRecordPage(resourceHandler.patient.id!, page);
     patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
+    await patientInformationPage.verifyTextFieldValue(patientSummary.firstName.key, PATIENT_FIRST_NAME);
   });
 
   /* Non-mutating part end */
@@ -410,7 +464,7 @@ test.describe('Patient Record Page tests', () => {
       });
 
       await test.step('Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async () => {
-        await patientInformationPage.verifyCheckboxOff();
+        await patientInformationPage.verifyBooleanFieldHasExpectedValue(primaryCarePhysician.active.key, false);
         await patientInformationPage.verifyFirstNameFromPcpIsVisible();
         await patientInformationPage.verifyLastNameFromPcpIsVisible();
         await patientInformationPage.verifyPracticeNameFromPcpIsVisible();
@@ -526,9 +580,15 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.verifySexualOrientation(NEW_PATIENT_SEXUAL_ORIENTATION);
         await patientInformationPage.verifyGenderIdentity(NEW_PATIENT_GENDER_IDENTITY);
         await patientInformationPage.verifyHowDidYouHear(NEW_PATIENT_HOW_DID_YOU_HEAR);
-        await patientInformationPage.verifyMarketingMessaging(NEW_SEND_MARKETING_MESSAGES);
+        await patientInformationPage.verifyBooleanFieldHasExpectedValue(
+          patientDetails.sendMarketing.key,
+          NEW_SEND_MARKETING_MESSAGES
+        );
         await patientInformationPage.verifyPreferredLanguage(NEW_PREFERRED_LANGUAGE);
-        await patientInformationPage.verifyCommonWellConsent(NEW_COMMON_WELL_CONSENT);
+        await patientInformationPage.verifyBooleanFieldHasExpectedValue(
+          patientDetails.commonWellConsent.key,
+          NEW_COMMON_WELL_CONSENT
+        );
       });
 
       await test.step('Checking that all fields from Primary Care Physician block are updated correctly', async () => {
@@ -667,20 +727,47 @@ test.describe('Patient Record Page tests', () => {
       await primaryInsuranceCard.clickShowMoreButton();
       await primaryInsuranceCard.verifyInsuranceType('Primary');
       await primaryInsuranceCard.verifyInsuranceCarrier(INSURANCE_CARRIER);
-      await primaryInsuranceCard.verifyPlanType(INSURANCE_PLAN_TYPE);
-      await primaryInsuranceCard.verifyMemberId(INSURANCE_MEMBER_ID);
-      await primaryInsuranceCard.verifyPolicyHoldersFirstName(INSURANCE_POLICY_HOLDER_FIRST_NAME);
-      await primaryInsuranceCard.verifyPolicyHoldersLastName(INSURANCE_POLICY_HOLDER_LAST_NAME);
-      await primaryInsuranceCard.verifyPolicyHoldersMiddleName(INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
-      await primaryInsuranceCard.verifyPolicyHoldersDateOfBirth(INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH);
-      await primaryInsuranceCard.verifyPolicyHoldersSex(INSURANCE_POLICY_HOLDER_BIRTH_SEX);
-      await primaryInsuranceCard.verifyInsuranceStreetAddress(INSURANCE_POLICY_HOLDER_ADDRESS);
-      await primaryInsuranceCard.verifyInsuranceAddressLine2(INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE);
-      await primaryInsuranceCard.verifyInsuranceCity(INSURANCE_POLICY_HOLDER_CITY);
-      await primaryInsuranceCard.verifyInsuranceState(INSURANCE_POLICY_HOLDER_STATE);
-      await primaryInsuranceCard.verifyInsuranceZip(INSURANCE_POLICY_HOLDER_ZIP);
-      await primaryInsuranceCard.verifyPatientsRelationshipToInjured(INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED);
-      await primaryInsuranceCard.verifyAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
+      await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].insurancePlanType.key, INSURANCE_PLAN_TYPE);
+      await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].memberId.key, INSURANCE_MEMBER_ID);
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].firstName.key,
+        INSURANCE_POLICY_HOLDER_FIRST_NAME
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].lastName.key,
+        INSURANCE_POLICY_HOLDER_LAST_NAME
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].middleName.key,
+        INSURANCE_POLICY_HOLDER_MIDDLE_NAME
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].birthDate.key,
+        INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].birthSex.key,
+        INSURANCE_POLICY_HOLDER_BIRTH_SEX
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].streetAddress.key,
+        INSURANCE_POLICY_HOLDER_ADDRESS
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].addressLine2.key,
+        INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE
+      );
+      await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].city.key, INSURANCE_POLICY_HOLDER_CITY);
+      await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].state.key, INSURANCE_POLICY_HOLDER_STATE);
+      await primaryInsuranceCard.verifyTextField(insuranceSection.items[0].zip.key, INSURANCE_POLICY_HOLDER_ZIP);
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].relationship.key,
+        INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
+      );
+      await primaryInsuranceCard.verifyTextField(
+        insuranceSection.items[0].additionalInformation.key,
+        INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO
+      );
 
       await patientInformationPage.clickAddInsuranceButton();
       await addInsuranceDialog.verifyTypeField('Secondary', false);
@@ -707,22 +794,53 @@ test.describe('Patient Record Page tests', () => {
       await secondaryInsuranceCard.clickShowMoreButton();
       await secondaryInsuranceCard.verifyInsuranceType('Secondary');
       await secondaryInsuranceCard.verifyInsuranceCarrier(INSURANCE_CARRIER_2);
-      await secondaryInsuranceCard.verifyPlanType(INSURANCE_PLAN_TYPE_2);
-      await secondaryInsuranceCard.verifyMemberId(INSURANCE_MEMBER_ID_2);
-      await secondaryInsuranceCard.verifyPolicyHoldersFirstName(INSURANCE_POLICY_HOLDER_FIRST_NAME_2);
-      await secondaryInsuranceCard.verifyPolicyHoldersLastName(INSURANCE_POLICY_HOLDER_LAST_NAME_2);
-      await secondaryInsuranceCard.verifyPolicyHoldersMiddleName(INSURANCE_POLICY_HOLDER_MIDDLE_NAME_2);
-      await secondaryInsuranceCard.verifyPolicyHoldersDateOfBirth(INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH_2);
-      await secondaryInsuranceCard.verifyPolicyHoldersSex(INSURANCE_POLICY_HOLDER_BIRTH_SEX_2);
-      await secondaryInsuranceCard.verifyInsuranceStreetAddress(INSURANCE_POLICY_HOLDER_ADDRESS_2);
-      await secondaryInsuranceCard.verifyInsuranceAddressLine2(INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE_2);
-      await secondaryInsuranceCard.verifyInsuranceCity(INSURANCE_POLICY_HOLDER_CITY_2);
-      await secondaryInsuranceCard.verifyInsuranceState(INSURANCE_POLICY_HOLDER_STATE_2);
-      await secondaryInsuranceCard.verifyInsuranceZip(INSURANCE_POLICY_HOLDER_ZIP_2);
-      await secondaryInsuranceCard.verifyPatientsRelationshipToInjured(
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].insurancePlanType.key,
+        INSURANCE_PLAN_TYPE_2
+      );
+      await secondaryInsuranceCard.verifyTextField(insuranceSection.items[1].memberId.key, INSURANCE_MEMBER_ID_2);
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].firstName.key,
+        INSURANCE_POLICY_HOLDER_FIRST_NAME_2
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].lastName.key,
+        INSURANCE_POLICY_HOLDER_LAST_NAME_2
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].middleName.key,
+        INSURANCE_POLICY_HOLDER_MIDDLE_NAME_2
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].birthDate.key,
+        INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH_2
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].birthSex.key,
+        INSURANCE_POLICY_HOLDER_BIRTH_SEX_2
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].streetAddress.key,
+        INSURANCE_POLICY_HOLDER_ADDRESS_2
+      );
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].addressLine2.key,
+        INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE_2
+      );
+      await secondaryInsuranceCard.verifyTextField(insuranceSection.items[1].city.key, INSURANCE_POLICY_HOLDER_CITY_2);
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].state.key,
+        INSURANCE_POLICY_HOLDER_STATE_2
+      );
+      await secondaryInsuranceCard.verifyTextField(insuranceSection.items[1].zip.key, INSURANCE_POLICY_HOLDER_ZIP_2);
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].relationship.key,
         INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED_2
       );
-      await secondaryInsuranceCard.verifyAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2);
+      await secondaryInsuranceCard.verifyTextField(
+        insuranceSection.items[1].additionalInformation.key,
+        INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
+      );
     });
   });
 });

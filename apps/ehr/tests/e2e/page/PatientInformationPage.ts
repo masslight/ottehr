@@ -38,6 +38,7 @@ const contactInformation = PATIENT_RECORD_CONFIG.FormFields.patientContactInform
 const patientDetails = PATIENT_RECORD_CONFIG.FormFields.patientDetails.items;
 const responsibleParty = PATIENT_RECORD_CONFIG.FormFields.responsibleParty.items;
 const primaryCarePhysician = PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items;
+const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
 
 const FIELD_TO_TEST_ID = new Map<Field, string>()
   .set(Field.PATIENT_LAST_NAME, patientSummary.lastName.key)
@@ -74,8 +75,8 @@ export class PatientInformationPage {
   constructor(page: Page) {
     this.#page = page;
     this.#insuranceCards = [
-      new InsuranceCard(page.getByTestId('insuranceContainer').nth(0)),
-      new InsuranceCard(page.getByTestId('insuranceContainer').nth(1)),
+      new InsuranceCard(page.locator(`#${insuranceSection.linkId[0]}`), insuranceSection.items[0]),
+      new InsuranceCard(page.locator(`#${insuranceSection.linkId[1]}`), insuranceSection.items[1]),
     ];
   }
 
@@ -108,6 +109,78 @@ export class PatientInformationPage {
     return wrapperSelector
       .getByText(errorText)
       .or(inputSelector.locator('xpath=ancestor::*[contains(@class, "MuiFormControl-root")]').getByText(errorText));
+  }
+
+  // Generic field interaction methods
+
+  async verifyTextFieldValue(fieldKey: string, expectedValue: string): Promise<void> {
+    await expect(this.inputByName(fieldKey)).toHaveValue(expectedValue);
+  }
+
+  async enterTextFieldValue(fieldKey: string, value: string): Promise<void> {
+    await this.inputByName(fieldKey).fill(value);
+  }
+
+  async clearTextField(fieldKey: string): Promise<void> {
+    await this.inputByName(fieldKey).clear();
+  }
+
+  async verifySelectFieldValue(fieldKey: string, expectedValue: string): Promise<void> {
+    await expect(this.inputByName(fieldKey)).toHaveValue(expectedValue);
+  }
+
+  async selectFieldOption(fieldKey: string, optionName: string): Promise<void> {
+    await this.selectById(fieldKey).click();
+    await this.#page.getByRole('option', { name: optionName, exact: true }).click();
+  }
+
+  async verifyDateFieldValue(fieldKey: string, expectedValue: string): Promise<void> {
+    await expect(this.inputByName(fieldKey)).toHaveValue(expectedValue);
+  }
+
+  async enterDateFieldValue(fieldKey: string, value: string): Promise<void> {
+    const locator = this.inputByName(fieldKey);
+    await locator.click();
+    await locator.pressSequentially(value);
+  }
+
+  async clearDateField(fieldKey: string): Promise<void> {
+    await this.inputByName(fieldKey).clear();
+  }
+
+  async selectBooleanField(fieldKey: string, selected: boolean): Promise<void> {
+    const input = this.inputByName(fieldKey);
+    const isChecked = await input.isChecked();
+    if (isChecked !== selected) {
+      await input.click();
+    }
+  }
+
+  async verifyPhoneFieldValue(fieldKey: string, expectedValue: string): Promise<void> {
+    await expect(this.inputByName(fieldKey)).toHaveValue(formatPhoneNumberForQuestionnaire(expectedValue));
+  }
+
+  async enterPhoneFieldValue(fieldKey: string, value: string): Promise<void> {
+    await this.inputByName(fieldKey).fill(value);
+  }
+
+  async clearPhoneField(fieldKey: string): Promise<void> {
+    await this.selectById(fieldKey).click();
+    for (let i = 0; i <= 20; i++) {
+      await this.#page.keyboard.press('Backspace');
+    }
+  }
+
+  async verifyFieldIsVisible(fieldKey: string): Promise<void> {
+    await this.inputByName(fieldKey).isVisible();
+  }
+
+  async verifyFieldIsHidden(fieldKey: string): Promise<void> {
+    await this.inputByName(fieldKey).isHidden();
+  }
+
+  async verifyFieldIsEnabled(fieldKey: string): Promise<void> {
+    await expect(this.inputByName(fieldKey)).toBeEnabled();
   }
 
   async verifyPatientFirstNameFieldEnabled(): Promise<void> {
@@ -362,14 +435,12 @@ export class PatientInformationPage {
     }
   }
 
-  async verifyMarketingMessaging(marketingMessaging: boolean): Promise<void> {
-    if (marketingMessaging) {
-      await expect(this.inputByName(patientDetails.sendMarketing.key)).toBeChecked();
+  async verifyBooleanFieldHasExpectedValue(identifier: string, selected: boolean): Promise<void> {
+    if (selected) {
+      await expect(this.inputByName(identifier)).toBeChecked();
     } else {
-      await expect(this.inputByName(patientDetails.sendMarketing.key)).not.toBeChecked();
+      await expect(this.inputByName(identifier)).not.toBeChecked();
     }
-
-    //await expect(this.byName(patientDetails.sendMarketing.key)).toHaveText(marketingMessaging);
   }
 
   async selectPreferredLanguage(preferredLanguage: string): Promise<void> {
@@ -396,7 +467,7 @@ export class PatientInformationPage {
   }
 
   async verifyGenderIdentity(genderIdentity: string): Promise<void> {
-    await expect(this.inputByName(patientDetails.genderIdentity.key)).toHaveText(genderIdentity);
+    await expect(this.selectById(patientDetails.genderIdentity.key)).toHaveText(genderIdentity);
   }
 
   async verifyOtherGenderFieldIsVisible(): Promise<void> {
@@ -415,9 +486,12 @@ export class PatientInformationPage {
     await expect(this.inputByName(patientDetails.genderIdentityDetails.key)).toHaveValue(specifyInput);
   }
 
-  async selectCommonWellConsent(commonWellConsent: string): Promise<void> {
-    await this.selectById(patientDetails.commonWellConsent.key).click();
-    await this.#page.getByRole('option', { name: commonWellConsent, exact: true }).click();
+  async selectCommonWellConsent(selected: boolean): Promise<void> {
+    const input = this.inputByName(patientDetails.commonWellConsent.key);
+    const isChecked = await input.isChecked();
+    if (isChecked !== selected) {
+      await input.click();
+    }
   }
 
   async verifyCommonWellConsent(commonWellConsent: string): Promise<void> {
@@ -765,36 +839,32 @@ export class PatientInformationPage {
 
 export class InsuranceCard {
   #container: Locator;
+  #insuranceItems: (typeof insuranceSection.items)[0];
 
-  constructor(container: Locator) {
+  constructor(container: Locator, insuranceItems: (typeof insuranceSection.items)[0]) {
     this.#container = container;
+    this.#insuranceItems = insuranceItems;
+  }
+
+  inputByName(name: string): Locator {
+    return this.#container.locator(`input[name="${name}"]`);
+  }
+
+  selectById(id: string): Locator {
+    return this.#container.locator(`#${id}`);
   }
 
   async waitUntilInsuranceCarrierIsRendered(): Promise<void> {
-    await expect(
-      this.#container.getByTestId(dataTestIds.insuranceContainer.insuranceCarrier).locator('input')
-    ).not.toHaveValue('');
+    await expect(this.selectById(this.#insuranceItems.insuranceCarrier.key).locator('input')).not.toHaveValue('');
   }
 
   async verifyInsuranceType(type: string): Promise<void> {
-    await expect(this.#container.getByTestId(dataTestIds.insuranceContainer.type).locator('input')).toHaveValue(type);
+    await expect(this.inputByName(this.#insuranceItems.insurancePriority.key)).toHaveValue(type);
   }
 
   async verifyInsuranceCarrier(insuranceCarrier: string): Promise<void> {
-    await expect(
-      this.#container.getByTestId(dataTestIds.insuranceContainer.insuranceCarrier).locator('input')
-    ).toHaveValue(insuranceCarrier);
-  }
-
-  async verifyPlanType(planType: string): Promise<void> {
-    await expect(
-      this.#container.getByTestId(dataTestIds.insuranceContainer.insurancePlanType).locator('input')
-    ).toHaveValue(planType);
-  }
-
-  async verifyMemberId(memberId: string): Promise<void> {
-    await expect(this.#container.getByTestId(dataTestIds.insuranceContainer.memberId).locator('input')).toHaveValue(
-      memberId
+    await expect(this.selectById(this.#insuranceItems.insuranceCarrier.key).locator('input')).toHaveValue(
+      insuranceCarrier
     );
   }
 
@@ -802,270 +872,103 @@ export class InsuranceCard {
     await this.#container.getByTestId(dataTestIds.insuranceContainer.showMoreButton).click();
   }
 
-  async verifyPolicyHoldersFirstName(firstName: string): Promise<void> {
-    await expect(
-      this.#container.getByTestId(dataTestIds.insuranceContainer.policyHoldersFirstName).locator('input')
-    ).toHaveValue(firstName);
-  }
-
-  async verifyPolicyHoldersLastName(lastName: string): Promise<void> {
-    await expect(
-      this.#container.getByTestId(dataTestIds.insuranceContainer.policyHoldersLastName).locator('input')
-    ).toHaveValue(lastName);
-  }
-
-  async verifyPolicyHoldersMiddleName(middleName: string): Promise<void> {
-    await expect(
-      this.#container.getByTestId(dataTestIds.insuranceContainer.policyHoldersMiddleName).locator('input')
-    ).toHaveValue(middleName);
-  }
-
-  async verifyPolicyHoldersDateOfBirth(policyHoldersDateOfBirth: string): Promise<void> {
-    await expect(
-      this.#container.getByTestId(dataTestIds.insuranceContainer.policyHoldersDateOfBirth).locator('input')
-    ).toHaveValue(policyHoldersDateOfBirth);
-  }
-
-  async verifyPolicyHoldersSex(sex: string): Promise<void> {
-    await expect(
-      this.#container.getByTestId(dataTestIds.insuranceContainer.policyHoldersSex).locator('input')
-    ).toHaveValue(sex);
-  }
-
-  async verifyInsuranceStreetAddress(streetAddress: string): Promise<void> {
-    await expect(
-      this.#container.getByTestId(dataTestIds.insuranceContainer.streetAddress).locator('input')
-    ).toHaveValue(streetAddress);
-  }
-
-  async verifyInsuranceAddressLine2(addressLine2: string): Promise<void> {
-    await expect(this.#container.getByTestId(dataTestIds.insuranceContainer.addressLine2).locator('input')).toHaveValue(
-      addressLine2
-    );
-  }
-
-  async verifyInsuranceCity(city: string): Promise<void> {
-    await expect(this.#container.getByTestId(dataTestIds.insuranceContainer.city).locator('input')).toHaveValue(city);
-  }
-
-  async verifyInsuranceState(state: string): Promise<void> {
-    await expect(this.#container.getByTestId(dataTestIds.insuranceContainer.state).locator('input')).toHaveValue(state);
-  }
-
-  async verifyInsuranceZip(zip: string): Promise<void> {
-    await expect(this.#container.getByTestId(dataTestIds.insuranceContainer.zip).locator('input')).toHaveValue(zip);
-  }
-
-  async verifyPatientsRelationshipToInjured(relationship: string): Promise<void> {
-    await expect(this.#container.getByTestId(dataTestIds.insuranceContainer.relationship).locator('input')).toHaveValue(
-      relationship
-    );
-  }
-
-  async verifyAdditionalInsuranceInformation(additionalInfo: string): Promise<void> {
-    await expect(
-      this.#container.getByTestId(dataTestIds.insuranceContainer.additionalInformation).locator('input')
-    ).toHaveValue(additionalInfo);
-  }
-
   async verifyAlwaysShownFieldsAreVisible(): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.type).locator('input').isVisible();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.insuranceCarrier).locator('input').isVisible();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.memberId).locator('input').isVisible();
+    await this.inputByName(this.#insuranceItems.insurancePriority.key).isVisible();
+    await this.selectById(this.#insuranceItems.insuranceCarrier.key).locator('input').isVisible();
+    await this.inputByName(this.#insuranceItems.memberId.key).isVisible();
   }
 
   async verifyAdditionalFieldsAreVisible(): Promise<void> {
-    await this.#container
-      .getByTestId(dataTestIds.insuranceContainer.policyHoldersFirstName)
-      .locator('input')
-      .isVisible();
-    await this.#container
-      .getByTestId(dataTestIds.insuranceContainer.policyHoldersMiddleName)
-      .locator('input')
-      .isVisible();
-    await this.#container
-      .getByTestId(dataTestIds.insuranceContainer.policyHoldersLastName)
-      .locator('input')
-      .isVisible();
-    await this.#container
-      .getByTestId(dataTestIds.insuranceContainer.policyHoldersDateOfBirth)
-      .locator('input')
-      .isVisible();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.policyHoldersSex).locator('input').isVisible();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.streetAddress).locator('input').isVisible();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.addressLine2).locator('input').isVisible();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.city).locator('input').isVisible();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.state).locator('input').isVisible();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.zip).locator('input').isVisible();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.relationship).locator('input').isVisible();
-    await this.#container
-      .getByTestId(dataTestIds.insuranceContainer.additionalInformation)
-      .locator('input')
-      .isVisible();
+    await this.inputByName(this.#insuranceItems.firstName.key).isVisible();
+    await this.inputByName(this.#insuranceItems.middleName.key).isVisible();
+    await this.inputByName(this.#insuranceItems.lastName.key).isVisible();
+    await this.inputByName(this.#insuranceItems.birthDate.key).isVisible();
+    await this.inputByName(this.#insuranceItems.birthSex.key).isVisible();
+    await this.inputByName(this.#insuranceItems.streetAddress.key).isVisible();
+    await this.inputByName(this.#insuranceItems.addressLine2.key).isVisible();
+    await this.inputByName(this.#insuranceItems.city.key).isVisible();
+    await this.inputByName(this.#insuranceItems.state.key).isVisible();
+    await this.inputByName(this.#insuranceItems.zip.key).isVisible();
+    await this.inputByName(this.#insuranceItems.relationship.key).isVisible();
+    await this.inputByName(this.#insuranceItems.additionalInformation.key).isVisible();
   }
 
   async verifyAdditionalFieldsAreHidden(): Promise<void> {
-    await this.#container
-      .getByTestId(dataTestIds.insuranceContainer.policyHoldersFirstName)
-      .locator('input')
-      .isHidden();
-    await this.#container
-      .getByTestId(dataTestIds.insuranceContainer.policyHoldersMiddleName)
-      .locator('input')
-      .isHidden();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.policyHoldersLastName).locator('input').isHidden();
-    await this.#container
-      .getByTestId(dataTestIds.insuranceContainer.policyHoldersDateOfBirth)
-      .locator('input')
-      .isHidden();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.policyHoldersSex).locator('input').isHidden();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.streetAddress).locator('input').isHidden();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.addressLine2).locator('input').isHidden();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.city).locator('input').isHidden();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.state).locator('input').isHidden();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.zip).locator('input').isHidden();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.relationship).locator('input').isHidden();
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.additionalInformation).locator('input').isHidden();
+    await this.inputByName(this.#insuranceItems.firstName.key).isHidden();
+    await this.inputByName(this.#insuranceItems.middleName.key).isHidden();
+    await this.inputByName(this.#insuranceItems.lastName.key).isHidden();
+    await this.inputByName(this.#insuranceItems.birthDate.key).isHidden();
+    await this.inputByName(this.#insuranceItems.birthSex.key).isHidden();
+    await this.inputByName(this.#insuranceItems.streetAddress.key).isHidden();
+    await this.inputByName(this.#insuranceItems.addressLine2.key).isHidden();
+    await this.inputByName(this.#insuranceItems.city.key).isHidden();
+    await this.inputByName(this.#insuranceItems.state.key).isHidden();
+    await this.inputByName(this.#insuranceItems.zip.key).isHidden();
+    await this.inputByName(this.#insuranceItems.relationship.key).isHidden();
+    await this.inputByName(this.#insuranceItems.additionalInformation.key).isHidden();
   }
 
-  async clearMemberIdField(): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.memberId).locator('input').clear();
+  // Generic field interaction methods
+  async clearField(fieldKey: string): Promise<void> {
+    await this.inputByName(fieldKey).clear();
   }
 
-  async clearPolicyHolderFirstNameField(): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.policyHoldersFirstName).locator('input').clear();
+  async enterTextField(fieldKey: string, value: string): Promise<void> {
+    await this.inputByName(fieldKey).fill(value);
   }
 
-  async clearPolicyHolderLastNameField(): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.policyHoldersLastName).locator('input').clear();
+  async verifyTextField(fieldKey: string, expectedValue: string): Promise<void> {
+    await expect(this.inputByName(fieldKey)).toHaveValue(expectedValue);
   }
 
-  async clearDateOfBirthFromInsuranceContainer(): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.policyHoldersDateOfBirth).locator('input').clear();
+  async selectFieldOption(fieldKey: string, optionName: string): Promise<void> {
+    await this.selectById(fieldKey).click();
+    await this.#container.page().getByRole('option', { name: optionName, exact: true }).click();
   }
 
-  async clearStreetAddressFromInsuranceContainer(): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.streetAddress).locator('input').clear();
+  async enterDateField(fieldKey: string, value: string): Promise<void> {
+    const locator = this.inputByName(fieldKey);
+    await locator.click();
+    await locator.pressSequentially(value);
   }
 
-  async clearCityFromInsuranceContainer(): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.city).locator('input').clear();
-  }
-
-  async clearZipFromInsuranceContainer(): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.zip).locator('input').clear();
-  }
-
-  async verifyValidationErrorShown(testId: string): Promise<void> {
-    await expect(this.#container.getByTestId(testId).locator('p:text("This field is required")')).toBeVisible();
+  async verifyValidationErrorShown(fieldKey: string): Promise<void> {
+    // Use input element to find the error message, which works for both regular and grouped fields
+    const inputLocator = this.inputByName(fieldKey);
+    const formControlLocator = inputLocator.locator('xpath=ancestor::div[contains(@class, "MuiFormControl")]');
+    await expect(formControlLocator.locator('p:text("This field is required")')).toBeVisible();
   }
 
   async verifyValidationErrorZipFieldFromInsurance(): Promise<void> {
-    await expect(
-      this.#container.getByTestId(dataTestIds.insuranceContainer.zip).locator('p:text("Must be 5 digits")')
-    ).toBeVisible();
+    const inputLocator = this.inputByName(this.#insuranceItems.zip.key);
+    const formControlLocator = inputLocator.locator('xpath=ancestor::div[contains(@class, "MuiFormControl")]');
+    await expect(formControlLocator.locator('p:text("Must be 5 digits")')).toBeVisible();
   }
 
   async verifyValidationErrorOnPrimaryInsuranceType(): Promise<void> {
     await expect(
-      this.#container
-        .getByTestId(dataTestIds.insuranceContainer.type)
-        .locator('p:text("Account may not have two secondary insurance plans")')
+      this.selectById(this.#insuranceItems.insurancePriority.key).locator(
+        'p:text("Account may not have two secondary insurance plans")'
+      )
     ).toBeVisible();
   }
 
   async verifyValidationErrorOnSecondaryInsuranceType(): Promise<void> {
     await expect(
-      this.#container
-        .getByTestId(dataTestIds.insuranceContainer.type)
-        .locator('p:text("Account may not have two primary insurance plans")')
+      this.selectById(this.#insuranceItems.insurancePriority.key).locator(
+        'p:text("Account may not have two primary insurance plans")'
+      )
     ).toBeVisible();
   }
 
   async selectInsuranceType(type: string): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.type).click();
-    await this.#container.page().locator(`li:text("${type}")`).click();
+    await this.selectById(this.#insuranceItems.insurancePriority.key).click();
+    await this.#container.page().getByRole('option', { name: type, exact: true }).click();
   }
 
   async selectInsuranceCarrier(insuranceCarrier: string): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.insuranceCarrier).click();
-    await this.#container.page().locator(`li:text("${insuranceCarrier}")`).click();
-  }
-
-  async enterPlanType(planType: string): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.insurancePlanType).click();
-    await this.#container.page().locator(`li:text("${planType}")`).click();
-  }
-
-  async enterMemberId(memberId: string): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.memberId).locator('input').fill(memberId);
-  }
-
-  async enterPolicyHolderFirstName(firstName: string): Promise<void> {
-    await this.#container
-      .getByTestId(dataTestIds.insuranceContainer.policyHoldersFirstName)
-      .locator('input')
-      .fill(firstName);
-  }
-
-  async enterPolicyHolderMiddleName(middleName: string): Promise<void> {
-    await this.#container
-      .getByTestId(dataTestIds.insuranceContainer.policyHoldersMiddleName)
-      .locator('input')
-      .fill(middleName);
-  }
-
-  async enterPolicyHolderLastName(lastName: string): Promise<void> {
-    await this.#container
-      .getByTestId(dataTestIds.insuranceContainer.policyHoldersLastName)
-      .locator('input')
-      .fill(lastName);
-  }
-
-  async enterDateOfBirthFromInsuranceContainer(dateOfBirth: string): Promise<void> {
-    const locator = this.#container
-      .getByTestId(dataTestIds.insuranceContainer.policyHoldersDateOfBirth)
-      .locator('input');
-    await locator.click();
-    await locator.pressSequentially(dateOfBirth);
-  }
-
-  async selectPolicyHoldersBirthSex(birthSex: string): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.policyHoldersSex).click();
-    await this.#container.page().locator(`li:text("${birthSex}")`).click();
-  }
-
-  async enterPolicyHolderStreetAddress(street: string): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.streetAddress).locator('input').fill(street);
-  }
-
-  async enterPolicyHolderAddressLine2(addressLine2: string): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.addressLine2).locator('input').fill(addressLine2);
-  }
-
-  async enterPolicyHolderCity(city: string): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.city).locator('input').fill(city);
-  }
-
-  async selectPolicyHoldersState(state: string): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.state).click();
-    await this.#container.page().locator(`li:text("${state}")`).click();
-  }
-
-  async enterZipFromInsuranceContainer(zip: string): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.zip).locator('input').fill(zip);
-  }
-
-  async selectPatientsRelationship(relationship: string): Promise<void> {
-    await this.#container.getByTestId(dataTestIds.insuranceContainer.relationship).click();
-    await this.#container.page().locator(`li:text("${relationship}")`).click();
-  }
-
-  async enterAdditionalInsuranceInformation(additionalInfo: string): Promise<void> {
-    await this.#container
-      .getByTestId(dataTestIds.insuranceContainer.additionalInformation)
-      .locator('input')
-      .fill(additionalInfo);
+    await this.selectById(this.#insuranceItems.insuranceCarrier.key).click();
+    await this.#container.page().getByRole('option', { name: insuranceCarrier, exact: true }).click();
   }
 
   async clickRemoveInsuranceButton(): Promise<void> {

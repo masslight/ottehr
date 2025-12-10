@@ -144,8 +144,10 @@ const PatientRecordFormField: FC<PatientRecordFormFieldProps> = ({
               optionStrategy={{
                 type: 'answerSource',
                 answerSource: {
+                  // todo: get this from config
                   resourceType: 'Organization',
                   query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+                  prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
                 },
               }}
             />
@@ -270,9 +272,10 @@ type ValueSetStrategy = {
   valueSet: string;
 };
 
+// todo: these types already exist somewhere
 type AnswerSourceStrategy = {
   type: 'answerSource';
-  answerSource: { resourceType: string; query: string };
+  answerSource: { resourceType: string; query: string; prependedIdentifier?: string };
 };
 
 interface DynamicReferenceFieldProps {
@@ -299,7 +302,7 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ optionStrategy,
   })();
 
   const {
-    data: insuranceOptions,
+    data: answerOptions,
     isLoading,
     isRefetching,
   } = useQuery({
@@ -334,10 +337,10 @@ const DynamicReferenceField: FC<DynamicReferenceFieldProps> = ({ optionStrategy,
         required: REQUIRED_FIELD_ERROR_MESSAGE,
       }}
       render={({ field: { value }, fieldState: { error } }) => {
-        const selectedOption = insuranceOptions?.find((option) => option.reference === value?.reference);
+        const selectedOption = answerOptions?.find((option) => option.reference === value?.reference);
         return (
           <Autocomplete
-            options={insuranceOptions ?? []}
+            options={answerOptions ?? []}
             loading={isLoading || isRefetching}
             id={id}
             loadingText={'Loading...'}

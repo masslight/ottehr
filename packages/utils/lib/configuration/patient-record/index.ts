@@ -190,7 +190,12 @@ const FormFields = {
           label: "Policy holder's date of birth",
           dataType: 'DOB',
         },
-        birthSex: { key: 'policy-holder-birth-sex', type: 'string', label: "Policy holder's birth sex" },
+        birthSex: {
+          key: 'policy-holder-birth-sex',
+          type: 'choice',
+          label: "Policy holder's birth sex",
+          options: formValueSets.birthSexOptions,
+        },
         policyHolderAddressAsPatient: {
           key: 'policy-holder-address-as-patient',
           type: 'boolean',
@@ -241,7 +246,12 @@ const FormFields = {
           label: "Policy holder's date of birth",
           dataType: 'DOB',
         },
-        birthSex: { key: 'policy-holder-birth-sex-2', type: 'string', label: "Policy holder's birth sex" },
+        birthSex: {
+          key: 'policy-holder-birth-sex-2',
+          type: 'choice',
+          label: "Policy holder's birth sex",
+          options: formValueSets.birthSexOptions,
+        },
         policyHolderAddressAsPatient: {
           key: 'policy-holder-address-as-patient-2',
           type: 'boolean',
