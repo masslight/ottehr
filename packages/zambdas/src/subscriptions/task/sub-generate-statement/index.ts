@@ -225,7 +225,7 @@ function validateInput(input: ZambdaInput): GenerateStatementInputValidated {
 
   return {
     encounterId: validateString(task.encounter?.reference?.split('/')[1], 'encounterId'),
-    userTimezone: getExtension(task, USER_TIMEZONE_EXTENSION_URL)?.valueString ?? 'EDT',
+    userTimezone: getExtension(task, USER_TIMEZONE_EXTENSION_URL)?.valueString ?? 'America/New_York',
     secrets: assertDefined(input.secrets, 'input.secrets'),
   };
 }

@@ -242,7 +242,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           taskId,
           status: 'requested',
           prefilledInvoiceInfo,
-          userTimezone: DateTime.local().toFormat('z'),
+          userTimezone: DateTime.local().zoneName,
         });
         setSelectedInvoiceTask(undefined);
         void refetchVisitHistory();
