@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-251b0108-6eea-4102-9748-27f925e8535e",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-187b1c8a-854b-4200-a3f2-3b0163d55081"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-8578c070-bb78-4b1c-961e-8f33b756cc79"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "Follows verbal commands appropriately"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "follows-verbal-commands-appropriately",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}
