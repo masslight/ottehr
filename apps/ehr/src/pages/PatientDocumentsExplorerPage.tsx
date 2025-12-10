@@ -6,7 +6,7 @@ import { styled } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   PatientDocumentFoldersColumn,
   PatientDocumentFoldersColumnSkeleton,
@@ -25,6 +25,8 @@ import { ScannerModal } from '../components/ScannerModal';
 import { useGetPatient } from '../hooks/useGetPatient';
 import { PatientDocumentsFilters, PatientDocumentsFolder, useGetPatientDocs } from '../hooks/useGetPatientDocs';
 import { usePatientStore } from '../state/patient.store';
+
+const FOLDER_SEARCH_PARAM = 'folder';
 
 const FileAttachmentHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
@@ -65,8 +67,10 @@ const PatientDocumentsExplorerPage: FC = () => {
   const [searchDocNameFieldValue, setSearchDocNameFieldValue] = useState<string>('');
   const [docNameTextDebounced, setDocNameTextDebounced] = useState<string>('');
   const [searchDocAddedDate, setSearchDocAddedDate] = useState<DateTime | null>(null);
-  const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>(undefined);
   const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedFolder = documentsFolders.find((folder) => folder.id === searchParams.get(FOLDER_SEARCH_PARAM));
 
   const shouldShowClearFilters = searchDocNameFieldValue.trim().length > 0 || searchDocAddedDate || selectedFolder;
 
@@ -127,20 +131,20 @@ const PatientDocumentsExplorerPage: FC = () => {
 
   const handleFolderSelected = useCallback(
     (folder: PatientDocumentsFolder) => {
-      const folderToSelect: PatientDocumentsFolder | undefined = folder.id !== selectedFolder?.id ? folder : undefined;
-
-      setSelectedFolder(folderToSelect);
+      const queryParams = new URLSearchParams();
+      queryParams.set(FOLDER_SEARCH_PARAM, folder.id);
+      setSearchParams(queryParams);
     },
-    [selectedFolder?.id]
+    [setSearchParams]
   );
 
   const handleClearFilters = useCallback(() => {
     setSearchDocAddedDate(null);
-    setSelectedFolder(undefined);
+    setSearchParams(undefined);
     setDocNameTextDebounced('');
     setSearchDocNameFieldValue('');
     searchDocuments({});
-  }, [searchDocuments]);
+  }, [searchDocuments, setSearchParams]);
 
   const handleOpenScanModal = useCallback(() => {
     setIsScanModalOpen(true);
