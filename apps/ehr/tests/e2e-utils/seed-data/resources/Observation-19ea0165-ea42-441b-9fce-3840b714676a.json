@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-19ea0165-ea42-441b-9fce-3840b714676a",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-ba34fbe5-b89c-472a-aabc-520364afd81b"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-5a31594f-df89-4dec-b6ad-579c81b915fc"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "Hops with no pain; negative Rovsing’s, psoas, and obturator signs; no rebound tenderness; no guarding"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "hops-with-no-pain",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

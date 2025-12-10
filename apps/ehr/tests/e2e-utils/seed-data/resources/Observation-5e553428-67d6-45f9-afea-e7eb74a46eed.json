@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-5e553428-67d6-45f9-afea-e7eb74a46eed",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-ba34fbe5-b89c-472a-aabc-520364afd81b"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-5a31594f-df89-4dec-b6ad-579c81b915fc"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "Discharge present"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "left-eye-discharge-present",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

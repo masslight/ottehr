@@ -1,0 +1,33 @@
+{
+  "fullUrl": "urn:uuid:RelatedPerson-5d676c31-8ec3-4cb7-add6-adc6806de42b",
+  "request": {
+    "method": "POST",
+    "url": "/RelatedPerson"
+  },
+  "resource": {
+    "patient": {
+      "reference": "urn:uuid:Patient-ba34fbe5-b89c-472a-aabc-520364afd81b"
+    },
+    "telecom": [
+      {
+        "value": "+12120250519",
+        "system": "phone"
+      },
+      {
+        "value": "+12120250519",
+        "system": "sms"
+      }
+    ],
+    "relationship": [
+      {
+        "coding": [
+          {
+            "code": "user-relatedperson",
+            "system": "https://fhir.zapehr.com/r4/StructureDefinitions/relationship"
+          }
+        ]
+      }
+    ],
+    "resourceType": "RelatedPerson"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-79587c6e-e782-45e8-bb25-2573becd437d",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-ba34fbe5-b89c-472a-aabc-520364afd81b"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-5a31594f-df89-4dec-b6ad-579c81b915fc"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "Decreased breath sounds"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "breath-sounds",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

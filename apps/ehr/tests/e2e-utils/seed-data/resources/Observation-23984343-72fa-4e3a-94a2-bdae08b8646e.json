@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-23984343-72fa-4e3a-94a2-bdae08b8646e",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-ba34fbe5-b89c-472a-aabc-520364afd81b"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-5a31594f-df89-4dec-b6ad-579c81b915fc"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "Oriented x 3"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "oriented-x-3",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

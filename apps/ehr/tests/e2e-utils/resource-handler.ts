@@ -43,7 +43,7 @@ import {
   TEST_EMPLOYEE_2,
   TestEmployee,
 } from './resource/employees';
-import fastSeedData from './seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
+import fastSeedData from './seed-data';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
