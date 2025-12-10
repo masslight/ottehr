@@ -543,6 +543,10 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     currentPatientAccount = accountInfo?.account;
   }
 
+  const stripeAccountId: string | undefined = scheduleOwner.extension?.find(
+    (ext) => ext.url === 'https://fhir.ottehr.com/Extension/stripe-account-id' && ext.valueString
+  )?.valueString;
+
   const item: QuestionnaireResponseItem[] = makePrepopulatedItemsForPatient({
     patient: patientToUse,
     isNewQrsPatient: createPatientRequest?.resource !== undefined,
@@ -554,6 +558,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     questionnaire,
     documents,
     accountInfo,
+    stripeAccountId,
   });
 
   console.log(

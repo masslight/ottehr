@@ -11,16 +11,20 @@ import {
   useTheme,
 } from '@mui/material';
 import { Elements } from '@stripe/react-stripe-js';
+import { Stripe } from '@stripe/stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { AddCreditCardForm, loadStripe } from 'ui-components';
-import { BOOKING_CONFIG, CreditCardInfo } from 'utils';
+import {
+  BOOKING_CONFIG,
+  CreditCardInfo,
+  findQuestionnaireResponseItemLinkId,
+  pickFirstValueFromAnswerItem,
+} from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
 import { dataTestIds } from '../../../helpers/data-test-ids';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { useSetDefaultPaymentMethod } from '../../../telemed/features/paperwork/paperwork.queries';
 import { usePaperworkContext } from '../context';
-
-const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
 
 interface CreditCardVerificationProps {
   onChange: (event: { target: { value: boolean } }) => void;
@@ -40,6 +44,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
     stripeSetupData: setupData,
     paymentMethodStateInitializing,
     cardsAreLoading,
+    paperwork,
   } = usePaperworkContext();
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
 
@@ -47,6 +52,27 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
 
   const defaultCard = useMemo(() => cards.find((card) => card.default), [cards]);
   const [selectedOption, setSelectedOption] = useState<string | undefined>(defaultCard?.id);
+
+  let stripePublicKey: string = import.meta.env.VITE_APP_STRIPE_KEY;
+
+  const stripeAccountIdFromPaperwork = findQuestionnaireResponseItemLinkId('stripe-account-id', paperwork);
+  if (stripeAccountIdFromPaperwork) {
+    const stripeAccountId = pickFirstValueFromAnswerItem(stripeAccountIdFromPaperwork, 'string');
+    if (stripeAccountId) {
+      const stripePublicKeyForAccountId = import.meta.env[`VITE_APP_STRIPE_KEY_FOR_ACCOUNT_ID_${stripeAccountId}`];
+      if (stripePublicKeyForAccountId) {
+        stripePublicKey = stripePublicKeyForAccountId;
+      } else {
+        console.error(`No Stripe public key found for account ID: ${stripeAccountId}`);
+        throw new Error(`No Stripe public key found for account ID: ${stripeAccountId}`);
+      }
+    } else {
+      console.error('stripe-account-id was in paperwork but did not have a value');
+      throw new Error('stripe-account-id was in paperwork but did not have a value');
+    }
+  }
+
+  const stripePromise = loadStripe(stripePublicKey);
 
   useEffect(() => {
     if (selectedOption !== defaultCard?.id) {
@@ -115,6 +141,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
         disabled={disabled}
         required={required}
         errorMessage={errorMessage}
+        stripePromise={stripePromise}
         setErrorMessage={setErrorMessage}
         onMakePrimary={onMakePrimary}
         handleNewPaymentMethod={handleNewPaymentMethod}
@@ -131,6 +158,7 @@ interface CreditCardContentProps {
   disabled: boolean;
   required: boolean;
   errorMessage: string | undefined;
+  stripePromise: Promise<Stripe | null>;
   setErrorMessage: (message: string | undefined) => void;
   onMakePrimary: (id: string) => void;
   handleNewPaymentMethod: (id: string) => void;
@@ -145,6 +173,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     disabled,
     errorMessage,
     required,
+    stripePromise,
     setErrorMessage,
     onMakePrimary,
     handleNewPaymentMethod,

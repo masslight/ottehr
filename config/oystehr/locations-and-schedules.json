@@ -20,6 +20,10 @@
           {
             "url": "http://hl7.org/fhir/StructureDefinition/timezone",
             "valueString": "America/New_York"
+          },
+          {
+            "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
+            "valueString": "acct_123456789"
           }
         ],
         "identifier": [

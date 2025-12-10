@@ -3390,6 +3390,17 @@
                     "valueBoolean": true
                   }
                 ]
+              },
+              {
+                "linkId": "stripe-account-id",
+                "type": "string",
+                "readOnly": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "hidden"
+                  }
+                ]
               }
             ]
           },
