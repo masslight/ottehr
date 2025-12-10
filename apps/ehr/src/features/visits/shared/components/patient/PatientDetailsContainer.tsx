@@ -8,7 +8,6 @@ import {
   ETHNICITY_OPTIONS,
   FormFields as AllFormFields,
   GENDER_IDENTITY_OPTIONS,
-  POINT_OF_DISCOVERY_OPTIONS,
   RACE_OPTIONS,
   SEXUAL_ORIENTATION_OPTIONS,
 } from 'src/constants';
@@ -42,6 +41,18 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
         .resource.item.find((item) => item.linkId === 'patient-details-page')
         ?.item.find((item) => item.linkId === 'preferred-language') as QuestionnaireItem | undefined
     )?.answerOption?.map((option) => option.valueString) ?? [];
+
+  const pointOfDiscoveryOptions =
+    (
+      Object.values(inPersonIntakeQuestionnaire.fhirResources)[0]
+        .resource.item.find((item: { linkId: string }) => item.linkId === 'patient-details-page')
+        ?.item?.find((item: { linkId: string }) => item.linkId === 'patient-point-of-discovery') as
+        | QuestionnaireItem
+        | undefined
+    )?.answerOption?.map((option) => ({
+      label: option.valueString || '',
+      value: option.valueString || '',
+    })) ?? [];
 
   return (
     <Section title="Patient details">
@@ -140,7 +151,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           disabled={isLoading}
           name={FormFields.pointOfDiscovery.key}
           control={control}
-          options={POINT_OF_DISCOVERY_OPTIONS}
+          options={pointOfDiscoveryOptions}
         />
       </Row>
       <Box
