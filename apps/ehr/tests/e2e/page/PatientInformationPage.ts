@@ -204,7 +204,7 @@ export class PatientInformationPage {
     await this.#page.getByTestId(dataTestIds.patientInformationPage.breadcrumb).getByText('Patients').click();
   }
 
-  async verifyValidationErrorShown(fieldKey: string): Promise<void> {
+  async verifyRequiredFieldValidationErrorShown(fieldKey: string): Promise<void> {
     // Try to find error message using multiple strategies:
     // 1. Find by wrapper ID and look for error in wrapper
     // 2. Find by wrapper ID and look for error in its MuiFormControl
