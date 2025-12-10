@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-11b9808f-6728-493a-86ca-71b3489b0c50",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-187b1c8a-854b-4200-a3f2-3b0163d55081"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-8578c070-bb78-4b1c-961e-8f33b756cc79"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "Left lower"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "breath-sounds-left-lower",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}
