@@ -47,6 +47,9 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     const patientBasicInfo = await this.fillNewPatientDataAndContinue();
     await this.completeBooking();
     await this.page.waitForURL(/\/visit/);
+    const timeBlock = this.page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock);
+    await expect(timeBlock).toHaveText(slotAndLocation.selectedSlot?.fullSlot ?? '');
+    await expect(this.locator.appointmentDescription).toHaveText(RegExp(slotAndLocation.location!));
     const bookingURL = this.page.url();
     const match = bookingURL.match(/visit\/([0-9a-fA-F-]+)/);
     const bookingUUID = match ? match[1] : null;

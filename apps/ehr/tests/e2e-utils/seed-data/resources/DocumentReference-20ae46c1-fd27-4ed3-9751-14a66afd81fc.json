@@ -1,0 +1,56 @@
+{
+  "fullUrl": "urn:uuid:DocumentReference-20ae46c1-fd27-4ed3-9751-14a66afd81fc",
+  "request": {
+    "method": "POST",
+    "url": "/DocumentReference"
+  },
+  "resource": {
+    "resourceType": "DocumentReference",
+    "status": "current",
+    "type": {
+      "coding": [
+        {
+          "system": "http://loinc.org",
+          "code": "59284-0",
+          "display": "Consent Documents"
+        },
+        {
+          "system": "https://fhir.ottehr.com/CodeSystem/consent-source",
+          "code": "patient-registration",
+          "display": "Patient Registration Consent"
+        }
+      ],
+      "text": "Consent forms"
+    },
+    "date": "{{date}}T10:13:51.095Z",
+    "content": [
+      {
+        "attachment": {
+          "url": "https://project-api.zapehr.com/v1/z3/db1f485e-c968-42d1-8e83-f7f160a3d71e-consent-forms/187b1c8a-854b-4200-a3f2-3b0163d55081/1765361631094-consent-to-treat.pdf",
+          "contentType": "application/pdf",
+          "title": "Consent to Treat, Guarantee of Payment & Card on File Agreement"
+        }
+      }
+    ],
+    "subject": {
+      "reference": "urn:uuid:Patient-187b1c8a-854b-4200-a3f2-3b0163d55081"
+    },
+    "context": {
+      "related": [
+        {
+          "reference": "urn:uuid:Appointment-c1fbb8ba-c2c0-45bf-bd9f-20dd2ac2ad5d"
+        }
+      ]
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "OTTEHR-IP"
+        },
+        {
+          "code": "OTTEHR-TM"
+        }
+      ]
+    }
+  }
+}
