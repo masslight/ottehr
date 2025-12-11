@@ -108,7 +108,7 @@
     "@types/inquirer": "^9.0.7",
     "browser-image-compression": "^2.0.2",
     "browserslist-to-esbuild": "^1.2.0",
-    "candidhealth": "1.7.0",
+    "candidhealth": "1.17.0",
     "fast-json-patch": "^3.1.1",
     "i18next": "^23.10.1",
     "i18next-browser-languagedetector": "^7.0.1",
