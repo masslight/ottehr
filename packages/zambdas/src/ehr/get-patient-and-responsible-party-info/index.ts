@@ -91,7 +91,8 @@ async function getAndValidateFhirResources(oystehr: Oystehr, patientId: string):
   ) as RelatedPerson;
   if (!patient) throw PATIENT_NOT_FOUND_ERROR;
   if (!billingAccount) throw FHIR_RESOURCE_NOT_FOUND('Account');
-  if (!relatedPerson) throw FHIR_RESOURCE_NOT_FOUND('RelatedPerson');
+  if (!relatedPerson)
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('RelatedPerson or Patient resource was not found as responsible party');
 
   const patientPhoneNumber = getSMSNumberForIndividual(relatedPerson);
   if (!patientPhoneNumber) throw PATIENT_PHONE_NOT_FOUND_ERROR;

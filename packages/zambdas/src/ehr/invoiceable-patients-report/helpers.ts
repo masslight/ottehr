@@ -61,7 +61,7 @@ export function mapResourcesToInvoiceablePatient(input: {
   if (patient?.id === undefined) return logErrorForClaimAndReturn('Patient', claim);
   const account = accountsToPatientIdMap[claim.patientExternalId];
   const responsibleParty = getResponsiblePartyFromAccount(account, allFhirResources);
-  if (!responsibleParty) return logErrorForClaimAndReturn('RelatedPerson', claim);
+  if (!responsibleParty) return logErrorForClaimAndReturn('Responsible party', claim);
 
   const encounter = encounterToCandidIdMap[claim.encounterId];
   if (!encounter) return logErrorForClaimAndReturn('Encounter', claim);
