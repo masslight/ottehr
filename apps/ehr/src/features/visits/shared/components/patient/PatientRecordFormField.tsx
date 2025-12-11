@@ -2,7 +2,7 @@ import { Autocomplete, Checkbox, FormControlLabel, TextField } from '@mui/materi
 import { useQuery } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FC, useEffect } from 'react';
+import { FC, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { BasicDatePicker, FormSelect, FormTextField } from 'src/components/form';
 import InputMask from 'src/components/InputMask';
@@ -161,6 +161,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
 
   // Dynamic population: when field is disabled, copy value from source field
   const sourceFieldValue = dynamicPopulation?.sourceLinkId ? watch(dynamicPopulation.sourceLinkId) : undefined;
+  const stashedValueRef = useRef<any>(null);
 
   useEffect(() => {
     if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && isDisabled) {
@@ -168,7 +169,13 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
 
       // Only update if the source value is different from current value
       if (sourceFieldValue !== undefined && sourceFieldValue !== currentValue) {
+        stashedValueRef.current = currentValue;
         setValue(item.key, sourceFieldValue, { shouldDirty: true });
+      }
+    } else if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && !isDisabled) {
+      if (stashedValueRef.current !== null) {
+        setValue(item.key, stashedValueRef.current, { shouldDirty: true });
+        stashedValueRef.current = null;
       }
     }
   }, [sourceFieldValue, isDisabled, dynamicPopulation, item.key, setValue, getValues]);
@@ -335,7 +342,6 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
             disabled={isDisabled}
             options={item.options || []}
             rules={rules}
-            // data-testid={dataTestIds.patientInformationContainer.patientBirthSex}
           />
         );
       case 'date':
@@ -346,7 +352,6 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
             control={control}
             disabled={isDisabled}
             rules={rules}
-            // dataTestId={dataTestIds.patientInformationContainer.patientDateOfBirth}
             component="Field"
           />
         );
@@ -360,7 +365,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
                 control={
                   <Checkbox
                     {...field}
-                    checked={item.key === 'pcp-active' ? !(value ?? false) : value ?? false} // this is incredibly silly but needed to invert the logic for this one field
+                    checked={item.key === 'pcp-active' ? !(value ?? false) : value ?? false} // this is incredibly silly but needed to invert the logic for this one field. todo...
                     onChange={(e) => field.onChange(item.key === 'pcp-active' ? !e.target.checked : e.target.checked)}
                     disabled={isDisabled}
                   />

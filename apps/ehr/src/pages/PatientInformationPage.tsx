@@ -103,15 +103,6 @@ const makePrepopulatedCoveragesFormDefaults = ({
   return makeFormDefaults(prepopulatedItems);
 };
 
-const clearPCPFieldsIfInactive = (values: Record<string, any>): Record<string, any> => {
-  return Object.fromEntries(
-    Object.entries(values).map(([key, value]) => [
-      key,
-      !values['pcp-active'] && key.startsWith('pcp-') && key !== 'pcp-active' ? '' : value,
-    ])
-  );
-};
-
 const transformInsurancePlans = (bundleEntries: BundleEntry[]): InsurancePlanDTO[] => {
   const organizations = bundleEntries
     .filter((bundleEntry) => bundleEntry.resource?.resourceType === 'Organization')
@@ -388,8 +379,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
       return;
     }
 
-    const filteredValues = clearPCPFieldsIfInactive(values);
-    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, filteredValues, patient.id));
+    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, values, patient.id));
     submitQR.mutate(qr);
   };
 

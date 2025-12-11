@@ -637,6 +637,13 @@
                 "text": "Provider first name",
                 "type": "string",
                 "required": false,
+                "enableWhen": [
+                  {
+                    "question": "pcp-active",
+                    "operator": "=",
+                    "answerBoolean": true
+                  }
+                ],
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -662,6 +669,13 @@
                 "text": "Provider last name",
                 "type": "string",
                 "required": false,
+                "enableWhen": [
+                  {
+                    "question": "pcp-active",
+                    "operator": "=",
+                    "answerBoolean": true
+                  }
+                ],
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
@@ -686,19 +700,40 @@
                 "linkId": "pcp-practice",
                 "text": "Practice name",
                 "type": "string",
-                "required": false
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "pcp-active",
+                    "operator": "=",
+                    "answerBoolean": true
+                  }
+                ]
               },
               {
                 "linkId": "pcp-address",
                 "text": "Address",
                 "type": "string",
-                "required": false
+                "required": false,
+                "enableWhen": [
+                  {
+                    "question": "pcp-active",
+                    "operator": "=",
+                    "answerBoolean": true
+                  }
+                ]
               },
               {
                 "linkId": "pcp-number",
                 "text": "Phone number",
                 "type": "string",
                 "required": false,
+                "enableWhen": [
+                  {
+                    "question": "pcp-active",
+                    "operator": "=",
+                    "answerBoolean": true
+                  }
+                ],
                 "extension": [
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",

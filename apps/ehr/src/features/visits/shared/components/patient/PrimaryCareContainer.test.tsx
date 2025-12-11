@@ -2,7 +2,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { InputHTMLAttributes } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { dataTestIds } from 'src/constants/data-test-ids';
 import { PATIENT_RECORD_CONFIG } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
 import { PrimaryCareContainer } from './PrimaryCareContainer';
@@ -44,8 +43,23 @@ const TestWrapper = ({
   return <TestForm />;
 };
 
-const getFieldInput = (fieldTestId: string): HTMLInputElement =>
-  screen.getByTestId(fieldTestId).querySelector('input') as HTMLInputElement;
+// Helper to get field input by config key (fields have id attribute matching their key)
+const getFieldById = (fieldKey: string): HTMLElement => {
+  const element = document.getElementById(fieldKey);
+  if (!element) {
+    throw new Error(`Element with id "${fieldKey}" not found`);
+  }
+  return element;
+};
+
+const getFieldInput = (fieldKey: string): HTMLInputElement => {
+  // Query by name attribute (works for all field types including checkboxes)
+  const input = document.querySelector(`input[name="${fieldKey}"]`);
+  if (!input) {
+    throw new Error(`Input with name "${fieldKey}" not found`);
+  }
+  return input as HTMLInputElement;
+};
 
 describe('PrimaryCareContainer', () => {
   const user = userEvent.setup();
@@ -76,22 +90,25 @@ describe('PrimaryCareContainer', () => {
       </TestWrapper>
     );
 
-    const pcpCheckbox = getFieldInput(dataTestIds.primaryCarePhysicianContainer.pcpCheckbox);
+    const pcp = PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items;
+    const pcpCheckbox = getFieldInput(pcp.active.key);
 
-    expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName)).toBeVisible();
-    expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName)).toBeVisible();
-    expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName)).toBeVisible();
-    expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.address)).toBeVisible();
-    expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile)).toBeVisible();
+    // Initially, fields should be in the document
+    expect(getFieldById(pcp.firstName.key)).toBeInTheDocument();
+    expect(getFieldById(pcp.lastName.key)).toBeInTheDocument();
+    expect(getFieldById(pcp.practiceName.key)).toBeInTheDocument();
+    expect(getFieldById(pcp.address.key)).toBeInTheDocument();
+    expect(getFieldById(pcp.phone.key)).toBeInTheDocument();
 
     await user.click(pcpCheckbox);
 
+    // After clicking checkbox, fields should be removed from the document
     await waitFor(() => {
-      expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName)).not.toBeVisible();
-      expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName)).not.toBeVisible();
-      expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName)).not.toBeVisible();
-      expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.address)).not.toBeVisible();
-      expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile)).not.toBeVisible();
+      expect(document.getElementById(pcp.firstName.key)).not.toBeInTheDocument();
+      expect(document.getElementById(pcp.lastName.key)).not.toBeInTheDocument();
+      expect(document.getElementById(pcp.practiceName.key)).not.toBeInTheDocument();
+      expect(document.getElementById(pcp.address.key)).not.toBeInTheDocument();
+      expect(document.getElementById(pcp.phone.key)).not.toBeInTheDocument();
     });
   });
 
@@ -102,69 +119,57 @@ describe('PrimaryCareContainer', () => {
       </TestWrapper>
     );
 
-    const pcpCheckbox = getFieldInput(dataTestIds.primaryCarePhysicianContainer.pcpCheckbox);
+    const pcp = PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items;
+    const pcpCheckbox = getFieldInput(pcp.active.key);
 
     expect(pcpCheckbox).toBeInTheDocument();
     expect(pcpCheckbox).not.toBeChecked();
 
-    const firstNameInput = getFieldInput(dataTestIds.primaryCarePhysicianContainer.firstName);
-    const lastNameInput = getFieldInput(dataTestIds.primaryCarePhysicianContainer.lastName);
-    const practiceNameInput = getFieldInput(dataTestIds.primaryCarePhysicianContainer.practiceName);
-    const addressInput = getFieldInput(dataTestIds.primaryCarePhysicianContainer.address);
-    const mobileInput = getFieldInput(dataTestIds.primaryCarePhysicianContainer.mobile);
+    const firstNameInput = getFieldInput(pcp.firstName.key);
+    const lastNameInput = getFieldInput(pcp.lastName.key);
+    const practiceNameInput = getFieldInput(pcp.practiceName.key);
+    const addressInput = getFieldInput(pcp.address.key);
+    const mobileInput = getFieldInput(pcp.phone.key);
 
-    expect(firstNameInput).toHaveValue(
-      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.firstName.key] as string
-    );
-    expect(lastNameInput).toHaveValue(
-      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.lastName.key] as string
-    );
-    expect(practiceNameInput).toHaveValue(
-      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.practiceName.key] as string
-    );
-    expect(addressInput).toHaveValue(
-      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.address.key] as string
-    );
-    expect(mobileInput).toHaveValue(
-      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.phone.key] as string
-    );
+    expect(firstNameInput).toHaveValue(filledFieldValues[pcp.firstName.key] as string);
+    expect(lastNameInput).toHaveValue(filledFieldValues[pcp.lastName.key] as string);
+    expect(practiceNameInput).toHaveValue(filledFieldValues[pcp.practiceName.key] as string);
+    expect(addressInput).toHaveValue(filledFieldValues[pcp.address.key] as string);
+    expect(mobileInput).toHaveValue(filledFieldValues[pcp.phone.key] as string);
 
     await user.click(pcpCheckbox);
     expect(pcpCheckbox).toBeChecked();
 
     await waitFor(() => {
-      expect(firstNameInput).not.toBeVisible();
-      expect(lastNameInput).not.toBeVisible();
-      expect(practiceNameInput).not.toBeVisible();
-      expect(addressInput).not.toBeVisible();
-      expect(mobileInput).not.toBeVisible();
+      expect(document.querySelector(`input[name="${pcp.firstName.key}"]`)).not.toBeInTheDocument();
+      expect(document.querySelector(`input[name="${pcp.lastName.key}"]`)).not.toBeInTheDocument();
+      expect(document.querySelector(`input[name="${pcp.practiceName.key}"]`)).not.toBeInTheDocument();
+      expect(document.querySelector(`input[name="${pcp.address.key}"]`)).not.toBeInTheDocument();
+      expect(document.querySelector(`input[name="${pcp.phone.key}"]`)).not.toBeInTheDocument();
     });
 
     await user.click(pcpCheckbox);
     expect(pcpCheckbox).not.toBeChecked();
 
     await waitFor(() => {
-      expect(firstNameInput).toBeVisible();
-      expect(lastNameInput).toBeVisible();
-      expect(practiceNameInput).toBeVisible();
-      expect(addressInput).toBeVisible();
-      expect(mobileInput).toBeVisible();
+      expect(document.querySelector(`input[name="${pcp.firstName.key}"]`)).toBeInTheDocument();
+      expect(document.querySelector(`input[name="${pcp.lastName.key}"]`)).toBeInTheDocument();
+      expect(document.querySelector(`input[name="${pcp.practiceName.key}"]`)).toBeInTheDocument();
+      expect(document.querySelector(`input[name="${pcp.address.key}"]`)).toBeInTheDocument();
+      expect(document.querySelector(`input[name="${pcp.phone.key}"]`)).toBeInTheDocument();
     });
 
-    expect(firstNameInput).toHaveValue(
-      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.firstName.key] as string
-    );
-    expect(lastNameInput).toHaveValue(
-      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.lastName.key] as string
-    );
-    expect(practiceNameInput).toHaveValue(
-      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.practiceName.key] as string
-    );
-    expect(addressInput).toHaveValue(
-      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.address.key] as string
-    );
-    expect(mobileInput).toHaveValue(
-      filledFieldValues[PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.phone.key] as string
-    );
+    // Get fresh references after fields are re-rendered
+    const refreshedFirstNameInput = getFieldInput(pcp.firstName.key);
+    const refreshedLastNameInput = getFieldInput(pcp.lastName.key);
+    const refreshedPracticeNameInput = getFieldInput(pcp.practiceName.key);
+    const refreshedAddressInput = getFieldInput(pcp.address.key);
+    const refreshedMobileInput = getFieldInput(pcp.phone.key);
+
+    expect(refreshedFirstNameInput).toHaveValue(filledFieldValues[pcp.firstName.key] as string);
+    expect(refreshedLastNameInput).toHaveValue(filledFieldValues[pcp.lastName.key] as string);
+    expect(refreshedPracticeNameInput).toHaveValue(filledFieldValues[pcp.practiceName.key] as string);
+    expect(refreshedAddressInput).toHaveValue(filledFieldValues[pcp.address.key] as string);
+    expect(refreshedMobileInput).toHaveValue(filledFieldValues[pcp.phone.key] as string);
   });
 });
