@@ -39,6 +39,7 @@ export interface InsertFullAppointmentDataBaseResult {
   appointment: Appointment;
   encounter: Encounter;
   questionnaireResponse: QuestionnaireResponse;
+  clinicalImpression: ClinicalImpression;
 }
 
 /**
@@ -188,6 +189,9 @@ export const insertInPersonAppointmentBase = async (
     questionnaireResponse: createdResources.find(
       (resource) => resource!.resourceType === 'QuestionnaireResponse'
     ) as QuestionnaireResponse,
+    clinicalImpression: createdResources.find(
+      (resource) => resource!.resourceType === 'ClinicalImpression'
+    ) as ClinicalImpression,
   };
 };
 
