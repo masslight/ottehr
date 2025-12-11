@@ -9,7 +9,12 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getLabOrderRelatedResources, makeCommunicationRequest, makeDeleteResourceRequest } from './helpers';
+import {
+  getLabOrderRelatedResources,
+  makeCommunicationRequestForClinicalInfoNote,
+  makeCommunicationRequestForOrderNote,
+  makeDeleteResourceRequest,
+} from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -54,8 +59,17 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
       }
     });
 
-    const communicationRequest = makeCommunicationRequest(communications?.orderLevelNotes, serviceRequest);
-    if (communicationRequest) requests.push(communicationRequest);
+    const orderNoteCommunicationRequest = makeCommunicationRequestForOrderNote(
+      communications?.orderLevelNotes,
+      serviceRequest
+    );
+    if (orderNoteCommunicationRequest) requests.push(orderNoteCommunicationRequest);
+
+    const clinicalInfoNoteRequest = makeCommunicationRequestForClinicalInfoNote(
+      communications?.clinicalInfoNotes,
+      serviceRequest
+    );
+    if (clinicalInfoNoteRequest) requests.push(clinicalInfoNoteRequest);
 
     if (requests.length > 0) {
       console.log(
