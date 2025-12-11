@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-6c74464e-6580-45cc-87e1-28cd2c98c511",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-187b1c8a-854b-4200-a3f2-3b0163d55081"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-8578c070-bb78-4b1c-961e-8f33b756cc79"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "C/w poison ivy contact dermatitis"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "cw-poison-ivy-contact-dermatitis",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

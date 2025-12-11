@@ -1595,7 +1595,12 @@ export interface TemplateVariables {
 
 // <key> syntax
 export function replaceTemplateVariablesArrows(template: string, variables: TemplateVariables): string {
-  return template.replace(/<([\w-]+)>/g, (match, key) => {
-    return variables[key]?.toString() || match;
-  });
+  try {
+    if (!template) return '';
+    return template.replace(/<([\w-]+)>/g, (match, key) => {
+      return variables[key]?.toString() || match;
+    });
+  } catch {
+    return template;
+  }
 }

@@ -8,6 +8,7 @@ import { DateTime } from 'luxon';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
+import { AiChatBanner } from 'src/components/AiChatBanner';
 import {
   APIError,
   APPOINTMENT_NOT_FOUND_ERROR,
@@ -347,6 +348,10 @@ const ThankYou = (): JSX.Element => {
                 <PhoneNumberMessage locationTelecom={selectedLocation?.telecom} />
               </Typography>
               {paperworkCompleted && buttons(2)}
+              {/* only include the chat for telemedicine visit */}
+              {paperworkCompleted && appointmentData.appointment?.serviceMode === ServiceMode.virtual && (
+                <AiChatBanner appointmentId={appointmentId ?? ''} />
+              )}
             </>
           ) : (
             <>

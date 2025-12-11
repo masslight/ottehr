@@ -21,6 +21,7 @@ interface BasicDatePickerProps {
   id?: string;
   dataTestId?: string;
   component?: 'Picker' | 'Field';
+  disablePast?: boolean;
 }
 
 export function BasicDatePicker({
@@ -36,6 +37,7 @@ export function BasicDatePicker({
   id,
   dataTestId,
   component = 'Picker',
+  disablePast = false,
 }: BasicDatePickerProps): JSX.Element {
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -82,6 +84,7 @@ export function BasicDatePicker({
                     },
                   }}
                   label={label}
+                  disablePast={disablePast}
                 />
               );
             } else {
@@ -108,6 +111,7 @@ export function BasicDatePicker({
                       InputLabelProps,
                     },
                   }}
+                  disablePast={disablePast}
                 />
               );
             }

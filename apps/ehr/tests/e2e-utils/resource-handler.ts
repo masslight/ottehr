@@ -43,7 +43,7 @@ import {
   TEST_EMPLOYEE_2,
   TestEmployee,
 } from './resource/employees';
-import fastSeedData from './seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
+import fastSeedData from './seed-data';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -498,6 +498,18 @@ export class ResourceHandler {
       throw new Error(`Patient for appointment ${appointmentId} not found`);
     }
     return patientId;
+  }
+
+  async tagAppointmentForCleanup(appointmentId: string): Promise<void> {
+    const apiClient = await this.apiClient;
+    const appointment = await apiClient.fhir.get<Appointment>({
+      resourceType: 'Appointment',
+      id: appointmentId,
+    });
+
+    const taggedAppointment = addProcessIdMetaTagToResource(appointment, this.#processId!) as Appointment;
+
+    await apiClient.fhir.update<Appointment>(taggedAppointment);
   }
 
   async getTestsUserAndPractitioner(): Promise<{

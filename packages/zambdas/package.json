@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.22.26",
+  "version": "1.23.11",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -100,7 +100,7 @@
     "esbuild": "^0.25.1",
     "esbuild-plugin-copy": "^2.1.1",
     "express": "^4.21.2",
-    "glob": "^11.0.1",
+    "glob": "^11.1.0",
     "lodash": "^4.17.21",
     "tsx": "^4.19.4"
   }

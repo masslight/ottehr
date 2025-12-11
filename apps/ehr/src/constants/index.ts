@@ -450,53 +450,6 @@ export const GENDER_IDENTITY_OPTIONS = [
   },
 ];
 
-export const POINT_OF_DISCOVERY_OPTIONS = [
-  {
-    label: 'Friend/Family',
-    value: 'Friend/Family',
-  },
-  {
-    label: 'Been there with another family member',
-    value: 'Been there with another family member',
-  },
-  {
-    label: 'Pediatrician/Healthcare Professional',
-    value: 'Pediatrician/Healthcare Professional',
-  },
-  {
-    label: 'Google/Internet search',
-    value: 'Google/Internet search',
-  },
-  {
-    label: 'Internet ad',
-    value: 'Internet ad',
-  },
-  {
-    label: 'Social media community group',
-    value: 'Social media community group',
-  },
-  {
-    label: 'Webinar',
-    value: 'Webinar',
-  },
-  {
-    label: 'TV/Radio',
-    value: 'TV/Radio',
-  },
-  {
-    label: 'Newsletter',
-    value: 'Newsletter',
-  },
-  {
-    label: 'School',
-    value: 'School',
-  },
-  {
-    label: 'Drive by/Signage',
-    value: 'Drive by/Signage',
-  },
-];
-
 export const RELATIONSHIP_TO_INSURED_OPTIONS = [
   {
     label: 'Self',
@@ -661,18 +614,18 @@ export const FormFields = {
     address: { key: 'pharmacy-address', type: 'String', label: 'Pharmacy address' },
   },
   employerInformation: {
-    employerName: { key: 'employer-name', type: 'String', label: 'Employer name' },
-    addressLine1: { key: 'employer-address', type: 'String', label: 'Address line 1' },
+    employerName: { key: 'employer-name', type: 'String', label: 'Employer Name' },
+    addressLine1: { key: 'employer-address', type: 'String', label: 'Street address' },
     addressLine2: { key: 'employer-address-2', type: 'String', label: 'Address line 2' },
     city: { key: 'employer-city', type: 'String', label: 'City' },
     state: { key: 'employer-state', type: 'String', label: 'State' },
     zip: { key: 'employer-zip', type: 'String', label: 'ZIP' },
-    contactFirstName: { key: 'employer-contact-first-name', type: 'String', label: 'Contact first name' },
-    contactLastName: { key: 'employer-contact-last-name', type: 'String', label: 'Contact last name' },
-    contactTitle: { key: 'employer-contact-title', type: 'String', label: 'Contact title' },
-    contactEmail: { key: 'employer-contact-email', type: 'String', label: 'Contact email' },
-    contactPhone: { key: 'employer-contact-phone', type: 'String', label: 'Contact phone' },
-    contactFax: { key: 'employer-contact-fax', type: 'String', label: 'Contact fax' },
+    contactFirstName: { key: 'employer-contact-first-name', type: 'String', label: 'First Name' },
+    contactLastName: { key: 'employer-contact-last-name', type: 'String', label: 'Last Name' },
+    contactTitle: { key: 'employer-contact-title', type: 'String', label: 'Title' },
+    contactEmail: { key: 'employer-contact-email', type: 'String', label: 'Email' },
+    contactPhone: { key: 'employer-contact-phone', type: 'String', label: 'Mobile' },
+    contactFax: { key: 'employer-contact-fax', type: 'String', label: 'Fax' },
   },
 };
 
