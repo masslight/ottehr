@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-virtual-previsit-1_0_16": {
+    "questionnaire-virtual-previsit-1_0_17": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-        "version": "1.0.16",
+        "version": "1.0.17",
         "name": "virtual_pre-visit_paperwork",
         "title": "virtual pre-visit paperwork",
         "status": "active",
@@ -3388,6 +3388,18 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value",
                     "valueBoolean": true
+                  }
+                ]
+              },
+              {
+                "linkId": "card-payment-details-text",
+                "text": "If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.",
+                "type": "display",
+                "enableWhen": [
+                  {
+                    "question": "card-payment-details-text",
+                    "operator": "=",
+                    "answerString": "-"
                   }
                 ]
               }
