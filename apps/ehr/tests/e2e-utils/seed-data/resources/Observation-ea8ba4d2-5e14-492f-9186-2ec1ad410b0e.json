@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-ea8ba4d2-5e14-492f-9186-2ec1ad410b0e",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-59c2d8c1-87e6-4a63-9795-0b16805bb17e"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-21e09cd6-9d93-4cb2-ac4a-bd3a47f5322d"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "No rash"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "no-rash",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

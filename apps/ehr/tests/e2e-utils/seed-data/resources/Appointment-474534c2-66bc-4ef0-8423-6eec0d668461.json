@@ -1,0 +1,79 @@
+{
+  "fullUrl": "urn:uuid:Appointment-474534c2-66bc-4ef0-8423-6eec0d668461",
+  "request": {
+    "method": "POST",
+    "url": "/Appointment"
+  },
+  "resource": {
+    "resourceType": "Appointment",
+    "participant": [
+      {
+        "actor": {
+          "reference": "urn:uuid:Patient-59c2d8c1-87e6-4a63-9795-0b16805bb17e"
+        },
+        "status": "accepted"
+      },
+      {
+        "actor": {
+          "reference": "Location/{{locationId}}"
+        },
+        "status": "accepted"
+      }
+    ],
+    "start": "{{date}}T12:15:00.000Z",
+    "end": "{{date}}T12:30:00.000Z",
+    "slot": [
+      {
+        "reference": "urn:uuid:Slot-c73e4e40-14af-43c2-b067-97cf45b67a52"
+      }
+    ],
+    "appointmentType": {
+      "text": "prebook"
+    },
+    "serviceCategory": [
+      {
+        "coding": [
+          {
+            "system": "https://fhir.ottehr.com/slot-service-category",
+            "code": "in-person-service-mode"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/service-mode-service-category",
+            "code": "in-person-service-mode"
+          }
+        ]
+      },
+      {
+        "coding": [
+          {
+            "display": "Urgent Care",
+            "code": "urgent-care",
+            "system": "https://fhir.ottehr.com/CodeSystem/service-category"
+          }
+        ]
+      }
+    ],
+    "description": "Fever",
+    "status": "booked",
+    "created": "{{date}}T12:02:42.862Z",
+    "meta": {
+      "tag": [
+        {
+          "code": "OTTEHR-IP"
+        },
+        {
+          "system": "created-by",
+          "display": "Staff e2euser@masslight.com"
+        },
+        {
+          "system": "appointment-preprocessing-status",
+          "code": "APPOINTMENT_PREPROCESSED"
+        },
+        {
+          "system": "appointment-harvesting-module-status",
+          "code": "SUB_INTAKE_HARVEST_TASK_COMPLETE"
+        }
+      ]
+    }
+  }
+}

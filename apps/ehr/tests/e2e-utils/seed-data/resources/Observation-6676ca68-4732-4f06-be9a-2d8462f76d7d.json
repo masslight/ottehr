@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-6676ca68-4732-4f06-be9a-2d8462f76d7d",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-59c2d8c1-87e6-4a63-9795-0b16805bb17e"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-21e09cd6-9d93-4cb2-ac4a-bd3a47f5322d"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Regular rate and rhythm with no murmur"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "regular-rate-and-rhythm-with-no-murmur",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}
