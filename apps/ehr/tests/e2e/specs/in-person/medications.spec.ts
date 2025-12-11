@@ -13,38 +13,40 @@ import { getFirstName, getLastName } from 'utils';
 const resourceHandler = new ResourceHandler(`screening-mutating-${DateTime.now().toMillis()}`);
 
 interface MedicationsInfo {
-  medication: string;
-  doseUnits: string;
+  name: string;
+  dose: string;
   date: string;
 }
 
 const MEDICATION_A: MedicationsInfo = {
-  medication: 'Warfarin Sodium  Powder',
-  doseUnits: '1 mg',
+  name: 'Warfarin Sodium  Powder',
+  dose: '1 mg',
   date: '11/28/2025 01:00 PM',
 };
 
 const MEDICATION_B: MedicationsInfo = {
-  medication: 'Albuterol Sulfate  Powder',
-  doseUnits: '10 g',
+  name: 'Albuterol Sulfate  Powder',
+  dose: '10 g',
   date: '01/01/2025 03:00 PM',
 };
 
 const MEDICATION_C: MedicationsInfo = {
-  medication: 'Water Oral Oral Liquid',
-  doseUnits: '2 mg',
+  name: 'Water Oral Oral Liquid',
+  dose: '2 mg',
   date: '02/02/2025 02:00 PM',
 };
 
 const MEDICATION_D: MedicationsInfo = {
-  medication: 'Banana Cream Flavor  Liquid',
-  doseUnits: '5 mg',
+  name: 'Banana Cream Flavor  Liquid',
+  dose: '5 mg',
   date: '03/03/2025 05:00 PM',
 };
 
 const SCHEDULED_MEDICATION = 'Scheduled medication';
 const AS_NEEDED_MEDICATION = 'As needed medication';
 const AS_NEEDED_MEDICATION_DASH = 'As-needed medication';
+const MEDICATION_NOTE = 'Test medication note';
+const MEDICATION_NOTE_EDITED = 'Test medication note edited';
 
 test.describe('Medications Page mutating tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -62,99 +64,123 @@ test.describe('Medications Page mutating tests', () => {
     let medicationsPage = await progressNotePage.sideMenu().clickMedications();
     await medicationsPage.selectScheduledMedication(SCHEDULED_MEDICATION);
     await enterMedicationsInfo(MEDICATION_A, medicationsPage);
-    await medicationsPage.verifyScheduledMedication(MEDICATION_A.medication, MEDICATION_A.doseUnits);
+    await medicationsPage.verifyScheduledMedication(MEDICATION_A.name, MEDICATION_A.dose);
     await enterMedicationsInfo(MEDICATION_B, medicationsPage);
-    await medicationsPage.verifyScheduledMedication(MEDICATION_A.medication, MEDICATION_A.doseUnits);
-    await medicationsPage.verifyScheduledMedication(MEDICATION_B.medication, MEDICATION_B.doseUnits);
+    await medicationsPage.verifyScheduledMedication(MEDICATION_A.name, MEDICATION_A.dose);
+    await medicationsPage.verifyScheduledMedication(MEDICATION_B.name, MEDICATION_B.dose);
     await medicationsPage.selectAsNeededMedication(AS_NEEDED_MEDICATION);
     await enterMedicationsInfo(MEDICATION_C, medicationsPage);
-    await medicationsPage.verifyScheduledMedication(MEDICATION_A.medication, MEDICATION_A.doseUnits);
-    await medicationsPage.verifyScheduledMedication(MEDICATION_B.medication, MEDICATION_B.doseUnits);
-    await medicationsPage.verifyAsNeddedMedication(MEDICATION_C.medication, MEDICATION_C.doseUnits);
+    await medicationsPage.verifyScheduledMedication(MEDICATION_A.name, MEDICATION_A.dose);
+    await medicationsPage.verifyScheduledMedication(MEDICATION_B.name, MEDICATION_B.dose);
+    await medicationsPage.verifyAsNeddedMedication(MEDICATION_C.name, MEDICATION_C.dose);
     await medicationsPage.selectAsNeededMedication(AS_NEEDED_MEDICATION);
     await enterMedicationsInfo(MEDICATION_D, medicationsPage);
-    await medicationsPage.verifyScheduledMedication(MEDICATION_A.medication, MEDICATION_A.doseUnits);
-    await medicationsPage.verifyScheduledMedication(MEDICATION_B.medication, MEDICATION_B.doseUnits);
-    await medicationsPage.verifyAsNeddedMedication(MEDICATION_C.medication, MEDICATION_C.doseUnits);
-    await medicationsPage.verifyAsNeddedMedication(MEDICATION_D.medication, MEDICATION_D.doseUnits);
+    await medicationsPage.verifyScheduledMedication(MEDICATION_A.name, MEDICATION_A.dose);
+    await medicationsPage.verifyScheduledMedication(MEDICATION_B.name, MEDICATION_B.dose);
+    await medicationsPage.verifyAsNeddedMedication(MEDICATION_C.name, MEDICATION_C.dose);
+    await medicationsPage.verifyAsNeddedMedication(MEDICATION_D.name, MEDICATION_D.dose);
 
     //check orders are present in Medication history table
     await medicationsPage.clickSeeMoreButton();
     await medicationsPage.verifyMedicationInMedicationHistoryTable({
-      medication: MEDICATION_A.medication,
-      doseUnits: MEDICATION_A.doseUnits,
+      medication: MEDICATION_A.name,
+      doseUnits: MEDICATION_A.dose,
       type: SCHEDULED_MEDICATION,
       whoAdded: await getCurrentPractitionerFirstLastName(),
     });
 
     await medicationsPage.verifyMedicationInMedicationHistoryTable({
-      medication: MEDICATION_B.medication,
-      doseUnits: MEDICATION_B.doseUnits,
+      medication: MEDICATION_B.name,
+      doseUnits: MEDICATION_B.dose,
       type: SCHEDULED_MEDICATION,
       whoAdded: await getCurrentPractitionerFirstLastName(),
     });
 
     await medicationsPage.verifyMedicationInMedicationHistoryTable({
-      medication: MEDICATION_C.medication,
-      doseUnits: MEDICATION_C.doseUnits,
+      medication: MEDICATION_C.name,
+      doseUnits: MEDICATION_C.dose,
       type: AS_NEEDED_MEDICATION_DASH,
       whoAdded: await getCurrentPractitionerFirstLastName(),
     });
 
     await medicationsPage.verifyMedicationInMedicationHistoryTable({
-      medication: MEDICATION_D.medication,
-      doseUnits: MEDICATION_D.doseUnits,
+      medication: MEDICATION_D.name,
+      doseUnits: MEDICATION_D.dose,
       type: AS_NEEDED_MEDICATION_DASH,
       whoAdded: await getCurrentPractitionerFirstLastName(),
     });
     // check orders on Progress note
     progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyMedication(MEDICATION_A.medication);
+    await progressNotePage.verifyMedication(MEDICATION_A.name);
 
     progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyMedication(MEDICATION_B.medication);
+    await progressNotePage.verifyMedication(MEDICATION_B.name);
 
     progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyMedication(MEDICATION_C.medication);
+    await progressNotePage.verifyMedication(MEDICATION_C.name);
 
     progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyMedication(MEDICATION_D.medication);
+    await progressNotePage.verifyMedication(MEDICATION_D.name);
 
     // Delete the order and verify it isn't present in the list, in med history table and in progress note
 
     medicationsPage = await progressNotePage.sideMenu().clickMedications();
-    await medicationsPage.clickDeleteButton(MEDICATION_A.medication, MEDICATION_A.doseUnits);
-    await medicationsPage.clickDeleteButton(MEDICATION_C.medication, MEDICATION_C.doseUnits);
+    await medicationsPage.clickDeleteButton({ ...MEDICATION_A, type: 'scheduled' });
+    await medicationsPage.clickDeleteButton({ ...MEDICATION_B, type: 'scheduled' });
+    await medicationsPage.clickDeleteButton({ ...MEDICATION_C, type: 'as-needed' });
+    await medicationsPage.clickDeleteButton({ ...MEDICATION_D, type: 'as-needed' });
 
-    await medicationsPage.verifyScheduledMedication(MEDICATION_B.medication, MEDICATION_B.doseUnits);
-    await medicationsPage.verifyAsNeddedMedication(MEDICATION_D.medication, MEDICATION_D.doseUnits);
-    await medicationsPage.verifyRemovedScheduledMedicationIsNotVisible(MEDICATION_A.medication, MEDICATION_A.doseUnits);
-    await medicationsPage.verifyRemovedAsNeddedMedicationIsNotVisible(MEDICATION_C.medication, MEDICATION_C.doseUnits);
-
-    await medicationsPage.verifyRemovedMedicationIsNotPresentInMedicationHistoryTable({
-      medication: MEDICATION_A.medication,
-      doseUnits: MEDICATION_A.doseUnits,
-      type: SCHEDULED_MEDICATION,
-    });
+    await medicationsPage.verifyRemovedScheduledMedicationIsNotVisible(MEDICATION_A.name, MEDICATION_A.dose);
+    await medicationsPage.verifyRemovedScheduledMedicationIsNotVisible(MEDICATION_B.name, MEDICATION_B.dose);
+    await medicationsPage.verifyRemovedAsNeddedMedicationIsNotVisible(MEDICATION_C.name, MEDICATION_C.dose);
+    await medicationsPage.verifyRemovedAsNeddedMedicationIsNotVisible(MEDICATION_D.name, MEDICATION_D.dose);
 
     await medicationsPage.verifyRemovedMedicationIsNotPresentInMedicationHistoryTable({
-      medication: MEDICATION_C.medication,
-      doseUnits: MEDICATION_C.doseUnits,
+      medication: MEDICATION_A.name,
+      doseUnits: MEDICATION_A.dose,
       type: SCHEDULED_MEDICATION,
-    });
-    await medicationsPage.verifyMedicationInMedicationHistoryTable({
-      medication: MEDICATION_B.medication,
-      doseUnits: MEDICATION_B.doseUnits,
-      type: SCHEDULED_MEDICATION,
-      whoAdded: await getCurrentPractitionerFirstLastName(),
     });
 
-    await medicationsPage.verifyMedicationInMedicationHistoryTable({
-      medication: MEDICATION_D.medication,
-      doseUnits: MEDICATION_D.doseUnits,
+    await medicationsPage.verifyRemovedMedicationIsNotPresentInMedicationHistoryTable({
+      medication: MEDICATION_B.name,
+      doseUnits: MEDICATION_B.dose,
+      type: SCHEDULED_MEDICATION,
+    });
+
+    await medicationsPage.verifyRemovedMedicationIsNotPresentInMedicationHistoryTable({
+      medication: MEDICATION_C.name,
+      doseUnits: MEDICATION_C.dose,
       type: AS_NEEDED_MEDICATION_DASH,
-      whoAdded: await getCurrentPractitionerFirstLastName(),
     });
+
+    await medicationsPage.verifyRemovedMedicationIsNotPresentInMedicationHistoryTable({
+      medication: MEDICATION_D.name,
+      doseUnits: MEDICATION_D.dose,
+      type: AS_NEEDED_MEDICATION_DASH,
+    });
+
+    progressNotePage = await medicationsPage.sideMenu().clickReviewAndSign();
+    await progressNotePage.verifyRemovedMedicationIsNotShown(MEDICATION_B.name);
+    await progressNotePage.verifyRemovedMedicationIsNotShown(MEDICATION_D.name);
+    await progressNotePage.verifyRemovedMedicationIsNotShown(MEDICATION_A.name);
+    await progressNotePage.verifyRemovedMedicationIsNotShown(MEDICATION_C.name);
+
+    //ADD/edit/reove medication note, verify note medication is shown in the list, in med history table and in progress note
+    medicationsPage = await progressNotePage.sideMenu().clickMedications();
+    await medicationsPage.enterMedicationNote(MEDICATION_NOTE);
+    await medicationsPage.clickAddMedicationNoteButton();
+    await medicationsPage.verifyMedicationNote(MEDICATION_NOTE);
+    progressNotePage = await medicationsPage.sideMenu().clickReviewAndSign();
+    await progressNotePage.verifyMedicationNote(MEDICATION_NOTE);
+    medicationsPage = await progressNotePage.sideMenu().clickMedications();
+    const editDialog = await medicationsPage.clickEditNoteButton(MEDICATION_NOTE);
+    await editDialog.verifyTitle('Edit Medication Note');
+    await editDialog.clearNote();
+    await editDialog.enterNote(MEDICATION_NOTE_EDITED);
+    await editDialog.clickProceedButton();
+    await medicationsPage.verifyMedicationNote(MEDICATION_NOTE_EDITED);
+    progressNotePage = await medicationsPage.sideMenu().clickReviewAndSign();
+    await progressNotePage.verifyMedicationNote(MEDICATION_NOTE_EDITED);
   });
 });
 
@@ -169,8 +195,8 @@ async function setupPractitioners(page: Page): Promise<void> {
 }
 
 async function enterMedicationsInfo(medicationsInfo: MedicationsInfo, medicationsPage: MedicationsPage): Promise<void> {
-  await medicationsPage.selectMedication(medicationsInfo.medication);
-  await medicationsPage.enterDoseUnits(medicationsInfo.doseUnits);
+  await medicationsPage.selectMedication(medicationsInfo.name);
+  await medicationsPage.enterDoseUnits(medicationsInfo.dose);
   await medicationsPage.enterDateInput(medicationsInfo.date);
   await medicationsPage.clickAddButton();
 }

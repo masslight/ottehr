@@ -634,5 +634,13 @@ export const dataTestIds = {
     addNoteButton: 'add-medication-note-button',
     seeMoreButton: 'see-more-button',
     deleteIcon: 'DeleteOutlinedIcon',
+    pencilIconButton: 'EditOutlinedIcon',
+  },
+
+  editNoteDialog: {
+    cancelButton: 'edit-note-dialog-cancel-button',
+    proceedButton: 'edit-note-dialog-proceed-button',
+    title: 'edit-note-dialog-title',
+    message: 'edit-note-dialog-message',
   },
 };

@@ -1,6 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { SideMenu } from '../SideMenu';
+import { EditNoteDialog, expectEditNoteDialog } from './EditNoteDialog';
 
 export class MedicationsPage {
   #page: Page;
@@ -87,8 +88,12 @@ export class MedicationsPage {
       .fill(note);
   }
 
+  async verifyMedicationNote(note: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem)).toHaveText(note);
+  }
+
   async clickAddMedicationNoteButton(): Promise<MedicationsPage> {
-    await this.#page.getByTestId(dataTestIds.screeningPage.addNoteButton).click();
+    await this.#page.getByTestId(dataTestIds.medicationsPage.addNoteButton).click();
     return expectMedicationsPage(this.#page);
   }
 
@@ -160,12 +165,25 @@ export class MedicationsPage {
     await this.#page.getByTestId(dataTestIds.medicationsPage.seeMoreButton).click();
   }
 
-  async clickDeleteButton(medicationName: string, dose: string): Promise<void> {
+  async clickDeleteButton(medication: { name: string; dose: string; type: 'scheduled' | 'as-needed' }): Promise<void> {
     await this.#page
-      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsScheduledList)
-      .filter({ hasText: medicationName + '(' + dose })
+      .getByTestId(
+        dataTestIds.telemedEhrFlow.hpiCurrentMedicationsListItem(
+          dataTestIds.telemedEhrFlow.hpiCurrentMedicationsList(medication.type)
+        )
+      )
+      .filter({ hasText: medication.name + '(' + medication.dose })
       .getByTestId(dataTestIds.medicationsPage.deleteIcon)
       .click();
+  }
+
+  async clickEditNoteButton(note: string): Promise<EditNoteDialog> {
+    await this.#page
+      .getByTestId(dataTestIds.screeningPage.screeningNoteItem)
+      .filter({ hasText: note })
+      .getByTestId(dataTestIds.medicationsPage.pencilIconButton)
+      .click();
+    return expectEditNoteDialog(this.#page);
   }
 }
 

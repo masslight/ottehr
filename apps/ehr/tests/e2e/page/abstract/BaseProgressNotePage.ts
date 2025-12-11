@@ -160,6 +160,14 @@ export abstract class BaseProgressNotePage {
     ).toBeVisible();
   }
 
+  async verifyMedicationNote(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer).filter({
+        hasText: note,
+      })
+    ).toBeVisible();
+  }
+
   async verifyRemovedMedicationIsNotShown(medication: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer).filter({
