@@ -720,7 +720,7 @@ const injectMetadataIfNeeded = (maybeMetadata: Appointment['meta']): Appointment
       tag: [
         {
           system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-          code: `failsafe-${process.env.PLAYWRIGHT_SUITE_ID}`,
+          code: process.env.PLAYWRIGHT_SUITE_ID,
         },
       ],
     };

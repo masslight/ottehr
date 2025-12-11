@@ -1680,7 +1680,13 @@ const parseObservationForPDF = (
   } else if (observation.valueString) {
     value = observation.valueString;
   } else if (observation.valueCodeableConcept) {
-    value = observation.valueCodeableConcept.coding?.map((coding) => coding.display).join(', ') || '';
+    // when it's a codeable concept, oystehr writes OBX-5 in coding.code, and then if there was also a note, we stick it in display as well as in observation.note
+    // so as a result, you end up with duplicated info. so we'll split it out based on whether or not there's a note
+    if (observation.note?.length) {
+      value = observation.valueCodeableConcept.coding?.find((coding) => coding.code)?.code || '';
+    } else {
+      value = observation.valueCodeableConcept.coding?.map((coding) => coding.display).join(', ') || '';
+    }
   }
 
   const referenceRangeText = observation.referenceRange

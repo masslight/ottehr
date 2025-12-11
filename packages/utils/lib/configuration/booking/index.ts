@@ -155,6 +155,9 @@ type BookingQuestionnaireLinkId = NonNullable<
 
 const hiddenBookingFields: BookingQuestionnaireLinkId[] = [];
 
+const DEFAULT_PAPERWORK_CREDIT_CARD_DETAILS_COPY =
+  'If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.';
+
 const BOOKING_DEFAULTS = {
   reasonForVisitOptions: REASON_FOR_VISIT_OPTIONS,
   cancelReasonOptions: CANCEL_REASON_OPTIONS,
@@ -180,6 +183,11 @@ const BOOKING_DEFAULTS = {
     throw new Error('No booking questionnaire configured');
   },
   mapBookingQRItemToPatientInfo,
+  paperwork: {
+    creditCardDetails: {
+      copy: DEFAULT_PAPERWORK_CREDIT_CARD_DETAILS_COPY,
+    },
+  },
 };
 
 // todo: it would be nice to use zod to validate the merged booking config shape here

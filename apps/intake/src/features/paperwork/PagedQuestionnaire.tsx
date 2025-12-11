@@ -284,7 +284,7 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 }) => {
   const [isSavingProgress, setIsSavingProgress] = useState(false);
 
-  const { saveButtonDisabled } = usePaperworkContext();
+  const { questionnaireResponse, saveButtonDisabled } = usePaperworkContext();
   const { continueLabel } = usePaperworkStore();
   //console.log('questionnaire response.q', questionnaireResponse?.questionnaire);
   //console.log('all items', allItems);
@@ -310,10 +310,13 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
     return {
       ...baseStuff,
       submitDisabled: baseStuff.loading || isLoading || saveButtonDisabled,
-      submitLabel: continueLabel,
+      // only use the continue label with inperson paperwork
+      submitLabel: questionnaireResponse?.questionnaire?.includes('intake-paperwork-inperson')
+        ? continueLabel
+        : undefined,
       onSubmit: submitHandler,
     };
-  }, [continueLabel, controlButtons, isLoading, saveButtonDisabled, submitHandler]);
+  }, [continueLabel, controlButtons, isLoading, questionnaireResponse, saveButtonDisabled, submitHandler]);
 
   useBeforeUnload(() => {
     saveProgress(formValues);

@@ -55,5 +55,5 @@ export * from './patient-visit-history.types';
 export * from './bulk-update-insurance-status.types';
 export * from './update-invoice-task.types';
 export * from './visit-details';
-export * from './generate-statement.types';
+export * from './get-patient-and-responsible-party-info.types';
 export * from './get-booking-questionnaire.types';

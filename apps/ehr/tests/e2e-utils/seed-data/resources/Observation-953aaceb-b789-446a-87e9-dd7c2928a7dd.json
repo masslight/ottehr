@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-953aaceb-b789-446a-87e9-dd7c2928a7dd",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-187b1c8a-854b-4200-a3f2-3b0163d55081"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-8578c070-bb78-4b1c-961e-8f33b756cc79"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "Normal testicular exam, no tenderness, no erythema, cremasteric reflexes present"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "normal-testicular-exam",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}
