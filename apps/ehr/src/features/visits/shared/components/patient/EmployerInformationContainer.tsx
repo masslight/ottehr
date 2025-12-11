@@ -22,29 +22,6 @@ export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoa
           control={control}
           data-testid={dataTestIds.employerInformationContainer.employerName}
           disabled={isLoading}
-          rules={{
-            validate: (value, formValues) => {
-              const hasAnyEmployerInfo =
-                formValues[employerInformation.addressLine1.key] ||
-                formValues[employerInformation.addressLine2.key] ||
-                formValues[employerInformation.city.key] ||
-                formValues[employerInformation.state.key] ||
-                formValues[employerInformation.zip.key] ||
-                formValues[employerInformation.contactFirstName.key] ||
-                formValues[employerInformation.contactLastName.key] ||
-                formValues[employerInformation.contactTitle.key] ||
-                formValues[employerInformation.contactEmail.key] ||
-                formValues[employerInformation.contactPhone.key] ||
-                formValues[employerInformation.contactFax.key];
-              const nameIsEmpty = !value?.trim();
-
-              if (hasAnyEmployerInfo && nameIsEmpty) {
-                return 'Employer name is required if entering Employer Information';
-              }
-
-              return true;
-            },
-          }}
         />
       </Row>
       <Row label={employerInformation.addressLine1.label}>
