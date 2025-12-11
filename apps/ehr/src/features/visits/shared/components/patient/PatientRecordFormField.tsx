@@ -47,7 +47,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
 }) => {
   const { control, watch, setValue, getValues } = useFormContext();
 
-  const { triggers, enableBehavior = 'any', dynamicPopulation } = item;
+  const { triggers, enableBehavior = 'any', dynamicPopulation, disabledDisplay } = item;
 
   const triggeredEffects = (() => {
     if (!triggers || triggers.length === 0) {
@@ -172,6 +172,10 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
       }
     }
   }, [sourceFieldValue, isDisabled, dynamicPopulation, item.key, setValue, getValues]);
+
+  if (isDisabled && disabledDisplay === 'hidden') {
+    return null;
+  }
 
   const rules = (() => {
     // console.log('otherGroupKeys, adding rules for', item.key);

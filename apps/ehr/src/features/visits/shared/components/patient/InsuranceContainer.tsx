@@ -124,7 +124,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     items: FormFields,
     hiddenFields,
     requiredFields,
-  } = usePatientRecordFormSection({ formSection: insuranceSection, ordinal: ordinal - 1 });
+  } = usePatientRecordFormSection({ formSection: insuranceSection, index: ordinal - 1 });
 
   const { LocalAddressFields, LocalIdentifyingFields } = useMemo(
     () => ({

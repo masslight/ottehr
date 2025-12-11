@@ -26,23 +26,6 @@ const ehrPatientRecordForm: {
 
 /*
   THE SOURCE COMMENT
-  triggers:
-  enabledWhen
-  requireWhen
-
-  conditional data population:
-  fillFromWhenDisabled
-
-   {
-                    "question": "responsible-party-relationship",
-                    "operator": "!=",
-                    "answerString": "Self"
-                  },
-                  {
-                    "question": "responsible-party-address-as-patient",
-                    "operator": "!=",
-                    "answerBoolean": true
-                  }
 */
 const triggerEffectSchema = z.enum(['enable', 'require']);
 const triggerSchema = z
@@ -123,7 +106,7 @@ const FormFields = {
         type: 'string',
         label: 'SSN',
         dataType: 'SSN',
-        triggers: [
+        /*triggers: [
           {
             targetQuestionLinkId: 'should-display-ssn-field',
             effect: ['enable', 'require'],
@@ -131,6 +114,8 @@ const FormFields = {
             answerBoolean: true,
           },
         ],
+        disabledDisplay: 'hidden',
+        */
       },
     },
     hiddenFields: [],
@@ -166,8 +151,17 @@ const FormFields = {
       },
       genderIdentityDetails: {
         key: 'patient-gender-identity-details',
-        label: '',
+        label: 'Please specify gender identity',
         type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'patient-gender-identity',
+            effect: ['require', 'enable'],
+            operator: '=',
+            answerString: formValueSets.genderIdentityOptions[formValueSets.genderIdentityOptions.length - 1].value,
+          },
+        ],
+        disabledDisplay: 'hidden',
       },
       language: {
         key: 'preferred-language',
@@ -175,7 +169,20 @@ const FormFields = {
         type: 'choice',
         options: formValueSets.languageOptions,
       },
-      otherLanguage: { key: 'other-preferred-language', label: '', type: 'string' },
+      otherLanguage: {
+        key: 'other-preferred-language',
+        label: 'Please specify other language',
+        type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: 'preferred-language',
+            effect: ['require', 'enable'],
+            operator: '=',
+            answerString: formValueSets.languageOptions[formValueSets.languageOptions.length - 1].value,
+          },
+        ],
+        disabledDisplay: 'hidden',
+      },
       sendMarketing: { key: 'mobile-opt-in', label: 'Send marketing messages', type: 'boolean' },
       pointOfDiscovery: {
         key: 'patient-point-of-discovery',
@@ -590,6 +597,7 @@ const FormFieldsValueTypeSchema = z
     triggers: z.array(triggerSchema).optional(),
     dynamicPopulation: dynamicPopulationSchema.optional(),
     enableBehavior: z.enum(['all', 'any']).default('any').optional(),
+    disabledDisplay: z.enum(['hidden', 'disabled']).default('disabled'),
   })
   .refine(
     (data) => {

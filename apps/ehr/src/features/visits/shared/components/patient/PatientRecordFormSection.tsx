@@ -14,7 +14,7 @@ const PatientRecordFormSection: FC<PatientRecordFormSectionInput> = ({
   titleWidget,
   ordinal,
 }) => {
-  const { title, linkId, isHidden } = usePatientRecordFormSection({ formSection, ordinal });
+  const { title, linkId, isHidden } = usePatientRecordFormSection({ formSection, index: ordinal });
   if (isHidden) {
     return null;
   }
@@ -35,16 +35,16 @@ interface FormSectionDetails {
 }
 interface UseFormSectionParams {
   formSection: FormFieldSection;
-  ordinal?: number;
+  index?: number;
 }
-export const usePatientRecordFormSection = ({ formSection, ordinal }: UseFormSectionParams): FormSectionDetails => {
+export const usePatientRecordFormSection = ({ formSection, index }: UseFormSectionParams): FormSectionDetails => {
   let linkId = formSection.linkId;
-  if (ordinal !== undefined && Array.isArray(formSection.linkId)) {
-    linkId = formSection.linkId[ordinal];
+  if (index !== undefined && Array.isArray(formSection.linkId)) {
+    linkId = formSection.linkId[index];
   }
   if (typeof linkId !== 'string') {
     throw new Error(
-      'Form section linkId must be a string when used with useFormSection. Did you forget to pass ordinal?'
+      'Form section linkId must be a string when used with useFormSection. Did you forget to pass index?'
     );
   }
   const { title, items, hiddenFields, requiredFields } = formSection;
@@ -52,14 +52,14 @@ export const usePatientRecordFormSection = ({ formSection, ordinal }: UseFormSec
     ? PATIENT_RECORD_CONFIG.hiddenFormSections.some((section) => linkId.includes(section))
     : PATIENT_RECORD_CONFIG.hiddenFormSections.includes(linkId);
   let itemsToUse = items;
-  if (Array.isArray(items) && ordinal !== undefined) {
-    itemsToUse = items[ordinal];
+  if (Array.isArray(items) && index !== undefined) {
+    itemsToUse = items[index];
   }
 
   const validatedItemsToUse = FormFieldItemRecordSchema.safeParse(itemsToUse).data;
 
   if (!validatedItemsToUse) {
-    throw new Error('Form section items could not be validated. Did you forget to pass ordinal?');
+    throw new Error('Form section items could not be validated. Did you forget to pass index?');
   }
 
   return {
