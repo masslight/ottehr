@@ -5,11 +5,11 @@ import { DateTime } from 'luxon';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
-  getActiveAccountGuarantorReference,
   getEmailForIndividual,
   getFullName,
   GetPatientAndResponsiblePartyInfoEndpointOutput,
   getPhoneNumberForIndividual,
+  getResponsiblePartyFromAccount,
   getSecret,
   getSMSNumberForIndividual,
   mapGenderToLabel,
@@ -18,7 +18,6 @@ import {
   PATIENT_PHONE_NOT_FOUND_ERROR,
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
   SecretsKeys,
-  takeContainedOrFind,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -34,7 +33,7 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'get-patient-and-responsible-party-info';
 
-type PatientResources = { patient: Patient; responsibleParty: RelatedPerson; patientPhoneNumber: string };
+type PatientResources = { patient: Patient; responsibleParty: RelatedPerson | Patient; patientPhoneNumber: string };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -97,12 +96,7 @@ async function getAndValidateFhirResources(oystehr: Oystehr, patientId: string):
   const patientPhoneNumber = getSMSNumberForIndividual(relatedPerson);
   if (!patientPhoneNumber) throw PATIENT_PHONE_NOT_FOUND_ERROR;
 
-  const responsiblePartyRef = getActiveAccountGuarantorReference(billingAccount);
-  if (!responsiblePartyRef)
-    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No responsible party reference found for account: ${billingAccount.id}`);
-  const responsibleParty = takeContainedOrFind(responsiblePartyRef, resources as Resource[], billingAccount) as
-    | RelatedPerson
-    | undefined;
+  const responsibleParty = getResponsiblePartyFromAccount(billingAccount, resources as Resource[]);
   if (!responsibleParty)
     throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(
       `Responsible party (fhir RelatedPerson) not found for account: ${billingAccount.id}`
