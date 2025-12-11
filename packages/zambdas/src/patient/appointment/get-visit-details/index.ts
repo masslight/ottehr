@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
 import { createOystehrClient, getSecret, GetVisitDetailsResponse, isFollowupEncounter, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
-import { getMedications, getPaymentDataRequest, getPresignedURLs } from './helpers';
+import { getMedications, getPresignedURLs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -58,19 +58,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     } catch (error) {
       captureException(error);
       console.log('getEncounterForAppointment', error);
-    }
-
-    let paymentInfo = null;
-
-    try {
-      paymentInfo = await getPaymentDataRequest(
-        getSecret(SecretsKeys.PROJECT_API, secrets),
-        oystehrToken,
-        encounter?.id
-      );
-    } catch (error) {
-      captureException(error);
-      console.log('getPaymentDataRequest', error);
     }
 
     let documents = null;
@@ -136,11 +123,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       files: documents || {},
       medications: medications || [],
       appointmentTime,
-      charge: {
-        amount: paymentInfo?.amount || NaN,
-        currency: paymentInfo?.currency || '',
-        date: paymentInfo?.date || '',
-      },
       followUps,
     };
 

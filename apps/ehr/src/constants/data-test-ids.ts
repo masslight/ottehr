@@ -361,6 +361,7 @@ export const dataTestIds = {
     medicalDecisionLink: 'medical-decision-link',
     emCodeLink: 'em-code-link',
     hpiLink: 'hpi-link',
+    ccLink: 'chief-complaint-link',
     visitNoteCard: 'visit-note-card',
     procedureItem: 'procedure-item',
     vaccineItem: 'vaccine-item',
@@ -370,6 +371,12 @@ export const dataTestIds = {
     medicalConditionsContainer: 'medical-conditions-container',
     surgicalHistoryContainer: 'surgical-history-container',
     additionalQuestions: 'additional-questions',
+    supervisorApprovalCheckbox: 'supervisor-approval-checkbox',
+    hpiContainer: 'hpi-container',
+  },
+  hpiAndTemplatesPage: {
+    hpiTitle: 'hpi-title',
+    hpiNotes: 'hpi-notes',
   },
   assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',

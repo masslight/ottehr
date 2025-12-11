@@ -44,6 +44,10 @@ export const LabsTable = ({
   };
 
   const onRowClickForDrDrivenResult = (result: ReflexLabDTO | PdfAttachmentDTO): void => {
+    if (!result.appointmentId || !result.resultsDetails?.[0].diagnosticReportId) {
+      console.error(`Unable to navigate to dr result row, missing appointmentId or dr id`, result);
+      throw new Error('Unable to navigate to dr result row, missing appointmentId or dr id');
+    }
     // todo labs future resultsDetails maybe does not need to be an array anymore
     navigateTo(getDrExternalLabEditUrl(result.appointmentId, result.resultsDetails?.[0].diagnosticReportId));
   };

@@ -752,6 +752,12 @@ const AskThePatient = (): React.ReactElement => {
     }
   };
 
+  const fieldsToRender = patientScreeningQuestionsConfig.fields.filter((field) => !field.existsInQuestionnaire);
+
+  if (fieldsToRender.length === 0) {
+    return <></>;
+  }
+
   return (
     <Paper elevation={3} sx={{ p: 3, mt: 3, boxShadow: '0px 2px 4px -1px rgba(0,0,0,0.1)' }}>
       <Grid container>
@@ -761,9 +767,7 @@ const AskThePatient = (): React.ReactElement => {
           </Typography>
         </Grid>
 
-        {patientScreeningQuestionsConfig.fields
-          .filter((field) => !field.existsInQuestionnaire)
-          .map((field) => renderField(field))}
+        {fieldsToRender.map((field) => renderField(field))}
       </Grid>
     </Paper>
   );

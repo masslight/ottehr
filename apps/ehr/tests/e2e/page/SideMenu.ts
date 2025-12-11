@@ -1,6 +1,7 @@
 import { Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { expectHospitalizationPage, HospitalizationPage } from './HospitalizationPage';
+import { expectHpiAndTemplatesPage, HpiAndTemplatesPage } from './HpiAndTemplatesPage';
 import { AllergiesPage, expectAllergiesPage } from './in-person/AllergiesPage';
 import { expectInHouseLabsPage, InHouseLabsPage } from './in-person/InHouseLabsPage';
 import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './in-person/InHouseMedicationsPage';
@@ -49,6 +50,11 @@ export class SideMenu {
   async clickCcAndIntakeNotes(): Promise<PatientInfoPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('cc-and-intake-notes')).click();
     return expectPatientInfoPage(this.#page);
+  }
+
+  async clickHpiAndTemplates(): Promise<HpiAndTemplatesPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('history-of-present-illness-and-templates')).click();
+    return expectHpiAndTemplatesPage(this.#page);
   }
 
   async clickReviewAndSign(): Promise<InPersonProgressNotePage> {

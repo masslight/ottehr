@@ -13,8 +13,10 @@ import {
   Reference,
   Resource,
   ServiceRequest,
+  Task,
 } from 'fhir/r4b';
 import { ObservationDTO } from 'utils';
+import z from 'zod';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 import {
   AiObservationField,
@@ -38,6 +40,7 @@ export interface AIChatDetails {
 export interface AllChartValues {
   chiefComplaint?: FreeTextNoteDTO;
   historyOfPresentIllness?: FreeTextNoteDTO;
+  mechanismOfInjury?: FreeTextNoteDTO;
   ros?: FreeTextNoteDTO;
   conditions?: MedicalConditionDTO[];
   medications?: MedicationDTO[];
@@ -73,6 +76,7 @@ export type RequestedFields =
   | 'surgicalHistoryNote'
   | 'chiefComplaint'
   | 'historyOfPresentIllness'
+  | 'mechanismOfInjury'
   | 'ros'
   | 'episodeOfCare'
   | 'prescribedMedications'
@@ -104,22 +108,28 @@ export type ChartDataResources =
   | Observation
   | Procedure
   | ServiceRequest
-  | EpisodeOfCare;
+  | EpisodeOfCare
+  | Task;
 
 export interface ChartDataWithResources {
   chartData: GetChartDataResponse;
   chartResources: Resource[];
 }
 
-export interface SaveableDTO {
-  resourceId?: string;
-  derivedFrom?: string;
-  createICDRecommendations?: boolean;
-}
+export const saveableDTOSchema = z.object({
+  resourceId: z.string().uuid().optional(),
+  derivedFrom: z.string().optional(),
+  createICDRecommendations: z.boolean().optional(),
+});
 
-export interface FreeTextNoteDTO extends SaveableDTO {
-  text?: string;
-}
+export type SaveableDTO = z.infer<typeof saveableDTOSchema>;
+
+export const freeTextNoteDTOSchema = z.object({
+  ...saveableDTOSchema.shape,
+  text: z.string().optional(),
+});
+
+export type FreeTextNoteDTO = z.infer<typeof freeTextNoteDTOSchema>;
 
 export interface BooleanValueDTO {
   value?: boolean;
@@ -270,9 +280,12 @@ export interface CPTCodeDTO extends SaveableDTO {
   display: string;
 }
 
-export interface ClinicalImpressionDTO extends SaveableDTO {
-  text?: string;
-}
+export const clinicalImpressionDTOSchema = z.object({
+  ...saveableDTOSchema.shape,
+  text: z.string().optional(),
+});
+
+export type ClinicalImpressionDTO = z.infer<typeof clinicalImpressionDTOSchema>;
 
 export interface CommunicationDTO extends SaveableDTO {
   text?: string;

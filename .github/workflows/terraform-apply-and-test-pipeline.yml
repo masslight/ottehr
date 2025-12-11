@@ -31,6 +31,11 @@ on:
         required: false
         type: boolean
         default: true
+      skip_terraform_apply:
+        description: 'Skip Terraform Apply (run jobs in parallel without apply)'
+        required: false
+        type: boolean
+        default: false
   push:
     branches: [main, develop]
     paths:
@@ -43,6 +48,7 @@ on:
       - ".github/**"
       - ".prettierignore"
       - "package.json"
+      - "config/**"
   pull_request:
     branches: [main, develop, 'release/**']
     paths:
@@ -55,6 +61,7 @@ on:
       - ".github/**"
       - ".prettierignore"
       - "package.json"
+      - "config/**"
 
 
 env:
@@ -63,23 +70,17 @@ env:
   AWS_DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE }}
   SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }}
 
-concurrency:
-  group: terraform-apply-${{ (github.event.inputs.environment == 'local' && 'local') || (github.event.inputs.environment == 'e2e' && 'e2e') || (github.repository == 'masslight/ottehr' && 'e2e') || 'local' }}
-  cancel-in-progress: false
-
 jobs:
-  deploy:
-    runs-on: ubuntu-latest-8-cores
-    timeout-minutes: 25
-    permissions:
-      id-token: write # Required for OIDC
-      contents: read
+  determine-environment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
     outputs:
-      environment: ${{ steps.context.outputs.environment }}
-
+      environment: ${{ steps.env.outputs.environment }}
+      should-run-apply: ${{ steps.check.outputs.should-run-apply }}
+      concurrency-group: ${{ steps.concurrency.outputs.group }}
     steps:
       - name: Determine Environment
-        id: context
+        id: env
         run: |
           INPUT_ENV="${{ inputs.environment }}"
           if [ -n "$INPUT_ENV" ]; then
@@ -99,12 +100,6 @@ jobs:
           echo "Deployment environment: $ENV"
           echo "environment=$ENV" >> $GITHUB_OUTPUT
 
-      - name: Log deployment info
-        run: |
-          echo "Deploying E2E environment"
-          echo "Branch: ${{ github.ref }}"
-          echo "Environment: ${{ steps.context.outputs.environment }}"
-
       - name: Checkout repository
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
         with:
@@ -115,186 +110,130 @@ jobs:
         with:
           node-version: ${{ inputs.node_version || env.NODE_VERSION }}
 
-      - name: HashiCorp - Setup Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-        with:
-          terraform_version: "1.12.2"
-
-      - name: Cache node modules
-        id: npm-cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            node_modules
-            packages/*/node_modules
-            apps/*/node_modules
-            deploy/node_modules
-          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-cache-
-
-      - name: Install dependencies
-        if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Check out secrets repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
-        with:
-          repository: ${{ inputs.secrets_repository || env.SECRETS_REPOSITORY }}
-          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
-          path: 'secrets'
-
-      - name: Copy secrets to appropriate locations
+      - name: Check if Terraform Apply is needed
+        id: check
         run: |
-          npm exec -- tsx ./scripts/secrets.ts populate ${{ steps.context.outputs.environment }}
-          npm exec -- tsx ./scripts/secrets.ts validate ${{ steps.context.outputs.environment }}
-
-      - name: Configure AWS Credentials
-        id: configure-aws-credentials
-        uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3.0.2
-        with:
-          role-to-assume: ${{ inputs.aws_deploy_role || env.AWS_DEPLOY_ROLE }}
-          aws-region: us-east-1
-          output-credentials: true
-
-      - name: Configure AWS CLI
-        run: |
-          aws_profile=$(grep '"aws_profile"' "scripts/deploy/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
-          if [ -z "$aws_profile" ]; then
-            aws_profile=$(grep "profile" "deploy/backend.config" | sed 's/.* = "\(.*\)".*/\1/')
-          fi
-          profile="${aws_profile:-ottehr}"
-          echo "Using AWS profile: ${profile}"
-          aws configure --profile "${profile}" set aws_access_key_id ${{ steps.configure-aws-credentials.outputs.aws-access-key-id }}
-          aws configure --profile "${profile}" set aws_secret_access_key ${{ steps.configure-aws-credentials.outputs.aws-secret-access-key }}
-          aws configure --profile "${profile}" set aws_session_token ${{ steps.configure-aws-credentials.outputs.aws-session-token }}
-          aws configure --profile "${profile}" set region us-east-1
-
-      - name: Check for skip deploy
-        if: contains(github.event.pull_request.body, '/skip-terraform-apply')
-        run: echo "Deploy skipped via /skip-terraform-apply command"
-
-      - name: Deploy Ottehr Resources Using Terraform
-        if: ${{ !contains(github.event.pull_request.body, '/skip-terraform-apply') }}
-        working-directory: deploy
-        run: |
-          ENV="${{ steps.context.outputs.environment }}"
-          
-          # Safety check: only allow local and e2e environments
-          if [[ "$ENV" != "local" && "$ENV" != "e2e" ]]; then
-            echo "Error: This workflow only supports 'local' and 'e2e' environments. Got: $ENV"
-            exit 1
-          fi
-          
-          npm run terraform-init -- -input=false
-
-          npm run apply-$ENV
-
-  automated-tests:
-    needs: deploy
-    if: |
-      always() && !cancelled() &&
-      needs.deploy.result == 'success' &&
-      (github.event.inputs.run_automated_tests != 'false' || github.event_name != 'workflow_dispatch') &&
-      !contains(github.event.pull_request.body, '/skip-automated-tests')
-    uses: ./.github/workflows/automated-tests.yml
-    secrets: inherit
-    with:
-      environment: ${{ needs.deploy.outputs.environment }}
-
-  ehr-e2e-tests:
-    needs: deploy
-    if: |
-      always() && !cancelled() &&
-      needs.deploy.result == 'success' &&
-      (github.event.inputs.run_ehr_e2e != 'false' || github.event_name != 'workflow_dispatch')
-    uses: ./.github/workflows/e2e-ehr.yml
-    secrets: inherit
-    with:
-      environment: ${{ needs.deploy.outputs.environment }}
-
-  intake-e2e-tests:
-    needs: deploy
-    if: |
-      always() && !cancelled() &&
-      needs.deploy.result == 'success' &&
-      (github.event.inputs.run_intake_e2e != 'false' || github.event_name != 'workflow_dispatch')
-    uses: ./.github/workflows/e2e-intake.yml
-    secrets: inherit
-    with:
-      environment: ${{ needs.deploy.outputs.environment }}
-
-  # Create status check aliases for required checks
-  status-aliases:
-    needs: [ehr-e2e-tests, intake-e2e-tests]
-    if: always() && !cancelled()
-    runs-on: ubuntu-latest
-    permissions:
-      statuses: write
-    steps:
-      - name: Check for skip commands
-        if: github.event_name == 'pull_request'
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          SKIP_COMMANDS=(
-            "/skip-terraform-apply"
-            "/skip-build-and-lint"
-            "/skip-automated-tests"
-            "/skip-ehr-e2e"
-            "/skip-intake-e2e"
-          )
-          
-          FOUND_COMMANDS=()
-          
-          for cmd in "${SKIP_COMMANDS[@]}"; do
-            if [[ "$PR_BODY" == *"$cmd"* ]]; then
-              FOUND_COMMANDS+=("$cmd")
+          ENV="${{ steps.env.outputs.environment }}"
+          # For workflow_dispatch on e2e environment, check skip_terraform_apply input
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ inputs.skip_terraform_apply }}" == "true" ]; then
+              echo "Skip Terraform Apply input is true - skipping Terraform Apply"
+              echo "should-run-apply=false" >> $GITHUB_OUTPUT
+            else
+              echo "Workflow dispatch without skip flag - running Terraform Apply"
+              echo "should-run-apply=true" >> $GITHUB_OUTPUT
             fi
-          done
-          
-          if [ ${#FOUND_COMMANDS[@]} -gt 0 ]; then
-            echo "Found skip commands in PR description:"
-            for cmd in "${FOUND_COMMANDS[@]}"; do
-              echo "  - $cmd"
-            done
-            echo ""
-            echo "Skip commands are not allowed for merging. Please remove them before merging."
-            exit 1
+            exit 0
           fi
           
-          echo "No skip commands found"
+          # Check for force run command in PR description
+          if [ "${{ contains(github.event.pull_request.body || '', '/run-terraform-apply') }}" == "true" ]; then
+            echo "Force run enabled via PR command /run-terraform-apply"
+            echo "should-run-apply=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # For push/pull_request, check changed files
+          TRACKED_FILES=$(node -e "
+            const config = require('./.github/trigger-paths.js');
+            console.log(config.getTerraformApplyPaths().join(' '));
+          ")
+          
+          # Get changed files
+          # For PRs: compare base vs head to see all PR changes
+          # For push: use before/after SHA to capture all changes in the push
+          #   (works for merge commits, squash merges, fast-forward, direct pushes)
+          CHANGED_FILES=""
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || echo "")
+          else
+            # For push events, get all files in the push
+            # Works for merge commits, squash merges, and direct pushes
+            BEFORE_SHA="${{ github.event.before }}"
+            AFTER_SHA="${{ github.event.after }}"
+            
+            if [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+              CHANGED_FILES=$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" 2>/dev/null || echo "")
+            else
+              # Fallback for first push or if before SHA is unavailable
+              CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+            fi
+          fi
+          
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No changed files detected - skipping Terraform Apply"
+            echo "should-run-apply=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          echo ""
+          echo "Tracking paths: $TRACKED_FILES"
+          
+          # Check if any changed file matches tracked paths
+          HAS_RELEVANT_CHANGES=false
+          while IFS= read -r file; do
+            if [ -z "$file" ]; then
+              continue
+            fi
+            for pattern in $TRACKED_FILES; do
+              if [[ "$file" == "$pattern"* ]]; then
+                echo "Found relevant change: $file matches pattern $pattern"
+                HAS_RELEVANT_CHANGES=true
+                break
+              fi
+            done
+            if [ "$HAS_RELEVANT_CHANGES" == "true" ]; then
+              break
+            fi
+          done <<< "$CHANGED_FILES"
+          
+          if [ "$HAS_RELEVANT_CHANGES" == "true" ]; then
+            echo "Relevant changes found - running Terraform Apply"
+            echo "should-run-apply=true" >> $GITHUB_OUTPUT
+          else
+            echo "No relevant changes - skipping Terraform Apply"
+            echo "should-run-apply=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Create EHR E2E status alias
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const ehrJob = '${{ needs.ehr-e2e-tests.result }}';
-            const conclusion = ehrJob === 'success' ? 'success' : ehrJob === 'failure' ? 'failure' : 'error';
+      - name: Determine Concurrency Group
+        id: concurrency
+        run: |
+          ENV="${{ steps.env.outputs.environment }}"
+          SHOULD_RUN_APPLY="${{ steps.check.outputs.should-run-apply }}"
+          
+          if [ "$SHOULD_RUN_APPLY" == "true" ]; then
+            # Sequential group for PRs that need terraform apply
+            GROUP="terraform-pipeline-${ENV}-sequential"
+            echo "Using sequential concurrency group: $GROUP"
+          else
+            # Unique group for parallel execution (each workflow run gets its own group)
+            GROUP="terraform-pipeline-${ENV}-parallel-${{ github.run_id }}"
+            echo "Using parallel concurrency group: $GROUP"
+          fi
+          
+          echo "group=$GROUP" >> $GITHUB_OUTPUT
 
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: context.sha,
-              state: conclusion,
-              context: 'ehr-e2e-tests',
-              description: `EHR E2E tests: ${conclusion}`,
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
-            });
-
-      - name: Create Intake E2E status alias
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const intakeJob = '${{ needs.intake-e2e-tests.result }}';
-            const conclusion = intakeJob === 'success' ? 'success' : intakeJob === 'failure' ? 'failure' : 'error';
-
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: context.sha,
-              state: conclusion,
-              context: 'intake-e2e-tests',
-              description: `Intake E2E tests: ${conclusion}`,
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
-            });
+  # Wrapper job that holds concurrency lock and runs entire pipeline (deploy + tests)
+  run-pipeline:
+    needs: determine-environment
+    concurrency:
+      group: ${{ needs.determine-environment.outputs.concurrency-group }}
+      cancel-in-progress: false
+    uses: ./.github/workflows/deploy-and-test-reusable.yml
+    secrets: inherit
+    with:
+      environment: ${{ needs.determine-environment.outputs.environment }}
+      should_run_deploy: ${{ needs.determine-environment.outputs.should-run-apply == 'true' }}
+      node_version: ${{ inputs.node_version || '22' }}
+      aws_deploy_role: ${{ inputs.aws_deploy_role || vars.AWS_DEPLOY_ROLE }}
+      secrets_repository: ${{ inputs.secrets_repository || vars.SECRETS_REPOSITORY }}
+      run_automated_tests: ${{ github.event.inputs.run_automated_tests != 'false' || github.event_name != 'workflow_dispatch' }}
+      run_ehr_e2e: ${{ github.event.inputs.run_ehr_e2e != 'false' || github.event_name != 'workflow_dispatch' }}
+      run_intake_e2e: ${{ github.event.inputs.run_intake_e2e != 'false' || github.event_name != 'workflow_dispatch' }}
+      pr_body: ${{ github.event.pull_request.body || '' }}
+      github_ref: ${{ github.ref }}
+      is_pull_request: ${{ github.event_name == 'pull_request' }}

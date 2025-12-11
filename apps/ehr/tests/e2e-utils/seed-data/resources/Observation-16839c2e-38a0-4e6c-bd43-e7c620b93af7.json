@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-16839c2e-38a0-4e6c-bd43-e7c620b93af7",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-187b1c8a-854b-4200-a3f2-3b0163d55081"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-8578c070-bb78-4b1c-961e-8f33b756cc79"
+    },
+    "status": "final",
+    "valueBoolean": false,
+    "code": {
+      "text": "Pupils equal, round, reactive to light and accommodation"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "pupils-equal-round-reactive-to-light-and-accommodation",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

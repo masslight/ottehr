@@ -68,7 +68,7 @@ interface DemoConfig {
 
 type DemoAppointmentData = AppointmentData & DemoConfig;
 
-const hasEmployerInformationPage = (): boolean => {
+export const hasEmployerInformationPage = (): boolean => {
   const fhirResources = inPersonIntakeQuestionnaireJson.fhirResources as Record<string, { resource: Questionnaire }>;
   const questionnaire = Object.values(fhirResources).find(
     (q) =>

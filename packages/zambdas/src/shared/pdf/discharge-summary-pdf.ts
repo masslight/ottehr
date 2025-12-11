@@ -28,6 +28,7 @@ import {
   GetChartDataResponse,
   getDefaultNote,
   GetRadiologyOrderListZambdaOutput,
+  LabDocumentRelatedToDiagnosticReport,
   mapDispositionTypeToLabel,
   mapErxMedicationsToDisplay,
   mapMedicationsToDisplay,
@@ -35,7 +36,6 @@ import {
   NonNormalResult,
   NonNormalResultContained,
   NOTE_TYPE,
-  OttehrGeneratedResultDocument,
   Pagination,
   ParticipantInfo,
   PatientLabItem,
@@ -87,7 +87,7 @@ type AllChartData = {
     observations: Observation[];
     pagination: Pagination;
     diagnosticReports: DiagnosticReport[];
-    resultsPDFs: OttehrGeneratedResultDocument[];
+    resultsPDFs: LabDocumentRelatedToDiagnosticReport[];
     currentPractitioner?: Practitioner;
     appointmentScheduleMap: Record<string, Schedule>;
   };

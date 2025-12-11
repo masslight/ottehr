@@ -72,15 +72,18 @@ import {
   getPayerId,
   getPaymentVariantFromEncounter,
   getSecret,
+  getTimezone,
   INVALID_INPUT_ERROR,
   isTelemedAppointment,
   mapOrderStatusToFhir,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
+  MedicationOrderStatusesType,
   MedicationUnitOptions,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   PaymentVariant,
   Secrets,
   SecretsKeys,
+  TIMEZONES,
 } from 'utils';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE, emCodeOptions } from 'utils/lib/helpers/rcm';
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
@@ -236,7 +239,9 @@ const createCandidCreateEncounterInput = async (
     practitioner = visitResources.practitioners?.[0] ?? null;
   }
 
-  const medications = await getMedicationAdministrationsForEncounter(oystehr, encounter.id, { onlyAdministered: true });
+  const medications = await getMedicationAdministrationsForEncounter(oystehr, encounter.id, {
+    statuses: ['administered', 'administered-partly'],
+  });
 
   return {
     appointment: appointment,
@@ -328,10 +333,7 @@ async function candidCreateEncounterRequest(
   let dateOfServiceString: string | undefined;
 
   if (appointmentStart) {
-    const dateOfService = DateTime.fromISO(appointmentStart);
-    if (dateOfService.isValid) {
-      dateOfServiceString = dateOfService.toISODate();
-    }
+    dateOfServiceString = getLocalDateOfService(appointmentStart, location);
   }
 
   // Note: dateOfService field must not be provided as service line date of service is already sent
@@ -409,10 +411,7 @@ async function candidCreateEncounterRequest(
           diagnosisPointers: [primaryDiagnosisIndex],
           dateOfService:
             dateOfServiceString ||
-            assertDefined(
-              DateTime.fromISO(assertDefined(input.appointment.start, 'Appointment start')).toISODate(),
-              'Service line date'
-            ),
+            getLocalDateOfService(assertDefined(appointment.start, 'Appointment start'), location),
         },
       ];
     }),
@@ -1068,6 +1067,11 @@ function convertCoverageRelationshipToCandidRelationship(relationship: string): 
   }
 }
 
+function getLocalDateOfService(appointmentStart: string, location: Location | undefined): string {
+  const timezone = location ? getTimezone(location) : TIMEZONES[0];
+  return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
+}
+
 const fetchFHIRPatientAndAppointmentFromEncounter = async (
   encounterId: string,
   oystehr: Oystehr
@@ -1247,10 +1251,7 @@ async function candidCreateEncounterFromAppointmentRequest(
   let dateOfServiceString: string | undefined;
 
   if (appointmentStart) {
-    const dateOfService = DateTime.fromISO(appointmentStart);
-    if (dateOfService.isValid) {
-      dateOfServiceString = dateOfService.toISODate();
-    }
+    dateOfServiceString = getLocalDateOfService(appointmentStart, location);
   }
 
   const serviceLines: ServiceLineCreate[] = [];
@@ -1272,11 +1273,7 @@ async function candidCreateEncounterFromAppointmentRequest(
       units: ServiceLineUnits.Un,
       diagnosisPointers: [primaryDiagnosisIndex],
       dateOfService:
-        dateOfServiceString ||
-        assertDefined(
-          DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
-          'Service line date'
-        ),
+        dateOfServiceString ?? getLocalDateOfService(assertDefined(appointment.start, 'Appointment start'), location),
     });
   });
 
@@ -1311,7 +1308,7 @@ async function candidCreateEncounterFromAppointmentRequest(
           dateOfService:
             dateOfServiceString ||
             assertDefined(
-              DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
+              getLocalDateOfService(assertDefined(appointment.start, 'Appointment start'), location),
               'Service line date'
             ),
         });
@@ -1381,7 +1378,7 @@ export function getCandidEncounterIdFromEncounter(encounter: Encounter): string 
 async function getMedicationAdministrationsForEncounter(
   oystehr: Oystehr,
   encounterId: string,
-  filterParams?: { onlyAdministered?: boolean }
+  filterParams?: { statuses: MedicationOrderStatusesType[] }
 ): Promise<MedicationAdministration[] | undefined> {
   const params: SearchParam[] = [
     {
@@ -1393,10 +1390,10 @@ async function getMedicationAdministrationsForEncounter(
       value: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
     },
   ];
-  if (filterParams?.onlyAdministered) {
+  if (filterParams?.statuses?.length && filterParams.statuses.length > 0) {
     params.push({
       name: 'status',
-      value: mapOrderStatusToFhir('administered'),
+      value: filterParams.statuses.map((status) => mapOrderStatusToFhir(status)).join(','),
     });
   }
   const resources = (
