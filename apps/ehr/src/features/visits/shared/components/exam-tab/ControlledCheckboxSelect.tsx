@@ -15,19 +15,19 @@ export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (prop
   const { label, name, options } = props;
 
   const params = [name].concat(options.map((option) => option.name));
-  const { value, update, isLoading } = useExamObservations(params);
+  const { value, update, delete: deleteObservations, isLoading } = useExamObservations(params);
   // appointments made before https://github.com/masslight/ottehr/issues/4055 is ready might have some undefined fields
   const fields = value.filter((field) => field !== undefined);
   const [booleanValue, setBooleanValue] = useState(fields.some((field) => field.value === true));
 
   const onCheckboxChange = (value: boolean): void => {
     setBooleanValue(!booleanValue);
-    // if the checkbox is unchecked, update options
+    // if the checkbox is unchecked, delete observations
     if (value === false) {
-      // get fields that are checked and update them to be unchecked
-      const fieldsToUpdate = fields.filter((field) => field.value === true);
-      if (fieldsToUpdate.length > 0) {
-        update(fieldsToUpdate.map((field) => ({ ...field, value: false })));
+      // get fields that are checked and delete them
+      const fieldsToDelete = fields.filter((field) => field.value === true);
+      if (fieldsToDelete.length > 0) {
+        deleteObservations(fieldsToDelete);
       }
     } else {
       // if the checkbox is checked, update only the checkbox
@@ -60,11 +60,14 @@ export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (prop
               .map((field) => field.field)}
             onChange={(event) => {
               const selectedFields = event.target.value as string[];
-              const fieldsToUpdate = fields.filter((field) => {
+              const fieldsToChange = fields.filter((field) => {
                 const fieldValues = fields.find((f) => f.field !== name && f.field === field.field)?.value;
                 return selectedFields.includes(field.field) ? !fieldValues : fieldValues;
               });
-              update(fieldsToUpdate.map((field) => ({ ...field, value: !field.value })));
+              const fieldsToDelete = fieldsToChange.filter((f) => f.value === true);
+              const fieldsToAdd = fieldsToChange.filter((f) => f.value === false);
+              if (fieldsToDelete.length > 0) deleteObservations(fieldsToDelete);
+              if (fieldsToAdd.length > 0) update(fieldsToAdd.map((field) => ({ ...field, value: true })));
             }}
             renderValue={(selected) =>
               selected
