@@ -45,7 +45,6 @@ export const ChiefComplaintField: FC = () => {
             onChange(e);
             onChiefComplaintChange(e.target.value, {
               refetchChartDataOnSave: true,
-              additionalRequestOptions: { createICDRecommendations: true },
             });
           }}
           disabled={isChiefComplaintChartDataLoading}
