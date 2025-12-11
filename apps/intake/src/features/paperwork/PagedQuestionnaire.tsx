@@ -71,6 +71,7 @@ interface PagedQuestionnaireOptions {
 
 interface PagedQuestionnaireInput {
   items: IntakeQuestionnaireItem[];
+  pageItem?: IntakeQuestionnaireItem;
   pageId: string;
   defaultValues?: QuestionnaireFormFields;
   options?: PagedQuestionnaireOptions;
@@ -178,6 +179,7 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
 
 const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   items,
+  pageItem,
   pageId,
   defaultValues,
   options = {},
@@ -222,6 +224,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   return (
     <FormProvider {...methods}>
       <PaperworkFormRoot
+        pageItem={pageItem}
         items={items}
         onSubmit={onSubmit}
         saveProgress={saveProgress}
@@ -233,6 +236,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
 };
 
 interface PaperworkRootInput {
+  pageItem?: IntakeQuestionnaireItem;
   items: IntakeQuestionnaireItem[];
   onSubmit: (data: QuestionnaireFormFields) => void;
   saveProgress: (data: QuestionnaireFormFields) => void;
@@ -240,6 +244,7 @@ interface PaperworkRootInput {
   parentIsSaving?: boolean;
 }
 const PaperworkFormRoot: FC<PaperworkRootInput> = ({
+  pageItem,
   items,
   onSubmit,
   saveProgress,
@@ -286,7 +291,7 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   return (
     <form onSubmit={submitHandler}>
       <Grid container spacing={1}>
-        <RenderItems items={items} />
+        <RenderItems items={items} parentItem={pageItem} />
       </Grid>
       <div id="page-form-inner-form" />
       {bottomComponent}
@@ -716,7 +721,12 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
         }
       case 'Credit Card':
         return (
-          <CreditCardVerification value={unwrappedValue} required={item.required ?? false} onChange={smartOnChange} />
+          <CreditCardVerification
+            value={unwrappedValue}
+            required={item.required ?? false}
+            onChange={smartOnChange}
+            parentItem={parentItem}
+          />
         );
       case 'Medical History':
         return <AIInterview value={unwrappedValue} onChange={smartOnChange} />;

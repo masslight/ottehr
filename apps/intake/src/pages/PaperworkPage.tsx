@@ -556,6 +556,7 @@ export const PaperworkPage: FC = () => {
             pageId={currentPage?.linkId ?? ''}
             options={{ controlButtons }}
             items={questionnaireItems}
+            pageItem={currentPage}
             defaultValues={paperworkGroupDefaults}
             isSaving={loading}
             saveProgress={(data) => {
