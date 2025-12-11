@@ -26,32 +26,74 @@ const ehrPatientRecordForm: {
 
 /*
   THE SOURCE COMMENT
-<Autocomplete
-                options={InsurancePlanTypes}
-                value={selectedOption ?? ({} as InsurancePlanType)}
-                isOptionEqualToValue={(option, value) => option?.candidCode === value?.candidCode}
-                getOptionLabel={(option) =>
-                  option.candidCode || option.label ? `${option.candidCode} - ${option.label}` : ''
-                }
-                onChange={(_, newValue) => {
-                  if (newValue) {
-                    setValue(FormFields.insurancePlanType.key, newValue.candidCode, { shouldDirty: true });
-                  } else {
-                    setValue(FormFields.insurancePlanType.key, null, { shouldDirty: true });
+  triggers:
+  enabledWhen
+  requireWhen
+
+  conditional data population:
+  fillFromWhenDisabled
+
+   {
+                    "question": "responsible-party-relationship",
+                    "operator": "!=",
+                    "answerString": "Self"
+                  },
+                  {
+                    "question": "responsible-party-address-as-patient",
+                    "operator": "!=",
+                    "answerBoolean": true
                   }
-                }}
-                fullWidth
-                renderInput={(params) => (
-                  <TextField {...params} variant="standard" error={!!error} helperText={error?.message} />
-                )}
-              />
 */
+const triggerEffectSchema = z.enum(['enable', 'require']);
+const triggerSchema = z
+  .object({
+    targetQuestionLinkId: z.string(),
+    effect: z.array(triggerEffectSchema),
+    operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
+    answerBoolean: z.boolean().optional(),
+    answerString: z.string().optional(),
+    answerDateTime: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      const definedAnswers = [data.answerBoolean, data.answerString, data.answerDateTime].filter(
+        (answer) => answer !== undefined
+      );
+      return definedAnswers.length === 1;
+    },
+    {
+      message: 'Exactly one of answerBoolean, answerString, or answerDecimal must be defined',
+    }
+  );
+
+export type FormFieldTrigger = z.infer<typeof triggerSchema>;
+
+const dynamicPopulationSchema = z.object({
+  sourceLinkId: z.string(),
+  // currently only supporting population when disabled, could see this evolve to a more flexible system where the trigger eval logic kicks off dynamic population
+  triggerState: z.literal('disabled').optional().default('disabled'),
+});
+
 // patient record fields
 
 const insurancePlanTypeOptions = formValueSets.insuranceTypeOptions.map((option) => ({
   label: `${option.candidCode} - ${option.label}`,
   value: option.candidCode,
 }));
+
+const RPNotSelfTrigger: FormFieldTrigger = {
+  targetQuestionLinkId: 'responsible-party-relationship',
+  effect: ['enable'],
+  operator: '!=',
+  answerString: 'Self',
+};
+
+const RPAddressAsPatientTrigger: FormFieldTrigger = {
+  targetQuestionLinkId: 'responsible-party-address-as-patient',
+  effect: ['enable'],
+  operator: '!=',
+  answerBoolean: true,
+};
 
 const FormFields = {
   patientSummary: {
@@ -76,7 +118,20 @@ const FormFields = {
         label: 'Preferred pronouns',
         options: formValueSets.pronounOptions,
       },
-      ssn: { key: 'patient-ssn', type: 'string', label: 'SSN', dataType: 'SSN' },
+      ssn: {
+        key: 'patient-ssn',
+        type: 'string',
+        label: 'SSN',
+        dataType: 'SSN',
+        triggers: [
+          {
+            targetQuestionLinkId: 'should-display-ssn-field',
+            effect: ['enable', 'require'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+      },
     },
     hiddenFields: [],
     requiredFields: ['patient-first-name', 'patient-last-name', 'patient-birthdate', 'patient-birth-sex'],
@@ -315,8 +370,18 @@ const FormFields = {
     linkId: 'primary-care-physician-section',
     title: 'Primary care physician',
     items: {
-      firstName: { key: 'pcp-first', type: 'string', label: 'First name' },
-      lastName: { key: 'pcp-last', type: 'string', label: 'Last name' },
+      firstName: {
+        key: 'pcp-first',
+        type: 'string',
+        label: 'First name',
+        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['require'], operator: '=', answerBoolean: true }],
+      },
+      lastName: {
+        key: 'pcp-last',
+        type: 'string',
+        label: 'Last name',
+        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['require'], operator: '=', answerBoolean: true }],
+      },
       practiceName: { key: 'pcp-practice', type: 'string', label: 'Practice name' },
       address: { key: 'pcp-address', type: 'string', label: 'Address' },
       phone: { key: 'pcp-number', type: 'string', label: 'Mobile', dataType: 'Phone Number' },
@@ -335,22 +400,100 @@ const FormFields = {
         label: 'Relationship to the patient',
         options: formValueSets.relationshipOptions,
       },
-      firstName: { key: 'responsible-party-first-name', type: 'string', label: 'First name' },
-      lastName: { key: 'responsible-party-last-name', type: 'string', label: 'Last name' },
-      birthDate: { key: 'responsible-party-date-of-birth', type: 'date', label: 'Date of birth', dataType: 'DOB' },
+      firstName: {
+        key: 'responsible-party-first-name',
+        type: 'string',
+        label: 'First name',
+        triggers: [RPNotSelfTrigger],
+        dynamicPopulation: { sourceLinkId: 'patient-first-name' },
+      },
+      lastName: {
+        key: 'responsible-party-last-name',
+        type: 'string',
+        label: 'Last name',
+        triggers: [RPNotSelfTrigger],
+        dynamicPopulation: { sourceLinkId: 'patient-last-name' },
+      },
+      birthDate: {
+        key: 'responsible-party-date-of-birth',
+        type: 'date',
+        label: 'Date of birth',
+        dataType: 'DOB',
+        triggers: [RPNotSelfTrigger],
+        dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
+      },
       birthSex: {
         key: 'responsible-party-birth-sex',
         type: 'choice',
         label: 'Birth sex',
         options: formValueSets.birthSexOptions,
+        triggers: [RPNotSelfTrigger],
+        dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
       },
-      phone: { key: 'responsible-party-number', type: 'string', label: 'Phone', dataType: 'Phone Number' },
-      email: { key: 'responsible-party-email', type: 'string', label: 'Email', dataType: 'Email' },
-      addressLine1: { key: 'responsible-party-address', type: 'string', label: 'Street Address' },
-      addressLine2: { key: 'responsible-party-address-2', type: 'string', label: 'Address line 2' },
-      city: { key: 'responsible-party-city', type: 'string', label: 'City' },
-      state: { key: 'responsible-party-state', type: 'choice', label: 'State', options: formValueSets.stateOptions },
-      zip: { key: 'responsible-party-zip', type: 'string', label: 'Zip', dataType: 'ZIP' },
+      phone: {
+        key: 'responsible-party-number',
+        type: 'string',
+        label: 'Phone',
+        dataType: 'Phone Number',
+        triggers: [RPNotSelfTrigger],
+        dynamicPopulation: { sourceLinkId: 'patient-number' },
+      },
+      email: {
+        key: 'responsible-party-email',
+        type: 'string',
+        label: 'Email',
+        dataType: 'Email',
+        triggers: [RPNotSelfTrigger],
+        dynamicPopulation: { sourceLinkId: 'patient-email' },
+      },
+      addressSameAsPatient: {
+        key: 'responsible-party-address-as-patient',
+        label: "Responsible party's address is the same as patient's address",
+        type: 'boolean',
+        triggers: [RPNotSelfTrigger],
+      },
+      addressLine1: {
+        key: 'responsible-party-address',
+        type: 'string',
+        label: 'Street Address',
+        triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
+        enableBehavior: 'all',
+        dynamicPopulation: { sourceLinkId: 'patient-street-address' },
+      },
+      addressLine2: {
+        key: 'responsible-party-address-2',
+        type: 'string',
+        label: 'Address line 2',
+        triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
+        enableBehavior: 'all',
+        dynamicPopulation: { sourceLinkId: 'patient-street-address-2' },
+      },
+      city: {
+        key: 'responsible-party-city',
+        type: 'string',
+        label: 'City',
+        triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
+        enableBehavior: 'all',
+        dynamicPopulation: { sourceLinkId: 'patient-city' },
+      },
+      state: {
+        key: 'responsible-party-state',
+        type: 'choice',
+        label: 'State',
+        options: formValueSets.stateOptions,
+        triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
+        enableBehavior: 'all',
+        dynamicPopulation: { sourceLinkId: 'patient-state' },
+      },
+      zip: {
+        key: 'responsible-party-zip',
+        type: 'string',
+        label: 'Zip',
+        dataType: 'ZIP',
+        triggers: [RPNotSelfTrigger, RPAddressAsPatientTrigger],
+        enableBehavior: 'all',
+        dynamicPopulation: { sourceLinkId: 'patient-zip' },
+      },
     },
     hiddenFields: [],
     requiredFields: [
@@ -444,6 +587,9 @@ const FormFieldsValueTypeSchema = z
         })
       )
       .optional(),
+    triggers: z.array(triggerSchema).optional(),
+    dynamicPopulation: dynamicPopulationSchema.optional(),
+    enableBehavior: z.enum(['all', 'any']).default('any').optional(),
   })
   .refine(
     (data) => {

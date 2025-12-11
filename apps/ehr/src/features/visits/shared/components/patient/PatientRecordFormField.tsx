@@ -2,7 +2,7 @@ import { Autocomplete, Checkbox, FormControlLabel, TextField } from '@mui/materi
 import { useQuery } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FC } from 'react';
+import { FC, useEffect } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { BasicDatePicker, FormSelect, FormTextField } from 'src/components/form';
 import InputMask from 'src/components/InputMask';
@@ -11,6 +11,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import {
   dedupeObjectsByKey,
   FormFieldsItem,
+  FormFieldTrigger,
   ORG_TYPE_CODE_SYSTEM,
   ORG_TYPE_PAYER_CODE,
   REQUIRED_FIELD_ERROR_MESSAGE,
@@ -25,25 +26,152 @@ interface PatientRecordFormFieldProps {
   disabled?: boolean;
 }
 
-/*
+interface Trigger extends Omit<FormFieldTrigger, 'effect'> {
+  effect: string;
+}
 
-*/
+const PatientRecordFormField: FC<PatientRecordFormFieldProps> = (props) => {
+  const isHidden = props.hiddenFormFields?.includes(props.item.key);
+  if (isHidden) {
+    return null;
+  }
+  return <PatientRecordFormFieldContent {...props} />;
+};
 
-const PatientRecordFormField: FC<PatientRecordFormFieldProps> = ({
+const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
   item,
-  hiddenFormFields,
   requiredFormFields,
   isLoading,
   omitRowWrapper = false,
   disabled = false,
 }) => {
-  const { control, setValue } = useFormContext();
-  const isHidden = hiddenFormFields?.includes(item.key);
-  if (isHidden) {
-    return null;
-  }
+  const { control, watch, setValue, getValues } = useFormContext();
 
-  const isRequired = requiredFormFields?.includes(item.key);
+  const { triggers, enableBehavior = 'any', dynamicPopulation } = item;
+
+  const triggeredEffects = (() => {
+    if (!triggers || triggers.length === 0) {
+      return { required: false, enabled: true };
+    }
+    const flattenedTriggers: Trigger[] = triggers.flatMap((trigger) =>
+      trigger.effect.map((ef) => {
+        return { ...trigger, effect: ef };
+      })
+    );
+    const triggerQuestions = flattenedTriggers.map((trigger) => trigger.targetQuestionLinkId);
+    const triggerValueMap = triggerQuestions.reduce(
+      (acc, linkId) => {
+        acc[linkId] = watch(linkId);
+        return acc;
+      },
+      {} as Record<string, any>
+    );
+    const triggerConditionsWithOutcomes: (Trigger & { conditionMet: boolean })[] = flattenedTriggers.map((trigger) => {
+      const currentValue = triggerValueMap[trigger.targetQuestionLinkId];
+      const { operator, answerBoolean, answerString, answerDateTime } = trigger;
+      let conditionMet = false;
+      // todo: extract this logic to a shared util function?
+      switch (operator) {
+        case 'exists':
+          if (answerBoolean === true) {
+            conditionMet = currentValue !== undefined && currentValue !== null && currentValue !== '';
+          } else if (answerBoolean === false) {
+            conditionMet = currentValue === undefined || currentValue === null || currentValue === '';
+          }
+          break;
+        case '=':
+          if (answerBoolean !== undefined) {
+            conditionMet = currentValue === answerBoolean;
+          } else if (answerString !== undefined) {
+            conditionMet = currentValue === answerString;
+          } else if (answerDateTime !== undefined) {
+            conditionMet = currentValue === answerDateTime;
+          }
+          break;
+        case '!=':
+          if (answerBoolean !== undefined) {
+            conditionMet = currentValue !== answerBoolean;
+          } else if (answerString !== undefined) {
+            conditionMet = currentValue !== answerString;
+          } else if (answerDateTime !== undefined) {
+            conditionMet = currentValue !== answerDateTime;
+          }
+          break;
+        case '>':
+          if (answerDateTime !== undefined) {
+            conditionMet = DateTime.fromISO(currentValue) > DateTime.fromISO(answerDateTime);
+          }
+          break;
+        case '<':
+          if (answerDateTime !== undefined) {
+            conditionMet = DateTime.fromISO(currentValue) < DateTime.fromISO(answerDateTime);
+          }
+          break;
+        case '>=':
+          if (answerDateTime !== undefined) {
+            conditionMet = DateTime.fromISO(currentValue) >= DateTime.fromISO(answerDateTime);
+          }
+          break;
+        case '<=':
+          if (answerDateTime !== undefined) {
+            conditionMet = DateTime.fromISO(currentValue) <= DateTime.fromISO(answerDateTime);
+          }
+          break;
+        default:
+          console.warn(`Operator ${operator} not implemented in trigger processing`);
+      }
+      return { ...trigger, conditionMet };
+    });
+    // console.log('Trigger condition outcomes for', item.key, triggerConditionsWithOutcomes);
+    return triggerConditionsWithOutcomes.reduce(
+      (acc, trigger) => {
+        if (trigger.effect === 'enable' && trigger.conditionMet) {
+          if (acc.enabled === null) {
+            acc.enabled = true;
+          } else if (enableBehavior === 'all') {
+            acc.enabled = acc.enabled && true;
+          } else {
+            acc.enabled = true;
+          }
+        } else if (trigger.effect === 'enable' && !trigger.conditionMet) {
+          if (acc.enabled === null) {
+            acc.enabled = false;
+          } else if (enableBehavior === 'all') {
+            acc.enabled = false;
+          } else {
+            acc.enabled = acc.enabled || false;
+          }
+        }
+        // only 'enable' effect supports 'all' vs 'any' behavior for now; "any" is default for all other effects
+        if (trigger.effect === 'require' && trigger.conditionMet) {
+          acc.required = true;
+        }
+        if (trigger.effect === 'require' && !trigger.conditionMet) {
+          acc.required = acc.required || false;
+        }
+
+        return acc;
+      },
+      { required: false, enabled: null as boolean | null }
+    );
+  })();
+
+  const isDisabled = disabled || isLoading || triggeredEffects.enabled === false;
+  const isRequired = requiredFormFields?.includes(item.key) || triggeredEffects.required;
+
+  // Dynamic population: when field is disabled, copy value from source field
+  const sourceFieldValue = dynamicPopulation?.sourceLinkId ? watch(dynamicPopulation.sourceLinkId) : undefined;
+
+  useEffect(() => {
+    if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && isDisabled) {
+      const currentValue = getValues(item.key);
+
+      // Only update if the source value is different from current value
+      if (sourceFieldValue !== undefined && sourceFieldValue !== currentValue) {
+        setValue(item.key, sourceFieldValue, { shouldDirty: true });
+      }
+    }
+  }, [sourceFieldValue, isDisabled, dynamicPopulation, item.key, setValue, getValues]);
 
   const rules = (() => {
     // console.log('otherGroupKeys, adding rules for', item.key);
@@ -114,8 +242,6 @@ const PatientRecordFormField: FC<PatientRecordFormFieldProps> = ({
     }
     return rules;
   })();
-
-  const isDisabled = disabled || isLoading;
 
   let placeholder: string | undefined;
   let mask: string | undefined;
