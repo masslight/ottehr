@@ -165,7 +165,11 @@ const performEffect = async (
   if (!paymentNotice.id) {
     throw new Error('PaymentNotice ID is required to create task');
   }
-  const paymentTaskResource = getTaskResource(TaskIndicator.patientPaymentCandidSyncAndReceipt, notice.id, encounterId);
+  const paymentTaskResource = getTaskResource(
+    TaskIndicator.patientPaymentCandidSyncAndReceipt,
+    paymentNotice.id,
+    encounterId
+  );
   // Update the task focus to reference PaymentNotice instead of Appointment
   paymentTaskResource.focus = {
     type: 'PaymentNotice',
