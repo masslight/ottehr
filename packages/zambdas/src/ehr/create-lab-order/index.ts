@@ -58,7 +58,7 @@ import { createOystehrClient } from '../../shared/helpers';
 import { createTask } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types';
 import { labOrderCommunicationType } from '../get-lab-orders/helpers';
-import { sortCoveragesByPriority } from '../shared/labs';
+import { accountIsPatientBill, sortCoveragesByPriority } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -598,7 +598,11 @@ const getAdditionalResources = async (
       }
     }
     if (resource.resourceType === 'Patient') patientSearchResults.push(resource);
-    if (resource.resourceType === 'Account' && resource.status === 'active') accountSearchResults.push(resource);
+    if (resource.resourceType === 'Account' && resource.status === 'active') {
+      // todo labs team - this logic will change when we implement workers comp, but for now
+      // we will just ignore those types of accounts to restore functionality
+      if (accountIsPatientBill(resource)) accountSearchResults.push(resource);
+    }
     if (resource.resourceType === 'Location') {
       if (
         resource.identifier?.some(
