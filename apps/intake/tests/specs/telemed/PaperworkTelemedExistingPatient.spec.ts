@@ -2,9 +2,9 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import {
   BOOKING_CONFIG,
+  BRANDING_CONFIG,
   chooseJson,
   CreateAppointmentResponse,
-  PROJECT_NAME,
   shouldShowServiceCategorySelectionPage,
 } from 'utils';
 import { Locators } from '../../utils/locators';
@@ -83,7 +83,7 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     await locator.continueButton.click();
     await paperwork.checkCorrectPageOpens('Review and submit');
     await locator.reserveButton.click();
-    await paperwork.checkCorrectPageOpens(`Thank you for choosing ${PROJECT_NAME}!`);
+    await paperwork.checkCorrectPageOpens(`Thank you for choosing ${BRANDING_CONFIG.projectName}!`);
   });
   test('VVPP-1 Check Contact information has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/contact-information`);

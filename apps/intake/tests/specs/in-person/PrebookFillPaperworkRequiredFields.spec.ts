@@ -1,5 +1,5 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { chooseJson, CreateAppointmentResponse, PROJECT_NAME } from 'utils';
+import { BRANDING_CONFIG, chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
@@ -99,6 +99,6 @@ test.describe('Prebook In person visit - Paperwork submission flow with only req
   test('PRF-9 Submit paperwork', async () => {
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toBeVisible();
-    await expect(locator.flowHeading).toHaveText(`Thank you for choosing ${PROJECT_NAME}!`);
+    await expect(locator.flowHeading).toHaveText(`Thank you for choosing ${BRANDING_CONFIG.projectName}!`);
   });
 });

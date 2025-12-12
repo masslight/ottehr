@@ -34,6 +34,7 @@ import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsI
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
+  BRANDING_CONFIG,
   formatMinutes,
   getAbnormalVitals,
   getDurationOfStatus,
@@ -43,7 +44,6 @@ import {
   InPersonAppointmentInformation,
   mdyStringFromISOString,
   OrdersForTrackingBoardRow,
-  PROJECT_NAME,
   ROOM_EXTENSION_URL,
   STATUSES_WITHOUT_TIME_TRACKER,
   VisitStatusHistoryEntry,
@@ -507,14 +507,14 @@ export default function AppointmentTableRow({
         spanish: 'Estamos listos para atender al paciente; ingrese al centro.',
       },
       {
-        english: `${PROJECT_NAME} is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
+        english: `${BRANDING_CONFIG.projectName} is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
         // cSpell:disable-next Spanish
-        spanish: `${PROJECT_NAME} está intentando comunicarse con usted. Llámenos al ${officePhoneNumber} o responda a este mensaje de texto.`,
+        spanish: `${BRANDING_CONFIG.projectName} está intentando comunicarse con usted. Llámenos al ${officePhoneNumber} o responda a este mensaje de texto.`,
       },
       {
-        english: `${PROJECT_NAME} hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
+        english: `${BRANDING_CONFIG.projectName} hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
         // cSpell:disable-next Spanish
-        spanish: `${PROJECT_NAME} espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
+        spanish: `${BRANDING_CONFIG.projectName} espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
       },
       {
         english: `Please complete a brief AI chat session for ${appointment.patient.firstName} to help your provider prepare for your visit: ${VITE_APP_PATIENT_APP_URL}/visit/${appointment.id}/ai-interview-start`,

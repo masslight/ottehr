@@ -1,6 +1,6 @@
 // cSpell:ignore IPPP, networkidle
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { chooseJson, CreateAppointmentResponse, PROJECT_NAME } from 'utils';
+import { BRANDING_CONFIG, chooseJson, CreateAppointmentResponse } from 'utils';
 import { FillingInfo } from '../../utils/in-person/FillingInfo';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
@@ -66,7 +66,7 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
     await locator.continueButton.click();
     await paperwork.checkCorrectPageOpens('Review and submit');
     await locator.reserveButton.click();
-    await paperwork.checkCorrectPageOpens(`Thank you for choosing ${PROJECT_NAME}!`);
+    await paperwork.checkCorrectPageOpens(`Thank you for choosing ${BRANDING_CONFIG.projectName}!`);
   });
   test('IPPP-1 Check Contact information has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/contact-information`);

@@ -19,7 +19,7 @@ import { FC, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
-import { PROJECT_NAME } from 'utils';
+import { BRANDING_CONFIG } from 'utils';
 import { RoundedButton } from '../RoundedButton';
 import { useGetPatientsForMerge } from './queries';
 
@@ -333,7 +333,7 @@ const rows: Row[] = [
     render: (patient) => patient.pcp || '-',
   },
   {
-    title: `How did patient heard about ${PROJECT_NAME}`,
+    title: `How did patient heard about ${BRANDING_CONFIG.projectName}`,
     field: 'pointOfDiscovery',
     render: (patient) => patient.pointOfDiscovery || '-',
   },

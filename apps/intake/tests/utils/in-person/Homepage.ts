@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { PROJECT_NAME } from 'utils';
+import { BRANDING_CONFIG } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 
@@ -11,7 +11,7 @@ export class Homepage extends CommonLocatorsHelper {
   }
 
   async verifyPage(): Promise<void> {
-    await this.page.waitForSelector(`h1:has-text("Welcome to ${PROJECT_NAME}")`);
+    await this.page.waitForSelector(`h1:has-text("Welcome to ${BRANDING_CONFIG.projectName}")`);
   }
 
   async verifyPastVisitsButton(): Promise<void> {

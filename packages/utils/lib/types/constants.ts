@@ -6,7 +6,7 @@ export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
 export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
 
 export const PROJECT_NAME = BRANDING_CONFIG.projectName;
-export const PROJECT_NAME_LOWER = PROJECT_NAME.toLowerCase();
+export const PROJECT_NAME_LOWER = BRANDING_CONFIG.projectName.toLowerCase();
 export const PROJECT_DOMAIN = BRANDING_CONFIG.projectDomain;
 export const PROJECT_WEBSITE = `https://${PROJECT_DOMAIN}`;
 export const SUPPORT_EMAIL = BRANDING_CONFIG.email.sender;

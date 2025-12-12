@@ -2,7 +2,7 @@ import Oystehr, { AccessPolicy, Application } from '@oystehr/sdk';
 import { FhirResource, Location, Organization } from 'fhir/r4b';
 import fs from 'fs';
 import path from 'path';
-import { PROJECT_NAME, SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils';
+import { BRANDING_CONFIG, SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils';
 import { checkLocations } from './setup-default-locations';
 
 export const defaultLocation: Location = {
@@ -282,7 +282,7 @@ const createOrganization = async (oystehr: Oystehr): Promise<Organization> => {
   const organization: FhirResource = {
     resourceType: 'Organization',
     active: true,
-    name: `${PROJECT_NAME} Organization`,
+    name: `${BRANDING_CONFIG.projectName} Organization`,
   };
 
   return await oystehr.fhir.create(organization);

@@ -5,11 +5,11 @@ import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import {
+  BRANDING_CONFIG,
   FHIR_BASE_URL,
   FOLDERS_CONFIG,
   generateDeployAccountNumber,
   PROJECT_DOMAIN,
-  PROJECT_NAME,
   PROJECT_NAME_LOWER,
   SCHEDULE_EXTENSION_URL,
   ScheduleStrategyCoding,
@@ -41,7 +41,7 @@ const createOrganization = async (oystehr: Oystehr): Promise<Organization> => {
   const organization: FhirResource = {
     resourceType: 'Organization',
     active: true,
-    name: `${PROJECT_NAME} Organization`,
+    name: `${BRANDING_CONFIG.projectName} Organization`,
   };
 
   return await oystehr.fhir.create(organization);
@@ -156,7 +156,7 @@ export async function setupEHR(
 ): Promise<void> {
   console.log('Starting setup of EHR...');
 
-  const applicationName = `${PROJECT_NAME} EHR`;
+  const applicationName = `${BRANDING_CONFIG.projectName} EHR`;
   const [applicationId, clientId] = await createApplication(oystehr, applicationName);
   console.log(`Created application "${applicationName}".`);
 

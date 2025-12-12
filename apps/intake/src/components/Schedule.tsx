@@ -5,7 +5,13 @@ import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { createLocalDateTime, DATE_FULL_NO_YEAR, DATETIME_FULL_NO_YEAR, nextAvailableFrom, PROJECT_NAME } from 'utils';
+import {
+  BRANDING_CONFIG,
+  createLocalDateTime,
+  DATE_FULL_NO_YEAR,
+  DATETIME_FULL_NO_YEAR,
+  nextAvailableFrom,
+} from 'utils';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { otherColors } from '../IntakeThemeProvider';
@@ -233,7 +239,11 @@ const Schedule = ({
 
   if (slotsList.length === 0) {
     if (!slotsLoading)
-      return <Alert severity="error">{t('schedule.officeClosed.todayOrTomorrow', { PROJECT_NAME })}</Alert>;
+      return (
+        <Alert severity="error">
+          {t('schedule.officeClosed.todayOrTomorrow', { PROJECT_NAME: BRANDING_CONFIG.projectName })}
+        </Alert>
+      );
     return <></>;
   }
 
@@ -348,8 +358,8 @@ const Schedule = ({
                   handleSlotSelected={setLocallySelectedSlot}
                   noSlotsMessage={
                     slotsExist
-                      ? t('schedule.officeClosed.today', { PROJECT_NAME })
-                      : t('schedule.officeClosed.todayOrTomorrow', { PROJECT_NAME })
+                      ? t('schedule.officeClosed.today', { PROJECT_NAME: BRANDING_CONFIG.projectName })
+                      : t('schedule.officeClosed.todayOrTomorrow', { PROJECT_NAME: BRANDING_CONFIG.projectName })
                   }
                 />
               </TabPanel>

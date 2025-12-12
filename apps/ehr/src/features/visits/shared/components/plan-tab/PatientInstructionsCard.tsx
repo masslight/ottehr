@@ -3,7 +3,7 @@ import DoneIcon from '@mui/icons-material/Done';
 import { Box, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { CommunicationDTO, PROJECT_NAME } from 'utils';
+import { BRANDING_CONFIG, CommunicationDTO } from 'utils';
 import { AccordionCard } from '../../../../../components/AccordionCard';
 import { ActionsList } from '../../../../../components/ActionsList';
 import { DeleteIconButton } from '../../../../../components/DeleteIconButton';
@@ -107,7 +107,7 @@ export const PatientInstructionsCard: FC = () => {
                   onChange={(e) => setInstruction(e.target.value)}
                   size="small"
                   label="Instruction"
-                  placeholder={`Enter a new instruction of select from own saved or ${PROJECT_NAME} template`}
+                  placeholder={`Enter a new instruction of select from own saved or ${BRANDING_CONFIG.projectName} template`}
                   multiline
                   fullWidth
                 />
@@ -124,7 +124,9 @@ export const PatientInstructionsCard: FC = () => {
               </Box>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <RoundedButton onClick={() => setMyTemplatesOpen(true)}>My templates</RoundedButton>
-                <RoundedButton onClick={() => setDefaultTemplatesOpen(true)}>{PROJECT_NAME} templates</RoundedButton>
+                <RoundedButton onClick={() => setDefaultTemplatesOpen(true)}>
+                  {BRANDING_CONFIG.projectName} templates
+                </RoundedButton>
               </Box>
             </>
           )}

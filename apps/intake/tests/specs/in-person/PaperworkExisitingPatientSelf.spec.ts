@@ -1,6 +1,6 @@
 // cSpell:ignore IPPPS
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { chooseJson, CreateAppointmentResponse, PROJECT_NAME } from 'utils';
+import { BRANDING_CONFIG, chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { FillingInfo } from '../../utils/in-person/FillingInfo';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
@@ -73,7 +73,7 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - card
     await locator.continueButton.click();
     await paperwork.checkCorrectPageOpens('Review and submit');
     await locator.reserveButton.click();
-    await paperwork.checkCorrectPageOpens(`Thank you for choosing ${PROJECT_NAME}!`);
+    await paperwork.checkCorrectPageOpens(`Thank you for choosing ${BRANDING_CONFIG.projectName}!`);
   });
   test('IPPPS-1 Check Responsible party has prefilled values', async () => {
     const [year, month, day] = bookingData.dateOfBirth.split('-');
