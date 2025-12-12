@@ -112,6 +112,30 @@ const PCPTest = HIDDEN_SECTIONS.includes(SECTIONS.primaryCarePhysician.linkId) ?
 const PatientSummaryTest = HIDDEN_SECTIONS.includes(SECTIONS.patientSummary.linkId) ? test.skip : test;
 const PatientSummaryTestStep = HIDDEN_SECTIONS.includes(SECTIONS.patientSummary.linkId) ? test.skip : test.step;
 
+// Helper to get conditionally rendered fields from config
+const getConditionalFields = (
+  items: Record<string, FormFieldsItem>,
+  controlFieldKey: string
+): { key: string; label: string; shouldBeRequired: boolean; disabledDisplay: string }[] => {
+  return Object.values(items)
+    .filter((item) => {
+      if (!item.triggers || item.triggers.length === 0) return false;
+      if (!item.disabledDisplay || item.disabledDisplay === 'disabled') return false;
+      return item.triggers.some((trigger) => trigger.targetQuestionLinkId === controlFieldKey);
+    })
+    .map((item) => {
+      const shouldBeRequired = (item.triggers ?? []).some(
+        (trigger) => trigger.targetQuestionLinkId === controlFieldKey && trigger.effect.includes('require')
+      );
+      return {
+        key: item.key,
+        label: item.label,
+        shouldBeRequired,
+        disabledDisplay: item.disabledDisplay || 'disabled',
+      };
+    });
+};
+
 const ContactInformationTest = HIDDEN_SECTIONS.includes(SECTIONS.patientContactInformation.linkId) ? test.skip : test;
 const ContactInformationTestStep = HIDDEN_SECTIONS.includes(SECTIONS.patientContactInformation.linkId)
   ? test.skip
@@ -330,11 +354,14 @@ test.describe('Patient Record Page tests', () => {
       'Check all fields from Primary Care Physician block are hidden when checkbox is checked',
       async () => {
         await patientInformationPage.selectBooleanField(primaryCarePhysician.active.key, true);
-        await patientInformationPage.verifyFieldIsHidden(primaryCarePhysician.firstName.key);
-        await patientInformationPage.verifyFieldIsHidden(primaryCarePhysician.lastName.key);
-        await patientInformationPage.verifyFieldIsHidden(primaryCarePhysician.practiceName.key);
-        await patientInformationPage.verifyFieldIsHidden(primaryCarePhysician.address.key);
-        await patientInformationPage.verifyFieldIsHidden(primaryCarePhysician.phone.key);
+
+        // Get conditional fields from config
+        const conditionalFields = getConditionalFields(primaryCarePhysician, primaryCarePhysician.active.key);
+
+        // Verify all conditional fields are hidden
+        for (const field of conditionalFields) {
+          await patientInformationPage.verifyFieldIsHidden(field.key);
+        }
       }
     );
     await PCPTestStep(
@@ -619,6 +646,240 @@ test.describe('Patient Record Page tests', () => {
         }
       );
 
+      await ResponsiblePartyTestStep(
+        'When relationship is "Self", all triggered fields should be disabled',
+        async () => {
+          // Get all fields triggered by the relationship field that are NOT also triggered by address checkbox
+          // (we want fields that only depend on relationship, not the address fields which have enableBehavior: 'all')
+          const relationshipOnlyFields = getConditionalFields(
+            responsibleParty,
+            responsibleParty.relationship.key
+          ).filter(
+            (field) =>
+              !getConditionalFields(responsibleParty, responsibleParty.addressSameAsPatient.key).some(
+                (addrField) => addrField.key === field.key
+              )
+          );
+
+          // Change relationship to "Self"
+          await patientInformationPage.selectFieldOption(responsibleParty.relationship.key, 'Self');
+
+          // Verify all triggered fields are disabled (by checking they're not enabled)
+          for (const field of relationshipOnlyFields) {
+            const fieldElement = patientInformationPage.inputByName(field.key);
+            await test.expect(fieldElement).toBeDisabled();
+          }
+
+          // Change back to a different relationship and verify fields are enabled again
+          await patientInformationPage.selectFieldOption(
+            responsibleParty.relationship.key,
+            NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
+          );
+
+          for (const field of relationshipOnlyFields) {
+            const fieldElement = patientInformationPage.inputByName(field.key);
+            await test.expect(fieldElement).toBeEnabled();
+          }
+        }
+      );
+
+      await ResponsiblePartyTestStep(
+        'When "address same as patient" checkbox is checked, address fields should be disabled',
+        async () => {
+          // Get address fields that are triggered by the address checkbox
+          // These fields have enableBehavior: 'all', meaning BOTH relationship != 'Self' AND checkbox != true must be met
+          const addressCheckboxTriggeredFields = getConditionalFields(
+            responsibleParty,
+            responsibleParty.addressSameAsPatient.key
+          );
+
+          // Ensure relationship is not "Self" so we can test the checkbox behavior in isolation
+          await patientInformationPage.selectFieldOption(
+            responsibleParty.relationship.key,
+            NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
+          );
+
+          // Initially, with relationship != 'Self' and checkbox unchecked, fields should be enabled
+          await patientInformationPage.selectBooleanField(responsibleParty.addressSameAsPatient.key, false);
+          for (const field of addressCheckboxTriggeredFields) {
+            const fieldElement = patientInformationPage.inputByName(field.key);
+            await test.expect(fieldElement).toBeEnabled();
+          }
+
+          // Check the "same as patient" checkbox - fields should now be disabled
+          await patientInformationPage.selectBooleanField(responsibleParty.addressSameAsPatient.key, true);
+
+          for (const field of addressCheckboxTriggeredFields) {
+            const fieldElement = patientInformationPage.inputByName(field.key);
+            await test.expect(fieldElement).toBeDisabled();
+          }
+
+          // Uncheck the checkbox and verify fields are enabled again
+          await patientInformationPage.selectBooleanField(responsibleParty.addressSameAsPatient.key, false);
+
+          for (const field of addressCheckboxTriggeredFields) {
+            const fieldElement = patientInformationPage.inputByName(field.key);
+            await test.expect(fieldElement).toBeEnabled();
+          }
+        }
+      );
+
+      await ResponsiblePartyTestStep(
+        'Dynamic population: When relationship is "Self", fields should auto-populate from patient data and restore when changed back',
+        async () => {
+          // Ensure patient data is populated first (needed for dynamic population source)
+          await patientInformationPage.enterTextFieldValue(patientSummary.firstName.key, NEW_PATIENT_FIRST_NAME);
+          await patientInformationPage.enterTextFieldValue(patientSummary.lastName.key, NEW_PATIENT_LAST_NAME);
+          await patientInformationPage.enterDateFieldValue(patientSummary.birthDate.key, NEW_PATIENT_DATE_OF_BIRTH);
+          await patientInformationPage.selectFieldOption(patientSummary.birthSex.key, NEW_PATIENT_BIRTH_SEX);
+          await patientInformationPage.enterTextFieldValue(contactInformation.email.key, NEW_PATIENT_EMAIL);
+          await patientInformationPage.enterPhoneFieldValue(contactInformation.phone.key, NEW_PATIENT_MOBILE);
+          await patientInformationPage.enterTextFieldValue(contactInformation.streetAddress.key, NEW_STREET_ADDRESS);
+          await patientInformationPage.enterTextFieldValue(contactInformation.city.key, NEW_CITY);
+          await patientInformationPage.selectFieldOption(contactInformation.state.key, NEW_STATE);
+          await patientInformationPage.enterTextFieldValue(contactInformation.zip.key, NEW_ZIP);
+
+          // Build a mapping of fields with dynamic population from config
+          const fieldsWithDynamicPopulation: Array<{
+            rpKey: string;
+            patientKey: string;
+            rpValue: string;
+            patientValue: string;
+            fieldType: 'text' | 'date' | 'select' | 'phone';
+          }> = [];
+
+          // Find all responsible party fields that have dynamicPopulation
+          for (const [fieldName, fieldConfig] of Object.entries(responsibleParty)) {
+            if (fieldConfig.dynamicPopulation?.sourceLinkId) {
+              const patientFieldKey = fieldConfig.dynamicPopulation.sourceLinkId;
+
+              // Determine field type for proper value setting
+              let fieldType: 'text' | 'date' | 'select' | 'phone' = 'text';
+              if (fieldConfig.dataType === 'DOB' || fieldConfig.type === 'date') {
+                fieldType = 'date';
+              } else if (fieldConfig.type === 'choice') {
+                fieldType = 'select';
+              } else if (fieldConfig.dataType === 'Phone Number') {
+                fieldType = 'phone';
+              }
+
+              // Set up test values (RP will have different values initially)
+              let rpValue = '';
+              let patientValue = '';
+
+              if (fieldType === 'date') {
+                rpValue = '05/05/1995';
+                patientValue = NEW_PATIENT_DATE_OF_BIRTH;
+              } else if (fieldType === 'select' && fieldName === 'birthSex') {
+                rpValue = 'Female';
+                patientValue = NEW_PATIENT_BIRTH_SEX;
+              } else if (fieldType === 'phone') {
+                rpValue = '(555) 999-9999';
+                patientValue = NEW_PATIENT_MOBILE;
+              } else if (fieldName === 'firstName') {
+                rpValue = 'ResponsibleFirst';
+                patientValue = NEW_PATIENT_FIRST_NAME;
+              } else if (fieldName === 'lastName') {
+                rpValue = 'ResponsibleLast';
+                patientValue = NEW_PATIENT_LAST_NAME;
+              } else if (fieldName === 'email') {
+                rpValue = 'responsible@example.com';
+                patientValue = NEW_PATIENT_EMAIL;
+              } else if (fieldName === 'addressLine1') {
+                rpValue = 'RP Street 123';
+                patientValue = NEW_STREET_ADDRESS;
+              } else if (fieldName === 'city') {
+                rpValue = 'RP City';
+                patientValue = NEW_CITY;
+              } else if (fieldName === 'state') {
+                rpValue = 'TX';
+                patientValue = NEW_STATE;
+              } else if (fieldName === 'zip') {
+                rpValue = '99999';
+                patientValue = NEW_ZIP;
+              } else {
+                // Skip fields we don't have test data for
+                continue;
+              }
+
+              fieldsWithDynamicPopulation.push({
+                rpKey: fieldConfig.key,
+                patientKey: patientFieldKey,
+                rpValue,
+                patientValue,
+                fieldType,
+              });
+            }
+          }
+
+          // Step 1: Ensure relationship is NOT "Self" and set initial RP values (different from patient values)
+          await patientInformationPage.selectFieldOption(
+            responsibleParty.relationship.key,
+            NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
+          );
+
+          for (const field of fieldsWithDynamicPopulation) {
+            if (field.fieldType === 'text') {
+              await patientInformationPage.enterTextFieldValue(field.rpKey, field.rpValue);
+            } else if (field.fieldType === 'date') {
+              await patientInformationPage.enterDateFieldValue(field.rpKey, field.rpValue);
+            } else if (field.fieldType === 'select') {
+              await patientInformationPage.selectFieldOption(field.rpKey, field.rpValue);
+            } else if (field.fieldType === 'phone') {
+              await patientInformationPage.enterPhoneFieldValue(field.rpKey, field.rpValue);
+            }
+          }
+
+          // Verify initial RP values are set
+          for (const field of fieldsWithDynamicPopulation) {
+            if (field.fieldType === 'text') {
+              await patientInformationPage.verifyTextFieldValue(field.rpKey, field.rpValue);
+            } else if (field.fieldType === 'date') {
+              await patientInformationPage.verifyDateFieldValue(field.rpKey, field.rpValue);
+            } else if (field.fieldType === 'select') {
+              await patientInformationPage.verifySelectFieldValue(field.rpKey, field.rpValue);
+            } else if (field.fieldType === 'phone') {
+              await patientInformationPage.verifyPhoneFieldValue(field.rpKey, field.rpValue);
+            }
+          }
+
+          // Step 2: Change relationship to "Self" - RP fields should auto-populate with patient values
+          await patientInformationPage.selectFieldOption(responsibleParty.relationship.key, 'Self');
+
+          // Verify RP fields now show patient values (dynamic population)
+          for (const field of fieldsWithDynamicPopulation) {
+            if (field.fieldType === 'text') {
+              await patientInformationPage.verifyTextFieldValue(field.rpKey, field.patientValue);
+            } else if (field.fieldType === 'date') {
+              await patientInformationPage.verifyDateFieldValue(field.rpKey, field.patientValue);
+            } else if (field.fieldType === 'select') {
+              await patientInformationPage.verifySelectFieldValue(field.rpKey, field.patientValue);
+            } else if (field.fieldType === 'phone') {
+              await patientInformationPage.verifyPhoneFieldValue(field.rpKey, field.patientValue);
+            }
+          }
+
+          // Step 3: Change relationship back to "Parent" - RP fields should restore original values
+          await patientInformationPage.selectFieldOption(
+            responsibleParty.relationship.key,
+            NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
+          );
+
+          // Verify RP fields are restored to original values
+          for (const field of fieldsWithDynamicPopulation) {
+            if (field.fieldType === 'text') {
+              await patientInformationPage.verifyTextFieldValue(field.rpKey, field.rpValue);
+            } else if (field.fieldType === 'date') {
+              await patientInformationPage.verifyDateFieldValue(field.rpKey, field.rpValue);
+            } else if (field.fieldType === 'select') {
+              await patientInformationPage.verifySelectFieldValue(field.rpKey, field.rpValue);
+            } else if (field.fieldType === 'phone') {
+              await patientInformationPage.verifyPhoneFieldValue(field.rpKey, field.rpValue);
+            }
+          }
+        }
+      );
+
       // rework
       await PatientDetailsTestStep(
         'If "Other" gender is selected from Patient details  block, additional field appears and it is required',
@@ -646,33 +907,54 @@ test.describe('Patient Record Page tests', () => {
         }
       );
 
+      await PatientDetailsTestStep(
+        'If "Other" language is selected from Patient details block, additional field appears and it is required',
+        async () => {
+          await patientInformationPage.selectFieldOption(patientDetails.language.key, 'Other');
+          await patientInformationPage.verifyFieldIsVisible(patientDetails.otherLanguage.key);
+          await patientInformationPage.clickSaveChangesButton();
+          await patientInformationPage.verifyRequiredFieldValidationErrorShown(patientDetails.otherLanguage.key);
+          await patientInformationPage.enterTextFieldValue(patientDetails.otherLanguage.key, 'Klingon');
+          // Select a different language and verify the field is hidden again
+          await patientInformationPage.selectFieldOption(patientDetails.language.key, NEW_PREFERRED_LANGUAGE);
+          await patientInformationPage.verifyFieldIsHidden(patientDetails.otherLanguage.key);
+        }
+      );
+
       await PCPTestStep(
         'Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked',
         async () => {
           await patientInformationPage.verifyBooleanFieldHasExpectedValue(primaryCarePhysician.active.key, false);
-          await patientInformationPage.verifyFieldIsVisible(primaryCarePhysician.firstName.key);
-          await patientInformationPage.verifyFieldIsVisible(primaryCarePhysician.lastName.key);
-          await patientInformationPage.verifyFieldIsVisible(primaryCarePhysician.practiceName.key);
-          await patientInformationPage.verifyFieldIsVisible(primaryCarePhysician.address.key);
-          await patientInformationPage.verifyFieldIsVisible(primaryCarePhysician.phone.key);
 
-          await patientInformationPage.clearField(primaryCarePhysician.firstName.key);
-          await patientInformationPage.clearField(primaryCarePhysician.lastName.key);
-          await patientInformationPage.clearField(primaryCarePhysician.practiceName.key);
-          await patientInformationPage.clearField(primaryCarePhysician.address.key);
-          await patientInformationPage.clearPhoneField(primaryCarePhysician.phone.key);
+          // Get conditional fields from config
+          const conditionalFields = getConditionalFields(primaryCarePhysician, primaryCarePhysician.active.key);
 
-          // todo: take from config which fields are required
+          // Verify all conditional fields are visible
+          for (const field of conditionalFields) {
+            await patientInformationPage.verifyFieldIsVisible(field.key);
+          }
+
+          // Clear all conditional fields
+          for (const field of conditionalFields) {
+            const fieldConfig =
+              primaryCarePhysician[
+                Object.keys(primaryCarePhysician).find((k) => primaryCarePhysician[k].key === field.key)!
+              ];
+            if (fieldConfig.dataType === 'Phone Number') {
+              await patientInformationPage.clearPhoneField(field.key);
+            } else {
+              await patientInformationPage.clearField(field.key);
+            }
+          }
 
           await patientInformationPage.clickSaveChangesButton();
-          await patientInformationPage.verifyRequiredFieldValidationErrorShown(primaryCarePhysician.firstName.key);
-          await patientInformationPage.verifyRequiredFieldValidationErrorShown(primaryCarePhysician.lastName.key);
-          // await patientInformationPage.verifyValidationErrorShown(primaryCarePhysician.practiceName.key);
-          // await patientInformationPage.verifyValidationErrorShown(primaryCarePhysician.address.key);
-          /*await patientInformationPage.verifyFieldError(
-          primaryCarePhysician.phone.key,
-          'Phone number must be 10 digits in the format (xxx) xxx-xxxx'
-        );*/
+
+          // Verify required validation errors appear only for required fields (based on config)
+          for (const field of conditionalFields) {
+            if (field.shouldBeRequired) {
+              await patientInformationPage.verifyRequiredFieldValidationErrorShown(field.key);
+            }
+          }
         }
       );
     });
