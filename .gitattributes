@@ -1,0 +1,7 @@
+# Automatic resolution of version conflicts in package.json and package-lock.json
+# Always selects the greater version when there's a conflict
+package.json merge=package-version
+package-lock.json merge=package-version
+
+# Keep downstream version of seed data resources during merges from upstream
+apps/ehr/tests/e2e-utils/seed-data/resources/*.json merge=ours

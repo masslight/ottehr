@@ -145,13 +145,13 @@ export const intakeFlowPageRoute = {
     path: `${visitBasePath}/reschedule`,
     getPage: () => <Reschedule />,
   },
-  CancellationConfirmation: {
-    path: `${visitBasePath}/cancellation-confirmation`,
-    getPage: () => <CancellationConfirmation />,
-  },
   CancellationReason: {
     path: `${visitBasePath}/cancel`,
     getPage: () => <CancellationReason />,
+  },
+  CancellationConfirmation: {
+    path: `${visitBasePath}/cancellation-confirmation`,
+    getPage: () => <CancellationConfirmation />,
   },
   AIInterview: {
     path: `${visitBasePath}/ai-interview`,

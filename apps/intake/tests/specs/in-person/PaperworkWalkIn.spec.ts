@@ -1,8 +1,17 @@
 // cSpell:ignore SNPRF
+import Oystehr from '@oystehr/sdk';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { chooseJson, CreateAppointmentResponse } from 'utils';
+import { Appointment } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { addProcessIdMetaTagToAppointment } from 'test-utils';
+import { ResourceHandler } from 'tests/utils/resource-handler';
+import {
+  chooseJson,
+  cleanAppointmentGraph,
+  CreateAppointmentResponse,
+  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+} from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
-// import { StartInPersonFlow } from '../../utils/in-person/StartInPersonFlow';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
 import { QuestionnaireHelper } from '../../utils/QuestionnaireHelper';
@@ -10,14 +19,15 @@ import { FillingInfo } from '../../utils/telemed/FillingInfo';
 
 let page: Page;
 let context: BrowserContext;
-// let flowClass: StartInPersonFlow;
 let locator: Locators;
-// let bookingURL: Awaited<ReturnType<StartInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 const locationName = process.env.LOCATION;
 const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
+
+const PROCESS_ID = `PaperworkWalkIn.spec.ts-${DateTime.now().toMillis()}`;
+let oystehr: Oystehr;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -28,9 +38,16 @@ test.beforeAll(async ({ browser }) => {
       if (!appointmentIds.includes(appointmentId)) {
         appointmentIds.push(appointmentId);
       }
+      const resourceHandler = new ResourceHandler();
+      await resourceHandler.initApi();
+      oystehr = resourceHandler.apiClient;
+      const appointment = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: appointmentId,
+      });
+      await oystehr.fhir.update(addProcessIdMetaTagToAppointment(appointment, PROCESS_ID));
     }
   });
-  // flowClass = new StartInPersonFlow(page);
   paperwork = new Paperwork(page);
   locator = new Locators(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
@@ -38,6 +55,13 @@ test.beforeAll(async ({ browser }) => {
 test.afterAll(async () => {
   await page.close();
   await context.close();
+  await cleanAppointmentGraph(
+    {
+      system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+      code: PROCESS_ID,
+    },
+    oystehr
+  );
 });
 
 test.describe.serial('Start now In person visit - Paperwork submission flow with only required fields', () => {
@@ -100,6 +124,7 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
   test('SNPRF-8 Skip photo ID and complete consent forms', async () => {
     await paperwork.skipPhotoID();
     await paperwork.fillConsentForms();
+    await commonLocatorsHelper.clickContinue();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Review and submit');
   });

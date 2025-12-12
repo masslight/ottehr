@@ -54,7 +54,7 @@ const bookAppointmentQuestionnaire: {
   version: string | undefined;
   templateQuestionnaire: Questionnaire | undefined;
 } = (() => {
-  const templateResource = Object.values(bookAppointmentQuestionnaireJson.fhirResources)[0]?.resource;
+  const templateResource = _.cloneDeep(BookingQuestionnaire);
   return {
     url: templateResource?.url,
     version: templateResource?.version,
@@ -97,100 +97,6 @@ interface BookingFormPrePopulationInput {
   context: BookingContext;
   patient?: Patient;
 }
-const prepopulateBookingForm = (input: BookingFormPrePopulationInput): QuestionnaireResponseItem[] => {
-  const {
-    patient,
-    questionnaire,
-    context: { serviceMode, serviceCategoryCode },
-  } = input;
-  console.log(
-    'making prepopulated items for booking form with serviceMode, serviceCategoryCode',
-    serviceMode,
-    serviceCategoryCode
-  );
-
-  let patientSex: string | undefined;
-  if (patient?.gender === 'male') {
-    patientSex = 'Male';
-  } else if (patient?.gender === 'female') {
-    patientSex = 'Female';
-  } else if (patient?.gender !== undefined) {
-    patientSex = 'Intersex';
-  }
-  const patientPreferredName = patient?.name?.find((name) => name.use === 'nickname')?.given?.[0];
-  const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value;
-
-  const authorizedNLG = patient?.extension?.find(
-    (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
-  )?.valueString;
-
-  const ssn = patient?.identifier?.find(
-    (id) =>
-      id.type?.coding?.some((c) => c.system === 'http://terminology.hl7.org/CodeSystem/v2-0203' && c.code === 'SS') &&
-      id.period?.end === undefined
-  )?.value;
-
-  // assuming here we never need to collect this when we already have it
-  const shouldShownSSNField = !ssn;
-  const ssnRequired = serviceCategoryCode === 'workmans_comp' && shouldShownSSNField;
-
-  const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
-    const populatedItem: QuestionnaireResponseItem[] = (() => {
-      const itemItems = (item.item ?? [])
-        .filter((i: QuestionnaireItem) => i.type !== 'display')
-        .map((subItem) => {
-          const { linkId } = subItem;
-          let answer: QuestionnaireResponseItemAnswer[] | undefined;
-          if (linkId === 'existing-patient-id' && patient?.id) {
-            answer = makeAnswer(patient.id);
-          }
-          if (linkId === 'should-display-ssn-field') {
-            answer = makeAnswer(shouldShownSSNField, 'Boolean');
-          }
-          if (linkId === 'ssn-field-required') {
-            answer = makeAnswer(ssnRequired, 'Boolean');
-          }
-          if (linkId === 'patient-first-name' && patient) {
-            answer = makeAnswer(getFirstName(patient) ?? '');
-          }
-          if (linkId === 'patient-last-name' && patient) {
-            answer = makeAnswer(getLastName(patient) ?? '');
-          }
-
-          if (linkId === 'patient-middle-name' && patient) {
-            answer = makeAnswer(getMiddleName(patient) ?? '');
-          }
-          if (linkId === 'patient-preferred-name' && patientPreferredName) {
-            answer = makeAnswer(patientPreferredName);
-          }
-          if (linkId === 'patient-birthdate' && patient?.birthDate) {
-            answer = makeAnswer(patient.birthDate);
-          }
-          if (linkId === 'patient-birth-sex' && patientSex) {
-            answer = makeAnswer(patientSex);
-          }
-          if (linkId === 'patient-email' && patientEmail) {
-            answer = makeAnswer(patientEmail);
-          }
-          if (linkId === 'authorized-non-legal-guardian' && authorizedNLG) {
-            answer = makeAnswer(authorizedNLG);
-          }
-
-          return {
-            linkId,
-            answer,
-          };
-        });
-      return itemItems;
-    })();
-    return {
-      linkId: item.linkId,
-      item: populatedItem,
-    };
-  });
-
-  return item;
-};
 
 const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): PatientInfo => {
   const items = flattenQuestionnaireAnswers(qrItem);
@@ -243,6 +149,15 @@ const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): Pat
   return patientInfo;
 };
 
+type BookingQuestionnaireLinkId = NonNullable<
+  NonNullable<typeof BookingQuestionnaire.item>[number]['item']
+>[number]['linkId'];
+
+const hiddenBookingFields: BookingQuestionnaireLinkId[] = [];
+
+const DEFAULT_PAPERWORK_CREDIT_CARD_DETAILS_COPY =
+  'If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.';
+
 const BOOKING_DEFAULTS = {
   reasonForVisitOptions: REASON_FOR_VISIT_OPTIONS,
   cancelReasonOptions: CANCEL_REASON_OPTIONS,
@@ -250,6 +165,7 @@ const BOOKING_DEFAULTS = {
     serviceModes: ['in-person', 'virtual'],
     visitType: ['prebook'],
   },
+  hiddenBookingFields,
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
   intakeQuestionnaires,
   selectBookingQuestionnaire: (
@@ -266,10 +182,15 @@ const BOOKING_DEFAULTS = {
     }
     throw new Error('No booking questionnaire configured');
   },
-  prepopulateBookingForm,
   mapBookingQRItemToPatientInfo,
+  paperwork: {
+    creditCardDetails: {
+      copy: DEFAULT_PAPERWORK_CREDIT_CARD_DETAILS_COPY,
+    },
+  },
 };
 
+// todo: it would be nice to use zod to validate the merged booking config shape here
 export const BOOKING_CONFIG = mergeAndFreezeConfigObjects(BOOKING_DEFAULTS, BOOKING_OVERRIDES);
 
 export const shouldShowServiceCategorySelectionPage = (params: { serviceMode: string; visitType: string }): boolean => {
@@ -285,3 +206,98 @@ export const ServiceCategoryCodeSchema = z.enum(
 );
 
 export type ServiceCategoryCode = z.infer<typeof ServiceCategoryCodeSchema>;
+
+export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): QuestionnaireResponseItem[] => {
+  const {
+    patient,
+    questionnaire,
+    context: { serviceMode, serviceCategoryCode },
+  } = input;
+  console.log(
+    'making prepopulated items for booking form with serviceMode, serviceCategoryCode',
+    serviceMode,
+    serviceCategoryCode
+  );
+
+  let patientSex: string | undefined;
+  if (patient?.gender === 'male') {
+    patientSex = 'Male';
+  } else if (patient?.gender === 'female') {
+    patientSex = 'Female';
+  } else if (patient?.gender !== undefined) {
+    patientSex = 'Intersex';
+  }
+  const patientPreferredName = patient?.name?.find((name) => name.use === 'nickname')?.given?.[0];
+  const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value;
+
+  const authorizedNLG = patient?.extension?.find(
+    (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+  )?.valueString;
+
+  const ssn = patient?.identifier?.find(
+    (id) =>
+      id.type?.coding?.some((c) => c.system === 'http://terminology.hl7.org/CodeSystem/v2-0203' && c.code === 'SS') &&
+      id.period?.end === undefined
+  )?.value;
+
+  // assuming here we never need to collect this when we already have it
+  const shouldShowSSNField = !ssn && !BOOKING_CONFIG.hiddenBookingFields.includes('patient-ssn');
+  const ssnRequired = serviceCategoryCode === 'workmans_comp' && shouldShowSSNField;
+
+  const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
+    const populatedItem: QuestionnaireResponseItem[] = (() => {
+      const itemItems = (item.item ?? [])
+        .filter((i: QuestionnaireItem) => i.type !== 'display')
+        .map((subItem) => {
+          const { linkId } = subItem;
+          let answer: QuestionnaireResponseItemAnswer[] | undefined;
+          if (linkId === 'existing-patient-id' && patient?.id) {
+            answer = makeAnswer(patient.id);
+          }
+          if (linkId === 'should-display-ssn-field') {
+            answer = makeAnswer(shouldShowSSNField, 'Boolean');
+          }
+          if (linkId === 'ssn-field-required') {
+            answer = makeAnswer(ssnRequired, 'Boolean');
+          }
+          if (linkId === 'patient-first-name' && patient) {
+            answer = makeAnswer(getFirstName(patient) ?? '');
+          }
+          if (linkId === 'patient-last-name' && patient) {
+            answer = makeAnswer(getLastName(patient) ?? '');
+          }
+
+          if (linkId === 'patient-middle-name' && patient) {
+            answer = makeAnswer(getMiddleName(patient) ?? '');
+          }
+          if (linkId === 'patient-preferred-name' && patientPreferredName) {
+            answer = makeAnswer(patientPreferredName);
+          }
+          if (linkId === 'patient-birthdate' && patient?.birthDate) {
+            answer = makeAnswer(patient.birthDate);
+          }
+          if (linkId === 'patient-birth-sex' && patientSex) {
+            answer = makeAnswer(patientSex);
+          }
+          if (linkId === 'patient-email' && patientEmail) {
+            answer = makeAnswer(patientEmail);
+          }
+          if (linkId === 'authorized-non-legal-guardian' && authorizedNLG) {
+            answer = makeAnswer(authorizedNLG);
+          }
+
+          return {
+            linkId,
+            answer,
+          };
+        });
+      return itemItems;
+    })();
+    return {
+      linkId: item.linkId,
+      item: populatedItem,
+    };
+  });
+
+  return item;
+};

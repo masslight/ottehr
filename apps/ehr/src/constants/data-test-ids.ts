@@ -371,6 +371,7 @@ export const dataTestIds = {
     medicalConditionsContainer: 'medical-conditions-container',
     surgicalHistoryContainer: 'surgical-history-container',
     additionalQuestions: 'additional-questions',
+    supervisorApprovalCheckbox: 'supervisor-approval-checkbox',
     hpiContainer: 'hpi-container',
   },
   hpiAndTemplatesPage: {

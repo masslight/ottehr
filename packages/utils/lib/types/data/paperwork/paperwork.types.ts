@@ -49,6 +49,7 @@ const QuestionnaireDataTypes = [
   'Image',
   'PDF',
   'Payment Validation',
+  'Medical History',
   'Call Out',
   'SSN',
 ] as const;

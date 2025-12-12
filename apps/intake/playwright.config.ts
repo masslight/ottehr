@@ -58,6 +58,24 @@ export default defineConfig({
   projects: [
     // { name: 'setup', testMatch: /.*\.setup\.ts/ },
     {
+      name: 'login',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: './playwright/user.json',
+      },
+      testMatch: /.*login\/login\.spec\.ts/,
+    },
+    {
+      name: 'paperwork-setup',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: './playwright/user.json',
+      },
+      dependencies: ['login'],
+      testMatch: /.*setup\.spec\.ts/,
+      testIgnore: /.*login\/login\.spec\.ts/,
+    },
+    {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
@@ -65,6 +83,8 @@ export default defineConfig({
         // storageState: './tests/.auth/user.json'
       },
       // dependencies: ['setup'],
+      dependencies: ['paperwork-setup'],
+      testIgnore: [/.*login\/login\.spec\.ts/, /.*setup\.spec\.ts/],
     },
 
     // {

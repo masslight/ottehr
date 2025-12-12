@@ -1,111 +1,94 @@
 // cSpell:ignore IPPPS
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { BRANDING_CONFIG, chooseJson, CreateAppointmentResponse } from 'utils';
+import * as fs from 'fs';
+import * as path from 'path';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
-import { FillingInfo } from '../../utils/in-person/FillingInfo';
-import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
 import {
   CARD_NUMBER,
   Paperwork,
   PATIENT_ADDRESS,
-  PATIENT_ADDRESS_LINE_2,
   PATIENT_CITY,
   PATIENT_ZIP,
   RELATIONSHIP_RESPONSIBLE_PARTY_SELF,
 } from '../../utils/Paperwork';
+import { InPersonPatientSelfTestData } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
-let flowClass: PrebookInPersonFlow;
-let bookingData: Awaited<ReturnType<PrebookInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
 let locator: Locators;
-let filledPaperwork: Awaited<ReturnType<Paperwork['fillPaperworkAllFieldsInPerson']>>;
-let fillingInfo: FillingInfo;
 let commonLocatorsHelper: CommonLocatorsHelper;
-const appointmentIds: string[] = [];
+let patient: InPersonPatientSelfTestData;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
-  page.on('response', async (response) => {
-    if (response.url().includes('/create-appointment/')) {
-      const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
-      if (!appointmentIds.includes(appointmentId)) {
-        appointmentIds.push(appointmentId);
-      }
-    }
-  });
-  flowClass = new PrebookInPersonFlow(page);
   paperwork = new Paperwork(page);
   locator = new Locators(page);
-  fillingInfo = new FillingInfo(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
-  bookingData = await flowClass.startVisit();
+
+  const testDataPath = path.join('test-data', 'cardPaymentSelfPatient.json');
+  patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {
   await page.close();
   await context.close();
 });
 
-test.describe('Check paperwork is prefilled for existing patient. Payment - card, responsible party - self', () => {
-  test.describe.configure({ mode: 'serial' });
-  test.beforeAll(async () => {
-    await page.goto(bookingData.bookingURL);
-    await paperwork.clickProceedToPaperwork();
-    filledPaperwork = await paperwork.fillPaperworkAllFieldsInPerson('card', 'self');
-    await locator.finishButton.click();
-    await page.waitForTimeout(1_000);
-    await page.goto('/home');
-    await locator.scheduleInPersonVisitButton.click();
-    await flowClass.additionalStepsForPrebook();
-    await paperwork.checkCorrectPageOpens('Welcome Back!');
-    await page
-      .getByRole('heading', { name: new RegExp(`.*${bookingData.firstName} ${bookingData.lastName}.*`, 'i') })
-      .click({ noWaitAfter: true });
-    await locator.continueButton.click();
-    const [year, month, day] = bookingData.dateOfBirth.split('-');
-    await fillingInfo.fillCorrectDOB(month, day, year);
-    await locator.continueButton.click();
-    await paperwork.checkCorrectPageOpens('About the patient');
-    await fillingInfo.fillVisitReason();
-    await locator.continueButton.click();
-    await paperwork.checkCorrectPageOpens('Review and submit');
-    await locator.reserveButton.click();
-    await paperwork.checkCorrectPageOpens(`Thank you for choosing ${BRANDING_CONFIG.projectName}!`);
+test.describe.parallel('In-Person - Prefilled Paperwork, Responsible Party: Self, Payment: Card', () => {
+  test('IPPPS-1. Responsible party', async () => {
+    await test.step('IPPPS-1.1. Open Responsible party page directly', async () => {
+      await page.goto(`paperwork/${patient.appointmentId}/responsible-party`);
+      await paperwork.checkCorrectPageOpens('Responsible party information');
+    });
+
+    await test.step('IPPPS-1.2. Check all fields have prefilled values', async () => {
+      const [year, month, day] = patient.dateOfBirth.split('-');
+      const dob = commonLocatorsHelper.getMonthDay(month, day);
+      if (!dob) {
+        throw new Error('DOB data is null');
+      }
+      await expect(locator.responsiblePartyFirstName).toHaveValue(patient.firstName);
+      await expect(locator.responsiblePartyLastName).toHaveValue(patient.lastName);
+      await expect(locator.responsiblePartyBirthSex).toHaveValue(patient.birthSex);
+      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
+      await expect(locator.responsiblePartyRelationship).toHaveValue(RELATIONSHIP_RESPONSIBLE_PARTY_SELF);
+      await expect(locator.responsiblePartyCity).toHaveValue(PATIENT_CITY);
+      await expect(locator.responsiblePartyState).toHaveValue(patient.state!);
+      await expect(locator.responsiblePartyZip).toHaveValue(PATIENT_ZIP);
+      await expect(locator.responsiblePartyAddress1).toHaveValue(PATIENT_ADDRESS);
+      // fill only required fields and this isn't required
+      // await expect(locator.responsiblePartyAddress2).toHaveValue(PATIENT_ADDRESS_LINE_2);
+      await expect(locator.responsiblePartyNumber).toHaveValue(
+        paperwork.formatPhoneNumber(process.env.PHONE_NUMBER || '')
+      );
+      await expect(locator.responsiblePartyEmail).toHaveValue(patient.email);
+    });
   });
-  test('IPPPS-1 Check Responsible party has prefilled values', async () => {
-    const [year, month, day] = bookingData.dateOfBirth.split('-');
-    const dob = await commonLocatorsHelper.getMonthDay(month, day);
-    if (!dob) {
-      throw new Error('DOB data is null');
-    }
-    await page.goto(`paperwork/${appointmentIds[1]}/responsible-party`);
-    await expect(locator.responsiblePartyFirstName).toHaveValue(bookingData.firstName);
-    await expect(locator.responsiblePartyLastName).toHaveValue(bookingData.lastName);
-    await expect(locator.responsiblePartyBirthSex).toHaveValue(bookingData.birthSex);
-    await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
-    await expect(locator.responsiblePartyRelationship).toHaveValue(RELATIONSHIP_RESPONSIBLE_PARTY_SELF);
-    await expect(locator.responsiblePartyCity).toHaveValue(PATIENT_CITY);
-    await expect(locator.responsiblePartyState).toHaveValue(filledPaperwork.stateValue);
-    await expect(locator.responsiblePartyZip).toHaveValue(PATIENT_ZIP);
-    await expect(locator.responsiblePartyAddress1).toHaveValue(PATIENT_ADDRESS);
-    await expect(locator.responsiblePartyAddress2).toHaveValue(PATIENT_ADDRESS_LINE_2);
-    await expect(locator.responsiblePartyNumber).toHaveValue(
-      paperwork.formatPhoneNumber(process.env.PHONE_NUMBER || '')
-    );
-    await expect(locator.responsiblePartyEmail).toHaveValue(bookingData.email);
+
+  test('IPPPS-2. Payment option', async () => {
+    await test.step('IPPPS-2.1. Open Payment option page directly', async () => {
+      await page.goto(`paperwork/${patient.appointmentId}/payment-option`);
+      await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
+    });
+
+    await test.step('IPPPS-2.2. Check screen does not have preselected card option', async () => {
+      await expect(locator.selfPayOption).not.toBeChecked();
+    });
   });
-  test('IPPPS-2 Check Payment screen does not have preselected card option', async () => {
-    await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
-    await expect(locator.selfPayOption).not.toBeChecked();
-  });
-  test('IPPPS-3 Check Card payment has prefilled and preselected card', async () => {
-    await page.goto(`paperwork/${appointmentIds[1]}/card-payment`);
-    const lastFour = CARD_NUMBER.slice(-4);
-    const masked = `XXXX - XXXX - XXXX - ${lastFour}`;
-    await expect(locator.selectedCard).toBeChecked();
-    await expect(locator.cardNumberFilled).toHaveText(masked);
+
+  test('IPPPS-3. Card payment', async () => {
+    await test.step('IPPPS-3.1. Open Card payment page directly', async () => {
+      await page.goto(`paperwork/${patient.appointmentId}/card-payment`);
+      await paperwork.checkCorrectPageOpens('Credit card details');
+    });
+
+    await test.step('IPPPS-3.2. Check screen has prefilled and preselected card', async () => {
+      const lastFour = CARD_NUMBER.slice(-4);
+      const masked = `XXXX - XXXX - XXXX - ${lastFour}`;
+      await expect(locator.selectedCard).toBeChecked();
+      await expect(locator.cardNumberFilled).toHaveText(masked);
+    });
   });
 });

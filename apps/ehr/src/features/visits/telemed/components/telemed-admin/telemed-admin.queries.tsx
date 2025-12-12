@@ -151,6 +151,31 @@ export const useInsuranceMutation = (
         identifier: insurancePlan?.identifier || data?.identifier,
         address: insurancePlan?.address || data?.address,
       };
+
+      if (data.notes) {
+        const noteExt = {
+          url: FHIR_EXTENSION.InsurancePlan.notes.url,
+          valueString: data.notes,
+        };
+
+        const existingExtIndex = resourceExtensions.findIndex(
+          (ext) => ext.url === FHIR_EXTENSION.InsurancePlan.notes.url
+        );
+        if (existingExtIndex >= 0) {
+          resourceExtensions[existingExtIndex] = noteExt;
+        } else {
+          resourceExtensions.push(noteExt);
+        }
+      }
+      if (data.notes && data.notes === '') {
+        const existingExtIndex = resourceExtensions.findIndex(
+          (ext) => ext.url === FHIR_EXTENSION.InsurancePlan.notes.url
+        );
+        if (existingExtIndex >= 0) {
+          resourceExtensions.splice(existingExtIndex, 1);
+        }
+      }
+
       // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
       // if (!requirementSettingsExistingExtensions) {
       //   resourceExtensions?.push({

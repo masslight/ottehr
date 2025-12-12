@@ -306,6 +306,7 @@ export interface VisitNoteData extends PdfExaminationBlockData {
   insuranceSubscriberId?: string;
   address: string;
   chiefComplaint?: string;
+  mechanismOfInjury?: string;
   providerTimeSpan?: string;
   reviewOfSystems?: string;
   medications?: string[];
