@@ -96,12 +96,45 @@ const NEW_PHYSICIAN_MOBILE = '(202) 222-2222';
 const NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD = 'testing gender';
 const NEW_REASON_FOR_VISIT = BOOKING_CONFIG.reasonForVisitOptions[0];
 
+// Emergency Contact test data
+const NEW_EMERGENCY_CONTACT_RELATIONSHIP = 'Parent';
+const NEW_EMERGENCY_CONTACT_FIRST_NAME = 'Emergency';
+const NEW_EMERGENCY_CONTACT_MIDDLE_NAME = 'Middle';
+const NEW_EMERGENCY_CONTACT_LAST_NAME = 'Contact';
+const NEW_EMERGENCY_CONTACT_PHONE = '(303) 333-3333';
+const NEW_EMERGENCY_CONTACT_STREET_ADDRESS = '789 Emergency St';
+const NEW_EMERGENCY_CONTACT_ADDRESS_LINE_2 = 'Apt 3';
+const NEW_EMERGENCY_CONTACT_CITY = 'Emergency City';
+const NEW_EMERGENCY_CONTACT_STATE = 'FL';
+const NEW_EMERGENCY_CONTACT_ZIP = '33101';
+
+// Pharmacy test data
+const NEW_PHARMACY_NAME = 'Test Pharmacy';
+const NEW_PHARMACY_ADDRESS = '456 Pharmacy Ave, City, ST 12345';
+
+// Employer test data
+const NEW_EMPLOYER_NAME = 'Test Employer Inc';
+const NEW_EMPLOYER_ADDRESS_LINE_1 = '100 Business Blvd';
+const NEW_EMPLOYER_ADDRESS_LINE_2 = 'Suite 200';
+const NEW_EMPLOYER_CITY = 'Business City';
+const NEW_EMPLOYER_STATE = 'TX';
+const NEW_EMPLOYER_ZIP = '75001';
+const NEW_EMPLOYER_CONTACT_FIRST_NAME = 'John';
+const NEW_EMPLOYER_CONTACT_LAST_NAME = 'Manager';
+const NEW_EMPLOYER_CONTACT_TITLE = 'HR Director';
+const NEW_EMPLOYER_CONTACT_EMAIL = 'hr@testemployer.com';
+const NEW_EMPLOYER_CONTACT_PHONE = '(214) 555-1234';
+const NEW_EMPLOYER_CONTACT_FAX = '(214) 555-1235';
+
 const patientSummary = PATIENT_RECORD_CONFIG.FormFields.patientSummary.items;
 const contactInformation = PATIENT_RECORD_CONFIG.FormFields.patientContactInformation.items;
 const patientDetails = PATIENT_RECORD_CONFIG.FormFields.patientDetails.items;
 const responsibleParty = PATIENT_RECORD_CONFIG.FormFields.responsibleParty.items;
 const primaryCarePhysician = PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items;
 const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
+const emergencyContact = PATIENT_RECORD_CONFIG.FormFields.emergencyContact.items;
+const preferredPharmacy = PATIENT_RECORD_CONFIG.FormFields.preferredPharmacy.items;
+const employerInformation = PATIENT_RECORD_CONFIG.FormFields.employerInformation.items;
 
 const HIDDEN_SECTIONS = PATIENT_RECORD_CONFIG.hiddenFormSections || [];
 const SECTIONS = PATIENT_RECORD_CONFIG.FormFields;
@@ -147,8 +180,6 @@ const PatientDetailsTestStep = HIDDEN_SECTIONS.includes(SECTIONS.patientDetails.
 const ResponsiblePartyTest = HIDDEN_SECTIONS.includes(SECTIONS.responsibleParty.linkId) ? test.skip : test;
 const ResponsiblePartyTestStep = HIDDEN_SECTIONS.includes(SECTIONS.responsibleParty.linkId) ? test.skip : test.step;
 
-/*
-we have no tests for these sections yet, skipping for now, but we should add some!
 const EmployerTest = HIDDEN_SECTIONS.includes(SECTIONS.employerInformation.linkId) ? test.skip : test;
 const EmployerTestStep = HIDDEN_SECTIONS.includes(SECTIONS.employerInformation.linkId) ? test.skip : test.step;
 
@@ -157,7 +188,6 @@ const EmergencyContactTestStep = HIDDEN_SECTIONS.includes(SECTIONS.emergencyCont
 
 const PharmacyTest = HIDDEN_SECTIONS.includes(SECTIONS.preferredPharmacy.linkId) ? test.skip : test;
 const PharmacyTestStep = HIDDEN_SECTIONS.includes(SECTIONS.preferredPharmacy.linkId) ? test.skip : test.step;
-*/
 
 /*  
 // this will probably be more involved, will get to it when needed
@@ -389,6 +419,30 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.verifyPhoneFieldValue(primaryCarePhysician.phone.key, DEMO_VISIT_PHYSICIAN_MOBILE);
       }
     );
+  });
+
+  EmergencyContactTest('Verify Emergency Contact Section behavior', async () => {
+    await EmergencyContactTestStep('Verify data from Emergency Contact block is displayed correctly', async () => {
+      // Note: We can add verification here if there is existing emergency contact data in the resource handler
+      // For now, we'll test this section can be interacted with
+      await patientInformationPage.verifyFieldIsVisible(emergencyContact.relationship.key);
+    });
+  });
+
+  PharmacyTest('Verify Pharmacy Section behavior', async () => {
+    await PharmacyTestStep('Verify Pharmacy section is visible', async () => {
+      // Note: We can add verification here if there is existing pharmacy data in the resource handler
+      // For now, we'll test this section can be interacted with
+      await patientInformationPage.verifyFieldIsVisible(preferredPharmacy.name.key);
+    });
+  });
+
+  EmployerTest('Verify Employer Section behavior', async () => {
+    await EmployerTestStep('Verify Employer section is visible', async () => {
+      // Note: We can add verification here if there is existing employer data in the resource handler
+      // For now, we'll test this section can be interacted with
+      await patientInformationPage.verifyFieldIsVisible(employerInformation.employerName.key);
+    });
   });
 
   //to do: uncomment when https://github.com/masslight/ottehr/issues/2200 will be fixed
@@ -957,6 +1011,101 @@ test.describe('Patient Record Page tests', () => {
           }
         }
       );
+
+      await EmergencyContactTestStep(
+        'Check validation error is displayed if any required field in Emergency Contact block is missing or phone number is invalid',
+        async () => {
+          // Get required fields from config
+          const requiredFields: FormFieldsItem[] = [];
+          for (const field of PATIENT_RECORD_CONFIG.FormFields.emergencyContact.requiredFields ?? []) {
+            const requiredField = Object.values(emergencyContact).find((item) => item.key === field);
+            if (requiredField) {
+              requiredFields.push(requiredField);
+            }
+          }
+
+          // Clear all required fields
+          for (const field of requiredFields) {
+            if (field.dataType === 'Phone Number') {
+              await patientInformationPage.clearPhoneField(field.key);
+            } else if (field.type !== 'choice' && field.type !== 'reference') {
+              await patientInformationPage.clearField(field.key);
+            }
+          }
+
+          await patientInformationPage.clickSaveChangesButton();
+
+          // Verify required validation errors appear
+          for (const field of requiredFields) {
+            if (field.type !== 'choice' && field.type !== 'reference') {
+              await patientInformationPage.verifyRequiredFieldValidationErrorShown(field.key);
+            }
+          }
+
+          // Test invalid phone number validation
+          await patientInformationPage.enterPhoneFieldValue(emergencyContact.phone.key, '111');
+          await patientInformationPage.clickSaveChangesButton();
+          await patientInformationPage.verifyFieldError(
+            emergencyContact.phone.key,
+            'Phone number must be 10 digits in the format (xxx) xxx-xxxx'
+          );
+        }
+      );
+
+      await PharmacyTestStep('Verify Pharmacy section fields can be filled', async () => {
+        // Pharmacy has no required fields, so we just verify we can enter data
+        await patientInformationPage.enterTextFieldValue(preferredPharmacy.name.key, NEW_PHARMACY_NAME);
+        await patientInformationPage.enterTextFieldValue(preferredPharmacy.address.key, NEW_PHARMACY_ADDRESS);
+      });
+
+      await EmployerTestStep(
+        'Check validation errors for Employer Information block with invalid email and phone',
+        async () => {
+          // Test invalid email validation
+          await patientInformationPage.enterTextFieldValue(employerInformation.contactEmail.key, 'invalidEmailFormat');
+          await patientInformationPage.clickSaveChangesButton();
+          await patientInformationPage.verifyFieldError(
+            employerInformation.contactEmail.key,
+            'Must be in the format "email@example.com"'
+          );
+
+          // Fix email
+          await patientInformationPage.enterTextFieldValue(
+            employerInformation.contactEmail.key,
+            NEW_EMPLOYER_CONTACT_EMAIL
+          );
+
+          // Test invalid phone number validation
+          await patientInformationPage.clearPhoneField(employerInformation.contactPhone.key);
+          await patientInformationPage.enterPhoneFieldValue(employerInformation.contactPhone.key, '123');
+          await patientInformationPage.clickSaveChangesButton();
+          await patientInformationPage.verifyFieldError(
+            employerInformation.contactPhone.key,
+            'Phone number must be 10 digits in the format (xxx) xxx-xxxx'
+          );
+
+          // Fix phone
+          await patientInformationPage.enterPhoneFieldValue(
+            employerInformation.contactPhone.key,
+            NEW_EMPLOYER_CONTACT_PHONE
+          );
+
+          // Test invalid fax number validation
+          await patientInformationPage.clearPhoneField(employerInformation.contactFax.key);
+          await patientInformationPage.enterPhoneFieldValue(employerInformation.contactFax.key, '456');
+          await patientInformationPage.clickSaveChangesButton();
+          await patientInformationPage.verifyFieldError(
+            employerInformation.contactFax.key,
+            'Phone number must be 10 digits in the format (xxx) xxx-xxxx'
+          );
+
+          // Fix fax
+          await patientInformationPage.enterPhoneFieldValue(
+            employerInformation.contactFax.key,
+            NEW_EMPLOYER_CONTACT_FAX
+          );
+        }
+      );
     });
 
     test('Updating values for all fields and saving. Checking that they are displayed correctly after save', async () => {
@@ -1028,6 +1177,78 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.enterTextFieldValue(primaryCarePhysician.practiceName.key, NEW_PRACTICE_NAME);
         await patientInformationPage.enterTextFieldValue(primaryCarePhysician.address.key, NEW_PHYSICIAN_ADDRESS);
         await patientInformationPage.enterPhoneFieldValue(primaryCarePhysician.phone.key, NEW_PHYSICIAN_MOBILE);
+      });
+
+      await EmergencyContactTestStep('Updating values from Emergency Contact block', async () => {
+        await patientInformationPage.selectFieldOption(
+          emergencyContact.relationship.key,
+          NEW_EMERGENCY_CONTACT_RELATIONSHIP
+        );
+        await patientInformationPage.enterTextFieldValue(
+          emergencyContact.firstName.key,
+          NEW_EMERGENCY_CONTACT_FIRST_NAME
+        );
+        await patientInformationPage.enterTextFieldValue(
+          emergencyContact.middleName.key,
+          NEW_EMERGENCY_CONTACT_MIDDLE_NAME
+        );
+        await patientInformationPage.enterTextFieldValue(
+          emergencyContact.lastName.key,
+          NEW_EMERGENCY_CONTACT_LAST_NAME
+        );
+        await patientInformationPage.enterPhoneFieldValue(emergencyContact.phone.key, NEW_EMERGENCY_CONTACT_PHONE);
+        await patientInformationPage.enterTextFieldValue(
+          emergencyContact.streetAddress.key,
+          NEW_EMERGENCY_CONTACT_STREET_ADDRESS
+        );
+        await patientInformationPage.enterTextFieldValue(
+          emergencyContact.addressLine2.key,
+          NEW_EMERGENCY_CONTACT_ADDRESS_LINE_2
+        );
+        await patientInformationPage.enterTextFieldValue(emergencyContact.city.key, NEW_EMERGENCY_CONTACT_CITY);
+        await patientInformationPage.selectFieldOption(emergencyContact.state.key, NEW_EMERGENCY_CONTACT_STATE);
+        await patientInformationPage.enterTextFieldValue(emergencyContact.zip.key, NEW_EMERGENCY_CONTACT_ZIP);
+      });
+
+      await PharmacyTestStep('Updating values from Pharmacy block', async () => {
+        await patientInformationPage.enterTextFieldValue(preferredPharmacy.name.key, NEW_PHARMACY_NAME);
+        await patientInformationPage.enterTextFieldValue(preferredPharmacy.address.key, NEW_PHARMACY_ADDRESS);
+      });
+
+      await EmployerTestStep('Updating values from Employer Information block', async () => {
+        await patientInformationPage.enterTextFieldValue(employerInformation.employerName.key, NEW_EMPLOYER_NAME);
+        await patientInformationPage.enterTextFieldValue(
+          employerInformation.addressLine1.key,
+          NEW_EMPLOYER_ADDRESS_LINE_1
+        );
+        await patientInformationPage.enterTextFieldValue(
+          employerInformation.addressLine2.key,
+          NEW_EMPLOYER_ADDRESS_LINE_2
+        );
+        await patientInformationPage.enterTextFieldValue(employerInformation.city.key, NEW_EMPLOYER_CITY);
+        await patientInformationPage.selectFieldOption(employerInformation.state.key, NEW_EMPLOYER_STATE);
+        await patientInformationPage.enterTextFieldValue(employerInformation.zip.key, NEW_EMPLOYER_ZIP);
+        await patientInformationPage.enterTextFieldValue(
+          employerInformation.contactFirstName.key,
+          NEW_EMPLOYER_CONTACT_FIRST_NAME
+        );
+        await patientInformationPage.enterTextFieldValue(
+          employerInformation.contactLastName.key,
+          NEW_EMPLOYER_CONTACT_LAST_NAME
+        );
+        await patientInformationPage.enterTextFieldValue(
+          employerInformation.contactTitle.key,
+          NEW_EMPLOYER_CONTACT_TITLE
+        );
+        await patientInformationPage.enterTextFieldValue(
+          employerInformation.contactEmail.key,
+          NEW_EMPLOYER_CONTACT_EMAIL
+        );
+        await patientInformationPage.enterPhoneFieldValue(
+          employerInformation.contactPhone.key,
+          NEW_EMPLOYER_CONTACT_PHONE
+        );
+        await patientInformationPage.enterPhoneFieldValue(employerInformation.contactFax.key, NEW_EMPLOYER_CONTACT_FAX);
       });
 
       await test.step('Click save changes and verify successfully updated message', async () => {
@@ -1148,6 +1369,87 @@ test.describe('Patient Record Page tests', () => {
           await patientInformationPage.verifyTextFieldValue(primaryCarePhysician.practiceName.key, NEW_PRACTICE_NAME);
           await patientInformationPage.verifyTextFieldValue(primaryCarePhysician.address.key, NEW_PHYSICIAN_ADDRESS);
           await patientInformationPage.verifyPhoneFieldValue(primaryCarePhysician.phone.key, NEW_PHYSICIAN_MOBILE);
+        }
+      );
+
+      await EmergencyContactTestStep(
+        'Checking that all fields from Emergency Contact block are updated correctly',
+        async () => {
+          await patientInformationPage.verifySelectFieldValue(
+            emergencyContact.relationship.key,
+            NEW_EMERGENCY_CONTACT_RELATIONSHIP
+          );
+          await patientInformationPage.verifyTextFieldValue(
+            emergencyContact.firstName.key,
+            NEW_EMERGENCY_CONTACT_FIRST_NAME
+          );
+          await patientInformationPage.verifyTextFieldValue(
+            emergencyContact.middleName.key,
+            NEW_EMERGENCY_CONTACT_MIDDLE_NAME
+          );
+          await patientInformationPage.verifyTextFieldValue(
+            emergencyContact.lastName.key,
+            NEW_EMERGENCY_CONTACT_LAST_NAME
+          );
+          await patientInformationPage.verifyPhoneFieldValue(emergencyContact.phone.key, NEW_EMERGENCY_CONTACT_PHONE);
+          await patientInformationPage.verifyTextFieldValue(
+            emergencyContact.streetAddress.key,
+            NEW_EMERGENCY_CONTACT_STREET_ADDRESS
+          );
+          await patientInformationPage.verifyTextFieldValue(
+            emergencyContact.addressLine2.key,
+            NEW_EMERGENCY_CONTACT_ADDRESS_LINE_2
+          );
+          await patientInformationPage.verifyTextFieldValue(emergencyContact.city.key, NEW_EMERGENCY_CONTACT_CITY);
+          await patientInformationPage.verifySelectFieldValue(emergencyContact.state.key, NEW_EMERGENCY_CONTACT_STATE);
+          await patientInformationPage.verifyTextFieldValue(emergencyContact.zip.key, NEW_EMERGENCY_CONTACT_ZIP);
+        }
+      );
+
+      await PharmacyTestStep('Checking that all fields from Pharmacy block are updated correctly', async () => {
+        await patientInformationPage.verifyTextFieldValue(preferredPharmacy.name.key, NEW_PHARMACY_NAME);
+        await patientInformationPage.verifyTextFieldValue(preferredPharmacy.address.key, NEW_PHARMACY_ADDRESS);
+      });
+
+      await EmployerTestStep(
+        'Checking that all fields from Employer Information block are updated correctly',
+        async () => {
+          await patientInformationPage.verifyTextFieldValue(employerInformation.employerName.key, NEW_EMPLOYER_NAME);
+          await patientInformationPage.verifyTextFieldValue(
+            employerInformation.addressLine1.key,
+            NEW_EMPLOYER_ADDRESS_LINE_1
+          );
+          await patientInformationPage.verifyTextFieldValue(
+            employerInformation.addressLine2.key,
+            NEW_EMPLOYER_ADDRESS_LINE_2
+          );
+          await patientInformationPage.verifyTextFieldValue(employerInformation.city.key, NEW_EMPLOYER_CITY);
+          await patientInformationPage.verifySelectFieldValue(employerInformation.state.key, NEW_EMPLOYER_STATE);
+          await patientInformationPage.verifyTextFieldValue(employerInformation.zip.key, NEW_EMPLOYER_ZIP);
+          await patientInformationPage.verifyTextFieldValue(
+            employerInformation.contactFirstName.key,
+            NEW_EMPLOYER_CONTACT_FIRST_NAME
+          );
+          await patientInformationPage.verifyTextFieldValue(
+            employerInformation.contactLastName.key,
+            NEW_EMPLOYER_CONTACT_LAST_NAME
+          );
+          await patientInformationPage.verifyTextFieldValue(
+            employerInformation.contactTitle.key,
+            NEW_EMPLOYER_CONTACT_TITLE
+          );
+          await patientInformationPage.verifyTextFieldValue(
+            employerInformation.contactEmail.key,
+            NEW_EMPLOYER_CONTACT_EMAIL
+          );
+          await patientInformationPage.verifyPhoneFieldValue(
+            employerInformation.contactPhone.key,
+            NEW_EMPLOYER_CONTACT_PHONE
+          );
+          await patientInformationPage.verifyPhoneFieldValue(
+            employerInformation.contactFax.key,
+            NEW_EMPLOYER_CONTACT_FAX
+          );
         }
       );
     });
