@@ -17,7 +17,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
     requestedFields: {
       aiPotentialDiagnosis: {},
     },
-    refetchInterval: 5000,
+    refetchInterval: 3000,
   });
   const aiPotentialDiagnoses = chartFieldsData?.aiPotentialDiagnosis ?? [];
   const { mutateAsync: recommendBillingSuggestions } = useRecommendBillingSuggestions();
