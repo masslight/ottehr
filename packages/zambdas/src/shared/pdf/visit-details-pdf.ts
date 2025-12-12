@@ -2,32 +2,38 @@ import { BUCKET_NAMES, Secrets } from 'utils';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import {
+  composeConsentFormsData,
+  composeContactData,
+  composeDocumentsData,
   composeEmergencyContactData,
+  composeEmployerData,
+  composeInsuranceData,
   composePatientData,
   composePatientDetailsData,
+  composePharmacyData,
+  composeResponsiblePartyData,
   composeVisitData,
+  createConsentFormsSection,
+  createContactInfoSection,
+  createDocumentsSection,
   createEmergencyContactInfoSection,
+  createEmployerInfoSection,
   createPatientDetailsSection,
   createPatientHeader,
   createPatientInfoSection,
+  createPharmacyFormsSection,
+  createPrimaryInsuranceSection,
+  createResponsiblePartySection,
+  createSecondaryInsuranceSection,
   createVisitInfoSection,
 } from './sections';
-import { composeConsentFormsData, createConsentFormsSection } from './sections/consentFormsInfo';
-import { composeContactData, createContactInfoSection } from './sections/contactInfo';
-import { composeDocumentsData, createDocumentsSection } from './sections/documents';
-import {
-  composeInsuranceData,
-  createPrimaryInsuranceSection,
-  createSecondaryInsuranceSection,
-} from './sections/insuranceInfo';
-import { composePharmacyData, createPharmacyFormsSection } from './sections/pharmacyInfo';
-import { composeResponsiblePartyData, createResponsiblePartySection } from './sections/responsiblePartyInfo';
 import { AssetPaths, PdfResult, VisitDetailsData, VisitDetailsInput } from './types';
 
 const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData> = (input) => {
   const {
     patient,
     emergencyContactResource,
+    employerOrganization,
     appointment,
     encounter,
     location,
@@ -53,6 +59,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     consentForms: composeConsentFormsData({ encounter, consents, questionnaireResponse, timezone }),
     documents: composeDocumentsData(documents),
     emergencyContact: composeEmergencyContactData({ emergencyContactResource }),
+    employer: composeEmployerData({ employer: employerOrganization }),
   };
 };
 
@@ -116,6 +123,7 @@ const visitDetailsRenderConfig: PdfRenderConfig<VisitDetailsData> = {
     { ...createSecondaryInsuranceSection(), preferredWidth: 'column' },
     { ...createPatientDetailsSection(), preferredWidth: 'column' },
     { ...createResponsiblePartySection(), preferredWidth: 'column' },
+    { ...createEmployerInfoSection(), preferredWidth: 'column' },
     { ...createEmergencyContactInfoSection(), preferredWidth: 'column' },
     { ...createConsentFormsSection(), preferredWidth: 'column' },
     createDocumentsSection(),

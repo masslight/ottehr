@@ -549,6 +549,21 @@ export interface EmergencyContactInfo extends PdfData {
   zip: string;
 }
 
+export interface EmployerInfo extends PdfData {
+  employerName: string;
+  streetAddress: string;
+  addressLineOptional: string;
+  city: string;
+  state: string;
+  zip: string;
+  firstName: string;
+  lastName: string;
+  title: string;
+  email: string;
+  phone: string;
+  fax: string;
+}
+
 export interface consentFormsInfo extends PdfData {
   isSigned: boolean;
   signature: string;
@@ -577,6 +592,7 @@ export interface VisitDetailsInput {
   guarantorResource?: RelatedPerson | Patient;
   documents: DocumentReference[];
   emergencyContactResource?: RelatedPerson;
+  employerOrganization?: Organization;
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
 }
@@ -615,6 +631,10 @@ export interface ConsentsDataInput {
 
 export interface EmergencyContactDataInput {
   emergencyContactResource?: RelatedPerson;
+}
+
+export interface EmployerDataInput {
+  employer?: Organization;
 }
 
 export interface UploadMetadata {
@@ -694,6 +714,7 @@ export interface VisitDetailsData extends PdfData {
   insurances: InsuranceInfo;
   responsibleParty: ResponsiblePartyInfo;
   emergencyContact: EmergencyContactInfo;
+  employer: EmployerInfo;
   consentForms: consentFormsInfo;
   documents: Documents;
   pharmacy: pharmacyInfo;

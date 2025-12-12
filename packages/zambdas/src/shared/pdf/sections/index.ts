@@ -2,6 +2,7 @@ export * from './consentFormsInfo';
 export * from './contactInfo';
 export * from './documents';
 export * from './emergencyContactInfo';
+export * from './employerInfo';
 export * from './insuranceInfo';
 export * from './patientDetails';
 export * from './patientInfo';
