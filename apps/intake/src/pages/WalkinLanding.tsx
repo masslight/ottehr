@@ -52,7 +52,7 @@ export const WalkinLanding: FC = () => {
       isFirstPage
       img={ottehrLightBlue}
       imgAlt={`${PROJECT_NAME} icon`}
-      imgWidth={150}
+      imgWidth={120}
     >
       {!somethingIsLoadingInSomeWay && data ? (
         data.walkinOpen ? (

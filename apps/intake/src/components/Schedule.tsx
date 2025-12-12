@@ -337,7 +337,7 @@ const Schedule = ({
             </Box>
             <Box>
               <TabPanel value={currentTab} index={0} dir={theme.direction}>
-                <Typography variant="h3" color="#000000" sx={{ textAlign: 'center' }}>
+                <Typography variant="h3" color={theme.palette.primary.main} sx={{ textAlign: 'center' }}>
                   {firstAvailableDay?.setLocale(i18n.language).toFormat(DATE_FULL_NO_YEAR)}
                 </Typography>
                 <SelectSlot
