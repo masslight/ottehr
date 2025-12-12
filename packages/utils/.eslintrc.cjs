@@ -4,5 +4,5 @@ module.exports = {
     tsconfigRootDir: __dirname,
     project: ['tsconfig.json'],
   },
-  ignorePatterns: ['dist/', '!.ottehr_config/'],
+  ignorePatterns: ['dist/'],
 };
