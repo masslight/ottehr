@@ -2,9 +2,11 @@ import { BUCKET_NAMES, Secrets } from 'utils';
 import { DataComposer, generatePdf, PdfRenderConfig, StyleFactory } from './pdf-common';
 import { rgbNormalized } from './pdf-utils';
 import {
+  composeEmergencyContactData,
   composePatientData,
   composePatientDetailsData,
   composeVisitData,
+  createEmergencyContactInfoSection,
   createPatientDetailsSection,
   createPatientHeader,
   createPatientInfoSection,
@@ -25,6 +27,7 @@ import { AssetPaths, PdfResult, VisitDetailsData, VisitDetailsInput } from './ty
 const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData> = (input) => {
   const {
     patient,
+    emergencyContactResource,
     appointment,
     encounter,
     location,
@@ -49,6 +52,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     responsibleParty: composeResponsiblePartyData({ guarantorResource }),
     consentForms: composeConsentFormsData({ encounter, consents, questionnaireResponse, timezone }),
     documents: composeDocumentsData(documents),
+    emergencyContact: composeEmergencyContactData({ emergencyContactResource }),
   };
 };
 
@@ -112,6 +116,7 @@ const visitDetailsRenderConfig: PdfRenderConfig<VisitDetailsData> = {
     { ...createSecondaryInsuranceSection(), preferredWidth: 'column' },
     { ...createPatientDetailsSection(), preferredWidth: 'column' },
     { ...createResponsiblePartySection(), preferredWidth: 'column' },
+    { ...createEmergencyContactInfoSection(), preferredWidth: 'column' },
     { ...createConsentFormsSection(), preferredWidth: 'column' },
     createDocumentsSection(),
   ],

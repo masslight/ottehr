@@ -83,7 +83,7 @@ export const performEffect = async (
   ]);
   const { consents, docRefs } = docRefsAndConsents;
 
-  const { coverages, insuranceOrgs, guarantorResource } = accountResources;
+  const { coverages, insuranceOrgs, guarantorResource, emergencyContactResource } = accountResources;
   const primaryCarePhysician = accountResources.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
@@ -94,6 +94,7 @@ export const performEffect = async (
   const { pdfInfo, attached } = await createVisitDetailsPdf(
     {
       patient,
+      emergencyContactResource,
       appointment,
       encounter,
       location,

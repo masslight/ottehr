@@ -1,4 +1,4 @@
-import { PRIVATE_EXTENSION_BASE_URL, standardizePhoneNumber } from 'utils';
+import { formatPhoneNumberDisplay, PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { DataComposer } from '../pdf-common';
 import { ContactInfo, PatientDataInput, PdfSection } from '../types';
 
@@ -11,8 +11,9 @@ export const composeContactData: DataComposer<PatientDataInput, ContactInfo> = (
   const zip = patientAddress?.postalCode ?? '';
 
   const patientMobile =
-    standardizePhoneNumber(patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value) ??
-    '';
+    formatPhoneNumberDisplay(
+      patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value
+    ) ?? '';
   const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
 
   const sendMarketingMessages =
