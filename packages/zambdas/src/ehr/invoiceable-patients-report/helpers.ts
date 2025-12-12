@@ -76,13 +76,14 @@ export function mapResourcesToInvoiceablePatient(input: {
   const appointmentStart = appointment.start;
 
   const patientBalance = itemizationMap[claim.claimId].patientBalanceCents;
+  const dateFormat = 'MM/dd/yyyy';
   return {
     id: claim.patientExternalId,
     claimId: claim.claimId,
     name: getFullName(patient),
-    dob: patient.birthDate || '--',
-    appointmentDate: appointmentStart ? isoToFormat(appointmentStart) : '--',
-    finalizationDate: isoToFormat(claim.timestamp),
+    dob: patient.birthDate ? isoToFormat(patient.birthDate, dateFormat) : '--',
+    appointmentDate: appointmentStart ? isoToFormat(appointmentStart, dateFormat) : '--',
+    finalizationDate: isoToFormat(claim.timestamp, dateFormat),
     responsiblePartyName: responsibleParty ? getFullName(responsibleParty) ?? '--' : '--',
     responsiblePartyRelationshipToPatient: getResponsiblePartyRelationship(responsibleParty) ?? '--',
     amountInvoiceable: `${patientBalance / 100}`, // converting from cents to USD
