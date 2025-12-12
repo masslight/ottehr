@@ -2,6 +2,7 @@ import {
   BreakpointsOptions,
   Components,
   createTheme,
+  CssBaseline,
   PaletteColor,
   PaletteOptions,
   ThemeProvider,
@@ -73,6 +74,13 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
   } = props;
 
   const defaultComponentsOverrides: Components = {
+    MuiCssBaseline: {
+      styleOverrides: {
+        a: {
+          color: `${palette.secondary.main} !important`,
+        },
+      },
+    },
     MuiAppBar: {
       styleOverrides: {
         root: {
@@ -292,6 +300,7 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
 
   return (
     <ThemeProvider theme={theme}>
+      <CssBaseline />
       <IntakeThemeContext.Provider value={{ otherColors, i18n }}>{children}</IntakeThemeContext.Provider>
     </ThemeProvider>
   );

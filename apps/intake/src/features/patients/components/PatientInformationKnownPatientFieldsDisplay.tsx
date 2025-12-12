@@ -30,7 +30,7 @@ export const PatientInformationKnownPatientFieldsDisplay = ({
       <Typography variant="h3" color="primary.main">
         {patientFullName}
       </Typography>
-      <Typography variant="body2" sx={{ fontSize: '14px' }} color="primar.main">
+      <Typography variant="body2" sx={{ fontSize: '14px' }} color="primary.main">
         {t('aboutPatient.birthdayLabel')} {formattedBirthday}
       </Typography>
       <Typography variant="body1" color={otherColors.wrongPatient} marginTop={2} marginBottom={4}>
