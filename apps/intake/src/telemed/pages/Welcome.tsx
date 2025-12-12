@@ -21,7 +21,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
       img={ottehrLightBlue}
       imgAlt={`${BRANDING_CONFIG.projectName} icon`}
       imgWidth={100}
-      isFirstPage={false}
+      isFirstPage={true}
       outsideCardComponent={showEmergencyBanner ? <EmergencyBanner /> : undefined}
     >
       <Typography variant="body1">We look forward to helping you soon!</Typography>

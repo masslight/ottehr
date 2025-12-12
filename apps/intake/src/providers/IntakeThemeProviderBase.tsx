@@ -202,13 +202,13 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
     fontFamily: textFonts.join(','),
     fontWeightMedium: 600,
     h1: {
-      fontSize: 36,
+      fontSize: 28,
       fontWeight: '600',
       fontFamily: headerFonts.join(','),
       lineHeight: '140%',
     },
     h2: {
-      fontSize: 28,
+      fontSize: 26,
       fontWeight: '600',
       fontFamily: headerFonts.join(','),
       lineHeight: '140%',
