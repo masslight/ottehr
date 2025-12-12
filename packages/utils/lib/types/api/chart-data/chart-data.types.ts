@@ -94,7 +94,8 @@ export type RequestedFields =
   | 'inhouseMedications'
   | 'observations'
   | 'preferredPharmacies'
-  | 'reasonForVisit';
+  | 'reasonForVisit'
+  | 'aiPotentialDiagnosis';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 

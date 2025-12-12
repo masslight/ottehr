@@ -1,4 +1,5 @@
 import { Box, Divider, Paper, Typography } from '@mui/material';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { NursingOrder, NursingOrdersStatus } from 'utils';
@@ -24,7 +25,7 @@ export const OrderDetails: React.FC<CollectSampleViewProps> = ({ orderDetails, o
         <Typography variant="h4" color="primary.dark" sx={{ fontWeight: 'bold' }}>
           Nursing Order
         </Typography>
-        <NursingOrdersStatusChip status={orderDetails.status} />
+        <NursingOrdersStatusChip status={orderDetails.status} dataTestId={dataTestIds.nursingOrderDetailsPage.status} />
       </Box>
       <Paper sx={{ mb: 2 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', p: 3, gap: 3 }}>
@@ -32,7 +33,9 @@ export const OrderDetails: React.FC<CollectSampleViewProps> = ({ orderDetails, o
             Order Note
           </Typography>
           <Box>
-            <Typography style={{ whiteSpace: 'pre-line' }}>{orderDetails.note}</Typography>
+            <Typography style={{ whiteSpace: 'pre-line' }} data-testid={dataTestIds.nursingOrderDetailsPage.orderNote}>
+              {orderDetails.note}
+            </Typography>
           </Box>
         </Box>
         {orderDetails.status === NursingOrdersStatus.pending && (
@@ -45,6 +48,7 @@ export const OrderDetails: React.FC<CollectSampleViewProps> = ({ orderDetails, o
                 onClick={handleMarkAsCollected}
                 sx={{ borderRadius: '50px', px: 4 }}
                 disabled={isReadOnly}
+                data-testid={dataTestIds.nursingOrderDetailsPage.completeOrderButton}
               >
                 Mark as Completed
               </ButtonRounded>

@@ -125,7 +125,7 @@ export const FHIR_EXTENSION = {
       url: `${PUBLIC_EXTENSION_BASE_URL}/insurance-requirements`,
     },
     notes: {
-      url: `${PRIVATE_EXTENSION_BASE_URL}/notes`,
+      url: ottehrExtensionUrl('notes'),
     },
   },
   QuestionnaireResponse: {
