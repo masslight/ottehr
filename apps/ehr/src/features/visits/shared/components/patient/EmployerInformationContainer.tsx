@@ -1,4 +1,4 @@
-import { Box } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { Row } from 'src/components/layout';
 import { PATIENT_RECORD_CONFIG } from 'utils';
@@ -9,6 +9,7 @@ const { employerInformation } = PATIENT_RECORD_CONFIG.FormFields;
 
 export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
   const { items, hiddenFields, requiredFields } = usePatientRecordFormSection({ formSection: employerInformation });
+  const theme = useTheme();
   return (
     <PatientRecordFormSection formSection={employerInformation}>
       <PatientRecordFormField
@@ -54,6 +55,7 @@ export const EmployerInformationContainer: FC<{ isLoading: boolean }> = ({ isLoa
           />
         </Box>
       </Row>
+      <Typography sx={{ color: theme.palette.primary.dark, fontWeight: 600 }}>Employer Contact</Typography>
       <PatientRecordFormField
         item={items.contactFirstName}
         isLoading={isLoading}

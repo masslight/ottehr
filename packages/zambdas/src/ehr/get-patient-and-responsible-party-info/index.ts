@@ -9,11 +9,11 @@ import {
   getEmailForIndividual,
   getFullName,
   GetPatientAndResponsiblePartyInfoEndpointOutput,
-  getPatientReferenceFromAccount,
   getPhoneNumberForIndividual,
   getSecret,
   getSMSNumberForIndividual,
   mapGenderToLabel,
+  PATIENT_BILLING_ACCOUNT_TYPE,
   PATIENT_NOT_FOUND_ERROR,
   PATIENT_PHONE_NOT_FOUND_ERROR,
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
@@ -27,6 +27,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { accountMatchesType } from '../shared/harvest';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -80,10 +81,8 @@ async function getAndValidateFhirResources(oystehr: Oystehr, patientId: string):
   console.log('Fetched FHIR resources:', resources.length);
 
   const patient = resources.find((resource) => resource.resourceType === 'Patient') as Patient;
-  const account = resources.find(
-    (resource) =>
-      resource.resourceType === 'Account' && getPatientReferenceFromAccount(resource as Account)?.includes(patientId)
-  ) as Account;
+  const accounts = resources.filter((resource) => resource.resourceType === 'Account') as Account[];
+  const billingAccount = accounts.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
   const relatedPerson = resources.find(
     (resource) =>
       resource.resourceType === 'RelatedPerson' &&
@@ -92,20 +91,22 @@ async function getAndValidateFhirResources(oystehr: Oystehr, patientId: string):
       )
   ) as RelatedPerson;
   if (!patient) throw PATIENT_NOT_FOUND_ERROR;
-  if (!account) throw FHIR_RESOURCE_NOT_FOUND('Account');
+  if (!billingAccount) throw FHIR_RESOURCE_NOT_FOUND('Account');
   if (!relatedPerson) throw FHIR_RESOURCE_NOT_FOUND('RelatedPerson');
 
   const patientPhoneNumber = getSMSNumberForIndividual(relatedPerson);
   if (!patientPhoneNumber) throw PATIENT_PHONE_NOT_FOUND_ERROR;
 
-  const responsiblePartyRef = getActiveAccountGuarantorReference(account);
+  const responsiblePartyRef = getActiveAccountGuarantorReference(billingAccount);
   if (!responsiblePartyRef)
-    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No responsible party reference found for account: ${account.id}`);
-  const responsibleParty = takeContainedOrFind(responsiblePartyRef, resources as Resource[], account) as
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No responsible party reference found for account: ${billingAccount.id}`);
+  const responsibleParty = takeContainedOrFind(responsiblePartyRef, resources as Resource[], billingAccount) as
     | RelatedPerson
     | undefined;
   if (!responsibleParty)
-    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Responsible party (fhir RelatedPerson) not found for account: ${account.id}`);
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(
+      `Responsible party (fhir RelatedPerson) not found for account: ${billingAccount.id}`
+    );
 
   return { patient, responsibleParty, patientPhoneNumber };
 }

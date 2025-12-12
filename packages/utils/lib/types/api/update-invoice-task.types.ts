@@ -12,6 +12,7 @@ export const UpdateInvoiceTaskZambdaInputSchema = z.object({
   taskId: z.string().uuid(),
   status: z.string(),
   prefilledInvoiceInfo: PrefilledInvoiceInfoSchema,
+  userTimezone: z.string(),
 });
 export type UpdateInvoiceTaskZambdaInput = z.infer<typeof UpdateInvoiceTaskZambdaInputSchema>;
 

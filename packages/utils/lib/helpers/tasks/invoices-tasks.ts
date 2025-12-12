@@ -26,7 +26,7 @@ export function parseInvoiceTaskInput(invoiceTask: Task): PrefilledInvoiceInfo {
   const dueDate = getInvoiceTaskInputFieldByCode('dueDate', invoiceTask);
   const memo = getInvoiceTaskInputFieldByCode('memo', invoiceTask);
   const smsTextMessage = getInvoiceTaskInputFieldByCode('smsTextMessage', invoiceTask);
-  const amount = getInvoiceTaskInputFieldByCode('amountCents', invoiceTask);
+  const amount = getInvoiceTaskInputFieldByCode('amountCents', invoiceTask) ?? '0';
   if (!dueDate || !smsTextMessage || !amount)
     throw new Error('Missing invoice task input fields dueDate, smsTextMessage, or amountCents');
   if (isNaN(parseInt(amount))) throw new Error('Invalid amountCents value');

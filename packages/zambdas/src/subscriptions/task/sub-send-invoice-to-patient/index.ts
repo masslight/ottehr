@@ -10,12 +10,14 @@ import {
   getSecret,
   getStripeCustomerIdFromAccount,
   InvoiceMessagesPlaceholders,
+  PATIENT_BILLING_ACCOUNT_TYPE,
   RcmTaskCodings,
   removePrefix,
   replaceTemplateVariablesArrows,
   Secrets,
   SecretsKeys,
 } from 'utils';
+import { accountMatchesType } from '../../../ehr/shared/harvest';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -205,13 +207,14 @@ async function getFhirResources(
   const patient = response.find(
     (resource) => resource.resourceType === 'Patient' && resource.id === patientId
   ) as Patient;
-  const account = response.find(
+  const accounts = response.filter(
     (resource) =>
       resource.resourceType === 'Account' && getPatientReferenceFromAccount(resource as Account)?.includes(patientId)
-  ) as Account;
+  ) as Account[];
+  const account = accounts.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
   console.log('Fhir encounter found: ', encounter.id);
   console.log('Fhir patient found: ', patient.id);
-  console.log('Fhir account found', account.id);
+  console.log('Fhir account found', account?.id);
   if (!encounter || !patient || !account) return undefined;
 
   return {

@@ -124,7 +124,7 @@ export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
 // const PATIENT_UPDATE_MAX_RETRIES = 3;
 
-const accountMatchesType = (account: Account, type?: Account['type']): boolean => {
+export const accountMatchesType = (account: Account, type?: Account['type']): boolean => {
   if (!account?.type?.coding || !type?.coding) {
     return false;
   }

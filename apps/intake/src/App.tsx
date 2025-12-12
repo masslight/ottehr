@@ -10,6 +10,8 @@ import { TestErrorPage } from './components/TestErrorPage';
 import { MixpanelContextProps, setupMixpanel } from './configurations';
 import { IntakeThemeProvider } from './IntakeThemeProvider';
 import { BookingHome, GetReadyForVisit, NewUser, Reschedule, Version } from './pages';
+import AIInterview from './pages/AIInterview';
+import AIInterviewStartPage from './pages/AIInterviewStartPage';
 import Appointments from './pages/Appointments';
 import CancellationConfirmation from './pages/CancellationConfirmation';
 import CancellationReason from './pages/CancellationReason';
@@ -143,13 +145,21 @@ export const intakeFlowPageRoute = {
     path: `${visitBasePath}/reschedule`,
     getPage: () => <Reschedule />,
   },
+  CancellationReason: {
+    path: `${visitBasePath}/cancel`,
+    getPage: () => <CancellationReason />,
+  },
   CancellationConfirmation: {
     path: `${visitBasePath}/cancellation-confirmation`,
     getPage: () => <CancellationConfirmation />,
   },
-  CancellationReason: {
-    path: `${visitBasePath}/cancel`,
-    getPage: () => <CancellationReason />,
+  AIInterview: {
+    path: `${visitBasePath}/ai-interview`,
+    getPage: () => <AIInterview />,
+  },
+  AIInterviewStartPage: {
+    path: `${visitBasePath}/ai-interview-start`,
+    getPage: () => <AIInterviewStartPage />,
   },
   TelemedGetReadyForVisit: {
     path: '/paperwork/get-ready-for-the-visit',
@@ -414,6 +424,14 @@ function App(): JSX.Element {
                     <Route
                       path={intakeFlowPageRoute.CancellationConfirmation.path}
                       element={intakeFlowPageRoute.CancellationConfirmation.getPage()}
+                    />
+                    <Route
+                      path={intakeFlowPageRoute.AIInterview.path}
+                      element={intakeFlowPageRoute.AIInterview.getPage()}
+                    />
+                    <Route
+                      path={intakeFlowPageRoute.AIInterviewStartPage.path}
+                      element={intakeFlowPageRoute.AIInterviewStartPage.getPage()}
                     />
                   </Route>
                   {/* TODO: make IOS routes be under protected route but without custom container */}

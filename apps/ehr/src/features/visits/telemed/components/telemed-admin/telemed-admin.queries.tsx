@@ -166,7 +166,8 @@ export const useInsuranceMutation = (
         } else {
           resourceExtensions.push(noteExt);
         }
-      } else {
+      }
+      if (data.notes && data.notes === '') {
         const existingExtIndex = resourceExtensions.findIndex(
           (ext) => ext.url === FHIR_EXTENSION.InsurancePlan.notes.url
         );

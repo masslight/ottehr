@@ -12,6 +12,7 @@ import {
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
+  hasEmployerInformationPage,
   isoToDateObject,
   ORG_TYPE_CODE_SYSTEM,
   ORG_TYPE_PAYER_CODE,
@@ -641,7 +642,8 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
   let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined = undefined;
   const PROCESS_ID = `patientRecordInsuranceSection-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person', async ({ patientInfo }) => {
-    return [
+    const answers = [];
+    answers.push(
       getContactInformationAnswers({
         firstName: patientInfo.firstName,
         lastName: patientInfo.lastName,
@@ -684,11 +686,14 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
         insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
       }),
       getResponsiblePartyStepAnswers({}),
-      getEmployerInformationStepAnswers({}),
       getEmergencyContactStepAnswers({}),
       getConsentStepAnswers({}),
-      getPrimaryCarePhysicianStepAnswers({}),
-    ];
+      getPrimaryCarePhysicianStepAnswers({})
+    );
+    if (hasEmployerInformationPage()) {
+      answers.push(getEmployerInformationStepAnswers({}));
+    }
+    return answers;
   });
   const oystehr = await ResourceHandler.getOystehr();
   const insuranceCarriersOptions = (
