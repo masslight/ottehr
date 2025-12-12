@@ -181,6 +181,18 @@ test.describe('Medications Page mutating tests', () => {
     await medicationsPage.verifyMedicationNote(MEDICATION_NOTE_EDITED);
     progressNotePage = await medicationsPage.sideMenu().clickReviewAndSign();
     await progressNotePage.verifyMedicationNote(MEDICATION_NOTE_EDITED);
+
+    medicationsPage = await progressNotePage.sideMenu().clickMedications();
+
+    const deleteDialog = await medicationsPage.clickDeleteNoteButton(MEDICATION_NOTE_EDITED);
+    await deleteDialog.verifyTitle('Delete medication note');
+    await deleteDialog.verifyModalContent('Are you sure you want to permanently delete this medication note?');
+    await deleteDialog.verifyModalContent(MEDICATION_NOTE_EDITED);
+    await deleteDialog.clickProceedButton();
+
+    await medicationsPage.verifyRemovedMedicationNoteIsNotVisible(MEDICATION_NOTE_EDITED);
+    progressNotePage = await medicationsPage.sideMenu().clickReviewAndSign();
+    await progressNotePage.verifyRemovedMedicationNoteIsNotShown(MEDICATION_NOTE_EDITED);
   });
 });
 

@@ -193,6 +193,7 @@ export const dataTestIds = {
     proceedButton: 'dialog-proceed-button',
     title: 'dialog-title',
     message: 'dialog-message',
+    inPersonModalContent: 'in-person-modal-content',
   },
   virtualLocationsPage: {
     locationsSearch: 'locations-search',

@@ -9,7 +9,7 @@ export class EditNoteDialog {
   }
 
   async verifyMessage(message: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.dialog.message)).toHaveText(message);
+    await expect(this.#page.getByTestId(dataTestIds.editNoteDialog.message)).toHaveText(message);
   }
 
   async verifyTitle(title: string): Promise<void> {
@@ -17,19 +17,27 @@ export class EditNoteDialog {
   }
 
   async clickProceedButton(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.dialog.proceedButton).click();
+    await this.#page.getByTestId(dataTestIds.editNoteDialog.proceedButton).click();
   }
 
   async clickCancelButton(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.dialog.cancelButton).click();
+    await this.#page.getByTestId(dataTestIds.editNoteDialog.cancelButton).click();
   }
 
   async clearNote(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.editNoteDialog.message).locator('input').clear();
+    await this.#page
+      .getByTestId(dataTestIds.editNoteDialog.message)
+      .locator('textarea')
+      .filter({ visible: true })
+      .clear();
   }
 
   async enterNote(note: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.editNoteDialog.message).locator('input').fill(note);
+    await this.#page
+      .getByTestId(dataTestIds.editNoteDialog.message)
+      .locator('textarea')
+      .filter({ visible: true })
+      .fill(note);
   }
 }
 

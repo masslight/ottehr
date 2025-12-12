@@ -1,5 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import { Dialog, expectDialog } from '../patient-information/Dialog';
 import { SideMenu } from '../SideMenu';
 import { EditNoteDialog, expectEditNoteDialog } from './EditNoteDialog';
 
@@ -89,7 +90,13 @@ export class MedicationsPage {
   }
 
   async verifyMedicationNote(note: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem)).toHaveText(note);
+    await expect(this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem)).toContainText(note);
+  }
+
+  async verifyRemovedMedicationNoteIsNotVisible(note: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.screeningPage.screeningNoteItem).filter({ hasText: note })
+    ).toHaveCount(0);
   }
 
   async clickAddMedicationNoteButton(): Promise<MedicationsPage> {
@@ -184,6 +191,15 @@ export class MedicationsPage {
       .getByTestId(dataTestIds.medicationsPage.pencilIconButton)
       .click();
     return expectEditNoteDialog(this.#page);
+  }
+
+  async clickDeleteNoteButton(note: string): Promise<Dialog> {
+    await this.#page
+      .getByTestId(dataTestIds.screeningPage.screeningNoteItem)
+      .filter({ hasText: note })
+      .getByTestId(dataTestIds.medicationsPage.deleteIcon)
+      .click();
+    return expectDialog(this.#page);
   }
 }
 
