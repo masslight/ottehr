@@ -1,7 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { FORMS_CONFIG } from 'utils';
 import { AccordionCard } from '../../../../components/AccordionCard';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
@@ -12,9 +11,6 @@ export const FormsCard: FC = () => {
 
   const { patient } = useAppointmentData();
 
-  const { documentsFolders } = useGetPatientDocs(patient?.id ?? '');
-  const formFolder = documentsFolders?.find((folder) => folder.folderName === 'Consent Forms');
-
   return (
     <>
       <AccordionCard label="Forms" collapsed={collapsed} onSwitch={() => setCollapsed((prevState) => !prevState)}>
@@ -22,8 +18,8 @@ export const FormsCard: FC = () => {
           <Stack style={{ width: '50%' }} spacing={2}>
             <Typography display="inline">
               Please fill in the form(s) using the templates and upload it to the{' '}
-              <Link to={`/patient/${patient?.id}/docs?folder=${formFolder?.id}`} target="_blank">
-                Forms Folder
+              <Link to={`/patient/${patient?.id}/docs`} target="_blank">
+                Patient Documents
               </Link>
             </Typography>
             {FORMS_CONFIG.forms.map((form) => {
