@@ -151,7 +151,7 @@ const FormFields = {
       },
       genderIdentityDetails: {
         key: 'patient-gender-identity-details',
-        label: 'Please specify gender identity',
+        label: 'Other gender identity',
         type: 'string',
         triggers: [
           {
@@ -171,7 +171,7 @@ const FormFields = {
       },
       otherLanguage: {
         key: 'other-preferred-language',
-        label: 'Please specify other language',
+        label: 'Other language',
         type: 'string',
         triggers: [
           {
