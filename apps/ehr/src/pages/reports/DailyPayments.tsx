@@ -37,6 +37,8 @@ export default function DailyPayments(): React.ReactElement {
   const [reportData, setReportData] = useState<DailyPaymentsReportZambdaOutput | null>(null);
   const [dateFilter, setDateFilter] = useState<string>('today');
   const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+  const [customStartDate, setCustomStartDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+  const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [locations, setLocations] = useState<Location[]>([]);
   const [loadingLocations, setLoadingLocations] = useState<boolean>(true);
   const [selectedLocationId, setSelectedLocationId] = useState<string>('all');
@@ -72,47 +74,58 @@ export default function DailyPayments(): React.ReactElement {
     void fetchLocations();
   }, [oystehr]);
 
-  const getDateRange = useCallback((filter: string, selectedDate?: string): { start: string; end: string } => {
-    const now = DateTime.now().setZone('America/New_York');
+  const getDateRange = useCallback(
+    (filter: string, selectedDate?: string): { start: string; end: string } => {
+      const now = DateTime.now().setZone('America/New_York');
 
-    switch (filter) {
-      case 'today':
-        return {
-          start: now.startOf('day').toISO() ?? '',
-          end: now.endOf('day').toISO() ?? '',
-        };
-      case 'yesterday': {
-        const yesterday = now.minus({ days: 1 });
-        return {
-          start: yesterday.startOf('day').toISO() ?? '',
-          end: yesterday.endOf('day').toISO() ?? '',
-        };
+      switch (filter) {
+        case 'today':
+          return {
+            start: now.startOf('day').toISO() ?? '',
+            end: now.endOf('day').toISO() ?? '',
+          };
+        case 'yesterday': {
+          const yesterday = now.minus({ days: 1 });
+          return {
+            start: yesterday.startOf('day').toISO() ?? '',
+            end: yesterday.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'last7days':
+          return {
+            start: now.minus({ days: 6 }).startOf('day').toISO() ?? '',
+            end: now.endOf('day').toISO() ?? '',
+          };
+        case 'last30days':
+          return {
+            start: now.minus({ days: 29 }).startOf('day').toISO() ?? '',
+            end: now.endOf('day').toISO() ?? '',
+          };
+        case 'custom': {
+          if (!selectedDate) return { start: '', end: '' };
+          const customDateTime = DateTime.fromISO(selectedDate).setZone('America/New_York');
+          return {
+            start: customDateTime.startOf('day').toISO() ?? '',
+            end: customDateTime.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'customRange': {
+          const startDateTime = DateTime.fromISO(customStartDate).setZone('America/New_York');
+          const endDateTime = DateTime.fromISO(customEndDate).setZone('America/New_York');
+          return {
+            start: startDateTime.startOf('day').toISO() ?? '',
+            end: endDateTime.endOf('day').toISO() ?? '',
+          };
+        }
+        default:
+          return {
+            start: now.startOf('day').toISO() ?? '',
+            end: now.endOf('day').toISO() ?? '',
+          };
       }
-      case 'last7days':
-        return {
-          start: now.minus({ days: 6 }).startOf('day').toISO() ?? '',
-          end: now.endOf('day').toISO() ?? '',
-        };
-      case 'last30days':
-        return {
-          start: now.minus({ days: 29 }).startOf('day').toISO() ?? '',
-          end: now.endOf('day').toISO() ?? '',
-        };
-      case 'custom': {
-        if (!selectedDate) return { start: '', end: '' };
-        const customDateTime = DateTime.fromISO(selectedDate).setZone('America/New_York');
-        return {
-          start: customDateTime.startOf('day').toISO() ?? '',
-          end: customDateTime.endOf('day').toISO() ?? '',
-        };
-      }
-      default:
-        return {
-          start: now.startOf('day').toISO() ?? '',
-          end: now.endOf('day').toISO() ?? '',
-        };
-    }
-  }, []);
+    },
+    [customStartDate, customEndDate]
+  );
 
   const fetchReport = useCallback(
     async (filter: string): Promise<void> => {
@@ -232,6 +245,22 @@ export default function DailyPayments(): React.ReactElement {
     }
   };
 
+  const handleCustomStartDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    const newDate = event.target.value;
+    setCustomStartDate(newDate);
+    if (dateFilter === 'customRange') {
+      void fetchReport('customRange');
+    }
+  };
+
+  const handleCustomEndDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    const newDate = event.target.value;
+    setCustomEndDate(newDate);
+    if (dateFilter === 'customRange') {
+      void fetchReport('customRange');
+    }
+  };
+
   const handleLocationFilterChange = (event: SelectChangeEvent<string>): void => {
     const newLocationId = event.target.value;
     setSelectedLocationId(newLocationId);
@@ -256,6 +285,10 @@ export default function DailyPayments(): React.ReactElement {
         return 'Last 30 days';
       case 'custom':
         return `Custom date (${DateTime.fromISO(customDate).toFormat('MMM dd, yyyy')})`;
+      case 'customRange':
+        return `Custom range (${DateTime.fromISO(customStartDate).toFormat('MMM dd')} - ${DateTime.fromISO(
+          customEndDate
+        ).toFormat('MMM dd, yyyy')})`;
       default:
         return 'Today';
     }
@@ -342,6 +375,7 @@ export default function DailyPayments(): React.ReactElement {
               <MenuItem value="last7days">Last 7 days</MenuItem>
               <MenuItem value="last30days">Last 30 days</MenuItem>
               <MenuItem value="custom">Custom Date</MenuItem>
+              <MenuItem value="customRange">Custom Date Range</MenuItem>
             </Select>
           </FormControl>
 
@@ -356,6 +390,33 @@ export default function DailyPayments(): React.ReactElement {
                 shrink: true,
               }}
             />
+          )}
+
+          {dateFilter === 'customRange' && (
+            <>
+              <TextField
+                type="date"
+                size="small"
+                label="Start Date"
+                value={customStartDate}
+                onChange={handleCustomStartDateChange}
+                sx={{ minWidth: 160 }}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+              <TextField
+                type="date"
+                size="small"
+                label="End Date"
+                value={customEndDate}
+                onChange={handleCustomEndDateChange}
+                sx={{ minWidth: 160 }}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+            </>
           )}
 
           <FormControl size="small" sx={{ minWidth: 200 }}>

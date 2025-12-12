@@ -11,10 +11,14 @@ type ControlledExamCheckboxProps = {
 export const ControlledExamCheckbox: FC<ControlledExamCheckboxProps> = (props) => {
   const { label, name, abnormal } = props;
 
-  const { value: field, update, isLoading } = useExamObservations(name);
+  const { value: field, update, delete: deleteField, isLoading } = useExamObservations(name);
 
   const onChange = (value: boolean): void => {
-    update({ ...field, value });
+    if (value) {
+      update({ ...field, value });
+    } else {
+      deleteField(field);
+    }
   };
 
   return (
