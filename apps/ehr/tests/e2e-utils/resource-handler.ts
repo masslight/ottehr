@@ -500,6 +500,18 @@ export class ResourceHandler {
     return patientId;
   }
 
+  async tagAppointmentForCleanup(appointmentId: string): Promise<void> {
+    const apiClient = await this.apiClient;
+    const appointment = await apiClient.fhir.get<Appointment>({
+      resourceType: 'Appointment',
+      id: appointmentId,
+    });
+
+    const taggedAppointment = addProcessIdMetaTagToResource(appointment, this.#processId!) as Appointment;
+
+    await apiClient.fhir.update<Appointment>(taggedAppointment);
+  }
+
   async getTestsUserAndPractitioner(): Promise<{
     id: string;
     name: string;

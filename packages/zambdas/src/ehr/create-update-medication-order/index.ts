@@ -170,7 +170,7 @@ async function updateOrder(
       medicationAdministrationPatchOperations.push(replaceOperation('/status', mapOrderStatusToFhir(newStatus)));
     }
 
-    if (newStatus === 'administered') {
+    if (newStatus === 'administered' || newStatus === 'administered-partly') {
       if (!newMedicationCopy) throw new Error(`Can't create MedicationStatement for order, no Medication copy.`);
 
       const erxDataFromMedication = newMedicationCopy.code?.coding?.find(

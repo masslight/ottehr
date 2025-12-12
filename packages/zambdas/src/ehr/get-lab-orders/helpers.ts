@@ -34,6 +34,7 @@ import {
   docRefIsAbnAndCurrent,
   docRefIsOrderPDFAndCurrent,
   EMPTY_PAGINATION,
+  EXTERNAL_LAB_ERROR,
   ExternalLabCommunications,
   ExternalLabDocuments,
   externalLabOrderIsManual,
@@ -159,6 +160,7 @@ export const mapResourcesToDrLabDTO = async (
 ): Promise<(ReflexLabDTO | PdfAttachmentDTO)[]> => {
   const reflexLabDTOs: ReflexLabDTO[] = [];
   const pdfAttachmentDTOs: PdfAttachmentDTO[] = [];
+  console.log('these are resourcesByDr in mapResourcesToDrLabDTO', JSON.stringify(resourcesByDr));
   const resourcesForDiagnosticReport = Object.values(resourcesByDr);
   for (const resources of resourcesForDiagnosticReport) {
     const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(resources, token);
@@ -1026,7 +1028,13 @@ export const checkForDiagnosticReportDrivenResults = async (
       })
     ).unbundle();
     if (resourceSearch.length) {
-      return groupResourcesByDr(resourceSearch);
+      console.log(
+        'These were the DR driven resource ids we got back: ',
+        resourceSearch.map((resource) => `${resource.resourceType}/${resource.id}`)
+      );
+      const drGroupedResources = groupResourcesByDr(resourceSearch);
+      console.log('got grouped dr resources');
+      return drGroupedResources;
     } else {
       return;
     }
@@ -1036,7 +1044,7 @@ export const checkForDiagnosticReportDrivenResults = async (
       JSON.stringify(error, null, 2)
     );
     await sendErrors(error, environment);
-    return;
+    throw EXTERNAL_LAB_ERROR('Reflex result search failed');
   }
 };
 
