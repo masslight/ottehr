@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import * as z from 'zod';
-import { BRANDING_OVERRIDES as OVERRIDES } from '../../../.ottehr_config';
+import { BRANDING_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 
 const overrides: any = OVERRIDES || {};
 const BRANDING_DEFAULTS: any = {

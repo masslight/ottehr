@@ -4,7 +4,7 @@ import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-in
 import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' assert { type: 'json' };
 import virtualIntakeQuestionnaire from '../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' assert { type: 'json' };
-import { BOOKING_CONFIG, PATIENT_RECORD_CONFIG } from '../configuration';
+import { BOOKING_CONFIG, PATIENT_RECORD_CONFIG } from '../ottehr-config';
 import { CanonicalUrl } from '../types';
 
 const getQuestionnaires = (): Array<Questionnaire> => [

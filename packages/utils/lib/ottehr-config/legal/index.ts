@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LEGAL_OVERRIDES as OVERRIDES } from '../../../.ottehr_config';
+import { LEGAL_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import { DisplayTextSchema, LinkDef, LinkDefSchema, TextWithLinkComposition } from '../types';
 

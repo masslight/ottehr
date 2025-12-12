@@ -2,7 +2,7 @@ import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem, Questionna
 import _ from 'lodash';
 import { z } from 'zod';
 import patientRecordQuestionnaire from '../../../../../config/oystehr/ehr-insurance-update-questionnaire.json' assert { type: 'json' };
-import { PATIENT_RECORD_OVERRIDES as OVERRIDES } from '../../../.ottehr_config';
+import { PATIENT_RECORD_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 import { makeAnswer, makePrepopulatedItemsFromPatientRecord, PrePopulationFromPatientRecordInput } from '../../main';
 import { QuestionnaireDataTypeSchema } from '../../types/data/paperwork';
 import { mergeAndFreezeConfigObjects } from '../helpers';

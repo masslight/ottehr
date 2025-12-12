@@ -12,7 +12,6 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { patientScreeningQuestionsConfig } from '../configuration/questionnaire';
 import {
   allLicensesForPractitioner,
   CANDID_PLAN_TYPE_SYSTEM,
@@ -24,6 +23,7 @@ import {
   PROVIDER_TYPE_EXTENSION_URL,
   SLUG_SYSTEM,
 } from '../fhir';
+import { patientScreeningQuestionsConfig } from '../ottehr-config/questionnaire';
 import {
   appointmentTypeLabels,
   appointmentTypeMap,

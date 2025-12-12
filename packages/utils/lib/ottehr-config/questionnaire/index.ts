@@ -1,4 +1,4 @@
-import { customScreeningQuestionsConfig } from '../../../.ottehr_config/screening-questions';
+import { customScreeningQuestionsConfig } from '../../../ottehr-config-overrides/screening-questions';
 import { baseScreeningQuestionsConfig } from '../../types/data/screening-questions/config';
 
 // TODO: Consider exporting types/helpers/constants based on config, but this seems unnecessary.

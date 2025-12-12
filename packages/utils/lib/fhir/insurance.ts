@@ -1,4 +1,4 @@
-import { VALUE_SETS } from '../configuration/value-sets';
+import { VALUE_SETS } from '../ottehr-config/value-sets';
 
 export const CANDID_PLAN_TYPE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/candid-plan-type';
 

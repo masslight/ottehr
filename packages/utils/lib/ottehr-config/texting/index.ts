@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import { TEXTING_OVERRIDES as OVERRIDES } from '../../../.ottehr_config';
+import { TEXTING_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 
 const TEXTING_DEFAULTS_BASE = Object.freeze({
   invoicing: {

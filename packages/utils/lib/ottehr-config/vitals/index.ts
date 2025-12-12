@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { VITALS_OVERRIDES } from '../../../.ottehr_config';
+import { VITALS_OVERRIDES } from '../../../ottehr-config-overrides';
 import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../../types/api';
 import {
   getHeightPercentileHigh,

@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import * as z from 'zod';
-import { SENDGRID_OVERRIDES as OVERRIDES } from '../../../.ottehr_config';
+import { SENDGRID_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 
 // this is relative to the deploy folder where tf runs
 const PATH_PREFIX = '../packages/utils/lib';

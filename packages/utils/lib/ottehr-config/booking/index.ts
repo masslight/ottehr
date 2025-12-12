@@ -12,7 +12,7 @@ import z from 'zod';
 import bookAppointmentQuestionnaireJson from '../../../../../config/oystehr/book-appointment-questionnaire.json' assert { type: 'json' };
 import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
-import { BOOKING_OVERRIDES } from '../../../.ottehr_config';
+import { BOOKING_OVERRIDES } from '../../../ottehr-config-overrides';
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, OTTEHR_CODE_SYSTEM_BASE_URL } from '../../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../../helpers';
 import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../../types';

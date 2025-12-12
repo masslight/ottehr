@@ -2,7 +2,7 @@
 import { NetworkType } from 'candidhealth/api';
 import { Coding } from 'fhir/r4b';
 import z from 'zod';
-import { VALUE_SET_OVERRIDES as OVERRIDES } from '../../../.ottehr_config/value-sets';
+import { VALUE_SET_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides/value-sets';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 
 export interface InsurancePlanType {

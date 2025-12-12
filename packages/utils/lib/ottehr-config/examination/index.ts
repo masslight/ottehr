@@ -1,4 +1,4 @@
-import { EXAMINATION_OVERRIDES } from '../../../.ottehr_config';
+import { EXAMINATION_OVERRIDES } from '../../../ottehr-config-overrides';
 import { ExamSchema, validateExamConfig } from './examination.schema';
 import { InPersonExamConfig } from './in-person.config';
 import { TelemedExamConfig } from './telemed.config';
