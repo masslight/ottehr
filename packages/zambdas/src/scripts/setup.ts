@@ -9,7 +9,6 @@ import {
   FHIR_BASE_URL,
   FOLDERS_CONFIG,
   generateDeployAccountNumber,
-  PROJECT_DOMAIN,
   PROJECT_NAME_LOWER,
   SCHEDULE_EXTENSION_URL,
   ScheduleStrategyCoding,
@@ -178,7 +177,7 @@ export async function setupEHR(
     'practitioner1'
   );
 
-  const provider2Email = 'jane.smith@' + PROJECT_DOMAIN;
+  const provider2Email = 'jane.smith@' + BRANDING_CONFIG.projectDomain;
   const { userProfileId: userId2 } = await inviteUser(
     oystehr,
     provider2Email,
@@ -189,7 +188,7 @@ export async function setupEHR(
     'practitioner2'
   );
 
-  const provider3Email = 'kevin.brown@' + PROJECT_DOMAIN;
+  const provider3Email = 'kevin.brown@' + BRANDING_CONFIG.projectDomain;
   const { userProfileId: userId3 } = await inviteUser(
     oystehr,
     provider3Email,

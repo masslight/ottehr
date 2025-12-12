@@ -15,7 +15,6 @@ import {
   SecretsKeys,
   SENDGRID_CONFIG,
   SendgridConfig,
-  SUPPORT_EMAIL,
   TelemedCancelationTemplateData,
   TelemedCompletionTemplateData,
   TelemedConfirmationTemplateData,
@@ -182,7 +181,7 @@ class EmailClient {
   async sendErrorEmail(to: string | string[], templateData: ErrorReportTemplateData): Promise<void> {
     const recipients = typeof to === 'string' ? [to] : [...to];
 
-    const ottehrSupportEmail = SUPPORT_EMAIL;
+    const ottehrSupportEmail = BRANDING_CONFIG.email.sender;
     if (!recipients.includes(ottehrSupportEmail)) {
       recipients.push(ottehrSupportEmail);
     }
