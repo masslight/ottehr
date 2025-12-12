@@ -8,6 +8,11 @@ export class ScreeningPage {
   constructor(page: Page) {
     this.#page = page;
   }
+
+  page(): Page {
+    return this.#page;
+  }
+
   sideMenu(): SideMenu {
     return new SideMenu(this.#page);
   }

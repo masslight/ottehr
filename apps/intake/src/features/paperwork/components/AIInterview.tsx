@@ -105,17 +105,21 @@ const AIInterview: FC<AIInterviewProps> = ({ value: medicalHistoryInterviewCompl
             onKeyUp={async (event) => {
               if (event.key === 'Enter' && userInputEnabled) {
                 await onSend();
+                event.preventDefault();
               }
             }}
             autoComplete="off"
           />
           <Button
             disabled={!userInputEnabled}
-            onClick={onSend}
+            onClick={async (event) => {
+              await onSend();
+              event.preventDefault();
+            }}
             size="large"
             type="submit"
             color="secondary"
-            variant="outlined"
+            variant="contained"
             startIcon={<Send />}
             style={{ height: '38px', marginLeft: '16px', fontWeight: 500 }}
           >

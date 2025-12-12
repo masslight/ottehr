@@ -26,6 +26,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -157,7 +158,7 @@ async function main(): Promise<void> {
       let cleanedResource: any = rest;
 
       if (meta?.tag) {
-        const cleanedTags = meta.tag.filter((tag: any) => tag.system !== 'E2E_TEST_RESOURCE_PROCESS_ID');
+        const cleanedTags = meta.tag.filter((tag: any) => tag.system !== E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM);
         if (cleanedTags.length > 0) {
           cleanedResource = { ...rest, meta: { tag: cleanedTags } };
         }

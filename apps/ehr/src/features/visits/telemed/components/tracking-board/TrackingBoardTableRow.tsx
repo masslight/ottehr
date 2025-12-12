@@ -25,7 +25,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import ChatModal from 'src/features/chat/ChatModal';
 import { AppointmentStatusChip } from 'src/features/visits/shared/components/AppointmentStatusChip';
 import { formatDateUsingSlashes } from 'src/helpers/formatDateTime';
-import { calculatePatientAge, getTimezone, TelemedAppointmentInformation, TelemedAppointmentStatusEnum } from 'utils';
+import { calculatePatientAge, TelemedAppointmentInformation, TelemedAppointmentStatusEnum } from 'utils';
 import { quickTexts } from '../../utils/appointments';
 import { getTelemedAppointmentUrl, getTelemedVisitDetailsUrl } from '../../utils/routing';
 import { StatusHistory } from '../tracking-board/StatusHistory';
@@ -114,17 +114,10 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
     navigate(getTelemedVisitDetailsUrl(appointment.id));
   };
 
-  let start;
-  if (appointment.start) {
-    let timezone = 'America/New_York';
-    try {
-      timezone = getTimezone(appointment.locationVirtual);
-    } catch (error) {
-      console.error('Error getting timezone for appointment', appointment.id, error);
-    }
-    const dateTime = DateTime.fromISO(appointment.start).setZone(timezone);
-    start = dateTime.toFormat('h:mm a');
+  if (!appointment.start) {
+    throw new Error('Appointment start time is missing');
   }
+  const start = DateTime.fromISO(appointment.start).toFormat('h:mm a');
 
   return (
     <TableRow

@@ -97,10 +97,16 @@ export async function generatePdf(input: StatementPdfInput): Promise<Uint8Array>
 
   const { type: appointmentType } = getAppointmentType(appointment);
   const { date: appointmentDate, time: appointmentTime } = formatDateToMDYWithTime(appointment?.start, timezone) ?? {};
+  const timezoneToShow = appointment?.start
+    ? DateTime.fromISO(appointment.start).setZone(timezone).offsetNameShort
+    : '';
   const locationName = location?.name ?? '';
 
   const beforeAppointmentInfoY = pdfClient.getY();
-  pdfClient.drawText(`${appointmentType} | ${appointmentTime} | ${appointmentDate}\n`, textStyles.regular);
+  pdfClient.drawText(
+    `${appointmentType} | ${appointmentTime} ${timezoneToShow} | ${appointmentDate}\n`,
+    textStyles.regular
+  );
   pdfClient.drawText(locationName + '\n\n', textStyles.regular);
   const afterAppointmentInfoY = pdfClient.getY();
 

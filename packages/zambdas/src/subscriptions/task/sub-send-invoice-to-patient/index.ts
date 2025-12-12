@@ -1,24 +1,23 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CandidApi, CandidApiClient } from 'candidhealth';
-import { InvoiceItemizationResponse } from 'candidhealth/api/resources/patientAr/resources/v1';
 import { Operation } from 'fast-json-patch';
 import { Account, Encounter, Patient, Task, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   BRANDING_CONFIG,
-  createCandidApiClient,
   getPatientReferenceFromAccount,
   getSecret,
   getStripeCustomerIdFromAccount,
-  PrefilledInvoiceInfo,
+  InvoiceMessagesPlaceholders,
+  PATIENT_BILLING_ACCOUNT_TYPE,
   RcmTaskCodings,
   removePrefix,
   replaceTemplateVariablesArrows,
   Secrets,
   SecretsKeys,
 } from 'utils';
+import { accountMatchesType } from '../../../ehr/shared/harvest';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -39,16 +38,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     const validatedParams = validateRequestParameters(input);
     const { secrets, encounterId, prefilledInfo, task } = validatedParams;
+    const { amountCents, dueDate, memo, smsTextMessage } = prefilledInfo;
     console.log('Input task id: ', task.id);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
-    const candid = createCandidApiClient(secrets);
     const stripe = getStripeClient(secrets);
 
     try {
-      const clinicName = BRANDING_CONFIG.projectName;
-
       console.log('Fetching fhir resources');
       const fhirResources = await getFhirResources(oystehr, encounterId);
       if (!fhirResources) throw new Error('Failed to fetch all needed FHIR resources');
@@ -60,43 +57,37 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (!stripeCustomerId) throw new Error('StripeCustomerId is not found');
       const candidEncounterId = getCandidEncounterIdFromEncounter(encounter);
       if (!candidEncounterId) throw new Error('CandidEncounterId is not found');
-      const candidClaimId = await getCandidClaimIdFromCandidEncounterId(candid, candidEncounterId);
-      if (!candidClaimId) throw new Error('CandidClaimId is not found');
       console.log('Stripe and candid ids retrieved');
-
-      console.log('Getting patient balance');
-      const patientBalanceCents = await getPatientBalanceInCentsForClaim({ candid, claimId: candidClaimId });
-      if (patientBalanceCents === undefined)
-        throw new Error('Patient balance is undefined for this claim, claim id: ' + candidClaimId);
-      console.log('Patient balance retrieved');
 
       console.log('Creating invoice and invoice item');
       const patientId = removePrefix('Patient/', encounter.subject?.reference ?? '');
       if (!patientId) throw new Error("Encounter doesn't have patient reference");
-      const invoiceResponse = await createInvoice(stripe, stripeCustomerId, clinicName, {
+      const filledMemo = memo ? fillMessagePlaceholders(memo, amountCents, dueDate) : undefined;
+      const invoiceResponse = await createInvoice(stripe, stripeCustomerId, {
         oystEncounterId: encounterId,
         oystPatientId: patientId,
-        prefilledInfo,
+        dueDate,
+        filledMemo,
       });
-      await createInvoiceItem(stripe, stripeCustomerId, invoiceResponse, patientBalanceCents, prefilledInfo);
+      await createInvoiceItem(stripe, stripeCustomerId, invoiceResponse, amountCents, filledMemo);
       console.log('Invoice and invoice item created');
 
-      console.log('Sending invoice to patient (with email)');
+      console.log('Finalizing invoice');
+      const finalized = await stripe.invoices.finalizeInvoice(invoiceResponse.id);
+      if (!finalized || finalized.status !== 'open')
+        throw new Error(`Failed to finalize invoice, response status: ${finalized.status}`);
+      console.log('Invoice finalized: ', finalized.status);
+
+      console.log(`Sending invoice to recipient email recorded in stripe: ${finalized.customer_email}`);
       const sendInvoiceResponse = await stripe.invoices.sendInvoice(invoiceResponse.id);
       console.log('Invoice sent: ', sendInvoiceResponse.status);
 
-      console.log('Sending sms to patient');
+      console.log('Filling in invoice sms messages placeholders');
       const invoiceUrl = sendInvoiceResponse.hosted_invoice_url ?? '??';
-      await sendInvoiceSmsToPatient(
-        oystehr,
-        prefilledInfo.smsTextMessage,
-        invoiceUrl,
-        clinicName,
-        (patientBalanceCents / 100).toString(),
-        prefilledInfo.dueDate,
-        patient,
-        secrets
-      );
+      const smsMessage = fillMessagePlaceholders(smsTextMessage, amountCents, dueDate, invoiceUrl);
+
+      console.log('Sending sms to patient');
+      await sendInvoiceSmsToPatient(oystehr, smsMessage, patient, secrets);
       console.log('Sms sent to patient');
 
       console.log('Setting task status to completed');
@@ -127,16 +118,14 @@ async function createInvoiceItem(
   stripeCustomerId: string,
   invoice: Stripe.Invoice,
   amount: number,
-  params: PrefilledInvoiceInfo
+  filledMemo?: string
 ): Promise<Stripe.InvoiceItem> {
   try {
-    const { memo } = params;
-
     const invoiceItemParams: Stripe.InvoiceItemCreateParams = {
       customer: stripeCustomerId,
       amount, // cents
       currency: 'usd',
-      description: memo,
+      description: filledMemo,
       invoice: invoice.id, // force add current invoiceItem to previously created invoice
     };
     const invoiceItemResponse = await stripe.invoiceItems.create(invoiceItemParams);
@@ -152,22 +141,15 @@ async function createInvoiceItem(
 async function createInvoice(
   stripe: Stripe,
   stripeCustomerId: string,
-  clinic: string,
   params: {
     oystEncounterId: string;
     oystPatientId: string;
-    prefilledInfo: PrefilledInvoiceInfo;
+    filledMemo?: string;
+    dueDate: string;
   }
 ): Promise<Stripe.Invoice> {
   try {
-    const { oystEncounterId, oystPatientId, prefilledInfo } = params;
-    const { memo, dueDate } = prefilledInfo;
-    const filledMemo = memo
-      ? replaceTemplateVariablesArrows(memo, {
-          clinic,
-          'due-date': dueDate,
-        })
-      : memo;
+    const { oystEncounterId, oystPatientId, filledMemo, dueDate } = params;
 
     const invoiceParams: Stripe.InvoiceCreateParams = {
       customer: stripeCustomerId,
@@ -190,38 +172,6 @@ async function createInvoice(
     console.error('Error creating invoice:', error);
     throw error;
   }
-}
-
-async function getCandidClaimIdFromCandidEncounterId(
-  candid: CandidApiClient,
-  candidEncounterId: string
-): Promise<string | undefined> {
-  const candidEncounter = await candid.encounters.v4.get(CandidApi.EncounterId(candidEncounterId));
-  if (candidEncounter && candidEncounter.ok && candidEncounter.body) {
-    const candidEncounterResponse = candidEncounter.body;
-    console.log(
-      `Candid encounter ${candidEncounterId} claims statuses: `,
-      candidEncounterResponse.claims.map((claim) => claim.status)
-    );
-    // Candid patientArStatus statuses are really tricky, and it's hard to say if claim status affect inventory-claim.patientArStatus being 'invoiceable' or 'non-invoiceable'
-    // since we already have this claim as invoiceable in create-invoices-tasks and i don't think we are creating few claims for the same encounter
-    // this part is ok
-    return candidEncounterResponse.claims[0]?.claimId;
-  }
-  return undefined;
-}
-
-async function getPatientBalanceInCentsForClaim(input: {
-  candid: CandidApiClient;
-  claimId: string;
-}): Promise<number | undefined> {
-  const { candid, claimId } = input;
-  const itemizationResponse = await candid.patientAr.v1.itemize(CandidApi.ClaimId(claimId));
-  if (itemizationResponse && itemizationResponse.ok && itemizationResponse.body) {
-    const itemization = itemizationResponse.body as InvoiceItemizationResponse;
-    return itemization.patientBalanceCents;
-  }
-  return undefined;
 }
 
 async function getFhirResources(
@@ -257,13 +207,14 @@ async function getFhirResources(
   const patient = response.find(
     (resource) => resource.resourceType === 'Patient' && resource.id === patientId
   ) as Patient;
-  const account = response.find(
+  const accounts = response.filter(
     (resource) =>
       resource.resourceType === 'Account' && getPatientReferenceFromAccount(resource as Account)?.includes(patientId)
-  ) as Account;
+  ) as Account[];
+  const account = accounts.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
   console.log('Fhir encounter found: ', encounter.id);
   console.log('Fhir patient found: ', patient.id);
-  console.log('Fhir account found', account.id);
+  console.log('Fhir account found', account?.id);
   if (!encounter || !patient || !account) return undefined;
 
   return {
@@ -333,20 +284,21 @@ function addErrorToTaskOutput(task: Task, error: string): Task {
 async function sendInvoiceSmsToPatient(
   oystehr: Oystehr,
   smsTextMessage: string,
-  invoiceUrl: string,
-  clinic: string,
-  amount: string,
-  dueDate: string,
   patient: Patient,
   secrets: Secrets | null
 ): Promise<void> {
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-  const smsMessage = replaceTemplateVariablesArrows(smsTextMessage, {
+  console.log('Sending sms to patient: ', smsTextMessage);
+  await sendSmsForPatient(smsTextMessage, oystehr, patient, ENVIRONMENT);
+}
+
+function fillMessagePlaceholders(message: string, amountCents: number, dueDate: string, invoiceLink?: string): string {
+  const clinic = BRANDING_CONFIG.projectName;
+  const params: InvoiceMessagesPlaceholders = {
     clinic,
-    amount,
+    amount: (amountCents / 100).toString(),
     'due-date': dueDate,
-    'invoice-link': invoiceUrl,
-  });
-  console.log('Sending sms to patient: ', smsMessage);
-  await sendSmsForPatient(smsMessage, oystehr, patient, ENVIRONMENT);
+    'invoice-link': invoiceLink,
+  };
+  return replaceTemplateVariablesArrows(message, params);
 }
