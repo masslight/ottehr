@@ -5,9 +5,9 @@ import {
   AI_QUESTIONNAIRE_ID,
   createOystehrClient,
   getSecret,
-  OTTEHR_CODE_SYSTEM_BASE_URL,
   Secrets,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   StartInterviewInput,
 } from 'utils';
 import {
@@ -111,8 +111,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       appointment.serviceCategory?.find(
         (serviceCategory) =>
           serviceCategory.coding?.find(
-            (coding) =>
-              coding.system === `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category` && coding.code === 'workmans-comp'
+            (coding) => coding.system === SERVICE_CATEGORY_SYSTEM && coding.code === 'workmans-comp'
           )
       )
     ) {

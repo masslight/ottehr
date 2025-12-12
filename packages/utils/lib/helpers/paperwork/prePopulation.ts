@@ -402,7 +402,6 @@ export const makePrepopulatedItemsFromPatientRecord = (
           coverages,
           patient,
           insuranceOrgs,
-          appointmentServiceCategory: '', //todo
         });
       }
       if (GUARANTOR_ITEMS.includes(item.linkId)) {
@@ -670,7 +669,7 @@ interface MapCoverageItemsInput {
   patient: Patient;
   insuranceOrgs: Organization[];
   documents?: DocumentReference[];
-  appointmentServiceCategory: string;
+  appointmentServiceCategory?: string;
 }
 const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput): QuestionnaireResponseItem[] => {
   const { items, coverages, patient, documents, insuranceOrgs, appointmentServiceCategory } = input;
@@ -966,7 +965,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       if (linkId === 'display-secondary-insurance') {
         answer = secondary ? makeAnswer(true, 'Boolean') : makeAnswer(false, 'Boolean');
       }
-      if (linkId === 'appointment-service-category') {
+      if (linkId === 'appointment-service-category' && appointmentServiceCategory) {
         answer = makeAnswer(appointmentServiceCategory);
       }
 
