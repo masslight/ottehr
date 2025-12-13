@@ -750,6 +750,7 @@ const PatientRecordConfigSchema = z.object({
   hiddenFormSections: z.array(z.string()),
   FormFields: FormFieldsSchema,
 });
+type PatientRecordConfigType = z.infer<typeof PatientRecordConfigSchema>;
 
 export const PATIENT_RECORD_CONFIG = PatientRecordConfigSchema.parse(mergedPatientRecordConfig);
 
@@ -799,4 +800,270 @@ export const prepopulatePatientRecordItems = (
   const patientRecordItems = makePrepopulatedItemsFromPatientRecord({ ...input, overriddenItems: logicalFieldItems });
 
   return patientRecordItems;
+};
+
+const createDataTypeExtension = (dataType: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/data-type',
+  valueString: dataType,
+});
+
+const createDisabledDisplayExtension = (display: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display',
+  valueString: display,
+});
+
+const createFillFromWhenDisabledExtension = (
+  sourceLinkId: string
+): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled',
+  valueString: sourceLinkId,
+});
+
+const createRequireWhenExtension = (
+  trigger: FormFieldTrigger
+): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when',
+  extension: [
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question',
+      valueString: trigger.targetQuestionLinkId,
+    },
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator',
+      valueString: trigger.operator,
+    },
+    ...(trigger.answerBoolean !== undefined
+      ? [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer',
+            valueBoolean: trigger.answerBoolean,
+          },
+        ]
+      : []),
+    ...(trigger.answerString !== undefined
+      ? [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer',
+            valueString: trigger.answerString,
+          },
+        ]
+      : []),
+  ],
+});
+
+const createAnswerLoadingOptionsExtension = (
+  dataSource: any
+): NonNullable<QuestionnaireItem['extension']>[number] | undefined => {
+  const { answerSource } = dataSource;
+  if (!answerSource) return undefined;
+
+  return {
+    url: 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options',
+    extension: [
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/strategy',
+        valueString: 'dynamic',
+      },
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/source',
+        valueExpression: {
+          language: 'application/x-fhir-query',
+          expression: `${answerSource.resourceType}?${answerSource.query}`,
+        },
+      },
+    ],
+  };
+};
+
+const createEnableWhen = (trigger: FormFieldTrigger): QuestionnaireItem['enableWhen'] => {
+  const enableWhen: any = {
+    question: trigger.targetQuestionLinkId,
+    operator: trigger.operator,
+  };
+
+  if (trigger.answerBoolean !== undefined) {
+    enableWhen.answerBoolean = trigger.answerBoolean;
+  } else if (trigger.answerString !== undefined) {
+    enableWhen.answerString = trigger.answerString;
+  } else if (trigger.answerDateTime !== undefined) {
+    enableWhen.answerDateTime = trigger.answerDateTime;
+  }
+
+  return enableWhen;
+};
+
+const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: boolean): QuestionnaireItem => {
+  const item: QuestionnaireItem = {
+    linkId: field.key,
+    type: field.type === 'reference' ? 'choice' : (field.type as any),
+  };
+
+  // Add text if label is provided
+  if (field.label) {
+    item.text = field.label;
+  }
+
+  // Add required flag
+  item.required = isRequired;
+
+  // Add answer options for choice types
+  if (field.type === 'choice' && field.options) {
+    item.answerOption = field.options.map((opt) => ({ valueString: opt.value }));
+  }
+
+  // Handle reference type for dynamic data source
+  if (field.type === 'reference' && field.dataSource) {
+    item.answerOption = [{ valueString: '09' }]; // Placeholder, will be replaced dynamically
+    const answerLoadingExt = createAnswerLoadingOptionsExtension(field.dataSource);
+    if (answerLoadingExt) {
+      item.extension = [answerLoadingExt];
+    }
+  }
+
+  // Add extensions
+  const extensions: any[] = item.extension ? [...item.extension] : [];
+
+  if (field.dataType) {
+    extensions.push(createDataTypeExtension(field.dataType));
+  }
+
+  if (field.disabledDisplay && field.disabledDisplay !== 'disabled') {
+    extensions.push(createDisabledDisplayExtension(field.disabledDisplay));
+  }
+
+  if (field.dynamicPopulation) {
+    extensions.push(createFillFromWhenDisabledExtension(field.dynamicPopulation.sourceLinkId));
+    if (!field.disabledDisplay) {
+      extensions.push(createDisabledDisplayExtension('protected'));
+    }
+  }
+
+  // Add enableWhen from triggers
+  if (field.triggers && field.triggers.length > 0) {
+    const enableTriggers = field.triggers.filter((t) => t.effect.includes('enable'));
+    if (enableTriggers.length > 0) {
+      item.enableWhen = enableTriggers.flatMap((i) => createEnableWhen(i)!);
+    }
+
+    // Add require-when extension
+    const requireTriggers = field.triggers.filter((t) => t.effect.includes('require'));
+    if (requireTriggers.length > 0) {
+      requireTriggers.forEach((trigger) => {
+        extensions.push(createRequireWhenExtension(trigger));
+      });
+    }
+
+    // Add enableBehavior if specified
+    if (field.enableBehavior && item.enableWhen && item.enableWhen.length > 1) {
+      item.enableBehavior = field.enableBehavior;
+    }
+  }
+
+  if (extensions.length > 0) {
+    item.extension = extensions;
+  }
+
+  return item;
+};
+
+const createLogicalFields = (): QuestionnaireItem[] => {
+  return [
+    {
+      linkId: 'should-display-ssn-field',
+      type: 'boolean',
+      required: false,
+      readOnly: true,
+      initial: [{ valueBoolean: false }],
+    },
+    {
+      linkId: 'ssn-field-required',
+      type: 'boolean',
+      required: false,
+      readOnly: true,
+    },
+  ];
+};
+
+export const createQuestionnaireItemFromPatientRecordConfig = (
+  config: PatientRecordConfigType
+): Questionnaire['item'] => {
+  const questionnaireItems: QuestionnaireItem[] = [];
+
+  // Define the order of sections as they appear in the JSON
+  const sectionOrder = [
+    'patientSummary',
+    'patientContactInformation',
+    'patientDetails',
+    'primaryCarePhysician',
+    'insurance',
+    'responsibleParty',
+    'employerInformation',
+    'emergencyContact',
+    'preferredPharmacy',
+  ] as const;
+
+  for (const sectionKey of sectionOrder) {
+    const section = config.FormFields[sectionKey];
+    if (!section) continue;
+
+    // Handle array-based sections (like insurance)
+    if (Array.isArray(section.linkId)) {
+      section.linkId.forEach((linkId, index) => {
+        const items = Array.isArray(section.items) ? section.items[index] : section.items;
+        const groupItem: QuestionnaireItem = {
+          linkId,
+          type: 'group',
+          text: section.title,
+          repeats: true,
+          item: [],
+        };
+
+        // Add special logical fields for patient summary section
+        if (sectionKey === 'patientSummary' && index === 0) {
+          groupItem.item = createLogicalFields();
+        }
+
+        // Convert each field to a questionnaire item
+        for (const [, field] of Object.entries(items)) {
+          const isRequired = section.requiredFields?.includes(field.key) ?? false;
+          const questionnaireItem = convertFormFieldToQuestionnaireItem(field, isRequired);
+          groupItem.item!.push(questionnaireItem);
+        }
+
+        questionnaireItems.push(groupItem);
+      });
+    } else {
+      // Handle simple sections
+      const groupItem: QuestionnaireItem = {
+        linkId: section.linkId,
+        type: 'group',
+        text: section.title,
+        item: [],
+      };
+
+      // Add special logical fields for patient summary section
+      if (sectionKey === 'patientSummary') {
+        groupItem.item = createLogicalFields();
+      }
+
+      // Convert each field to a questionnaire item
+      for (const [, field] of Object.entries(section.items)) {
+        const isRequired = section.requiredFields?.includes(field.key) ?? false;
+        const questionnaireItem = convertFormFieldToQuestionnaireItem(field, isRequired);
+        groupItem.item!.push(questionnaireItem);
+      }
+
+      questionnaireItems.push(groupItem);
+    }
+  }
+
+  // Add user settings section at the end
+  questionnaireItems.push({
+    linkId: 'user-settings-section',
+    type: 'group',
+    text: 'User settings',
+    item: [],
+  });
+
+  return questionnaireItems;
 };
