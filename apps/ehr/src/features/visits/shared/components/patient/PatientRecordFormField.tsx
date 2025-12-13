@@ -8,14 +8,7 @@ import { BasicDatePicker, FormSelect, FormTextField } from 'src/components/form'
 import InputMask from 'src/components/InputMask';
 import { Row } from 'src/components/layout';
 import { useApiClients } from 'src/hooks/useAppClients';
-import {
-  dedupeObjectsByKey,
-  FormFieldsItem,
-  FormFieldTrigger,
-  ORG_TYPE_CODE_SYSTEM,
-  ORG_TYPE_PAYER_CODE,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-} from 'utils';
+import { dedupeObjectsByKey, FormFieldsItem, FormFieldTrigger, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 
 interface PatientRecordFormFieldProps {
   item: FormFieldsItem;
@@ -285,20 +278,24 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
     switch (item.type) {
       case 'choice':
       case 'reference':
-        if (item.type === 'reference') {
+        if (item.type === 'reference' && item.dataSource) {
           return (
             <DynamicReferenceField
               item={item}
               id={omitRowWrapper ? item.key : undefined}
-              optionStrategy={{
-                type: 'answerSource',
-                answerSource: {
-                  // todo: get this from config
-                  resourceType: 'Organization',
-                  query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
-                  prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
-                },
-              }}
+              optionStrategy={
+                item.dataSource.valueSet
+                  ? {
+                      type: 'valueSet',
+                      valueSet: item.dataSource.valueSet!,
+                    }
+                  : {
+                      type: 'answerSource',
+                      answerSource: {
+                        ...item.dataSource.answerSource!,
+                      },
+                    }
+              }
             />
           );
         }

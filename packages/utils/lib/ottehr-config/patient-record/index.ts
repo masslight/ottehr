@@ -3,8 +3,14 @@ import _ from 'lodash';
 import { z } from 'zod';
 import patientRecordQuestionnaire from '../../../../../config/oystehr/ehr-insurance-update-questionnaire.json' assert { type: 'json' };
 import { PATIENT_RECORD_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
-import { makeAnswer, makePrepopulatedItemsFromPatientRecord, PrePopulationFromPatientRecordInput } from '../../main';
-import { QuestionnaireDataTypeSchema } from '../../types/data/paperwork';
+import {
+  makeAnswer,
+  makePrepopulatedItemsFromPatientRecord,
+  ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_PAYER_CODE,
+  PrePopulationFromPatientRecordInput,
+} from '../../main';
+import { AnswerOptionSourceSchema, QuestionnaireDataTypeSchema } from '../../types/data/paperwork';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import { VALUE_SETS as formValueSets } from '../value-sets';
 
@@ -235,7 +241,18 @@ const FormFields = {
           label: 'Type',
           options: formValueSets.insurancePriorityOptions,
         },
-        insuranceCarrier: { key: 'insurance-carrier', type: 'reference', label: 'Insurance carrier' },
+        insuranceCarrier: {
+          key: 'insurance-carrier',
+          type: 'reference',
+          label: 'Insurance carrier',
+          dataSource: {
+            answerSource: {
+              resourceType: 'Organization',
+              query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+              prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+            },
+          },
+        },
         insurancePlanType: {
           key: 'insurance-plan-type',
           type: 'choice',
@@ -291,7 +308,18 @@ const FormFields = {
           label: 'Type',
           options: formValueSets.insurancePriorityOptions,
         },
-        insuranceCarrier: { key: 'insurance-carrier-2', type: 'reference', label: 'Insurance carrier' },
+        insuranceCarrier: {
+          key: 'insurance-carrier-2',
+          type: 'reference',
+          label: 'Insurance carrier',
+          dataSource: {
+            answerSource: {
+              resourceType: 'Organization',
+              query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+              prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+            },
+          },
+        },
         insurancePlanType: {
           key: 'insurance-plan-type-2',
           type: 'choice',
@@ -605,6 +633,20 @@ const FormFields = {
   requiredFields: [],
 };
 
+const ReferenceDataSourceSchema = z
+  .object({
+    answerSource: AnswerOptionSourceSchema.optional(),
+    valueSet: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      return data.answerSource !== undefined || data.valueSet !== undefined;
+    },
+    {
+      message: 'Either answerSource or valueSet must be provided',
+    }
+  );
+
 const FormFieldsValueTypeSchema = z
   .object({
     key: z.string(),
@@ -619,6 +661,7 @@ const FormFieldsValueTypeSchema = z
         })
       )
       .optional(),
+    dataSource: ReferenceDataSourceSchema.optional(),
     triggers: z.array(triggerSchema).optional(),
     dynamicPopulation: dynamicPopulationSchema.optional(),
     enableBehavior: z.enum(['all', 'any']).default('any').optional(),
@@ -627,12 +670,27 @@ const FormFieldsValueTypeSchema = z
   .refine(
     (data) => {
       if (data.type === 'choice') {
-        return Array.isArray(data.options);
+        return (
+          Array.isArray(data.options) || {
+            message: 'Options must be provided for choice types',
+          }
+        );
       }
       return true;
     },
     {
       message: 'Options must be provided for choice types',
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.type === 'reference') {
+        return data.dataSource !== undefined;
+      }
+      return true;
+    },
+    {
+      message: 'dataSource must be provided for reference types',
     }
   );
 
