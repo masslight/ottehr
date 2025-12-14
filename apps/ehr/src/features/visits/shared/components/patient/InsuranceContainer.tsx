@@ -2,11 +2,10 @@ import { RefreshRounded } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, Chip, CircularProgress, IconButton, Typography, useTheme } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
-import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
+import { FC, ReactElement, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Row } from 'src/components/layout';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
-import { PatientAddressFields, PatientIdentifyingFields } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
@@ -118,67 +117,13 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     mapInitialStatus(initialEligibilityCheck)
   );
 
-  const { setValue, watch } = useFormContext();
+  const { watch } = useFormContext();
 
   const {
     items: FormFields,
     hiddenFields,
     requiredFields,
   } = usePatientRecordFormSection({ formSection: insuranceSection, index: ordinal - 1 });
-
-  const { LocalAddressFields, LocalIdentifyingFields } = useMemo(
-    () => ({
-      LocalAddressFields: [
-        FormFields.streetAddress.key,
-        FormFields.addressLine2.key,
-        FormFields.city.key,
-        FormFields.state.key,
-        FormFields.zip.key,
-      ],
-      LocalIdentifyingFields: [
-        FormFields.firstName.key,
-        FormFields.middleName.key,
-        FormFields.lastName.key,
-        FormFields.birthDate.key,
-        FormFields.birthSex.key,
-      ],
-    }),
-    [FormFields]
-  );
-
-  const patientAddressData = watch(PatientAddressFields);
-  const patientIdentifyingData = watch(PatientIdentifyingFields);
-  const localAddressData = watch(LocalAddressFields);
-  const localIdentifyingData = watch(LocalIdentifyingFields);
-  const selfSelected = watch(FormFields.relationship.key) === 'Self';
-  const sameAsPatientAddress = watch(FormFields.policyHolderAddressAsPatient.key, false);
-
-  useEffect(() => {
-    if (sameAsPatientAddress || selfSelected) {
-      for (let i = 0; i < localAddressData.length; i++) {
-        if (patientAddressData[i] && localAddressData[i] !== patientAddressData[i]) {
-          setValue(LocalAddressFields[i], patientAddressData[i]);
-        }
-      }
-      if (selfSelected) {
-        for (let i = 0; i < localIdentifyingData.length; i++) {
-          if (patientIdentifyingData[i] && localIdentifyingData[i] !== patientIdentifyingData[i]) {
-            setValue(LocalIdentifyingFields[i], patientIdentifyingData[i]);
-          }
-        }
-      }
-    }
-  }, [
-    LocalAddressFields,
-    LocalIdentifyingFields,
-    localAddressData,
-    localIdentifyingData,
-    patientAddressData,
-    patientIdentifyingData,
-    sameAsPatientAddress,
-    selfSelected,
-    setValue,
-  ]);
 
   const insurancePriority = watch(FormFields.insurancePriority.key);
 
@@ -397,35 +342,30 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           <PatientRecordFormField
             item={FormFields.firstName}
             isLoading={false}
-            disabled={selfSelected && Boolean(patientIdentifyingData[0])}
             requiredFormFields={requiredFields}
             hiddenFormFields={hiddenFields}
           />
           <PatientRecordFormField
             item={FormFields.middleName}
             isLoading={false}
-            disabled={selfSelected && Boolean(patientIdentifyingData[1])}
             requiredFormFields={requiredFields}
             hiddenFormFields={hiddenFields}
           />
           <PatientRecordFormField
             item={FormFields.lastName}
             isLoading={false}
-            disabled={selfSelected && Boolean(patientIdentifyingData[2])}
             requiredFormFields={requiredFields}
             hiddenFormFields={hiddenFields}
           />
           <PatientRecordFormField
             item={FormFields.birthDate}
             isLoading={false}
-            disabled={selfSelected && Boolean(patientIdentifyingData[3])}
             requiredFormFields={requiredFields}
             hiddenFormFields={hiddenFields}
           />
           <PatientRecordFormField
             item={FormFields.birthSex}
             isLoading={false}
-            disabled={selfSelected && Boolean(patientIdentifyingData[4])}
             requiredFormFields={requiredFields}
             hiddenFormFields={hiddenFields}
           />
@@ -436,7 +376,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
                 isLoading={false}
                 requiredFormFields={requiredFields}
                 hiddenFormFields={hiddenFields}
-                disabled={selfSelected}
                 omitRowWrapper
               />
             </Box>
@@ -444,14 +383,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           <PatientRecordFormField
             item={FormFields.streetAddress}
             isLoading={false}
-            disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[0])}
             requiredFormFields={requiredFields}
             hiddenFormFields={hiddenFields}
           />
           <PatientRecordFormField
             item={FormFields.addressLine2}
             isLoading={false}
-            disabled={sameAsPatientAddress || selfSelected}
             requiredFormFields={requiredFields}
             hiddenFormFields={hiddenFields}
           />
@@ -460,7 +397,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
               <PatientRecordFormField
                 item={FormFields.city}
                 isLoading={false}
-                disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[2])}
                 requiredFormFields={requiredFields}
                 hiddenFormFields={hiddenFields}
                 omitRowWrapper
@@ -468,7 +404,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
               <PatientRecordFormField
                 item={FormFields.state}
                 isLoading={false}
-                disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[3])}
                 requiredFormFields={requiredFields}
                 hiddenFormFields={hiddenFields}
                 omitRowWrapper
@@ -476,7 +411,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
               <PatientRecordFormField
                 item={FormFields.zip}
                 isLoading={false}
-                disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[4])}
                 requiredFormFields={requiredFields}
                 hiddenFormFields={hiddenFields}
                 omitRowWrapper

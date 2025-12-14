@@ -937,29 +937,79 @@
           "linkId": "policy-holder-first-name",
           "type": "string",
           "text": "Policy holder's first name",
-          "required": true
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-first-name"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-middle-name",
           "type": "string",
           "text": "Policy holder's middle name",
-          "required": false
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-middle-name"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-last-name",
           "type": "string",
           "text": "Policy holder's last name",
-          "required": true
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-last-name"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-date-of-birth",
           "type": "date",
           "text": "Policy holder's date of birth",
           "required": true,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "DOB"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-birthdate"
             }
           ]
         },
@@ -978,31 +1028,108 @@
             {
               "valueString": "Intersex"
             }
+          ],
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-birth-sex"
+            }
           ]
         },
         {
           "linkId": "policy-holder-address-as-patient",
           "type": "boolean",
           "text": "Policy holder address is the same as patient's address",
-          "required": false
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-address",
           "type": "string",
           "text": "Policy holder's address",
-          "required": true
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "policy-holder-address-as-patient",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-street-address"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-address-additional-line",
           "type": "string",
           "text": "Policy holder's address line 2",
-          "required": false
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "policy-holder-address-as-patient",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-street-address-2"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-city",
           "type": "string",
           "text": "City",
-          "required": true
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "policy-holder-address-as-patient",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-city"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-state",
@@ -1166,6 +1293,25 @@
             {
               "valueString": "WY"
             }
+          ],
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "policy-holder-address-as-patient",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-state"
+            }
           ]
         },
         {
@@ -1173,10 +1319,27 @@
           "type": "string",
           "text": "ZIP",
           "required": true,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "policy-holder-address-as-patient",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "ZIP"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-zip"
             }
           ]
         },
@@ -1356,29 +1519,79 @@
           "linkId": "policy-holder-first-name-2",
           "type": "string",
           "text": "Policy holder's first name",
-          "required": true
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured-2",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-first-name"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-middle-name-2",
           "type": "string",
           "text": "Policy holder's middle name",
-          "required": false
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured-2",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-middle-name"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-last-name-2",
           "type": "string",
           "text": "Policy holder's last name",
-          "required": true
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured-2",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-last-name"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-date-of-birth-2",
           "type": "date",
           "text": "Policy holder's date of birth",
           "required": true,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured-2",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "DOB"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-birthdate"
             }
           ]
         },
@@ -1397,31 +1610,108 @@
             {
               "valueString": "Intersex"
             }
+          ],
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured-2",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-birth-sex"
+            }
           ]
         },
         {
           "linkId": "policy-holder-address-as-patient-2",
           "type": "boolean",
           "text": "Policy holder address is the same as patient's address",
-          "required": false
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured-2",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-address-2",
           "type": "string",
           "text": "Policy holder's address",
-          "required": true
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured-2",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "policy-holder-address-as-patient-2",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-street-address"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-address-additional-line-2",
           "type": "string",
           "text": "Policy holder's address line 2",
-          "required": false
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured-2",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "policy-holder-address-as-patient-2",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-street-address-2"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-city-2",
           "type": "string",
           "text": "City",
-          "required": true
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured-2",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "policy-holder-address-as-patient-2",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-city"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-state-2",
@@ -1585,6 +1875,25 @@
             {
               "valueString": "WY"
             }
+          ],
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured-2",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "policy-holder-address-as-patient-2",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-state"
+            }
           ]
         },
         {
@@ -1592,10 +1901,27 @@
           "type": "string",
           "text": "ZIP",
           "required": true,
+          "enableWhen": [
+            {
+              "question": "patient-relationship-to-insured-2",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "policy-holder-address-as-patient-2",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
               "valueString": "ZIP"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-zip"
             }
           ]
         },
