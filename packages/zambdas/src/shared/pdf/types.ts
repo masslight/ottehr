@@ -20,6 +20,7 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   ObservationDTO,
   OrderedCoveragesWithSubscribers,
+  PatientPaymentDTO,
   QuantityComponent,
   SupportedObsImgAttachmentTypes,
   VitalsVisitNoteData,
@@ -522,6 +523,16 @@ export interface InsuranceInfo extends PdfData {
   secondary: Insurance;
 }
 
+interface Payment {
+  date: string;
+  label: string;
+  amount: string;
+}
+
+export interface PatientPaymentsInfo extends PdfData {
+  payments: Payment[];
+}
+
 export interface ResponsiblePartyInfo extends PdfData {
   relationship: string;
   fullName: string;
@@ -595,6 +606,7 @@ export interface VisitDetailsInput {
   employerOrganization?: Organization;
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
+  payments: PatientPaymentDTO[];
 }
 
 export interface VisitDataInput {
@@ -635,6 +647,10 @@ export interface EmergencyContactDataInput {
 
 export interface EmployerDataInput {
   employer?: Organization;
+}
+
+export interface PatientPaymentsDataInput {
+  payments: PatientPaymentDTO[];
 }
 
 export interface UploadMetadata {
@@ -718,6 +734,7 @@ export interface VisitDetailsData extends PdfData {
   consentForms: consentFormsInfo;
   documents: Documents;
   pharmacy: pharmacyInfo;
+  paymentHistory: PatientPaymentsInfo;
 }
 export interface GetPaymentDataResponse {
   chargeUuid: string;
