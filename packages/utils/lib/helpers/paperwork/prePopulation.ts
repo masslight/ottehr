@@ -396,7 +396,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
     });
   };
 
-  console.log('making prepopulated items from patient record', coverages, pharmacy);
+  // console.log('making prepopulated items from patient record', input, coverages, pharmacy);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
       const itemItems = (item.item ?? []).filter((i: QuestionnaireItem) => i.type !== 'display');

@@ -27,7 +27,7 @@ import {
   InsurancePlanDTO,
   makePrepopulatedItemsFromPatientRecord,
   OrderedCoveragesWithSubscribers,
-  PATIENT_RECORD_CONFIG,
+  PATIENT_RECORD_QUESTIONNAIRE,
   PatientAccountResponse,
   pruneEmptySections,
   VALUE_SETS,
@@ -54,6 +54,8 @@ const ANSWER_TYPES: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = [
   'Attachment',
 ];
 
+const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
+
 const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   for (let i = 0; i < ANSWER_TYPES.length; i++) {
     const answer = extractFirstValueFromAnswer(item.answer ?? [], ANSWER_TYPES[i]);
@@ -66,7 +68,7 @@ const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
 
 const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): Record<string, any> => {
   const flattened = flattenItems(currentItemValues);
-  console.log('Flattened items for form defaults:', flattened);
+  // console.log('Flattened items for form defaults:', flattened);
   return flattened.reduce((acc: Record<string, any>, item: QuestionnaireResponseItem) => {
     const value = getAnyAnswer(item);
     acc[item.linkId] = value;
@@ -137,7 +139,6 @@ const usePatientData = (
     coverages: OrderedCoveragesWithSubscribers;
     insuranceOrgs: Organization[];
   };
-  questionnaire?: Questionnaire;
   coverages: CoverageWithPriority[];
   patient?: Patient;
   isFetching: boolean;
@@ -155,11 +156,6 @@ const usePatientData = (
     apiClient,
     patientId: id ?? null,
   });
-
-  const questionnaire = PATIENT_RECORD_CONFIG.ehrPatientRecordForm.templateQuestionnaire;
-  if (!questionnaire) {
-    throw new Error('Could not find insurance update questionnaire in config');
-  }
 
   const coverages: CoverageWithPriority[] = useMemo(() => {
     if (!insuranceData?.coverages) return [];
@@ -191,12 +187,11 @@ const usePatientData = (
     }
 
     return { patient, isFetching, defaultFormVals };
-  }, [accountData, questionnaire, accountFetching]);
+  }, [accountData, accountFetching]);
 
   return {
     accountData,
     insuranceData,
-    questionnaire,
     coverages,
     patient,
     isFetching,
@@ -209,7 +204,6 @@ const useFormData = (
   defaultFormVals: any,
   coveragesFetching: boolean,
   insuranceData: any,
-  questionnaire: Questionnaire | undefined,
   accountData: any
 ): {
   methods: ReturnType<typeof useForm>;
@@ -224,13 +218,7 @@ const useFormData = (
 
   const { coveragesFormValues } = useMemo(() => {
     let coveragesFormValues: any;
-    if (
-      !coveragesFetching &&
-      insuranceData?.coverages &&
-      insuranceData?.insuranceOrgs &&
-      questionnaire &&
-      accountData
-    ) {
+    if (!coveragesFetching && insuranceData?.coverages && insuranceData?.insuranceOrgs && accountData) {
       const formDefaults = makePrepopulatedCoveragesFormDefaults({
         coverages: insuranceData.coverages,
         patient: accountData.patient,
@@ -240,7 +228,7 @@ const useFormData = (
       coveragesFormValues = { ...formDefaults };
     }
     return { coveragesFormValues };
-  }, [accountData, coveragesFetching, questionnaire, insuranceData?.coverages, insuranceData?.insuranceOrgs]);
+  }, [accountData, coveragesFetching, insuranceData?.coverages, insuranceData?.insuranceOrgs]);
 
   useEffect(() => {
     if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
@@ -295,24 +283,10 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   const navigate = useNavigate();
   const { setInsurancePlans } = usePatientStore();
 
-  const {
-    accountData,
-    insuranceData,
-    questionnaire,
-    coverages,
-    patient,
-    isFetching,
-    defaultFormVals,
-    coveragesFetching,
-  } = usePatientData(id);
+  const { accountData, insuranceData, coverages, patient, isFetching, defaultFormVals, coveragesFetching } =
+    usePatientData(id);
 
-  const { methods, coveragesFormValues } = useFormData(
-    defaultFormVals,
-    coveragesFetching,
-    insuranceData,
-    questionnaire,
-    accountData
-  );
+  const { methods, coveragesFormValues } = useFormData(defaultFormVals, coveragesFetching, insuranceData, accountData);
 
   const { submitQR, removeCoverage, queryClient } = useMutations();
 
@@ -320,11 +294,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
 
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
   const [openAddInsuranceModal, setOpenAddInsuranceModal] = useState(false);
-  const shouldRenderEmployerSection = useMemo(
-    () => questionnaire?.item?.some((item) => item.linkId === 'employer-information-page') ?? false,
-    [questionnaire]
-  );
-
   useGetInsurancePlans((data) => {
     if (!data) return;
 
@@ -374,7 +343,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   };
 
   const handleSaveForm = async (values: any): Promise<void> => {
-    if (!questionnaire || !patient?.id) {
+    if (!patient?.id) {
       enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
       return;
     }
@@ -448,9 +417,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
                     onAddInsurance={() => setOpenAddInsuranceModal(true)}
                   />
                   <ResponsibleInformationContainer isLoading={isFetching || submitQR.isPending} />
-                  {shouldRenderEmployerSection && (
-                    <EmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
-                  )}
+                  <EmployerInformationContainer isLoading={isFetching || submitQR.isPending} />
                   <EmergencyContactContainer isLoading={isFetching || submitQR.isPending} />
                   <PharmacyContainer isLoading={isFetching || submitQR.isPending} />
                 </Box>

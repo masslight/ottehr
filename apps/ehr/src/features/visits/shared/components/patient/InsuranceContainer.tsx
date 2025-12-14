@@ -151,7 +151,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   const localAddressData = watch(LocalAddressFields);
   const localIdentifyingData = watch(LocalIdentifyingFields);
   const selfSelected = watch(FormFields.relationship.key) === 'Self';
-  const insurancePriority = watch(FormFields.insurancePriority.key);
   const sameAsPatientAddress = watch(FormFields.policyHolderAddressAsPatient.key, false);
 
   useEffect(() => {
@@ -180,6 +179,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     selfSelected,
     setValue,
   ]);
+
+  const insurancePriority = watch(FormFields.insurancePriority.key);
 
   const toggleMoreInfo = (): void => {
     setShowMoreInfo((prev) => !prev);

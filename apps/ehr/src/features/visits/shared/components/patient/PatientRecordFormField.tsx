@@ -157,28 +157,16 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
   const stashedValueRef = useRef<any>(null);
 
   useEffect(() => {
-    if (dynamicPopulation) {
-      console.log(`[${item.key}] Dynamic population check:`, {
-        triggerState: dynamicPopulation.triggerState,
-        isDisabled,
-        sourceFieldValue,
-        sourceLinkId: dynamicPopulation.sourceLinkId,
-        currentValue: getValues(item.key),
-      });
-    }
-
     if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && isDisabled) {
       const currentValue = getValues(item.key);
 
       // Only update if the source value is different from current value
       if (sourceFieldValue !== undefined && sourceFieldValue !== currentValue) {
-        console.log(`[${item.key}] Setting value from source:`, sourceFieldValue);
         stashedValueRef.current = currentValue;
         setValue(item.key, sourceFieldValue, { shouldDirty: true });
       }
     } else if (dynamicPopulation && dynamicPopulation.triggerState === 'disabled' && !isDisabled) {
       if (stashedValueRef.current !== null) {
-        console.log(`[${item.key}] Restoring stashed value:`, stashedValueRef.current);
         setValue(item.key, stashedValueRef.current, { shouldDirty: true });
         stashedValueRef.current = null;
       }
@@ -270,10 +258,6 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
     mask = '000-00-0000';
   }
 
-  if (item.key === 'insurance-carrier') {
-    console.log('Rendering insurance carrier field', item.type);
-  }
-
   const InputElement = (() => {
     switch (item.type) {
       case 'choice':
@@ -316,9 +300,7 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
                     options={item.options ?? []}
                     id={omitRowWrapper ? item.key : undefined}
                     value={selectedOption}
-                    // data-testid={dataTestIds.contactInformationContainer.state}
                     onChange={(_, newValue) => {
-                      console.log('New value selected for', item.key, newValue);
                       if (newValue) {
                         setValue(item.key, newValue.value);
                       } else {

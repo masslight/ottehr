@@ -1,7 +1,6 @@
 import { Questionnaire, QuestionnaireItem, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 import _ from 'lodash';
 import { z } from 'zod';
-import patientRecordQuestionnaire from '../../../../../config/oystehr/ehr-insurance-update-questionnaire.json' assert { type: 'json' };
 import { PATIENT_RECORD_OVERRIDES as OVERRIDES } from '../../../ottehr-config-overrides';
 import {
   makeAnswer,
@@ -13,22 +12,6 @@ import {
 import { AnswerOptionSourceSchema, QuestionnaireDataTypeSchema } from '../../types/data/paperwork';
 import { mergeAndFreezeConfigObjects } from '../helpers';
 import { VALUE_SETS as formValueSets } from '../value-sets';
-
-const PatientRecordQuestionnaire = Object.values(patientRecordQuestionnaire.fhirResources)![0]
-  .resource as Questionnaire;
-
-const ehrPatientRecordForm: {
-  url: string | undefined;
-  version: string | undefined;
-  templateQuestionnaire: Questionnaire | undefined;
-} = (() => {
-  const templateResource = _.cloneDeep(PatientRecordQuestionnaire);
-  return {
-    url: templateResource?.url,
-    version: templateResource?.version,
-    templateQuestionnaire: templateResource as Questionnaire,
-  };
-})();
 
 /*
   THE SOURCE COMMENT
@@ -730,9 +713,27 @@ const FormFieldsSchema = z.object({
 
 const hiddenFormSections: string[] = [];
 
+const QuestionnaireBaseSchema = z.object({
+  resourceType: z.literal('Questionnaire'),
+  url: z.string(),
+  version: z.string(),
+  name: z.string(),
+  title: z.string(),
+  status: z.enum(['draft', 'active', 'retired', 'unknown']),
+});
+export type QuestionnaireBase = z.infer<typeof QuestionnaireBaseSchema>;
+
+const questionnaireBaseDefaults: QuestionnaireBase = {
+  resourceType: 'Questionnaire',
+  url: 'http://example.org/fhir/Questionnaire/patient-record',
+  version: '1.0.0',
+  name: 'PatientRecordQuestionnaire',
+  title: 'Patient Record Questionnaire',
+  status: 'active',
+};
+
 const PATIENT_RECORD_DEFAULTS = {
-  ehrPatientRecordForm,
-  formValueSets,
+  questionnaireBase: questionnaireBaseDefaults,
   hiddenFormSections,
   FormFields,
 };
@@ -742,11 +743,7 @@ const mergedPatientRecordConfig = mergeAndFreezeConfigObjects(PATIENT_RECORD_DEF
 //type FormFieldKey = keyof typeof mergedPatientRecordConfig.FormFields;
 
 const PatientRecordConfigSchema = z.object({
-  ehrPatientRecordForm: z.object({
-    url: z.string().url().optional(),
-    version: z.string().optional(),
-    templateQuestionnaire: z.custom<Questionnaire>().optional(),
-  }),
+  questionnaireBase: QuestionnaireBaseSchema,
   hiddenFormSections: z.array(z.string()),
   FormFields: FormFieldsSchema,
 });
@@ -1067,3 +1064,13 @@ export const createQuestionnaireItemFromPatientRecordConfig = (
 
   return questionnaireItems;
 };
+
+const createQuestionnaireFromPatientRecordConfig = (config: PatientRecordConfigType): Questionnaire => {
+  return {
+    ...config.questionnaireBase,
+    item: createQuestionnaireItemFromPatientRecordConfig(config),
+  };
+};
+
+export const PATIENT_RECORD_QUESTIONNAIRE = (): Questionnaire =>
+  JSON.parse(JSON.stringify(createQuestionnaireFromPatientRecordConfig(PATIENT_RECORD_CONFIG)));

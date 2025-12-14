@@ -1,0 +1,2650 @@
+{
+  "resourceType": "Questionnaire",
+  "url": "https://ottehr.com/FHIR/Questionnaire/ehr-insurance-update-questionnaire",
+  "version": "1.1.1",
+  "name": "ehr-insurance-update-questionnaire",
+  "title": "EHR Insurance Update Form",
+  "status": "active",
+  "item": [
+    {
+      "linkId": "patient-info-section",
+      "type": "group",
+      "text": "Patient summary",
+      "item": [
+        {
+          "linkId": "should-display-ssn-field",
+          "type": "boolean",
+          "required": false,
+          "readOnly": true,
+          "initial": [
+            {
+              "valueBoolean": false
+            }
+          ]
+        },
+        {
+          "linkId": "ssn-field-required",
+          "type": "boolean",
+          "required": false,
+          "readOnly": true
+        },
+        {
+          "linkId": "patient-first-name",
+          "type": "string",
+          "text": "First name",
+          "required": true
+        },
+        {
+          "linkId": "patient-middle-name",
+          "type": "string",
+          "text": "Middle name",
+          "required": false
+        },
+        {
+          "linkId": "patient-last-name",
+          "type": "string",
+          "text": "Last name",
+          "required": true
+        },
+        {
+          "linkId": "patient-name-suffix",
+          "type": "string",
+          "text": "Suffix",
+          "required": false
+        },
+        {
+          "linkId": "patient-preferred-name",
+          "type": "string",
+          "text": "Preferred name",
+          "required": false
+        },
+        {
+          "linkId": "patient-birthdate",
+          "type": "date",
+          "text": "Date of birth",
+          "required": true,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "DOB"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-birth-sex",
+          "type": "choice",
+          "text": "Birth sex",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "Male"
+            },
+            {
+              "valueString": "Female"
+            },
+            {
+              "valueString": "Intersex"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-pronouns",
+          "type": "choice",
+          "text": "Preferred pronouns",
+          "required": false,
+          "answerOption": [
+            {
+              "valueString": "He/him"
+            },
+            {
+              "valueString": "She/her"
+            },
+            {
+              "valueString": "They/them"
+            },
+            {
+              "valueString": "My pronouns are not listed"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-ssn",
+          "type": "string",
+          "text": "SSN",
+          "required": false,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "SSN"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "patient-contact-info-section",
+      "type": "group",
+      "text": "Patient contact information",
+      "item": [
+        {
+          "linkId": "patient-street-address",
+          "type": "string",
+          "text": "Street address",
+          "required": true
+        },
+        {
+          "linkId": "patient-street-address-2",
+          "type": "string",
+          "text": "Address line 2",
+          "required": false
+        },
+        {
+          "linkId": "patient-city",
+          "type": "string",
+          "text": "City",
+          "required": true
+        },
+        {
+          "linkId": "patient-state",
+          "type": "choice",
+          "text": "State",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "AL"
+            },
+            {
+              "valueString": "AK"
+            },
+            {
+              "valueString": "AZ"
+            },
+            {
+              "valueString": "AR"
+            },
+            {
+              "valueString": "CA"
+            },
+            {
+              "valueString": "CO"
+            },
+            {
+              "valueString": "CT"
+            },
+            {
+              "valueString": "DE"
+            },
+            {
+              "valueString": "DC"
+            },
+            {
+              "valueString": "FL"
+            },
+            {
+              "valueString": "GA"
+            },
+            {
+              "valueString": "HI"
+            },
+            {
+              "valueString": "ID"
+            },
+            {
+              "valueString": "IL"
+            },
+            {
+              "valueString": "IN"
+            },
+            {
+              "valueString": "IA"
+            },
+            {
+              "valueString": "KS"
+            },
+            {
+              "valueString": "KY"
+            },
+            {
+              "valueString": "LA"
+            },
+            {
+              "valueString": "ME"
+            },
+            {
+              "valueString": "MD"
+            },
+            {
+              "valueString": "MA"
+            },
+            {
+              "valueString": "MI"
+            },
+            {
+              "valueString": "MN"
+            },
+            {
+              "valueString": "MS"
+            },
+            {
+              "valueString": "MO"
+            },
+            {
+              "valueString": "MT"
+            },
+            {
+              "valueString": "NE"
+            },
+            {
+              "valueString": "NV"
+            },
+            {
+              "valueString": "NH"
+            },
+            {
+              "valueString": "NJ"
+            },
+            {
+              "valueString": "NM"
+            },
+            {
+              "valueString": "NY"
+            },
+            {
+              "valueString": "NC"
+            },
+            {
+              "valueString": "ND"
+            },
+            {
+              "valueString": "OH"
+            },
+            {
+              "valueString": "OK"
+            },
+            {
+              "valueString": "OR"
+            },
+            {
+              "valueString": "PA"
+            },
+            {
+              "valueString": "RI"
+            },
+            {
+              "valueString": "SC"
+            },
+            {
+              "valueString": "SD"
+            },
+            {
+              "valueString": "TN"
+            },
+            {
+              "valueString": "TX"
+            },
+            {
+              "valueString": "UT"
+            },
+            {
+              "valueString": "VT"
+            },
+            {
+              "valueString": "VA"
+            },
+            {
+              "valueString": "VI"
+            },
+            {
+              "valueString": "WA"
+            },
+            {
+              "valueString": "WV"
+            },
+            {
+              "valueString": "WI"
+            },
+            {
+              "valueString": "WY"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-zip",
+          "type": "string",
+          "text": "ZIP",
+          "required": true,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "ZIP"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-email",
+          "type": "string",
+          "text": "Patient email",
+          "required": true,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Email"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-number",
+          "type": "string",
+          "text": "Patient mobile",
+          "required": true,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Phone Number"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-preferred-communication-method",
+          "type": "choice",
+          "text": "Preferred communication method",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "No preference"
+            },
+            {
+              "valueString": "Email"
+            },
+            {
+              "valueString": "Home Phone"
+            },
+            {
+              "valueString": "Cell Phone"
+            },
+            {
+              "valueString": "Mail"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "patient-additional-details-section",
+      "type": "group",
+      "text": "Patient details",
+      "item": [
+        {
+          "linkId": "patient-ethnicity",
+          "type": "choice",
+          "text": "Patient's ethnicity",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "Hispanic or Latino"
+            },
+            {
+              "valueString": "Not Hispanic or Latino"
+            },
+            {
+              "valueString": "Decline to Specify"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-race",
+          "type": "choice",
+          "text": "Patient's race",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "American Indian or Alaska Native"
+            },
+            {
+              "valueString": "Asian"
+            },
+            {
+              "valueString": "Black or African American"
+            },
+            {
+              "valueString": "Native Hawaiian or Other Pacific Islander"
+            },
+            {
+              "valueString": "White"
+            },
+            {
+              "valueString": "Decline to Specify"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-sexual-orientation",
+          "type": "choice",
+          "text": "Sexual orientation",
+          "required": false,
+          "answerOption": [
+            {
+              "valueString": "Straight"
+            },
+            {
+              "valueString": "Lesbian or Gay"
+            },
+            {
+              "valueString": "Bisexual"
+            },
+            {
+              "valueString": "Something else"
+            },
+            {
+              "valueString": "Decline to Specify"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-gender-identity",
+          "type": "choice",
+          "text": "Gender identity",
+          "required": false,
+          "answerOption": [
+            {
+              "valueString": "Female gender identity"
+            },
+            {
+              "valueString": "Male gender identity"
+            },
+            {
+              "valueString": "Non-binary gender identity"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-gender-identity-details",
+          "type": "string",
+          "text": "Other gender identity",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "patient-gender-identity",
+              "operator": "=",
+              "answerString": "Non-binary gender identity"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "patient-gender-identity"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueString": "Non-binary gender identity"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "preferred-language",
+          "type": "choice",
+          "text": "Preferred language",
+          "required": false,
+          "answerOption": [
+            {
+              "valueString": "English"
+            },
+            {
+              "valueString": "Spanish"
+            },
+            {
+              "valueString": "Chinese"
+            },
+            {
+              "valueString": "French"
+            },
+            {
+              "valueString": "German"
+            },
+            {
+              "valueString": "Tagalog"
+            },
+            {
+              "valueString": "Vietnamese"
+            },
+            {
+              "valueString": "Italian"
+            },
+            {
+              "valueString": "Korean"
+            },
+            {
+              "valueString": "Russian"
+            },
+            {
+              "valueString": "Polish"
+            },
+            {
+              "valueString": "Arabic"
+            },
+            {
+              "valueString": "Portuguese"
+            },
+            {
+              "valueString": "Japanese"
+            },
+            {
+              "valueString": "Greek"
+            },
+            {
+              "valueString": "Hindi"
+            },
+            {
+              "valueString": "Persian"
+            },
+            {
+              "valueString": "Urdu"
+            },
+            {
+              "valueString": "Sign Language"
+            },
+            {
+              "valueString": "Other"
+            }
+          ]
+        },
+        {
+          "linkId": "other-preferred-language",
+          "type": "string",
+          "text": "Other language",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "preferred-language",
+              "operator": "=",
+              "answerString": "Other"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "preferred-language"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueString": "Other"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "mobile-opt-in",
+          "type": "boolean",
+          "text": "Send marketing messages",
+          "required": false
+        },
+        {
+          "linkId": "patient-point-of-discovery",
+          "type": "choice",
+          "text": "How did you hear about us?",
+          "required": false,
+          "answerOption": [
+            {
+              "valueString": "Friend/Family"
+            },
+            {
+              "valueString": "Been there with another family member"
+            },
+            {
+              "valueString": "Pediatrician/Healthcare Professional"
+            },
+            {
+              "valueString": "Google/Internet search"
+            },
+            {
+              "valueString": "Internet ad"
+            },
+            {
+              "valueString": "Social media community group"
+            },
+            {
+              "valueString": "Webinar"
+            },
+            {
+              "valueString": "TV/Radio"
+            },
+            {
+              "valueString": "Newsletter"
+            },
+            {
+              "valueString": "School"
+            },
+            {
+              "valueString": "Drive by/Signage"
+            }
+          ]
+        },
+        {
+          "linkId": "common-well-consent",
+          "type": "boolean",
+          "text": "CommonWell consent",
+          "required": false
+        }
+      ]
+    },
+    {
+      "linkId": "primary-care-physician-section",
+      "type": "group",
+      "text": "Primary care physician",
+      "item": [
+        {
+          "linkId": "pcp-active",
+          "type": "boolean",
+          "text": "Patient doesn't have a PCP at this time",
+          "required": false
+        },
+        {
+          "linkId": "pcp-first",
+          "type": "string",
+          "text": "First name",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "pcp-active",
+              "operator": "=",
+              "answerBoolean": true
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "pcp-active"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueBoolean": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "pcp-last",
+          "type": "string",
+          "text": "Last name",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "pcp-active",
+              "operator": "=",
+              "answerBoolean": true
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                  "valueString": "pcp-active"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                  "valueString": "="
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                  "valueBoolean": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "pcp-practice",
+          "type": "string",
+          "text": "Practice name",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "pcp-active",
+              "operator": "=",
+              "answerBoolean": true
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            }
+          ]
+        },
+        {
+          "linkId": "pcp-address",
+          "type": "string",
+          "text": "Address",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "pcp-active",
+              "operator": "=",
+              "answerBoolean": true
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            }
+          ]
+        },
+        {
+          "linkId": "pcp-number",
+          "type": "string",
+          "text": "Mobile",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "pcp-active",
+              "operator": "=",
+              "answerBoolean": true
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Phone Number"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "insurance-section",
+      "type": "group",
+      "text": "Insurance information",
+      "repeats": true,
+      "item": [
+        {
+          "linkId": "insurance-priority",
+          "type": "choice",
+          "text": "Type",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "Primary"
+            },
+            {
+              "valueString": "Secondary"
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-carrier",
+          "type": "choice",
+          "text": "Insurance carrier",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "09"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/strategy",
+                  "valueString": "dynamic"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
+                  "valueExpression": {
+                    "language": "application/x-fhir-query",
+                    "expression": "Organization?type=undefined|undefined"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-plan-type",
+          "type": "choice",
+          "text": "Insurance type",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "09"
+            },
+            {
+              "valueString": "11"
+            },
+            {
+              "valueString": "12"
+            },
+            {
+              "valueString": "13"
+            },
+            {
+              "valueString": "14"
+            },
+            {
+              "valueString": "15"
+            },
+            {
+              "valueString": "16"
+            },
+            {
+              "valueString": "17"
+            },
+            {
+              "valueString": "AM"
+            },
+            {
+              "valueString": "BL"
+            },
+            {
+              "valueString": "CH"
+            },
+            {
+              "valueString": "CI"
+            },
+            {
+              "valueString": "DS"
+            },
+            {
+              "valueString": "FI"
+            },
+            {
+              "valueString": "HM"
+            },
+            {
+              "valueString": "LM"
+            },
+            {
+              "valueString": "MA"
+            },
+            {
+              "valueString": "MB"
+            },
+            {
+              "valueString": "MC"
+            },
+            {
+              "valueString": "OF"
+            },
+            {
+              "valueString": "TV"
+            },
+            {
+              "valueString": "VA"
+            },
+            {
+              "valueString": "WC"
+            },
+            {
+              "valueString": "ZZ"
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-member-id",
+          "type": "string",
+          "text": "Member ID",
+          "required": true
+        },
+        {
+          "linkId": "policy-holder-first-name",
+          "type": "string",
+          "text": "Policy holder's first name",
+          "required": true
+        },
+        {
+          "linkId": "policy-holder-middle-name",
+          "type": "string",
+          "text": "Policy holder's middle name",
+          "required": false
+        },
+        {
+          "linkId": "policy-holder-last-name",
+          "type": "string",
+          "text": "Policy holder's last name",
+          "required": true
+        },
+        {
+          "linkId": "policy-holder-date-of-birth",
+          "type": "date",
+          "text": "Policy holder's date of birth",
+          "required": true,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "DOB"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-birth-sex",
+          "type": "choice",
+          "text": "Policy holder's birth sex",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "Male"
+            },
+            {
+              "valueString": "Female"
+            },
+            {
+              "valueString": "Intersex"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-address-as-patient",
+          "type": "boolean",
+          "text": "Policy holder address is the same as patient's address",
+          "required": false
+        },
+        {
+          "linkId": "policy-holder-address",
+          "type": "string",
+          "text": "Policy holder's address",
+          "required": true
+        },
+        {
+          "linkId": "policy-holder-address-additional-line",
+          "type": "string",
+          "text": "Policy holder's address line 2",
+          "required": false
+        },
+        {
+          "linkId": "policy-holder-city",
+          "type": "string",
+          "text": "City",
+          "required": true
+        },
+        {
+          "linkId": "policy-holder-state",
+          "type": "choice",
+          "text": "State",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "AL"
+            },
+            {
+              "valueString": "AK"
+            },
+            {
+              "valueString": "AZ"
+            },
+            {
+              "valueString": "AR"
+            },
+            {
+              "valueString": "CA"
+            },
+            {
+              "valueString": "CO"
+            },
+            {
+              "valueString": "CT"
+            },
+            {
+              "valueString": "DE"
+            },
+            {
+              "valueString": "DC"
+            },
+            {
+              "valueString": "FL"
+            },
+            {
+              "valueString": "GA"
+            },
+            {
+              "valueString": "HI"
+            },
+            {
+              "valueString": "ID"
+            },
+            {
+              "valueString": "IL"
+            },
+            {
+              "valueString": "IN"
+            },
+            {
+              "valueString": "IA"
+            },
+            {
+              "valueString": "KS"
+            },
+            {
+              "valueString": "KY"
+            },
+            {
+              "valueString": "LA"
+            },
+            {
+              "valueString": "ME"
+            },
+            {
+              "valueString": "MD"
+            },
+            {
+              "valueString": "MA"
+            },
+            {
+              "valueString": "MI"
+            },
+            {
+              "valueString": "MN"
+            },
+            {
+              "valueString": "MS"
+            },
+            {
+              "valueString": "MO"
+            },
+            {
+              "valueString": "MT"
+            },
+            {
+              "valueString": "NE"
+            },
+            {
+              "valueString": "NV"
+            },
+            {
+              "valueString": "NH"
+            },
+            {
+              "valueString": "NJ"
+            },
+            {
+              "valueString": "NM"
+            },
+            {
+              "valueString": "NY"
+            },
+            {
+              "valueString": "NC"
+            },
+            {
+              "valueString": "ND"
+            },
+            {
+              "valueString": "OH"
+            },
+            {
+              "valueString": "OK"
+            },
+            {
+              "valueString": "OR"
+            },
+            {
+              "valueString": "PA"
+            },
+            {
+              "valueString": "RI"
+            },
+            {
+              "valueString": "SC"
+            },
+            {
+              "valueString": "SD"
+            },
+            {
+              "valueString": "TN"
+            },
+            {
+              "valueString": "TX"
+            },
+            {
+              "valueString": "UT"
+            },
+            {
+              "valueString": "VT"
+            },
+            {
+              "valueString": "VA"
+            },
+            {
+              "valueString": "VI"
+            },
+            {
+              "valueString": "WA"
+            },
+            {
+              "valueString": "WV"
+            },
+            {
+              "valueString": "WI"
+            },
+            {
+              "valueString": "WY"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-zip",
+          "type": "string",
+          "text": "ZIP",
+          "required": true,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "ZIP"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-relationship-to-insured",
+          "type": "choice",
+          "text": "Patient's relationship to insured",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "Self"
+            },
+            {
+              "valueString": "Child"
+            },
+            {
+              "valueString": "Parent"
+            },
+            {
+              "valueString": "Spouse"
+            },
+            {
+              "valueString": "Common Law Spouse"
+            },
+            {
+              "valueString": "Injured Party"
+            },
+            {
+              "valueString": "Other"
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-additional-information",
+          "type": "string",
+          "text": "Additional insurance information",
+          "required": false
+        }
+      ]
+    },
+    {
+      "linkId": "insurance-section-2",
+      "type": "group",
+      "text": "Insurance information",
+      "repeats": true,
+      "item": [
+        {
+          "linkId": "insurance-priority-2",
+          "type": "choice",
+          "text": "Type",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "Primary"
+            },
+            {
+              "valueString": "Secondary"
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-carrier-2",
+          "type": "choice",
+          "text": "Insurance carrier",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "09"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/strategy",
+                  "valueString": "dynamic"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
+                  "valueExpression": {
+                    "language": "application/x-fhir-query",
+                    "expression": "Organization?type=undefined|undefined"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-plan-type-2",
+          "type": "choice",
+          "text": "Insurance type",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "09"
+            },
+            {
+              "valueString": "11"
+            },
+            {
+              "valueString": "12"
+            },
+            {
+              "valueString": "13"
+            },
+            {
+              "valueString": "14"
+            },
+            {
+              "valueString": "15"
+            },
+            {
+              "valueString": "16"
+            },
+            {
+              "valueString": "17"
+            },
+            {
+              "valueString": "AM"
+            },
+            {
+              "valueString": "BL"
+            },
+            {
+              "valueString": "CH"
+            },
+            {
+              "valueString": "CI"
+            },
+            {
+              "valueString": "DS"
+            },
+            {
+              "valueString": "FI"
+            },
+            {
+              "valueString": "HM"
+            },
+            {
+              "valueString": "LM"
+            },
+            {
+              "valueString": "MA"
+            },
+            {
+              "valueString": "MB"
+            },
+            {
+              "valueString": "MC"
+            },
+            {
+              "valueString": "OF"
+            },
+            {
+              "valueString": "TV"
+            },
+            {
+              "valueString": "VA"
+            },
+            {
+              "valueString": "WC"
+            },
+            {
+              "valueString": "ZZ"
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-member-id-2",
+          "type": "string",
+          "text": "Member ID",
+          "required": true
+        },
+        {
+          "linkId": "policy-holder-first-name-2",
+          "type": "string",
+          "text": "Policy holder's first name",
+          "required": true
+        },
+        {
+          "linkId": "policy-holder-middle-name-2",
+          "type": "string",
+          "text": "Policy holder's middle name",
+          "required": false
+        },
+        {
+          "linkId": "policy-holder-last-name-2",
+          "type": "string",
+          "text": "Policy holder's last name",
+          "required": true
+        },
+        {
+          "linkId": "policy-holder-date-of-birth-2",
+          "type": "date",
+          "text": "Policy holder's date of birth",
+          "required": true,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "DOB"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-birth-sex-2",
+          "type": "choice",
+          "text": "Policy holder's birth sex",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "Male"
+            },
+            {
+              "valueString": "Female"
+            },
+            {
+              "valueString": "Intersex"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-address-as-patient-2",
+          "type": "boolean",
+          "text": "Policy holder address is the same as patient's address",
+          "required": false
+        },
+        {
+          "linkId": "policy-holder-address-2",
+          "type": "string",
+          "text": "Policy holder's address",
+          "required": true
+        },
+        {
+          "linkId": "policy-holder-address-additional-line-2",
+          "type": "string",
+          "text": "Policy holder's address line 2",
+          "required": false
+        },
+        {
+          "linkId": "policy-holder-city-2",
+          "type": "string",
+          "text": "City",
+          "required": true
+        },
+        {
+          "linkId": "policy-holder-state-2",
+          "type": "choice",
+          "text": "State",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "AL"
+            },
+            {
+              "valueString": "AK"
+            },
+            {
+              "valueString": "AZ"
+            },
+            {
+              "valueString": "AR"
+            },
+            {
+              "valueString": "CA"
+            },
+            {
+              "valueString": "CO"
+            },
+            {
+              "valueString": "CT"
+            },
+            {
+              "valueString": "DE"
+            },
+            {
+              "valueString": "DC"
+            },
+            {
+              "valueString": "FL"
+            },
+            {
+              "valueString": "GA"
+            },
+            {
+              "valueString": "HI"
+            },
+            {
+              "valueString": "ID"
+            },
+            {
+              "valueString": "IL"
+            },
+            {
+              "valueString": "IN"
+            },
+            {
+              "valueString": "IA"
+            },
+            {
+              "valueString": "KS"
+            },
+            {
+              "valueString": "KY"
+            },
+            {
+              "valueString": "LA"
+            },
+            {
+              "valueString": "ME"
+            },
+            {
+              "valueString": "MD"
+            },
+            {
+              "valueString": "MA"
+            },
+            {
+              "valueString": "MI"
+            },
+            {
+              "valueString": "MN"
+            },
+            {
+              "valueString": "MS"
+            },
+            {
+              "valueString": "MO"
+            },
+            {
+              "valueString": "MT"
+            },
+            {
+              "valueString": "NE"
+            },
+            {
+              "valueString": "NV"
+            },
+            {
+              "valueString": "NH"
+            },
+            {
+              "valueString": "NJ"
+            },
+            {
+              "valueString": "NM"
+            },
+            {
+              "valueString": "NY"
+            },
+            {
+              "valueString": "NC"
+            },
+            {
+              "valueString": "ND"
+            },
+            {
+              "valueString": "OH"
+            },
+            {
+              "valueString": "OK"
+            },
+            {
+              "valueString": "OR"
+            },
+            {
+              "valueString": "PA"
+            },
+            {
+              "valueString": "RI"
+            },
+            {
+              "valueString": "SC"
+            },
+            {
+              "valueString": "SD"
+            },
+            {
+              "valueString": "TN"
+            },
+            {
+              "valueString": "TX"
+            },
+            {
+              "valueString": "UT"
+            },
+            {
+              "valueString": "VT"
+            },
+            {
+              "valueString": "VA"
+            },
+            {
+              "valueString": "VI"
+            },
+            {
+              "valueString": "WA"
+            },
+            {
+              "valueString": "WV"
+            },
+            {
+              "valueString": "WI"
+            },
+            {
+              "valueString": "WY"
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-zip-2",
+          "type": "string",
+          "text": "ZIP",
+          "required": true,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "ZIP"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-relationship-to-insured-2",
+          "type": "choice",
+          "text": "Patient's relationship to insured",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "Self"
+            },
+            {
+              "valueString": "Child"
+            },
+            {
+              "valueString": "Parent"
+            },
+            {
+              "valueString": "Spouse"
+            },
+            {
+              "valueString": "Common Law Spouse"
+            },
+            {
+              "valueString": "Injured Party"
+            },
+            {
+              "valueString": "Other"
+            }
+          ]
+        },
+        {
+          "linkId": "insurance-additional-information-2",
+          "type": "string",
+          "text": "Additional insurance information",
+          "required": false
+        }
+      ]
+    },
+    {
+      "linkId": "responsible-party-section",
+      "type": "group",
+      "text": "Responsible party information",
+      "item": [
+        {
+          "linkId": "responsible-party-relationship",
+          "type": "choice",
+          "text": "Relationship to the patient",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "Self"
+            },
+            {
+              "valueString": "Spouse"
+            },
+            {
+              "valueString": "Parent"
+            },
+            {
+              "valueString": "Legal Guardian"
+            },
+            {
+              "valueString": "Other"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-first-name",
+          "type": "string",
+          "text": "First name",
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "responsible-party-relationship",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-first-name"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-last-name",
+          "type": "string",
+          "text": "Last name",
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "responsible-party-relationship",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-last-name"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-date-of-birth",
+          "type": "date",
+          "text": "Date of birth",
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "responsible-party-relationship",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "DOB"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-birthdate"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-birth-sex",
+          "type": "choice",
+          "text": "Birth sex",
+          "required": false,
+          "answerOption": [
+            {
+              "valueString": "Male"
+            },
+            {
+              "valueString": "Female"
+            },
+            {
+              "valueString": "Intersex"
+            }
+          ],
+          "enableWhen": [
+            {
+              "question": "responsible-party-relationship",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-birth-sex"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-number",
+          "type": "string",
+          "text": "Phone",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "responsible-party-relationship",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Phone Number"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-number"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-email",
+          "type": "string",
+          "text": "Email",
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "responsible-party-relationship",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ],
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Email"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-email"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-address-as-patient",
+          "type": "boolean",
+          "text": "Responsible party's address is the same as patient's address",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "responsible-party-relationship",
+              "operator": "!=",
+              "answerString": "Self"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-address",
+          "type": "string",
+          "text": "Street Address",
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "responsible-party-relationship",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "responsible-party-address-as-patient",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-street-address"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-address-2",
+          "type": "string",
+          "text": "Address line 2",
+          "required": false,
+          "enableWhen": [
+            {
+              "question": "responsible-party-relationship",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "responsible-party-address-as-patient",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-street-address-2"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-city",
+          "type": "string",
+          "text": "City",
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "responsible-party-relationship",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "responsible-party-address-as-patient",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-city"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-state",
+          "type": "choice",
+          "text": "State",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "AL"
+            },
+            {
+              "valueString": "AK"
+            },
+            {
+              "valueString": "AZ"
+            },
+            {
+              "valueString": "AR"
+            },
+            {
+              "valueString": "CA"
+            },
+            {
+              "valueString": "CO"
+            },
+            {
+              "valueString": "CT"
+            },
+            {
+              "valueString": "DE"
+            },
+            {
+              "valueString": "DC"
+            },
+            {
+              "valueString": "FL"
+            },
+            {
+              "valueString": "GA"
+            },
+            {
+              "valueString": "HI"
+            },
+            {
+              "valueString": "ID"
+            },
+            {
+              "valueString": "IL"
+            },
+            {
+              "valueString": "IN"
+            },
+            {
+              "valueString": "IA"
+            },
+            {
+              "valueString": "KS"
+            },
+            {
+              "valueString": "KY"
+            },
+            {
+              "valueString": "LA"
+            },
+            {
+              "valueString": "ME"
+            },
+            {
+              "valueString": "MD"
+            },
+            {
+              "valueString": "MA"
+            },
+            {
+              "valueString": "MI"
+            },
+            {
+              "valueString": "MN"
+            },
+            {
+              "valueString": "MS"
+            },
+            {
+              "valueString": "MO"
+            },
+            {
+              "valueString": "MT"
+            },
+            {
+              "valueString": "NE"
+            },
+            {
+              "valueString": "NV"
+            },
+            {
+              "valueString": "NH"
+            },
+            {
+              "valueString": "NJ"
+            },
+            {
+              "valueString": "NM"
+            },
+            {
+              "valueString": "NY"
+            },
+            {
+              "valueString": "NC"
+            },
+            {
+              "valueString": "ND"
+            },
+            {
+              "valueString": "OH"
+            },
+            {
+              "valueString": "OK"
+            },
+            {
+              "valueString": "OR"
+            },
+            {
+              "valueString": "PA"
+            },
+            {
+              "valueString": "RI"
+            },
+            {
+              "valueString": "SC"
+            },
+            {
+              "valueString": "SD"
+            },
+            {
+              "valueString": "TN"
+            },
+            {
+              "valueString": "TX"
+            },
+            {
+              "valueString": "UT"
+            },
+            {
+              "valueString": "VT"
+            },
+            {
+              "valueString": "VA"
+            },
+            {
+              "valueString": "VI"
+            },
+            {
+              "valueString": "WA"
+            },
+            {
+              "valueString": "WV"
+            },
+            {
+              "valueString": "WI"
+            },
+            {
+              "valueString": "WY"
+            }
+          ],
+          "enableWhen": [
+            {
+              "question": "responsible-party-relationship",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "responsible-party-address-as-patient",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-state"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-zip",
+          "type": "string",
+          "text": "Zip",
+          "required": true,
+          "enableWhen": [
+            {
+              "question": "responsible-party-relationship",
+              "operator": "!=",
+              "answerString": "Self"
+            },
+            {
+              "question": "responsible-party-address-as-patient",
+              "operator": "!=",
+              "answerBoolean": true
+            }
+          ],
+          "enableBehavior": "all",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "ZIP"
+            },
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+              "valueString": "patient-zip"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "employer-information-page",
+      "type": "group",
+      "text": "Employer information",
+      "item": [
+        {
+          "linkId": "employer-name",
+          "type": "string",
+          "text": "Employer name",
+          "required": false
+        },
+        {
+          "linkId": "employer-address",
+          "type": "string",
+          "text": "Address line 1",
+          "required": false
+        },
+        {
+          "linkId": "employer-address-2",
+          "type": "string",
+          "text": "Address line 2",
+          "required": false
+        },
+        {
+          "linkId": "employer-city",
+          "type": "string",
+          "text": "City",
+          "required": false
+        },
+        {
+          "linkId": "employer-state",
+          "type": "choice",
+          "text": "State",
+          "required": false,
+          "answerOption": [
+            {
+              "valueString": "AL"
+            },
+            {
+              "valueString": "AK"
+            },
+            {
+              "valueString": "AZ"
+            },
+            {
+              "valueString": "AR"
+            },
+            {
+              "valueString": "CA"
+            },
+            {
+              "valueString": "CO"
+            },
+            {
+              "valueString": "CT"
+            },
+            {
+              "valueString": "DE"
+            },
+            {
+              "valueString": "DC"
+            },
+            {
+              "valueString": "FL"
+            },
+            {
+              "valueString": "GA"
+            },
+            {
+              "valueString": "HI"
+            },
+            {
+              "valueString": "ID"
+            },
+            {
+              "valueString": "IL"
+            },
+            {
+              "valueString": "IN"
+            },
+            {
+              "valueString": "IA"
+            },
+            {
+              "valueString": "KS"
+            },
+            {
+              "valueString": "KY"
+            },
+            {
+              "valueString": "LA"
+            },
+            {
+              "valueString": "ME"
+            },
+            {
+              "valueString": "MD"
+            },
+            {
+              "valueString": "MA"
+            },
+            {
+              "valueString": "MI"
+            },
+            {
+              "valueString": "MN"
+            },
+            {
+              "valueString": "MS"
+            },
+            {
+              "valueString": "MO"
+            },
+            {
+              "valueString": "MT"
+            },
+            {
+              "valueString": "NE"
+            },
+            {
+              "valueString": "NV"
+            },
+            {
+              "valueString": "NH"
+            },
+            {
+              "valueString": "NJ"
+            },
+            {
+              "valueString": "NM"
+            },
+            {
+              "valueString": "NY"
+            },
+            {
+              "valueString": "NC"
+            },
+            {
+              "valueString": "ND"
+            },
+            {
+              "valueString": "OH"
+            },
+            {
+              "valueString": "OK"
+            },
+            {
+              "valueString": "OR"
+            },
+            {
+              "valueString": "PA"
+            },
+            {
+              "valueString": "RI"
+            },
+            {
+              "valueString": "SC"
+            },
+            {
+              "valueString": "SD"
+            },
+            {
+              "valueString": "TN"
+            },
+            {
+              "valueString": "TX"
+            },
+            {
+              "valueString": "UT"
+            },
+            {
+              "valueString": "VT"
+            },
+            {
+              "valueString": "VA"
+            },
+            {
+              "valueString": "VI"
+            },
+            {
+              "valueString": "WA"
+            },
+            {
+              "valueString": "WV"
+            },
+            {
+              "valueString": "WI"
+            },
+            {
+              "valueString": "WY"
+            }
+          ]
+        },
+        {
+          "linkId": "employer-zip",
+          "type": "string",
+          "text": "ZIP",
+          "required": false,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "ZIP"
+            }
+          ]
+        },
+        {
+          "linkId": "employer-contact-first-name",
+          "type": "string",
+          "text": "First name",
+          "required": false
+        },
+        {
+          "linkId": "employer-contact-last-name",
+          "type": "string",
+          "text": "Last name",
+          "required": false
+        },
+        {
+          "linkId": "employer-contact-title",
+          "type": "string",
+          "text": "Title",
+          "required": false
+        },
+        {
+          "linkId": "employer-contact-email",
+          "type": "string",
+          "text": "Email",
+          "required": false,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Email"
+            }
+          ]
+        },
+        {
+          "linkId": "employer-contact-phone",
+          "type": "string",
+          "text": "Phone",
+          "required": false,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Phone Number"
+            }
+          ]
+        },
+        {
+          "linkId": "employer-contact-fax",
+          "type": "string",
+          "text": "Fax",
+          "required": false,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Phone Number"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "emergency-contact-section",
+      "type": "group",
+      "text": "Emergency contact information",
+      "item": [
+        {
+          "linkId": "emergency-contact-relationship",
+          "type": "choice",
+          "text": "Relationship to the patient",
+          "required": true,
+          "answerOption": [
+            {
+              "valueString": "Spouse"
+            },
+            {
+              "valueString": "Parent"
+            },
+            {
+              "valueString": "Legal Guardian"
+            },
+            {
+              "valueString": "Other"
+            }
+          ]
+        },
+        {
+          "linkId": "emergency-contact-first-name",
+          "type": "string",
+          "text": "First name",
+          "required": true
+        },
+        {
+          "linkId": "emergency-contact-middle-name",
+          "type": "string",
+          "text": "Middle name",
+          "required": false
+        },
+        {
+          "linkId": "emergency-contact-last-name",
+          "type": "string",
+          "text": "Last name",
+          "required": true
+        },
+        {
+          "linkId": "emergency-contact-number",
+          "type": "string",
+          "text": "Phone",
+          "required": true,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "Phone Number"
+            }
+          ]
+        },
+        {
+          "linkId": "emergency-contact-address-as-patient",
+          "type": "boolean",
+          "text": "Emergency contact address is the same as patient's address",
+          "required": false
+        },
+        {
+          "linkId": "emergency-contact-address",
+          "type": "string",
+          "text": "Street address",
+          "required": false
+        },
+        {
+          "linkId": "emergency-contact-address-2",
+          "type": "string",
+          "text": "Address line 2 (optional)",
+          "required": false
+        },
+        {
+          "linkId": "emergency-contact-city",
+          "type": "string",
+          "text": "City",
+          "required": false
+        },
+        {
+          "linkId": "emergency-contact-state",
+          "type": "choice",
+          "text": "State",
+          "required": false,
+          "answerOption": [
+            {
+              "valueString": "AL"
+            },
+            {
+              "valueString": "AK"
+            },
+            {
+              "valueString": "AZ"
+            },
+            {
+              "valueString": "AR"
+            },
+            {
+              "valueString": "CA"
+            },
+            {
+              "valueString": "CO"
+            },
+            {
+              "valueString": "CT"
+            },
+            {
+              "valueString": "DE"
+            },
+            {
+              "valueString": "DC"
+            },
+            {
+              "valueString": "FL"
+            },
+            {
+              "valueString": "GA"
+            },
+            {
+              "valueString": "HI"
+            },
+            {
+              "valueString": "ID"
+            },
+            {
+              "valueString": "IL"
+            },
+            {
+              "valueString": "IN"
+            },
+            {
+              "valueString": "IA"
+            },
+            {
+              "valueString": "KS"
+            },
+            {
+              "valueString": "KY"
+            },
+            {
+              "valueString": "LA"
+            },
+            {
+              "valueString": "ME"
+            },
+            {
+              "valueString": "MD"
+            },
+            {
+              "valueString": "MA"
+            },
+            {
+              "valueString": "MI"
+            },
+            {
+              "valueString": "MN"
+            },
+            {
+              "valueString": "MS"
+            },
+            {
+              "valueString": "MO"
+            },
+            {
+              "valueString": "MT"
+            },
+            {
+              "valueString": "NE"
+            },
+            {
+              "valueString": "NV"
+            },
+            {
+              "valueString": "NH"
+            },
+            {
+              "valueString": "NJ"
+            },
+            {
+              "valueString": "NM"
+            },
+            {
+              "valueString": "NY"
+            },
+            {
+              "valueString": "NC"
+            },
+            {
+              "valueString": "ND"
+            },
+            {
+              "valueString": "OH"
+            },
+            {
+              "valueString": "OK"
+            },
+            {
+              "valueString": "OR"
+            },
+            {
+              "valueString": "PA"
+            },
+            {
+              "valueString": "RI"
+            },
+            {
+              "valueString": "SC"
+            },
+            {
+              "valueString": "SD"
+            },
+            {
+              "valueString": "TN"
+            },
+            {
+              "valueString": "TX"
+            },
+            {
+              "valueString": "UT"
+            },
+            {
+              "valueString": "VT"
+            },
+            {
+              "valueString": "VA"
+            },
+            {
+              "valueString": "VI"
+            },
+            {
+              "valueString": "WA"
+            },
+            {
+              "valueString": "WV"
+            },
+            {
+              "valueString": "WI"
+            },
+            {
+              "valueString": "WY"
+            }
+          ]
+        },
+        {
+          "linkId": "emergency-contact-zip",
+          "type": "string",
+          "text": "Zip",
+          "required": false,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+              "valueString": "ZIP"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "preferred-pharmacy-section",
+      "type": "group",
+      "text": "Preferred pharmacy",
+      "item": [
+        {
+          "linkId": "pharmacy-name",
+          "type": "string",
+          "text": "Pharmacy name",
+          "required": false
+        },
+        {
+          "linkId": "pharmacy-address",
+          "type": "string",
+          "text": "Pharmacy address",
+          "required": false
+        }
+      ]
+    },
+    {
+      "linkId": "user-settings-section",
+      "type": "group",
+      "text": "User settings",
+      "item": []
+    }
+  ]
+}

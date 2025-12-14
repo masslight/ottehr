@@ -4,14 +4,13 @@ import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-in
 import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' assert { type: 'json' };
 import virtualIntakeQuestionnaire from '../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' assert { type: 'json' };
-import { BOOKING_CONFIG, PATIENT_RECORD_CONFIG } from '../ottehr-config';
+import { BOOKING_CONFIG, PATIENT_RECORD_QUESTIONNAIRE } from '../ottehr-config';
 import { CanonicalUrl } from '../types';
 
+// todo: refactor this to avoid dependency on Oystehr client in utils (take all Q literals from config, stop relying on literal historic resources)
 const getQuestionnaires = (): Array<Questionnaire> => [
   ...Object.values(inPersonIntakeQuestionnaire.fhirResources).map((r) => r.resource as Questionnaire),
-  ...(PATIENT_RECORD_CONFIG.ehrPatientRecordForm.templateQuestionnaire
-    ? [PATIENT_RECORD_CONFIG.ehrPatientRecordForm.templateQuestionnaire]
-    : []),
+  PATIENT_RECORD_QUESTIONNAIRE(),
   ...Object.values(virtualIntakeQuestionnaire.fhirResources).map((r) => r.resource as Questionnaire),
   ...Object.values(virtualIntakeQuestionnaireArchive.fhirResources).map((r) => r.resource as Questionnaire),
   ...Object.values(inPersonIntakeQuestionnaireArchive.fhirResources).map((r) => r.resource as Questionnaire),
