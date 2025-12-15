@@ -20,7 +20,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
-import { DocumentReference, Encounter, Patient } from 'fhir/r4b';
+import { Appointment, DocumentReference, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, Fragment, ReactElement, useEffect, useState } from 'react';
@@ -34,6 +34,7 @@ import {
   APIErrorCode,
   CashOrCardPayment,
   FHIR_EXTENSION,
+  getCoding,
   getPaymentVariantFromEncounter,
   isApiError,
   PatientPaymentBenefit,
@@ -42,6 +43,7 @@ import {
   PostPatientPaymentInput,
   RECEIPT_CODE,
   SendReceiptByEmailZambdaInput,
+  SERVICE_CATEGORY_SYSTEM,
   updateEncounterPaymentVariantExtension,
 } from 'utils';
 import { sendReceiptByEmail } from '../api/api';
@@ -51,6 +53,7 @@ import { RefreshableStatusChip } from './RefreshableStatusWidget';
 
 export interface PaymentListProps {
   patient: Patient | undefined;
+  appointment: Appointment | undefined;
   encounterId: string;
   loading?: boolean;
   responsibleParty?: {
@@ -70,6 +73,7 @@ const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
 export default function PatientPaymentList({
   loading,
   patient,
+  appointment,
   encounterId,
   responsibleParty,
 }: PaymentListProps): ReactElement {
@@ -299,6 +303,11 @@ export default function PatientPaymentList({
     periodCode: '29',
   });
 
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
+  const isUrgentCare = serviceCategory === 'urgent-care';
+  const isOccupationalMedicine = serviceCategory === 'occupational-medicine';
+  const isWorkmansComp = serviceCategory === 'workmans-comp';
+
   return (
     <Paper
       sx={{
@@ -322,18 +331,30 @@ export default function PatientPaymentList({
         }}
         sx={{ mt: 2 }}
       >
-        <FormControlLabel
-          disabled={updateEncounter.isPending || isEncounterRefetching}
-          value={PaymentVariant.insurance}
-          control={<Radio />}
-          label="Insurance"
-        />
-        <FormControlLabel
-          disabled={updateEncounter.isPending || isEncounterRefetching}
-          value={PaymentVariant.selfPay}
-          control={<Radio />}
-          label="Self-pay"
-        />
+        {isUrgentCare || isWorkmansComp ? (
+          <FormControlLabel
+            disabled={updateEncounter.isPending || isEncounterRefetching}
+            value={PaymentVariant.insurance}
+            control={<Radio />}
+            label="Insurance"
+          />
+        ) : null}
+        {isUrgentCare || isOccupationalMedicine ? (
+          <FormControlLabel
+            disabled={updateEncounter.isPending || isEncounterRefetching}
+            value={PaymentVariant.selfPay}
+            control={<Radio />}
+            label="Self"
+          />
+        ) : null}
+        {isOccupationalMedicine || isWorkmansComp ? (
+          <FormControlLabel
+            disabled={updateEncounter.isPending || isEncounterRefetching}
+            value={PaymentVariant.employer}
+            control={<Radio />}
+            label="Employer"
+          />
+        ) : null}
       </RadioGroup>
       <Container
         style={{
