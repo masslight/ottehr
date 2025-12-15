@@ -48,13 +48,7 @@ const requestedFieldsOptions: Partial<Record<keyof ChartDataTextValueType, { _ta
 export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   name: T
 ): {
-  onValueChange: (
-    text: string,
-    {
-      refetchChartDataOnSave,
-      additionalRequestOptions,
-    }?: { refetchChartDataOnSave: boolean; additionalRequestOptions?: { createICDRecommendations?: boolean } }
-  ) => void;
+  onValueChange: (text: string, { refetchChartDataOnSave }?: { refetchChartDataOnSave: boolean }) => void;
   isLoading: boolean;
   isChartDataLoading: boolean;
   hasPendingApiRequests: boolean; // we can use it later to prevent navigation if there are pending api requests
@@ -90,13 +84,7 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   // actual value from user, the latest text typed into the input
   const latestValueFromUserRef = useRef<string>('');
 
-  const onValueChange = (
-    text: string,
-    {
-      refetchChartDataOnSave,
-      additionalRequestOptions,
-    }: { refetchChartDataOnSave?: boolean; additionalRequestOptions?: { createICDRecommendations?: boolean } } = {}
-  ): void => {
+  const onValueChange = (text: string, { refetchChartDataOnSave }: { refetchChartDataOnSave?: boolean } = {}): void => {
     latestValueFromUserRef.current = text.trim();
 
     if (inputDebounceRef.current) {
@@ -123,7 +111,6 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
             (chartFields?.[name] as GetChartDataResponse[T])?.resourceId ||
             latestValueFromServerRef.current?.resourceId,
           [nameToTypeEnum[name]]: latestValueFromUserRef.current,
-          ...additionalRequestOptions,
         },
       };
 
@@ -164,6 +151,13 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
 
             hasPendingApiRequestsRef.current = false;
             latestValueFromServerRef.current = undefined;
+
+            if (refetchChartDataOnSave) {
+              // refetch chart data
+              refetch()
+                .then(() => console.log('Successfully re-fetched'))
+                .catch(() => console.log('Error refetching'));
+            }
           },
           onError: () => {
             enqueueSnackbar(`${mapValueToLabel[name]} field was not saved. Please change it's value to try again.`, {

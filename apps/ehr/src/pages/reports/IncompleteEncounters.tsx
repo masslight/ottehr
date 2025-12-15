@@ -12,6 +12,7 @@ import {
   Paper,
   Select,
   SelectChangeEvent,
+  TextField,
   Typography,
 } from '@mui/material';
 import {
@@ -46,7 +47,14 @@ interface IncompleteEncounterRow {
   reason?: string;
 }
 
-type DateRangeFilter = 'today' | 'yesterday' | 'last-7-days' | 'last-7-days-excluding-today' | 'last-30-days';
+type DateRangeFilter =
+  | 'today'
+  | 'yesterday'
+  | 'last-7-days'
+  | 'last-7-days-excluding-today'
+  | 'last-30-days'
+  | 'custom'
+  | 'customRange';
 
 const getStatusColor = (
   status: VisitStatusLabel
@@ -192,51 +200,72 @@ const useIncompleteEncounters = (
 export default function IncompleteEncounters(): React.ReactElement {
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<DateRangeFilter>('today');
+  const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+  const [customStartDate, setCustomStartDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+  const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
 
-  const getDateRange = useCallback((filter: DateRangeFilter): { start: string; end: string } => {
-    const now = DateTime.now().setZone('America/New_York');
-    const today = now.startOf('day');
+  const getDateRange = useCallback(
+    (filter: DateRangeFilter): { start: string; end: string } => {
+      const now = DateTime.now().setZone('America/New_York');
+      const today = now.startOf('day');
 
-    switch (filter) {
-      case 'today': {
-        return {
-          start: today.toISO() ?? '',
-          end: today.endOf('day').toISO() ?? '',
-        };
+      switch (filter) {
+        case 'today': {
+          return {
+            start: today.toISO() ?? '',
+            end: today.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'yesterday': {
+          const yesterday = today.minus({ days: 1 });
+          return {
+            start: yesterday.toISO() ?? '',
+            end: yesterday.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'last-7-days': {
+          return {
+            start: today.minus({ days: 6 }).toISO() ?? '',
+            end: today.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'last-7-days-excluding-today': {
+          return {
+            start: today.minus({ days: 6 }).toISO() ?? '',
+            end: today.minus({ days: 1 }).endOf('day').toISO() ?? '',
+          };
+        }
+        case 'last-30-days': {
+          return {
+            start: today.minus({ days: 29 }).toISO() ?? '',
+            end: today.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'custom': {
+          const customDateTime = DateTime.fromISO(customDate).setZone('America/New_York');
+          return {
+            start: customDateTime.startOf('day').toISO() ?? '',
+            end: customDateTime.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'customRange': {
+          const startDateTime = DateTime.fromISO(customStartDate).setZone('America/New_York');
+          const endDateTime = DateTime.fromISO(customEndDate).setZone('America/New_York');
+          return {
+            start: startDateTime.startOf('day').toISO() ?? '',
+            end: endDateTime.endOf('day').toISO() ?? '',
+          };
+        }
+        default: {
+          return {
+            start: today.toISO() ?? '',
+            end: today.endOf('day').toISO() ?? '',
+          };
+        }
       }
-      case 'yesterday': {
-        const yesterday = today.minus({ days: 1 });
-        return {
-          start: yesterday.toISO() ?? '',
-          end: yesterday.endOf('day').toISO() ?? '',
-        };
-      }
-      case 'last-7-days': {
-        return {
-          start: today.minus({ days: 6 }).toISO() ?? '',
-          end: today.endOf('day').toISO() ?? '',
-        };
-      }
-      case 'last-7-days-excluding-today': {
-        return {
-          start: today.minus({ days: 6 }).toISO() ?? '',
-          end: today.minus({ days: 1 }).endOf('day').toISO() ?? '',
-        };
-      }
-      case 'last-30-days': {
-        return {
-          start: today.minus({ days: 29 }).toISO() ?? '',
-          end: today.endOf('day').toISO() ?? '',
-        };
-      }
-      default: {
-        return {
-          start: today.toISO() ?? '',
-          end: today.endOf('day').toISO() ?? '',
-        };
-      }
-    }
-  }, []);
+    },
+    [customDate, customStartDate, customEndDate]
+  );
 
   const { start, end } = getDateRange(dateRange);
   const { data: encounters = [], isLoading, error, refetch } = useIncompleteEncounters(dateRange, start, end);
@@ -247,6 +276,18 @@ export default function IncompleteEncounters(): React.ReactElement {
 
   const handleDateRangeChange = (event: SelectChangeEvent<DateRangeFilter>): void => {
     setDateRange(event.target.value as DateRangeFilter);
+  };
+
+  const handleCustomDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    setCustomDate(event.target.value);
+  };
+
+  const handleCustomStartDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    setCustomStartDate(event.target.value);
+  };
+
+  const handleCustomEndDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    setCustomEndDate(event.target.value);
   };
 
   const handleRefresh = (): void => {
@@ -429,8 +470,50 @@ export default function IncompleteEncounters(): React.ReactElement {
               <MenuItem value="last-7-days">Last 7 Days</MenuItem>
               <MenuItem value="last-7-days-excluding-today">Last 7 Days (Excluding Today)</MenuItem>
               <MenuItem value="last-30-days">Last 30 Days</MenuItem>
+              <MenuItem value="custom">Custom Date</MenuItem>
+              <MenuItem value="customRange">Custom Date Range</MenuItem>
             </Select>
           </FormControl>
+
+          {dateRange === 'custom' && (
+            <TextField
+              type="date"
+              size="small"
+              value={customDate}
+              onChange={handleCustomDateChange}
+              sx={{ minWidth: 160 }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+          )}
+
+          {dateRange === 'customRange' && (
+            <>
+              <TextField
+                type="date"
+                size="small"
+                label="Start Date"
+                value={customStartDate}
+                onChange={handleCustomStartDateChange}
+                sx={{ minWidth: 160 }}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+              <TextField
+                type="date"
+                size="small"
+                label="End Date"
+                value={customEndDate}
+                onChange={handleCustomEndDateChange}
+                sx={{ minWidth: 160 }}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+            </>
+          )}
 
           <Button variant="outlined" onClick={handleRefresh} disabled={isLoading} startIcon={<RefreshIcon />}>
             Refresh

@@ -450,53 +450,6 @@ export const GENDER_IDENTITY_OPTIONS = [
   },
 ];
 
-export const POINT_OF_DISCOVERY_OPTIONS = [
-  {
-    label: 'Friend/Family',
-    value: 'Friend/Family',
-  },
-  {
-    label: 'Been there with another family member',
-    value: 'Been there with another family member',
-  },
-  {
-    label: 'Pediatrician/Healthcare Professional',
-    value: 'Pediatrician/Healthcare Professional',
-  },
-  {
-    label: 'Google/Internet search',
-    value: 'Google/Internet search',
-  },
-  {
-    label: 'Internet ad',
-    value: 'Internet ad',
-  },
-  {
-    label: 'Social media community group',
-    value: 'Social media community group',
-  },
-  {
-    label: 'Webinar',
-    value: 'Webinar',
-  },
-  {
-    label: 'TV/Radio',
-    value: 'TV/Radio',
-  },
-  {
-    label: 'Newsletter',
-    value: 'Newsletter',
-  },
-  {
-    label: 'School',
-    value: 'School',
-  },
-  {
-    label: 'Drive by/Signage',
-    value: 'Drive by/Signage',
-  },
-];
-
 export const RELATIONSHIP_TO_INSURED_OPTIONS = [
   {
     label: 'Self',
