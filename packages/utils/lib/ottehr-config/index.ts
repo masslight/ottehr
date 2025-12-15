@@ -9,3 +9,4 @@ export * from './legal';
 export * from './patient-record';
 export * from './value-sets';
 export * from './types';
+export * from './forms';

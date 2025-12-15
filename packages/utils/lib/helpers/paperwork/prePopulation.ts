@@ -40,6 +40,7 @@ import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId
 interface PrePopulationInput {
   patient: Patient;
   appointmentStartTime: string;
+  appointmentServiceCategory: string;
   isNewQrsPatient: boolean;
   verifiedPhoneNumber: string | undefined;
   questionnaire: Questionnaire;
@@ -57,6 +58,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
     newPatientDob,
     unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
+    appointmentServiceCategory,
     isNewQrsPatient,
     verifiedPhoneNumber,
     contactInfo,
@@ -275,6 +277,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           patient,
           documents,
           insuranceOrgs: accountInfo?.insuranceOrgs ?? [],
+          appointmentServiceCategory: appointmentServiceCategory,
         });
       } else if (EMPLOYER_ITEMS.includes(item.linkId)) {
         return mapEmployerToQuestionnaireResponseItems({
@@ -696,9 +699,10 @@ interface MapCoverageItemsInput {
   patient: Patient;
   insuranceOrgs: Organization[];
   documents?: DocumentReference[];
+  appointmentServiceCategory?: string;
 }
 const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput): QuestionnaireResponseItem[] => {
-  const { items, coverages, patient, documents, insuranceOrgs } = input;
+  const { items, coverages, patient, documents, insuranceOrgs, appointmentServiceCategory } = input;
 
   const patientAddress = patient.address?.[0];
 
@@ -990,6 +994,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       }
       if (linkId === 'display-secondary-insurance') {
         answer = secondary ? makeAnswer(true, 'Boolean') : makeAnswer(false, 'Boolean');
+      }
+      if (linkId === 'appointment-service-category' && appointmentServiceCategory) {
+        answer = makeAnswer(appointmentServiceCategory);
       }
 
       return {

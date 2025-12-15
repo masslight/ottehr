@@ -264,6 +264,14 @@
         "linkId": "payment-option-page",
         "item": [
           {
+            "linkId": "appointment-service-category",
+            "answer": [
+              {
+                "valueString": "urgent-care"
+              }
+            ]
+          },
+          {
             "linkId": "payment-option",
             "answer": [
               {

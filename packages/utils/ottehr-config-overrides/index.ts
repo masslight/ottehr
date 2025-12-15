@@ -8,3 +8,4 @@ export * from './vitals';
 export * from './legal';
 export * from './patient-record';
 export * from './value-sets';
+export * from './forms';

@@ -13,7 +13,7 @@ import bookAppointmentQuestionnaireJson from '../../../../../config/oystehr/book
 import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import { BOOKING_OVERRIDES } from '../../../ottehr-config-overrides';
-import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, OTTEHR_CODE_SYSTEM_BASE_URL } from '../../fhir';
+import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, SERVICE_CATEGORY_SYSTEM } from '../../fhir';
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../../helpers';
 import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../../types';
 import { mergeAndFreezeConfigObjects } from '../helpers';
@@ -79,13 +79,13 @@ interface StrongCoding extends Coding {
 }
 
 const SERVICE_CATEGORIES_AVAILABLE: StrongCoding[] = [
-  { display: 'Urgent Care', code: 'urgent-care', system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category` },
+  { display: 'Urgent Care', code: 'urgent-care', system: SERVICE_CATEGORY_SYSTEM },
   {
     display: 'Occupational Medicine',
     code: 'occupational-medicine',
-    system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category`,
+    system: SERVICE_CATEGORY_SYSTEM,
   },
-  { display: 'Workmans Comp', code: 'workmans-comp', system: `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category` },
+  { display: 'Workmans Comp', code: 'workmans-comp', system: SERVICE_CATEGORY_SYSTEM },
 ];
 
 interface BookingContext {

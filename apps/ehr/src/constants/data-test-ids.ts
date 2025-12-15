@@ -106,6 +106,7 @@ export const dataTestIds = {
     proceedButton: 'dialog-proceed-button',
     title: 'dialog-title',
     message: 'dialog-message',
+    inPersonModalContent: 'in-person-modal-content',
   },
   virtualLocationsPage: {
     locationsSearch: 'locations-search',
@@ -407,6 +408,34 @@ export const dataTestIds = {
     documentedBy: 'documented-by',
     procedureRow: 'procedure-row',
   },
+  nursingOrdersPage: {
+    title: 'nursing-orders-title',
+    loading: 'nursing-orders-loading-indicator',
+    table: 'nursing-orders-table',
+    orderButton: 'nursing-orders-order-button',
+    orderRow: 'nursing-orders-row',
+    orderNote: 'nursing-orders-row-note',
+    status: 'nursing-orders-row-status',
+    orderAddedDate: 'nursing-orders-row-date',
+    deleteButton: 'nursing-orders-row-delete',
+    emptyState: 'nursing-orders-empty-state',
+  },
+  nursingOrderCreatePage: {
+    title: 'nursing-order-create-title',
+    orderNoteInput: 'nursing-order-create-note-input',
+    orderButton: 'nursing-order-create-order-button',
+    cancelButton: 'nursing-order-create-cancel-button',
+  },
+  nursingOrderDetailsPage: {
+    orderNote: 'nursing-order-details-note',
+    status: 'nursing-order-details-status',
+    historySection: 'nursing-order-details-history',
+    historyToggleButton: 'nursing-order-details-history-toggle',
+    completeOrderButton: 'nursing-order-details-complete-button',
+    backButton: 'nursing-order-details-back-button',
+    orderedBy: 'nursing-order-details-ordered-by',
+    orderedDate: 'nursing-order-details-ordered-date',
+  },
   radioButton: {
     checkedIcon: 'RadioButtonCheckedIcon',
   },
@@ -546,5 +575,21 @@ export const dataTestIds = {
     askPatientQuestion: 'ask-patient-question',
     vaccinationNoteField: 'vaccination-note-field',
     answerDropdown: 'answer-dropdown',
+  },
+
+  medicationsPage: {
+    title: 'medications-title',
+    medicationNoteField: 'medication-note-field',
+    addNoteButton: 'add-medication-note-button',
+    seeMoreButton: 'see-more-button',
+    deleteIcon: 'DeleteOutlinedIcon',
+    pencilIconButton: 'EditOutlinedIcon',
+  },
+
+  editNoteDialog: {
+    cancelButton: 'edit-note-dialog-cancel-button',
+    proceedButton: 'edit-note-dialog-proceed-button',
+    title: 'edit-note-dialog-title',
+    message: 'edit-note-dialog-message',
   },
 };

@@ -258,7 +258,7 @@ export interface QuestionnaireItemExtension {
   preferredElement?: FormElement;
   requireWhen?: QuestionnaireItemConditionDefinition;
   secondaryInfoText?: string;
-  textWhen?: QuestionnaireItemTextWhen;
+  textWhen?: QuestionnaireItemTextWhen[];
   validateAgeOver?: number;
   complexValidation?: {
     type: string; // only 'insurance validation' is supported out of the box right now, but defining this as string to allow for easy customization for other use cases

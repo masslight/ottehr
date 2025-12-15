@@ -9,7 +9,6 @@ import {
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
   getSecret,
-  RoleType,
   Secrets,
   SecretsKeys,
   userMe,
@@ -87,7 +86,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     const validatedInput = await validateInput(unsafeInput, secrets, oystehr);
 
     const callerUser = await getCallerUserWithAccessToken(validatedInput.callerAccessToken, secrets);
-    await accessCheck(callerUser);
 
     const output = await performEffect(validatedInput, callerUser.profile, secrets, oystehr);
 
@@ -99,15 +97,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
   }
 });
-
-const accessCheck = async (callerUser: User): Promise<void> => {
-  if (callerUser.profile.indexOf('Practitioner/') === -1) {
-    throw new Error('Caller does not have a practitioner profile');
-  }
-  if (callerUser.roles?.find((role) => role.name === RoleType.Provider) === undefined) {
-    throw new Error('Caller does not have provider role');
-  }
-};
 
 const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
   return userMe(token, secrets);
