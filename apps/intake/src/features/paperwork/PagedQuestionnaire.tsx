@@ -270,7 +270,7 @@ const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, patientName
 };
 
 interface PaperworkRootInput {
-  pageItem: IntakeQuestionnaireItem;
+  pageItem?: IntakeQuestionnaireItem;
   items: IntakeQuestionnaireItem[];
   onSubmit: (data: QuestionnaireFormFields) => void;
   saveProgress: (data: QuestionnaireFormFields) => void;
@@ -349,7 +349,7 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 
 export interface RenderItemsProps {
   items: IntakeQuestionnaireItem[];
-  pageItem: IntakeQuestionnaireItem;
+  pageItem?: IntakeQuestionnaireItem;
   parentItem?: IntakeQuestionnaireItem;
   fieldId?: string;
 }
@@ -412,7 +412,7 @@ const makeStyles = (): any => {
 };
 
 interface NestedInputProps extends StyledItemInputProps {
-  pageItem: IntakeQuestionnaireItem;
+  pageItem?: IntakeQuestionnaireItem;
   parentItem?: IntakeQuestionnaireItem;
   inheritedFieldId?: string;
 }
@@ -540,7 +540,7 @@ interface GetFormInputFieldProps {
   itemProps: StyledItemInputProps;
   renderProps: any; // do better
   fieldId: string;
-  pageItem: IntakeQuestionnaireItem;
+  pageItem?: IntakeQuestionnaireItem;
   parentItem?: IntakeQuestionnaireItem;
 }
 

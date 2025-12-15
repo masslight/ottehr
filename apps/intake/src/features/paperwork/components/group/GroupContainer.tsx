@@ -6,7 +6,7 @@ import { RenderItemsProps } from '../../PagedQuestionnaire';
 import MultiAnswerHeader from './MultiAnswerHeader';
 
 interface GroupContainerProps extends Omit<RenderItemsProps, 'items'> {
-  pageItem: IntakeQuestionnaireItem;
+  pageItem?: IntakeQuestionnaireItem;
   item: IntakeQuestionnaireItem;
   RenderItems: FC<RenderItemsProps>;
 }
