@@ -4,11 +4,10 @@ import { Account, Appointment, Encounter, Patient, RelatedPerson, Resource } fro
 import { DateTime } from 'luxon';
 import {
   FHIR_EXTENSION,
-  getActiveAccountGuarantorReference,
   getFullName,
+  getResponsiblePartyFromAccount,
   InvoiceablePatientReport,
   InvoiceablePatientReportFail,
-  takeContainedOrFind,
 } from 'utils';
 
 export interface InvoiceableClaim {
@@ -61,12 +60,8 @@ export function mapResourcesToInvoiceablePatient(input: {
   const patient = patientToIdMap[claim.patientExternalId];
   if (patient?.id === undefined) return logErrorForClaimAndReturn('Patient', claim);
   const account = accountsToPatientIdMap[claim.patientExternalId];
-  const responsiblePartyRef = getActiveAccountGuarantorReference(account);
-  if (!responsiblePartyRef) return logErrorForClaimAndReturn('RelatedPerson reference', claim);
-  const responsibleParty = takeContainedOrFind(responsiblePartyRef, allFhirResources, account) as
-    | RelatedPerson
-    | undefined;
-  if (!responsibleParty) return logErrorForClaimAndReturn('RelatedPerson', claim);
+  const responsibleParty = getResponsiblePartyFromAccount(account, allFhirResources);
+  if (!responsibleParty) return logErrorForClaimAndReturn('Responsible party', claim);
 
   const encounter = encounterToCandidIdMap[claim.encounterId];
   if (!encounter) return logErrorForClaimAndReturn('Encounter', claim);
@@ -100,8 +95,11 @@ function logErrorForClaimAndReturn(resourceType: string, claim: InvoiceableClaim
   };
 }
 
-function getResponsiblePartyRelationship(responsibleParty: RelatedPerson): PatientRelationshipToInsured | undefined {
+function getResponsiblePartyRelationship(
+  responsibleParty: RelatedPerson | Patient
+): PatientRelationshipToInsured | undefined {
   let result: PatientRelationshipToInsured | undefined = undefined;
+  if (responsibleParty.resourceType === 'Patient') return 'Self';
   responsibleParty.relationship?.find(
     (rel) =>
       rel.coding?.find((coding) => {
