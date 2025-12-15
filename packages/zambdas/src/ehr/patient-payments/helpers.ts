@@ -52,7 +52,7 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
       const [paymentIntents, pms] = await Promise.all([
         stripeClient.paymentIntents.search({
           query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
-          limit: 20,
+          limit: 20, // default is 10
         }),
         stripeClient.paymentMethods.list({
           customer: customerId,
@@ -163,6 +163,7 @@ function buildPaymentDTOs(
     .flatMap((paymentNotice) => {
       const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
       if (!pnStripeId) {
+        // not a card payment, skip!
         return [];
       }
 
@@ -188,8 +189,10 @@ function buildPaymentDTOs(
         dateISO,
       };
     })
-    .slice(0, 20);
+    .slice(0, 20); // We only fetch the last 20 payments from stripe, which should be more than enough for pretty much any real world use case
 
+  // todo: the data here should be fetched from candid and then linked to the payment notice ala stripe,
+  // but that awaits the candid integration portion
   const cashPayments: CashPaymentDTO[] = convertPaymentNoticeListToCashPaymentDTOs(fhirPaymentNotices, encounterId);
 
   const payments: PatientPaymentDTO[] = [...cardPayments, ...cashPayments].sort((a, b) => {
