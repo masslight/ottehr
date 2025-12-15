@@ -1,5 +1,6 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   expectInPersonProgressNotePage,
   InPersonProgressNotePage,
@@ -7,7 +8,7 @@ import {
 import { expectScreeningPage, ScreeningPage } from 'tests/e2e/page/in-person/ScreeningPage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import { baseScreeningQuestionsConfig } from 'utils';
+import { patientScreeningQuestionsConfig } from 'utils';
 
 const resourceHandler = new ResourceHandler(`screening-mutating-${DateTime.now().toMillis()}`);
 
@@ -47,6 +48,7 @@ test.describe('Screening Page mutating tests', () => {
     let screeningPage = await test.step('Fill screening info', async () => {
       const progressNotePage = await expectInPersonProgressNotePage(page);
       const screeningPage = await progressNotePage.sideMenu().clickScreening();
+
       await enterScreeningInfo(SCREENING_A, screeningPage);
       return await expectScreeningPage(page);
     });
@@ -87,28 +89,62 @@ async function setupPractitioners(page: Page): Promise<void> {
 }
 
 async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: ScreeningPage): Promise<void> {
-  for (const field of baseScreeningQuestionsConfig.fields) {
+  // Only fill questions that are NOT in the questionnaire (shown in "ASK THE PATIENT" section)
+  // Questions with existsInQuestionnaire: true are shown in "CONFIRMED BY STAFF" section
+  const askPatientFields = patientScreeningQuestionsConfig.fields.filter((field) => !field.existsInQuestionnaire);
+
+  for (const field of askPatientFields) {
     const answer = field.options?.[screeningInfo.screeningAnswersOption]?.label ?? '';
-    if (field.type === 'radio') {
-      await screeningPage.selectRadioAnswer(field.question, answer);
-    }
-    if (field.type === 'select') {
-      await screeningPage.selectDropdownAnswer(field.question, answer);
+
+    // Check if the question exists on the page before filling
+    const questionLocator = screeningPage
+      .page()
+      .getByTestId(dataTestIds.screeningPage.askPatientQuestion)
+      .filter({ hasText: field.question });
+
+    const questionExists = await questionLocator.isVisible({ timeout: 2000 }).catch(() => false);
+
+    if (questionExists) {
+      if (field.type === 'radio') {
+        await screeningPage.selectRadioAnswer(field.question, answer);
+      }
+      if (field.type === 'select') {
+        await screeningPage.selectDropdownAnswer(field.question, answer);
+      }
+    } else {
+      console.log(`Question "${field.question}" not found, skipping as it's optional`);
     }
   }
-  await screeningPage.enterVaccinationNote(screeningInfo.vaccinationNotes);
+
+  // Only enter vaccination note if the vaccinations field exists and is not in questionnaire
+  const vaccinationsField = patientScreeningQuestionsConfig.fields.find((f) => f.id === 'vaccinations');
+  if (vaccinationsField && !vaccinationsField.existsInQuestionnaire) {
+    const vaccinationNoteExists = await screeningPage
+      .page()
+      .getByTestId(dataTestIds.screeningPage.vaccinationNoteField)
+      .isVisible({ timeout: 2000 })
+      .catch(() => false);
+
+    if (vaccinationNoteExists) {
+      await screeningPage.enterVaccinationNote(screeningInfo.vaccinationNotes);
+    }
+  }
+
   await screeningPage.selectAsqAnswer(screeningInfo.asqAnswer);
   await screeningPage.enterScreeningNote(screeningInfo.screeningNote);
   await screeningPage.clickAddScreeningNoteButton();
 }
 
 function createProgressNoteLines(screeningInfo: ScreeningInfo): string[] {
-  return baseScreeningQuestionsConfig.fields.map((field) => {
-    const answer = field.options?.[screeningInfo.screeningAnswersOption]?.label ?? '';
-    if (field.id === 'vaccinations') {
-      return field.question + ' - ' + answer + ': ' + screeningInfo.vaccinationNotes;
-    } else {
-      return field.question + ' - ' + answer;
-    }
-  });
+  // Only include questions from "ASK THE PATIENT" section (without existsInQuestionnaire)
+  return patientScreeningQuestionsConfig.fields
+    .filter((field) => !field.existsInQuestionnaire)
+    .map((field) => {
+      const answer = field.options?.[screeningInfo.screeningAnswersOption]?.label ?? '';
+      if (field.id === 'vaccinations') {
+        return field.question + ' - ' + answer + ': ' + screeningInfo.vaccinationNotes;
+      } else {
+        return field.question + ' - ' + answer;
+      }
+    });
 }

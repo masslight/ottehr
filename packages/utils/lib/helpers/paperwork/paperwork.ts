@@ -112,51 +112,54 @@ const getPreferredElement = (extension: Extension[]): FormElement | undefined =>
   return undefined;
 };
 
-const getConditionalExtension = (
-  extension: Extension[],
+const getConditionalExtensions = (
+  extensions: Extension[],
   keys: ConditionKeyObject
-): { extension: Extension[]; baseConditionDef: QuestionnaireItemConditionDefinition | undefined } => {
-  const baseExtension = extension.find((ext) => {
-    return ext.url === keys.extension;
-  })?.extension;
-
-  if (baseExtension) {
-    const question = baseExtension.find((ext) => {
-      return ext.url === keys.question;
-    })?.valueString;
-    const operator = baseExtension.find((ext) => {
-      return ext.url === keys.operator;
-    })?.valueString;
-    const answerObj = baseExtension.find((ext) => {
-      return ext.url === keys.answer;
+): { extension: Extension[]; baseConditionDef: QuestionnaireItemConditionDefinition }[] => {
+  return extensions
+    .filter((ext) => {
+      return ext.url === keys.extension;
+    })
+    ?.flatMap((ext) => {
+      const baseExtension = ext.extension;
+      if (baseExtension) {
+        const question = baseExtension.find((ext) => {
+          return ext.url === keys.question;
+        })?.valueString;
+        const operator = baseExtension.find((ext) => {
+          return ext.url === keys.operator;
+        })?.valueString;
+        const answerObj = baseExtension.find((ext) => {
+          return ext.url === keys.answer;
+        });
+        const answerString = answerObj?.valueString;
+        const answerBoolean = answerObj?.valueBoolean;
+        const answerInteger = answerObj?.valueInteger;
+        const answerDate = answerObj?.valueDate;
+        if (
+          operator !== undefined &&
+          ['exists', '=', '!=', '>', '<', '>=', '<='].includes(operator) &&
+          question !== undefined &&
+          (answerString !== undefined ||
+            answerBoolean !== undefined ||
+            answerInteger !== undefined ||
+            answerDate !== undefined)
+        ) {
+          return {
+            extension: baseExtension,
+            baseConditionDef: {
+              question,
+              operator: operator as QuestionnaireItemConditionDefinition['operator'],
+              answerString,
+              answerBoolean,
+              answerInteger,
+              answerDate,
+            },
+          };
+        }
+      }
+      return [];
     });
-    const answerString = answerObj?.valueString;
-    const answerBoolean = answerObj?.valueBoolean;
-    const answerInteger = answerObj?.valueInteger;
-    const answerDate = answerObj?.valueDate;
-    if (
-      operator !== undefined &&
-      ['exists', '=', '!=', '>', '<', '>=', '<='].includes(operator) &&
-      question !== undefined &&
-      (answerString !== undefined ||
-        answerBoolean !== undefined ||
-        answerInteger !== undefined ||
-        answerDate !== undefined)
-    ) {
-      return {
-        extension: baseExtension,
-        baseConditionDef: {
-          question,
-          operator: operator as QuestionnaireItemConditionDefinition['operator'],
-          answerString,
-          answerBoolean,
-          answerInteger,
-          answerDate,
-        },
-      };
-    }
-  }
-  return { extension: [], baseConditionDef: undefined };
 };
 
 const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension => {
@@ -168,33 +171,31 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     disabledDisplay = undefined;
   }
 
-  const { baseConditionDef: requireWhen } = getConditionalExtension(
-    extension,
-    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen
-  );
+  const requireWhen = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen)[0]
+    ?.baseConditionDef;
 
-  const { extension: textWhenExt, baseConditionDef: textWhenPartial } = getConditionalExtension(
-    extension,
-    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen
-  );
-  let textWhen: QuestionnaireItemTextWhen | undefined;
-  if (textWhenPartial) {
-    const substituteText = textWhenExt.find((ext) => {
-      return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.substituteText;
-    })?.valueString;
+  const textWhenExtensions = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen);
+  const textWhen: QuestionnaireItemTextWhen[] | undefined =
+    textWhenExtensions.length > 0
+      ? textWhenExtensions.flatMap(({ extension: textWhenExt, baseConditionDef: textWhenPartial }) => {
+          if (textWhenPartial) {
+            const substituteText = textWhenExt.find((ext) => {
+              return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.textWhen.substituteText;
+            })?.valueString;
 
-    if (substituteText) {
-      textWhen = {
-        ...textWhenPartial,
-        substituteText,
-      };
-    }
-  }
+            if (substituteText) {
+              return {
+                ...textWhenPartial,
+                substituteText,
+              };
+            }
+          }
+          return [];
+        })
+      : undefined;
 
-  const { baseConditionDef: filterWhen } = getConditionalExtension(
-    extension,
-    OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen
-  );
+  const filterWhen = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.filterWhen)[0]
+    ?.baseConditionDef;
 
   const attachmentText = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.attachmentText;
@@ -300,10 +301,10 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.extension;
   })?.extension;
   if (complexValidationExtension) {
-    const { baseConditionDef: complexValidationTriggerWhen } = getConditionalExtension(
+    const complexValidationTriggerWhen = getConditionalExtensions(
       complexValidationExtension,
       OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.triggerWhen
-    );
+    )[0].baseConditionDef;
     const complexValidationType = complexValidationExtension.find((ext) => {
       return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.complexValidation.type;
     })?.valueString;

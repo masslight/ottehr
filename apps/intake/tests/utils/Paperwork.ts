@@ -8,7 +8,7 @@ import { QuestionnaireHelper } from './QuestionnaireHelper';
 import { PaperworkTelemed } from './telemed/Paperwork';
 import { UploadDocs } from './UploadDocs';
 
-interface InsuranceRequiredData {
+export interface InsuranceRequiredData {
   firstName: string;
   lastName: string;
   relationship: string;
@@ -21,19 +21,19 @@ interface InsuranceRequiredData {
   paperworkDOB: string;
   insuranceCarrier: string;
 }
-interface InsuranceOptionalData {
+export interface InsuranceOptionalData {
   policyHolderMiddleName: string;
   policyHolderAddressLine2: string;
 }
 
-interface PatientDetailsData {
+export interface PatientDetailsData {
   randomEthnicity: string;
   randomRace: string;
   randomPronoun: string;
   randomPoint: string;
   randomLanguage: string;
 }
-interface PrimaryCarePhysicianData {
+export interface PrimaryCarePhysicianData {
   firstName: string;
   lastName: string;
   pcpAddress: string;
@@ -41,7 +41,7 @@ interface PrimaryCarePhysicianData {
   formattedPhoneNumber: string;
 }
 
-interface ResponsibleParty {
+export interface ResponsibleParty {
   relationship: string;
   birthSex: string;
   firstName: string;
@@ -83,12 +83,12 @@ interface EmergencyContact {
   zip: string;
 }
 
-interface TelemedPaperworkData {
+export interface TelemedPaperworkData {
   filledValue: string;
   selectedValue: string;
 }
 
-interface Flags {
+export interface Flags {
   covid: string;
   test: string;
   travel: string;
@@ -353,6 +353,7 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     await this.paperworkTelemed.fillAndCheckNoInviteParticipant();
     await this.locator.clickContinueButton();
+    await this.page.waitForTimeout(1_000);
     return {
       stateValue,
       patientDetailsData: {
@@ -430,16 +431,23 @@ export class Paperwork {
     await this.paperworkTelemed.fillAndCheckNoInviteParticipant();
     await this.locator.clickContinueButton();
   }
-  async fillPaperworkOnlyRequiredFieldsInPerson(): Promise<void> {
-    await this.fillContactInformationRequiredFields();
+  async fillPaperworkOnlyRequiredFieldsInPerson(): Promise<{ stateValue: string }> {
+    const { stateValue } = await this.fillContactInformationRequiredFields();
     await this.locator.clickContinueButton();
+    await expect(this.locator.flowHeading).toHaveText('Patient details');
     await this.fillPatientDetailsRequiredFields();
     await this.locator.clickContinueButton();
+    await expect(this.locator.flowHeading).toHaveText('Primary Care Physician');
     await this.skipPrimaryCarePhysician();
     await this.skipPreferredPharmacy();
-    await this.locator.clickContinueButton();
     await this.selectSelfPayPayment();
     await this.locator.clickContinueButton();
+    await expect(this.locator.flowHeading).toHaveText('Credit card details');
+    // test skipping credit card is fine
+    await this.locator.clickContinueButton();
+    await expect(this.locator.flowHeading).toBeVisible();
+    await expect(this.locator.flowHeading).toHaveText('Responsible party information');
+    await this.locator.clickBackButton();
     await this.fillAndAddCreditCard();
     await this.locator.clickContinueButton();
     await this.fillResponsiblePartyDataSelf();
@@ -448,14 +456,17 @@ export class Paperwork {
       await this.fillEmployerInformation();
       await this.locator.clickContinueButton();
     }
+    await expect(this.locator.flowHeading).toHaveText('Emergency Contact');
     await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
+    await expect(this.locator.flowHeading).toHaveText('Photo ID');
     await this.skipPhotoID();
-    await this.locator.clickContinueButton();
     await this.fillConsentForms();
     await this.locator.clickContinueButton();
     // skip medical history
     await this.locator.clickContinueButton();
+    await expect(this.locator.flowHeading).toHaveText('Review and submit');
+    return { stateValue };
   }
   async fillContactInformationRequiredFields(): Promise<{ stateValue: string }> {
     const { stateValue } = await this.fillPatientState();

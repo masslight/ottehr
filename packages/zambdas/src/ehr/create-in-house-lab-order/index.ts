@@ -40,7 +40,7 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { createTask } from '../../shared/tasks';
-import { getPrimaryInsurance } from '../shared/labs';
+import { accountIsPatientBill, getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 const ZAMBDA_NAME = 'create-in-house-lab-order';
@@ -189,8 +189,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         if (resource.resourceType === 'Coverage' && resource.status === 'active')
           acc.coverageSearchResults.push(resource as Coverage);
 
-        if (resource.resourceType === 'Account' && resource.status === 'active')
-          acc.accountSearchResults.push(resource as Account);
+        if (resource.resourceType === 'Account' && resource.status === 'active') {
+          if (accountIsPatientBill(resource)) acc.accountSearchResults.push(resource);
+        }
 
         return acc;
       },

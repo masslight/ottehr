@@ -77,6 +77,12 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
     [setSearchFilters]
   );
   const resetFilters = (): void => setSearchFilters(defaultSearchFilters);
+
+  const resetSearchErrorsAndCloseSearchDialog = (): void => {
+    setOpenSearchResults(false);
+    setErrors({ ...errors, search: false, searchEntry: false });
+  };
+
   const searchResources = async (): Promise<void> => {
     if (!oystehr) {
       throw new Error('oystehr client not available');
@@ -188,6 +194,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
     }
     setSearching(false);
   };
+
   const handleManuallyEnterPatientDetails = (): void => {
     setPatientInfo({
       newPatient: true,
@@ -196,9 +203,10 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
       lastName: searchFilters?.lastName,
     });
     setShowFields('manuallyEnterPatientDetails');
-    setOpenSearchResults(false);
+    resetSearchErrorsAndCloseSearchDialog();
     resetFilters();
   };
+
   const handleSelectExistingPatient = (): void => {
     if (selectedPatient) {
       setPatientInfo({
@@ -211,12 +219,13 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
         sex: selectedPatient?.sex as PersonSex,
       });
       setShowFields('existingPatientSelected');
-      setOpenSearchResults(false);
+      resetSearchErrorsAndCloseSearchDialog();
     } else {
       enqueueSnackbar('Please select a patient or "Other patient / Add manually', { variant: 'error' });
     }
     resetFilters();
   };
+
   const handleResetSearch = (): void => {
     resetFilters();
     setSelectedPatient(undefined);

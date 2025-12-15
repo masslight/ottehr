@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { CustomRadioButtonIcon } from '../../../components/form';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { RadioStyling } from '../../../types';
+import { useAnswerOptionLabelWhen } from '../useAnswerOptionLabelWhen';
 
 interface RadioInputProps extends RadioGroupProps {
   name: string;
@@ -43,6 +44,8 @@ const RadioInput: FC<RadioInputProps> = ({
       color: theme.palette.text.primary,
     },
   };
+
+  const labels = useAnswerOptionLabelWhen(options);
 
   return (
     <RadioGroup
@@ -141,7 +144,7 @@ const RadioInput: FC<RadioInputProps> = ({
                   <>
                     {option.valueString && (
                       <Typography variant="h5" color="primary.main" sx={radioStyling?.label}>
-                        {option.valueString}
+                        {labels[option.valueString] ? labels[option.valueString] : option.valueString}
                       </Typography>
                     )}
                     {

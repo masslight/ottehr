@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-1354ce18-bbb0-47c8-bf7e-3cffff4749f5",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-187b1c8a-854b-4200-a3f2-3b0163d55081"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-8578c070-bb78-4b1c-961e-8f33b756cc79"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Left TM pearly with good light reflex, preserved landmarks"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "left-tm-pearly-with-good-light-reflex-preserved-landmarks",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

@@ -128,7 +128,30 @@ export function validateRequestParameters(
       secrets,
       userToken,
     };
+  } else if (
+    params.event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote ||
+    params.event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote
+  ) {
+    const { event, requisitionNumber, note } = params;
+
+    if (typeof requisitionNumber !== 'string') {
+      throw Error(`Invalid parameter type: requisitionNumber must be a string, received: ${typeof requisitionNumber}`);
+    }
+    if (typeof note !== 'string') {
+      throw Error(`Invalid parameter type: note must be a string, received: ${typeof note}`);
+    }
+    if (note.length > 300) {
+      throw Error(`Note must be under 300 characters long, length of note: ${note.length}`);
+    }
+
+    return {
+      event,
+      requisitionNumber,
+      note,
+      secrets,
+      userToken,
+    };
   }
 
-  throw Error('event is not supported');
+  throw Error('Event is not supported.');
 }
