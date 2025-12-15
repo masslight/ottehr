@@ -75,7 +75,6 @@ interface PagedQuestionnaireInput {
   items: IntakeQuestionnaireItem[];
   pageItem?: IntakeQuestionnaireItem;
   pageId: string;
-  pageItem?: IntakeQuestionnaireItem;
   patientName?: string;
   defaultValues?: QuestionnaireFormFields;
   options?: PagedQuestionnaireOptions;
@@ -185,7 +184,6 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   items,
   pageItem,
   pageId,
-  pageItem,
   patientName,
   defaultValues,
   options = {},

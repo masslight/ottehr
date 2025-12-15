@@ -549,7 +549,6 @@ export const PaperworkPage: FC = () => {
           <PagedQuestionnaire
             onSubmit={finishPaperworkPage}
             pageId={currentPage?.linkId ?? ''}
-            pageItem={currentPage}
             patientName={
               pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName
             }
