@@ -579,51 +579,13 @@
                 "linkId": "pcp-first",
                 "text": "Provider first name",
                 "type": "string",
-                "required": false,
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-                    "extension": [
-                      {
-                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                        "valueString": "pcp-active"
-                      },
-                      {
-                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                        "valueString": "="
-                      },
-                      {
-                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                        "valueBoolean": true
-                      }
-                    ]
-                  }
-                ]
+                "required": false
               },
               {
                 "linkId": "pcp-last",
                 "text": "Provider last name",
                 "type": "string",
-                "required": false,
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-                    "extension": [
-                      {
-                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                        "valueString": "pcp-active"
-                      },
-                      {
-                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                        "valueString": "="
-                      },
-                      {
-                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                        "valueBoolean": true
-                      }
-                    ]
-                  }
-                ]
+                "required": false
               },
               {
                 "linkId": "pcp-practice",

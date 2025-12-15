@@ -36,32 +36,20 @@ export const PrimaryCareContainer: FC<{ isLoading: boolean }> = ({ isLoading }) 
         )}
       />
       <Box sx={{ display: isActive ? 'contents' : 'none' }}>
-        <Row label="First name" inputId={primaryCare.firstName.key} required={isActive}>
+        <Row label="First name" inputId={primaryCare.firstName.key}>
           <FormTextField
             name={primaryCare.firstName.key}
             control={control}
             disabled={isLoading}
-            rules={{
-              validate: (value: string) => {
-                if (isActive && !value) return REQUIRED_FIELD_ERROR_MESSAGE;
-                return true;
-              },
-            }}
             id={primaryCare.firstName.key}
             data-testid={dataTestIds.primaryCarePhysicianContainer.firstName}
           />
         </Row>
-        <Row label="Last name" inputId={primaryCare.lastName.key} required={isActive}>
+        <Row label="Last name" inputId={primaryCare.lastName.key}>
           <FormTextField
             name={primaryCare.lastName.key}
             control={control}
             disabled={isLoading}
-            rules={{
-              validate: (value: string) => {
-                if (isActive && !value) return REQUIRED_FIELD_ERROR_MESSAGE;
-                return true;
-              },
-            }}
             id={primaryCare.lastName.key}
             data-testid={dataTestIds.primaryCarePhysicianContainer.lastName}
           />
@@ -81,22 +69,16 @@ export const PrimaryCareContainer: FC<{ isLoading: boolean }> = ({ isLoading }) 
             data-testid={dataTestIds.primaryCarePhysicianContainer.practiceName}
           />
         </Row>
-        <Row label="Address" inputId={primaryCare.address.key} required={isActive}>
+        <Row label="Address" inputId={primaryCare.address.key}>
           <FormTextField
             name={primaryCare.address.key}
             control={control}
             disabled={isLoading}
-            rules={{
-              validate: (value: string) => {
-                if (isActive && !value) return REQUIRED_FIELD_ERROR_MESSAGE;
-                return true;
-              },
-            }}
             id={primaryCare.address.key}
             data-testid={dataTestIds.primaryCarePhysicianContainer.address}
           />
         </Row>
-        <Row label="Mobile" inputId={primaryCare.phone.key} required={isActive}>
+        <Row label="Mobile" inputId={primaryCare.phone.key}>
           <FormTextField
             data-testid={dataTestIds.primaryCarePhysicianContainer.mobile}
             name={primaryCare.phone.key}
@@ -104,8 +86,7 @@ export const PrimaryCareContainer: FC<{ isLoading: boolean }> = ({ isLoading }) 
             control={control}
             rules={{
               validate: (value: string) => {
-                if (!isActive) return true;
-                if (!value) return REQUIRED_FIELD_ERROR_MESSAGE;
+                if (!isActive || !value) return true;
                 return (
                   isPhoneNumberValid(value) ||
                   'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number'
