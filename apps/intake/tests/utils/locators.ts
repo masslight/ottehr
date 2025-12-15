@@ -313,23 +313,25 @@ export class Locators {
     this.cancelConfirmationScreenHeading = page.getByRole('heading', { name: 'Your visit has been canceled' });
 
     // Contact information locators
-    this.streetAddress = page.locator('[id="patient-street-address"]');
-    this.streetAddressLine2 = page.locator('[id="patient-street-address-2"]');
-    this.patientCity = page.locator('[id="patient-city"]');
-    this.patientState = page.locator('[id="patient-state"]');
-    this.patientZip = page.locator('[id="patient-zip"]');
-    this.patientEmail = page.locator('[id="patient-email"]');
-    this.patientNumber = page.locator('[id="patient-number"]');
-    this.preferredCommunicationMethod = page.locator('[id="patient-preferred-communication-method"]');
+    this.streetAddress = page.locator('[id="contact-information-page.patient-street-address"]');
+    this.streetAddressLine2 = page.locator('[id="contact-information-page.patient-street-address-2"]');
+    this.patientCity = page.locator('[id="contact-information-page.patient-city"]');
+    this.patientState = page.locator('[id="contact-information-page.patient-state"]');
+    this.patientZip = page.locator('[id="contact-information-page.patient-zip"]');
+    this.patientEmail = page.locator('[id="contact-information-page.patient-email"]');
+    this.patientNumber = page.locator('[id="contact-information-page.patient-number"]');
+    this.preferredCommunicationMethod = page.locator(
+      '[id="contact-information-page.patient-preferred-communication-method"]'
+    );
 
     // Patient details locators
-    this.patientEthnicity = page.locator('[id="patient-ethnicity"]');
-    this.patientRace = page.locator('[id="patient-race"]');
-    this.patientPronouns = page.locator('[id="patient-pronouns"]');
+    this.patientEthnicity = page.locator('[id="patient-details-page.patient-ethnicity"]');
+    this.patientRace = page.locator('[id="patient-details-page.patient-race"]');
+    this.patientPronouns = page.locator('[id="patient-details-page.patient-pronouns"]');
     this.patientMyPronounsLabel = page.getByText('My pronouns');
-    this.patientMyPronounsInput = page.locator('[id="patient-pronouns-custom"]');
-    this.patientPreferredLanguage = page.locator('[id="preferred-language"]');
-    this.patientPointOfDiscovery = page.locator('[id="patient-point-of-discovery"]');
+    this.patientMyPronounsInput = page.locator('[id="patient-details-page.patient-pronouns-custom"]');
+    this.patientPreferredLanguage = page.locator('[id="patient-details-page.preferred-language"]');
+    this.patientPointOfDiscovery = page.locator('[id="patient-details-page.patient-point-of-discovery"]');
     this.mobileOptIn = page.getByLabel('mobile-opt-in-label');
     //Telemed Patient details locators
     this.relayServiceNo = page.locator('[aria-labelledby="relay-phone-label"] input[type="radio"][value="No"]');
@@ -339,19 +341,19 @@ export class Locators {
     this.selfPayOption = page.getByLabel('I will pay without insurance');
     this.insuranceOption = page.getByLabel('I have insurance');
     this.insuranceHeading = page.getByText('We use this information to help determine your coverage and costs.');
-    this.insuranceCarrier = page.locator("[id='insurance-carrier']");
-    this.insuranceCarrierFirstOption = page.locator("[id='insurance-carrier-option-0']");
-    this.insuranceMemberID = page.locator("[id='insurance-member-id']");
-    this.policyHolderFirstName = page.locator("[id='policy-holder-first-name']");
-    this.policyHolderMiddleName = page.locator("[id='policy-holder-middle-name']");
-    this.policyHolderLastName = page.locator("[id='policy-holder-last-name']");
-    this.policyHolderBirthSex = page.locator("[id='policy-holder-birth-sex']");
-    this.patientRelationship = page.locator("[id='patient-relationship-to-insured']");
-    this.policyHolderAddress = page.locator('[id="policy-holder-address"]');
-    this.policyHolderAddressLine2 = page.locator('[id="policy-holder-address-additional-line"]');
-    this.policyHolderCity = page.locator('[id="policy-holder-city"]');
-    this.policyHolderState = page.locator('[id="policy-holder-state"]');
-    this.policyHolderZip = page.locator('[id="policy-holder-zip"]');
+    this.insuranceCarrier = page.locator("[id='payment-option-page.insurance-carrier']");
+    this.insuranceCarrierFirstOption = page.locator("[id='payment-option-page.insurance-carrier-option-0']");
+    this.insuranceMemberID = page.locator("[id='payment-option-page.insurance-member-id']");
+    this.policyHolderFirstName = page.locator("[id='payment-option-page.policy-holder-first-name']");
+    this.policyHolderMiddleName = page.locator("[id='payment-option-page.policy-holder-middle-name']");
+    this.policyHolderLastName = page.locator("[id='payment-option-page.policy-holder-last-name']");
+    this.policyHolderBirthSex = page.locator("[id='payment-option-page.policy-holder-birth-sex']");
+    this.patientRelationship = page.locator("[id='payment-option-page.patient-relationship-to-insured']");
+    this.policyHolderAddress = page.locator('[id="payment-option-page.policy-holder-address"]');
+    this.policyHolderAddressLine2 = page.locator('[id="payment-option-page.policy-holder-address-additional-line"]');
+    this.policyHolderCity = page.locator('[id="payment-option-page.policy-holder-city"]');
+    this.policyHolderState = page.locator('[id="payment-option-page.policy-holder-state"]');
+    this.policyHolderZip = page.locator('[id="payment-option-page.policy-holder-zip"]');
     this.policyHolderDOB = page.locator('[name="policy-holder-date-of-birth.answer.0.valueString"]');
     this.insuranceFrontImage = page.locator('#insurance-card-front-description');
     this.insuranceBackImage = page.locator('#insurance-card-back-description');
