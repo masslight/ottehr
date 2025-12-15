@@ -73,13 +73,13 @@ test.describe('Medications Page mutating tests', () => {
         await enterMedicationsInfo(MEDICATION_C, medicationsPage);
         await medicationsPage.verifyScheduledMedication(MEDICATION_A.name, MEDICATION_A.dose);
         await medicationsPage.verifyScheduledMedication(MEDICATION_B.name, MEDICATION_B.dose);
-        await medicationsPage.verifyAsNeddedMedication(MEDICATION_C.name, MEDICATION_C.dose);
+        await medicationsPage.verifyAsNeededMedication(MEDICATION_C.name, MEDICATION_C.dose);
         await medicationsPage.selectAsNeededMedication(AS_NEEDED_MEDICATION);
         await enterMedicationsInfo(MEDICATION_D, medicationsPage);
         await medicationsPage.verifyScheduledMedication(MEDICATION_A.name, MEDICATION_A.dose);
         await medicationsPage.verifyScheduledMedication(MEDICATION_B.name, MEDICATION_B.dose);
-        await medicationsPage.verifyAsNeddedMedication(MEDICATION_C.name, MEDICATION_C.dose);
-        await medicationsPage.verifyAsNeddedMedication(MEDICATION_D.name, MEDICATION_D.dose);
+        await medicationsPage.verifyAsNeededMedication(MEDICATION_C.name, MEDICATION_C.dose);
+        await medicationsPage.verifyAsNeededMedication(MEDICATION_D.name, MEDICATION_D.dose);
         return await expectMedicationsPage(page);
       });
 
