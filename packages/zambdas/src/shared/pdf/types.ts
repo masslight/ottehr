@@ -481,6 +481,7 @@ export interface ContactInfo extends PdfData {
   patientMobile: string;
   patientEmail: string;
   sendMarketingMessages: boolean;
+  patientPreferredCommunicationMethod: string;
 }
 
 export interface PatientDetails extends PdfData {
