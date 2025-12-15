@@ -61,7 +61,7 @@ import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-util
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import {
   createExamObservationComments,
-  createExamObservations,
+  getAllExamFieldsMetadata,
 } from '../../subscriptions/appointment/appointment-chart-data-prefilling/helpers';
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
 import {
@@ -269,10 +269,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
     examObservations?.forEach((element) => {
-      const examObservations = createExamObservations(isInPerson);
+      const allExamFields = getAllExamFieldsMetadata(isInPerson);
       const examObservationComments = createExamObservationComments(isInPerson);
 
-      const observation = examObservations.find((observation) => observation.field === element.field);
+      const observation = allExamFields.find((observation) => observation.field === element.field);
       const comment = examObservationComments.find((comment) => comment.field === element.field);
 
       if (!observation && !comment) {

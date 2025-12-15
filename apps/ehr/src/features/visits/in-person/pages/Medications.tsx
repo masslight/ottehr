@@ -1,5 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { Loader } from '../../shared/components/Loader';
 import { MedicalHistoryDoubleCard } from '../../shared/components/medical-history-tab';
 import { CurrentMedicationsPatientColumn } from '../../shared/components/medical-history-tab/CurrentMedications/CurrentMedicationsPatientColumn';
@@ -33,7 +34,11 @@ export const Medications: React.FC<MedicationsProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Medications" showIntakeNotesButton={interactionMode === 'main'} />
+      <PageTitle
+        dataTestId={dataTestIds.medicationsPage.title}
+        label="Medications"
+        showIntakeNotesButton={interactionMode === 'main'}
+      />
 
       <AskMedicationsAlert />
       <MedicalHistoryDoubleCard

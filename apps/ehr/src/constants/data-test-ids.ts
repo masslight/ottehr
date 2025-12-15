@@ -193,6 +193,7 @@ export const dataTestIds = {
     proceedButton: 'dialog-proceed-button',
     title: 'dialog-title',
     message: 'dialog-message',
+    inPersonModalContent: 'in-person-modal-content',
   },
   virtualLocationsPage: {
     locationsSearch: 'locations-search',
@@ -661,5 +662,21 @@ export const dataTestIds = {
     askPatientQuestion: 'ask-patient-question',
     vaccinationNoteField: 'vaccination-note-field',
     answerDropdown: 'answer-dropdown',
+  },
+
+  medicationsPage: {
+    title: 'medications-title',
+    medicationNoteField: 'medication-note-field',
+    addNoteButton: 'add-medication-note-button',
+    seeMoreButton: 'see-more-button',
+    deleteIcon: 'DeleteOutlinedIcon',
+    pencilIconButton: 'EditOutlinedIcon',
+  },
+
+  editNoteDialog: {
+    cancelButton: 'edit-note-dialog-cancel-button',
+    proceedButton: 'edit-note-dialog-proceed-button',
+    title: 'edit-note-dialog-title',
+    message: 'edit-note-dialog-message',
   },
 };

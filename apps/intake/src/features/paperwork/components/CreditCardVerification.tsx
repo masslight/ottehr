@@ -13,7 +13,7 @@ import {
 import { Elements } from '@stripe/react-stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { AddCreditCardForm, loadStripe } from 'ui-components';
-import { CreditCardInfo } from 'utils';
+import { BOOKING_CONFIG, CreditCardInfo } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
 import { dataTestIds } from '../../../helpers/data-test-ids';
 import { otherColors } from '../../../IntakeThemeProvider';
@@ -104,6 +104,9 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
           provider. If you are self-paying, the selected card will be charged for the total amount due.
         </Typography>
       </Card>
+      {BOOKING_CONFIG.paperwork.creditCardDetails.copy ? (
+        <Typography variant="body2">{BOOKING_CONFIG.paperwork.creditCardDetails.copy}</Typography>
+      ) : null}
       <CreditCardContent
         setupData={setupData as any}
         pendingSelection={pendingSelection}

@@ -539,12 +539,7 @@ export const PaperworkPage: FC = () => {
   );
 
   return (
-    <PageContainer
-      title={pageName ?? ''}
-      patientFullName={
-        pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName
-      }
-    >
+    <PageContainer>
       {empty ? (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <CircularProgress />
@@ -554,6 +549,10 @@ export const PaperworkPage: FC = () => {
           <PagedQuestionnaire
             onSubmit={finishPaperworkPage}
             pageId={currentPage?.linkId ?? ''}
+            pageItem={currentPage}
+            patientName={
+              pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName
+            }
             options={{ controlButtons }}
             items={questionnaireItems}
             defaultValues={paperworkGroupDefaults}
