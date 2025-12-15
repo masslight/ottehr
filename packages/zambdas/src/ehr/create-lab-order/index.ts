@@ -76,7 +76,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       secrets,
       orderingLocation: modifiedOrderingLocation,
       selectedPaymentMethod,
-      clinicalInfoNotes,
+      clinicalInfoNoteByUser,
     } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -337,7 +337,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       },
     ];
 
-    if (clinicalInfoNotes) {
+    if (clinicalInfoNoteByUser) {
       console.log('adding request to create a communication resources for clinical info notes');
       const communicationConfig: Communication = {
         resourceType: 'Communication',
@@ -354,7 +354,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
             coding: [LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY],
           },
         ],
-        payload: [{ contentString: clinicalInfoNotes }],
+        payload: [{ contentString: clinicalInfoNoteByUser }],
       };
       requests.push({
         method: 'POST',

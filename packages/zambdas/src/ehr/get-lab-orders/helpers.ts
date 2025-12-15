@@ -246,7 +246,10 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     requisitionNumber && labDocuments?.orderPDFsByRequisitionNumber
       ? labDocuments?.orderPDFsByRequisitionNumber[requisitionNumber]?.presignedURL
       : undefined;
-  const { orderLevelNote, clinicalInfoNote } = parseLabCommunicationsForServiceRequest(communications, serviceRequest);
+  const { orderLevelNoteByUser, clinicalInfoNoteByUser } = parseLabCommunicationsForServiceRequest(
+    communications,
+    serviceRequest
+  );
 
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
@@ -268,8 +271,8 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     abnPdfUrl,
     orderPdfUrl,
     location: parseLocation(serviceRequest, locations),
-    orderLevelNote,
-    clinicalInfoNote,
+    orderLevelNoteByUser,
+    clinicalInfoNoteByUser,
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -887,8 +890,8 @@ export const extractLabResources = (
   const slots: Slot[] = [];
   const scheduleMap: Record<string, Schedule> = {};
   const appointmentScheduleMap: Record<string, Schedule> = {};
-  const orderLevelNotes: Communication[] = [];
-  const clinicalInfoNotes: Communication[] = [];
+  const orderLevelNotesByUser: Communication[] = [];
+  const clinicalInfoNotesByUser: Communication[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -930,8 +933,8 @@ export const extractLabResources = (
       }
     } else if (resource.resourceType === 'Communication') {
       const labCommType = labOrderCommunicationType(resource);
-      if (labCommType === 'order-level-note') orderLevelNotes.push(resource);
-      if (labCommType === 'clinical-info-note') clinicalInfoNotes.push(resource);
+      if (labCommType === 'order-level-note') orderLevelNotesByUser.push(resource);
+      if (labCommType === 'clinical-info-note') clinicalInfoNotesByUser.push(resource);
     }
   }
 
@@ -950,10 +953,10 @@ export const extractLabResources = (
   }
 
   let communications: ExternalLabCommunications | undefined;
-  if (orderLevelNotes.length > 0 || clinicalInfoNotes.length > 0) {
+  if (orderLevelNotesByUser.length > 0 || clinicalInfoNotesByUser.length > 0) {
     communications = {
-      orderLevelNotes,
-      clinicalInfoNotes,
+      orderLevelNotesByUser,
+      clinicalInfoNotesByUser,
     };
   }
 
@@ -2628,22 +2631,22 @@ export const labOrderCommunicationType = (
   return commType;
 };
 
-type CommunicationNotes = { orderLevelNote: string | undefined; clinicalInfoNote: string | undefined };
+type CommunicationNotes = { orderLevelNoteByUser: string | undefined; clinicalInfoNoteByUser: string | undefined };
 const parseLabCommunicationsForServiceRequest = (
   communications: ExternalLabCommunications | undefined,
   serviceRequest: ServiceRequest
 ): CommunicationNotes => {
-  const notes: CommunicationNotes = { orderLevelNote: undefined, clinicalInfoNote: undefined };
+  const notes: CommunicationNotes = { orderLevelNoteByUser: undefined, clinicalInfoNoteByUser: undefined };
   if (!communications) return notes;
-  const { orderLevelNotes, clinicalInfoNotes } = communications;
+  const { orderLevelNotesByUser, clinicalInfoNotesByUser } = communications;
   const srReference = `ServiceRequest/${serviceRequest.id}`;
-  notes.orderLevelNote = getContentStringFromCommForSr(
-    orderLevelNotes,
+  notes.orderLevelNoteByUser = getContentStringFromCommForSr(
+    orderLevelNotesByUser,
     LAB_ORDER_LEVEL_NOTE_CATEGORY.code,
     srReference
   );
-  notes.clinicalInfoNote = getContentStringFromCommForSr(
-    clinicalInfoNotes,
+  notes.clinicalInfoNoteByUser = getContentStringFromCommForSr(
+    clinicalInfoNotesByUser,
     LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.code,
     srReference
   );

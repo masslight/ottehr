@@ -60,13 +60,13 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     });
 
     const orderNoteCommunicationRequest = makeCommunicationRequestForOrderNote(
-      communications?.orderLevelNotes,
+      communications?.orderLevelNotesByUser,
       serviceRequest
     );
     if (orderNoteCommunicationRequest) requests.push(orderNoteCommunicationRequest);
 
     const clinicalInfoNoteRequest = makeCommunicationRequestForClinicalInfoNote(
-      communications?.clinicalInfoNotes,
+      communications?.clinicalInfoNotesByUser,
       serviceRequest
     );
     if (clinicalInfoNoteRequest) requests.push(clinicalInfoNoteRequest);

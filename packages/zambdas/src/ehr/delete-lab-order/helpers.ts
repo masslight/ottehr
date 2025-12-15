@@ -58,18 +58,18 @@ export const getLabOrderRelatedResources = async (
       tasks: Task[];
       conditions: Condition[];
       encounters: Encounter[];
-      orderLevelNotes: Communication[];
-      clinicalInfoNotes: Communication[];
+      orderLevelNotesByUser: Communication[];
+      clinicalInfoNotesByUser: Communication[];
     };
     const initAccumulator: accType = {
       serviceRequests: [],
       tasks: [],
       conditions: [],
       encounters: [],
-      orderLevelNotes: [],
-      clinicalInfoNotes: [],
+      orderLevelNotesByUser: [],
+      clinicalInfoNotesByUser: [],
     };
-    const { serviceRequests, tasks, conditions, encounters, orderLevelNotes, clinicalInfoNotes } =
+    const { serviceRequests, tasks, conditions, encounters, orderLevelNotesByUser, clinicalInfoNotesByUser } =
       serviceRequestResponse.reduce((acc, resource) => {
         if (resource.resourceType === 'ServiceRequest' && resource.id === params.serviceRequestId) {
           acc.serviceRequests.push(resource);
@@ -84,17 +84,17 @@ export const getLabOrderRelatedResources = async (
           acc.encounters.push(resource);
         } else if (resource.resourceType === 'Communication') {
           const labCommType = labOrderCommunicationType(resource);
-          if (labCommType === 'order-level-note') acc.orderLevelNotes.push(resource);
-          if (labCommType === 'clinical-info-note') acc.clinicalInfoNotes.push(resource);
+          if (labCommType === 'order-level-note') acc.orderLevelNotesByUser.push(resource);
+          if (labCommType === 'clinical-info-note') acc.clinicalInfoNotesByUser.push(resource);
         }
         return acc;
       }, initAccumulator);
 
     let communications: ExternalLabCommunications | undefined;
-    if (orderLevelNotes.length > 0 || clinicalInfoNotes.length > 0) {
+    if (orderLevelNotesByUser.length > 0 || clinicalInfoNotesByUser.length > 0) {
       communications = {
-        orderLevelNotes,
-        clinicalInfoNotes,
+        orderLevelNotesByUser,
+        clinicalInfoNotesByUser,
       };
     }
 
@@ -213,21 +213,21 @@ export const makeCommunicationRequestForOrderNote = (
 };
 
 export const makeCommunicationRequestForClinicalInfoNote = (
-  clinicalInfoNotes: Communication[] | undefined,
+  clinicalInfoNotesByUser: Communication[] | undefined,
   serviceRequest: ServiceRequest
 ): BatchInputDeleteRequest | undefined => {
-  if (!clinicalInfoNotes || clinicalInfoNotes.length === 0) return;
+  if (!clinicalInfoNotesByUser || clinicalInfoNotesByUser.length === 0) return;
 
-  if (clinicalInfoNotes.length > 1) {
+  if (clinicalInfoNotesByUser.length > 1) {
     // if there is more than one clinical info note, something has gone wrong
     throw new Error(
       `Something is misconfigured with notes for the lab you are trying to delete, related: ServiceRequest/${
         serviceRequest.id
-      } ${clinicalInfoNotes.map((note) => `Communication/${note.id}`)}`
+      } ${clinicalInfoNotesByUser.map((note) => `Communication/${note.id}`)}`
     );
   }
 
-  const clinicalInfoNote = clinicalInfoNotes[0];
+  const clinicalInfoNote = clinicalInfoNotesByUser[0];
   if (clinicalInfoNote.basedOn?.length !== 1) {
     // if there is more than one service request linked to this note, something has gone wrong
     throw new Error(`Something is misconfigured with the clinical info note for the lab you are trying to delete`);

@@ -194,7 +194,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           psc,
           orderingLocation: orderingLocationIdToLocationAndLabGUIDsMap.get(selectedOfficeId)!.location,
           selectedPaymentMethod: selectedPaymentMethod,
-          clinicalInfoNotes,
+          clinicalInfoNoteByUser: clinicalInfoNotes,
         });
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {

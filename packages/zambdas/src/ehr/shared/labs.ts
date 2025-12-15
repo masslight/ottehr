@@ -69,8 +69,6 @@ import {
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
-  OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
-  OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL,
   PATIENT_BILLING_ACCOUNT_TYPE,
   SR_REVOKED_REASON_EXT,
 } from 'utils';
@@ -1253,15 +1251,6 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
     token
   );
 
-  // notes we receive from the oru message may possibly differ than what we send and oystehr is storing it in a different way
-  // thats why these are being grabbed from the diagnostic report extension in stead of the communication.
-  // todo labs actually i wonder if we also need to do this when mapping LabOrderDetailedPageDTO after results are received.
-  const orderLevelNote = diagnosticReport.extension?.find((ext) => ext.url === OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL)
-    ?.valueString;
-  const clinicalInfoNotesFromResult = diagnosticReport.extension?.find(
-    (ext) => ext.url === OYSTEHR_LABS_CLINICAL_INFO_EXT_URL
-  )?.valueString;
-
   console.log('formatting dto');
   const dto: DiagnosticReportLabDetailPageDTO = {
     testItem: getTestNameOrCodeFromDr(diagnosticReport),
@@ -1274,8 +1263,6 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
     resultsDetails: [detail],
     questionnaire: [], // will always be empty but is easier for the front end to consume an empty array
     samples: [], // will always be empty but is easier for the front end to consume an empty array
-    orderLevelNote,
-    clinicalInfoNote: clinicalInfoNotesFromResult,
   };
 
   return dto;
