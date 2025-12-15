@@ -938,6 +938,11 @@ test.describe('Patient Record Page tests', () => {
       await PatientDetailsTestStep(
         'If "Other" gender is selected from Patient details  block, additional field appears and it is required',
         async () => {
+          if (
+            PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(patientDetails.genderIdentity.key)
+          ) {
+            return;
+          }
           await patientInformationPage.selectFieldOption(patientDetails.genderIdentity.key, 'Other');
           await patientInformationPage.verifyFieldIsVisible(patientDetails.genderIdentityDetails.key);
           await patientInformationPage.clickSaveChangesButton();
