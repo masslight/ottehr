@@ -3477,18 +3477,6 @@
                     "valueBoolean": true
                   }
                 ]
-              },
-              {
-                "linkId": "card-payment-details-text",
-                "text": "If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.",
-                "type": "display",
-                "enableWhen": [
-                  {
-                    "question": "card-payment-details-text",
-                    "operator": "=",
-                    "answerString": "-"
-                  }
-                ]
               }
             ]
           },
