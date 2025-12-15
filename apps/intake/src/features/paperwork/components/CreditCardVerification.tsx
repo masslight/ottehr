@@ -26,14 +26,14 @@ interface CreditCardVerificationProps {
   onChange: (event: { target: { value: boolean } }) => void;
   required: boolean;
   value?: boolean;
-  parentItem?: IntakeQuestionnaireItem;
+  pageItem?: IntakeQuestionnaireItem;
 }
 
 export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
   value: validCreditCardOnFile,
   required,
   onChange,
-  parentItem,
+  pageItem,
 }) => {
   const {
     patient,
@@ -92,7 +92,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
     onMakePrimary(id);
   };
 
-  const detailsText = parentItem?.item?.find((item) => item.linkId === 'card-payment-details-text')?.text;
+  const detailsText = pageItem?.item?.find((item) => item.linkId === 'card-payment-details-text')?.text;
 
   return (
     <Box

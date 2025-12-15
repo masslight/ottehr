@@ -42,7 +42,15 @@ export const getPaperworkFieldId = (input: UserPaperworkFieldIdInput): string =>
   if (parentItem === undefined) {
     return item.linkId;
   }
-  return `${parentFieldId ?? parentItem.linkId}.${item.linkId}`;
+  const idx = Math.max(
+    (parentItem.item ?? [])
+      .filter((i) => i.type !== 'display' && !i.readOnly)
+      .findIndex((it) => {
+        return it.linkId === item.linkId;
+      }),
+    0
+  );
+  return `${parentFieldId ?? parentItem.linkId}.item.${idx}`;
 };
 
 export function usePaperworkFormHelpers(input: UsePaperworkFormHelpersInput): PaperworkFormHelpers {
