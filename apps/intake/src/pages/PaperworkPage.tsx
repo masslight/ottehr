@@ -549,12 +549,12 @@ export const PaperworkPage: FC = () => {
           <PagedQuestionnaire
             onSubmit={finishPaperworkPage}
             pageId={currentPage?.linkId ?? ''}
+            pageItem={currentPage}
             patientName={
               pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName
             }
             options={{ controlButtons }}
             items={questionnaireItems}
-            pageItem={currentPage}
             defaultValues={paperworkGroupDefaults}
             isSaving={loading}
             saveProgress={(data) => {

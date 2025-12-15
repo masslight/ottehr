@@ -73,8 +73,8 @@ interface PagedQuestionnaireOptions {
 
 interface PagedQuestionnaireInput {
   items: IntakeQuestionnaireItem[];
-  pageItem?: IntakeQuestionnaireItem;
   pageId: string;
+  pageItem?: IntakeQuestionnaireItem;
   patientName?: string;
   defaultValues?: QuestionnaireFormFields;
   options?: PagedQuestionnaireOptions;
@@ -182,8 +182,8 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
 
 const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   items,
-  pageItem,
   pageId,
+  pageItem,
   patientName,
   defaultValues,
   options = {},
