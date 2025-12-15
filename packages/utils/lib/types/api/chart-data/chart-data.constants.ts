@@ -6,6 +6,7 @@ import { IN_PERSON_NOTE_ID, NOTHING_TO_EAT_OR_DRINK_ID } from './chart-data.type
 export type ProviderChartDataFieldsNames =
   | 'chief-complaint'
   | 'history-of-present-illness'
+  | 'mechanism-of-injury'
   | 'ros'
   | 'current-medication'
   | 'in-house-medication'
@@ -164,6 +165,7 @@ export enum VitalsOxygenSatObservationMethod {
 
 export enum AiObservationField {
   HistoryOfPresentIllness = 'ai-history-of-present-illness',
+  MechanismOfInjury = 'ai-mechanism-of-injury',
   PastMedicalHistory = 'ai-past-medical-history',
   PastSurgicalHistory = 'ai-past-surgical-history',
   MedicationsHistory = 'ai-medications-history',

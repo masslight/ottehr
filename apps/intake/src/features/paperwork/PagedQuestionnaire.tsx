@@ -24,6 +24,7 @@ import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'rea
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
 import { useBeforeUnload } from 'react-router-dom';
+import { usePaperworkStore } from 'src/pages/PaperworkPage';
 import {
   IntakeQuestionnaireItem,
   makeValidationSchema,
@@ -46,6 +47,7 @@ import { useIntakeThemeContext } from '../../contexts';
 import { getUCInputType } from '../../helpers/paperworkUtils';
 import { otherColors } from '../../IntakeThemeProvider';
 import { ControlButtonsProps } from '../../types';
+import AIInterview from './components/AIInterview';
 import { CreditCardVerification } from './components/CreditCardVerification';
 import DateInput from './components/DateInput';
 import { FieldHelperText } from './components/FieldHelperText';
@@ -184,7 +186,6 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   saveProgress,
 }) => {
   const { paperwork, allItems, questionnaireResponse: questionnaireResponseResource } = usePaperworkContext();
-
   const [cache, setCache] = useState({
     pageId,
     items,
@@ -247,7 +248,8 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 }) => {
   const [isSavingProgress, setIsSavingProgress] = useState(false);
 
-  const { saveButtonDisabled } = usePaperworkContext();
+  const { questionnaireResponse, saveButtonDisabled } = usePaperworkContext();
+  const { continueLabel } = usePaperworkStore();
   //console.log('questionnaire response.q', questionnaireResponse?.questionnaire);
   //console.log('all items', allItems);
 
@@ -267,15 +269,18 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   }, [handleSubmit, onSubmit]);
 
   const { bottomComponent, hideControls, controlButtons } = options;
-
   const swizzledCtrlButtons = useMemo(() => {
     const baseStuff = controlButtons ?? {};
     return {
       ...baseStuff,
       submitDisabled: baseStuff.loading || isLoading || saveButtonDisabled,
+      // only use the continue label with inperson paperwork
+      submitLabel: questionnaireResponse?.questionnaire?.includes('intake-paperwork-inperson')
+        ? continueLabel
+        : undefined,
       onSubmit: submitHandler,
     };
-  }, [controlButtons, isLoading, saveButtonDisabled, submitHandler]);
+  }, [continueLabel, controlButtons, isLoading, questionnaireResponse, saveButtonDisabled, submitHandler]);
 
   useBeforeUnload(() => {
     saveProgress(formValues);
@@ -383,7 +388,6 @@ const NestedInput: FC<NestedInputProps> = (props) => {
   //console.log('item, parentItem', item.linkId, parentItem?.linkId, inheritedFieldId);
   const fieldId = getPaperworkFieldId({ item, parentItem, parentFieldId: inheritedFieldId });
   //console.log('linkId, fieldId', item.linkId, fieldId);
-
   const { hasError, errorMessage } = useFieldError(parentItem ? fieldId : item.linkId);
 
   useEffect(() => {
@@ -528,6 +532,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
   if (item.dataType === 'PDF') {
     attachmentType = 'pdf';
   }
+
   return (() => {
     switch (inputType) {
       case 'Text':
@@ -716,6 +721,8 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
         return (
           <CreditCardVerification value={unwrappedValue} required={item.required ?? false} onChange={smartOnChange} />
         );
+      case 'Medical History':
+        return <AIInterview value={unwrappedValue} onChange={smartOnChange} />;
       default:
         return <></>;
     }

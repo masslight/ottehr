@@ -348,7 +348,10 @@ const ThankYou = (): JSX.Element => {
                 <PhoneNumberMessage locationTelecom={selectedLocation?.telecom} />
               </Typography>
               {paperworkCompleted && buttons(2)}
-              {paperworkCompleted && <AiChatBanner appointmentId={appointmentId ?? ''} />}
+              {/* only include the chat for telemedicine visit */}
+              {paperworkCompleted && appointmentData.appointment?.serviceMode === ServiceMode.virtual && (
+                <AiChatBanner appointmentId={appointmentId ?? ''} />
+              )}
             </>
           ) : (
             <>

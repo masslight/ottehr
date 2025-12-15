@@ -17,17 +17,19 @@ if (!isCI) {
           '.env.development',
           '.env.staging',
           '.env.testing',
+          '.env.e2e',
           'tests.local.json',
           'tests.demo.json',
           'tests.development.json',
           'tests.staging.json',
           'tests.testing.json',
+          'tests.e2e.json',
         ],
       },
       {
         localEnvFolder: '../../packages/zambdas/.env',
         repoEnvFolder: './ottehr-secrets/zambdas/',
-        envsToCopy: ['demo.json', 'development.json', 'local.json', 'staging.json', 'testing.json'],
+        envsToCopy: ['demo.json', 'development.json', 'local.json', 'staging.json', 'testing.json', 'e2e.json'],
       },
     ]);
   })();

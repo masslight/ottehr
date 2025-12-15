@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.22.25",
+  "version": "1.23.13",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -16,6 +16,7 @@
     "report-daily-payments": "tsx src/scripts/report-daily-payments.ts",
     "report-duplicate-payments": "tsx src/scripts/report-duplicate-payments.ts",
     "report-past-due-invoices": "tsx src/scripts/report-past-due-invoices.ts",
+    "report-provider-visists": "tsx src/scripts/report-provider-visists.ts",
     "get-coverage-eligibility-responses": "tsx src/scripts/get-coverage-eligibility-responses.ts",
     "get-rcm-tasks": "tsx src/scripts/get-rcm-tasks.ts",
     "send-invoices-to-patients-by-sms": "tsx src/scripts/send-invoices-to-patients-by-sms.ts",

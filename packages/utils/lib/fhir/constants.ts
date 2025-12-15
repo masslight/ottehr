@@ -25,6 +25,7 @@ import {
   RECEIPT_CODE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
+  STATEMENT_CODE,
   VISIT_NOTE_SUMMARY_CODE,
 } from '../types';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
@@ -122,6 +123,9 @@ export const FHIR_EXTENSION = {
   InsurancePlan: {
     insuranceRequirements: {
       url: `${PUBLIC_EXTENSION_BASE_URL}/insurance-requirements`,
+    },
+    notes: {
+      url: ottehrExtensionUrl('notes'),
     },
   },
   QuestionnaireResponse: {
@@ -381,6 +385,7 @@ export const BUCKET_NAMES = {
   RECEIPTS: 'receipts',
   PAPERWORK: 'exported-questionnaires',
   DISCHARGE_SUMMARIES: 'discharge-summaries',
+  STATEMENTS: 'statements',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -456,6 +461,11 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     display: 'Discharge Summary',
     documentTypeCode: DISCHARGE_SUMMARY_CODE,
   },
+  {
+    title: BUCKET_NAMES.STATEMENTS,
+    display: 'Statements',
+    documentTypeCode: STATEMENT_CODE,
+  },
 ];
 
 export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
@@ -488,6 +498,16 @@ export const PATIENT_BILLING_ACCOUNT_TYPE: Account['type'] = {
       system: 'http://terminology.hl7.org/CodeSystem/account-type',
       code: 'PBILLACCT',
       display: 'patient billing account',
+    },
+  ],
+};
+
+export const WORKERS_COMP_ACCOUNT_TYPE: Account['type'] = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/account-type',
+      code: 'WCOMPACCT',
+      display: 'worker compensation account',
     },
   ],
 };
@@ -644,7 +664,7 @@ export const TASK_LOCATION_SYSTEM = ottehrCodeSystemUrl('task-location');
 export const TASK_ASSIGNED_DATE_TIME_EXTENSION_URL = ottehrExtensionUrl('task-assigned-date-time');
 
 export const RCM_TASK_SYSTEM = ottehrCodeSystemUrl('rcm-task');
-// note: be careful, one of these codes are hardcoded in ottehr-spec.json in SUB-SEND-INVOICE-TO-PATIENT endpoint
+// note: be careful, one of these codes are hardcoded in zambdas config file in SUB-SEND-INVOICE-TO-PATIENT endpoint
 export enum RcmTaskCode {
   sendInvoiceToPatient = 'send-invoice-to-patient',
   sendInvoiceOutputInvoiceId = 'send-invoice-output-invoice-Id',

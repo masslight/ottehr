@@ -4,6 +4,7 @@ import { AllStates, PatientEthnicity, PatientRace } from 'utils';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
+import { QuestionnaireHelper } from './QuestionnaireHelper';
 import { PaperworkTelemed } from './telemed/Paperwork';
 import { UploadDocs } from './UploadDocs';
 
@@ -55,11 +56,31 @@ interface ResponsibleParty {
   zip: string;
 }
 
+interface EmployerInformation {
+  employerName: string;
+  address1: string;
+  address2: string;
+  city: string;
+  state: string;
+  zip: string;
+  contactFirstName: string;
+  contactLastName: string;
+  contactTitle: string;
+  contactEmail: string;
+  contactPhone: string;
+  contactFax: string;
+}
+
 interface EmergencyContact {
   relationship: string;
   firstName: string;
   lastName: string;
   phone: string;
+  address: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  zip: string;
 }
 
 interface TelemedPaperworkData {
@@ -93,6 +114,7 @@ export class Paperwork {
   context: BrowserContext;
   uploadPhoto: UploadDocs;
   paperworkTelemed: PaperworkTelemed;
+  employerInformationPageExists: boolean;
 
   constructor(page: Page) {
     this.page = page;
@@ -102,6 +124,7 @@ export class Paperwork {
     this.uploadPhoto = new UploadDocs(page);
     this.paperworkTelemed = new PaperworkTelemed(page);
     this.context = page.context();
+    this.employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
   }
   private language = ['English', 'Spanish'];
   private relationshipResponsiblePartyNotSelf = ['Legal Guardian', 'Parent', 'Other', 'Spouse'];
@@ -166,6 +189,7 @@ export class Paperwork {
       insuranceOptionalData: InsuranceOptionalData;
     } | null;
     responsiblePartyData: ResponsibleParty | null;
+    employerInformation: EmployerInformation | null;
     emergencyContactInformation: EmergencyContact | null;
   }> {
     const { stateValue } = await this.fillContactInformationAllFields();
@@ -200,12 +224,18 @@ export class Paperwork {
     }
     await this.locator.clickContinueButton();
     let responsiblePartyData: ResponsibleParty | null = null;
+    let employerInformation: EmployerInformation | null = null;
     if (responsibleParty === 'self') {
       await this.fillResponsiblePartyDataSelf();
     } else {
       responsiblePartyData = await this.fillResponsiblePartyDataNotSelf();
     }
     await this.locator.clickContinueButton();
+    if (this.employerInformationPageExists) {
+      await this.checkCorrectPageOpens('Employer information');
+      employerInformation = await this.fillEmployerInformation();
+      await this.locator.clickContinueButton();
+    }
     await this.checkCorrectPageOpens('Emergency Contact');
     const emergencyContactInformation = await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
@@ -214,6 +244,8 @@ export class Paperwork {
     await this.uploadPhoto.fillPhotoBackID();
     await this.locator.clickContinueButton();
     await this.fillConsentForms();
+    await this.locator.clickContinueButton();
+    // skip medical history
     await this.locator.clickContinueButton();
     return {
       stateValue,
@@ -232,6 +264,7 @@ export class Paperwork {
         formattedPhoneNumber: pcpData.formattedPhoneNumber,
       },
       responsiblePartyData,
+      employerInformation,
       emergencyContactInformation,
       insuranceData,
       secondaryInsuranceData,
@@ -411,11 +444,17 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     await this.fillResponsiblePartyDataSelf();
     await this.locator.clickContinueButton();
+    if (this.employerInformationPageExists) {
+      await this.fillEmployerInformation();
+      await this.locator.clickContinueButton();
+    }
     await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
     await this.skipPhotoID();
     await this.locator.clickContinueButton();
     await this.fillConsentForms();
+    await this.locator.clickContinueButton();
+    // skip medical history
     await this.locator.clickContinueButton();
   }
   async fillContactInformationRequiredFields(): Promise<{ stateValue: string }> {
@@ -423,6 +462,7 @@ export class Paperwork {
     await this.fillStreetAddress();
     await this.fillPatientCity();
     await this.fillPatientZip();
+    await this.fillPreferredCommunicationMethod();
     await expect(this.locator.streetAddress).not.toBeEmpty();
     await expect(this.locator.patientCity).not.toBeEmpty();
     await expect(this.locator.patientState).not.toBeEmpty();
@@ -458,6 +498,14 @@ export class Paperwork {
   async fillPatientZip(): Promise<void> {
     await this.locator.patientZip.fill(PATIENT_ZIP);
     await expect(this.locator.patientZip).toHaveValue(PATIENT_ZIP);
+  }
+  async fillPreferredCommunicationMethod(): Promise<void> {
+    const preferredCommunicationMethodInputPresent = await this.locator.preferredCommunicationMethod.isVisible();
+    if (!preferredCommunicationMethodInputPresent) {
+      return;
+    }
+    await this.locator.preferredCommunicationMethod.click();
+    await this.page.getByRole('option').first().click();
   }
   async fillMobileOptIn(): Promise<void> {
     await this.locator.mobileOptIn.check();
@@ -884,20 +932,76 @@ export class Paperwork {
     return { zip };
   }
 
+  async fillEmployerInformation(): Promise<EmployerInformation> {
+    const employerName = `Employer ${this.getRandomString()}`;
+    const address1 = `Employer Address ${this.getRandomString()}`;
+    const address2 = `Employer Address 2 ${this.getRandomString()}`;
+    const city = `EmployerCity${this.getRandomString()}`;
+    const state = 'AL';
+    const zip = '12345';
+    const contactFirstName = `ContactFN${this.getRandomString()}`;
+    const contactLastName = `ContactLN${this.getRandomString()}`;
+    const contactTitle = `Title ${this.getRandomString()}`;
+    const contactEmail = `employer${this.getRandomString()}@mail.com`;
+    const contactPhoneRaw = PHONE_NUMBER;
+    const contactPhone = this.formatPhoneNumber(contactPhoneRaw);
+    const contactFaxRaw = '9876543210';
+    const contactFax = this.formatPhoneNumber(contactFaxRaw);
+
+    await this.locator.employerName.fill(employerName);
+    await this.locator.employerAddress1.fill(address1);
+    await this.locator.employerAddress2.fill(address2);
+    await this.locator.employerCity.fill(city);
+    await this.locator.employerState.click();
+    await this.page.getByRole('option', { name: state }).click();
+    await expect(this.locator.employerState).toHaveValue(state);
+    await this.locator.employerZip.fill(zip);
+    await this.locator.employerContactFirstName.fill(contactFirstName);
+    await this.locator.employerContactLastName.fill(contactLastName);
+    await this.locator.employerContactTitle.fill(contactTitle);
+    await this.locator.employerContactEmail.fill(contactEmail);
+    await this.locator.employerContactPhone.fill(contactPhoneRaw);
+    await expect(this.locator.employerContactPhone).toHaveValue(contactPhone);
+    await this.locator.employerContactFax.fill(contactFaxRaw);
+    await expect(this.locator.employerContactFax).toHaveValue(contactFax);
+
+    return {
+      employerName,
+      address1,
+      address2,
+      city,
+      state,
+      zip,
+      contactFirstName,
+      contactLastName,
+      contactTitle,
+      contactEmail,
+      contactPhone,
+      contactFax,
+    };
+  }
+
   async fillEmergencyContactInformation(): Promise<{
     relationship: string;
     firstName: string;
     lastName: string;
     phone: string;
+    address: string;
+    addressLine2: string;
+    city: string;
+    state: string;
+    zip: string;
   }> {
     const { relationship } = await this.fillEmergencyContactInformationRelationship();
     const name = await this.fillEmergencyContactInformationName();
     const { formattedPhoneNumber: phone } = await this.fillEmergencyContactInformationPhone();
+    const addressInfo = await this.fillEmergencyContactAddressInformation();
     return {
       relationship,
       firstName: name.firstName,
       lastName: name.lastName,
       phone,
+      ...addressInfo,
     };
   }
   async fillEmergencyContactInformationRelationship(): Promise<{ relationship: string }> {
@@ -923,6 +1027,28 @@ export class Paperwork {
     const formattedPhoneNumber = this.formatPhoneNumber(PHONE_NUMBER);
     await this.locator.emergencyContactInformationPhone.fill(PHONE_NUMBER);
     return { formattedPhoneNumber };
+  }
+  async fillEmergencyContactAddressInformation(): Promise<{
+    address: string;
+    addressLine2: string;
+    city: string;
+    state: string;
+    zip: string;
+  }> {
+    await this.locator.emergencyContactSameAddressAsPatient.setChecked(false);
+    const address = `Emergency Address ${this.getRandomString()}`;
+    const addressLine2 = `Emergency Address Line 2 ${this.getRandomString()}`;
+    const city = `EmergencyCity${this.getRandomString()}`;
+    const state = 'AL';
+    const zip = '12345';
+    await this.locator.emergencyContactAddress.fill(address);
+    await this.locator.emergencyContactAddressLine2.fill(addressLine2);
+    await this.locator.emergencyContactCity.fill(city);
+    await this.locator.emergencyContactState.click();
+    await this.page.getByRole('option').first().click();
+    await expect(this.locator.emergencyContactState).toHaveValue(state);
+    await this.locator.emergencyContactZip.fill(zip);
+    return { address, addressLine2, city, state, zip };
   }
 
   async checkImagesIsSaved(image: Locator): Promise<void> {

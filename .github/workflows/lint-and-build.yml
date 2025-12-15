@@ -4,43 +4,22 @@ on:
   workflow_dispatch:
   push:
     branches: [main, develop]
-    paths:
-      - "apps/ehr/**"
-      - "apps/intake/**"
-      - "packages/zambdas/**"
-      - "packages/utils/**"
-      - "packages/ui-components/**"
-      - "scripts/**"
-      - ".github/**"
-      - ".prettierignore"
-      - "package.json"
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - "apps/ehr/**"
-      - "apps/intake/**"
-      - "packages/zambdas/**"
-      - "packages/utils/**"
-      - "packages/ui-components/**"
-      - "scripts/**"
-      - ".github/**"
-      - ".prettierignore"
-      - "package.json"
+    branches: [main, develop, 'release/**']
+
+env:
+  SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
 jobs:
   lint-and-build:
-    if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest-4-cores
     timeout-minutes: 15
     strategy:
       matrix:
         node-version:
           - "22"
-    env:
-      SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
-      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-
     steps:
       - name: Install SSH Client
         uses: webfactory/ssh-agent@836c84ec59a0e7bc0eabc79988384eb567561ee2 # v0.7.0
@@ -89,20 +68,27 @@ jobs:
 
       - name: Cache node modules
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        env:
-          cache-name: cache-node-modules
+        id: npm-cache
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            deploy/node_modules
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+            ${{ runner.os }}-npm-cache-
 
       - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
         run: npm ci
 
+      - name: Check for skip build and lint
+        if: contains(github.event.pull_request.body, '/skip-build-and-lint')
+        run: echo "Build and lint skipped via /skip-build-and-lint command"
+
       - name: Build
+        if: ${{ !contains(github.event.pull_request.body, '/skip-build-and-lint') }}
         run: npm run build
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"

@@ -40,6 +40,7 @@ import { DateTime } from 'luxon';
 import {
   addOperation,
   CODE_SYSTEM_COVERAGE_CLASS,
+  createPatientDocumentList,
   docRefIsLabGeneratedResult,
   docRefIsOgHl7Transmission,
   findExistingListByDocumentTypeCode,
@@ -75,6 +76,7 @@ import {
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_NPI,
   FHIR_IDENTIFIER_SYSTEM,
+  FOLDERS_CONFIG,
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,
   PRACTITIONER_QUALIFICATION_STATE_SYSTEM,
@@ -363,11 +365,17 @@ export async function createFilesDocumentReferences(
     if (listResources) {
       const newListResources: List[] = [];
       for (const [typeCode, newEntries] of Object.entries(newEntriesByType)) {
-        const list = findExistingListByDocumentTypeCode(listResources, typeCode);
-        if (!list?.id) {
-          console.log(`default list for files with typeCode: ${typeCode} not found. Add typeCode to FOLDERS_CONFIG`);
-          // TODO: Create List with default config
-        } else {
+        let list = findExistingListByDocumentTypeCode(listResources, typeCode);
+        if (!list) {
+          const config = FOLDERS_CONFIG.find((config) => config.documentTypeCode === typeCode);
+          const patientReference = (references as any).subject?.reference;
+          if (config && typeof patientReference === 'string' && patientReference.startsWith('Patient/')) {
+            list = await oystehr.fhir.create<List>(createPatientDocumentList(patientReference, config));
+          } else {
+            console.log(`Can't create a list for config "${typeCode}" and patient "${patientReference}"`);
+          }
+        }
+        if (list?.id) {
           const updatedFolderEntries = [...(list?.entry ?? []), ...newEntries];
           const patchListWithDocRefOperation: Operation =
             list?.entry && list.entry?.length > 0

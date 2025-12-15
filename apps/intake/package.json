@@ -1,6 +1,6 @@
 {
   "name": "intake-ui",
-  "version": "1.22.25",
+  "version": "1.23.13",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,7 @@
     "build": "tsc && vite build --mode default",
     "build:env": "ENV=$npm_config_env ROBOTS_FILE=lowers npm run build-skeleton",
     "build:local": "npm run build",
+    "build:e2e": "ENV=e2e ROBOTS_FILE=lowers npm run build-skeleton",
     "build:development": "ENV=development ROBOTS_FILE=lowers npm run build-skeleton",
     "build:testing": "ENV=testing ROBOTS_FILE=lowers npm run build-skeleton",
     "build:staging": "ENV=staging ROBOTS_FILE=lowers npm run build-skeleton",
@@ -56,6 +57,7 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "tsconfig": "*",
     "vite-plugin-istanbul": "^6.0.2",
     "vitest": "^3.0.4"

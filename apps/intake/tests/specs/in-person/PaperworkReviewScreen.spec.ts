@@ -1,5 +1,6 @@
 // cSpell:ignore networkidle
 import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { QuestionnaireHelper } from 'tests/utils/QuestionnaireHelper';
 import {
   chooseJson,
   CreateAppointmentResponse,
@@ -21,6 +22,7 @@ let locator: Locators;
 let uploadPhoto: UploadDocs;
 let commonLocators: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
+const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
 const REVIEW_PAGE_ID = 'PAPERWORK_REVIEW_PAGE';
 
 test.beforeAll(async ({ browser }) => {
@@ -74,8 +76,9 @@ test.describe('Paperwork.Review and Submit - Check Complete/Missing chips', () =
     await uploadPhoto.fillPhotoBackID();
     await locator.clickContinueButton();
     await locator.clickContinueButton();
+    await locator.clickContinueButton();
     await paperwork.checkAllChipsAreCompletedInPerson();
-    await expect(locator.finishButton).toBeVisible();
+    await expect(locator.continueButton).toBeVisible();
   });
   test('PRS-3 Select Insurance, fill required fields, check all chips are completed, [Finish] button is visible', async () => {
     await locator.insuranceDetailsEditButton.click();
@@ -89,13 +92,17 @@ test.describe('Paperwork.Review and Submit - Check Complete/Missing chips', () =
     await locator.clickContinueButton();
     await locator.clickContinueButton();
     await locator.clickContinueButton();
+    if (employerInformationPageExists) {
+      await locator.clickContinueButton();
+    }
+    await locator.clickContinueButton();
     await paperwork.checkAllChipsAreCompletedInPerson();
-    await expect(locator.finishButton).toBeVisible();
+    await expect(locator.continueButton).toBeVisible();
   });
   test('PRS-4 All chips are completed after reload', async () => {
     await page.reload();
     await paperwork.checkAllChipsAreCompletedInPerson();
-    await expect(locator.finishButton).toBeVisible();
+    await expect(locator.continueButton).toBeVisible();
   });
 });
 test.describe('Paperwork.Review and Submit - Check values', () => {

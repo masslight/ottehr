@@ -186,6 +186,10 @@ export async function getChartData(
     addRequestIfNeeded({ field: 'historyOfPresentIllness', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }
 
+  if (requestedFields?.mechanismOfInjury) {
+    addRequestIfNeeded({ field: 'mechanismOfInjury', resourceType: 'Condition', defaultSearchBy: 'encounter' });
+  }
+
   if (requestedFields?.ros) {
     addRequestIfNeeded({ field: 'ros', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }
@@ -214,6 +218,10 @@ export async function getChartData(
     chartDataRequests.push(
       createFindResourceRequestByPatientField(patient.id!, 'EpisodeOfCare', 'patient', requestedFields.episodeOfCare)
     );
+  }
+
+  if (requestedFields?.aiPotentialDiagnosis) {
+    addRequestIfNeeded({ field: 'aiPotentialDiagnosis', resourceType: 'Condition', defaultSearchBy: 'encounter' });
   }
 
   if (requestedFields == null) {

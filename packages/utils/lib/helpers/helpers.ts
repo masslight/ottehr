@@ -344,6 +344,25 @@ export const DEMO_VISIT_EMERGENCY_CONTACT_FIRST_NAME = 'Emergen';
 export const DEMO_VISIT_EMERGENCY_CONTACT_MIDDLE_NAME = 'C';
 export const DEMO_VISIT_EMERGENCY_CONTACT_LAST_NAME = 'Contact';
 export const DEMO_VISIT_EMERGENCY_CONTACT_PHONE = '(123) 123-1234';
+export const DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS_AS_PATIENT = false;
+export const DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS = 'address';
+export const DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS_LINE2 = 'address 2';
+export const DEMO_VISIT_EMERGENCY_CONTACT_CITY = 'city';
+export const DEMO_VISIT_EMERGENCY_CONTACT_STATE = 'AL';
+export const DEMO_VISIT_EMERGENCY_CONTACT_ZIP = '12312';
+export const DEMO_VISIT_EMPLOYER_NAME = 'Test Employer Inc';
+export const DEMO_VISIT_EMPLOYER_ADDRESS = '123 Business Street';
+export const DEMO_VISIT_EMPLOYER_ADDRESS_2 = 'Suite 100';
+export const DEMO_VISIT_EMPLOYER_CITY = 'New York';
+export const DEMO_VISIT_EMPLOYER_STATE = 'NY';
+export const DEMO_VISIT_EMPLOYER_ZIP = '10001';
+export const DEMO_VISIT_EMPLOYER_CONTACT_FIRST_NAME = 'John';
+export const DEMO_VISIT_EMPLOYER_CONTACT_LAST_NAME = 'Doe';
+export const DEMO_VISIT_EMPLOYER_CONTACT_TITLE = 'HR Manager';
+export const DEMO_VISIT_EMPLOYER_CONTACT_EMAIL = 'a@a.a';
+export const DEMO_VISIT_EMPLOYER_CONTACT_PHONE = '(123) 123-1234';
+export const DEMO_VISIT_EMPLOYER_CONTACT_FAX = '(123) 123-1234';
+export const DEMO_PREFERRED_COMMUNICATION_METHOD = 'No preference';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -367,6 +386,7 @@ export function getContactInformationAnswers({
   phoneNumber = '(202) 733-9622',
 
   mobileOptIn = DEMO_VISIT_MARKETING_MESSAGING,
+  preferredCommunicationMethod = DEMO_PREFERRED_COMMUNICATION_METHOD,
 }: {
   willBe18?: boolean;
   isNewPatient?: boolean;
@@ -378,6 +398,7 @@ export function getContactInformationAnswers({
   email?: string;
   phoneNumber?: string;
   mobileOptIn?: boolean;
+  preferredCommunicationMethod?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'contact-information-page',
@@ -456,6 +477,14 @@ export function getContactInformationAnswers({
         answer: [
           {
             valueString: formatPhoneNumberForQuestionnaire(phoneNumber),
+          },
+        ],
+      },
+      {
+        linkId: 'patient-preferred-communication-method',
+        answer: [
+          {
+            valueString: preferredCommunicationMethod,
           },
         ],
       },
@@ -619,12 +648,24 @@ export function getEmergencyContactStepAnswers({
   middleName = DEMO_VISIT_EMERGENCY_CONTACT_MIDDLE_NAME,
   lastName = DEMO_VISIT_EMERGENCY_CONTACT_LAST_NAME,
   phone = DEMO_VISIT_EMERGENCY_CONTACT_PHONE,
+  addressAsPatient = DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS_AS_PATIENT,
+  address = DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS,
+  addressLine2 = DEMO_VISIT_EMERGENCY_CONTACT_ADDRESS_LINE2,
+  city = DEMO_VISIT_EMERGENCY_CONTACT_CITY,
+  state = DEMO_VISIT_EMERGENCY_CONTACT_STATE,
+  zip = DEMO_VISIT_EMERGENCY_CONTACT_ZIP,
 }: {
   relationship?: string;
   firstName?: string;
   middleName?: string;
   lastName?: string;
   phone?: string;
+  addressAsPatient?: boolean;
+  address?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'emergency-contact-page',
@@ -648,6 +689,30 @@ export function getEmergencyContactStepAnswers({
       {
         linkId: 'emergency-contact-number',
         answer: [{ valueString: phone }],
+      },
+      {
+        linkId: 'emergency-contact-address-as-patient',
+        answer: [{ valueBoolean: addressAsPatient }],
+      },
+      {
+        linkId: 'emergency-contact-address',
+        answer: [{ valueString: address }],
+      },
+      {
+        linkId: 'emergency-contact-address-2',
+        answer: [{ valueString: addressLine2 }],
+      },
+      {
+        linkId: 'emergency-contact-city',
+        answer: [{ valueString: city }],
+      },
+      {
+        linkId: 'emergency-contact-state',
+        answer: [{ valueString: state }],
+      },
+      {
+        linkId: 'emergency-contact-zip',
+        answer: [{ valueString: zip }],
       },
     ],
   };
@@ -1288,6 +1353,88 @@ export function getPreferredPharmacyStepAnswers(): PatchPaperworkParameters['ans
   };
 }
 
+export function getEmployerInformationStepAnswers({
+  employerName = DEMO_VISIT_EMPLOYER_NAME,
+  address = DEMO_VISIT_EMPLOYER_ADDRESS,
+  address2 = DEMO_VISIT_EMPLOYER_ADDRESS_2,
+  city = DEMO_VISIT_EMPLOYER_CITY,
+  state = DEMO_VISIT_EMPLOYER_STATE,
+  zip = DEMO_VISIT_EMPLOYER_ZIP,
+  contactFirstName = DEMO_VISIT_EMPLOYER_CONTACT_FIRST_NAME,
+  contactLastName = DEMO_VISIT_EMPLOYER_CONTACT_LAST_NAME,
+  contactTitle = DEMO_VISIT_EMPLOYER_CONTACT_TITLE,
+  contactEmail = DEMO_VISIT_EMPLOYER_CONTACT_EMAIL,
+  contactPhone = DEMO_VISIT_EMPLOYER_CONTACT_PHONE,
+  contactFax = DEMO_VISIT_EMPLOYER_CONTACT_FAX,
+}: {
+  employerName?: string;
+  address?: string;
+  address2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  contactFirstName?: string;
+  contactLastName?: string;
+  contactTitle?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactFax?: string;
+} = {}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'employer-information-page',
+    item: [
+      {
+        linkId: 'employer-name',
+        answer: [{ valueString: employerName }],
+      },
+      {
+        linkId: 'employer-address',
+        answer: [{ valueString: address }],
+      },
+      {
+        linkId: 'employer-address-2',
+        answer: [{ valueString: address2 }],
+      },
+      {
+        linkId: 'employer-city',
+        answer: [{ valueString: city }],
+      },
+      {
+        linkId: 'employer-state',
+        answer: [{ valueString: state }],
+      },
+      {
+        linkId: 'employer-zip',
+        answer: [{ valueString: zip }],
+      },
+      {
+        linkId: 'employer-contact-first-name',
+        answer: [{ valueString: contactFirstName }],
+      },
+      {
+        linkId: 'employer-contact-last-name',
+        answer: [{ valueString: contactLastName }],
+      },
+      {
+        linkId: 'employer-contact-title',
+        answer: [{ valueString: contactTitle }],
+      },
+      {
+        linkId: 'employer-contact-email',
+        answer: [{ valueString: contactEmail }],
+      },
+      {
+        linkId: 'employer-contact-phone',
+        answer: [{ valueString: contactPhone }],
+      },
+      {
+        linkId: 'employer-contact-fax',
+        answer: [{ valueString: contactFax }],
+      },
+    ],
+  };
+}
+
 const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): CashPaymentDTO | undefined => {
   const { extension, amount, created, id } = paymentNotice;
 
@@ -1448,7 +1595,12 @@ export interface TemplateVariables {
 
 // <key> syntax
 export function replaceTemplateVariablesArrows(template: string, variables: TemplateVariables): string {
-  return template.replace(/<([\w-]+)>/g, (match, key) => {
-    return variables[key]?.toString() || match;
-  });
+  try {
+    if (!template) return '';
+    return template.replace(/<([\w-]+)>/g, (match, key) => {
+      return variables[key]?.toString() || match;
+    });
+  } catch {
+    return template;
+  }
 }
