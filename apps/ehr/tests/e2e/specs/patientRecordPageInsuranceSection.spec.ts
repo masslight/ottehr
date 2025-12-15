@@ -102,7 +102,7 @@ test.describe('Insurance Information Section non-mutating tests', () => {
   });
 
   test(
-    'Verify data from Primary and Secondary Insurances blocks are displayed correctly',
+    'PRP-INS-1 Verify data from Primary and Secondary Insurances blocks are displayed correctly',
     { tag: '@flaky' },
     async ({ page }) => {
       const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
@@ -165,7 +165,7 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     }
   );
 
-  test('Check validation error is displayed if any required field in Insurance information block is missing', async ({
+  test('PRP-INS-2 Check validation error is displayed if any required field in Insurance information block is missing', async ({
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
@@ -225,7 +225,7 @@ test.describe('Insurance Information Section mutating tests', () => {
     await resourceHandler.cleanupResources();
   });
 
-  test('Enter invalid zip on Insurance information block, validation error are shown', async ({ page }) => {
+  test('PRP-INS-3 Enter invalid zip on Insurance information block, validation error are shown', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     await primaryInsuranceCard.clickShowMoreButton();
@@ -246,7 +246,9 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
   });
 
-  test('Updated values from Insurance information block are saved and displayed correctly', async ({ page }) => {
+  test('PRP-INS-4 Updated values from Insurance information block are saved and displayed correctly', async ({
+    page,
+  }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     await primaryInsuranceCard.clickShowMoreButton();
@@ -346,7 +348,7 @@ test.describe('Insurance Information Section mutating tests', () => {
     );
   });
 
-  test('Set and remove Additional Insurance Information for both primary and secondary insurance, then verify it is cleared after save', async ({
+  test('PRP-INS-5 Set and remove Additional Insurance Information for both primary and secondary insurance, then verify it is cleared after save', async ({
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
@@ -392,7 +394,7 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.verifyAdditionalInsuranceInformation('');
   });
 
-  test('Check [Add insurance] button is hidden when both primary and secondary insurances are present,[Add insurance] button is present if primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Primary"', async ({
+  test('PRP-INS-6 Check [Add insurance] button is hidden when both primary and secondary insurances are present,[Add insurance] button is present if primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Primary"', async ({
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
@@ -405,7 +407,7 @@ test.describe('Insurance Information Section mutating tests', () => {
     await addInsuranceDialog.verifyTypeField('Primary', false);
   });
 
-  test('Check [Add insurance] button is present if Primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Secondary"', async ({
+  test('PRP-INS-7 Check [Add insurance] button is present if Primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Secondary"', async ({
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);

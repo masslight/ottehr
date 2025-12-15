@@ -44,7 +44,7 @@ test.describe('Screening Page mutating tests', () => {
     await resourceHandler.cleanupResources();
   });
 
-  test('Screening Happy path', async ({ page }) => {
+  test('SCR-1 Screening Happy path', async ({ page }) => {
     let screeningPage = await test.step('Fill screening info', async () => {
       const progressNotePage = await expectInPersonProgressNotePage(page);
       const screeningPage = await progressNotePage.sideMenu().clickScreening();
@@ -53,7 +53,7 @@ test.describe('Screening Page mutating tests', () => {
       return await expectScreeningPage(page);
     });
 
-    const progressNotePage = await test.step('Verify screening info on progress note', async () => {
+    const progressNotePage = await test.step('SCR-1.1 Verify screening info on progress note', async () => {
       const progressNotePage = await screeningPage.sideMenu().clickReviewAndSign();
       const progressNoteLines = createProgressNoteLines(SCREENING_A);
       progressNoteLines.push('ASQ - ' + SCREENING_A.asqAnswer);
@@ -62,13 +62,13 @@ test.describe('Screening Page mutating tests', () => {
       return await expectInPersonProgressNotePage(page);
     });
 
-    screeningPage = await test.step('Edit screening info', async () => {
+    screeningPage = await test.step('SCR-1.2 Edit screening info', async () => {
       const screeningPage = await progressNotePage.sideMenu().clickScreening();
       await enterScreeningInfo(SCREENING_B, screeningPage);
       return await expectScreeningPage(page);
     });
 
-    await test.step('Verify edited screening info on progress note', async () => {
+    await test.step('SCR-1.3 Verify edited screening info on progress note', async () => {
       const progressNotePage = await screeningPage.sideMenu().clickReviewAndSign();
       const editedProgressNoteLines = createProgressNoteLines(SCREENING_B);
       editedProgressNoteLines.push('ASQ - ' + SCREENING_B.asqAnswer);

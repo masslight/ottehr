@@ -146,21 +146,21 @@ test.describe('Patient Record Page tests', () => {
   let patientInformationPage: PatientInformationPage;
 
   /* Non-mutating part start */
-  test('Click on "See all patient info button", Patient Info Page is opened', async () => {
+  test('PTPRF-1 Click on "See all patient info button", Patient Info Page is opened', async () => {
     await page.goto('/patient/' + resourceHandler.patient.id);
     const patientRecordPage = await expectPatientRecordPage(resourceHandler.patient.id!, page);
     await patientRecordPage.clickSeeAllPatientInfoButton();
     patientInformationPage = await expectPatientInformationPage(page, resourceHandler.patient.id!);
   });
 
-  test('Verify required data from Patient info block is displayed correctly', async () => {
+  test('PTPRF-2 Verify required data from Patient info block is displayed correctly', async () => {
     await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
     await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
     await patientInformationPage.verifyPatientDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await patientInformationPage.verifyPatientBirthSex(PATIENT_GENDER);
   });
 
-  test('Verify required data from Contact info block is displayed correctly', async () => {
+  test('PTPRF-3 Verify required data from Contact info block is displayed correctly', async () => {
     await patientInformationPage.verifyStreetAddress(DEMO_VISIT_STREET_ADDRESS);
     await patientInformationPage.verifyAddressLineOptional(DEMO_VISIT_STREET_ADDRESS_OPTIONAL);
     await patientInformationPage.verifyCity(DEMO_VISIT_CITY);
@@ -170,7 +170,7 @@ test.describe('Patient Record Page tests', () => {
     await patientInformationPage.verifyPatientMobile(PATIENT_PHONE_NUMBER);
   });
 
-  test('Verify data from Responsible party information block is displayed correctly', async () => {
+  test('PTPRF-4 Verify data from Responsible party information block is displayed correctly', async () => {
     await patientInformationPage.verifyRelationshipFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
     await patientInformationPage.verifyFirstNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_FIRST_NAME);
     await patientInformationPage.verifyLastNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_LAST_NAME);
@@ -186,7 +186,7 @@ test.describe('Patient Record Page tests', () => {
     await patientInformationPage.verifyEmailFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_EMAIL);
   });
 
-  test('Verify entered by patient data from Patient details block is displayed correctly', async () => {
+  test('PTPRF-5 Verify entered by patient data from Patient details block is displayed correctly', async () => {
     await patientInformationPage.verifyPatientEthnicity(DEMO_VISIT_PATIENT_ETHNICITY);
     await patientInformationPage.verifyPatientRace(DEMO_VISIT_PATIENT_RACE);
     await patientInformationPage.verifyHowDidYouHear(DEMO_VISIT_POINT_OF_DISCOVERY);
@@ -194,7 +194,7 @@ test.describe('Patient Record Page tests', () => {
     await patientInformationPage.verifyPreferredLanguage(DEMO_VISIT_PREFERRED_LANGUAGE);
   });
 
-  test('Verify data from Primary Care Physician block is displayed correctly', async () => {
+  test('PTPRF-6 Verify data from Primary Care Physician block is displayed correctly', async () => {
     await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
     await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
     await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
@@ -202,14 +202,14 @@ test.describe('Patient Record Page tests', () => {
     await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
   });
 
-  test('Check validation error is displayed for invalid phone number from Primary Care Physician block', async () => {
+  test('PTPRF-7 Check validation error is displayed for invalid phone number from Primary Care Physician block', async () => {
     await patientInformationPage.clearMobileFromPcp();
     await patientInformationPage.enterMobileFromPcp('2222245');
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyValidationErrorInvalidPhoneFromPcp();
   });
 
-  test('Check all fields from Primary Care Physician block are hidden when checkbox is checked', async () => {
+  test('PTPRF-8 Check all fields from Primary Care Physician block are hidden when checkbox is checked', async () => {
     await patientInformationPage.setCheckboxOn();
     await patientInformationPage.verifyFirstNameFromPcpIsNotVisible();
     await patientInformationPage.verifyLastNameFromPcpIsNotVisible();
@@ -218,7 +218,7 @@ test.describe('Patient Record Page tests', () => {
     await patientInformationPage.verifyMobileFromPcpIsNotVisible();
   });
 
-  test.skip('Check all fields from Primary Care Physician block after toggling the checkbox on and off', async () => {
+  test.skip('PTPRF-9 Check all fields from Primary Care Physician block after toggling the checkbox on and off', async () => {
     await patientInformationPage.setCheckboxOff();
 
     await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
@@ -247,7 +247,7 @@ test.describe('Patient Record Page tests', () => {
     await expectPatientRecordPage(resourceHandler.patient.id!, page);
   });*/
 
-  test('Click on [Cancel] button, user stays on Patient Profile page', async () => {
+  test('PTPRF-10 Click on [Cancel] button, user stays on Patient Profile page', async () => {
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
     const discardChangesDialog = await expectDialog(page);
@@ -255,14 +255,14 @@ test.describe('Patient Record Page tests', () => {
     await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
   });
 
-  test('Click on [x] icon, user stays on Patient Profile page', async () => {
+  test('PTPRF-11 Click on [x] icon, user stays on Patient Profile page', async () => {
     await patientInformationPage.clickCloseButton();
     const discardChangesDialog = await expectDialog(page);
     await discardChangesDialog.clickCloseButton();
     await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
   });
 
-  test('Click on Patients Name breadcrumb, Patient Record page is opened', async ({ page }) => {
+  test('PTPRF-12 Click on Patients Name breadcrumb, Patient Record page is opened', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.clickPatientNameBreadcrumb(
       resourceHandler.patient.name?.[0]?.given?.[0] + ' ' + resourceHandler.patient.name?.[0].family
@@ -270,13 +270,13 @@ test.describe('Patient Record Page tests', () => {
     await expectPatientRecordPage(resourceHandler.patient.id!, page);
   });
 
-  test('Click on Patients breadcrumb, Patients page is opened', async ({ page }) => {
+  test('PTPRF-13 Click on Patients breadcrumb, Patients page is opened', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.clickPatientsBreadcrumb();
     await expectPatientsPage(page);
   });
 
-  test('Click on [Discard changes] button, Patient Record page is opened', async ({ page }) => {
+  test('PTPRF-14 Click on [Discard changes] button, Patient Record page is opened', async ({ page }) => {
     await page.goto('/patient/' + resourceHandler.patient.id);
     let patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
@@ -291,7 +291,7 @@ test.describe('Patient Record Page tests', () => {
   /* Non-mutating part end */
 
   test.describe('Filling and saving required fields, checking validation errors, checking updated fields are displayed correctly', async () => {
-    test('Fill and save required values on Patient Info Page, values are saved and updated successfully. Check all section fields validation errors.', async () => {
+    test('PTPRF-15 Fill and save required values on Patient Info Page, values are saved and updated successfully. Check all section fields validation errors.', async () => {
       patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
       await populateAllRequiredFields(patientInformationPage);
       // await patientInformationPage.selectReleaseOfInfo(RELEASE_OF_INFO);
@@ -328,7 +328,7 @@ test.describe('Patient Record Page tests', () => {
     await patientInformationPage.verifyRxHistoryConsent(RX_HISTORY_CONSENT);
     */
 
-      await test.step('Check validation error is displayed if any required field in Patient info block is missing', async () => {
+      await test.step('PTPRF-15.1 Check validation error is displayed if any required field in Patient info block is missing', async () => {
         await patientInformationPage.clearPatientLastName();
         await patientInformationPage.clearPatientFirstName();
         await patientInformationPage.clearPatientDateOfBirth();
@@ -338,7 +338,7 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_DOB);
       });
 
-      await test.step('Check validation error is displayed if any required field in Contact info block is missing', async () => {
+      await test.step('PTPRF-15.2 Check validation error is displayed if any required field in Contact info block is missing', async () => {
         await patientInformationPage.clearStreetAddress();
         await patientInformationPage.clearCity();
         await patientInformationPage.clearZip();
@@ -352,7 +352,7 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_PHONE_NUMBER);
       });
 
-      await test.step('Enter invalid email,zip and mobile on Contract info block, validation errors are shown', async () => {
+      await test.step('PTPRF-15.3 Enter invalid email,zip and mobile on Contract info block, validation errors are shown', async () => {
         await patientInformationPage.enterZip('11');
         await patientInformationPage.clickSaveChangesButton();
         await patientInformationPage.verifyValidationErrorZipField();
@@ -373,7 +373,7 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.clickSaveChangesButton();
         await patientInformationPage.verifyValidationErrorInvalidMobile();
       });
-      await test.step('Check validation error is displayed if any required field in Responsible party information block is missing or phone number is invalid', async () => {
+      await test.step('PTPRF-15.4 Check validation error is displayed if any required field in Responsible party information block is missing or phone number is invalid', async () => {
         await patientInformationPage.clearFirstNameFromResponsibleContainer();
         await patientInformationPage.clearLastNameFromResponsibleContainer();
         await patientInformationPage.clearDateOfBirthFromResponsibleContainer();
@@ -390,7 +390,7 @@ test.describe('Patient Record Page tests', () => {
       });
 
       // rework
-      await test.step('If "Other" gender is selected from Patient details  block, additional field appears and it is required', async () => {
+      await test.step('PTPRF-15.5 If "Other" gender is selected from Patient details  block, additional field appears and it is required', async () => {
         await patientInformationPage.selectGenderIdentity('Other');
         await patientInformationPage.verifyOtherGenderFieldIsVisible();
         await patientInformationPage.clickSaveChangesButton();
@@ -408,7 +408,7 @@ test.describe('Patient Record Page tests', () => {
         // await patientInformationPage.verifyOtherGenderFieldIsNotVisible(); // must go to successfully updated fields check
       });
 
-      await test.step('Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async () => {
+      await test.step('PTPRF-15.6 Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async () => {
         await patientInformationPage.verifyCheckboxOff();
         await patientInformationPage.verifyFirstNameFromPcpIsVisible();
         await patientInformationPage.verifyLastNameFromPcpIsVisible();
@@ -431,10 +431,10 @@ test.describe('Patient Record Page tests', () => {
       });
     });
 
-    test('Updating values for all fields and saving. Checking that they are displayed correctly after save', async () => {
+    test('PTPRF-16 Updating values for all fields and saving. Checking that they are displayed correctly after save', async () => {
       await populateAllRequiredFields(patientInformationPage);
 
-      await test.step('Updating values from Patient Information page sections', async () => {
+      await test.step('PTPRF-16.1 Updating values from Patient Information page sections', async () => {
         await patientInformationPage.enterPatientMiddleName(NEW_PATIENT_MIDDLE_NAME);
         await patientInformationPage.enterPatientSuffix(NEW_PATIENT_SUFFIX);
         await patientInformationPage.enterPatientPreferredName(NEW_PATIENT_PREFERRED_NAME);
@@ -443,11 +443,11 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.selectPatientBirthSex(NEW_PATIENT_BIRTH_SEX);
       });
 
-      await test.step('Updating values from Contact info block', async () => {
+      await test.step('PTPRF-16.2 Updating values from Contact info block', async () => {
         await patientInformationPage.enterAddressLineOptional(NEW_STREET_ADDRESS_OPTIONAL);
       });
 
-      await test.step('Updating values from Responsible party information block', async () => {
+      await test.step('PTPRF-16.3 Updating values from Responsible party information block', async () => {
         await patientInformationPage.enterFirstNameFromResponsibleContainer(NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER);
         await patientInformationPage.enterLastNameFromResponsibleContainer(NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER);
         await patientInformationPage.enterDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
@@ -455,7 +455,7 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.enterPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
         await patientInformationPage.enterEmailFromResponsibleContainer(NEW_EMAIL_FROM_RESPONSIBLE_CONTAINER);
       });
-      await test.step('Updating values from Patient details block', async () => {
+      await test.step('PTPRF-16.4 Updating values from Patient details block', async () => {
         await patientInformationPage.selectPatientEthnicity(NEW_PATIENT_ETHNICITY);
         await patientInformationPage.selectPatientRace(NEW_PATIENT_RACE);
         await patientInformationPage.selectSexualOrientation(NEW_PATIENT_SEXUAL_ORIENTATION);
@@ -466,7 +466,7 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.selectCommonWellConsent(NEW_COMMON_WELL_CONSENT);
       });
 
-      await test.step('Updating values from Primary Care Physician block', async () => {
+      await test.step('PTPRF-16.5 Updating values from Primary Care Physician block', async () => {
         await patientInformationPage.enterFirstNameFromPcp(NEW_PROVIDER_FIRST_NAME);
         await patientInformationPage.enterLastNameFromPcp(NEW_PROVIDER_LAST_NAME);
         await patientInformationPage.enterPracticeNameFromPcp(NEW_PRACTICE_NAME);
@@ -474,7 +474,7 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.enterMobileFromPcp(NEW_PHYSICIAN_MOBILE);
       });
 
-      await test.step('Click save changes and verify successfully updated message', async () => {
+      await test.step('PTPRF-16.6 Click save changes and verify successfully updated message', async () => {
         await patientInformationPage.clickSaveChangesButton();
         await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
         await patientInformationPage.verifyLoadingScreenIsNotVisible();
@@ -482,7 +482,7 @@ test.describe('Patient Record Page tests', () => {
         // await patientInformationPage.reloadPatientInformationPage();
       });
 
-      await test.step('Checking that all fields from Patient Information page sections are updated correctly', async () => {
+      await test.step('PTPRF-16.7 Checking that all fields from Patient Information page sections are updated correctly', async () => {
         await patientInformationPage.verifyPatientLastName(NEW_PATIENT_LAST_NAME);
         await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
         await patientInformationPage.verifyPatientMiddleName(NEW_PATIENT_MIDDLE_NAME);
@@ -493,7 +493,7 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.verifyPatientBirthSex(NEW_PATIENT_BIRTH_SEX);
       });
 
-      await test.step('Checking that all fields from Contact info block are updated correctly', async () => {
+      await test.step('PTPRF-16.8 Checking that all fields from Contact info block are updated correctly', async () => {
         await patientInformationPage.verifyStreetAddress(NEW_STREET_ADDRESS);
         await patientInformationPage.verifyAddressLineOptional(NEW_STREET_ADDRESS_OPTIONAL);
         await patientInformationPage.verifyCity(NEW_CITY);
@@ -503,7 +503,7 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.verifyPatientMobile(NEW_PATIENT_MOBILE);
       });
 
-      await test.step('Checking that all fields from Responsible party information block are updated correctly', async () => {
+      await test.step('PTPRF-16.9 Checking that all fields from Responsible party information block are updated correctly', async () => {
         await patientInformationPage.verifyRelationshipFromResponsibleContainer(
           NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
         );
@@ -517,7 +517,7 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.verifyEmailFromResponsibleContainer(NEW_EMAIL_FROM_RESPONSIBLE_CONTAINER);
       });
 
-      await test.step('Checking that all fields from Patient details block are updated correctly', async () => {
+      await test.step('PTPRF-16.10 Checking that all fields from Patient details block are updated correctly', async () => {
         await patientInformationPage.verifyPatientEthnicity(NEW_PATIENT_ETHNICITY);
         await patientInformationPage.verifyPatientRace(NEW_PATIENT_RACE);
         await patientInformationPage.verifySexualOrientation(NEW_PATIENT_SEXUAL_ORIENTATION);
@@ -528,7 +528,7 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.verifyCommonWellConsent(NEW_COMMON_WELL_CONSENT);
       });
 
-      await test.step('Checking that all fields from Primary Care Physician block are updated correctly', async () => {
+      await test.step('PTPRF-16.11 Checking that all fields from Primary Care Physician block are updated correctly', async () => {
         await patientInformationPage.verifyFirstNameFromPcp(NEW_PROVIDER_FIRST_NAME);
         await patientInformationPage.verifyLastNameFromPcp(NEW_PROVIDER_LAST_NAME);
         await patientInformationPage.verifyPracticeNameFromPcp(NEW_PRACTICE_NAME);
@@ -573,7 +573,7 @@ test.describe('Patient Record Page tests', () => {
 
     let addInsuranceDialog: AddInsuranceDialog;
 
-    test('Check validation error is displayed if any required field in Add insurance dialog is missing', async () => {
+    test('PTPRF-17 Check validation error is displayed if any required field in Add insurance dialog is missing', async () => {
       addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
 
       await addInsuranceDialog.enterMemberId(INSURANCE_MEMBER_ID);
@@ -629,7 +629,7 @@ test.describe('Patient Record Page tests', () => {
       await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
       await addInsuranceDialog.verifyValidationErrorShown(dataTestIds.addInsuranceDialog.zip);
 
-      await test.step('Check validation error is displayed for invalid zip', async () => {
+      await test.step('PTPRF-17.1 Check validation error is displayed for invalid zip', async () => {
         await addInsuranceDialog.enterZipFromAddInsuranceDialog('11');
         await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
         await addInsuranceDialog.verifyValidationErrorZipFieldFromAddInsurance();
@@ -639,7 +639,7 @@ test.describe('Patient Record Page tests', () => {
       });
     });
 
-    test('Fill fields and add primary and secondary insurances, verify insurances are saved successfully with correct data. Check validation.', async () => {
+    test('PTPRF-18 Fill fields and add primary and secondary insurances, verify insurances are saved successfully with correct data. Check validation.', async () => {
       await addInsuranceDialog.selectInsuranceType('Primary');
       await addInsuranceDialog.selectPlanType(INSURANCE_PLAN_TYPE);
       await addInsuranceDialog.enterMemberId(INSURANCE_MEMBER_ID);
@@ -741,7 +741,7 @@ test.describe('Patient Record Page tests with zero patient data filled in', asyn
     await resourceHandler.cleanupResources();
   });
 
-  test('Check state, ethnicity, race, relationship to patient are required', async () => {
+  test('PTPRF-19 Check state, ethnicity, race, relationship to patient are required', async () => {
     await page.goto('/patient/' + resourceHandler.patient.id);
     const addPatientPage = await openAddPatientPage(page);
     await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
