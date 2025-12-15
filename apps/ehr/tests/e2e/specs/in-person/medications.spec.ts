@@ -85,32 +85,33 @@ test.describe('Medications Page mutating tests', () => {
 
     await test.step('MED-1.2 Verify medications on Medication history table ', async () => {
       await medicationsPage.clickSeeMoreButton();
+      const practitionerName = await getCurrentPractitionerFirstLastName();
       await medicationsPage.verifyMedicationInMedicationHistoryTable({
         medication: MEDICATION_A.name,
         doseUnits: MEDICATION_A.dose,
         type: SCHEDULED_MEDICATION,
-        whoAdded: await getCurrentPractitionerFirstLastName(),
+        whoAdded: practitionerName,
       });
 
       await medicationsPage.verifyMedicationInMedicationHistoryTable({
         medication: MEDICATION_B.name,
         doseUnits: MEDICATION_B.dose,
         type: SCHEDULED_MEDICATION,
-        whoAdded: await getCurrentPractitionerFirstLastName(),
+        whoAdded: practitionerName,
       });
 
       await medicationsPage.verifyMedicationInMedicationHistoryTable({
         medication: MEDICATION_C.name,
         doseUnits: MEDICATION_C.dose,
         type: AS_NEEDED_MEDICATION_DASH,
-        whoAdded: await getCurrentPractitionerFirstLastName(),
+        whoAdded: practitionerName,
       });
 
       await medicationsPage.verifyMedicationInMedicationHistoryTable({
         medication: MEDICATION_D.name,
         doseUnits: MEDICATION_D.dose,
         type: AS_NEEDED_MEDICATION_DASH,
-        whoAdded: await getCurrentPractitionerFirstLastName(),
+        whoAdded: practitionerName,
       });
     });
 
