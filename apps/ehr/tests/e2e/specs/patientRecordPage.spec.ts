@@ -1116,7 +1116,9 @@ test.describe('Patient Record Page tests', () => {
         await patientInformationPage.enterTextFieldValue(patientSummary.suffix.key, NEW_PATIENT_SUFFIX);
         await patientInformationPage.enterTextFieldValue(patientSummary.preferredName.key, NEW_PATIENT_PREFERRED_NAME);
         await patientInformationPage.enterDateFieldValue(patientSummary.birthDate.key, NEW_PATIENT_DATE_OF_BIRTH);
-        await patientInformationPage.selectFieldOption(patientSummary.pronouns.key, NEW_PATIENT_PREFERRED_PRONOUNS);
+        if (!PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields?.includes(patientSummary.pronouns.key)) {
+          await patientInformationPage.selectFieldOption(patientSummary.pronouns.key, NEW_PATIENT_PREFERRED_PRONOUNS);
+        }
         await patientInformationPage.selectFieldOption(patientSummary.birthSex.key, NEW_PATIENT_BIRTH_SEX);
       });
 
@@ -1156,11 +1158,22 @@ test.describe('Patient Record Page tests', () => {
       await PatientDetailsTestStep('Updating values from Patient details block', async () => {
         await patientInformationPage.selectFieldOption(patientDetails.ethnicity.key, NEW_PATIENT_ETHNICITY);
         await patientInformationPage.selectFieldOption(patientDetails.race.key, NEW_PATIENT_RACE);
-        await patientInformationPage.selectFieldOption(
-          patientDetails.sexualOrientation.key,
-          NEW_PATIENT_SEXUAL_ORIENTATION
-        );
-        await patientInformationPage.selectFieldOption(patientDetails.genderIdentity.key, NEW_PATIENT_GENDER_IDENTITY);
+        if (
+          !PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(patientDetails.sexualOrientation.key)
+        ) {
+          await patientInformationPage.selectFieldOption(
+            patientDetails.sexualOrientation.key,
+            NEW_PATIENT_SEXUAL_ORIENTATION
+          );
+        }
+        if (
+          !PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(patientDetails.genderIdentity.key)
+        ) {
+          await patientInformationPage.selectFieldOption(
+            patientDetails.genderIdentity.key,
+            NEW_PATIENT_GENDER_IDENTITY
+          );
+        }
         await patientInformationPage.selectFieldOption(
           patientDetails.pointOfDiscovery.key,
           NEW_PATIENT_HOW_DID_YOU_HEAR
@@ -1271,10 +1284,12 @@ test.describe('Patient Record Page tests', () => {
             NEW_PATIENT_PREFERRED_NAME
           );
           await patientInformationPage.verifyDateFieldValue(patientSummary.birthDate.key, NEW_PATIENT_DATE_OF_BIRTH);
-          await patientInformationPage.verifySelectFieldValue(
-            patientSummary.pronouns.key,
-            NEW_PATIENT_PREFERRED_PRONOUNS
-          );
+          if (!PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields?.includes(patientSummary.pronouns.key)) {
+            await patientInformationPage.verifySelectFieldValue(
+              patientSummary.pronouns.key,
+              NEW_PATIENT_PREFERRED_PRONOUNS
+            );
+          }
           await patientInformationPage.verifySelectFieldValue(patientSummary.birthSex.key, NEW_PATIENT_BIRTH_SEX);
         }
       );
@@ -1334,14 +1349,24 @@ test.describe('Patient Record Page tests', () => {
         async () => {
           await patientInformationPage.verifySelectFieldValue(patientDetails.ethnicity.key, NEW_PATIENT_ETHNICITY);
           await patientInformationPage.verifySelectFieldValue(patientDetails.race.key, NEW_PATIENT_RACE);
-          await patientInformationPage.verifySelectFieldValue(
-            patientDetails.sexualOrientation.key,
-            NEW_PATIENT_SEXUAL_ORIENTATION
-          );
-          await patientInformationPage.verifySelectFieldValue(
-            patientDetails.genderIdentity.key,
-            NEW_PATIENT_GENDER_IDENTITY
-          );
+          if (
+            !PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(
+              patientDetails.sexualOrientation.key
+            )
+          ) {
+            await patientInformationPage.verifySelectFieldValue(
+              patientDetails.sexualOrientation.key,
+              NEW_PATIENT_SEXUAL_ORIENTATION
+            );
+          }
+          if (
+            !PATIENT_RECORD_CONFIG.FormFields.patientDetails.hiddenFields?.includes(patientDetails.genderIdentity.key)
+          ) {
+            await patientInformationPage.verifySelectFieldValue(
+              patientDetails.genderIdentity.key,
+              NEW_PATIENT_GENDER_IDENTITY
+            );
+          }
           await patientInformationPage.verifySelectFieldValue(
             patientDetails.pointOfDiscovery.key,
             NEW_PATIENT_HOW_DID_YOU_HEAR
