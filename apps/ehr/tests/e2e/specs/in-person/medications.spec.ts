@@ -128,26 +128,26 @@ test.describe('Medications Page mutating tests', () => {
       await medicationsPage.clickDeleteButton({ ...MEDICATION_A, type: 'scheduled' });
       await medicationsPage.verifyRemovedScheduledMedicationIsNotVisible(MEDICATION_A.name, MEDICATION_A.dose);
       await medicationsPage.verifyScheduledMedication(MEDICATION_B.name, MEDICATION_B.dose);
-      await medicationsPage.verifyAsNeddedMedication(MEDICATION_C.name, MEDICATION_C.dose);
-      await medicationsPage.verifyAsNeddedMedication(MEDICATION_D.name, MEDICATION_D.dose);
+      await medicationsPage.verifyAsNeededMedication(MEDICATION_C.name, MEDICATION_C.dose);
+      await medicationsPage.verifyAsNeededMedication(MEDICATION_D.name, MEDICATION_D.dose);
 
       await medicationsPage.clickDeleteButton({ ...MEDICATION_B, type: 'scheduled' });
       await medicationsPage.verifyRemovedScheduledMedicationIsNotVisible(MEDICATION_A.name, MEDICATION_A.dose);
       await medicationsPage.verifyRemovedScheduledMedicationIsNotVisible(MEDICATION_B.name, MEDICATION_B.dose);
-      await medicationsPage.verifyAsNeddedMedication(MEDICATION_C.name, MEDICATION_C.dose);
-      await medicationsPage.verifyAsNeddedMedication(MEDICATION_D.name, MEDICATION_D.dose);
+      await medicationsPage.verifyAsNeededMedication(MEDICATION_C.name, MEDICATION_C.dose);
+      await medicationsPage.verifyAsNeededMedication(MEDICATION_D.name, MEDICATION_D.dose);
 
       await medicationsPage.clickDeleteButton({ ...MEDICATION_C, type: 'as-needed' });
       await medicationsPage.verifyRemovedScheduledMedicationIsNotVisible(MEDICATION_A.name, MEDICATION_A.dose);
       await medicationsPage.verifyRemovedScheduledMedicationIsNotVisible(MEDICATION_B.name, MEDICATION_B.dose);
-      await medicationsPage.verifyRemovedAsNeddedMedicationIsNotVisible(MEDICATION_C.name, MEDICATION_C.dose);
-      await medicationsPage.verifyAsNeddedMedication(MEDICATION_D.name, MEDICATION_D.dose);
+      await medicationsPage.verifyRemovedAsNeededMedicationIsNotVisible(MEDICATION_C.name, MEDICATION_C.dose);
+      await medicationsPage.verifyAsNeededMedication(MEDICATION_D.name, MEDICATION_D.dose);
 
       await medicationsPage.clickDeleteButton({ ...MEDICATION_D, type: 'as-needed' });
       await medicationsPage.verifyRemovedScheduledMedicationIsNotVisible(MEDICATION_A.name, MEDICATION_A.dose);
       await medicationsPage.verifyRemovedScheduledMedicationIsNotVisible(MEDICATION_B.name, MEDICATION_B.dose);
-      await medicationsPage.verifyRemovedAsNeddedMedicationIsNotVisible(MEDICATION_C.name, MEDICATION_C.dose);
-      await medicationsPage.verifyRemovedAsNeddedMedicationIsNotVisible(MEDICATION_D.name, MEDICATION_D.dose);
+      await medicationsPage.verifyRemovedAsNeededMedicationIsNotVisible(MEDICATION_C.name, MEDICATION_C.dose);
+      await medicationsPage.verifyRemovedAsNeededMedicationIsNotVisible(MEDICATION_D.name, MEDICATION_D.dose);
     });
 
     await test.step('MED-1.5 Check deleted medications are not present in Medication History table', async () => {
