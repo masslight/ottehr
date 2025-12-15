@@ -1,8 +1,4 @@
-import {
-  formatPhoneNumberDisplay,
-  PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
-  PRIVATE_EXTENSION_BASE_URL,
-} from 'utils';
+import { formatPhoneNumberDisplay, PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL } from 'utils';
 import { DataComposer } from '../pdf-common';
 import { ContactInfo, PatientDataInput, PdfSection } from '../types';
 
@@ -20,9 +16,6 @@ export const composeContactData: DataComposer<PatientDataInput, ContactInfo> = (
     ) ?? '';
   const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
 
-  const sendMarketingMessages =
-    patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)?.valueBoolean ?? false;
-
   const patientPreferredCommunicationMethod =
     patient.extension?.find((e) => e.url === PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL)?.valueString ?? '';
 
@@ -34,7 +27,6 @@ export const composeContactData: DataComposer<PatientDataInput, ContactInfo> = (
     zip,
     patientMobile,
     patientEmail,
-    sendMarketingMessages,
     patientPreferredCommunicationMethod,
   };
 };
@@ -83,16 +75,6 @@ export const createContactInfoSection = <TData extends { contact?: ContactInfo }
     client.drawLabelValueRow(
       'Mobile',
       contactInfo.patientMobile,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
-      }
-    );
-    client.drawLabelValueRow(
-      'Send marketing messages',
-      contactInfo.sendMarketingMessages ? 'Yes' : 'No',
       styles.textStyles.regular,
       styles.textStyles.regular,
       {

@@ -470,6 +470,9 @@ export interface PatientInfo extends PdfData {
   phone: string;
   reasonForVisit: string;
   authorizedNonlegalGuardians: string;
+  suffix: string;
+  pronouns: string;
+  patientSex: string;
 }
 
 export interface ContactInfo extends PdfData {
@@ -480,16 +483,19 @@ export interface ContactInfo extends PdfData {
   zip: string;
   patientMobile: string;
   patientEmail: string;
-  sendMarketingMessages: boolean;
   patientPreferredCommunicationMethod: string;
 }
 
 export interface PatientDetails extends PdfData {
   patientsEthnicity: string;
   patientsRace: string;
-  pronouns: string;
   howDidYouHearAboutUs: string;
+  patientSexualOrientation: string;
+  patientGenderIdentity: string;
+  patientGenderIdentityDetails: string;
+  patientSendMarketing: boolean;
   preferredLanguage: string;
+  patientCommonWellConsent: boolean;
   pcpName: string;
   pcpPracticeName: string;
   pcpAddress: string;
