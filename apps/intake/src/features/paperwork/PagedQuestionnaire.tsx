@@ -12,6 +12,7 @@ import {
   IconButton,
   InputBaseComponentProps,
   InputProps,
+  Stack,
   SxProps,
   TextField,
   Theme,
@@ -59,6 +60,7 @@ import RadioInput from './components/RadioInput';
 import RadioListInput from './components/RadioListInput';
 import { usePaperworkContext } from './context';
 import { useAutoFillValues } from './useAutofill';
+import { useFilterAnswersOptions } from './useFilterAnswersOptions';
 import { getPaperworkFieldId, useFieldError, usePaperworkFormHelpers, useQRState } from './useFormHelpers';
 import { StyledQuestionnaireItem, useStyledItems } from './useStyleItems';
 import { getInputTypeForItem } from './utils';
@@ -73,6 +75,8 @@ interface PagedQuestionnaireInput {
   items: IntakeQuestionnaireItem[];
   pageItem?: IntakeQuestionnaireItem;
   pageId: string;
+  pageItem?: IntakeQuestionnaireItem;
+  patientName?: string;
   defaultValues?: QuestionnaireFormFields;
   options?: PagedQuestionnaireOptions;
   isSaving?: boolean;
@@ -181,6 +185,8 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   items,
   pageItem,
   pageId,
+  pageItem,
+  patientName,
   defaultValues,
   options = {},
   isSaving,
@@ -223,6 +229,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   }, [cache, defaultValues, items, reset, pageId]);
   return (
     <FormProvider {...methods}>
+      {pageItem && patientName ? <PaperworkPageTitle pageItem={pageItem} patientName={patientName} /> : null}
       <PaperworkFormRoot
         pageItem={pageItem}
         items={items}
@@ -232,6 +239,35 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
         parentIsSaving={isSaving}
       />
     </FormProvider>
+  );
+};
+
+interface PaperworkPageTitleProps {
+  pageItem: IntakeQuestionnaireItem;
+  patientName: string;
+}
+
+const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, patientName }) => {
+  const theme = useTheme();
+  const [styledPageItem] = useStyledItems({ formItems: [pageItem] });
+  return (
+    <Stack style={{ marginBottom: '16px' }}>
+      <Typography
+        sx={{
+          width: { xs: '100%', md: '100%' },
+        }}
+        variant="h2"
+        color="primary.main"
+        data-testid="flow-page-title"
+      >
+        {styledPageItem.text}
+      </Typography>
+      {patientName && (
+        <Typography variant="body2" color={theme.palette.secondary.main} fontSize={'18px'}>
+          {patientName}
+        </Typography>
+      )}
+    </Stack>
   );
 };
 
@@ -531,7 +567,7 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
   } = usePaperworkFormHelpers({ item, renderValue: value, renderOnChange: onChange, fieldId });
 
   const error = useFieldError(fieldId);
-  const answerOptions = item.answerOption ?? [];
+  const answerOptions = useFilterAnswersOptions(item.answerOption ?? []);
   const colorForButton = unwrappedValue ? theme.palette.destructive.main : theme.palette.primary.main;
   let attachmentType: AttachmentType = 'image';
   if (item.dataType === 'PDF') {

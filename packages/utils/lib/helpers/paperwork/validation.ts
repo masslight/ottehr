@@ -727,14 +727,17 @@ export const evalRequired = (item: IntakeQuestionnaireItem, context: any, questi
 
 export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): string | undefined => {
   const { textWhen } = item;
-  if (textWhen === undefined) {
+  if (textWhen === undefined || textWhen.length === 0) {
     return item.text;
   }
-  const { substituteText } = textWhen;
 
-  if (evalCondition(textWhen, context, item.type, questionVal)) {
-    return substituteText;
+  for (const textWhenItem of textWhen) {
+    const { substituteText } = textWhenItem;
+    if (evalCondition(textWhenItem, context, item.type, questionVal)) {
+      return substituteText;
+    }
   }
+
   return item.text;
 };
 
