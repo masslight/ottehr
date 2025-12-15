@@ -15,6 +15,7 @@ import {
 } from 'utils';
 import AiSuggestion from '../../in-person/components/AiSuggestion';
 import { PlayRecord } from '../../in-person/components/progress-note/PlayRecord';
+import { useChartFields } from '../hooks/useChartFields';
 import { useAppointmentData, useChartData } from '../stores/appointment/appointment.store';
 import { Loader } from './Loader';
 import { useAiResourcesPolling } from './useAiResourcesPolling';
@@ -85,6 +86,12 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
 
   const chartDataHasResources = (chartData?.aiChat?.documents?.length ?? 0) > 0;
 
+  const { data: chartDataResources } = useChartFields({
+    requestedFields: {
+      aiPotentialDiagnosis: {},
+    },
+  });
+
   const { isPolling, pollingExhausted, hasInterviewWithoutResources } = useAiResourcesPolling({
     appointment,
     encounter,
@@ -104,7 +111,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
     return <Typography>No AI data available</Typography>;
   }
 
-  const aiPotentialDiagnoses = chartData?.aiPotentialDiagnosis ?? [];
+  const aiPotentialDiagnoses = chartDataResources?.aiPotentialDiagnosis ?? [];
 
   const observations: { [key: string]: ObservationTextFieldDTO[] } = {};
   chartData?.observations?.forEach((observation) => {
