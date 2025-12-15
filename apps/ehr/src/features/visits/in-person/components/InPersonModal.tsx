@@ -62,7 +62,7 @@ export function InPersonModal<T = undefined>({
   );
 
   const dialogContent = (
-    <>
+    <Box data-testid={dataTestIds.dialog.inPersonModalContent}>
       <Typography>{description}</Typography>
       {showEntityPreview && entity !== undefined && (
         <Box mt={2} p={2} bgcolor="grey.100" borderRadius={1}>
@@ -72,7 +72,7 @@ export function InPersonModal<T = undefined>({
         </Box>
       )}
       {ContentComponent}
-    </>
+    </Box>
   );
 
   return (

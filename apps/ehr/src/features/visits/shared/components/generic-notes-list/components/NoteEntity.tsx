@@ -32,11 +32,9 @@ export const NoteEntity: React.FC<{
 
   return (
     <>
-      <BoxStyled>
+      <BoxStyled dataTestId={dataTestIds.screeningPage.screeningNoteItem}>
         <Box sx={{ py: 1, pr: 4 }}>
-          <Typography variant="body1" data-testid={dataTestIds.screeningPage.screeningNoteItem}>
-            {entity.text}
-          </Typography>
+          <Typography variant="body1">{entity.text}</Typography>
           <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
             {entity.lastUpdated ? DateTime.fromISO(entity.lastUpdated).toFormat('MM/dd/yyyy HH:mm a') : ''} by{' '}
             {entity.authorName || entity.authorId}
