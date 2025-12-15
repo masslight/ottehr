@@ -37,7 +37,7 @@ export class MedicationsPage {
     ).not.toBeVisible();
   }
 
-  async verifyAsNeddedMedication(medicationName: string, dose: string): Promise<void> {
+  async verifyAsNedeedMedication(medicationName: string, dose: string): Promise<void> {
     await expect(
       this.#page
         .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAsNeededList)
