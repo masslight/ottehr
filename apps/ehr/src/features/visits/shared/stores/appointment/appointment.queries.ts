@@ -511,8 +511,9 @@ export function useFinalizeUnsolicitedResultMatch(): UseMutationResult<void, Err
   });
 }
 
-export const useGetCPTSearch = ({
+export const useGetCPTHCPCSSearch = ({
   search,
+  type,
   radiologyOnly,
 }: CPTSearchRequestParams): UseQueryResult<IcdSearchResponse | undefined, APIError> => {
   const { oystehr } = useApiClients();
@@ -521,10 +522,57 @@ export const useGetCPTSearch = ({
     queryKey: ['hcpcs-search', search, radiologyOnly],
 
     queryFn: async () => {
-      return oystehr?.terminology.searchHcpcs({
-        query: search,
-        searchType: 'all',
-      });
+      switch (type) {
+        case 'cpt': {
+          const terminologyResponse = await oystehr?.terminology.searchCpt({
+            query: search,
+            searchType: 'all',
+            limit: 100,
+          });
+          if (!terminologyResponse) {
+            throw new Error('could not get terminology results');
+          }
+          if (radiologyOnly) {
+            terminologyResponse.codes = terminologyResponse!.codes.filter((code) => code.code.startsWith('7'));
+          }
+          terminologyResponse.codes = terminologyResponse.codes.sort((a, b) => a.code.localeCompare(b.code));
+          return terminologyResponse;
+        }
+        case 'hcpcs': {
+          const terminologyResponse = await oystehr?.terminology.searchHcpcs({
+            query: search,
+            searchType: 'all',
+            limit: 100,
+          });
+          if (!terminologyResponse) {
+            throw new Error('could not get terminology results');
+          }
+          terminologyResponse.codes = terminologyResponse.codes.sort((a, b) => a.code.localeCompare(b.code));
+          return terminologyResponse;
+        }
+        case 'both': {
+          const [cptResponse, hcpcsResponse] = await Promise.all([
+            oystehr?.terminology.searchCpt({
+              query: search,
+              searchType: 'all',
+              limit: 100,
+            }),
+            oystehr?.terminology.searchHcpcs({
+              query: search,
+              searchType: 'all',
+              limit: 100,
+            }),
+          ]);
+          if (!cptResponse || !hcpcsResponse) {
+            throw new Error('could not get terminology results');
+          }
+          let combinedCodes = [...cptResponse.codes, ...hcpcsResponse.codes].filter(
+            (codeValues, index, self) => index === self.findIndex((t) => t.code === codeValues.code)
+          );
+          combinedCodes = combinedCodes.sort((a, b) => a.code.localeCompare(b.code));
+          return { codes: combinedCodes };
+        }
+      }
     },
 
     enabled: Boolean(oystehr && search),

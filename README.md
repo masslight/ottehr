@@ -137,14 +137,6 @@ npm run ehr:e2e:local:ui
 
 Full E2E Documentation: [E2E_README.md](./E2E_README.md)
 
-## Setting up Terminology Search
-
-<!-- cSpell:disable-next umls -->
-
-Ottehr uses UMLS Terminology Services for searching for ICD-10 and CPT codes.
-
-To set up the terminology search service, please follow these instructions in the [Oystehr docs](https://docs.oystehr.com/oystehr/services/zambda/examples/terminology-search/#1-get-a-national-library-of-medicine-api-key), and then save the API key as `NLM_API_KEY` in the Zambdas secrets.
-
 ## Repository Structure
 
 This repository uses a monorepo structure.

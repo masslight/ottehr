@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { CPTCodeDTO } from 'utils';
-import { useGetCPTSearch } from '../../features/visits/shared/stores/appointment/appointment.queries';
+import { useGetCPTHCPCSSearch } from '../../features/visits/shared/stores/appointment/appointment.queries';
 import { AutocompleteInput } from './AutocompleteInput';
 
 type Props = {
@@ -13,7 +13,7 @@ type Props = {
 
 export const SingleCptCodeInput: React.FC<Props> = ({ name, label, required, dataTestId }) => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { isFetching, data } = useGetCPTSearch({ search: debouncedSearchTerm });
+  const { isFetching, data } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
   const options = ((data as { codes?: CPTCodeDTO[] })?.codes || []).map((cptCodeDto) => {
     return {
       label: `${cptCodeDto.code} ${cptCodeDto.display}`,

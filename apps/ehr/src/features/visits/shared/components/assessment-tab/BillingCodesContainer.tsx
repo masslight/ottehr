@@ -10,7 +10,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { APIErrorCode, CPTCodeOption, emCodeOptions } from 'utils';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
-import { useGetCPTSearch } from '../../stores/appointment/appointment.queries';
+import { useGetCPTHCPCSSearch } from '../../stores/appointment/appointment.queries';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 
 export const BillingCodesContainer: FC = () => {
@@ -20,7 +20,11 @@ export const BillingCodesContainer: FC = () => {
   const emCode = Array.isArray(chartData?.emCode) ? null : chartData?.emCode;
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearching, data, error: icdSearchError } = useGetCPTSearch({ search: debouncedSearchTerm });
+  const {
+    isFetching: isSearching,
+    data,
+    error: icdSearchError,
+  } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
   const cptSearchOptions = data?.codes || [];
 
   const { mutate: saveEMChartData, isPending: isSaveEMLoading } = useSaveChartData();
