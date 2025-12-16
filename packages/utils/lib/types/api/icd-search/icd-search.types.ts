@@ -1,8 +1,7 @@
 import { Coding } from 'fhir/r4b';
 
-export interface IcdSearchRequestParams {
+export interface CPTSearchRequestParams {
   search: string;
-  sabs: 'ICD10CM' | 'CPT';
   radiologyOnly?: boolean;
 }
 

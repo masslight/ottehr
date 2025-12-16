@@ -27,9 +27,9 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   APIError,
-  APIErrorCode,
   CancelMatchUnsolicitedResultTask,
   CPTCodeDTO,
+  CPTSearchRequestParams,
   createSmsModel,
   DiagnosisDTO,
   filterResources,
@@ -51,7 +51,6 @@ import {
   GetUnsolicitedResultsTasksOutput,
   Icd10SearchRequestParams,
   Icd10SearchResponse,
-  IcdSearchRequestParams,
   IcdSearchResponse,
   InstructionType,
   INVENTORY_MEDICATION_TYPE_CODE,
@@ -512,32 +511,26 @@ export function useFinalizeUnsolicitedResultMatch(): UseMutationResult<void, Err
   });
 }
 
-export const useGetIcd10Search = ({
+export const useGetCPTSearch = ({
   search,
-  sabs,
   radiologyOnly,
-}: IcdSearchRequestParams): UseQueryResult<IcdSearchResponse | undefined, APIError> => {
-  const apiClient = useOystehrAPIClient();
+}: CPTSearchRequestParams): UseQueryResult<IcdSearchResponse | undefined, APIError> => {
+  const { oystehr } = useApiClients();
 
   const queryResult = useQuery({
-    queryKey: ['icd-search', search, sabs, radiologyOnly],
+    queryKey: ['hcpcs-search', search, radiologyOnly],
 
     queryFn: async () => {
-      return apiClient?.icdSearch({ search, sabs, radiologyOnly });
+      return oystehr?.terminology.searchHcpcs({
+        query: search,
+        searchType: 'all',
+      });
     },
 
-    enabled: Boolean(apiClient && search),
+    enabled: Boolean(oystehr && search),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
   });
-
-  useEffect(() => {
-    if (queryResult.error && (queryResult.error as APIError)?.code !== APIErrorCode.MISSING_NLM_API_KEY_ERROR) {
-      enqueueSnackbar('An error occurred during the search. Please try again in a moment.', {
-        variant: 'error',
-      });
-    }
-  }, [queryResult.error]);
 
   return queryResult;
 };

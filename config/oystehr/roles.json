@@ -166,6 +166,11 @@
           "resource": ["Zambda:Function:*"],
           "action": ["Zambda:InvokeFunction"],
           "effect": "Allow"
+        },
+        {
+          "resource": ["Terminology:Code:*"],
+          "action": ["Terminology:SearchCodes"],
+          "effect": "Allow"
         }
       ]
     },
@@ -332,6 +337,11 @@
             "FHIR:Patient",
             "FHIR:RelatedPerson"
           ]
+        },
+        {
+          "resource": ["Terminology:Code:*"],
+          "action": ["Terminology:SearchCodes"],
+          "effect": "Allow"
         }
       ]
     },
@@ -443,6 +453,11 @@
           "action": ["eRx:SearchMedication"],
           "resource": ["eRx:Medication"],
           "effect": "Allow"
+        },
+        {
+          "resource": ["Terminology:Code:*"],
+          "action": ["Terminology:SearchCodes"],
+          "effect": "Allow"
         }
       ]
     },
@@ -512,6 +527,11 @@
           "action": ["FHIR:History"],
           "effect": "Allow",
           "resource": ["FHIR:Patient", "FHIR:Appointment"]
+        },
+        {
+          "resource": ["Terminology:Code:*"],
+          "action": ["Terminology:SearchCodes"],
+          "effect": "Allow"
         }
       ]
     },
@@ -621,6 +641,11 @@
             "FHIR:Patient",
             "FHIR:RelatedPerson"
           ]
+        },
+        {
+          "resource": ["Terminology:Code:*"],
+          "action": ["Terminology:SearchCodes"],
+          "effect": "Allow"
         }
       ]
     },

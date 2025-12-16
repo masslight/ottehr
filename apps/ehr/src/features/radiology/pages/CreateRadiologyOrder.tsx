@@ -16,10 +16,7 @@ import { Coding } from 'fhir/r4b';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getRadiologyUrl } from 'src/features/visits/in-person/routing/helpers';
-import {
-  useGetIcd10Search,
-  useICD10SearchNew,
-} from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { useGetCPTSearch, useICD10SearchNew } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import {
   useAppointmentData,
   useChartData,
@@ -92,9 +89,8 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
   // used to fetch cpt codes
   const [cptDebouncedSearchTerm, setCptDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearchingCpt, data: cptData } = useGetIcd10Search({
+  const { isFetching: isSearchingCpt, data: cptData } = useGetCPTSearch({
     search: cptDebouncedSearchTerm,
-    sabs: 'CPT',
     radiologyOnly: true, // Only fetch CPT codes related to radiology
   });
   const cptSearchOptions = cptData?.codes || defaultStudies;
