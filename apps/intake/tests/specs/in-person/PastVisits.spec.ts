@@ -72,7 +72,7 @@ test.describe.parallel('Past Visits', async () => {
       await homepage.clickContinue();
     });
 
-    test('PV-2.2. Check non-empty state', async () => {
+    await test.step('PV-2.2. Check non-empty state', async () => {
       pastVisitsPage = new PastVisitsPage(page);
       await pastVisitsPage.verifyNonEmptyState();
     });
