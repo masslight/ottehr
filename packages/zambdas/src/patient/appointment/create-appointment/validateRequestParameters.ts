@@ -8,6 +8,7 @@ import {
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   CreateAppointmentInputParams,
   FHIR_RESOURCE_NOT_FOUND,
+  getServiceCategoryFromSlot,
   getServiceModeFromScheduleOwner,
   getServiceModeFromSlot,
   getSlotIsPostTelemed,
@@ -228,7 +229,8 @@ export const createAppointmentComplexValidation = async (
     throw new Error('Service mode not found');
   }
 
-  const questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
+  const serviceCategoryCode = getServiceCategoryFromSlot(slot);
+  const questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, serviceCategoryCode);
 
   let visitType = getSlotIsPostTelemed(slot) ? VisitType.PostTelemed : VisitType.PreBook;
   if (getSlotIsWalkin(slot)) {

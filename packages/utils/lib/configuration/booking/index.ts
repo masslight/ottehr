@@ -11,6 +11,8 @@ import _ from 'lodash';
 import z from 'zod';
 import bookAppointmentQuestionnaireJson from '../../../../../config/oystehr/book-appointment-questionnaire.json' assert { type: 'json' };
 import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
+import inPersonOccupationalMedicineQuestionnaireJson from '../../../../../config/oystehr/in-person-occupational-medicine-questionnaire.json' assert { type: 'json' };
+import inPersonWorkersCompQuestionnaireJson from '../../../../../config/oystehr/in-person-workers-comp-questionnaire.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import { BOOKING_OVERRIDES } from '../../../.ottehr_config';
 import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, SERVICE_CATEGORY_SYSTEM } from '../../fhir';
@@ -31,7 +33,21 @@ export const intakeQuestionnaires: Readonly<Array<Questionnaire>> = (() => {
     (q) =>
       q.resource.resourceType === 'Questionnaire' &&
       q.resource.status === 'active' &&
-      q.resource.url.includes('intake-paperwork-inperson')
+      q.resource.url.includes('intake-paperwork-inperson') &&
+      !q.resource.url.includes('occupational-medicine') &&
+      !q.resource.url.includes('workers-comp')
+  )?.resource as Questionnaire | undefined;
+  const inPersonOccupationalMedicineQ = Object.values(inPersonOccupationalMedicineQuestionnaireJson.fhirResources).find(
+    (q) =>
+      q.resource.resourceType === 'Questionnaire' &&
+      q.resource.status === 'active' &&
+      q.resource.url.includes('intake-paperwork-inperson-occupational-medicine')
+  )?.resource as Questionnaire | undefined;
+  const inPersonWorkersCompQ = Object.values(inPersonWorkersCompQuestionnaireJson.fhirResources).find(
+    (q) =>
+      q.resource.resourceType === 'Questionnaire' &&
+      q.resource.status === 'active' &&
+      q.resource.url.includes('intake-paperwork-inperson-workers-comp')
   )?.resource as Questionnaire | undefined;
   const virtualQ = Object.values(virtualIntakeQuestionnaireJson.fhirResources).find(
     (q) =>
@@ -43,11 +59,40 @@ export const intakeQuestionnaires: Readonly<Array<Questionnaire>> = (() => {
   if (inPersonQ) {
     questionnaires.push(inPersonQ);
   }
+  if (inPersonOccupationalMedicineQ) {
+    questionnaires.push(inPersonOccupationalMedicineQ);
+  }
+  if (inPersonWorkersCompQ) {
+    questionnaires.push(inPersonWorkersCompQ);
+  }
   if (virtualQ) {
     questionnaires.push(virtualQ);
   }
   return questionnaires;
 })();
+
+export const selectIntakeQuestionnaire = (
+  serviceMode: 'in-person' | 'virtual',
+  serviceCategoryCode?: string
+): Questionnaire | undefined => {
+  if (serviceMode === 'virtual') {
+    return intakeQuestionnaires.find((q) => q.url?.includes('intake-paperwork-virtual'));
+  }
+
+  if (serviceCategoryCode === 'occupational-medicine') {
+    return intakeQuestionnaires.find((q) => q.url?.includes('intake-paperwork-inperson-occupational-medicine'));
+  }
+  if (serviceCategoryCode === 'workmans-comp') {
+    return intakeQuestionnaires.find((q) => q.url?.includes('intake-paperwork-inperson-workers-comp'));
+  }
+
+  return intakeQuestionnaires.find(
+    (q) =>
+      q.url?.includes('intake-paperwork-inperson') &&
+      !q.url?.includes('occupational-medicine') &&
+      !q.url?.includes('workers-comp')
+  );
+};
 
 const bookAppointmentQuestionnaire: {
   url: string | undefined;
