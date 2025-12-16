@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { patientScreeningQuestionsConfig } from '../../configuration/questionnaire';
+import { patientScreeningQuestionsConfig } from '../../ottehr-config/questionnaire';
 import { Field } from '../../types/data/screening-questions';
 
 /**
