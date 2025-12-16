@@ -2,6 +2,7 @@ import Oystehr, { TransactionalSMSSendParams } from '@oystehr/sdk';
 import sendgrid from '@sendgrid/mail';
 import { Appointment, Patient } from 'fhir/r4b';
 import {
+  BRANDING_CONFIG,
   DynamicTemplateDataRecord,
   EmailTemplate,
   ErrorReportTemplateData,
@@ -20,7 +21,6 @@ import {
   TelemedConfirmationTemplateData,
   TelemedInvitationTemplateData,
 } from 'utils';
-import { BRANDING_CONFIG } from 'utils/lib/configuration/branding';
 import { sendErrors } from './errors';
 import { getRelatedPersonForPatient } from './patients';
 
