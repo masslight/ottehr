@@ -1,5 +1,5 @@
 import { Appointment, Encounter, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
-import { ServiceCategoryCode } from '../../../configuration';
+import { ServiceCategoryCode } from '../../../ottehr-config';
 import { ServiceMode, Timezone } from '../../common';
 import { PatientInfo } from '../../data';
 import { ScheduleOwnerFhirResource } from '../schedules';

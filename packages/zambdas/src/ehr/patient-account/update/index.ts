@@ -7,7 +7,6 @@ import {
   AUDIT_EVENT_OUTCOME_CODE,
   checkBundleOutcomeOk,
   flattenQuestionnaireAnswers,
-  getCanonicalQuestionnaire,
   getSecret,
   getVersionedReferencesFromBundleResources,
   isValidUUID,
@@ -16,7 +15,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
-  QUESTIONNAIRE_NOT_FOUND_FOR_QR_ERROR,
+  PATIENT_RECORD_QUESTIONNAIRE,
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
   Secrets,
@@ -55,7 +54,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
     console.log('complexly validating request parameters');
-    const effectInput = await complexValidation(validatedParameters, oystehr);
+    const effectInput = await complexValidation(validatedParameters);
     console.log('complex validation successful');
     await performEffect(effectInput, oystehr);
     const response: UpdatePatientAccountResponse = { result: 'success' };
@@ -319,7 +318,7 @@ interface FinishedInput extends BasicInput {
   preserveOmittedCoverages: boolean;
 }
 
-const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promise<FinishedInput> => {
+const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
   const { secrets, userToken, questionnaireResponse } = input;
   console.log('questionnaireResponse', JSON.stringify(questionnaireResponse));
   const oystehr = createOystehrClient(userToken, secrets);
@@ -333,17 +332,7 @@ const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promis
   if (!providerProfileReference) {
     throw NOT_AUTHORIZED;
   }
-  const [url, version] = (questionnaireResponse.questionnaire ?? ' | ').split('|');
-  const questionnaire = await getCanonicalQuestionnaire(
-    {
-      url: url,
-      version: version,
-    },
-    oystehrM2M
-  );
-  if (!questionnaire) {
-    throw QUESTIONNAIRE_NOT_FOUND_FOR_QR_ERROR;
-  }
+  const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
 
   const preserveOmittedCoverages = questionnaireResponse.item?.length === 1;
   console.log('preserveOmittedCoverages', preserveOmittedCoverages);
