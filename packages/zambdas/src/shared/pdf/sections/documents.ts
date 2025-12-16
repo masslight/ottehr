@@ -3,6 +3,8 @@ import { DataComposer } from '../pdf-common';
 import { PDF_CLIENT_STYLES } from '../pdf-consts';
 import { Documents, PdfSection } from '../types';
 
+const IMAGE_GAP = 20;
+
 export const composeDocumentsData: DataComposer<DocumentReference[], Documents> = (documents) => {
   const photoIdFrontDocumentReference = documents?.find((doc) =>
     doc.content.some((item) => item.attachment.title === 'photo-id-front')
@@ -131,7 +133,7 @@ export const createDocumentsSection = <TData extends { documents?: Documents }>(
       client.drawText(title, styles.textStyles.regular);
       client.newLine(130);
 
-      const imageWidth = (client.getRightBound() - client.getLeftBound()) / 2 - 10;
+      const imageWidth = (client.getRightBound() - client.getLeftBound()) / 2 - IMAGE_GAP / 2;
       const imageHeight = Math.round(imageWidth / 2);
 
       if (hasFront) {
@@ -145,7 +147,7 @@ export const createDocumentsSection = <TData extends { documents?: Documents }>(
           width,
           height,
           center: false,
-          margin: { top: offsetY, left: offsetX, right: 10, bottom: 0 },
+          margin: { top: offsetY, left: offsetX, right: IMAGE_GAP / 2, bottom: 0 },
         });
       }
 
@@ -160,7 +162,7 @@ export const createDocumentsSection = <TData extends { documents?: Documents }>(
           width,
           height,
           center: false,
-          margin: { top: offsetY, left: 10 + offsetX, right: 0, bottom: 0 },
+          margin: { top: offsetY, left: IMAGE_GAP / 2 + offsetX, right: 0, bottom: 0 },
         });
       }
 
