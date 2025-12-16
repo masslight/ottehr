@@ -652,26 +652,39 @@ export const testItems: TestItem[] = [
   {
     name: 'Alcohol Test',
     methods: {
-      analyzer: { device: 'unknown' },
+      analyzer: { device: 'breathalyzer' },
     },
-    method: 'unknown',
-    device: 'unknown',
+    method: 'breathalyzer',
+    device: 'breathalyzer',
     cptCode: ['82075'],
     loincCode: ['5641-6'],
     repeatTest: false,
     components: [
       {
-        componentName: 'Alcohol Test',
+        componentName: 'BAC',
         loincCode: ['5641-6'],
         dataType: 'Quantity' as const,
         normalRange: {
-          low: 0.02,
+          low: 0,
           high: 0.02,
-          unit: '% BAC',
+          unit: '%',
         },
         display: {
           type: 'Numeric',
           nullOption: false,
+        },
+        reflexLogic: {
+          testToRun: {
+            testName: 'Alcohol Confirmation Test',
+            // this will need to be updated to match the current version of the AD
+            testCanonicalUrl: 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholConfirmationTest|1.0.0',
+          },
+          triggerAlert: 'Alcohol ≥ 0.02% requires a confirmation test',
+          condition: {
+            description: 'BAC > 0.2',
+            language: 'text/fhirpath',
+            expression: "%resource.code.coding.where(code = '82075').exists() and %resource.valueQuantity.value > 0.02",
+          },
         },
       },
     ],
@@ -679,22 +692,22 @@ export const testItems: TestItem[] = [
   {
     name: 'Alcohol Confirmation Test',
     methods: {
-      analyzer: { device: 'unknown' },
+      analyzer: { device: 'breathalyzer' },
     },
-    method: 'unknown',
-    device: 'unknown',
+    method: 'breathalyzer',
+    device: 'breathalyzer',
     cptCode: ['82075C'],
     loincCode: ['5641-6'],
     repeatTest: false,
     components: [
       {
-        componentName: 'Alcohol Confirmation Test',
+        componentName: 'BAC',
         loincCode: ['5641-6'],
         dataType: 'Quantity' as const,
         normalRange: {
-          low: 0.02,
+          low: 0,
           high: 0.02,
-          unit: '% BAC',
+          unit: '%',
         },
         display: {
           type: 'Numeric',

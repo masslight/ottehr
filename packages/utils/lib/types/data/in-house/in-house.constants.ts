@@ -158,8 +158,9 @@ export const NEUTRAL_RESULT_DR_TAG = {
 
 export const REFLEX_TEST_LOGIC_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-logic';
 export const REFLEX_TEST_TO_RUN_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-to-run';
+export const REFLEX_TEST_TO_RUN_NAME_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-to-run-name';
 export const REFLEX_TEST_ALERT_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-trigger-alert';
 export const REFLEX_TEST_CONDITION_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-condition';
 export const REFLEX_TEST_CONDITION_LANGUAGES = {
   fhirPath: 'text/fhirpath',
-};
+} as const;
