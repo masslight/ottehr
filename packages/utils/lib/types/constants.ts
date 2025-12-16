@@ -1,5 +1,5 @@
-import { BRANDING_CONFIG } from '../configuration/branding';
 import { ottehrExtensionUrl } from '../fhir/systemUrls';
+import { BRANDING_CONFIG } from '../ottehr-config';
 
 export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
 
