@@ -1,0 +1,26 @@
+{
+  "fullUrl": "urn:uuid:ClinicalImpression-50cf9ec8-08f1-4b2e-b57b-01aab0e6a019",
+  "request": {
+    "method": "POST",
+    "url": "/ClinicalImpression"
+  },
+  "resource": {
+    "resourceType": "ClinicalImpression",
+    "status": "completed",
+    "subject": {
+      "reference": "urn:uuid:Patient-89e1ad9f-348f-47d4-b893-d35aced071ca"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-37cba61a-c1b9-4a36-b07f-b0dd20971bfd"
+    },
+    "summary": "Reviewed diagnosis, expected course, treatment plan, and reasons to seek urgent and/or emergent care.  Discharge instructions reviewed.  Caregiver expressed understanding.  All questions were answered, and caregiver is comfortable with discharge plan.",
+    "meta": {
+      "tag": [
+        {
+          "code": "medical-decision",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/medical-decision"
+        }
+      ]
+    }
+  }
+}

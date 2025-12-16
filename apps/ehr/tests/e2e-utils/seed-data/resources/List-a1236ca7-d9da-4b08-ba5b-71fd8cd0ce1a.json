@@ -1,0 +1,39 @@
+{
+  "fullUrl": "urn:uuid:List-a1236ca7-d9da-4b08-ba5b-71fd8cd0ce1a",
+  "request": {
+    "method": "POST",
+    "url": "/List"
+  },
+  "resource": {
+    "resourceType": "List",
+    "status": "current",
+    "mode": "working",
+    "title": "receipts",
+    "code": {
+      "coding": [
+        {
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+          "code": "patient-docs-folder",
+          "display": "Receipts"
+        }
+      ]
+    },
+    "subject": {
+      "reference": "urn:uuid:Patient-89e1ad9f-348f-47d4-b893-d35aced071ca"
+    },
+    "identifier": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+              "code": "UDI",
+              "display": "Universal Device Identifier"
+            }
+          ]
+        },
+        "value": "receipts"
+      }
+    ]
+  }
+}

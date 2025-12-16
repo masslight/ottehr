@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-b6d664c5-c7e9-46fb-a183-1e0398c19a6e",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-89e1ad9f-348f-47d4-b893-d35aced071ca"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-37cba61a-c1b9-4a36-b07f-b0dd20971bfd"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Warm and dry"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "warm-and-dry",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

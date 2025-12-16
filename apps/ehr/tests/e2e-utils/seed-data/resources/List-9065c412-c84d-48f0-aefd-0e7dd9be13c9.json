@@ -1,0 +1,39 @@
+{
+  "fullUrl": "urn:uuid:List-9065c412-c84d-48f0-aefd-0e7dd9be13c9",
+  "request": {
+    "method": "POST",
+    "url": "/List"
+  },
+  "resource": {
+    "resourceType": "List",
+    "status": "current",
+    "mode": "working",
+    "title": "school-work-notes",
+    "code": {
+      "coding": [
+        {
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+          "code": "patient-docs-folder",
+          "display": "School/Work Notes"
+        }
+      ]
+    },
+    "subject": {
+      "reference": "urn:uuid:Patient-89e1ad9f-348f-47d4-b893-d35aced071ca"
+    },
+    "identifier": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+              "code": "UDI",
+              "display": "Universal Device Identifier"
+            }
+          ]
+        },
+        "value": "school-work-notes"
+      }
+    ]
+  }
+}

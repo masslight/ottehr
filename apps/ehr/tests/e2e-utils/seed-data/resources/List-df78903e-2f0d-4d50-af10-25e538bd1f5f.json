@@ -1,0 +1,39 @@
+{
+  "fullUrl": "urn:uuid:List-df78903e-2f0d-4d50-af10-25e538bd1f5f",
+  "request": {
+    "method": "POST",
+    "url": "/List"
+  },
+  "resource": {
+    "resourceType": "List",
+    "status": "current",
+    "mode": "working",
+    "title": "insurance-cards",
+    "code": {
+      "coding": [
+        {
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+          "code": "patient-docs-folder",
+          "display": "Insurance Cards"
+        }
+      ]
+    },
+    "subject": {
+      "reference": "urn:uuid:Patient-89e1ad9f-348f-47d4-b893-d35aced071ca"
+    },
+    "identifier": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+              "code": "UDI",
+              "display": "Universal Device Identifier"
+            }
+          ]
+        },
+        "value": "insurance-cards"
+      }
+    ]
+  }
+}
