@@ -738,6 +738,18 @@
         "event": "create"
       }
     },
+    "SUB-PATIENT-PAYMENT-CANDID-SYNC-AND-RECEIPT": {
+      "name": "sub-patient-payment-candid-sync-and-receipt",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-patient-payment-candid-sync-and-receipt/index",
+      "zip": ".dist/zips/sub-patient-payment-candid-sync-and-receipt.zip",
+      "subscription": {
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/patient-payment-candid-sync-and-receipt|patient-payment-candid-sync-and-receipt&status=requested",
+        "reason": "perform Candid sync and create receipt PDF for patient payment",
+        "event": "create"
+      }
+    },
     "AI-INTERVIEW-START": {
       "name": "ai-interview-start",
       "type": "http_auth",
@@ -1461,6 +1473,18 @@
             "valueString": "create"
           }
         ]
+      }
+    },
+    "SUB_PATIENT_PAYMENT_CANDID_SYNC_AND_RECEIPT_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Perform Candid sync and create receipt PDF for patient payment",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/patient-payment-candid-sync-and-receipt|patient-payment-candid-sync-and-receipt&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-PATIENT-PAYMENT-CANDID-SYNC-AND-RECEIPT/id}"
+        }
       }
     }
   }

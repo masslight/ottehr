@@ -12,7 +12,6 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { BOOKING_CONFIG, ServiceCategoryCode } from '../configuration';
 import {
   BookableScheduleData,
   codingContainedInList,
@@ -35,6 +34,7 @@ import {
   TIMEZONE_EXTENSION_URL,
   WALKIN_APPOINTMENT_TYPE_CODE,
 } from '../fhir';
+import { BOOKING_CONFIG, ServiceCategoryCode } from '../ottehr-config';
 import {
   Closure,
   ClosureType,

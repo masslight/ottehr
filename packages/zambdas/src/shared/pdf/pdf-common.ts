@@ -141,7 +141,6 @@ const renderPdfHeader = <TData extends PdfData>(
 
   pdfClient.setLeftBound(rightX + 10);
   pdfClient.setRightBound(originalRight);
-  pdfClient.setY(headerStartY);
 
   pdfClient.drawText(config.title, styles.textStyles.header);
 
@@ -158,7 +157,7 @@ const renderPdfHeader = <TData extends PdfData>(
     }
   }
 
-  rightHeight = pdfClient.getY() - headerStartY;
+  rightHeight = headerStartY - pdfClient.getY();
 
   if (config.leftSection) {
     const leftData = config.leftSection.dataSelector(data);
@@ -173,7 +172,7 @@ const renderPdfHeader = <TData extends PdfData>(
 
         config.leftSection.render(pdfClient, leftData, styles, assets);
 
-        leftHeight = pdfClient.getY() - headerStartY;
+        leftHeight = headerStartY - pdfClient.getY();
       }
     }
   }
@@ -182,7 +181,7 @@ const renderPdfHeader = <TData extends PdfData>(
   pdfClient.setRightBound(originalRight);
 
   const maxHeight = Math.max(leftHeight, rightHeight);
-  pdfClient.setY(headerStartY + maxHeight);
+  pdfClient.setY(headerStartY - maxHeight);
 
   pdfClient.drawSeparatedLine(styles.lineStyles.separator);
 };

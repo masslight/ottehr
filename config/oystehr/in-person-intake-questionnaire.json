@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-in-person-previsit-1_1_1": {
+    "questionnaire-in-person-previsit-1_1_3": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-        "version": "1.1.1",
+        "version": "1.1.3",
         "name": "in-person_pre-visit_paperwork",
         "title": "in-person pre-visit paperwork",
         "status": "active",
@@ -799,6 +799,48 @@
                     ]
                   }
                 ]
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question",
+                    "valueString": "appointment-service-category"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator",
+                    "valueString": "="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer",
+                    "valueString": "occupational-medicine"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text",
+                    "valueString": "Who is paying for the visit?"
+                  }
+                ]
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question",
+                    "valueString": "appointment-service-category"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator",
+                    "valueString": "="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer",
+                    "valueString": "workmans-comp"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text",
+                    "valueString": "Who is responsible for the claim?"
+                  }
+                ]
               }
             ],
             "type": "group",
@@ -810,10 +852,43 @@
                 "required": true,
                 "answerOption": [
                   {
-                    "valueString": "I have insurance"
+                    "valueString": "I have insurance",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
+                        "valueString": "appointment-service-category != occupational-medicine"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label-when",
+                        "valueString": "appointment-service-category = workmans-comp : Insurance"
+                      }
+                    ]
                   },
                   {
-                    "valueString": "I will pay without insurance"
+                    "valueString": "I will pay without insurance",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
+                        "valueString": "appointment-service-category != workmans-comp"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label-when",
+                        "valueString": "appointment-service-category = occupational-medicine : Self"
+                      }
+                    ]
+                  },
+                  {
+                    "valueString": "Employer",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
+                        "valueString": "appointment-service-category = occupational-medicine"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
+                        "valueString": "appointment-service-category = workmans-comp"
+                      }
+                    ]
                   }
                 ],
                 "extension": [
@@ -2482,6 +2557,18 @@
                     ]
                   }
                 ]
+              },
+              {
+                "linkId": "appointment-service-category",
+                "type": "string",
+                "required": true,
+                "readOnly": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "hidden"
+                  }
+                ]
               }
             ]
           },
@@ -2497,6 +2584,18 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                     "valueString": "Payment Validation"
+                  }
+                ]
+              },
+              {
+                "linkId": "card-payment-details-text",
+                "text": "If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.",
+                "type": "display",
+                "enableWhen": [
+                  {
+                    "question": "card-payment-details-text",
+                    "operator": "=",
+                    "answerString": "-"
                   }
                 ]
               }
