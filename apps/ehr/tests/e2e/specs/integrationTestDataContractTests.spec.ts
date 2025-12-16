@@ -116,6 +116,8 @@ test('Ensure Resources created by generate test data -> harvest -> prefill is th
   console.debug('account tests success');
 
   console.group('organization tests');
+  console.log('integrationResources[0]:', integrationResources[0]);
+  console.log('e2eResources[0]:', e2eResources[0]);
   organizationTests(e2eResources, integrationResources);
   console.groupEnd();
   console.debug('organization tests success');
