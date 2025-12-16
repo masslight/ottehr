@@ -1,9 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { InputHTMLAttributes } from 'react';
+import React, { type InputHTMLAttributes } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { FormFields } from 'src/constants';
-import { dataTestIds } from 'src/constants/data-test-ids';
+import { PATIENT_RECORD_CONFIG } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
 import { PrimaryCareContainer } from './PrimaryCareContainer';
 
@@ -18,25 +17,31 @@ vi.mock('../InputMask', async () => {
   };
 });
 
-const TestWrapper = ({
-  children,
-  defaultValues = {},
-}: {
+interface TestWrapperProps {
   children: React.ReactNode;
   defaultValues?: Record<string, any>;
-}): JSX.Element => {
+  onFormReady?: (methods: ReturnType<typeof useForm>) => void;
+}
+
+const TestWrapper = ({ children, defaultValues = {}, onFormReady }: TestWrapperProps): JSX.Element => {
   const TestForm = (): JSX.Element => {
     const methods = useForm({
       defaultValues: {
-        [FormFields.primaryCarePhysician.active.key]: true,
-        [FormFields.primaryCarePhysician.firstName.key]: '',
-        [FormFields.primaryCarePhysician.lastName.key]: '',
-        [FormFields.primaryCarePhysician.practiceName.key]: '',
-        [FormFields.primaryCarePhysician.address.key]: '',
-        [FormFields.primaryCarePhysician.phone.key]: '',
+        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.active.key]: true,
+        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.firstName.key]: '',
+        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.lastName.key]: '',
+        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.practiceName.key]: '',
+        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.address.key]: '',
+        [PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items.phone.key]: '',
         ...defaultValues,
       },
     });
+
+    React.useEffect(() => {
+      if (onFormReady) {
+        onFormReady(methods);
+      }
+    }, [methods]);
 
     return <FormProvider {...methods}>{children}</FormProvider>;
   };
@@ -44,19 +49,67 @@ const TestWrapper = ({
   return <TestForm />;
 };
 
-const getFieldInput = (fieldTestId: string): HTMLInputElement =>
-  screen.getByTestId(fieldTestId).querySelector('input') as HTMLInputElement;
+// Helper to get field input by config key (fields have id attribute matching their key)
+const getFieldById = (fieldKey: string): HTMLElement => {
+  const element = document.getElementById(fieldKey);
+  if (!element) {
+    throw new Error(`Element with id "${fieldKey}" not found`);
+  }
+  return element;
+};
+
+const getFieldInput = (fieldKey: string): HTMLInputElement => {
+  // Query by name attribute (works for all field types including checkboxes)
+  const input = document.querySelector(`input[name="${fieldKey}"]`);
+  if (!input) {
+    throw new Error(`Input with name "${fieldKey}" not found`);
+  }
+  return input as HTMLInputElement;
+};
+
+// Helper to get conditionally rendered fields from config
+const getConditionallyRenderedFields = (
+  items: Record<string, any>,
+  controlFieldKey: string
+): { key: string; label: string; shouldBeRequired: boolean }[] => {
+  return Object.values(items)
+    .filter((item) => {
+      // Field must have triggers
+      if (!item.triggers || item.triggers.length === 0) return false;
+
+      // Field must have disabledDisplay: 'hidden'
+      if (item.disabledDisplay !== 'hidden') return false;
+
+      // At least one trigger must target the control field
+      return item.triggers.some((trigger: any) => trigger.targetQuestionLinkId === controlFieldKey);
+    })
+    .map((item) => {
+      // Check if any trigger targeting the control field has 'require' effect
+      const shouldBeRequired = item.triggers.some(
+        (trigger: any) => trigger.targetQuestionLinkId === controlFieldKey && trigger.effect.includes('require')
+      );
+      return { key: item.key, label: item.label, shouldBeRequired };
+    });
+};
 
 describe('PrimaryCareContainer', () => {
   const user = userEvent.setup();
 
+  const pcp = PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items;
+
+  // Build filled field values from config
+  const conditionalFields = getConditionallyRenderedFields(pcp, pcp.active.key);
+  const testFieldValues: Record<string, string> = {
+    [pcp.firstName.key]: 'Dr. Jane',
+    [pcp.lastName.key]: 'Smith',
+    [pcp.practiceName.key]: 'Family Medical Center',
+    [pcp.address.key]: '123 Main St, AnyTown, ST 12345',
+    [pcp.phone.key]: '(555) 123-4567',
+  };
+
   const filledFieldValues = {
-    [FormFields.primaryCarePhysician.active.key]: true,
-    [FormFields.primaryCarePhysician.firstName.key]: 'Dr. Jane',
-    [FormFields.primaryCarePhysician.lastName.key]: 'Smith',
-    [FormFields.primaryCarePhysician.practiceName.key]: 'Family Medical Center',
-    [FormFields.primaryCarePhysician.address.key]: '123 Main St, AnyTown, ST 12345',
-    [FormFields.primaryCarePhysician.phone.key]: '(555) 123-4567',
+    [pcp.active.key]: true,
+    ...testFieldValues,
   };
 
   it('should display correct checkbox label', () => {
@@ -76,22 +129,24 @@ describe('PrimaryCareContainer', () => {
       </TestWrapper>
     );
 
-    const pcpCheckbox = getFieldInput(dataTestIds.primaryCarePhysicianContainer.pcpCheckbox);
+    const pcp = PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items;
+    const pcpCheckbox = getFieldInput(pcp.active.key);
 
-    expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName)).toBeVisible();
-    expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName)).toBeVisible();
-    expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName)).toBeVisible();
-    expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.address)).toBeVisible();
-    expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile)).toBeVisible();
+    // Get the list of conditionally rendered fields from config
+    const conditionalFields = getConditionallyRenderedFields(pcp, pcp.active.key);
+
+    // Initially, all conditional fields should be in the document
+    conditionalFields.forEach((field) => {
+      expect(getFieldById(field.key)).toBeInTheDocument();
+    });
 
     await user.click(pcpCheckbox);
 
+    // After clicking checkbox, all conditional fields should be removed from the document
     await waitFor(() => {
-      expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName)).not.toBeVisible();
-      expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName)).not.toBeVisible();
-      expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName)).not.toBeVisible();
-      expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.address)).not.toBeVisible();
-      expect(screen.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile)).not.toBeVisible();
+      conditionalFields.forEach((field) => {
+        expect(document.getElementById(field.key)).not.toBeInTheDocument();
+      });
     });
   });
 
@@ -102,53 +157,88 @@ describe('PrimaryCareContainer', () => {
       </TestWrapper>
     );
 
-    const pcpCheckbox = getFieldInput(dataTestIds.primaryCarePhysicianContainer.pcpCheckbox);
+    const pcpCheckbox = getFieldInput(pcp.active.key);
 
     expect(pcpCheckbox).toBeInTheDocument();
     expect(pcpCheckbox).not.toBeChecked();
 
-    const firstNameInput = getFieldInput(dataTestIds.primaryCarePhysicianContainer.firstName);
-    const lastNameInput = getFieldInput(dataTestIds.primaryCarePhysicianContainer.lastName);
-    const practiceNameInput = getFieldInput(dataTestIds.primaryCarePhysicianContainer.practiceName);
-    const addressInput = getFieldInput(dataTestIds.primaryCarePhysicianContainer.address);
-    const mobileInput = getFieldInput(dataTestIds.primaryCarePhysicianContainer.mobile);
-
-    expect(firstNameInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.firstName.key] as string);
-    expect(lastNameInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.lastName.key] as string);
-    expect(practiceNameInput).toHaveValue(
-      filledFieldValues[FormFields.primaryCarePhysician.practiceName.key] as string
-    );
-    expect(addressInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.address.key] as string);
-    expect(mobileInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.phone.key] as string);
+    // Verify initial values for all conditional fields
+    conditionalFields.forEach((field) => {
+      const input = getFieldInput(field.key);
+      expect(input).toHaveValue(testFieldValues[field.key]);
+    });
 
     await user.click(pcpCheckbox);
     expect(pcpCheckbox).toBeChecked();
 
+    // All conditional fields should be removed from the document
     await waitFor(() => {
-      expect(firstNameInput).not.toBeVisible();
-      expect(lastNameInput).not.toBeVisible();
-      expect(practiceNameInput).not.toBeVisible();
-      expect(addressInput).not.toBeVisible();
-      expect(mobileInput).not.toBeVisible();
+      conditionalFields.forEach((field) => {
+        expect(document.querySelector(`input[name="${field.key}"]`)).not.toBeInTheDocument();
+      });
     });
 
     await user.click(pcpCheckbox);
     expect(pcpCheckbox).not.toBeChecked();
 
+    // All conditional fields should be back in the document
     await waitFor(() => {
-      expect(firstNameInput).toBeVisible();
-      expect(lastNameInput).toBeVisible();
-      expect(practiceNameInput).toBeVisible();
-      expect(addressInput).toBeVisible();
-      expect(mobileInput).toBeVisible();
+      conditionalFields.forEach((field) => {
+        expect(document.querySelector(`input[name="${field.key}"]`)).toBeInTheDocument();
+      });
     });
 
-    expect(firstNameInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.firstName.key] as string);
-    expect(lastNameInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.lastName.key] as string);
-    expect(practiceNameInput).toHaveValue(
-      filledFieldValues[FormFields.primaryCarePhysician.practiceName.key] as string
+    // Verify values are preserved after fields are re-rendered
+    conditionalFields.forEach((field) => {
+      const refreshedInput = getFieldInput(field.key);
+      expect(refreshedInput).toHaveValue(testFieldValues[field.key]);
+    });
+  });
+
+  it('should validate required fields based on config triggers', async () => {
+    let formMethods: ReturnType<typeof useForm> | null = null;
+
+    render(
+      <TestWrapper
+        onFormReady={(methods) => {
+          formMethods = methods;
+        }}
+      >
+        <PrimaryCareContainer isLoading={false} />
+      </TestWrapper>
     );
-    expect(addressInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.address.key] as string);
-    expect(mobileInput).toHaveValue(filledFieldValues[FormFields.primaryCarePhysician.phone.key] as string);
+
+    // Wait for form to be ready
+    await waitFor(() => {
+      expect(formMethods).not.toBeNull();
+    });
+
+    const pcpCheckbox = getFieldInput(pcp.active.key);
+    expect(pcpCheckbox).not.toBeChecked(); // Fields should be visible and potentially required
+
+    // Test each conditional field based on its config
+    for (const field of conditionalFields) {
+      const input = getFieldInput(field.key);
+
+      // Clear the field
+      await user.clear(input);
+
+      // Trigger validation for this specific field
+      await formMethods!.trigger(field.key);
+
+      // Check if error appears based on config
+      const errorElement = document.getElementById(field.key)?.querySelector('p.MuiFormHelperText-root.Mui-error');
+
+      if (field.shouldBeRequired) {
+        // Field should show required error
+        await waitFor(() => {
+          expect(errorElement).toBeInTheDocument();
+          expect(errorElement).toHaveTextContent('This field is required');
+        });
+      } else {
+        // Field should NOT show required error
+        expect(errorElement).not.toBeInTheDocument();
+      }
+    }
   });
 });
