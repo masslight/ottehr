@@ -33,6 +33,7 @@ import {
   GetPaperworkAnswers,
   RelationshipOption,
   ServiceMode,
+  VALUE_SETS,
 } from 'utils';
 import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { getAuth0Token } from './auth/getAuth0Token';
@@ -43,7 +44,7 @@ import {
   TEST_EMPLOYEE_2,
   TestEmployee,
 } from './resource/employees';
-import fastSeedData from './seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
+import fastSeedData from './seed-data';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -82,8 +83,9 @@ export const PATIENT_LINE_2 = 'Apt 4B';
 export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTAL_CODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
-
-export const PATIENT_INSURANCE_PLAN_TYPE = '09';
+const insuranceOption1 = VALUE_SETS.insuranceTypeOptions[0];
+const insuranceOptions2 = VALUE_SETS.insuranceTypeOptions[2];
+export const PATIENT_INSURANCE_PLAN_TYPE = `${insuranceOption1.candidCode} - ${insuranceOption1.label}`;
 export const PATIENT_INSURANCE_MEMBER_ID = '123123';
 export const PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME = 'John';
 export const PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME = 'Doe';
@@ -98,7 +100,7 @@ export const PATIENT_INSURANCE_POLICY_HOLDER_STATE = 'CA';
 export const PATIENT_INSURANCE_POLICY_HOLDER_ZIP = '92000';
 export const PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED: RelationshipOption = 'Parent';
 
-export const PATIENT_INSURANCE_PLAN_TYPE_2 = '12';
+export const PATIENT_INSURANCE_PLAN_TYPE_2 = `${insuranceOptions2.candidCode} - ${insuranceOptions2.label}`;
 export const PATIENT_INSURANCE_MEMBER_ID_2 = '234234';
 export const PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME = 'Jane';
 export const PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME = 'Doe';
@@ -498,6 +500,18 @@ export class ResourceHandler {
       throw new Error(`Patient for appointment ${appointmentId} not found`);
     }
     return patientId;
+  }
+
+  async tagAppointmentForCleanup(appointmentId: string): Promise<void> {
+    const apiClient = await this.apiClient;
+    const appointment = await apiClient.fhir.get<Appointment>({
+      resourceType: 'Appointment',
+      id: appointmentId,
+    });
+
+    const taggedAppointment = addProcessIdMetaTagToResource(appointment, this.#processId!) as Appointment;
+
+    await apiClient.fhir.update<Appointment>(taggedAppointment);
   }
 
   async getTestsUserAndPractitioner(): Promise<{

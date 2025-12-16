@@ -741,3 +741,10 @@ export const makeSSNIdentifier = (ssn: string): Identifier => {
     value: ssn,
   };
 };
+
+export const mapGenderToLabel: { [name in Exclude<Patient['gender'], undefined>]: string } = {
+  male: 'Male',
+  female: 'Female',
+  other: 'Intersex',
+  unknown: 'Unknown',
+};

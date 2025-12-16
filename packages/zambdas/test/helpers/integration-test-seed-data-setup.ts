@@ -1,6 +1,6 @@
 import { assert } from 'node:console';
 import Oystehr, { BatchInputPostRequest, M2mListItem } from '@oystehr/sdk';
-import fastSeedData from 'ehr-ui/tests/e2e-utils/seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
+import fastSeedData from 'ehr-ui/tests/e2e-utils/seed-data';
 import {
   Appointment,
   ClinicalImpression,
@@ -39,6 +39,7 @@ export interface InsertFullAppointmentDataBaseResult {
   appointment: Appointment;
   encounter: Encounter;
   questionnaireResponse: QuestionnaireResponse;
+  clinicalImpression: ClinicalImpression;
 }
 
 /**
@@ -188,6 +189,9 @@ export const insertInPersonAppointmentBase = async (
     questionnaireResponse: createdResources.find(
       (resource) => resource!.resourceType === 'QuestionnaireResponse'
     ) as QuestionnaireResponse,
+    clinicalImpression: createdResources.find(
+      (resource) => resource!.resourceType === 'ClinicalImpression'
+    ) as ClinicalImpression,
   };
 };
 

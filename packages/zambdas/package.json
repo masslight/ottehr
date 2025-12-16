@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.22.26",
+  "version": "1.24.0",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -52,10 +52,8 @@
     "setup-billing-providers": "tsx src/scripts/setup-billing-providers.ts",
     "setup-value-sets": "tsx src/scripts/setup-value-sets.ts",
     "setup-deployed-resources": "tsx src/scripts/setup-questionnaires.ts ${ENV} && tsx src/scripts/setup-billing-providers.ts ${ENV} && tsx src/scripts/ensure-schedule-config.ts ${ENV} && tsx src/scripts/setup-value-sets.ts ${ENV}",
-    "test": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:integration:ci": "start-server-and-test 'ENV=local tsx src/local-server/index.ts -- env=.env/local.json' 3000 test:integration",
+    "test": "ENV=local vitest run",
+    "test:coverage": "c8 npm run test",
     "mock-reflex-test": "tsx src/scripts/labs/reflex-test-helper.ts",
     "mock-unsolicited-result": "tsx src/scripts/labs/unsolicited-result-helper.ts",
     "make-in-house-test-items": "tsx src/scripts/labs/load-in-house-labs-tests.ts",
@@ -100,7 +98,7 @@
     "esbuild": "^0.25.1",
     "esbuild-plugin-copy": "^2.1.1",
     "express": "^4.21.2",
-    "glob": "^11.0.1",
+    "glob": "^11.1.0",
     "lodash": "^4.17.21",
     "tsx": "^4.19.4"
   }

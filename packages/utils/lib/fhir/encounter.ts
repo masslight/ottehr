@@ -240,6 +240,7 @@ export const checkEncounterIsVirtual = (encounter: Encounter): boolean => {
 export enum PaymentVariant {
   insurance = 'insurance',
   selfPay = 'selfPay',
+  employer = 'employer',
 }
 
 export const getPaymentVariantFromEncounter = (encounter: Encounter): PaymentVariant | undefined => {

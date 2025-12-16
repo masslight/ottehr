@@ -12,8 +12,8 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import inPersonIntakeQuestionnaireJson from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
-import { ServiceCategoryCode } from '../configuration';
 import { isLocationVirtual } from '../fhir';
+import { ServiceCategoryCode } from '../ottehr-config';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
@@ -68,7 +68,7 @@ interface DemoConfig {
 
 type DemoAppointmentData = AppointmentData & DemoConfig;
 
-const hasEmployerInformationPage = (): boolean => {
+export const hasEmployerInformationPage = (): boolean => {
   const fhirResources = inPersonIntakeQuestionnaireJson.fhirResources as Record<string, { resource: Questionnaire }>;
   const questionnaire = Object.values(fhirResources).find(
     (q) =>

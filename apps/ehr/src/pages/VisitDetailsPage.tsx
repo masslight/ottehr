@@ -1152,6 +1152,7 @@ export default function VisitDetailsPage(): ReactElement {
                     <Grid item>
                       <PatientPaymentList
                         patient={patient}
+                        appointment={appointment}
                         loading={loading}
                         encounterId={encounter?.id ?? ''}
                         responsibleParty={{

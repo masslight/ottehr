@@ -53,7 +53,7 @@ export const createAdditionalQuestions = (questionnaireResponse: QuestionnaireRe
     });
 };
 
-export function createExamObservations(isInPersonAppointment?: boolean): (ExamObservationDTO & {
+export function getAllExamFieldsMetadata(isInPersonAppointment?: boolean): (ExamObservationDTO & {
   code?: CodeableConcept;
   bodySite?: CodeableConcept;
   label?: string;
@@ -117,6 +117,93 @@ export function createExamObservations(isInPersonAppointment?: boolean): (ExamOb
             code: option.code,
             bodySite: option.bodySite,
           });
+        });
+      }
+    });
+  };
+
+  Object.values(config).forEach((examItem) => {
+    extractObservationsFromComponents(examItem.components.normal, 'normal');
+    extractObservationsFromComponents(examItem.components.abnormal, 'abnormal');
+  });
+
+  return observations;
+}
+
+export function createExamObservations(isInPersonAppointment?: boolean): (ExamObservationDTO & {
+  code?: CodeableConcept;
+  bodySite?: CodeableConcept;
+  label?: string;
+})[] {
+  const config = examConfig[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
+
+  const observations: (ExamObservationDTO & {
+    code?: CodeableConcept;
+    bodySite?: CodeableConcept;
+    label: string;
+  })[] = [];
+
+  const extractObservationsFromComponents = (
+    components: Record<string, ExamCardComponent>,
+    section: 'normal' | 'abnormal' | 'comment'
+  ): void => {
+    Object.entries(components).forEach(([fieldName, component]) => {
+      if (component.type === 'checkbox') {
+        if (component.defaultValue === true) {
+          observations.push({
+            field: fieldName,
+            value: true,
+            label: component.label,
+            code: component.code,
+            bodySite: component.bodySite,
+          });
+        }
+      } else if (component.type === 'dropdown') {
+        Object.entries(component.components).forEach(([optionName, option]: [string, any]) => {
+          if (option.defaultValue === true) {
+            observations.push({
+              field: optionName,
+              value: true,
+              label: option.label,
+              code: option.code,
+              bodySite: option.bodySite,
+            });
+          }
+        });
+      } else if (component.type === 'column') {
+        extractObservationsFromComponents(component.components, section);
+      } else if (component.type === 'form') {
+        Object.entries(component.components).forEach(([elementName, element]: [string, any]) => {
+          if (element.defaultValue === true) {
+            observations.push({
+              field: elementName,
+              value: true,
+              label: element.label,
+              code: element.code,
+              bodySite: element.bodySite,
+            });
+          }
+        });
+      } else if (component.type === 'multi-select') {
+        if (component.defaultValue === true) {
+          observations.push({
+            field: fieldName,
+            value: true,
+            label: component.label,
+            code: component.code,
+            bodySite: component.bodySite,
+          });
+        }
+        Object.entries(component.options).forEach(([optionName, option]: [string, any]) => {
+          if (option.defaultValue === true) {
+            observations.push({
+              field: optionName,
+              value: true,
+              label: option.label,
+              code: option.code,
+              bodySite: option.bodySite,
+            });
+          }
         });
       }
     });

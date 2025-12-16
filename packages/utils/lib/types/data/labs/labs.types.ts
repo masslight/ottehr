@@ -1,5 +1,6 @@
 // cSpell:ignore RFRT
 import {
+  Communication,
   Coverage,
   DocumentReference,
   Encounter,
@@ -137,6 +138,7 @@ export type LabOrderListPageDTO = {
   abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_LAB_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
   orderPdfUrl: string | undefined; // will exist after order is submitted, DocRef containing LAB_ORDER_DOC_REF_CODING_CODE type
   location: Location | undefined; // Location that ordered the test. Was previously not required for lab orders, so can be undefined
+  orderLevelNote: string | undefined; // communication where cat === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY and sr is referenced in basedOn
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
@@ -212,6 +214,7 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
 
 type orderBundleDTO = {
   bundleName: string;
+  bundleNote: string | undefined;
   abnPdfUrl: string | undefined;
   orderPdfUrl: string | undefined;
   orders: (LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO)[];
@@ -348,6 +351,8 @@ export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
   cancelUnsolicitedResultTask: 'cancelUnsolicitedResultTask', // match or review tasks
   matchUnsolicitedResult: 'matchUnsolicitedResult',
   rejectedAbn: 'rejectedAbn',
+  addOrderLevelNote: 'addOrderLevelNote',
+  updateOrderLevelNote: 'updateOrderLevelNote',
 } as const;
 
 export type TaskReviewedParameters = {
@@ -393,7 +398,14 @@ export type UpdateLabOrderResourcesInput =
   | (SaveOrderCollectionData & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.saveOrderCollectionData })
   | CancelMatchUnsolicitedResultTask
   | FinalizeUnsolicitedResultMatch
-  | { serviceRequestId: string; event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn };
+  | { serviceRequestId: string; event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.rejectedAbn }
+  | {
+      requisitionNumber: string;
+      note: string;
+      event:
+        | typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote
+        | typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.updateOrderLevelNote;
+    };
 
 export type DeleteLabOrderZambdaInput = {
   serviceRequestId: string;
@@ -449,6 +461,10 @@ export interface ExternalLabDocuments {
   resultPDFs: LabDocumentRelatedToDiagnosticReport[] | undefined; // only ever returned for the detail page atm
   orderPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;
   abnPDFsByRequisitionNumber: LabDocumentByRequisition | undefined;
+}
+
+export interface ExternalLabCommunications {
+  orderLevelNotes: Communication[] | undefined;
 }
 
 export enum UnsolicitedResultsRequestType {
