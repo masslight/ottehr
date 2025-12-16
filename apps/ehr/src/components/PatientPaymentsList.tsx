@@ -316,7 +316,7 @@ export default function PatientPaymentList({
       }}
     >
       <Typography variant="h4" color="primary.dark">
-        How would patient like to pay for the visit?
+        Payer/Responsible for Claim
       </Typography>
       <RadioGroup
         row
