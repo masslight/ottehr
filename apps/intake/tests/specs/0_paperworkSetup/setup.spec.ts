@@ -493,18 +493,13 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
   });
 
   test('Create patient without filling in paperwork', async ({ page }) => {
-    const { prebookFlowClass, paperwork } = await test.step('Set up playwright', async () => {
+    const walkInFlowClass = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
-      const prebookFlowClass = new PrebookTelemedFlow(page);
-      const paperwork = new Paperwork(page);
-      return { prebookFlowClass, paperwork };
+      return new TelemedVisitFlow(page);
     });
 
-    const { bookingData } = await test.step('Create patient', async () => {
-      const bookingData = await prebookFlowClass.startVisitFullFlow();
-      await page.goto(bookingData.bookingURL);
-      await paperwork.clickProceedToPaperwork();
-      return { bookingData };
+    const bookingData = await test.step('Create patient', async () => {
+      return await walkInFlowClass.startVisitWithoutPaperwork();
     });
 
     await test.step('Save test data', async () => {
