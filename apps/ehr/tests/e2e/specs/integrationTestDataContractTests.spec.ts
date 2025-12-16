@@ -609,10 +609,10 @@ const cleanOrganization = (organization: Organization): Organization => {
 };
 
 const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[]> => {
-  return (
+  const baseResults = (
     await (
       await e2eHandler.apiClient
-    ).fhir.search<Appointment>({
+    ).fhir.search<FhirResource>({
       resourceType: 'Appointment',
       params: [
         {
@@ -683,5 +683,13 @@ const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[
     })
   ).unbundle();
 
-  // Note it does not include AuditEvent yet but could?
+  const accounts = baseResults.filter((resource) => resource.resourceType === 'Account') as Account[];
+  return baseResults.filter((resource) => {
+    if (resource.resourceType === 'Organization') {
+      // only include organizations that are not owners of accounts
+      const isAccountOwner = accounts.some((account) => account.owner?.reference === `Organization/${resource.id}`);
+      return !isAccountOwner;
+    }
+    return true;
+  });
 };
