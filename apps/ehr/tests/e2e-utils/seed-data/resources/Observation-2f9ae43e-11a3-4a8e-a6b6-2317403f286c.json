@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-2f9ae43e-11a3-4a8e-a6b6-2317403f286c",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-498d70c6-5369-4a0a-b500-79d750028c18"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-503eb570-36ea-4053-84ab-4d1b0c062075"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Moist mucous membranes"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "moist-mucous-membranes",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}
