@@ -1156,16 +1156,15 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
       return operations;
     }
 
-    let newContained: Patient['contained'] = [newPCP];
-
-    if (currentContainedPCP) {
-      newContained = (patient.contained ?? []).map((resource) => {
-        if (resource.id === currentContainedPCP?.id) {
-          return newPCP;
-        }
-        return resource;
-      });
-    }
+    const existingContained = patient.contained ?? [];
+    const newContained: Patient['contained'] = currentContainedPCP
+      ? existingContained.map((resource) => {
+          if (resource.id === currentContainedPCP.id) {
+            return newPCP;
+          }
+          return resource;
+        })
+      : [...existingContained.filter((resource) => resource.id !== newPCP.id), newPCP];
 
     operations.push({
       op: patient.contained != undefined ? 'replace' : 'add',
