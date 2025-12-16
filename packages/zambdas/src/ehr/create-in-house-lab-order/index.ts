@@ -77,6 +77,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       diagnosesNew,
       isRepeatTest,
       notes,
+      parentTestId,
     } = validatedParameters;
 
     const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
@@ -154,6 +155,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
               {
                 name: 'instantiates-canonical',
                 value: `${testItem.adUrl}|${testItem.adVersion}`,
+              },
+            ],
+          })
+        ).unbundle() as ServiceRequest[];
+      requests.push(initialServiceRequestSearch());
+    } else if (parentTestId) {
+      console.log('creating reflex test, parent test id passed:', parentTestId);
+      const initialServiceRequestSearch = async (): Promise<ServiceRequest[]> =>
+        (
+          await oystehr.fhir.search({
+            resourceType: 'ServiceRequest',
+            params: [
+              {
+                name: '_id',
+                value: parentTestId,
               },
             ],
           })
@@ -270,6 +286,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
         const initialSR = possibleInitialSRs[0];
         return initialSR;
+      } else if (parentTestId) {
+        if (!initialServiceRequestResources || initialServiceRequestResources.length === 0) {
+          throw IN_HOUSE_LAB_ERROR(
+            'There was an issue with the parent test id passed to create-lab, no service requests were found'
+          );
+        }
+        if (initialServiceRequestResources.length > 1) {
+          // this also should never happen
+          throw IN_HOUSE_LAB_ERROR(
+            'There was an issue with the parent test id passed to create-lab, more than one service request was found'
+          );
+        }
+        return initialServiceRequestResources[0];
       }
       return;
     })();
@@ -342,7 +371,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
       instantiatesCanonical: [`${activityDefinition.url}|${activityDefinition.version}`],
     };
-    // if an initialServiceRequest is defined, the test being ordered is repeat and should be linked to the
+    // if an initialServiceRequest is defined, the test being ordered is repeat OR reflex and should be linked to the
     // original test represented by initialServiceRequest
     if (initialServiceRequest) {
       serviceRequestConfig.basedOn = [

@@ -155,3 +155,11 @@ export const NEUTRAL_RESULT_DR_TAG = {
   code: 'neutral',
   display: 'Tests done should be displayed in neutral ui', // no colors, no indications positive/negative (example pregnancy)
 };
+
+export const REFLEX_TEST_LOGIC_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-logic';
+export const REFLEX_TEST_TO_RUN_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-to-run';
+export const REFLEX_TEST_ALERT_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-trigger-alert';
+export const REFLEX_TEST_CONDITION_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-condition';
+export const REFLEX_TEST_CONDITION_LANGUAGES = {
+  fhirPath: 'text/fhirpath',
+};

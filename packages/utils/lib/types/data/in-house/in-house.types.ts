@@ -27,6 +27,7 @@ export interface BaseComponent {
   componentName: string;
   loincCode: string[];
   observationDefinitionId: string;
+  reflexTestAlert: { alert: string; testName: string } | undefined;
   result?: TestComponentResult;
 }
 
@@ -63,6 +64,7 @@ export interface TestItem {
     groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
   };
+  reflexAlertRollUp: { alert: string; testName: string }[] | undefined;
   adUrl: string;
   adVersion: string;
   note?: string;
@@ -141,6 +143,7 @@ export type CreateInHouseLabOrderParameters = {
   diagnosesAll: DiagnosisDTO[];
   diagnosesNew: DiagnosisDTO[];
   isRepeatTest: boolean;
+  parentTestId: string | undefined; // this assumes that they are clicking the button "order reflex test" (imo OK for mvp)
   notes?: string;
 };
 

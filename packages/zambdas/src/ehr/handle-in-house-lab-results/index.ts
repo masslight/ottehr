@@ -56,7 +56,7 @@ import {
 } from '../../shared';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
 import { createOwnerReference } from '../../shared/tasks';
-import { getServiceRequestsRelatedViaRepeat, getUrlAndVersionForADFromServiceRequest } from '../shared/in-house-labs';
+import { getRelatedServiceRequests, getUrlAndVersionForADFromServiceRequest } from '../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -88,7 +88,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       attendingPractitioner,
       schedule,
       location,
-      serviceRequestsRelatedViaRepeat,
+      relatedServiceRequests,
     } = await getInHouseLabResultResources(serviceRequestId, curUserPractitionerId, oystehr);
 
     const currentUserPractitionerName = getFullestAvailableName(currentUserPractitioner);
@@ -155,7 +155,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         secrets,
         m2mToken,
         activityDefinition,
-        serviceRequestsRelatedViaRepeat,
+        relatedServiceRequests,
         specimen
       );
     } catch (e) {
@@ -192,7 +192,7 @@ const getInHouseLabResultResources = async (
   attendingPractitioner: Practitioner;
   location: Location | undefined;
   schedule: Schedule;
-  serviceRequestsRelatedViaRepeat: ServiceRequest[] | undefined;
+  relatedServiceRequests: ServiceRequest[] | undefined;
 }> => {
   const labOrderResources = (
     await oystehr.fhir.search<ServiceRequest | Patient | Encounter | Specimen | Task | Schedule | Location>({
@@ -292,9 +292,9 @@ const getInHouseLabResultResources = async (
     throw new Error(`One ready or in-progress IRT task should exist for ServiceRequest/${serviceRequestId}`);
   }
 
-  const serviceRequestsRelatedViaRepeat =
-    serviceRequests.length > 1 ? getServiceRequestsRelatedViaRepeat(serviceRequests, serviceRequestId) : undefined;
-  console.log('serviceRequestsRelatedViaRepeat ids ', serviceRequestsRelatedViaRepeat?.map((sr) => sr.id));
+  const relatedServiceRequests =
+    serviceRequests.length > 1 ? getRelatedServiceRequests(serviceRequests, serviceRequestId) : undefined;
+  console.log('relatedServiceRequests ids ', relatedServiceRequests?.map((sr) => sr.id));
 
   const patient = patients[0];
 
@@ -344,7 +344,7 @@ const getInHouseLabResultResources = async (
     attendingPractitioner,
     location,
     schedule,
-    serviceRequestsRelatedViaRepeat,
+    relatedServiceRequests,
   };
 };
 

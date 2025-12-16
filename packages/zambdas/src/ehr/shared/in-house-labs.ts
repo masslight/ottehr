@@ -169,7 +169,13 @@ export const provenanceIsTargetOfServiceRequest = (provenance: Provenance, servi
   return !!provenance.target?.some((target) => target.reference === `ServiceRequest/${serviceRequest.id}`);
 };
 
-export const getServiceRequestsRelatedViaRepeat = (
+/**
+ *
+ * @param serviceRequests an array of service requests
+ * @param serviceRequestSearchId the id of the service request driving the search (will not be included in the return)
+ * @returns all service requests contained in basedOn for the serviceRequestSearchId or all service requests that contain serviceRequestSearchId in their basedOn
+ */
+export const getRelatedServiceRequests = (
   serviceRequests: ServiceRequest[],
   serviceRequestSearchId: string
 ): ServiceRequest[] => {
@@ -185,7 +191,7 @@ export const getServiceRequestsRelatedViaRepeat = (
     return acc;
   }, []);
 
-  const serviceRequestsRelatedViaRepeat: ServiceRequest[] = [];
+  const relatedServiceRequests: ServiceRequest[] = [];
   if (additionalServiceRequests.length > 0 && serviceRequestSearched) {
     // was the service request passed as the search param the initial test or ran as repeat?
     const initialServiceRequestId = serviceRequestSearched?.basedOn
@@ -193,41 +199,46 @@ export const getServiceRequestsRelatedViaRepeat = (
       : serviceRequestSearched?.id;
     console.log('initialServiceRequestId,', initialServiceRequestId);
     additionalServiceRequests.forEach((sr) => {
-      // confirm its indeed related to the repeat testing group
-      // tbh this check might be overkill
+      // confirm its indeed related
       const basedOn = sr.basedOn?.[0].reference?.replace('ServiceRequest/', '');
       if (sr.id === initialServiceRequestId || (basedOn && basedOn === initialServiceRequestId)) {
-        serviceRequestsRelatedViaRepeat.push(sr);
+        relatedServiceRequests.push(sr);
       }
     });
   }
-  return serviceRequestsRelatedViaRepeat;
+  return relatedServiceRequests;
 };
 
-interface RepeatSrResourceConfig {
+interface RelatedSrResourceConfig {
   [srId: string]: {
     diagnosticReports: DiagnosticReport[];
     observations: Observation[];
     provenances: Provenance[];
     tasks: Task[];
     specimens: Specimen[];
+    relatedAdUrlCanonicalUrl: string | undefined;
   };
 }
-export const fetchResultResourcesForRepeatServiceRequest = async (
+
+// these additional tests are either related via repeat testing or reflex testing
+export const fetchResultResourcesForRelatedServiceRequest = async (
   oystehr: Oystehr,
   serviceRequests: ServiceRequest[]
 ): Promise<{
-  repeatDiagnosticReports: DiagnosticReport[];
-  repeatObservations: Observation[];
-  repeatProvenances: Provenance[];
-  repeatTasks: Task[];
-  repeatSpecimens: Specimen[];
-  srResourceMap: RepeatSrResourceConfig;
+  additionalDiagnosticReports: DiagnosticReport[];
+  additionalObservations: Observation[];
+  additionalProvenances: Provenance[];
+  additionalTasks: Task[];
+  additionalSpecimens: Specimen[];
+  additionalActivityDefinitions: ActivityDefinition[];
+  srResourceMap: RelatedSrResourceConfig;
 }> => {
-  console.log('making requests for additional service requests representing related repeat tests');
-  let srResourceMap: RepeatSrResourceConfig = makeSrResourceMap(serviceRequests);
+  console.log('making requests for additional service requests representing related tests');
+  let srResourceMap: RelatedSrResourceConfig = makeSrResourceMap(serviceRequests);
   const resources = (
-    await oystehr.fhir.search<ServiceRequest | DiagnosticReport | Observation | Provenance | Task | Specimen>({
+    await oystehr.fhir.search<
+      ServiceRequest | DiagnosticReport | Observation | Provenance | Task | Specimen | ActivityDefinition
+    >({
       resourceType: 'ServiceRequest',
       params: [
         {
@@ -254,49 +265,59 @@ export const fetchResultResourcesForRepeatServiceRequest = async (
           name: '_include',
           value: 'ServiceRequest:specimen',
         },
+        {
+          name: '_include',
+          value: 'ServiceRequest:instantiates-canonical',
+        },
       ],
     })
   ).unbundle();
-  const repeatDiagnosticReports: DiagnosticReport[] = [];
-  const repeatObservations: Observation[] = [];
-  const repeatProvenances: Provenance[] = [];
-  const repeatTasks: Task[] = [];
-  const repeatSpecimens: Specimen[] = [];
+  const additionalDiagnosticReports: DiagnosticReport[] = [];
+  const additionalObservations: Observation[] = [];
+  const additionalProvenances: Provenance[] = [];
+  const additionalTasks: Task[] = [];
+  const additionalSpecimens: Specimen[] = [];
+  const additionalActivityDefinitions: ActivityDefinition[] = []; // reflex tests will have different ADs so we need to do this
   resources.forEach((r) => {
     if (r.resourceType === 'DiagnosticReport') {
-      repeatDiagnosticReports.push(r);
+      additionalDiagnosticReports.push(r);
       srResourceMap = addToSrResourceMap(r, 'diagnosticReports', srResourceMap);
     }
     if (r.resourceType === 'Observation') {
-      repeatObservations.push(r);
+      additionalObservations.push(r);
       srResourceMap = addToSrResourceMap(r, 'observations', srResourceMap);
     }
     if (r.resourceType === 'Provenance') {
-      repeatProvenances.push(r);
+      additionalProvenances.push(r);
       srResourceMap = addToSrResourceMap(r, 'provenances', srResourceMap);
     }
     if (r.resourceType === 'Task') {
-      repeatTasks.push(r);
+      additionalTasks.push(r);
       srResourceMap = addToSrResourceMap(r, 'tasks', srResourceMap);
     }
     if (r.resourceType === 'Specimen') {
-      repeatSpecimens.push(r);
+      additionalSpecimens.push(r);
       srResourceMap = addToSrResourceMap(r, 'specimens', srResourceMap);
+    }
+    if (r.resourceType === 'ActivityDefinition') {
+      additionalActivityDefinitions.push(r);
     }
   });
   console.log('srResourceMap', JSON.stringify(srResourceMap));
   return {
-    repeatDiagnosticReports,
-    repeatObservations,
-    repeatProvenances,
-    repeatTasks,
-    repeatSpecimens,
+    additionalDiagnosticReports,
+    additionalObservations,
+    additionalProvenances,
+    additionalTasks,
+    additionalSpecimens,
+    additionalActivityDefinitions,
     srResourceMap,
   };
 };
 
-const makeSrResourceMap = (serviceRequests: ServiceRequest[]): RepeatSrResourceConfig => {
-  const config = serviceRequests.reduce((acc: RepeatSrResourceConfig, sr) => {
+const makeSrResourceMap = (serviceRequests: ServiceRequest[]): RelatedSrResourceConfig => {
+  const config = serviceRequests.reduce((acc: RelatedSrResourceConfig, sr) => {
+    const relatedAdUrlCanonicalUrl = sr.instantiatesCanonical?.[0];
     if (sr.id) {
       acc[sr.id] = {
         diagnosticReports: [],
@@ -304,6 +325,7 @@ const makeSrResourceMap = (serviceRequests: ServiceRequest[]): RepeatSrResourceC
         provenances: [],
         tasks: [],
         specimens: [],
+        relatedAdUrlCanonicalUrl,
       };
     }
     return acc;
@@ -334,9 +356,9 @@ const getSrIdFromResource = (resource: FhirResource): string | undefined => {
 
 const addToSrResourceMap = (
   resource: FhirResource,
-  addTo: keyof RepeatSrResourceConfig[string],
-  srResourceMap: RepeatSrResourceConfig
-): RepeatSrResourceConfig => {
+  addTo: keyof RelatedSrResourceConfig[string],
+  srResourceMap: RelatedSrResourceConfig
+): RelatedSrResourceConfig => {
   const srId = getSrIdFromResource(resource);
   if (!srId || !srResourceMap[srId]) return srResourceMap;
 

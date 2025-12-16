@@ -54,6 +54,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const prefillData = location.state as {
     testItemName?: string;
     diagnoses?: DiagnosisDTO[];
+    parentTestSrId?: string; // only for reflex test
+    type?: 'repeat' | 'reflex';
   };
 
   const { encounter, appointment } = useAppointmentData();
@@ -136,8 +138,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         console.log('found', found);
         if (found) {
           setSelectedTest(found);
-          setRepeatTest(true);
           setRelatedCptCode(found.cptCode[0]); // we dont have any tests with more than one
+          if (prefillData.type === 'repeat') setRepeatTest(true);
         }
       }
       if (diagnoses) {
@@ -165,6 +167,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           diagnosesAll: [...selectedAssessmentDiagnoses, ...selectedNewDiagnoses],
           diagnosesNew: selectedNewDiagnoses,
           isRepeatTest: repeatTest,
+          parentTestId: prefillData?.parentTestSrId,
           notes: notes,
         });
 

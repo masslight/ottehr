@@ -216,6 +216,7 @@ export interface InHouseLabResultConfig {
   finalResultDateTime: DateTime;
   specimenSource: string;
   results: InHouseLabResult[];
+  testName: string;
 }
 
 export type ResultSpecimenInfo = {

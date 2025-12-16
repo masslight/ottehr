@@ -649,6 +649,60 @@ export const testItems: TestItem[] = [
       },
     ],
   },
+  {
+    name: 'Alcohol Test',
+    methods: {
+      analyzer: { device: 'unknown' },
+    },
+    method: 'unknown',
+    device: 'unknown',
+    cptCode: ['82075'],
+    loincCode: ['5641-6'],
+    repeatTest: false,
+    components: [
+      {
+        componentName: 'Alcohol Test',
+        loincCode: ['5641-6'],
+        dataType: 'Quantity' as const,
+        normalRange: {
+          low: 0.02,
+          high: 0.02,
+          unit: '% BAC',
+        },
+        display: {
+          type: 'Numeric',
+          nullOption: false,
+        },
+      },
+    ],
+  },
+  {
+    name: 'Alcohol Confirmation Test',
+    methods: {
+      analyzer: { device: 'unknown' },
+    },
+    method: 'unknown',
+    device: 'unknown',
+    cptCode: ['82075C'],
+    loincCode: ['5641-6'],
+    repeatTest: false,
+    components: [
+      {
+        componentName: 'Alcohol Confirmation Test',
+        loincCode: ['5641-6'],
+        dataType: 'Quantity' as const,
+        normalRange: {
+          low: 0.02,
+          high: 0.02,
+          unit: '% BAC',
+        },
+        display: {
+          type: 'Numeric',
+          nullOption: false,
+        },
+      },
+    ],
+  },
 ];
 
 // console.log('testItems in module:', testItems);
