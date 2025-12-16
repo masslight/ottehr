@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-8212d7f9-77a2-4e3b-8869-da7cdd24696a",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-498d70c6-5369-4a0a-b500-79d750028c18"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-503eb570-36ea-4053-84ab-4d1b0c062075"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Normal external ear"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "normal-external-ear",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}
