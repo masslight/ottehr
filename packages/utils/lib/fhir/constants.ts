@@ -125,7 +125,7 @@ export const FHIR_EXTENSION = {
       url: `${PUBLIC_EXTENSION_BASE_URL}/insurance-requirements`,
     },
     notes: {
-      url: `${PRIVATE_EXTENSION_BASE_URL}/notes`,
+      url: ottehrExtensionUrl('notes'),
     },
   },
   QuestionnaireResponse: {
@@ -699,3 +699,5 @@ export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
 
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO = 'Summary of visit from audio recording';
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT = 'Summary of visit from chat';
+
+export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');
