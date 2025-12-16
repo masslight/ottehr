@@ -531,25 +531,23 @@ const FormFields = {
         key: 'pcp-first',
         type: 'string',
         label: 'First name',
-        triggers: [
-          { targetQuestionLinkId: 'pcp-active', effect: ['require', 'enable'], operator: '=', answerBoolean: true },
-        ],
+        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
         disabledDisplay: 'hidden',
       },
       lastName: {
         key: 'pcp-last',
         type: 'string',
         label: 'Last name',
-        triggers: [
-          { targetQuestionLinkId: 'pcp-active', effect: ['require', 'enable'], operator: '=', answerBoolean: true },
-        ],
+        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
         disabledDisplay: 'hidden',
       },
       practiceName: {
         key: 'pcp-practice',
         type: 'string',
         label: 'Practice name',
-        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
+        triggers: [
+          { targetQuestionLinkId: 'pcp-active', effect: ['require', 'enable'], operator: '=', answerBoolean: true },
+        ],
         disabledDisplay: 'hidden',
       },
       address: {
