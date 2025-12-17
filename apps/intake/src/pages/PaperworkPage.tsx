@@ -366,9 +366,17 @@ export const PaperworkPage: FC = () => {
         return undefined;
       }
       const paperworkValues = convertQRItemToLinkIdMap(qr.item);
+      const flattenPaperworkValues = convertQRItemToLinkIdMap(
+        Object.values(paperworkValues).flatMap((pageItem) => {
+          if (pageItem.item) {
+            return pageItem.item;
+          }
+          return [];
+        })
+      );
       let idx = 1;
       let nextPage = paperworkPages[currentIndex + idx];
-      while (nextPage && !evalEnableWhen(nextPage, allItems, paperworkValues, questionnaireResponse)) {
+      while (nextPage && !evalEnableWhen(nextPage, allItems, flattenPaperworkValues, questionnaireResponse)) {
         idx += 1;
         nextPage = paperworkPages[currentIndex + idx];
       }
