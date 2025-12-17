@@ -1,28 +1,31 @@
 import Oystehr, { FhirPatchParams, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, ContactPoint, Encounter, Patient, RelatedPerson } from 'fhir/r4b';
+import { Appointment, ContactPoint, Encounter, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { SignJWT } from 'jose';
 import { JSONPath } from 'jsonpath-plus';
 import {
   createOystehrClient,
+  FHIR_RESOURCE_NOT_FOUND,
   formatPhoneNumber,
-  getAppointmentResourceById,
   getSecret,
+  getVirtualServiceResourceExtension,
   PROJECT_WEBSITE,
   SecretsKeys,
+  TELEMED_VIDEO_ROOM_CODE,
   VideoChatCreateInviteInput,
   VideoChatCreateInviteResponse,
 } from 'utils';
+import { getNameForOwner } from '../../../ehr/schedules/shared';
 import {
   getAuth0Token,
-  getVideoEncounterForAppointment,
+  getEmailClient,
+  getUser,
   lambdaResponse,
+  sendSms,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { getUser } from '../../../shared/auth';
-import { getEmailClient, sendSms } from '../../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -75,22 +78,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );
 
-    console.log(`getting appointment resource for id ${appointmentId}`);
-    const appointment: Appointment | undefined = await getAppointmentResourceById(appointmentId, oystehr);
-    if (!appointment) {
-      console.log('Appointment is not found');
-      return lambdaResponse(404, { message: 'Appointment is not found' });
-    }
-
-    const encounter = await getVideoEncounterForAppointment(appointment.id || 'Unknown', oystehr);
-    if (!encounter || !encounter.id) {
-      throw new Error('Encounter not found.'); // 500
-    }
-
-    // Fetch patient and invited participant info from FHIR in one go
-    const allParticipants = await searchParticipantResourcesByEncounterId(encounter.id, oystehr);
-    const relatedPersons = filterInvitedParticipantResources(allParticipants);
-    const patientResource = filterPatientResources(allParticipants)[0];
+    const { encounter, appointment, relatedPersons, patient, location } = await getAppointmentResources(
+      oystehr,
+      appointmentId
+    );
 
     const emailAddresses: string[] = JSONPath({
       path: '$..telecom[?(@.system == "email")].value',
@@ -136,14 +127,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const inviteUrl = `${websiteUrl}/invited-waiting-room?appointment_id=${appointmentId}&token=${jwt}`;
 
-    const chosenName = patientResource.name?.find((name) => name.use === 'nickname')?.given?.[0];
-    const patientChosenName = chosenName || patientResource.name?.[0].given?.[0] || 'Patient';
+    const chosenName = patient?.name?.find((name) => name.use === 'nickname')?.given?.[0];
+    const patientChosenName = chosenName || patient?.name?.[0].given?.[0] || 'Patient';
 
+    const locationName = location ? getNameForOwner(location) ?? '' : '';
     if (emailAddress) {
       const emailClient = getEmailClient(secrets);
       await emailClient.sendVideoChatInvitationEmail(emailAddress, {
         'join-visit-url': inviteUrl,
         'patient-name': patientChosenName,
+        location: locationName,
       });
     }
 
@@ -271,41 +264,72 @@ async function addParticipantToEncounterIfNeeded(
   }
 }
 
-async function searchParticipantResourcesByEncounterId(
-  encounterId: string,
-  oystehr: Oystehr
-): Promise<(Patient | RelatedPerson)[]> {
-  const allResources = (
-    await oystehr.fhir.search<Encounter | Patient | RelatedPerson>({
-      resourceType: 'Encounter',
-      params: [
-        {
-          name: '_id',
-          value: encounterId,
-        },
-        {
-          name: '_include',
-          value: 'Encounter:participant',
-        },
-        {
-          name: '_include',
-          value: 'Encounter:subject',
-        },
-      ],
-    })
-  ).unbundle();
+async function getAppointmentResources(
+  oystehr: Oystehr,
+  appointmentId: string
+): Promise<{
+  appointment: Appointment;
+  encounter: Encounter;
+  relatedPersons: RelatedPerson[];
+  patient?: Patient;
+  location?: Location;
+}> {
+  const response = await oystehr.fhir.search({
+    resourceType: 'Encounter',
+    params: [
+      {
+        name: 'appointment',
+        value: `Appointment/${appointmentId}`,
+      },
+      {
+        name: '_include',
+        value: 'Encounter:appointment',
+      },
+      {
+        name: '_include',
+        value: 'Encounter:participant',
+      },
+      {
+        name: '_include',
+        value: 'Encounter:subject',
+      },
+      {
+        name: '_include:iterate',
+        value: 'Appointment:location',
+      },
+    ],
+  });
+  const resources = response.unbundle();
 
-  const participants: (RelatedPerson | Patient)[] = allResources.filter(
-    (r): r is RelatedPerson | Patient => r.resourceType === 'RelatedPerson' || r.resourceType === 'Patient'
-  );
-  return participants;
-}
+  // looking for virtual encounter
+  const encounter = resources.find(
+    (r) =>
+      r.resourceType === 'Encounter' &&
+      Boolean(getVirtualServiceResourceExtension(r as Encounter, TELEMED_VIDEO_ROOM_CODE))
+  ) as Encounter | undefined;
+  if (!encounter) throw FHIR_RESOURCE_NOT_FOUND('Encounter');
 
-function filterInvitedParticipantResources(participants: (RelatedPerson | Patient)[]): RelatedPerson[] {
-  const relatedPersons = <RelatedPerson[]>participants.filter((r) => r.resourceType === 'RelatedPerson');
-  return relatedPersons.filter((r) => r.relationship?.[0].coding?.[0].code === 'WIT');
-}
+  const appointment = resources.find(
+    (r) =>
+      r.id !== undefined &&
+      r.resourceType === 'Appointment' &&
+      encounter?.appointment?.find((a) => a.reference?.includes(r.id!))
+  ) as Appointment | undefined;
+  if (!appointment) throw FHIR_RESOURCE_NOT_FOUND('Appointment');
 
-function filterPatientResources(participants: (RelatedPerson | Patient)[]): Patient[] {
-  return <Patient[]>participants.filter((r) => r.resourceType === 'Patient');
+  const relatedPersons = resources.filter(
+    (r) => r.resourceType === 'RelatedPerson' && r.relationship?.[0].coding?.[0].code === 'WIT'
+  ) as RelatedPerson[];
+
+  const patient = resources.find((r) => r.resourceType === 'Patient') as Patient | undefined;
+
+  const location = resources.find((r) => r.resourceType === 'Location') as Location | undefined;
+
+  return {
+    appointment,
+    encounter,
+    relatedPersons,
+    patient,
+    location,
+  };
 }

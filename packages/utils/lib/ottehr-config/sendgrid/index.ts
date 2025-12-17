@@ -120,7 +120,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       htmlFilePath: `${PATH_PREFIX}/ottehr-config/sendgrid/template_html/telemed-invitation.html`,
       subject: '{{env}}Join virtual visit with {{patient-name}}',
       templateIdSecretName: 'SENDGRID_TELEMED_INVITATION_TEMPLATE_ID',
-      dynamicTemplateData: ['patient-name', 'join-visit-url'],
+      dynamicTemplateData: ['patient-name', 'join-visit-url', 'location'],
       supportsAttachments: false,
     },
   },
