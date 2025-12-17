@@ -12,8 +12,8 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import inPersonIntakeQuestionnaireJson from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
-import { ServiceCategoryCode } from '../configuration';
 import { isLocationVirtual } from '../fhir';
+import { ServiceCategoryCode } from '../ottehr-config';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,

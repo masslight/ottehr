@@ -263,6 +263,41 @@ export function getFullName(individual: Patient | Practitioner | RelatedPerson |
   return `${firstName}${middleName ? ` ${middleName}` : ''} ${lastName}`;
 }
 
+/**
+ * Output format: LastName, FirstName[, MiddleName][ (Nickname)]
+ */
+export function getFormattedPatientFullName(
+  patient: Patient,
+  options?: { skipMiddleName?: boolean; skipNickname?: boolean }
+): string | undefined {
+  const firstName = getFirstName(patient);
+  const lastName = getLastName(patient);
+  const middleName = getMiddleName(patient);
+  const nickname = getNickname(patient);
+
+  if (!firstName && !lastName) {
+    return undefined;
+  }
+
+  let result: string;
+
+  if (lastName && firstName) {
+    result = `${lastName}, ${firstName}`;
+  } else {
+    result = firstName ?? lastName!;
+  }
+
+  if (!options?.skipMiddleName && middleName) {
+    result += `, ${middleName}`;
+  }
+
+  if (!options?.skipNickname && nickname) {
+    result += ` (${nickname})`;
+  }
+
+  return result;
+}
+
 export function getPatientInfoFullName(patient: PatientInfo): string {
   const { firstName, middleName, lastName } = patient;
   return `${firstName}${middleName ? ` ${middleName}` : ''} ${lastName}`;

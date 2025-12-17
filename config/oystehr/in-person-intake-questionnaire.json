@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-in-person-previsit-1_1_2": {
+    "questionnaire-in-person-previsit-1_1_3": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-        "version": "1.1.2",
+        "version": "1.1.3",
         "name": "in-person_pre-visit_paperwork",
         "title": "in-person pre-visit paperwork",
         "status": "active",
@@ -2584,6 +2584,18 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                     "valueString": "Payment Validation"
+                  }
+                ]
+              },
+              {
+                "linkId": "card-payment-details-text",
+                "text": "If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.",
+                "type": "display",
+                "enableWhen": [
+                  {
+                    "question": "card-payment-details-text",
+                    "operator": "=",
+                    "answerString": "-"
                   }
                 ]
               }

@@ -285,8 +285,7 @@ function composeDataForPdf(
   const otherDiagnoses = diagnoses.filter((item) => !item.isPrimary).map((item) => item.display);
 
   // --- MDM ---
-  // const medicalDecision = additionalChartData?.medicalDecision?.text;
-  const medicalDecision = '';
+  const medicalDecision = additionalChartData?.medicalDecision?.text;
 
   // --- E&M ---
   const emCode = chartData?.emCode?.display;

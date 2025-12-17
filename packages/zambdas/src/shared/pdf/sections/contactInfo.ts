@@ -1,4 +1,4 @@
-import { PRIVATE_EXTENSION_BASE_URL, standardizePhoneNumber } from 'utils';
+import { formatPhoneNumberDisplay, PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL } from 'utils';
 import { DataComposer } from '../pdf-common';
 import { ContactInfo, PatientDataInput, PdfSection } from '../types';
 
@@ -11,14 +11,24 @@ export const composeContactData: DataComposer<PatientDataInput, ContactInfo> = (
   const zip = patientAddress?.postalCode ?? '';
 
   const patientMobile =
-    standardizePhoneNumber(patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value) ??
-    '';
+    formatPhoneNumberDisplay(
+      patient?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value
+    ) ?? '';
   const patientEmail = patient?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? '';
 
-  const sendMarketingMessages =
-    patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)?.valueBoolean ?? false;
+  const patientPreferredCommunicationMethod =
+    patient.extension?.find((e) => e.url === PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL)?.valueString ?? '';
 
-  return { streetAddress, addressLineOptional, city, state, zip, patientMobile, patientEmail, sendMarketingMessages };
+  return {
+    streetAddress,
+    addressLineOptional,
+    city,
+    state,
+    zip,
+    patientMobile,
+    patientEmail,
+    patientPreferredCommunicationMethod,
+  };
 };
 
 export const createContactInfoSection = <TData extends { contact?: ContactInfo }>(): PdfSection<
@@ -73,8 +83,8 @@ export const createContactInfoSection = <TData extends { contact?: ContactInfo }
       }
     );
     client.drawLabelValueRow(
-      'Send marketing messages',
-      contactInfo.sendMarketingMessages ? 'Yes' : 'No',
+      'Preferred Communication Method',
+      contactInfo.patientPreferredCommunicationMethod,
       styles.textStyles.regular,
       styles.textStyles.regular,
       {
