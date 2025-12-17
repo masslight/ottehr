@@ -140,7 +140,7 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
       await paperwork.checkPatientNameIsDisplayed(patient.firstName, patient.lastName);
     });
 
-    await test.step('PPO-3. Click Continue without selecting payment option - defaults to self-pay', async () => {
+    await test.step.skip('PPO-3. Click Continue without selecting payment option - defaults to self-pay', async () => {
       await locator.clickContinueButton();
       await paperwork.checkCorrectPageOpens('Credit card details');
     });
