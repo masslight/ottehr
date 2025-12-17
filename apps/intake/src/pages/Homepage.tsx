@@ -7,7 +7,7 @@ import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { pastVisits } from '@theme/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { PROJECT_NAME, ServiceMode, shouldShowServiceCategorySelectionPage } from 'utils';
+import { BOOKING_CONFIG, PROJECT_NAME, ServiceMode, shouldShowServiceCategorySelectionPage } from 'utils';
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
 import HomepageOption from '../components/HomepageOption';
 import { dataTestIds } from '../helpers/data-test-ids';
@@ -128,6 +128,12 @@ const Homepage = (): JSX.Element => {
     }
   };
 
+  const { homepageOptions } = BOOKING_CONFIG;
+  const showScheduleVirtualOption = homepageOptions.includes('schedule-virtual-visit');
+  const showStartVirtualOption = homepageOptions.includes('start-virtual-visit');
+  const showScheduleInPersonOption = homepageOptions.includes('schedule-in-person-visit');
+  const showStartInPersonOption = homepageOptions.includes('start-in-person-visit');
+
   return (
     <CustomContainer title={`Welcome to ${PROJECT_NAME}`} description="" isFirstPage={true}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -178,31 +184,39 @@ const Homepage = (): JSX.Element => {
             {/*  <HomepageOption title="Request a Virtual Visit" icon={requestVisit} handleClick={handleRequestVisit} />*/}
             {/*)}*/}
 
-            <HomepageOption
-              title="Schedule a Virtual Visit"
-              icon={<VideoCameraFrontOutlinedIcon />}
-              handleClick={handleScheduleVirtual}
-              dataTestId={dataTestIds.scheduleVirtualVisitButton}
-            />
-            <HomepageOption
-              title="Schedule an In-Person Visit"
-              icon={<LocalHospitalOutlinedIcon />}
-              handleClick={handleInPerson}
-              dataTestId={dataTestIds.scheduleInPersonVisitButton}
-            />
-            <HomepageOption
-              title="Virtual Visit Check-In"
-              icon={<VideoCameraFrontOutlinedIcon />}
-              handleClick={handleRequestVisit}
-              dataTestId={dataTestIds.startVirtualVisitButton}
-            />
+            {showScheduleVirtualOption ? (
+              <HomepageOption
+                title="Schedule a Virtual Visit"
+                icon={<VideoCameraFrontOutlinedIcon />}
+                handleClick={handleScheduleVirtual}
+                dataTestId={dataTestIds.scheduleVirtualVisitButton}
+              />
+            ) : null}
+            {showScheduleInPersonOption ? (
+              <HomepageOption
+                title="Schedule an In-Person Visit"
+                icon={<LocalHospitalOutlinedIcon />}
+                handleClick={handleInPerson}
+                dataTestId={dataTestIds.scheduleInPersonVisitButton}
+              />
+            ) : null}
+            {showStartVirtualOption ? (
+              <HomepageOption
+                title="Virtual Visit Check-In"
+                icon={<VideoCameraFrontOutlinedIcon />}
+                handleClick={handleRequestVisit}
+                dataTestId={dataTestIds.startVirtualVisitButton}
+              />
+            ) : null}
 
-            <HomepageOption
-              title="In-Person Check-In"
-              icon={<LocalHospitalOutlinedIcon />}
-              handleClick={handleWalkIn}
-              dataTestId={dataTestIds.startInPersonVisitButton}
-            />
+            {showStartInPersonOption ? (
+              <HomepageOption
+                title="In-Person Check-In"
+                icon={<LocalHospitalOutlinedIcon />}
+                handleClick={handleWalkIn}
+                dataTestId={dataTestIds.startInPersonVisitButton}
+              />
+            ) : null}
             <HomepageOption
               title="Past Visits"
               icon={pastVisits}
