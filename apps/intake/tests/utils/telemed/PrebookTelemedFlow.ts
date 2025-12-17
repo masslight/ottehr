@@ -138,4 +138,34 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     await this.continue();
     return { selectedSlot: { time: selectedSlot.time, fullSlot: selectedSlot.fullSlot }, location, locationTitle };
   }
+
+  async startVisitFullFlow(): Promise<StartVisitResponse> {
+    await this.selectVisitAndContinue();
+    // Optional step: service category selection for Virtual Visit Request (prebook)
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'prebook' })) {
+      const availableCategories = BOOKING_CONFIG.serviceCategories || [];
+      const firstCategory = availableCategories[0]!;
+
+      if (firstCategory) {
+        await this.page.getByText(firstCategory.display).click();
+      }
+    }
+    const slotAndLocation = await this.selectTimeLocationAndContinue();
+    await this.locator.selectDifferentFamilyMember();
+    const patientBasicInfo = await this.fillNewPatientDataAndContinue();
+    await this.completeBooking();
+    await this.page.waitForURL(/\/visit/);
+    const timeBlock = this.page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock);
+    await expect(timeBlock).toHaveText(slotAndLocation.selectedSlot?.fullSlot ?? '');
+    await expect(this.locator.appointmentDescription).toHaveText(RegExp(slotAndLocation.location!));
+    const bookingURL = this.page.url();
+    const match = bookingURL.match(/visit\/([0-9a-fA-F-]+)/);
+    const bookingUUID = match ? match[1] : null;
+    return {
+      patientBasicInfo,
+      slotAndLocation,
+      bookingURL,
+      bookingUUID,
+    };
+  }
 }
