@@ -6,13 +6,11 @@ import {
   getConsentStepAnswers,
   getContactInformationAnswers,
   getEmergencyContactStepAnswers,
-  getEmployerInformationStepAnswers,
   getPatientDetailsStepAnswers,
   getPayerId,
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
-  hasEmployerInformationPage,
   isoToDateObject,
   ORG_TYPE_CODE_SYSTEM,
   ORG_TYPE_PAYER_CODE,
@@ -690,9 +688,6 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
       getConsentStepAnswers({}),
       getPrimaryCarePhysicianStepAnswers({})
     );
-    if (hasEmployerInformationPage()) {
-      answers.push(getEmployerInformationStepAnswers({}));
-    }
     return answers;
   });
   const oystehr = await ResourceHandler.getOystehr();
