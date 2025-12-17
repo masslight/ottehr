@@ -2181,7 +2181,7 @@ const getAttorneyInformation = (items: QuestionnaireResponseItem[]): AttorneyInf
 
   const hasAttorney = getAnswerString('attorney-mva-has-attorney');
 
-  if (hasAttorney !== 'I have an attorney') {
+  if (hasAttorney === 'I do not have an attorney') {
     return undefined;
   }
 

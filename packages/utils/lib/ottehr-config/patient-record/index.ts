@@ -1144,6 +1144,7 @@ export const createQuestionnaireItemFromPatientRecordConfig = (
     'insurance',
     'responsibleParty',
     'employerInformation',
+    'attorneyInformation',
     'emergencyContact',
     'preferredPharmacy',
   ] as const;
