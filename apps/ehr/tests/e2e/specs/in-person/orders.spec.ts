@@ -9,6 +9,9 @@ import { FinalResultPage } from 'tests/e2e/page/FinalResultPage';
 import { expectAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
+import { expectNursingOrderCreatePage } from 'tests/e2e/page/NursingOrderCreatePage';
+import { expectNursingOrderDetailsPage } from 'tests/e2e/page/NursingOrderDetailsPage';
+import { NursingOrdersPage } from 'tests/e2e/page/NursingOrdersPage';
 import { expectOrderDetailsPage, OrderInHouseLabPage } from 'tests/e2e/page/OrderInHouseLabPage';
 import { expectPatientInfoPage } from 'tests/e2e/page/PatientInfo';
 import { PerformTestPage } from 'tests/e2e/page/PerformTestPage';
@@ -276,6 +279,107 @@ test.describe('In-house labs page', async () => {
     const inHouseLabsPage = await sideMenu.clickInHouseLabs();
     return await inHouseLabsPage.clickOrderButton();
   }
+});
+
+test.describe('Nursing Orders Page', () => {
+  interface NursingOrderInfo {
+    notes: string;
+    status: string;
+  }
+
+  const NURSING_ORDER_A: NursingOrderInfo = {
+    notes: 'Administer medication as prescribed, monitor vital signs every 2 hours',
+    status: 'PENDING',
+  };
+
+  const NURSING_ORDER_B: NursingOrderInfo = {
+    notes: 'Patient requires wound care and dressing change twice daily',
+    status: 'PENDING',
+  };
+
+  test('Nursing Orders happy path', async () => {
+    await test.step('Create a nursing order', async () => {
+      const nursingOrdersPage = await sideMenu.clickNursingOrders();
+      const createOrderPage = await nursingOrdersPage.clickOrderButton();
+
+      await createOrderPage.enterOrderNote(NURSING_ORDER_A.notes);
+      await createOrderPage.verifyOrderButtonDisabled(false);
+
+      const ordersPage = await createOrderPage.clickOrderButton();
+      const orderRow = await ordersPage.getFirstOrderRow();
+
+      await orderRow.verifyOrderNote(NURSING_ORDER_A.notes);
+      await orderRow.verifyStatus(NURSING_ORDER_A.status);
+    });
+
+    await test.step('View nursing order details page', async () => {
+      const nursingOrdersPage = await sideMenu.clickNursingOrders();
+      const orderRow = await nursingOrdersPage.getFirstOrderRow();
+      const detailsPage = await orderRow.click();
+
+      await detailsPage.verifyOrderNote(NURSING_ORDER_A.notes);
+      await detailsPage.verifyStatus(NURSING_ORDER_A.status);
+      await detailsPage.verifyHistoryVisible();
+    });
+
+    await test.step('Complete the nursing order', async () => {
+      const detailsPage = await expectNursingOrderDetailsPage(page);
+      await detailsPage.verifyCompleteOrderButtonEnabled();
+      await detailsPage.clickCompleteOrderButton();
+
+      const nursingOrdersPage = new NursingOrdersPage(page);
+      const orderRow = await nursingOrdersPage.getOrderRowByNote(NURSING_ORDER_A.notes);
+      await orderRow.verifyStatus('COMPLETED');
+    });
+
+    await test.step('Create second nursing order', async () => {
+      const nursingOrdersPage = await sideMenu.clickNursingOrders();
+      const createOrderPage = await nursingOrdersPage.clickOrderButton();
+
+      await createOrderPage.enterOrderNote(NURSING_ORDER_B.notes);
+      const ordersPage = await createOrderPage.clickOrderButton();
+
+      const orderRow = await ordersPage.getOrderRowByNote(NURSING_ORDER_B.notes);
+      await orderRow.verifyOrderNote(NURSING_ORDER_B.notes);
+      await orderRow.verifyStatus(NURSING_ORDER_B.status);
+    });
+
+    await test.step('Delete nursing order', async () => {
+      const nursingOrdersPage = await sideMenu.clickNursingOrders();
+      const orderRow = await nursingOrdersPage.getOrderRowByNote(NURSING_ORDER_B.notes);
+      await orderRow.clickDeleteButton();
+      await orderRow.verifyStatus('CANCELLED');
+    });
+  });
+
+  test('Nursing Order validation', async () => {
+    await test.step('Verify empty order cannot be submitted', async () => {
+      const nursingOrdersPage = await sideMenu.clickNursingOrders();
+      const createOrderPage = await nursingOrdersPage.clickOrderButton();
+
+      await createOrderPage.verifyOrderButtonDisabled(true);
+      await createOrderPage.enterOrderNote('Test');
+      await createOrderPage.verifyOrderButtonDisabled(false);
+      await createOrderPage.clearOrderNote();
+      await createOrderPage.verifyOrderButtonDisabled(true);
+    });
+
+    await test.step('Verify max length validation', async () => {
+      const createOrderPage = await expectNursingOrderCreatePage(page);
+      const longNote = 'a'.repeat(151);
+      await createOrderPage.enterOrderNote(longNote);
+      await createOrderPage.verifyOrderNoteLength(150);
+    });
+
+    await test.step('Cancel order creation', async () => {
+      const createOrderPage = await expectNursingOrderCreatePage(page);
+      await createOrderPage.enterOrderNote('This should be cancelled');
+      await createOrderPage.clickCancelButton();
+
+      const nursingOrdersPage = new NursingOrdersPage(page);
+      await nursingOrdersPage.verifyOrderNotExists('This should be cancelled');
+    });
+  });
 });
 
 // Procedures helpers

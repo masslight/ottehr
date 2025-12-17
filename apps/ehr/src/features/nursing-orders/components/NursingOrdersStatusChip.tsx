@@ -4,9 +4,10 @@ import { NursingOrdersStatus } from 'utils';
 
 interface NursingOrdersStatusChipProps {
   status: NursingOrdersStatus | string;
+  dataTestId?: string;
 }
 
-export const NursingOrdersStatusChip = ({ status }: NursingOrdersStatusChipProps): ReactElement => {
+export const NursingOrdersStatusChip = ({ status, dataTestId }: NursingOrdersStatusChipProps): ReactElement => {
   const getChipProps = (): ChipProps & { label: string } => {
     switch (status.toLowerCase()) {
       case NursingOrdersStatus.pending:
@@ -56,5 +57,5 @@ export const NursingOrdersStatusChip = ({ status }: NursingOrdersStatusChipProps
 
   const chipProps = getChipProps();
 
-  return <Chip size="small" {...chipProps} />;
+  return <Chip size="small" {...chipProps} {...(dataTestId ? { 'data-testid': dataTestId } : {})} />;
 };

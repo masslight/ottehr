@@ -1,4 +1,4 @@
-import { ServiceCategoryCode } from '../../configuration';
+import { ServiceCategoryCode } from '../../ottehr-config';
 import { SlotListItem } from '../../utils';
 import { AvailableLocationInformation, ScheduleType, Timezone } from '../common';
 

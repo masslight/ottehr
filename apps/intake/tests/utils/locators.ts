@@ -1,4 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
+import { PROJECT_NAME } from 'utils';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 export const CURRENT_MEDICATIONS_PRESENT_LABEL = 'Patient takes medication currently';
@@ -268,7 +269,7 @@ export class Locators {
       this.continueButton = page.getByText('Continue');
     }
     this.flowHeading = page.getByTestId(dataTestIds.flowPageTitle);
-    this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
+    this.thankYouHeading = page.getByRole('heading', { name: `Thank you for choosing ${PROJECT_NAME}!` });
     this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
     this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
     this.checkInHeading = page.getByRole('heading', { name: 'You are checked in!' });

@@ -48,6 +48,9 @@ import { InternalNotes } from './InternalNotes';
 import { PrintVisitLabelButton } from './PrintVisitLabelButton';
 
 const HeaderWrapper = styled(Box)(({ theme }) => ({
+  position: 'sticky',
+  top: 0,
+  zIndex: 100,
   backgroundColor: theme.palette.background.paper,
   padding: '8px 16px 8px 0',
   borderBottom: `1px solid ${theme.palette.divider}`,
