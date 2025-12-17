@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-efa017e0-e3c4-48c8-9d81-c02a65ea442b",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-a86026cf-6773-4704-b2fe-1a14976a388f"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-d245a8f0-7277-4de8-a06b-c377a992f429"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Right eye - conjunctiva non-injected, no discharge"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "right-eye-conjunctiva-non-injected-no-discharge",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

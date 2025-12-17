@@ -34,7 +34,8 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
 
   async startVisitFullFlow(): Promise<StartVisitResponse> {
     await this.selectVisitAndContinue();
-    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
+    // Optional step: service category selection for Virtual Visit Request (prebook)
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'prebook' })) {
       const availableCategories = BOOKING_CONFIG.serviceCategories || [];
       const firstCategory = availableCategories[0]!;
 

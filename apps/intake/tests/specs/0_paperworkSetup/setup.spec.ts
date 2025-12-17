@@ -3,6 +3,36 @@ import { Appointment } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as path from 'path';
 import { addProcessIdMetaTagToAppointment } from 'test-utils';
+
+// Track if ANY setup test failed - used to decide whether to write success marker
+let setupHasFailures = false;
+
+// After each test, check if it failed
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status !== 'passed' && testInfo.status !== 'skipped') {
+    setupHasFailures = true;
+  }
+});
+
+// After all tests, write marker ONLY if all tests passed
+test.afterAll(async () => {
+  const markerPath = path.join('test-data', '.setup-complete');
+  if (!setupHasFailures) {
+    const testDataPath = 'test-data';
+    if (!fs.existsSync(testDataPath)) {
+      fs.mkdirSync(testDataPath, { recursive: true });
+    }
+    fs.writeFileSync(markerPath, JSON.stringify({ completedAt: new Date().toISOString() }));
+    console.log('✓ All setup tests passed. Marker file written.');
+  } else {
+    // Remove marker if it exists from previous run
+    if (fs.existsSync(markerPath)) {
+      fs.unlinkSync(markerPath);
+    }
+    console.log('✗ Setup has failures. Marker file NOT written.');
+  }
+});
 import { CancelPage } from 'tests/utils/CancelPage';
 import { BaseInPersonFlow } from 'tests/utils/in-person/BaseInPersonFlow';
 import { ResourceHandler } from 'tests/utils/resource-handler';
@@ -32,18 +62,26 @@ import {
   TelemedWalkInPatientTestData,
 } from './types';
 
-const appointmentIds: string[] = [];
+// Per-page appointment tracking to avoid race conditions in parallel tests
+const appointmentIdsByPage = new Map<Page, string[]>();
+
 const processId = process.env.PLAYWRIGHT_SUITE_ID;
 if (!processId) {
   throw new Error('Global setup has failed us.');
 }
 
 function addAppointmentToIdsAndAddMetaTag(page: Page, processId: string): void {
+  // Initialize per-page array
+  if (!appointmentIdsByPage.has(page)) {
+    appointmentIdsByPage.set(page, []);
+  }
+
   page.on('response', async (response) => {
     if (response.url().includes('/create-appointment/')) {
       const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
-      if (!appointmentIds.includes(appointmentId)) {
-        appointmentIds.push(appointmentId);
+      const pageIds = appointmentIdsByPage.get(page)!;
+      if (!pageIds.includes(appointmentId)) {
+        pageIds.push(appointmentId);
       }
       const resourceHandler = new ResourceHandler();
       await resourceHandler.initApi();
@@ -55,6 +93,22 @@ function addAppointmentToIdsAndAddMetaTag(page: Page, processId: string): void {
       await oystehr.fhir.update(addProcessIdMetaTagToAppointment(appointment, processId));
     }
   });
+}
+
+function getLastAppointmentId(page: Page): string {
+  const pageIds = appointmentIdsByPage.get(page);
+  if (!pageIds || pageIds.length === 0) {
+    throw new Error('No appointment IDs captured for this page');
+  }
+  return pageIds[pageIds.length - 1];
+}
+
+function getSecondToLastAppointmentId(page: Page): string {
+  const pageIds = appointmentIdsByPage.get(page);
+  if (!pageIds || pageIds.length < 2) {
+    throw new Error('Not enough appointment IDs captured for this page');
+  }
+  return pageIds[pageIds.length - 2];
 }
 
 function updateSlotDetailsCurrentRef(
@@ -215,13 +269,13 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
         email: bookingData.email,
         birthSex: bookingData.birthSex,
         dateOfBirth: bookingData.dateOfBirth,
-        appointmentId: appointmentIds[appointmentIds.length - 1],
+        appointmentId: getLastAppointmentId(page),
         slot,
         location,
         state: stateValue,
         slotDetails: slotDetailsRef.current,
         cancelledSlotDetails: {
-          appointmentId: appointmentIds[appointmentIds.length - 2],
+          appointmentId: getSecondToLastAppointmentId(page),
           ...(bookingData.slotDetails as GetSlotDetailsResponse),
         },
       };
@@ -286,7 +340,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
         email: bookingData.email,
         birthSex: bookingData.birthSex,
         dateOfBirth: bookingData.dateOfBirth,
-        appointmentId: appointmentIds[appointmentIds.length - 1],
+        appointmentId: getLastAppointmentId(page),
         slot,
         location,
         slotDetails: slotDetailsRef.current,
@@ -401,7 +455,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         email: bookingData.patientBasicInfo.email,
         birthSex: bookingData.patientBasicInfo.birthSex,
         dateOfBirth: bookingData.patientBasicInfo.dob,
-        appointmentId: appointmentIds[appointmentIds.length - 1],
+        appointmentId: getLastAppointmentId(page),
         state: filledPaperwork.stateValue,
         patientDetailsData: filledPaperwork.patientDetailsData,
         pcpData: filledPaperwork.pcpData,
@@ -457,7 +511,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         email: bookingData.patientBasicInfo.email,
         birthSex: bookingData.patientBasicInfo.birthSex,
         dateOfBirth: bookingData.patientBasicInfo.dob,
-        appointmentId: appointmentIds[appointmentIds.length - 1],
+        appointmentId: getLastAppointmentId(page),
         state: bookingData.stateValue,
         location: bookingData.slotAndLocation.locationTitle,
       };
@@ -483,7 +537,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         email: bookingData.patientBasicInfo.email,
         birthSex: bookingData.patientBasicInfo.birthSex,
         dateOfBirth: bookingData.patientBasicInfo.dob,
-        appointmentId: appointmentIds[appointmentIds.length - 1],
+        appointmentId: getLastAppointmentId(page),
         state: bookingData.stateValue,
         location: bookingData.slotAndLocation.locationTitle,
       };
