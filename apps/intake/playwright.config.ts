@@ -73,18 +73,28 @@ export default defineConfig({
         storageState: './playwright/user.json',
       },
       testMatch: /.*setup\.spec\.ts/,
-      testIgnore: /.*login\/login\.spec\.ts/,
+      testIgnore: [/.*login\/login\.spec\.ts/, /.*setup-validation\.spec\.ts/],
+      timeout: 240000,
+    },
+    {
+      // Validates that paperwork-setup completed successfully.
+      // If this fails, chromium tests won't run.
+      name: 'setup-validation',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: './playwright/user.json',
+      },
+      testMatch: /.*setup-validation\.spec\.ts/,
+      dependencies: ['paperwork-setup'],
     },
     {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
-        // storageState: './tests/.auth/user.json'
       },
-      // dependencies: ['setup'],
-      dependencies: ['paperwork-setup'],
-      testIgnore: [/.*login\/login\.spec\.ts/, /.*setup\.spec\.ts/],
+      dependencies: ['setup-validation'],
+      testIgnore: [/.*login\/login\.spec\.ts/, /.*setup\.spec\.ts/, /.*setup-validation\.spec\.ts/],
     },
 
     // {

@@ -516,3 +516,10 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
   });
 });
+
+// This test runs last and marks that all setup tests completed successfully.
+// The setup-validation project checks for this marker before running main tests.
+test('Mark setup as complete', async () => {
+  writeTestData('.setup-complete', { completedAt: new Date().toISOString() });
+  console.log('✓ All paperwork setup tests completed. Marker file written.');
+});

@@ -536,7 +536,9 @@ export class Paperwork {
     }
   }
   async checkCorrectPageOpens(pageTitle: string): Promise<void> {
-    await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
+    // wait for "Loading..." to disappear (page finished loading data)
+    await expect(this.locator.flowHeading).not.toHaveText('Loading...', { timeout: 15000 });
+    // Then assert the expected title
     await expect(this.locator.flowHeading).toHaveText(pageTitle);
   }
   async fillEthnicity(): Promise<{ randomEthnicity: string }> {
