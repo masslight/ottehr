@@ -38,6 +38,7 @@ import {
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
   IN_HOUSE_LAB_TASK,
+  IN_HOUSE_OBS_DEF_ID_SYSTEM,
   isPSCOrder,
   LAB_OBS_VALUE_WITH_PRECISION_EXT,
   LAB_ORDER_DOC_REF_CODING_CODE,
@@ -47,6 +48,8 @@ import {
   LabDrTypeTagCode,
   LabType,
   ObsContentType,
+  OBSERVATION_CODES,
+  OBSERVATION_INTERPRETATION_SYSTEM,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM,
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
@@ -1357,23 +1360,12 @@ function getResultRowDisplayColor(resultInterpretations: string[]): Color {
 }
 
 function getInHouseResultRowDisplayColor(labResult: InHouseLabResult): Color {
-  console.log('>>>in getInHouseResultRowDisplayColor, this is the result value ', labResult.value);
-  if (
-    (labResult.value && labResult.rangeString?.includes(labResult.value)) ||
-    labResult.value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode
-  ) {
-    return LAB_PDF_STYLES.color.black;
-  } else if (labResult.type === 'Quantity') {
-    if (labResult.value && labResult.rangeQuantity) {
-      const value = parseFloat(labResult.value);
-      const { low, high } = labResult.rangeQuantity.normalRange;
-      if (value >= low && value <= high) {
-        return LAB_PDF_STYLES.color.black;
-      }
-    }
+  console.log('>>>in getInHouseResultRowDisplayColor, this is the result', labResult);
+  const { interpretationCoding } = labResult;
+  if (interpretationCoding?.code === OBSERVATION_CODES.ABNORMAL) {
     return LAB_PDF_STYLES.color.red;
   }
-  return LAB_PDF_STYLES.color.red;
+  return LAB_PDF_STYLES.color.black;
 }
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
@@ -1567,7 +1559,29 @@ const getFormattedInHouseLabResults = async (
   const results: InHouseLabResult[] = [];
   const components = convertActivityDefinitionToTestItem(activityDefinition, observations).components;
   const componentsAll: TestItemComponent[] = [...components.radioComponents, ...components.groupedComponents];
+  const interpretationByComponentIdMap = new Map<string, Coding | undefined>(
+    observations
+      .map((ob) => {
+        const componentId = ob.extension
+          ?.find((ext) => ext.url === IN_HOUSE_OBS_DEF_ID_SYSTEM && typeof ext.valueString === 'string')
+          ?.valueString?.replace(/^#/, '');
+
+        console.log('this is the componentId for the map', componentId);
+
+        if (!componentId) return undefined;
+
+        const interpretationCoding = ob.interpretation
+          ?.flatMap((interp) => interp.coding ?? [])
+          .find((coding) => coding.system === OBSERVATION_INTERPRETATION_SYSTEM);
+
+        return [componentId, interpretationCoding];
+      })
+      .filter((entry): entry is [string, Coding | undefined] => entry !== undefined)
+  );
+
   componentsAll.forEach((item) => {
+    const interpretationFromObs = interpretationByComponentIdMap.get(item.observationDefinitionId);
+    console.log('this is the interpretationFromObs for componentName', item.componentName, interpretationFromObs);
     if (item.dataType === 'CodeableConcept') {
       results.push({
         name: item.componentName,
@@ -1577,6 +1591,7 @@ const getFormattedInHouseLabResults = async (
         rangeString: item.valueSet
           .filter((value) => !item.abnormalValues.map((val) => val.code).includes(value.code))
           .map((value) => value.display),
+        interpretationCoding: interpretationFromObs,
       });
     } else if (item.dataType === 'Quantity') {
       results.push({
@@ -1585,6 +1600,14 @@ const getFormattedInHouseLabResults = async (
         value: item.result?.entry,
         units: item.unit,
         rangeQuantity: item,
+        interpretationCoding: interpretationFromObs,
+      });
+    } else if (item.dataType === 'string') {
+      results.push({
+        name: item.componentName,
+        type: item.dataType,
+        value: item.result?.entry,
+        interpretationCoding: interpretationFromObs,
       });
     }
   });
