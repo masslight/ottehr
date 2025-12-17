@@ -8,11 +8,11 @@ import { useOystehrAPIClient } from 'src/telemed/utils';
 import {
   APIError,
   APPOINTMENT_NOT_FOUND_ERROR,
-  BOOKING_CONFIG,
   CancellationReasonOptionsTelemed,
   CANT_CANCEL_CHECKED_IN_APT_ERROR,
   PROJECT_NAME,
   ServiceMode,
+  VALUE_SETS,
 } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import ottehrApi from '../api/ottehrApi';
@@ -154,9 +154,9 @@ const CancellationReason = (): JSX.Element => {
             CancellationReasonOptionsTelemed[key as keyof typeof CancellationReasonOptionsTelemed],
           value: CancellationReasonOptionsTelemed[key as keyof typeof CancellationReasonOptionsTelemed],
         }))
-      : Object.keys(BOOKING_CONFIG.cancelReasonOptions).map((key, index) => ({
-          label: t(`cancel.reasons.reason${index + 1}`, { PROJECT_NAME }) || BOOKING_CONFIG.cancelReasonOptions[index],
-          value: BOOKING_CONFIG.cancelReasonOptions[index],
+      : Object.keys(VALUE_SETS.cancelReasonOptions).map((key, index) => ({
+          label: t(`cancel.reasons.reason${index + 1}`, { PROJECT_NAME }) || VALUE_SETS.cancelReasonOptions[index],
+          value: VALUE_SETS.cancelReasonOptions[index],
         }));
   }, [t, isVirtualAppt]);
 

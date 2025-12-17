@@ -4,7 +4,6 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Extension, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  BOOKING_CONFIG,
   cleanUpStaffHistoryTag,
   FHIR_EXTENSION,
   FHIR_RESOURCE_NOT_FOUND,
@@ -22,6 +21,7 @@ import {
   SecretsKeys,
   UpdateVisitDetailsInput,
   userMe,
+  VALUE_SETS,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -396,7 +396,7 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     throw INVALID_INPUT_ERROR('reasonForVisit must be a string');
   } else if (
     bookingDetails.reasonForVisit &&
-    !BOOKING_CONFIG.reasonForVisitOptions.includes(bookingDetails.reasonForVisit)
+    !VALUE_SETS.reasonForVisitOptions.includes(bookingDetails.reasonForVisit)
   ) {
     throw INVALID_INPUT_ERROR(`reasonForVisit, "${bookingDetails.reasonForVisit}", is not a valid option`);
   }

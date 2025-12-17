@@ -1,0 +1,397 @@
+import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
+import z from 'zod';
+import { AnswerOptionSourceSchema, QuestionnaireDataTypeSchema } from '../types';
+
+const triggerEffectSchema = z.enum(['enable', 'require']);
+const triggerSchema = z
+  .object({
+    targetQuestionLinkId: z.string(),
+    effect: z.array(triggerEffectSchema),
+    operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
+    answerBoolean: z.boolean().optional(),
+    answerString: z.string().optional(),
+    answerDateTime: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      const definedAnswers = [data.answerBoolean, data.answerString, data.answerDateTime].filter(
+        (answer) => answer !== undefined
+      );
+      return definedAnswers.length === 1;
+    },
+    {
+      message: 'Exactly one of answerBoolean, answerString, or answerDecimal must be defined',
+    }
+  );
+
+export type FormFieldTrigger = z.infer<typeof triggerSchema>;
+
+const dynamicPopulationSchema = z.object({
+  sourceLinkId: z.string(),
+  // currently only supporting population when disabled, could see this evolve to a more flexible system where the trigger eval logic kicks off dynamic population
+  triggerState: z.literal('disabled').optional().default('disabled'),
+});
+
+const ReferenceDataSourceSchema = z
+  .object({
+    answerSource: AnswerOptionSourceSchema.optional(),
+    valueSet: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      return data.answerSource !== undefined || data.valueSet !== undefined;
+    },
+    {
+      message: 'Either answerSource or valueSet must be provided',
+    }
+  );
+
+const FormFieldsValueTypeSchema = z
+  .object({
+    key: z.string(),
+    type: z.enum(['string', 'date', 'choice', 'boolean', 'reference']),
+    label: z.string().optional(),
+    dataType: QuestionnaireDataTypeSchema.optional(),
+    options: z
+      .array(
+        z.object({
+          label: z.string(),
+          value: z.string(),
+        })
+      )
+      .optional(),
+    dataSource: ReferenceDataSourceSchema.optional(),
+    triggers: z.array(triggerSchema).optional(),
+    dynamicPopulation: dynamicPopulationSchema.optional(),
+    enableBehavior: z.enum(['all', 'any']).default('any').optional(),
+    disabledDisplay: z.enum(['hidden', 'disabled']).default('disabled'),
+    initialValue: z.union([z.string(), z.boolean()]).optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.type === 'choice') {
+        return (
+          Array.isArray(data.options) || {
+            message: 'Options must be provided for choice types',
+          }
+        );
+      }
+      return true;
+    },
+    {
+      message: 'Options must be provided for choice types',
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.type === 'reference') {
+        return data.dataSource !== undefined;
+      }
+      return true;
+    },
+    {
+      message: 'dataSource must be provided for reference types',
+    }
+  );
+
+export type FormFieldsItem = z.infer<typeof FormFieldsValueTypeSchema>;
+
+export const FormFieldItemRecordSchema = z.record(FormFieldsValueTypeSchema);
+export type FormFieldItemRecord = z.infer<typeof FormFieldItemRecordSchema>;
+export const FormSectionSimpleSchema = z.object({
+  linkId: z.string(),
+  title: z.string(),
+  items: FormFieldItemRecordSchema,
+  logicalItems: FormFieldItemRecordSchema.optional(),
+  hiddenFields: z.array(z.string()).optional(),
+  requiredFields: z.array(z.string()).optional(),
+});
+
+export const FormSectionArraySchema = z.object({
+  linkId: z.array(z.string()),
+  title: z.string(),
+  items: z.array(FormFieldItemRecordSchema),
+  logicalItems: FormFieldItemRecordSchema.optional(),
+  hiddenFields: z.array(z.string()).optional(),
+  requiredFields: z.array(z.string()).optional(),
+});
+
+export type FormFieldSection = z.infer<typeof FormSectionSimpleSchema> | z.infer<typeof FormSectionArraySchema>;
+
+const createDataTypeExtension = (dataType: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/data-type',
+  valueString: dataType,
+});
+
+const createDisabledDisplayExtension = (display: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display',
+  valueString: display,
+});
+
+const createFillFromWhenDisabledExtension = (
+  sourceLinkId: string
+): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled',
+  valueString: sourceLinkId,
+});
+
+const createRequireWhenExtension = (
+  trigger: FormFieldTrigger
+): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when',
+  extension: [
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question',
+      valueString: trigger.targetQuestionLinkId,
+    },
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator',
+      valueString: trigger.operator,
+    },
+    ...(trigger.answerBoolean !== undefined
+      ? [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer',
+            valueBoolean: trigger.answerBoolean,
+          },
+        ]
+      : []),
+    ...(trigger.answerString !== undefined
+      ? [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer',
+            valueString: trigger.answerString,
+          },
+        ]
+      : []),
+  ],
+});
+
+const createAnswerLoadingOptionsExtension = (
+  dataSource: any
+): NonNullable<QuestionnaireItem['extension']>[number] | undefined => {
+  const { answerSource } = dataSource;
+  if (!answerSource) return undefined;
+
+  return {
+    url: 'https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options',
+    extension: [
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/strategy',
+        valueString: 'dynamic',
+      },
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/source',
+        valueExpression: {
+          language: 'application/x-fhir-query',
+          expression: `${answerSource.resourceType}?${answerSource.query}`,
+        },
+      },
+    ],
+  };
+};
+
+const createEnableWhen = (trigger: FormFieldTrigger): QuestionnaireItem['enableWhen'] => {
+  const enableWhen: any = {
+    question: trigger.targetQuestionLinkId,
+    operator: trigger.operator,
+  };
+
+  if (trigger.answerBoolean !== undefined) {
+    enableWhen.answerBoolean = trigger.answerBoolean;
+  } else if (trigger.answerString !== undefined) {
+    enableWhen.answerString = trigger.answerString;
+  } else if (trigger.answerDateTime !== undefined) {
+    enableWhen.answerDateTime = trigger.answerDateTime;
+  }
+
+  return enableWhen;
+};
+
+const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: boolean): QuestionnaireItem => {
+  const item: QuestionnaireItem = {
+    linkId: field.key,
+    type: field.type === 'reference' ? 'choice' : (field.type as any),
+  };
+
+  // Add text if label is provided
+  if (field.label) {
+    item.text = field.label;
+  }
+
+  // Add required flag
+  item.required = isRequired;
+
+  // Add answer options for choice types
+  if (field.type === 'choice' && field.options) {
+    item.answerOption = field.options.map((opt) => ({ valueString: opt.value }));
+  }
+
+  // Handle reference type for dynamic data source
+  if (field.type === 'reference' && field.dataSource) {
+    item.answerOption = [{ valueString: '09' }]; // Placeholder, will be replaced dynamically
+    const answerLoadingExt = createAnswerLoadingOptionsExtension(field.dataSource);
+    if (answerLoadingExt) {
+      item.extension = [answerLoadingExt];
+    }
+  }
+
+  // Add extensions
+  const extensions: any[] = item.extension ? [...item.extension] : [];
+
+  if (field.dataType) {
+    extensions.push(createDataTypeExtension(field.dataType));
+  }
+
+  if (field.disabledDisplay && field.disabledDisplay !== 'disabled') {
+    extensions.push(createDisabledDisplayExtension(field.disabledDisplay));
+  }
+
+  if (field.dynamicPopulation) {
+    extensions.push(createFillFromWhenDisabledExtension(field.dynamicPopulation.sourceLinkId));
+    if (!field.disabledDisplay) {
+      extensions.push(createDisabledDisplayExtension('protected'));
+    }
+  }
+
+  // Add enableWhen from triggers
+  if (field.triggers && field.triggers.length > 0) {
+    const enableTriggers = field.triggers.filter((t) => t.effect.includes('enable'));
+    if (enableTriggers.length > 0) {
+      item.enableWhen = enableTriggers.flatMap((i) => createEnableWhen(i)!);
+    }
+
+    // Add require-when extension
+    const requireTriggers = field.triggers.filter((t) => t.effect.includes('require'));
+    if (requireTriggers.length > 0) {
+      requireTriggers.forEach((trigger) => {
+        extensions.push(createRequireWhenExtension(trigger));
+      });
+    }
+
+    // Add enableBehavior if specified
+    if (field.enableBehavior && item.enableWhen && item.enableWhen.length > 1) {
+      item.enableBehavior = field.enableBehavior;
+    }
+  }
+
+  if (extensions.length > 0) {
+    item.extension = extensions;
+  }
+
+  return item;
+};
+
+const convertLogicalItemToQuestionnaireItem = (field: FormFieldsItem): QuestionnaireItem => {
+  const item: QuestionnaireItem = {
+    linkId: field.key,
+    type: field.type,
+    required: false,
+    readOnly: true,
+  };
+
+  // Add initial value if provided
+  if (field.initialValue !== undefined) {
+    if (field.type === 'boolean') {
+      item.initial = [{ valueBoolean: field.initialValue as boolean }];
+    } else if (field.type === 'string') {
+      item.initial = [{ valueString: field.initialValue as string }];
+    }
+  }
+
+  return item;
+};
+
+export const QuestionnaireBaseSchema = z.object({
+  resourceType: z.literal('Questionnaire'),
+  url: z.string(),
+  version: z.string(),
+  name: z.string(),
+  title: z.string(),
+  status: z.enum(['draft', 'active', 'retired', 'unknown']),
+});
+export type QuestionnaireBase = z.infer<typeof QuestionnaireBaseSchema>;
+
+export const QuestionnaireConfigSchema = z.object({
+  questionnaireBase: QuestionnaireBaseSchema,
+  hiddenFormSections: z.array(z.string()),
+  FormFields: z.record(z.string(), z.union([FormSectionSimpleSchema, FormSectionArraySchema])),
+});
+type QuestionnaireConfigType = z.infer<typeof QuestionnaireConfigSchema>;
+
+export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigType): Questionnaire['item'] => {
+  const questionnaireItems: QuestionnaireItem[] = [];
+
+  // Define the order of sections as they appear in the JSON
+  const sectionOrder = Object.entries(config.FormFields).map(([key]) => key) as ReadonlyArray<string>;
+
+  for (const sectionKey of sectionOrder) {
+    const section = config.FormFields[sectionKey];
+    if (!section) continue;
+
+    // Handle array-based sections (like insurance)
+    if (Array.isArray(section.linkId)) {
+      section.linkId.forEach((linkId, index) => {
+        const items = Array.isArray(section.items) ? section.items[index] : section.items;
+        const groupItem: QuestionnaireItem = {
+          linkId,
+          type: 'group',
+          text: section.title,
+          repeats: true,
+          item: [],
+        };
+
+        // Add logical items first (only for the first item in array-based sections)
+        if (section.logicalItems && index === 0) {
+          for (const [, logicalField] of Object.entries(section.logicalItems)) {
+            const logicalItem = convertLogicalItemToQuestionnaireItem(logicalField);
+            groupItem.item!.push(logicalItem);
+          }
+        }
+
+        // Convert each field to a questionnaire item
+        for (const [, field] of Object.entries(items)) {
+          const isRequired = section.requiredFields?.includes(field.key) ?? false;
+          const questionnaireItem = convertFormFieldToQuestionnaireItem(field, isRequired);
+          groupItem.item!.push(questionnaireItem);
+        }
+
+        questionnaireItems.push(groupItem);
+      });
+    } else {
+      // Handle simple sections
+      const groupItem: QuestionnaireItem = {
+        linkId: section.linkId,
+        type: 'group',
+        text: section.title,
+        item: [],
+      };
+
+      // Add logical items first
+      if (section.logicalItems) {
+        for (const [, logicalField] of Object.entries(section.logicalItems)) {
+          const logicalItem = convertLogicalItemToQuestionnaireItem(logicalField);
+          groupItem.item!.push(logicalItem);
+        }
+      }
+
+      // Convert each field to a questionnaire item
+      for (const [, field] of Object.entries(section.items)) {
+        const isRequired = section.requiredFields?.includes(field.key) ?? false;
+        const questionnaireItem = convertFormFieldToQuestionnaireItem(field, isRequired);
+        groupItem.item!.push(questionnaireItem);
+      }
+
+      questionnaireItems.push(groupItem);
+    }
+  }
+
+  return questionnaireItems;
+};
+
+export const createQuestionnaireFromConfig = (config: QuestionnaireConfigType): Questionnaire => {
+  return {
+    ...config.questionnaireBase,
+    item: createQuestionnaireItemFromConfig(config),
+  };
+};

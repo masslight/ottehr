@@ -1,5 +1,5 @@
 import { BrowserContext, expect, Page } from '@playwright/test';
-import { BOOKING_CONFIG, CancellationReasonOptionsTelemed } from 'utils';
+import { CancellationReasonOptionsTelemed, VALUE_SETS } from 'utils';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
 
@@ -36,7 +36,7 @@ export class CancelPage {
   }
   async selectCancellationReason(serviceMode: 'in-person' | 'virtual'): Promise<void> {
     const cancelOptions =
-      serviceMode === 'in-person' ? BOOKING_CONFIG.cancelReasonOptions : CancellationReasonOptionsTelemed;
+      serviceMode === 'in-person' ? VALUE_SETS.cancelReasonOptions : CancellationReasonOptionsTelemed;
     const randomCancelReason = this.getRandomEnumValue(Object.values(cancelOptions));
     await this.locator.cancellationReasonField.click();
     await this.page.getByRole('option', { name: randomCancelReason }).click();

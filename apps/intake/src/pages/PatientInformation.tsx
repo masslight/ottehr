@@ -63,6 +63,8 @@ export const PatientInfoCollection: FC = () => {
 
   const { allItems, questionnaireResponse: prepopulatedQuestionnaire } = questionnaireData || {};
 
+  console.log('questionnaireData', questionnaireData);
+
   const pages = useMemo(() => {
     return (allItems ?? []).filter((item) => {
       return item.linkId;
@@ -144,6 +146,8 @@ const PatientInformation = (): JSX.Element => {
   const selectPatientPageUrl = `${bookingBasePath}/${slotId}/patients`;
 
   const { allItems, pages, paperworkInProgress } = usePaperworkContext();
+
+  console.log('all items', allItems);
 
   // we assume a single-page questionnaire for now
   const pageId = pages?.[0]?.linkId;
