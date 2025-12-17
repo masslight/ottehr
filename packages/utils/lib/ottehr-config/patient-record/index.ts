@@ -748,6 +748,18 @@ const FormFields = {
       contactFax: { key: 'employer-contact-fax', type: 'string', label: 'Fax', dataType: 'Phone Number' },
     },
   },
+  attorneyInformation: {
+    linkId: 'attorney-mva-page',
+    title: 'Attorney for Motor Vehicle Accident',
+    items: {
+      firm: { key: 'attorney-mva-firm', type: 'string', label: 'Firm' },
+      firstName: { key: 'attorney-mva-first-name', type: 'string', label: 'First name' },
+      lastName: { key: 'attorney-mva-last-name', type: 'string', label: 'Last name' },
+      email: { key: 'attorney-mva-email', type: 'string', label: 'Email', dataType: 'Email' },
+      mobile: { key: 'attorney-mva-mobile', type: 'string', label: 'Mobile', dataType: 'Phone Number' },
+      fax: { key: 'attorney-mva-fax', type: 'string', label: 'Fax', dataType: 'Phone Number' },
+    },
+  },
   hiddenFields: [],
   requiredFields: [],
 };
@@ -845,6 +857,7 @@ const FormFieldsSchema = z.object({
   emergencyContact: FormSectionSimpleSchema,
   preferredPharmacy: FormSectionSimpleSchema,
   employerInformation: FormSectionSimpleSchema,
+  attorneyInformation: FormSectionSimpleSchema,
 });
 
 const hiddenFormSections: string[] = [];
