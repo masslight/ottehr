@@ -6,7 +6,6 @@ import * as path from 'path';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
-import { QuestionnaireHelper } from '../../utils/QuestionnaireHelper';
 import { UploadDocs } from '../../utils/UploadDocs';
 import { InPersonPatientTestData } from '../0_paperworkSetup/types';
 
@@ -17,7 +16,6 @@ let locator: Locators;
 let uploadPhoto: UploadDocs;
 let commonLocatorsHelper: CommonLocatorsHelper;
 let patient: InPersonPatientTestData;
-const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -406,11 +404,7 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
       await expect(locator.dateOlder18YearsError).not.toBeVisible();
       await expect(locator.dateFutureError).not.toBeVisible();
       await locator.clickContinueButton();
-      if (employerInformationPageExists) {
-        await paperwork.checkCorrectPageOpens('Employer information');
-      } else {
-        await paperwork.checkCorrectPageOpens('Emergency Contact');
-      }
+      await paperwork.checkCorrectPageOpens('Emergency Contact');
       return responsiblePartyData;
     });
 
@@ -427,50 +421,6 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
       await expect(locator.responsiblePartyZip).toHaveValue(responsiblePartyData.zip);
       await expect(locator.responsiblePartyNumber).toHaveValue(responsiblePartyData.phone);
       await expect(locator.responsiblePartyEmail).toHaveValue(responsiblePartyData.email);
-    });
-  });
-
-  test('PEI. Employer information', async () => {
-    test.skip(!employerInformationPageExists, "Employer information page doesn't exist. Skipping test.");
-    await test.step('PEI-1. Open employer information page directly', async () => {
-      await page.goto(`paperwork/${patient.appointmentId}/employer-information`);
-      await paperwork.checkCorrectPageOpens('Employer information');
-    });
-
-    await test.step('PEI-2. Check patient name is displayed', async () => {
-      await paperwork.checkPatientNameIsDisplayed(patient.firstName, patient.lastName);
-    });
-
-    await test.step('PEI-3. Check required fields', async () => {
-      await paperwork.checkRequiredFields(
-        '"Employer Name","Employer Address","City","State","ZIP","First name","Last name","Mobile"',
-        'Employer information',
-        true
-      );
-    });
-
-    const employerInformationData = await test.step('PEI-4. Fill all fields and click on [Continue]', async () => {
-      const employerInformationData = await paperwork.fillEmployerInformation();
-      await locator.clickContinueButton();
-      await paperwork.checkCorrectPageOpens('Emergency Contact');
-      return employerInformationData;
-    });
-
-    await test.step('PEI-5. Click on [Back] - all values are saved', async () => {
-      await locator.clickBackButton();
-      await paperwork.checkCorrectPageOpens('Employer information');
-      await expect(locator.employerName).toHaveValue(employerInformationData.employerName);
-      await expect(locator.employerAddress1).toHaveValue(employerInformationData.address1);
-      await expect(locator.employerAddress2).toHaveValue(employerInformationData.address2);
-      await expect(locator.employerCity).toHaveValue(employerInformationData.city);
-      await expect(locator.employerState).toHaveValue(employerInformationData.state);
-      await expect(locator.employerZip).toHaveValue(employerInformationData.zip);
-      await expect(locator.employerContactFirstName).toHaveValue(employerInformationData.contactFirstName);
-      await expect(locator.employerContactLastName).toHaveValue(employerInformationData.contactLastName);
-      await expect(locator.employerContactTitle).toHaveValue(employerInformationData.contactTitle);
-      await expect(locator.employerContactEmail).toHaveValue(employerInformationData.contactEmail);
-      await expect(locator.employerContactPhone).toHaveValue(employerInformationData.contactPhone);
-      await expect(locator.employerContactFax).toHaveValue(employerInformationData.contactFax);
     });
   });
 

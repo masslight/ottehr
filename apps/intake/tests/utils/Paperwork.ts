@@ -4,7 +4,6 @@ import { AllStates, PatientEthnicity, PatientRace } from 'utils';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
-import { QuestionnaireHelper } from './QuestionnaireHelper';
 import { PaperworkTelemed } from './telemed/Paperwork';
 import { UploadDocs } from './UploadDocs';
 
@@ -114,7 +113,6 @@ export class Paperwork {
   context: BrowserContext;
   uploadPhoto: UploadDocs;
   paperworkTelemed: PaperworkTelemed;
-  employerInformationPageExists: boolean;
 
   constructor(page: Page) {
     this.page = page;
@@ -124,7 +122,6 @@ export class Paperwork {
     this.uploadPhoto = new UploadDocs(page);
     this.paperworkTelemed = new PaperworkTelemed(page);
     this.context = page.context();
-    this.employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
   }
   private language = ['English', 'Spanish'];
   private relationshipResponsiblePartyNotSelf = ['Legal Guardian', 'Parent', 'Other', 'Spouse'];
@@ -224,18 +221,13 @@ export class Paperwork {
     }
     await this.locator.clickContinueButton();
     let responsiblePartyData: ResponsibleParty | null = null;
-    let employerInformation: EmployerInformation | null = null;
+    const employerInformation: EmployerInformation | null = null;
     if (responsibleParty === 'self') {
       await this.fillResponsiblePartyDataSelf();
     } else {
       responsiblePartyData = await this.fillResponsiblePartyDataNotSelf();
     }
     await this.locator.clickContinueButton();
-    if (this.employerInformationPageExists) {
-      await this.checkCorrectPageOpens('Employer information');
-      employerInformation = await this.fillEmployerInformation();
-      await this.locator.clickContinueButton();
-    }
     await this.checkCorrectPageOpens('Emergency Contact');
     const emergencyContactInformation = await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
@@ -452,10 +444,6 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     await this.fillResponsiblePartyDataSelf();
     await this.locator.clickContinueButton();
-    if (this.employerInformationPageExists) {
-      await this.fillEmployerInformation();
-      await this.locator.clickContinueButton();
-    }
     await expect(this.locator.flowHeading).toHaveText('Emergency Contact');
     await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
