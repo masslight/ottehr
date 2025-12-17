@@ -13,7 +13,8 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     await this.locator.goToWaitingRoomButton.click();
   }
   async selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>> {
-    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'telemed', visitType: 'prebook' })) {
+    // Optional step: service category selection for Virtual Visit Check-In (walk-in)
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'walk-in' })) {
       await this.fillingInfo.selectFirstServiceCategory();
     }
 

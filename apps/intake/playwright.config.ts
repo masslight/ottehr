@@ -56,8 +56,9 @@ export default defineConfig({
 
   /* Configure projects for major browsers */
   projects: [
-    // { name: 'setup', testMatch: /.*\.setup\.ts/ },
     {
+      // Runs ONLY when explicitly invoked (e.g. via run-e2e "login" stage).
+      // Keeps login out of the main specs run.
       name: 'login',
       use: {
         ...devices['Desktop Chrome'],
@@ -71,7 +72,6 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
       },
-      dependencies: ['login'],
       testMatch: /.*setup\.spec\.ts/,
       testIgnore: /.*login\/login\.spec\.ts/,
     },

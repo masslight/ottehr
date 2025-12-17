@@ -160,7 +160,7 @@ const BOOKING_DEFAULTS = {
   cancelReasonOptions: CANCEL_REASON_OPTIONS,
   serviceCategoriesEnabled: {
     serviceModes: ['in-person', 'virtual'],
-    visitType: ['prebook'],
+    visitType: ['prebook', 'walk-in'],
   },
   hiddenBookingFields,
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
