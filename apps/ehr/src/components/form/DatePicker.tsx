@@ -68,6 +68,7 @@ export function BasicDatePicker({
                   slotProps={{
                     textField: {
                       id: id,
+                      name: name,
                       variant,
                       error: !!error,
                       helperText: error?.message,
@@ -96,6 +97,7 @@ export function BasicDatePicker({
                     field.onChange(dateStr);
                     onChange?.(dateStr);
                   }}
+                  name={name}
                   fullWidth
                   disabled={disabled}
                   label={label}

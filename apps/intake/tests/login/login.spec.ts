@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { login } from 'test-utils';
+import { getFirstEnabledHomepageOptionTestId } from 'utils';
 
 test('Should log in if not authorized', async ({ context, page }) => {
   test.setTimeout(480_000); // ~9 min; for sms 24 attempts * 15 seconds = 6 minutes, + 45 seconds for setting local storage in login function + ~2 min for awaits
@@ -8,7 +9,11 @@ test('Should log in if not authorized', async ({ context, page }) => {
     await page.goto('/home');
 
     try {
-      await page.getByRole('button', { name: 'In-Person Check-In' }).click();
+      const firstHomepageOptionTestId = getFirstEnabledHomepageOptionTestId();
+      if (!firstHomepageOptionTestId) {
+        throw new Error('No homepage options are enabled in the config');
+      }
+      await page.getByTestId(firstHomepageOptionTestId).click();
       await page.getByTestId('loading-button').click({ timeout: 20_000 });
       await expect(page.getByTestId('flow-page-title')).toBeVisible({
         timeout: 18_000,

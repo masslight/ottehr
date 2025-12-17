@@ -12,6 +12,7 @@ import {
   chooseJson,
   CreateAppointmentResponse,
   GetSlotDetailsResponse,
+  PROJECT_NAME,
   shouldShowServiceCategorySelectionPage,
 } from 'utils';
 import { FillingInfo as InPersonFillingInfo } from '../../utils/in-person/FillingInfo';
@@ -160,7 +161,7 @@ async function bookSecondTelemedAppointment(
   await paperwork.checkCorrectPageOpens('Review and submit');
   if (flow === 'prebook') {
     await locator.reserveButton.click();
-    await paperwork.checkCorrectPageOpens('Thank you for choosing Ottehr!');
+    await paperwork.checkCorrectPageOpens(`Thank you for choosing ${PROJECT_NAME}!`);
   } else {
     await locator.confirmWalkInButton.click();
     await paperwork.checkCorrectPageOpens('Contact information');
@@ -187,7 +188,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
       await paperwork.clickProceedToPaperwork();
       const { stateValue } = await paperwork.fillPaperworkOnlyRequiredFieldsInPerson();
       await locator.continueButton.click();
-      await expect(locator.flowHeading).toHaveText('Thank you for choosing Ottehr!');
+      await expect(locator.flowHeading).toHaveText(`Thank you for choosing ${PROJECT_NAME}!`);
       return { bookingData, stateValue };
     });
 
@@ -492,18 +493,13 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
   });
 
   test('Create patient without filling in paperwork', async ({ page }) => {
-    const { prebookFlowClass, paperwork } = await test.step('Set up playwright', async () => {
+    const walkInFlowClass = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
-      const prebookFlowClass = new PrebookTelemedFlow(page);
-      const paperwork = new Paperwork(page);
-      return { prebookFlowClass, paperwork };
+      return new TelemedVisitFlow(page);
     });
 
-    const { bookingData } = await test.step('Create patient', async () => {
-      const bookingData = await prebookFlowClass.startVisitFullFlow();
-      await page.goto(bookingData.bookingURL);
-      await paperwork.clickProceedToPaperwork();
-      return { bookingData };
+    const bookingData = await test.step('Create patient', async () => {
+      return await walkInFlowClass.startVisitWithoutPaperwork();
     });
 
     await test.step('Save test data', async () => {
