@@ -1,0 +1,39 @@
+{
+  "fullUrl": "urn:uuid:List-b46426f9-a9cd-4afd-a68f-888685476814",
+  "request": {
+    "method": "POST",
+    "url": "/List"
+  },
+  "resource": {
+    "resourceType": "List",
+    "status": "current",
+    "mode": "working",
+    "title": "labs",
+    "code": {
+      "coding": [
+        {
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+          "code": "patient-docs-folder",
+          "display": "Labs"
+        }
+      ]
+    },
+    "subject": {
+      "reference": "urn:uuid:Patient-6d46d01a-36db-4c59-84f2-962cbe7046a4"
+    },
+    "identifier": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+              "code": "UDI",
+              "display": "Universal Device Identifier"
+            }
+          ]
+        },
+        "value": "labs"
+      }
+    ]
+  }
+}

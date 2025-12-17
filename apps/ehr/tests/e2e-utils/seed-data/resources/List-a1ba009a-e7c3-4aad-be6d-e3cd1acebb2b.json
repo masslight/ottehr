@@ -1,0 +1,39 @@
+{
+  "fullUrl": "urn:uuid:List-a1ba009a-e7c3-4aad-be6d-e3cd1acebb2b",
+  "request": {
+    "method": "POST",
+    "url": "/List"
+  },
+  "resource": {
+    "resourceType": "List",
+    "status": "current",
+    "mode": "working",
+    "title": "patient-photos",
+    "code": {
+      "coding": [
+        {
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+          "code": "patient-docs-folder",
+          "display": "Photos"
+        }
+      ]
+    },
+    "subject": {
+      "reference": "urn:uuid:Patient-6d46d01a-36db-4c59-84f2-962cbe7046a4"
+    },
+    "identifier": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+              "code": "UDI",
+              "display": "Universal Device Identifier"
+            }
+          ]
+        },
+        "value": "patient-photos"
+      }
+    ]
+  }
+}

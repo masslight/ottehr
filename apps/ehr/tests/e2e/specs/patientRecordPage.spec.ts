@@ -126,6 +126,14 @@ const NEW_EMPLOYER_CONTACT_EMAIL = 'hr@testemployer.com';
 const NEW_EMPLOYER_CONTACT_PHONE = '(214) 555-1234';
 const NEW_EMPLOYER_CONTACT_FAX = '(214) 555-1235';
 
+// Attorney test data
+const NEW_ATTORNEY_FIRM = 'Test Law Firm';
+const NEW_ATTORNEY_FIRST_NAME = 'Jane';
+const NEW_ATTORNEY_LAST_NAME = 'Attorney';
+const NEW_ATTORNEY_EMAIL = 'attorney@testlaw.com';
+const NEW_ATTORNEY_MOBILE = '(214) 555-5678';
+const NEW_ATTORNEY_FAX = '(214) 555-5679';
+
 const patientSummary = PATIENT_RECORD_CONFIG.FormFields.patientSummary.items;
 const contactInformation = PATIENT_RECORD_CONFIG.FormFields.patientContactInformation.items;
 const patientDetails = PATIENT_RECORD_CONFIG.FormFields.patientDetails.items;
@@ -135,6 +143,7 @@ const insuranceSection = PATIENT_RECORD_CONFIG.FormFields.insurance;
 const emergencyContact = PATIENT_RECORD_CONFIG.FormFields.emergencyContact.items;
 const preferredPharmacy = PATIENT_RECORD_CONFIG.FormFields.preferredPharmacy.items;
 const employerInformation = PATIENT_RECORD_CONFIG.FormFields.employerInformation.items;
+const attorneyInformation = PATIENT_RECORD_CONFIG.FormFields.attorneyInformation.items;
 
 const HIDDEN_SECTIONS = PATIENT_RECORD_CONFIG.hiddenFormSections || [];
 const SECTIONS = PATIENT_RECORD_CONFIG.FormFields;
@@ -182,6 +191,9 @@ const ResponsiblePartyTestStep = HIDDEN_SECTIONS.includes(SECTIONS.responsiblePa
 
 const EmployerTest = HIDDEN_SECTIONS.includes(SECTIONS.employerInformation.linkId) ? test.skip : test;
 const EmployerTestStep = HIDDEN_SECTIONS.includes(SECTIONS.employerInformation.linkId) ? test.skip : test.step;
+
+const AttorneyTest = HIDDEN_SECTIONS.includes(SECTIONS.attorneyInformation.linkId) ? test.skip : test;
+const AttorneyTestStep = HIDDEN_SECTIONS.includes(SECTIONS.attorneyInformation.linkId) ? test.skip : test.step;
 
 const EmergencyContactTest = HIDDEN_SECTIONS.includes(SECTIONS.emergencyContact.linkId) ? test.skip : test;
 const EmergencyContactTestStep = HIDDEN_SECTIONS.includes(SECTIONS.emergencyContact.linkId) ? test.skip : test.step;
@@ -442,6 +454,14 @@ test.describe('Patient Record Page tests', () => {
       // Note: We can add verification here if there is existing employer data in the resource handler
       // For now, we'll test this section can be interacted with
       await patientInformationPage.verifyFieldIsVisible(employerInformation.employerName.key);
+    });
+  });
+
+  AttorneyTest('Verify Attorney Section behavior', async () => {
+    await AttorneyTestStep('Verify Attorney section is visible', async () => {
+      // Note: We can add verification here if there is existing attorney data in the resource handler
+      // For now, we'll test this section can be interacted with
+      await patientInformationPage.verifyFieldIsVisible(attorneyInformation.firm.key);
     });
   });
 
@@ -1111,6 +1131,46 @@ test.describe('Patient Record Page tests', () => {
           );
         }
       );
+
+      await AttorneyTestStep(
+        'Check validation errors for Attorney Information block with invalid email and phone',
+        async () => {
+          // Test invalid email validation
+          await patientInformationPage.enterTextFieldValue(attorneyInformation.email.key, 'invalidEmailFormat');
+          await patientInformationPage.clickSaveChangesButton();
+          await patientInformationPage.verifyFieldError(
+            attorneyInformation.email.key,
+            'Must be in the format "email@example.com"'
+          );
+
+          // Fix email
+          await patientInformationPage.enterTextFieldValue(attorneyInformation.email.key, NEW_ATTORNEY_EMAIL);
+
+          // Test invalid phone number validation
+          await patientInformationPage.clearPhoneField(attorneyInformation.mobile.key);
+          await patientInformationPage.enterPhoneFieldValue(attorneyInformation.mobile.key, '123');
+          await patientInformationPage.clickSaveChangesButton();
+          await patientInformationPage.verifyFieldError(
+            attorneyInformation.mobile.key,
+            'Phone number must be 10 digits in the format (xxx) xxx-xxxx'
+          );
+
+          // Fix phone
+          await patientInformationPage.enterPhoneFieldValue(attorneyInformation.mobile.key, NEW_ATTORNEY_MOBILE);
+
+          // Test invalid fax number validation
+          await patientInformationPage.clearPhoneField(attorneyInformation.fax.key);
+          await patientInformationPage.enterPhoneFieldValue(attorneyInformation.fax.key, '456');
+          await patientInformationPage.clickSaveChangesButton();
+          await patientInformationPage.verifyFieldError(
+            attorneyInformation.fax.key,
+            'Phone number must be 10 digits in the format (xxx) xxx-xxxx'
+          );
+
+          // Fix fax
+          await patientInformationPage.enterPhoneFieldValue(attorneyInformation.fax.key, NEW_ATTORNEY_FAX);
+        }
+      );
     });
 
     test('Updating values for all fields and saving. Checking that they are displayed correctly after save', async () => {
@@ -1267,6 +1327,15 @@ test.describe('Patient Record Page tests', () => {
           NEW_EMPLOYER_CONTACT_PHONE
         );
         await patientInformationPage.enterPhoneFieldValue(employerInformation.contactFax.key, NEW_EMPLOYER_CONTACT_FAX);
+      });
+
+      await AttorneyTestStep('Updating values from Attorney Information block', async () => {
+        await patientInformationPage.enterTextFieldValue(attorneyInformation.firm.key, NEW_ATTORNEY_FIRM);
+        await patientInformationPage.enterTextFieldValue(attorneyInformation.firstName.key, NEW_ATTORNEY_FIRST_NAME);
+        await patientInformationPage.enterTextFieldValue(attorneyInformation.lastName.key, NEW_ATTORNEY_LAST_NAME);
+        await patientInformationPage.enterTextFieldValue(attorneyInformation.email.key, NEW_ATTORNEY_EMAIL);
+        await patientInformationPage.enterPhoneFieldValue(attorneyInformation.mobile.key, NEW_ATTORNEY_MOBILE);
+        await patientInformationPage.enterPhoneFieldValue(attorneyInformation.fax.key, NEW_ATTORNEY_FAX);
       });
 
       await test.step('Click save changes and verify successfully updated message', async () => {
@@ -1480,6 +1549,18 @@ test.describe('Patient Record Page tests', () => {
             employerInformation.contactFax.key,
             NEW_EMPLOYER_CONTACT_FAX
           );
+        }
+      );
+
+      await AttorneyTestStep(
+        'Checking that all fields from Attorney Information block are updated correctly',
+        async () => {
+          await patientInformationPage.verifyTextFieldValue(attorneyInformation.firm.key, NEW_ATTORNEY_FIRM);
+          await patientInformationPage.verifyTextFieldValue(attorneyInformation.firstName.key, NEW_ATTORNEY_FIRST_NAME);
+          await patientInformationPage.verifyTextFieldValue(attorneyInformation.lastName.key, NEW_ATTORNEY_LAST_NAME);
+          await patientInformationPage.verifyTextFieldValue(attorneyInformation.email.key, NEW_ATTORNEY_EMAIL);
+          await patientInformationPage.verifyPhoneFieldValue(attorneyInformation.mobile.key, NEW_ATTORNEY_MOBILE);
+          await patientInformationPage.verifyPhoneFieldValue(attorneyInformation.fax.key, NEW_ATTORNEY_FAX);
         }
       );
     });

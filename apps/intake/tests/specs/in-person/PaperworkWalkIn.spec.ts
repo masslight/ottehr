@@ -25,6 +25,7 @@ let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 const locationName = process.env.LOCATION;
 const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
+const attorneyInformationPageExists = QuestionnaireHelper.hasAttorneyPage();
 
 const PROCESS_ID = `PaperworkWalkIn.spec.ts-${DateTime.now().toMillis()}`;
 let oystehr: Oystehr;
@@ -119,8 +120,20 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
     await expect(locator.flowHeading).toHaveText('Emergency Contact');
     await paperwork.fillEmergencyContactInformation();
     await commonLocatorsHelper.clickContinue();
-    await expect(locator.flowHeading).toHaveText('Photo ID');
+    if (attorneyInformationPageExists) {
+      await expect(locator.flowHeading).toHaveText('Attorney for Motor Vehicle Accident');
+    } else {
+      await expect(locator.flowHeading).toHaveText('Photo ID');
+    }
   });
+  if (attorneyInformationPageExists) {
+    test('SNPRF-7a Fill attorney information', async () => {
+      await expect(locator.flowHeading).toHaveText('Attorney for Motor Vehicle Accident');
+      await paperwork.fillAttorneyInformation();
+      await commonLocatorsHelper.clickContinue();
+      await expect(locator.flowHeading).toHaveText('Photo ID');
+    });
+  }
   test('SNPRF-8 Skip photo ID and complete consent forms', async () => {
     await paperwork.skipPhotoID();
     await paperwork.fillConsentForms();

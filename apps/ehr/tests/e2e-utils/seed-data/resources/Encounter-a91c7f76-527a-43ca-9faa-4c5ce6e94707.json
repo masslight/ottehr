@@ -1,0 +1,68 @@
+{
+  "fullUrl": "urn:uuid:Encounter-a91c7f76-527a-43ca-9faa-4c5ce6e94707",
+  "request": {
+    "method": "POST",
+    "url": "/Encounter"
+  },
+  "resource": {
+    "resourceType": "Encounter",
+    "status": "planned",
+    "statusHistory": [
+      {
+        "status": "planned",
+        "period": {
+          "start": "{{date}}T14:31:31.200Z"
+        }
+      }
+    ],
+    "class": {
+      "system": "http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html",
+      "code": "ACUTE",
+      "display": "inpatient acute"
+    },
+    "subject": {
+      "reference": "urn:uuid:Patient-6d46d01a-36db-4c59-84f2-962cbe7046a4"
+    },
+    "appointment": [
+      {
+        "reference": "urn:uuid:Appointment-2ed82d4b-bcba-4ce7-bf16-094c50fe24f9"
+      }
+    ],
+    "location": [
+      {
+        "location": {
+          "reference": "Location/{{locationId}}"
+        }
+      }
+    ],
+    "extension": [
+      {
+        "url": "patient-info-confirmed",
+        "valueBoolean": true
+      },
+      {
+        "url": "https://fhir.ottehr.com/Extension/payment-variant",
+        "valueString": "selfPay"
+      }
+    ],
+    "hospitalization": {
+      "dischargeDisposition": {
+        "coding": [
+          {
+            "code": "pcp-no-type",
+            "system": "https://fhir.zapehr.com/r4/StructureDefinitions/discharge-disposition"
+          }
+        ],
+        "text": "Please see your Primary Care Physician as discussed."
+      }
+    },
+    "account": [
+      {
+        "reference": "Account/3c3ce70d-367c-4c61-9bc3-d86832d20e7c"
+      },
+      {
+        "reference": "Account/990e06a3-411b-460c-9ea3-e7c24edd28c4"
+      }
+    ]
+  }
+}

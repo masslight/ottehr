@@ -51,4 +51,8 @@ export class QuestionnaireHelper {
   static hasEmployerInformationPage(): boolean {
     return QuestionnaireHelper.inPersonQuestionnaireHasItem('employer-information-page');
   }
+
+  static hasAttorneyPage(): boolean {
+    return QuestionnaireHelper.inPersonQuestionnaireHasItem('attorney-mva-page');
+  }
 }

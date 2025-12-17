@@ -1,0 +1,39 @@
+{
+  "fullUrl": "urn:uuid:Slot-d5139159-ffbf-4854-a3f6-14ff4e9af9ab",
+  "request": {
+    "method": "POST",
+    "url": "/Slot"
+  },
+  "resource": {
+    "resourceType": "Slot",
+    "status": "busy",
+    "start": "{{date}}T09:45:00.000-05:00",
+    "end": "{{date}}T10:00:00.000-05:00",
+    "serviceCategory": [
+      {
+        "coding": [
+          {
+            "system": "https://fhir.ottehr.com/slot-service-category",
+            "code": "in-person-service-mode"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/service-mode-service-category",
+            "code": "in-person-service-mode"
+          }
+        ]
+      },
+      {
+        "coding": [
+          {
+            "display": "Urgent Care",
+            "code": "urgent-care",
+            "system": "https://fhir.ottehr.com/CodeSystem/service-category"
+          }
+        ]
+      }
+    ],
+    "schedule": {
+      "reference": "Schedule/{{scheduleId}}"
+    }
+  }
+}

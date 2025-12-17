@@ -1,0 +1,48 @@
+{
+  "fullUrl": "urn:uuid:List-c66df692-664a-4244-8874-5439cfcc864d",
+  "request": {
+    "method": "POST",
+    "url": "/List"
+  },
+  "resource": {
+    "resourceType": "List",
+    "status": "current",
+    "mode": "working",
+    "title": "privacy-policy",
+    "code": {
+      "coding": [
+        {
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+          "code": "patient-docs-folder",
+          "display": "Privacy Policy"
+        }
+      ]
+    },
+    "subject": {
+      "reference": "urn:uuid:Patient-6d46d01a-36db-4c59-84f2-962cbe7046a4"
+    },
+    "identifier": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+              "code": "UDI",
+              "display": "Universal Device Identifier"
+            }
+          ]
+        },
+        "value": "privacy-policy"
+      }
+    ],
+    "entry": [
+      {
+        "date": "{{date}}T14:31:45.647Z",
+        "item": {
+          "type": "DocumentReference",
+          "reference": "DocumentReference/80f7764c-a36f-48d5-968c-ea32be59a844"
+        }
+      }
+    ]
+  }
+}

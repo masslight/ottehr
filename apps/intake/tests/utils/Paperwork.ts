@@ -83,6 +83,16 @@ interface EmergencyContact {
   zip: string;
 }
 
+interface AttorneyInformation {
+  hasAttorney: string;
+  firm: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  mobile: string;
+  fax: string;
+}
+
 export interface TelemedPaperworkData {
   filledValue: string;
   selectedValue: string;
@@ -115,6 +125,7 @@ export class Paperwork {
   uploadPhoto: UploadDocs;
   paperworkTelemed: PaperworkTelemed;
   employerInformationPageExists: boolean;
+  attorneyInformationPageExists: boolean;
 
   constructor(page: Page) {
     this.page = page;
@@ -125,6 +136,7 @@ export class Paperwork {
     this.paperworkTelemed = new PaperworkTelemed(page);
     this.context = page.context();
     this.employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
+    this.attorneyInformationPageExists = QuestionnaireHelper.hasAttorneyPage();
   }
   private language = ['English', 'Spanish'];
   private relationshipResponsiblePartyNotSelf = ['Legal Guardian', 'Parent', 'Other', 'Spouse'];
@@ -190,6 +202,7 @@ export class Paperwork {
     } | null;
     responsiblePartyData: ResponsibleParty | null;
     employerInformation: EmployerInformation | null;
+    attorneyInformation: AttorneyInformation | null;
     emergencyContactInformation: EmergencyContact | null;
   }> {
     const { stateValue } = await this.fillContactInformationAllFields();
@@ -225,6 +238,7 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     let responsiblePartyData: ResponsibleParty | null = null;
     let employerInformation: EmployerInformation | null = null;
+    let attorneyInformation: AttorneyInformation | null = null;
     if (responsibleParty === 'self') {
       await this.fillResponsiblePartyDataSelf();
     } else {
@@ -239,6 +253,11 @@ export class Paperwork {
     await this.checkCorrectPageOpens('Emergency Contact');
     const emergencyContactInformation = await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
+    if (this.attorneyInformationPageExists) {
+      await this.checkCorrectPageOpens('Attorney for Motor Vehicle Accident');
+      attorneyInformation = await this.fillAttorneyInformation();
+      await this.locator.clickContinueButton();
+    }
     await this.checkCorrectPageOpens('Photo ID');
     await this.uploadPhoto.fillPhotoFrontID();
     await this.uploadPhoto.fillPhotoBackID();
@@ -265,6 +284,7 @@ export class Paperwork {
       },
       responsiblePartyData,
       employerInformation,
+      attorneyInformation,
       emergencyContactInformation,
       insuranceData,
       secondaryInsuranceData,
@@ -459,6 +479,11 @@ export class Paperwork {
     await expect(this.locator.flowHeading).toHaveText('Emergency Contact');
     await this.fillEmergencyContactInformation();
     await this.locator.clickContinueButton();
+    if (this.attorneyInformationPageExists) {
+      await expect(this.locator.flowHeading).toHaveText('Attorney for Motor Vehicle Accident');
+      await this.fillAttorneyInformation();
+      await this.locator.clickContinueButton();
+    }
     await expect(this.locator.flowHeading).toHaveText('Photo ID');
     await this.skipPhotoID();
     await this.fillConsentForms();
@@ -1060,6 +1085,41 @@ export class Paperwork {
     await expect(this.locator.emergencyContactState).toHaveValue(state);
     await this.locator.emergencyContactZip.fill(zip);
     return { address, addressLine2, city, state, zip };
+  }
+
+  async fillAttorneyInformation(): Promise<AttorneyInformation> {
+    const hasAttorney = 'I have an attorney';
+    const firm = `Attorney Firm ${this.getRandomString()}`;
+    const firstName = `AttorneyFN${this.getRandomString()}`;
+    const lastName = `AttorneyLN${this.getRandomString()}`;
+    const email = `attorney${this.getRandomString()}@mail.com`;
+    const mobileRaw = PHONE_NUMBER;
+    const mobile = this.formatPhoneNumber(mobileRaw);
+    const faxRaw = '9876543210';
+    const fax = this.formatPhoneNumber(faxRaw);
+
+    // Select "I have an attorney" option
+    await this.locator.attorneyHasAttorney.click();
+
+    // Fill in all fields
+    await this.locator.attorneyFirm.fill(firm);
+    await this.locator.attorneyFirstName.fill(firstName);
+    await this.locator.attorneyLastName.fill(lastName);
+    await this.locator.attorneyEmail.fill(email);
+    await this.locator.attorneyMobile.fill(mobileRaw);
+    await expect(this.locator.attorneyMobile).toHaveValue(mobile);
+    await this.locator.attorneyFax.fill(faxRaw);
+    await expect(this.locator.attorneyFax).toHaveValue(fax);
+
+    return {
+      hasAttorney,
+      firm,
+      firstName,
+      lastName,
+      email,
+      mobile,
+      fax,
+    };
   }
 
   async checkImagesIsSaved(image: Locator): Promise<void> {

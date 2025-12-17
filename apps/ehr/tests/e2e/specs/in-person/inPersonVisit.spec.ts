@@ -6,6 +6,7 @@ import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { hideTooltip } from 'tests/e2e-utils/helpers/tests-utils';
 import {
   chooseJson,
+  getAttorneyInformationStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
   getEmergencyContactStepAnswers,
@@ -115,6 +116,7 @@ test.describe('In-person visit', async () => {
         getResponsiblePartyStepAnswers({}),
         getEmployerInformationStepAnswers({}),
         getEmergencyContactStepAnswers({}),
+        getAttorneyInformationStepAnswers({}),
         getConsentStepAnswers({}),
       ];
     });
