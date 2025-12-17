@@ -1563,7 +1563,7 @@ const getFormattedInHouseLabResults = async (
     observations
       .map((ob) => {
         const componentId = ob.extension
-          ?.find((ext) => ext.url === IN_HOUSE_OBS_DEF_ID_SYSTEM && typeof ext.valueString === 'string')
+          ?.find((ext) => ext.url === IN_HOUSE_OBS_DEF_ID_SYSTEM && ext.valueString)
           ?.valueString?.replace(/^#/, '');
 
         console.log('this is the componentId for the map', componentId);

@@ -668,7 +668,7 @@ export const testItems: TestItem[] = [
         display: {
           type: 'Free Text',
           validations: {
-            format: { value: '^\\d+\\/\\d+(?:.\\d+)?(?:-\\d+\\/\\d+)?$', display: '#/#' },
+            format: { value: '^\\d+\\/\\d+(?:.\\d+)?(?:-\\d+\\/\\d+)?$', display: '#/#' }, // the regex allows values like "20/20", "20/12.5", "20/60-20/70"
           },
         },
       },
@@ -679,7 +679,7 @@ export const testItems: TestItem[] = [
         display: {
           type: 'Free Text',
           validations: {
-            format: { value: '^\\d+\\/\\d+(?:.\\d+)?(?:-\\d+\\/\\d+)?$', display: '#/#' },
+            format: { value: '^\\d+\\/\\d+(?:.\\d+)?(?:-\\d+\\/\\d+)?$', display: '#/#' }, // the regex allows values like "20/20", "20/12.5", "20/60-20/70"
           },
         },
       },
