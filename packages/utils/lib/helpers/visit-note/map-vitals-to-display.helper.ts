@@ -1,4 +1,4 @@
-import { vitalsConfig } from '../../configuration';
+import { vitalsConfig } from '../../ottehr-config';
 import {
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,

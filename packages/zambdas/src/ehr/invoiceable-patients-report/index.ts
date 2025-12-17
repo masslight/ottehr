@@ -202,7 +202,7 @@ async function getInvoiceablePatientsReport(input: {
       else if (report) resultReports.push(report);
     });
     return {
-      date: DateTime.now().toFormat('MM-dd-yyyy HH:mm:ss') ?? '--',
+      date: DateTime.now().toFormat('MM/dd/yyyy HH:mm:ss') ?? '--',
       claimsFound: invoiceableClaims.length,
       patientsReports: resultReports,
       failedReports: resultReportsErrors,

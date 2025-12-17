@@ -303,11 +303,14 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
       const paymentOption = flattenedPaperwork.find(
         (response: QuestionnaireResponseItem) => response.linkId === 'payment-option'
       )?.answer?.[0]?.valueString;
-      const patientSelectSelfPay = paymentOption === 'I will pay without insurance';
-      const updatedEncounter = updateEncounterPaymentVariantExtension(
-        encounterResource,
-        patientSelectSelfPay ? PaymentVariant.selfPay : PaymentVariant.insurance
-      );
+      let paymentVariant: PaymentVariant = PaymentVariant.selfPay;
+      if (paymentOption === 'I have insurance') {
+        paymentVariant = PaymentVariant.insurance;
+      }
+      if (paymentOption === 'Employer') {
+        paymentVariant = PaymentVariant.employer;
+      }
+      const updatedEncounter = updateEncounterPaymentVariantExtension(encounterResource, paymentVariant);
       const encounterPatchOperations: Operation[] = [
         {
           op: encounterResource.extension !== undefined ? 'replace' : 'add',

@@ -358,12 +358,14 @@ export const Sidebar = (): JSX.Element => {
           position: 'relative',
           width: open ? drawerWidth : (theme) => theme.spacing(7),
           flexShrink: 0,
+          zIndex: 50,
           '& .MuiDrawer-paper': {
             position: 'relative',
             width: open ? drawerWidth : (theme) => theme.spacing(7),
             boxSizing: 'border-box',
             overflowX: 'hidden',
             transition: 'width 0.1s',
+            zIndex: 50,
           },
         }}
       >

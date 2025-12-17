@@ -111,8 +111,13 @@ export async function createDiagnosisCodeRecommendations(
   )[] = [];
 
   console.timeLog('time', 'before generating codes');
-  console.log('Generating ICD-10 codes from clinical notes');
-  const potentialDiagnoses = await generateIcdTenCodesFromNotes(aiClient, hpiTextUpdated, mdmTextUpdated);
+  let potentialDiagnoses: { icd10: string; diagnosis: string }[] = [];
+  if (!hpiTextUpdated && !mdmTextUpdated) {
+    console.log('No HPI or MDM text available, skipping ICD-10 code generation');
+  } else {
+    console.log('Generating ICD-10 codes from clinical notes');
+    potentialDiagnoses = await generateIcdTenCodesFromNotes(aiClient, hpiTextUpdated, mdmTextUpdated);
+  }
   console.timeLog('time', 'after generating codes');
   const existingAiDiagnoses: Condition[] = allResources.filter(
     (resource) =>
@@ -153,10 +158,18 @@ export async function createDiagnosisCodeRecommendations(
   });
 
   console.timeLog('time', 'before saving resources');
-  await oystehr.fhir.transaction({
+  const result = await oystehr.fhir.batch({
     requests: saveOrUpdateRequests,
   });
   console.timeLog('time', 'after saving resources');
+  result.entry?.forEach(({ response }) => {
+    if (response && Number(response.status) >= 300) {
+      const outcome = response.outcome?.resourceType === 'OperationOutcome' ? response.outcome : undefined;
+      console.error(
+        `Error modifying resource: ${response.status} ${outcome?.issue.map((issue) => issue.details?.text).join(', ')}`
+      );
+    }
+  });
 
   console.timeEnd('time');
   return {
