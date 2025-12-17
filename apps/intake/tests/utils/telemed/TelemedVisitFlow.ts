@@ -30,17 +30,29 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
 
     return { locationTitle: location?.split('Working hours')[0] };
   }
-  async startVisitFullFlow(checkFlow = false): Promise<StartVisitResponse & { stateValue: string }> {
+
+  async startVisitWithoutPaperwork(): Promise<StartVisitResponse> {
     await this.selectVisitAndContinue();
     const slotAndLocation = await this.selectTimeLocationAndContinue();
     await this.selectDifferentFamilyMemberAndContinue();
     const patientBasicInfo = await this.fillNewPatientDataAndContinue();
-    // await this.page.waitForURL(/\/paperwork/);
+    await this.locator.confirmWalkInButton.click();
+    await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
+    await expect(this.locator.flowHeading).toHaveText('Contact information');
     const bookingURL = this.page.url();
     console.log('Booking URL: ', bookingURL);
     const match = bookingURL.match(/paperwork\/([0-9a-fA-F-]+)/);
     const bookingUUID = match ? match[1] : null;
-    await this.locator.confirmWalkInButton.click();
+    return {
+      patientBasicInfo,
+      slotAndLocation,
+      bookingURL,
+      bookingUUID,
+    };
+  }
+
+  async startVisitFullFlow(checkFlow = false): Promise<StartVisitResponse & { stateValue: string }> {
+    const { patientBasicInfo, slotAndLocation, bookingURL, bookingUUID } = await this.startVisitWithoutPaperwork();
 
     if (checkFlow) {
       // skip extra steps if not specifically requested to speed up flow
