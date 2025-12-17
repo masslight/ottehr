@@ -1,7 +1,7 @@
 import { BrowserContext, Page } from '@playwright/test';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import { Locators } from '../locators';
-import { Paperwork } from '../Paperwork';
+import { Paperwork, TelemedPaperworkReturn } from '../Paperwork';
 import { FillingInfo } from './FillingInfo';
 import { PaperworkTelemed } from './Paperwork';
 
@@ -28,6 +28,13 @@ export interface PatientBasicInfo {
   dob: { m: string; d: string; y: string };
 }
 
+export interface FilledPaperworkInput {
+  payment: 'card' | 'insurance';
+  responsibleParty: 'self' | 'not-self';
+  requiredOnly?: boolean;
+  patientBasicInfo?: PatientBasicInfo;
+}
+
 export abstract class BaseTelemedFlow {
   protected page: Page;
   protected locator: Locators;
@@ -46,25 +53,42 @@ export abstract class BaseTelemedFlow {
     this.paperwork = new PaperworkTelemed(page);
     this.paperworkGeneral = new Paperwork(page);
   }
-  abstract selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>>;
+
+  // flow steps:
+  // - click button
+  // - start visit by choosing patient
+  // - fill paperwork
+  // - complete booking
+  // - cancel appointment
+
   abstract clickVisitButton(): Promise<void>;
+
+  abstract startVisitWithoutPaperwork(patient?: PatientBasicInfo): Promise<StartVisitResponse>;
+
+  abstract fillPaperwork({
+    payment,
+    responsibleParty,
+    requiredOnly,
+    patientBasicInfo,
+  }: FilledPaperworkInput): Promise<TelemedPaperworkReturn<typeof payment, typeof responsibleParty, boolean>>;
+
   abstract completeBooking(): Promise<void>;
-  abstract startVisitFullFlow(): Promise<StartVisitResponse>;
+
+  abstract cancelAppointment(): Promise<void>;
+
+  // ---------------------------------------------------------------------------
+
+  abstract selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>>;
 
   async selectVisitAndContinue(): Promise<void> {
     await this.page.goto(`/home`);
     await this.clickVisitButton();
   }
 
-  async selectDifferentFamilyMemberAndContinue(): Promise<void> {
-    await this.locator.selectDifferentFamilyMember();
-    await this.continue();
-  }
-
   async fillNewPatientDataAndContinue(): Promise<PatientBasicInfo> {
     const bookingData = await this.fillingInfo.fillNewPatientInfo();
     const patientDob = await this.fillingInfo.fillDOBgreater18();
-    await this.continue();
+    await this.locator.clickContinueButton();
     return {
       firstName: bookingData.firstName,
       lastName: bookingData.lastName,
