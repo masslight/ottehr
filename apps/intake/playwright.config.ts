@@ -53,6 +53,8 @@ export default defineConfig({
   workers: process.env.CI ? 6 : undefined,
   globalSetup: './tests/global-setup/index.ts',
   globalTeardown: './tests/global-teardown/index.ts',
+  /* Global timeout for entire test run - 15 minutes max for intake tests */
+  globalTimeout: 15 * 60 * 1000,
 
   /* Configure projects for major browsers */
   projects: [
@@ -77,8 +79,7 @@ export default defineConfig({
       timeout: 240000,
     },
     {
-      // Validates that paperwork-setup completed successfully.
-      // If this fails, chromium tests won't run.
+      // Validates that ALL paperwork-setup tests passed (checks marker file)
       name: 'setup-validation',
       use: {
         ...devices['Desktop Chrome'],
@@ -93,6 +94,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
       },
+      // chromium runs ONLY if setup-validation passes (which means ALL setup tests passed)
       dependencies: ['setup-validation'],
       testIgnore: [/.*login\/login\.spec\.ts/, /.*setup\.spec\.ts/, /.*setup-validation\.spec\.ts/],
     },

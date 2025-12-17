@@ -3,23 +3,22 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
- * This test validates that paperwork-setup completed successfully.
- * It checks for the .setup-complete marker file written at the end of setup.spec.ts.
+ * This test validates that ALL paperwork-setup tests passed.
+ * The marker file is only written by setup.spec.ts if ALL tests passed.
  *
- * This runs as a separate project that chromium depends on, so if this fails,
- * all chromium tests are automatically skipped.
+ * If this validation fails, chromium tests will be skipped (via dependencies).
  */
-test('Validate paperwork setup completed', async () => {
+test('Validate all setup tests passed', async () => {
   const markerPath = path.join('test-data', '.setup-complete');
 
   if (!fs.existsSync(markerPath)) {
     throw new Error(
-      'PAPERWORK SETUP DID NOT COMPLETE\n\n' +
-        'The .setup-complete marker file is missing, which means one or more\n' +
-        'paperwork-setup tests failed. Please check the paperwork-setup test\n' +
-        'results for errors before running the main test suite.'
+      'SETUP FAILED: The .setup-complete marker file is missing.\n\n' +
+        'This means one or more paperwork-setup tests failed.\n' +
+        'Chromium tests will be skipped.\n\n' +
+        'Please check the paperwork-setup test results for errors.'
     );
   }
 
-  console.log('✓ Setup validation passed. Proceeding with main tests.');
+  console.log('✓ Setup validation passed. All setup tests completed successfully.');
 });

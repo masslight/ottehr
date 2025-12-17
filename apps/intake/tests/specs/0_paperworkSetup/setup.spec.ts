@@ -3,6 +3,36 @@ import { Appointment } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as path from 'path';
 import { addProcessIdMetaTagToAppointment } from 'test-utils';
+
+// Track if ANY setup test failed - used to decide whether to write success marker
+let setupHasFailures = false;
+
+// After each test, check if it failed
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status !== 'passed' && testInfo.status !== 'skipped') {
+    setupHasFailures = true;
+  }
+});
+
+// After all tests, write marker ONLY if all tests passed
+test.afterAll(async () => {
+  const markerPath = path.join('test-data', '.setup-complete');
+  if (!setupHasFailures) {
+    const testDataPath = 'test-data';
+    if (!fs.existsSync(testDataPath)) {
+      fs.mkdirSync(testDataPath, { recursive: true });
+    }
+    fs.writeFileSync(markerPath, JSON.stringify({ completedAt: new Date().toISOString() }));
+    console.log('✓ All setup tests passed. Marker file written.');
+  } else {
+    // Remove marker if it exists from previous run
+    if (fs.existsSync(markerPath)) {
+      fs.unlinkSync(markerPath);
+    }
+    console.log('✗ Setup has failures. Marker file NOT written.');
+  }
+});
 import { CancelPage } from 'tests/utils/CancelPage';
 import { BaseInPersonFlow } from 'tests/utils/in-person/BaseInPersonFlow';
 import { ResourceHandler } from 'tests/utils/resource-handler';
@@ -539,11 +569,4 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
       writeTestData('telemedPatientWithoutPaperwork.json', telemedPatientWithoutPaperwork);
     });
   });
-});
-
-// This test runs last and marks that all setup tests completed successfully.
-// The setup-validation project checks for this marker before running main tests.
-test('Mark setup as complete', async () => {
-  writeTestData('.setup-complete', { completedAt: new Date().toISOString() });
-  console.log('✓ All paperwork setup tests completed. Marker file written.');
 });
