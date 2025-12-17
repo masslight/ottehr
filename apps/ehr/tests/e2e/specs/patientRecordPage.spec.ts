@@ -154,6 +154,7 @@ const getConditionalFields = (
     .filter((item) => {
       if (!item.triggers || item.triggers.length === 0) return false;
       if (!item.disabledDisplay || item.disabledDisplay === 'disabled') return false;
+      if (!item.label) return false;
       return item.triggers.some((trigger) => trigger.targetQuestionLinkId === controlFieldKey);
     })
     .map((item) => {
@@ -162,7 +163,7 @@ const getConditionalFields = (
       );
       return {
         key: item.key,
-        label: item.label,
+        label: item.label || '',
         shouldBeRequired,
         disabledDisplay: item.disabledDisplay || 'disabled',
       };

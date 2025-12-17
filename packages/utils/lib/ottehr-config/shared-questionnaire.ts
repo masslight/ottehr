@@ -45,12 +45,17 @@ const ReferenceDataSourceSchema = z
       message: 'Either answerSource or valueSet must be provided',
     }
   );
+const FormFieldsLogicalFieldSchema = z.object({
+  key: z.string(),
+  type: z.enum(['string', 'date', 'boolean']),
+  initialValue: z.union([z.string(), z.boolean()]).optional(),
+});
 
 const FormFieldsValueTypeSchema = z
   .object({
     key: z.string(),
     type: z.enum(['string', 'date', 'choice', 'boolean', 'reference']),
-    label: z.string().optional(),
+    label: z.string(),
     dataType: QuestionnaireDataTypeSchema.optional(),
     options: z
       .array(
@@ -95,14 +100,17 @@ const FormFieldsValueTypeSchema = z
   );
 
 export type FormFieldsItem = z.infer<typeof FormFieldsValueTypeSchema>;
+export type FormFieldsLogicalItem = z.infer<typeof FormFieldsLogicalFieldSchema>;
 
 export const FormFieldItemRecordSchema = z.record(FormFieldsValueTypeSchema);
 export type FormFieldItemRecord = z.infer<typeof FormFieldItemRecordSchema>;
+export const FormFieldLogicalItemRecordSchema = z.record(FormFieldsLogicalFieldSchema);
+export type FormFieldLogicalItemRecord = z.infer<typeof FormFieldLogicalItemRecordSchema>;
 export const FormSectionSimpleSchema = z.object({
   linkId: z.string(),
   title: z.string(),
   items: FormFieldItemRecordSchema,
-  logicalItems: FormFieldItemRecordSchema.optional(),
+  logicalItems: FormFieldLogicalItemRecordSchema.optional(),
   hiddenFields: z.array(z.string()).optional(),
   requiredFields: z.array(z.string()).optional(),
 });
@@ -111,7 +119,7 @@ export const FormSectionArraySchema = z.object({
   linkId: z.array(z.string()),
   title: z.string(),
   items: z.array(FormFieldItemRecordSchema),
-  logicalItems: FormFieldItemRecordSchema.optional(),
+  logicalItems: FormFieldLogicalItemRecordSchema.optional(),
   hiddenFields: z.array(z.string()).optional(),
   requiredFields: z.array(z.string()).optional(),
 });
@@ -282,7 +290,7 @@ const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: 
   return item;
 };
 
-const convertLogicalItemToQuestionnaireItem = (field: FormFieldsItem): QuestionnaireItem => {
+const convertLogicalItemToQuestionnaireItem = (field: FormFieldsLogicalItem): QuestionnaireItem => {
   const item: QuestionnaireItem = {
     linkId: field.key,
     type: field.type,
@@ -294,7 +302,7 @@ const convertLogicalItemToQuestionnaireItem = (field: FormFieldsItem): Questionn
   if (field.initialValue !== undefined) {
     if (field.type === 'boolean') {
       item.initial = [{ valueBoolean: field.initialValue as boolean }];
-    } else if (field.type === 'string') {
+    } else if (field.type === 'string' || field.type === 'date') {
       item.initial = [{ valueString: field.initialValue as string }];
     }
   }
