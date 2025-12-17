@@ -8,7 +8,9 @@ import {
   Chip,
   CircularProgress,
   FormControlLabel,
+  Grid,
   IconButton,
+  LinearProgress,
   TextField,
   Typography,
   useTheme,
@@ -37,6 +39,7 @@ import {
   chooseJson,
   CoverageCheckWithDetails,
   EligibilityCheckSimpleStatus,
+  FinancialDetails,
   InsuranceEligibilityCheckStatus,
   InsurancePlanDTO,
   InsurancePlanType,
@@ -239,6 +242,43 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     },
   });
 
+  const insuranceCodeToCandidCode = {
+    '12': '16',
+    '13': '16',
+    '14': 'LM',
+    '15': 'WC',
+    '16': 'OF',
+    '41': '16',
+    '42': 'VA',
+    '43': '16',
+    '47': 'LM',
+    AP: 'AM',
+    C1: 'CI',
+    CO: '11',
+    CP: 'MA',
+    D: 'DS',
+    DB: 'DS',
+    EP: '12',
+    FF: '11',
+    GP: '12',
+    HM: 'HM',
+    HN: '16',
+    HS: '11',
+    IN: '15',
+    IP: 'CI',
+    LC: '11',
+    LD: '11',
+    LI: '11',
+    LT: 'LM',
+    MA: 'MA',
+    MB: 'MB',
+    MC: 'MC',
+    MH: '11',
+    MI: '11',
+    MP: 'MA',
+    OT: 'ZZ',
+  };
+
   const handleRecheckEligibility = async (): Promise<void> => {
     try {
       const result = await recheckEligibility.mutateAsync();
@@ -248,6 +288,16 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         console.error('Error rechecking eligibility:', 'No result returned');
       }
       console.log('Eligibility check result:', result);
+
+      const insuranceCodeTemp = result?.coverageDetails?.insurance?.insuranceCode;
+      if (insuranceCodeTemp) {
+        const newInsurance = InsurancePlanTypes.find(
+          (option) => (insuranceCodeToCandidCode as any)[insuranceCodeTemp] === option.candidCode
+        );
+        if (newInsurance) {
+          setValue(FormFields.insurancePlanType.key, newInsurance.candidCode, { shouldDirty: true });
+        }
+      }
     } catch (error) {
       console.error('Error rechecking eligibility:', error);
     }
@@ -371,6 +421,46 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     return undefined;
   };
 
+  const eligibilityCheck = getCurrentEligibilityData();
+
+  function formatMoney(value: number | undefined): string {
+    if (value === undefined) {
+      return 'Unknown';
+    }
+    const formatMoneyTemp = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    });
+    return formatMoneyTemp.format(value);
+  }
+
+  const BenefitProgressDetails = ({ detail }: { detail: FinancialDetails }): ReactElement => {
+    return (
+      <>
+        <Typography variant="body1" color={theme.palette.primary.dark}>
+          Individual Deductible
+        </Typography>
+        {detail.total !== undefined && detail.paid !== undefined && (
+          <LinearProgress
+            variant="determinate"
+            value={detail.total === 0 ? 0 : (detail.paid / detail.total) * 100}
+            color="primary"
+            sx={{ marginTop: 1, marginBottom: 1 }}
+          />
+        )}
+        <Typography variant="body2" color={theme.palette.primary.dark}>
+          Paid: {formatMoney(detail.paid)}
+        </Typography>
+        <Typography variant="body2" color={theme.palette.primary.dark}>
+          Total: {formatMoney(detail.total)}
+        </Typography>
+        <Typography variant="body2" color={theme.palette.primary.dark}>
+          Remaining: <strong>{formatMoney(detail.remaining)}</strong>
+        </Typography>
+      </>
+    );
+  };
+
   return (
     <Section title="Insurance information" dataTestId="insuranceContainer" titleWidget={<TitleWidget />}>
       <Box
@@ -380,6 +470,27 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         }}
       >
         <CopayWidget copay={copayBenefits} />
+        <Grid
+          sx={{
+            marginTop: 2,
+            backgroundColor: 'rgba(244, 246, 248, 1)',
+            padding: 1,
+          }}
+          container
+          spacing={2}
+        >
+          <Grid item xs={12}>
+            <Typography variant="h5" color={theme.palette.primary.dark} fontWeight={theme.typography.fontWeightBold}>
+              Deductible & Out-of-Pocket (In-network)
+            </Typography>
+          </Grid>
+
+          {eligibilityCheck?.financialDetails?.map((detail) => (
+            <Grid item xs={4} key={detail.name}>
+              <BenefitProgressDetails detail={detail} />
+            </Grid>
+          ))}
+        </Grid>
       </Box>
       <Row label="Type" required dataTestId={dataTestIds.insuranceContainer.type}>
         <FormSelect
