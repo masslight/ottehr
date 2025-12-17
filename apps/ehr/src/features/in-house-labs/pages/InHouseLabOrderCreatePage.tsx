@@ -54,7 +54,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const prefillData = location.state as {
     testItemName?: string;
     diagnoses?: DiagnosisDTO[];
-    parentTestSrId?: string; // only for reflex test
     type?: 'repeat' | 'reflex';
   };
 
@@ -167,7 +166,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           diagnosesAll: [...selectedAssessmentDiagnoses, ...selectedNewDiagnoses],
           diagnosesNew: selectedNewDiagnoses,
           isRepeatTest: repeatTest,
-          parentTestId: prefillData?.parentTestSrId,
           notes: notes,
         });
 

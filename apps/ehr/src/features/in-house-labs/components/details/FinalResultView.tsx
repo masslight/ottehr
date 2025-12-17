@@ -1,7 +1,7 @@
 import { BiotechOutlined } from '@mui/icons-material';
 import { Box, Button, Paper, Typography } from '@mui/material';
 import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { DiagnosisDTO, getFormattedDiagnoses } from 'utils';
 import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
@@ -14,7 +14,6 @@ interface FinalResultViewProps {
 
 export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, onBack }) => {
   const navigate = useNavigate();
-  const { serviceRequestID } = useParams();
 
   // we sort the tests on the back end, most recent will always be first
   // const sortedOrders = inHouseOrders.sort((a, b) => compareDates(a.orderAddedDate, b.orderAddedDate));
@@ -40,8 +39,8 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
       if (labDetails.repeatable) acc.repeat = true;
       // todo labs if theres every a case where more than one test can be triggered, some work will have to be done here.
       // but also the design might change at that point so i wont handle now
-      if (labDetails?.reflexAlertRollUp && labDetails.reflexAlertRollUp?.length) {
-        const testName = labDetails.reflexAlertRollUp[0].testName;
+      if (labDetails?.reflexAlert) {
+        const testName = labDetails.reflexAlert.testName;
         const testWasRun = !!testDetails.some((detail) => detail.labDetails.name === testName);
         // this drives if we show the button or not, if its already been run currently we don't show the button
         if (testName && !testWasRun) acc.reflexTest = testName;
@@ -66,7 +65,6 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
       state: {
         testItemName: testName,
         diagnoses: diagnoses,
-        parentTestSrId: serviceRequestID,
         type: 'reflex',
       },
     });

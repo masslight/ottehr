@@ -164,3 +164,13 @@ export const REFLEX_TEST_CONDITION_URL = 'http://ottehr.org/fhir/StructureDefini
 export const REFLEX_TEST_CONDITION_LANGUAGES = {
   fhirPath: 'text/fhirpath',
 } as const;
+export const REFLEX_TEST_TRIGGERED_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-triggered';
+
+// tag needed to validating the progress note
+// the display value for this tag will be the reflex test name
+export const SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM = 'reflex-test-triggered';
+export const SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES = {
+  pending: 'pending', // test is not created, you cannot sign
+};
+
+export const REFLEX_ARTIFACT_DISPLAY = 'reflex relationship'; // added to the depends-on relatedArtifact on reflex test activity definitions

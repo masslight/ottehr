@@ -24,8 +24,10 @@ import {
   getSecret,
   IN_HOUSE_LAB_ERROR,
   IN_HOUSE_LAB_TASK,
+  IN_HOUSE_TEST_CODE_SYSTEM,
   isApiError,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
+  REFLEX_ARTIFACT_DISPLAY,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -77,7 +79,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       diagnosesNew,
       isRepeatTest,
       notes,
-      parentTestId,
     } = validatedParameters;
 
     const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
@@ -160,21 +161,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           })
         ).unbundle() as ServiceRequest[];
       requests.push(initialServiceRequestSearch());
-    } else if (parentTestId) {
-      console.log('creating reflex test, parent test id passed:', parentTestId);
-      const initialServiceRequestSearch = async (): Promise<ServiceRequest[]> =>
-        (
-          await oystehr.fhir.search({
-            resourceType: 'ServiceRequest',
-            params: [
-              {
-                name: '_id',
-                value: parentTestId,
-              },
-            ],
-          })
-        ).unbundle() as ServiceRequest[];
-      requests.push(initialServiceRequestSearch());
     }
 
     const results = await Promise.all(requests);
@@ -242,6 +228,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return activeDefinition;
     })();
 
+    let parentTestCanonicalUrl: string | undefined;
+    activityDefinition.relatedArtifact?.forEach((artifact) => {
+      const isDependent = artifact.type === 'depends-on';
+      const isRelatedViaReflex = artifact.display === REFLEX_ARTIFACT_DISPLAY;
+      if (isDependent && isRelatedViaReflex) {
+        parentTestCanonicalUrl = artifact.resource;
+      }
+    });
+
     const encounter = (() => {
       const targetEncounter = encounterSearchResults.find((encounter) => encounter.id === encounterId);
       if (!targetEncounter) throw Error('Encounter not found');
@@ -262,7 +257,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return accountSearchResults[0];
     })();
 
-    const initialServiceRequest = (() => {
+    // this logic assumes we won't have any repeat reflex - you can only be one :)
+    const initialServiceRequest = await (async () => {
       if (isRepeatTest) {
         if (!initialServiceRequestResources || initialServiceRequestResources.length === 0) {
           throw IN_HOUSE_LAB_ERROR(
@@ -286,19 +282,29 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
         const initialSR = possibleInitialSRs[0];
         return initialSR;
-      } else if (parentTestId) {
-        if (!initialServiceRequestResources || initialServiceRequestResources.length === 0) {
-          throw IN_HOUSE_LAB_ERROR(
-            'There was an issue with the parent test id passed to create-lab, no service requests were found'
-          );
-        }
-        if (initialServiceRequestResources.length > 1) {
-          // this also should never happen
-          throw IN_HOUSE_LAB_ERROR(
-            'There was an issue with the parent test id passed to create-lab, more than one service request was found'
-          );
-        }
-        return initialServiceRequestResources[0];
+      } else if (parentTestCanonicalUrl) {
+        console.log('searching for parent test', parentTestCanonicalUrl);
+        // we should be able to search service request by this but looks like a fhir bug so will need to do some more round about searching here
+        const serviceRequestSearch = (
+          await oystehr.fhir.search<ServiceRequest>({
+            resourceType: 'ServiceRequest',
+            params: [
+              {
+                name: 'encounter',
+                value: `Encounter/${encounterId}`,
+              },
+              {
+                name: 'code',
+                value: `${IN_HOUSE_TEST_CODE_SYSTEM}|`,
+              },
+            ],
+          })
+        ).unbundle();
+        const parentRequest = serviceRequestSearch.find(
+          (sr) => sr.instantiatesCanonical?.some((url) => url === parentTestCanonicalUrl)
+        );
+        console.log('parentRequest', parentRequest?.id);
+        return parentRequest;
       }
       return;
     })();

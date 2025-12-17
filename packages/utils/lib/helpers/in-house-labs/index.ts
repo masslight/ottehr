@@ -1,4 +1,12 @@
-import { ActivityDefinition, Observation, ObservationDefinition, ServiceRequest, ValueSet } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  DiagnosticReport,
+  Extension,
+  Observation,
+  ObservationDefinition,
+  ServiceRequest,
+  ValueSet,
+} from 'fhir/r4b';
 import { evaluate } from 'fhirpath';
 import {
   CODE_SYSTEM_CPT,
@@ -18,6 +26,7 @@ import {
   REFLEX_TEST_LOGIC_URL,
   REFLEX_TEST_TO_RUN_NAME_URL,
   REFLEX_TEST_TO_RUN_URL,
+  REFLEX_TEST_TRIGGERED_URL,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
   TestComponentResult,
   TestItem,
@@ -118,7 +127,6 @@ const extractNullOption = (
 const processObservationDefinition = (
   obsDef: ObservationDefinition,
   containedResources: (ObservationDefinition | ValueSet)[],
-  activityDefinition: ActivityDefinition,
   observation?: Observation
 ): TestItemComponent | undefined => {
   const componentName = obsDef.code?.text || '';
@@ -157,7 +165,6 @@ const processObservationDefinition = (
     const nullOption = extractNullOption(obsDef);
 
     const result = getResult(observation, dataType);
-    const reflexTestAlert = checkIfReflexIsTriggered(activityDefinition, observation);
     const component: CodeableConceptComponent = {
       componentName,
       observationDefinitionId,
@@ -170,7 +177,6 @@ const processObservationDefinition = (
       displayType,
       nullOption,
       result,
-      reflexTestAlert,
     };
     return component;
   } else if (dataType === 'Quantity') {
@@ -180,7 +186,6 @@ const processObservationDefinition = (
       throw Error('Quantity type observation definition is misconfigured, should be Numeric');
     }
     const result = getResult(observation, dataType);
-    const reflexTestAlert = checkIfReflexIsTriggered(activityDefinition, observation);
     const component: QuantityComponent = {
       componentName,
       observationDefinitionId,
@@ -190,12 +195,11 @@ const processObservationDefinition = (
       normalRange: quantityInfo.normalRange,
       displayType,
       result,
-      reflexTestAlert,
     };
     return component;
   }
 
-  console.log(`Invalid data type: ${dataType}`);
+  console.log('Invalid data type');
   return;
 };
 
@@ -206,7 +210,8 @@ export function quantityRangeFormat(quantity: QuantityComponent): string {
 export const convertActivityDefinitionToTestItem = (
   activityDef: ActivityDefinition,
   observations?: Observation[],
-  serviceRequest?: ServiceRequest
+  serviceRequest?: ServiceRequest,
+  diagnosticReport?: DiagnosticReport
 ): TestItem => {
   const name = activityDef.name || '';
 
@@ -243,7 +248,7 @@ export const convertActivityDefinitionToTestItem = (
   const observationMap: { [obsDefId: string]: Observation } = {};
   if (observations) {
     observations.forEach((obs) => {
-      const observationIsBasedOnSr = serviceRequest ? observationIsBasedOnServiceRequest(obs, serviceRequest) : true;
+      const observationIsBasedOnSr = serviceRequest ? resourceIsBasedOnServiceRequest(obs, serviceRequest) : true;
       if (observationIsBasedOnSr) {
         const obsDefIdFromExt = obs.extension?.find((ext) => ext.url === IN_HOUSE_OBS_DEF_ID_SYSTEM)?.valueString;
         if (obsDefIdFromExt) observationMap[obsDefIdFromExt] = obs;
@@ -253,7 +258,6 @@ export const convertActivityDefinitionToTestItem = (
 
   const groupedComponents: TestItemComponent[] = [];
   const radioComponents: CodeableConceptComponent[] = [];
-  const reflexAlerts: { alert: string; testName: string }[] = [];
   for (const ref of obsDefRefs) {
     const obsDefId = ref.reference?.substring(1);
     const obsDef = containedResources.find(
@@ -265,11 +269,9 @@ export const convertActivityDefinitionToTestItem = (
       const componentInfo = processObservationDefinition(
         obsDef,
         containedResources as (ObservationDefinition | ValueSet)[],
-        activityDef,
         resultObs
       );
       if (componentInfo) {
-        if (componentInfo.reflexTestAlert) reflexAlerts.push(componentInfo.reflexTestAlert);
         if (componentInfo.displayType === 'Select' || componentInfo.displayType === 'Numeric')
           groupedComponents.push(componentInfo);
         if (componentInfo.displayType === 'Radio') radioComponents.push(componentInfo);
@@ -281,6 +283,14 @@ export const convertActivityDefinitionToTestItem = (
     throw new Error(
       `ActivityDefinition is misconfigured and is missing either its url or version property: ${activityDef.url}, ${activityDef.version}. AD id is ${activityDef.id}`
     );
+  }
+
+  let reflexAlert: TestItem['reflexAlert'];
+  // validate service request and diagnostic report are indeed related
+  const srIsRelatedToDr =
+    diagnosticReport && serviceRequest ? resourceIsBasedOnServiceRequest(diagnosticReport, serviceRequest) : false;
+  if (srIsRelatedToDr && diagnosticReport) {
+    reflexAlert = checkDiagnosticReportForReflexAlert(diagnosticReport);
   }
 
   const testItem: TestItem = {
@@ -296,7 +306,7 @@ export const convertActivityDefinitionToTestItem = (
       groupedComponents,
       radioComponents,
     },
-    reflexAlertRollUp: reflexAlerts.length > 0 ? reflexAlerts : undefined,
+    reflexAlert,
     adUrl: activityDef.url,
     adVersion: activityDef.version,
   };
@@ -305,11 +315,11 @@ export const convertActivityDefinitionToTestItem = (
   return testItem;
 };
 
-export const observationIsBasedOnServiceRequest = (
-  observation: Observation,
+export const resourceIsBasedOnServiceRequest = (
+  resource: Observation | DiagnosticReport,
   serviceRequest: ServiceRequest
 ): boolean => {
-  return !!observation.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
+  return !!resource.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
 };
 
 const getResult = (
@@ -343,37 +353,31 @@ const getResult = (
 };
 
 // i suspect this function will need some tweaking if we add more types of conditions/expressions
-const checkIfReflexIsTriggered = (
+export const checkIfReflexIsTriggered = (
   activityDefinition: ActivityDefinition,
   observation: Observation | undefined
-): { alert: string; testName: string } | undefined => {
-  const reflexLogic = activityDefinition.extension?.find((ext) => ext.url === REFLEX_TEST_LOGIC_URL)?.extension;
-  if (!reflexLogic) return;
-  const reflexCondition = reflexLogic.find((ext) => ext.url === REFLEX_TEST_CONDITION_URL)?.valueExpression;
-  if (!reflexCondition) {
-    throw new Error(
-      `Reflex logic is misconfigured. Condition valueExpression is missing. ActivityDefinition/${activityDefinition.id}`
-    );
-  }
+): Extension | undefined => {
+  if (!observation) return;
 
-  console.log(`Evaluating reflex logic for ActivityDefinition/${activityDefinition.id}`);
+  const reflexLogicExtensions = checkActivityDefinitionForReflexLogic(activityDefinition);
+  if (!reflexLogicExtensions) return;
 
-  const reflexTestToRunCanonicalUrl = reflexLogic.find((ext) => ext.url === REFLEX_TEST_TO_RUN_URL)?.valueCanonical;
-  const reflexTestToRunName = reflexLogic.find((ext) => ext.url === REFLEX_TEST_TO_RUN_NAME_URL)?.valueString;
-  const reflexConditionLanguage = reflexCondition.language;
-  const reflexConditionExpression = reflexCondition.expression;
-  if (!reflexConditionLanguage || !reflexConditionExpression || !reflexTestToRunCanonicalUrl || !reflexTestToRunName) {
-    throw new Error(
-      `Reflex logic is misconfigured. One of the following is missing: reflexConditionLanguage, reflexConditionExpression, reflexTestToRunReference, reflexTestToRunName on ActivityDefinition/${activityDefinition.id}`
-    );
-  }
+  const {
+    reflexTestToRunCanonicalUrlExt,
+    reflexTestToRunNameExt,
+    reflexAlertExt,
+    reflexConditionLanguage,
+    reflexConditionExpression,
+  } = reflexLogicExtensions;
 
   if (reflexConditionLanguage === REFLEX_TEST_CONDITION_LANGUAGES.fhirPath) {
     const result = evaluate(observation, reflexConditionExpression, { resource: observation });
     if (result && Array.isArray(result) && result.some((res) => res === true)) {
-      const alertTextValueString = reflexLogic.find((ext) => ext.url === REFLEX_TEST_ALERT_URL)?.valueString;
-      const alert = alertTextValueString ?? 'Reflex test triggered (specific alert text missing)';
-      return { alert, testName: reflexTestToRunName };
+      const reflexTestTriggeredExt: Extension = {
+        url: REFLEX_TEST_TRIGGERED_URL,
+        extension: [reflexTestToRunCanonicalUrlExt, reflexTestToRunNameExt, reflexAlertExt],
+      };
+      return reflexTestTriggeredExt;
     } else {
       console.log('result returned:', JSON.stringify(result));
       return;
@@ -385,6 +389,76 @@ const checkIfReflexIsTriggered = (
       )}.`
     );
   }
+};
+
+export const checkActivityDefinitionForReflexLogic = (
+  activityDefinition: ActivityDefinition
+):
+  | {
+      reflexTestToRunCanonicalUrlExt: Extension;
+      reflexTestToRunNameExt: Extension;
+      reflexAlertExt: Extension;
+      reflexConditionLanguage: string;
+      reflexConditionExpression: string;
+    }
+  | undefined => {
+  const reflexLogic = activityDefinition.extension?.find((ext) => ext.url === REFLEX_TEST_LOGIC_URL)?.extension;
+  if (!reflexLogic) return;
+
+  const reflexCondition = reflexLogic.find((ext) => ext.url === REFLEX_TEST_CONDITION_URL)?.valueExpression;
+  if (!reflexCondition) {
+    throw new Error(
+      `Reflex logic is misconfigured. Condition valueExpression is missing. ActivityDefinition/${activityDefinition.id}`
+    );
+  }
+
+  console.log(`Evaluating reflex logic for ActivityDefinition/${activityDefinition.id}`);
+
+  const reflexTestToRunCanonicalUrlExt = reflexLogic.find((ext) => ext.url === REFLEX_TEST_TO_RUN_URL);
+  const reflexTestToRunNameExt = reflexLogic.find((ext) => ext.url === REFLEX_TEST_TO_RUN_NAME_URL);
+  const reflexAlertExt = reflexLogic.find((ext) => ext.url === REFLEX_TEST_ALERT_URL);
+  const reflexConditionLanguage = reflexCondition.language;
+  const reflexConditionExpression = reflexCondition.expression;
+
+  if (
+    !reflexConditionLanguage ||
+    !reflexConditionExpression ||
+    !reflexAlertExt ||
+    !reflexTestToRunNameExt ||
+    !reflexTestToRunCanonicalUrlExt
+  ) {
+    throw new Error(
+      `Reflex logic is misconfigured. One of the following is missing: reflexConditionLanguage, reflexConditionExpression, reflexAlertExt, reflexTestToRunCanonicalUrlExt, reflexTestToRunNameExt on ActivityDefinition/${activityDefinition.id}`
+    );
+  }
+
+  return {
+    reflexTestToRunCanonicalUrlExt,
+    reflexTestToRunNameExt,
+    reflexAlertExt,
+    reflexConditionLanguage,
+    reflexConditionExpression,
+  };
+};
+
+export const checkDiagnosticReportForReflexAlert = (
+  diagnosticReport: DiagnosticReport
+): { testName: string; alert: string } | undefined => {
+  const reflexLogic = diagnosticReport.extension?.find((ext) => ext.url === REFLEX_TEST_TRIGGERED_URL)?.extension;
+  if (!reflexLogic) return;
+
+  console.log(`Evaluating reflex logic for DiagnosticReport/${diagnosticReport.id}`);
+
+  const reflexTestToRunName = reflexLogic.find((ext) => ext.url === REFLEX_TEST_TO_RUN_NAME_URL)?.valueString;
+  const reflexAlert = reflexLogic.find((ext) => ext.url === REFLEX_TEST_ALERT_URL)?.valueString;
+
+  if (!reflexAlert || !reflexTestToRunName) {
+    throw new Error(
+      `Reflex test information on diagnostic report is misconfigured. reflexAlert or reflexTestToRunName is missing on DiagnosticReport/${diagnosticReport.id}`
+    );
+  }
+
+  return { testName: reflexTestToRunName, alert: reflexAlert };
 };
 
 export const getFormattedDiagnoses = (diagnoses: DiagnosisDTO[]): string => {

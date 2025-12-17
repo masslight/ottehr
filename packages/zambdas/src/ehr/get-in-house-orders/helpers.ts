@@ -74,7 +74,9 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
       );
 
       // todo labs team should we be validating the number of items in the array is 1?
-      const drId = relatedDiagnosticReports[0]?.id;
+      // we should probably fix this in the future, if we ever have a case where a diagnostic report gets linked to more than one service request we will have an issue
+      const relatedDiagnosticReport = relatedDiagnosticReports[0];
+      const drId = relatedDiagnosticReport?.id;
       const resultsPDF = drId ? resultsPDFs.find((pdf) => pdf.diagnosticReportIds.includes(drId)) : undefined;
 
       result.push(
@@ -89,6 +91,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
           activityDefinitions,
           specimens,
           observations,
+          relatedDiagnosticReport,
           appointmentScheduleMap,
           resultsPDF,
           currentPractitionerName: currentPractitioner ? getFullestAvailableName(currentPractitioner) || '' : '',
@@ -115,6 +118,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   activityDefinitions,
   specimens,
   observations,
+  relatedDiagnosticReport,
   appointmentScheduleMap,
   resultsPDF,
   currentPractitionerName,
@@ -130,6 +134,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   activityDefinitions: ActivityDefinition[];
   specimens: Specimen[];
   observations: Observation[];
+  relatedDiagnosticReport: DiagnosticReport;
   appointmentScheduleMap: Record<string, Schedule>;
   resultsPDF?: LabDocumentRelatedToDiagnosticReport;
   currentPractitionerName?: string;
@@ -151,7 +156,12 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
     throw new Error(`ActivityDefinition not found for ServiceRequest ${serviceRequest.id}`);
   }
 
-  const testItem = convertActivityDefinitionToTestItem(activityDefinition, observations, serviceRequest);
+  const testItem = convertActivityDefinitionToTestItem(
+    activityDefinition,
+    observations,
+    serviceRequest,
+    relatedDiagnosticReport
+  );
   const orderStatus = determineOrderStatus(serviceRequest, tasks);
   console.log('orderStatus:', orderStatus);
   const attendingPractitioner = parseAttendingPractitioner(encounter, practitioners);
