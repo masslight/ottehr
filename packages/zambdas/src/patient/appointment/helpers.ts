@@ -10,51 +10,26 @@ import {
 } from 'utils';
 import ehrInsuranceUpdateQuestionnaireJson from '../../../../../config/oystehr/ehr-insurance-update-questionnaire.json' assert { type: 'json' };
 import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
-import inPersonOccupationalMedicineQuestionnaireJson from '../../../../../config/oystehr/in-person-occupational-medicine-questionnaire.json' assert { type: 'json' };
-import inPersonWorkersCompQuestionnaireJson from '../../../../../config/oystehr/in-person-workers-comp-questionnaire.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,
-  oystehrClient: Oystehr,
-  serviceCategoryCode?: string
+  oystehrClient: Oystehr
 ): Promise<Questionnaire> => {
-  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, serviceCategoryCode);
+  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
   return getCanonicalQuestionnaire(canonical, oystehrClient);
 };
 
-export const getCanonicalUrlForPrevisitQuestionnaire = (
-  serviceMode: ServiceMode,
-  serviceCategoryCode?: string
-): CanonicalUrl => {
+export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode): CanonicalUrl => {
   let url = '';
   let version = '';
   if (serviceMode === 'in-person') {
-    let questionnaire;
-    if (serviceCategoryCode === 'occupational-medicine') {
-      questionnaire = Object.values(inPersonOccupationalMedicineQuestionnaireJson.fhirResources).find(
-        (q) =>
-          q.resource.resourceType === 'Questionnaire' &&
-          q.resource.status === 'active' &&
-          q.resource.url.includes('intake-paperwork-inperson-occupational-medicine')
-      );
-    } else if (serviceCategoryCode === 'workmans-comp') {
-      questionnaire = Object.values(inPersonWorkersCompQuestionnaireJson.fhirResources).find(
-        (q) =>
-          q.resource.resourceType === 'Questionnaire' &&
-          q.resource.status === 'active' &&
-          q.resource.url.includes('intake-paperwork-inperson-workers-comp')
-      );
-    } else {
-      questionnaire = Object.values(inPersonIntakeQuestionnaireJson.fhirResources).find(
-        (q) =>
-          q.resource.resourceType === 'Questionnaire' &&
-          q.resource.status === 'active' &&
-          q.resource.url.includes('intake-paperwork-inperson') &&
-          !q.resource.url.includes('occupational-medicine') &&
-          !q.resource.url.includes('workers-comp')
-      );
-    }
+    const questionnaire = Object.values(inPersonIntakeQuestionnaireJson.fhirResources).find(
+      (q) =>
+        q.resource.resourceType === 'Questionnaire' &&
+        q.resource.status === 'active' &&
+        q.resource.url.includes('intake-paperwork-inperson')
+    );
     url = questionnaire?.resource.url || '';
     version = questionnaire?.resource.version || '';
   } else if (serviceMode === 'virtual') {
