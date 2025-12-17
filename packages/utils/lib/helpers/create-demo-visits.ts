@@ -1,17 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import {
-  Address,
-  Appointment,
-  Location,
-  Patient,
-  Questionnaire,
-  QuestionnaireItem,
-  QuestionnaireResponseItem,
-  Schedule,
-  Slot,
-} from 'fhir/r4b';
+import { Address, Appointment, Location, Patient, QuestionnaireResponseItem, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import inPersonIntakeQuestionnaireJson from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { isLocationVirtual } from '../fhir';
 import { ServiceCategoryCode } from '../ottehr-config';
 import {
@@ -32,7 +21,6 @@ import {
   getConsentStepAnswers,
   getContactInformationAnswers,
   getEmergencyContactStepAnswers,
-  getEmployerInformationStepAnswers,
   getInviteParticipantStepAnswers,
   getMedicalConditionsStepAnswers,
   getMedicationsStepAnswers,
@@ -67,31 +55,6 @@ interface DemoConfig {
 }
 
 type DemoAppointmentData = AppointmentData & DemoConfig;
-
-export const hasEmployerInformationPage = (): boolean => {
-  const fhirResources = inPersonIntakeQuestionnaireJson.fhirResources as Record<string, { resource: Questionnaire }>;
-  const questionnaire = Object.values(fhirResources).find(
-    (q) =>
-      q.resource.resourceType === 'Questionnaire' &&
-      q.resource.status === 'active' &&
-      q.resource.url?.includes('intake-paperwork-inperson')
-  )?.resource;
-
-  if (!questionnaire || !questionnaire.item) {
-    return false;
-  }
-
-  const findItemByLinkId = (items: QuestionnaireItem[] | undefined, linkId: string): boolean => {
-    if (!items) return false;
-    return items.some((item: QuestionnaireItem) => {
-      if (item.linkId === linkId) return true;
-      if (item.item) return findItemByLinkId(item.item, linkId);
-      return false;
-    });
-  };
-
-  return findItemByLinkId(questionnaire.item, 'employer-information-page');
-};
 
 const DEFAULT_FIRST_NAMES = [
   'Alice',
@@ -383,11 +346,6 @@ const processPaperwork = async (
             getPaymentOptionSelfPayAnswers(),
             getResponsiblePartyStepAnswers({}),
           ];
-
-          // Only add employer information step if the questionnaire has it
-          if (hasEmployerInformationPage()) {
-            baseAnswers.push(getEmployerInformationStepAnswers({}));
-          }
 
           baseAnswers.push(getEmergencyContactStepAnswers({}), getConsentStepAnswers({}));
 
