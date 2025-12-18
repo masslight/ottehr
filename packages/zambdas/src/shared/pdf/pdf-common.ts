@@ -422,17 +422,10 @@ export const generatePdf = async <TInput, TData extends PdfData>(
   return { pdfInfo, attached: data.attachmentDocRefs };
 };
 
-export interface PdfFieldConfig {
-  isHidden: boolean;
-  hiddenFields: string[];
-  requiredFields: string[];
-}
-
 export interface PdfSectionConfig {
   configKey: keyof typeof PATIENT_RECORD_CONFIG.FormFields;
   isHidden: boolean;
   hiddenFields: Set<string>;
-  requiredFields: Set<string>;
 }
 
 export const createSectionConfig = (configKey: keyof typeof PATIENT_RECORD_CONFIG.FormFields): PdfSectionConfig => {
@@ -446,7 +439,6 @@ export const createSectionConfig = (configKey: keyof typeof PATIENT_RECORD_CONFI
     configKey,
     isHidden,
     hiddenFields: new Set(section.hiddenFields ?? []),
-    requiredFields: new Set(section.requiredFields ?? []),
   };
 };
 
