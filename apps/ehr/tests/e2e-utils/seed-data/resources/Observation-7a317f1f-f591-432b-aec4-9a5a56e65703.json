@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-7a317f1f-f591-432b-aec4-9a5a56e65703",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-96e34f18-59f6-463b-914b-c2e7e74b6c71"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-294fb67e-4459-4040-8b4b-ad2072877439"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Normal tone"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "normal-tone",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

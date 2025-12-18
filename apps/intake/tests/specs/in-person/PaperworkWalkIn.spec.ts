@@ -70,7 +70,6 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
     await page.goto(`/walkin/location/${locationName?.replaceAll(' ', '_')}`);
     await locator.clickContinueButton();
     await locator.selectDifferentFamilyMember();
-    await locator.clickContinueButton();
     const fillingInfo = new FillingInfo(page);
     await fillingInfo.fillNewPatientInfo();
     await fillingInfo.fillDOBgreater18();

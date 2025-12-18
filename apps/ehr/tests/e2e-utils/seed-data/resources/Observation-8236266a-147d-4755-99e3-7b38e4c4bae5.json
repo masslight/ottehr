@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-8236266a-147d-4755-99e3-7b38e4c4bae5",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-96e34f18-59f6-463b-914b-c2e7e74b6c71"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-294fb67e-4459-4040-8b4b-ad2072877439"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Lids and lashes normal"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "lids-and-lashes-normal",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

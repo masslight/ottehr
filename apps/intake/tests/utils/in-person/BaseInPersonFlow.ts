@@ -57,15 +57,14 @@ export abstract class BaseInPersonFlow {
     await this.locator.waitUntilLoadingIsFinished();
 
     try {
-      await this.locator.continueOrDifferentFamilyMember();
+      await this.locator.selectDifferentFamilyMember();
     } catch (error) {
       console.error(
-        'continueOrDifferentFamilyMember invocation failed, but that is expected if there are no registered patients yet',
+        'selectDifferentFamilyMember invocation failed, but that is expected if there are no registered patients yet',
         error
       );
     }
 
-    await this.locator.clickContinueButton();
     const bookingData = await this.fillingInfo.fillNewPatientInfo();
     const dob = await this.fillingInfo.fillDOBgreater18();
     await this.locator.clickContinueButton();

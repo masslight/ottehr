@@ -1,0 +1,48 @@
+{
+  "fullUrl": "urn:uuid:List-464c4576-f9a9-4ac2-9d71-ee28093cae48",
+  "request": {
+    "method": "POST",
+    "url": "/List"
+  },
+  "resource": {
+    "resourceType": "List",
+    "status": "current",
+    "mode": "working",
+    "title": "consent-forms",
+    "code": {
+      "coding": [
+        {
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+          "code": "patient-docs-folder",
+          "display": "Consent Forms"
+        }
+      ]
+    },
+    "subject": {
+      "reference": "urn:uuid:Patient-96e34f18-59f6-463b-914b-c2e7e74b6c71"
+    },
+    "identifier": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+              "code": "UDI",
+              "display": "Universal Device Identifier"
+            }
+          ]
+        },
+        "value": "consent-forms"
+      }
+    ],
+    "entry": [
+      {
+        "date": "{{date}}T11:23:15.945Z",
+        "item": {
+          "type": "DocumentReference",
+          "reference": "DocumentReference/1fa698c1-93da-4178-b360-8024fddf3b8e"
+        }
+      }
+    ]
+  }
+}

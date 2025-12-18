@@ -46,6 +46,7 @@ import {
   getOrderNumberFromDr,
   isPositiveNumberOrZero,
   LAB_DR_TYPE_TAG,
+  LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
   LAB_ORDER_LEVEL_NOTE_CATEGORY,
   LAB_ORDER_TASK,
   LabDocumentRelatedToDiagnosticReport,
@@ -57,6 +58,7 @@ import {
   LabOrderResultDetails,
   LabOrdersSearchBy,
   LabOrderUnreceivedHistoryRow,
+  LABS_COMMUNICATION_CATEGORY_SYSTEM,
   LabType,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
@@ -244,7 +246,10 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     requisitionNumber && labDocuments?.orderPDFsByRequisitionNumber
       ? labDocuments?.orderPDFsByRequisitionNumber[requisitionNumber]?.presignedURL
       : undefined;
-  const { orderLevelNote } = parseLabCommunicationsForServiceRequest(communications, serviceRequest);
+  const { orderLevelNoteByUser, clinicalInfoNoteByUser } = parseLabCommunicationsForServiceRequest(
+    communications,
+    serviceRequest
+  );
 
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
@@ -265,8 +270,9 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     orderNumber: requisitionNumber,
     abnPdfUrl,
     orderPdfUrl,
-    orderLevelNote,
     location: parseLocation(serviceRequest, locations),
+    orderLevelNoteByUser,
+    clinicalInfoNoteByUser,
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -814,6 +820,12 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: '_revinclude:iterate',
       value: 'DocumentReference:related',
     });
+
+    // clinical info notes
+    searchParams.push({
+      name: '_revinclude',
+      value: 'Communication:based-on',
+    });
   }
 
   if (visitDate) {
@@ -878,7 +890,8 @@ export const extractLabResources = (
   const slots: Slot[] = [];
   const scheduleMap: Record<string, Schedule> = {};
   const appointmentScheduleMap: Record<string, Schedule> = {};
-  const orderLevelNotes: Communication[] = [];
+  const orderLevelNotesByUser: Communication[] = [];
+  const clinicalInfoNotesByUser: Communication[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -920,7 +933,8 @@ export const extractLabResources = (
       }
     } else if (resource.resourceType === 'Communication') {
       const labCommType = labOrderCommunicationType(resource);
-      if (labCommType === 'order-level-note') orderLevelNotes.push(resource);
+      if (labCommType === 'order-level-note') orderLevelNotesByUser.push(resource);
+      if (labCommType === 'clinical-info-note') clinicalInfoNotesByUser.push(resource);
     }
   }
 
@@ -939,9 +953,10 @@ export const extractLabResources = (
   }
 
   let communications: ExternalLabCommunications | undefined;
-  if (orderLevelNotes.length > 0) {
+  if (orderLevelNotesByUser.length > 0 || clinicalInfoNotesByUser.length > 0) {
     communications = {
-      orderLevelNotes,
+      orderLevelNotesByUser,
+      clinicalInfoNotesByUser,
     };
   }
 
@@ -2596,35 +2611,68 @@ const parseLocation = (serviceRequest: ServiceRequest, locations: Location[]): L
   return location;
 };
 
-export const labOrderCommunicationType = (communication: Communication): 'order-level-note' | undefined => {
+export const labOrderCommunicationType = (
+  communication: Communication
+): 'order-level-note' | 'clinical-info-note' | undefined => {
   let commType = undefined;
   communication.category?.forEach(
     (cat) =>
       cat.coding?.forEach((code) => {
-        if (code.system === LAB_ORDER_LEVEL_NOTE_CATEGORY.system) {
+        if (code.system === LABS_COMMUNICATION_CATEGORY_SYSTEM) {
           if (code.code === LAB_ORDER_LEVEL_NOTE_CATEGORY.code) {
             commType = 'order-level-note';
+          }
+          if (code.code === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.code) {
+            commType = 'clinical-info-note';
           }
         }
       })
   );
   return commType;
 };
-// at some point we will have another communication (clinical info note for OBR13) we should expand on this helper function for that
+
+type CommunicationNotes = { orderLevelNoteByUser: string | undefined; clinicalInfoNoteByUser: string | undefined };
 const parseLabCommunicationsForServiceRequest = (
   communications: ExternalLabCommunications | undefined,
   serviceRequest: ServiceRequest
-): { orderLevelNote: string | undefined } => {
-  const note = { orderLevelNote: undefined };
-  if (!communications) return note;
-  const { orderLevelNotes } = communications;
-  const orderLevelNoteCommunication = orderLevelNotes?.find(
-    (comm) =>
-      comm.category?.find((cat) => cat.coding?.find((code) => code.system === LAB_ORDER_LEVEL_NOTE_CATEGORY.system)) &&
-      comm.basedOn?.some((ref) => ref.reference === `ServiceRequest/${serviceRequest.id}`)
+): CommunicationNotes => {
+  const notes: CommunicationNotes = { orderLevelNoteByUser: undefined, clinicalInfoNoteByUser: undefined };
+  if (!communications) return notes;
+  const { orderLevelNotesByUser, clinicalInfoNotesByUser } = communications;
+  const srReference = `ServiceRequest/${serviceRequest.id}`;
+  notes.orderLevelNoteByUser = getContentStringFromCommForSr(
+    orderLevelNotesByUser,
+    LAB_ORDER_LEVEL_NOTE_CATEGORY.code,
+    srReference
   );
-  if (!orderLevelNoteCommunication) return note;
-  const contentString = orderLevelNoteCommunication?.payload?.map((content) => content.contentString).join('; '); // this should only ever be one item in the array
-  if (!contentString) return note;
-  return { orderLevelNote: contentString };
+  notes.clinicalInfoNoteByUser = getContentStringFromCommForSr(
+    clinicalInfoNotesByUser,
+    LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.code,
+    srReference
+  );
+
+  return notes;
+};
+
+const getContentStringFromCommForSr = (
+  communications: Communication[],
+  communicationCode: string,
+  serviceRequestRef: string
+): string | undefined => {
+  console.log('parsing', communicationCode, 'from', communications);
+  const filteredCommunications = communications?.filter(
+    (comm) =>
+      comm.category?.find(
+        (cat) =>
+          cat.coding?.find(
+            (code) => code.system === LABS_COMMUNICATION_CATEGORY_SYSTEM && code.code === communicationCode
+          )
+      ) && comm.basedOn?.some((ref) => ref.reference === serviceRequestRef)
+  );
+  if (filteredCommunications.length === 0) return;
+  const contentStrings = filteredCommunications
+    .flatMap((comm) => (comm.payload ?? []).map((p) => p.contentString))
+    .filter(Boolean);
+  if (contentStrings.length === 0) return;
+  return contentStrings.join('; ');
 };

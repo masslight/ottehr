@@ -3,7 +3,7 @@ import { Autocomplete, Skeleton, TextField, Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
-import { generatePath, useNavigate } from 'react-router-dom';
+import { generatePath, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   APIError,
   CreateSlotParams,
@@ -50,6 +50,8 @@ const currentWorkingHoursText = (location: TelemedLocation | undefined): string 
 
 const StartVirtualVisit = (): JSX.Element => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const serviceCategory = searchParams.get('serviceCategory');
   const theme = useTheme();
   const [selectedLocation, setSelectedLocation] = useState<TelemedLocation | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,6 +83,7 @@ const StartVirtualVisit = (): JSX.Element => {
         lengthInMinutes: 15,
         status: 'busy-tentative',
         walkin: true,
+        ...(serviceCategory ? { serviceCategoryCode: serviceCategory } : {}),
       };
 
       try {

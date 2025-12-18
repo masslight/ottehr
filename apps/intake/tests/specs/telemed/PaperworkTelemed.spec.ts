@@ -80,7 +80,7 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PPD-3. Fill all fields', async () => {
-      await paperwork.fillPatientDetailsTelemedAllFields();
+      await paperwork.fillPatientDetailsAllFields(true);
     });
 
     await test.step('PPD-4. Check patient name is displayed', async () => {

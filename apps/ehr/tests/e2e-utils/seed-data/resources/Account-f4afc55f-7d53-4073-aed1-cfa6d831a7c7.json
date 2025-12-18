@@ -1,0 +1,37 @@
+{
+  "fullUrl": "urn:uuid:Account-f4afc55f-7d53-4073-aed1-cfa6d831a7c7",
+  "request": {
+    "method": "POST",
+    "url": "/Account"
+  },
+  "resource": {
+    "resourceType": "Account",
+    "status": "active",
+    "type": {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/account-type",
+          "code": "WCOMPACCT",
+          "display": "worker compensation account"
+        }
+      ]
+    },
+    "name": "Test Employer Inc",
+    "subject": [
+      {
+        "reference": "urn:uuid:Patient-96e34f18-59f6-463b-914b-c2e7e74b6c71"
+      }
+    ],
+    "owner": {
+      "reference": "Organization/31f313d8-665e-4384-9735-0edea88329fd"
+    },
+    "guarantor": [
+      {
+        "party": {
+          "reference": "Organization/31f313d8-665e-4384-9735-0edea88329fd",
+          "type": "Organization"
+        }
+      }
+    ]
+  }
+}

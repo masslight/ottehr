@@ -50,7 +50,22 @@ export interface QuantityComponent extends BaseComponent {
   displayType: 'Numeric';
 }
 
-export type TestItemComponent = CodeableConceptComponent | QuantityComponent;
+interface ValidationValueAndDisplay {
+  value: string | number;
+  display?: string;
+}
+export interface Validation {
+  format?: ValidationValueAndDisplay;
+  // minLength?: number; // labs todo: can include these in the future but omitted now for sake of time
+  // maxLength?: number;
+}
+export interface StringComponent extends BaseComponent {
+  dataType: 'string';
+  displayType: 'Free Text';
+  validations?: Validation;
+}
+
+export type TestItemComponent = CodeableConceptComponent | QuantityComponent | StringComponent;
 
 export interface TestItem {
   name: string;

@@ -26,7 +26,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, getAppointmentGraphSearchParams } from 'utils';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -68,23 +68,7 @@ async function main(): Promise<void> {
     const resources = (
       await apiClient.fhir.search({
         resourceType: 'Appointment',
-        params: [
-          { name: '_id', value: appointmentId },
-          { name: '_include', value: 'Appointment:patient' },
-          { name: '_include', value: 'Appointment:slot' },
-          { name: '_include', value: 'Appointment:location' },
-          { name: '_revinclude:iterate', value: 'RelatedPerson:patient' },
-          { name: '_revinclude:iterate', value: 'Encounter:appointment' },
-          { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
-          { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
-          { name: '_revinclude:iterate', value: 'Person:relatedperson' },
-          { name: '_revinclude:iterate', value: 'List:subject' },
-          { name: '_revinclude:iterate', value: 'Consent:patient' },
-          { name: '_revinclude:iterate', value: 'Account:patient' },
-          { name: '_revinclude:iterate', value: 'Observation:encounter' },
-          { name: '_revinclude:iterate', value: 'ServiceRequest:encounter' },
-          { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
-        ],
+        params: getAppointmentGraphSearchParams(appointmentId),
       })
     ).unbundle();
 
