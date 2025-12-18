@@ -521,6 +521,13 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                       minRows={2}
                       value={clinicalInfoNotes}
                       onChange={(e) => setClinicalInfoNotes(e.target.value)}
+                      inputProps={{ maxLength: 300 }}
+                      error={!!(clinicalInfoNotes && clinicalInfoNotes?.length >= 300)}
+                      helperText={
+                        clinicalInfoNotes && clinicalInfoNotes?.length >= 300
+                          ? 'You have reached the 300 character limit'
+                          : ''
+                      }
                     ></TextField>
                   </Grid>
                 )}

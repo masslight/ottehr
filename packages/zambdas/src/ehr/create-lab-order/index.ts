@@ -214,6 +214,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         reference: `Location/${orderingLocation.id}`,
       },
     ];
+    const serviceRequestSupportingInfo: Reference[] = [];
 
     console.log('selected payment method', selectedPaymentMethod);
     if (coverageDetails.type === LabPaymentMethod.Insurance) {
@@ -258,6 +259,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         },
       ];
     }
+
     if (specimenFullUrlArr.length > 0) {
       serviceRequestConfig.specimen = specimenFullUrlArr.map((url) => ({
         type: 'Specimen',
@@ -316,12 +318,11 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         fullUrl: aoeQRFullUrl,
       };
       requests.push(postQrRequest);
-      serviceRequestConfig.supportingInfo = [
-        {
-          type: 'QuestionnaireResponse',
-          reference: aoeQRFullUrl,
-        },
-      ];
+
+      serviceRequestSupportingInfo.push({
+        type: 'QuestionnaireResponse',
+        reference: aoeQRFullUrl,
+      });
     }
 
     const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
@@ -356,11 +357,23 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         ],
         payload: [{ contentString: clinicalInfoNoteByUser }],
       };
+      const communicationFullUrl = `urn:uuid:${randomUUID()}`;
+
       requests.push({
         method: 'POST',
         url: '/Communication',
         resource: communicationConfig,
+        fullUrl: communicationFullUrl,
       });
+
+      serviceRequestSupportingInfo.push({
+        type: 'Communication',
+        reference: communicationFullUrl,
+      });
+    }
+
+    if (serviceRequestSupportingInfo.length > 0) {
+      serviceRequestConfig.supportingInfo = serviceRequestSupportingInfo;
     }
 
     requests.push({
