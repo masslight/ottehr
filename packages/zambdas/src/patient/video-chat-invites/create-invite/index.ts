@@ -318,7 +318,7 @@ async function getAppointmentResources(
   if (!appointment) throw FHIR_RESOURCE_NOT_FOUND('Appointment');
 
   const relatedPersons = resources.filter(
-    (r) => r.resourceType === 'RelatedPerson' && r.relationship?.[0].coding?.[0].code === 'WIT'
+    (r) => r.resourceType === 'RelatedPerson' && r.relationship?.[0]?.coding?.[0]?.code === 'WIT'
   ) as RelatedPerson[];
 
   const patient = resources.find((r) => r.resourceType === 'Patient') as Patient | undefined;
