@@ -36,7 +36,7 @@ test.afterAll(async () => {
 import { CancelPage } from 'tests/utils/CancelPage';
 import { BaseInPersonFlow } from 'tests/utils/in-person/BaseInPersonFlow';
 import { ResourceHandler } from 'tests/utils/resource-handler';
-import { chooseJson, CreateAppointmentResponse, GetSlotDetailsResponse, PROJECT_NAME } from 'utils';
+import { BRANDING_CONFIG, chooseJson, CreateAppointmentResponse, GetSlotDetailsResponse } from 'utils';
 import { FillingInfo as InPersonFillingInfo } from '../../utils/in-person/FillingInfo';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
@@ -182,7 +182,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
         requiredOnly: true,
       });
       await locator.continueButton.click();
-      await expect(locator.flowHeading).toHaveText(`Thank you for choosing ${PROJECT_NAME}!`);
+      await expect(locator.flowHeading).toHaveText(`Thank you for choosing ${BRANDING_CONFIG.projectName}!`);
       return { bookingData, stateValue };
     });
 
