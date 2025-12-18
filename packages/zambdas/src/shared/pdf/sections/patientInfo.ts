@@ -36,6 +36,10 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
   } else if (patient?.gender !== undefined) {
     patientSex = 'Intersex';
   }
+  const ssn =
+    patient?.identifier?.find(
+      (id) => id.system === 'http://hl7.org/fhir/sid/us-ssn' && id.type?.coding?.[0]?.code === 'SS'
+    )?.value ?? '';
 
   return {
     fullName,
@@ -49,6 +53,7 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
     reasonForVisit,
     authorizedNonlegalGuardians,
     pronouns,
+    ssn,
     patientSex,
   };
 };
@@ -108,6 +113,12 @@ export const createPatientInfoSection = <TData extends { patient?: PatientInfo }
           }
         );
       }
+      if (shouldShow('patient-birth-sex')) {
+        client.drawLabelValueRow('Birth sex', patientInfo.sex, styles.textStyles.regular, styles.textStyles.regular, {
+          drawDivider: true,
+          dividerMargin: 8,
+        });
+      }
       if (shouldShow('patient-pronouns')) {
         client.drawLabelValueRow(
           'Preferred pronouns',
@@ -120,16 +131,12 @@ export const createPatientInfoSection = <TData extends { patient?: PatientInfo }
           }
         );
       }
-      if (shouldShow('patient-birth-sex')) {
-        client.drawLabelValueRow('Birth sex', patientInfo.sex, styles.textStyles.regular, styles.textStyles.regular, {
+      if (shouldShow('patient-ssn')) {
+        client.drawLabelValueRow('SSN', patientInfo.ssn, styles.textStyles.regular, styles.textStyles.regular, {
           drawDivider: true,
           dividerMargin: 8,
         });
       }
-      client.drawLabelValueRow('Birth sex', patientInfo.sex, styles.textStyles.regular, styles.textStyles.regular, {
-        drawDivider: true,
-        dividerMargin: 8,
-      });
       client.drawLabelValueRow(
         'Reason for visit',
         patientInfo.reasonForVisit,

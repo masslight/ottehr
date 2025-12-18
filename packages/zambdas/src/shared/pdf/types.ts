@@ -474,6 +474,7 @@ export interface PatientInfo extends PdfData {
   suffix: string;
   pronouns: string;
   patientSex: string;
+  ssn: string;
 }
 
 export interface ContactInfo extends PdfData {
