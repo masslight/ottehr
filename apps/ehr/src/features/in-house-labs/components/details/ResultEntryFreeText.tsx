@@ -1,4 +1,4 @@
-import { FormControl, TextField } from '@mui/material';
+import { FormControl, TextField, useTheme } from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
 import { TestItemComponent } from 'utils';
 
@@ -9,6 +9,7 @@ interface ResultEntryFreeTextProps {
 
 export const ResultEntryFreeText: React.FC<ResultEntryFreeTextProps> = ({ testItemComponent, disabled }) => {
   const { control } = useFormContext();
+  const theme = useTheme();
 
   const validateInput = (entry: string): string | boolean => {
     if (testItemComponent.dataType === 'string' && testItemComponent.validations) {
@@ -33,6 +34,10 @@ export const ResultEntryFreeText: React.FC<ResultEntryFreeTextProps> = ({ testIt
     <FormControl
       sx={{
         width: '80%',
+        '& .MuiInputBase-input.Mui-disabled': {
+          color: theme.palette.text.primary,
+          WebkitTextFillColor: theme.palette.text.primary,
+        },
       }}
       size="small"
     >
