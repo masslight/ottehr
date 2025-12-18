@@ -183,11 +183,29 @@ export interface CoverageBenefitInfo {
   periodDescription: string;
   periodCode: string;
 
+  policyNumber?: string;
+  insuranceCode?: string;
+  insuranceDescription?: string;
+  payerName?: string;
+  payerID?: string;
+  payerAddress?: string;
+  payerWebsite?: string;
+  payerPhone?: string;
+  payerFax?: string;
+
   levelDescription: string;
   levelCode: string;
 
   inNetwork: boolean;
 }
+
+export interface CoverageBenefit extends CoverageBenefitInfo {
+  coverageCode: '1';
+}
+export interface OutOfPocketMax extends CoverageBenefitInfo {
+  coverageCode: 'G';
+}
+
 export interface CoinsuranceBenefit extends CoverageBenefitInfo {
   coverageCode: 'A';
 }
@@ -197,10 +215,56 @@ export interface CopayBenefit extends CoverageBenefitInfo {
 export interface DeductibleBenefit extends CoverageBenefitInfo {
   coverageCode: 'C';
 }
-export type PatientPaymentBenefit = CopayBenefit | CoinsuranceBenefit | DeductibleBenefit;
+export type PatientPaymentBenefit =
+  | CoverageBenefit
+  | OutOfPocketMax
+  | CopayBenefit
+  | CoinsuranceBenefit
+  | DeductibleBenefit;
+
+export interface InsuranceDetails {
+  patient?: {
+    firstName?: string | undefined;
+    middleName?: string | undefined;
+    lastName?: string | undefined;
+    dateOfBirth?: string | undefined;
+  };
+  subscriber?: {
+    firstName?: string | undefined;
+    middleName?: string | undefined;
+    lastName?: string | undefined;
+    dateOfBirth?: string | undefined;
+    memberID?: string | undefined;
+    address?: string | undefined;
+  };
+  insurance?: {
+    planNumber?: string | undefined;
+    policyNumber?: string | undefined;
+    insuranceCode?: string | undefined;
+    insuranceDescription?: string | undefined;
+  };
+  payer?: {
+    name?: string | undefined;
+    payerID?: string | undefined;
+    address?: string | undefined;
+    website?: string | undefined;
+    phone?: string | undefined;
+    fax?: string | undefined;
+  };
+}
+
+export interface FinancialDetails {
+  name: string;
+  paid: number | undefined;
+  total: number | undefined;
+  remaining: number | undefined;
+}
+
 export interface InsuranceCheckStatusWithDate {
   status: InsuranceEligibilityCheckStatus;
   dateISO: string;
+  coverageDetails?: InsuranceDetails;
+  financialDetails?: FinancialDetails[];
   copay?: PatientPaymentBenefit[];
   deductible?: PatientPaymentBenefit[];
   errors?: { code: CodeableConcept }[];
@@ -215,10 +279,20 @@ export type EligibilityCheckSimpleStatus = 'ELIGIBLE' | 'NOT ELIGIBLE' | 'UNKNOW
 
 export const mapEligibilityCheckResultToSimpleStatus = (
   result: InsuranceCheckStatusWithDate
-): { status: EligibilityCheckSimpleStatus; dateISO: string; copay?: PatientPaymentBenefit[] } => {
+): {
+  status: EligibilityCheckSimpleStatus;
+  dateISO: string;
+  copay?: PatientPaymentBenefit[];
+  coverageDetails?: InsuranceDetails;
+} => {
   switch (result.status) {
     case InsuranceEligibilityCheckStatus.eligibilityConfirmed:
-      return { status: 'ELIGIBLE', dateISO: result.dateISO, copay: result.copay };
+      return {
+        status: 'ELIGIBLE',
+        dateISO: result.dateISO,
+        copay: result.copay,
+        coverageDetails: result.coverageDetails,
+      };
     case InsuranceEligibilityCheckStatus.eligibilityNotConfirmed:
       return { status: 'NOT ELIGIBLE', dateISO: result.dateISO };
     default:
