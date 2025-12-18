@@ -7,7 +7,7 @@ import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { ReactElement, useState } from 'react';
 import { updateLabOrderResources } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
-import { LabOrderListPageDTO, openPdf } from 'utils';
+import { HL7_NOTE_CHAR_LIMIT, LabOrderListPageDTO, openPdf } from 'utils';
 
 interface LabsTableBundleHeaderRowProps {
   columnsLen: number;
@@ -51,8 +51,8 @@ export const LabsTableBundleHeaderRow = ({
       setNoteError('Please enter a note.');
       return;
     }
-    if (orderNote.length > 300) {
-      setNoteError(`Note must be under 300 characters long, length of note: ${orderNote.length}`);
+    if (orderNote.length > HL7_NOTE_CHAR_LIMIT) {
+      setNoteError(`Note must be under ${HL7_NOTE_CHAR_LIMIT} characters long, length of note: ${orderNote.length}`);
       return;
     }
     setSavingNote(true);
