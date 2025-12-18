@@ -261,6 +261,11 @@ export const dataTestIds = {
   },
   hospitalizationPage: {
     hospitalizationTitle: 'hospitalization-title',
+    hospitalizationDropdown: 'hospitalization-dropdown',
+    hospitalizationList: 'hospitalization-list',
+    deleteIcon: 'DeleteOutlinedIcon',
+    addNoteButton: 'add-hospitalization-note-button',
+    pencilIconButton: 'EditOutlinedIcon',
   },
   progressNotePage: {
     reviewAndSignButton: 'review-and-sign-button',
@@ -287,6 +292,7 @@ export const dataTestIds = {
     additionalQuestions: 'additional-questions',
     supervisorApprovalCheckbox: 'supervisor-approval-checkbox',
     hpiContainer: 'hpi-container',
+    hospitalizationContainer: 'hospitalization-container',
   },
   hpiAndTemplatesPage: {
     hpiTitle: 'hpi-title',

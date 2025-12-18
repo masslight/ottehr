@@ -5,6 +5,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { ProviderSideListSkeleton } from 'src/features/visits/shared/components/ProviderSideListSkeleton';
 import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChartDataArrayValue';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -205,6 +206,7 @@ export const HospitalizationForm: FC = () => {
                 <ProviderSideListSkeleton />
               ) : (
                 <ActionsList
+                  itemDataTestId={dataTestIds.hospitalizationPage.hospitalizationList}
                   data={hospitalization}
                   getKey={(value) => value.resourceId!}
                   renderItem={(value) => <Typography>{value.display}</Typography>}
@@ -257,6 +259,7 @@ export const HospitalizationForm: FC = () => {
                     renderInput={(params) => (
                       <TextField
                         {...params}
+                        data-testid={dataTestIds.hospitalizationPage.hospitalizationDropdown}
                         label="Hospitalization"
                         placeholder="Search"
                         InputLabelProps={{ shrink: true }}
