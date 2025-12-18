@@ -3,6 +3,25 @@ import { Appointment } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as path from 'path';
 import { addProcessIdMetaTagToAppointment } from 'test-utils';
+import { CancelPage } from 'tests/utils/CancelPage';
+import { BaseInPersonFlow } from 'tests/utils/in-person/BaseInPersonFlow';
+import { ResourceHandler } from 'tests/utils/resource-handler';
+import { chooseJson, CreateAppointmentResponse, GetSlotDetailsResponse, PROJECT_NAME } from 'utils';
+import { FillingInfo as InPersonFillingInfo } from '../../utils/in-person/FillingInfo';
+import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
+import { Locators } from '../../utils/locators';
+import { Paperwork, PatientDetailsData, PrimaryCarePhysicianData } from '../../utils/Paperwork';
+import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
+import { WalkInTelemedFlow } from '../../utils/telemed/WalkInTelemedFlow';
+import {
+  InPersonPatientNotSelfTestData,
+  InPersonPatientSelfTestData,
+  InPersonPatientTestData,
+  ReservationModificationPatient,
+  TelemedPatientTestData,
+  TelemedPrebookPatientTestData,
+  TelemedWalkInPatientTestData,
+} from './types';
 
 // Track if ANY setup test failed - used to decide whether to write success marker
 let setupHasFailures = false;
@@ -33,25 +52,6 @@ test.afterAll(async () => {
     console.log('✗ Setup has failures. Marker file NOT written.');
   }
 });
-import { CancelPage } from 'tests/utils/CancelPage';
-import { BaseInPersonFlow } from 'tests/utils/in-person/BaseInPersonFlow';
-import { ResourceHandler } from 'tests/utils/resource-handler';
-import { chooseJson, CreateAppointmentResponse, GetSlotDetailsResponse, PROJECT_NAME } from 'utils';
-import { FillingInfo as InPersonFillingInfo } from '../../utils/in-person/FillingInfo';
-import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
-import { Locators } from '../../utils/locators';
-import { Paperwork, PatientDetailsData, PrimaryCarePhysicianData } from '../../utils/Paperwork';
-import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
-import { WalkInTelemedFlow } from '../../utils/telemed/WalkInTelemedFlow';
-import {
-  InPersonPatientNotSelfTestData,
-  InPersonPatientSelfTestData,
-  InPersonPatientTestData,
-  ReservationModificationPatient,
-  TelemedPatientTestData,
-  TelemedPrebookPatientTestData,
-  TelemedWalkInPatientTestData,
-} from './types';
 
 // Per-page appointment tracking to avoid race conditions in parallel tests
 const appointmentIdsByPage = new Map<Page, string[]>();
@@ -410,7 +410,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         medicalHistoryData: filledPaperwork.medicalHistoryData,
         surgicalHistoryData: filledPaperwork.surgicalHistoryData,
         flags: filledPaperwork.flags!,
-        uploadedPhotoCondition: filledPaperwork.uploadedPhotoCondition,
+        uploadedPhotoCondition: filledPaperwork.uploadedPhotoCondition!,
       };
       console.log('prebookTelemedPatient', JSON.stringify(prebookTelemedPatient));
       writeTestData('prebookTelemedPatient.json', prebookTelemedPatient);

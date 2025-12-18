@@ -168,7 +168,7 @@ export type TelemedPaperworkReturn<
       : null
     : null;
   responsiblePartyData: PaperworkResponsibleParty extends 'not-self' ? ResponsiblePartyData : null;
-  uploadedPhotoCondition: Locator;
+  uploadedPhotoCondition: Locator | null;
 };
 
 export class Paperwork {
