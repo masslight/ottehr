@@ -17,7 +17,6 @@ test.beforeAll(async ({ browser }) => {
   flowClass = new PrebookInPersonFlow(page);
   locator = new Locators(page);
   commonLocators = new CommonLocatorsHelper(page);
-  await flowClass.selectVisitAndContinue();
   visitData = await flowClass.goToReviewPage();
   expect.soft(visitData.slotDetails).toBeDefined();
   const ownerType = visitData.slotDetails?.ownerType;
