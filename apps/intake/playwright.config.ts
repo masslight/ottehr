@@ -53,11 +53,14 @@ export default defineConfig({
   workers: process.env.CI ? 6 : undefined,
   globalSetup: './tests/global-setup/index.ts',
   globalTeardown: './tests/global-teardown/index.ts',
+  /* Global timeout for entire test run - 15 minutes max for intake tests */
+  globalTimeout: 15 * 60 * 1000,
 
   /* Configure projects for major browsers */
   projects: [
-    // { name: 'setup', testMatch: /.*\.setup\.ts/ },
     {
+      // Runs ONLY when explicitly invoked (e.g. via run-e2e "login" stage).
+      // Keeps login out of the main specs run.
       name: 'login',
       use: {
         ...devices['Desktop Chrome'],
@@ -71,20 +74,29 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
       },
-      dependencies: ['login'],
       testMatch: /.*setup\.spec\.ts/,
-      testIgnore: /.*login\/login\.spec\.ts/,
+      testIgnore: [/.*login\/login\.spec\.ts/, /.*setup-validation\.spec\.ts/],
+      timeout: 240000,
+    },
+    {
+      // Validates that ALL paperwork-setup tests passed (checks marker file)
+      name: 'setup-validation',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: './playwright/user.json',
+      },
+      testMatch: /.*setup-validation\.spec\.ts/,
+      dependencies: ['paperwork-setup'],
     },
     {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
         storageState: './playwright/user.json',
-        // storageState: './tests/.auth/user.json'
       },
-      // dependencies: ['setup'],
-      dependencies: ['paperwork-setup'],
-      testIgnore: [/.*login\/login\.spec\.ts/, /.*setup\.spec\.ts/],
+      // chromium runs ONLY if setup-validation passes (which means ALL setup tests passed)
+      dependencies: ['setup-validation'],
+      testIgnore: [/.*login\/login\.spec\.ts/, /.*setup\.spec\.ts/, /.*setup-validation\.spec\.ts/],
     },
 
     // {

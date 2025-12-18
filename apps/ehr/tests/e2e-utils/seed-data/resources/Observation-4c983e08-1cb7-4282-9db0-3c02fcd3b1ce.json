@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-4c983e08-1cb7-4282-9db0-3c02fcd3b1ce",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-a86026cf-6773-4704-b2fe-1a14976a388f"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-d245a8f0-7277-4de8-a06b-c377a992f429"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Normal range of motion"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "normal-range-of-motion",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

@@ -50,7 +50,15 @@ const Homepage = (): JSX.Element => {
   }, [refetch, mayUserAccessAppointments]);
 
   const handleRequestVisit = (): void => {
-    navigate(intakeFlowPageRoute.StartVirtualVisit.path);
+    const shouldSelectServiceCategory = shouldShowServiceCategorySelectionPage({
+      serviceMode: ServiceMode.virtual,
+      visitType: 'walk-in',
+    });
+    if (shouldSelectServiceCategory) {
+      navigate(intakeFlowPageRoute.SelectServiceCategoryStartVirtual.path);
+    } else {
+      navigate(intakeFlowPageRoute.StartVirtualVisit.path);
+    }
   };
 
   const handleWalkIn = (): void => {
@@ -59,12 +67,23 @@ const Homepage = (): JSX.Element => {
       link to register for a walk-in visit. this might be something a front desk person texts to the individual after getting
       their phone number, or maybe a link the user opens by scanning a QR code made available at the location. 
     */
-
-    const basePath = generatePath(intakeFlowPageRoute.WalkinLandingByLocationName.path, {
-      name: DEFAULT_WALKIN_LOCATION_NAME,
+    const shouldSelectServiceCategory = shouldShowServiceCategorySelectionPage({
+      serviceMode: ServiceMode['in-person'],
+      visitType: 'walk-in',
     });
 
-    navigate(basePath);
+    if (shouldSelectServiceCategory) {
+      const basePath = generatePath(intakeFlowPageRoute.SelectServiceCategoryWalkin.path, {
+        name: DEFAULT_WALKIN_LOCATION_NAME,
+      });
+      navigate(basePath);
+    } else {
+      const basePath = generatePath(intakeFlowPageRoute.WalkinLandingByLocationName.path, {
+        name: DEFAULT_WALKIN_LOCATION_NAME,
+      });
+
+      navigate(basePath);
+    }
   };
 
   const handleReturnToCall = (): void => {

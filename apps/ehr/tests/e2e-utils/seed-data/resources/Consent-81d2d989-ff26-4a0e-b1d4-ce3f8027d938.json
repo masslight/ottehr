@@ -1,0 +1,58 @@
+{
+  "fullUrl": "urn:uuid:Consent-81d2d989-ff26-4a0e-b1d4-ce3f8027d938",
+  "request": {
+    "method": "POST",
+    "url": "/Consent"
+  },
+  "resource": {
+    "resourceType": "Consent",
+    "dateTime": "{{date}}T16:25:09.665Z",
+    "status": "active",
+    "patient": {
+      "reference": "urn:uuid:Patient-a86026cf-6773-4704-b2fe-1a14976a388f"
+    },
+    "category": [
+      {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/consentcategorycodes",
+            "code": "hipaa-ack"
+          }
+        ]
+      },
+      {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/consentcategorycodes",
+            "code": "treat-guarantee"
+          }
+        ]
+      }
+    ],
+    "policy": [
+      {
+        "uri": "https://ottehr.com"
+      },
+      {
+        "uri": "https://ottehr.com"
+      }
+    ],
+    "sourceReference": {
+      "reference": "DocumentReference/17f68412-3570-4621-838e-9a95e55f8ae6"
+    },
+    "scope": {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/consentscope",
+          "code": "patient-privacy",
+          "display": "Privacy Consent"
+        },
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/consentscope",
+          "code": "treatment",
+          "display": "Treatment"
+        }
+      ]
+    }
+  }
+}

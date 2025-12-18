@@ -602,9 +602,10 @@ function parseExamFieldsFromExamObservations(
             Object.entries(component.options).forEach(([optionName, option]) => {
               const observation = examObservations[optionName];
               if (observation && typeof observation.value === 'boolean' && observation.value === true) {
+                const description = option.description ? ` (${option.description})` : '';
                 selectedOptions.push({
                   field: optionName,
-                  label: `${component.label}: ${option.label}`,
+                  label: `${component.label}: ${option.label}${description}`,
                   abnormal: section === 'abnormal',
                 });
               }

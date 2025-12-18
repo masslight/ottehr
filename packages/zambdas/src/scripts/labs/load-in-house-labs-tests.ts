@@ -22,7 +22,9 @@ import {
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
   LabComponentValueSetConfig,
   OD_DISPLAY_CONFIG,
+  OD_VALUE_VALIDATION_CONFIG,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
+  Validation,
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
 import { testItems as baseTestItems } from '../data/base-in-house-lab-seed-data';
@@ -116,7 +118,24 @@ const makeObsDefExtension = (item: TestItemComponent): Extension[] => {
     valueString: display,
   };
   const extension: Extension[] = [displayExt];
-  if (item.display?.nullOption) {
+
+  if (item.dataType === 'string') {
+    // handle at least the string validation
+    if (item.display.validations) {
+      for (const [key, val] of Object.entries(item.display.validations)) {
+        if (key === 'format') {
+          extension.push({
+            url: OD_VALUE_VALIDATION_CONFIG.url,
+            valueCoding: {
+              system: OD_VALUE_VALIDATION_CONFIG.formatValidation.url,
+              code: val.value,
+              display: val.display,
+            },
+          });
+        }
+      }
+    }
+  } else if (item.display?.nullOption) {
     extension.push(IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG);
   }
 
@@ -213,7 +232,7 @@ const getComponentObservationDefinition = (
     }
 
     contained.push(validValueSet, abnormalValueSet, refRangeValueSet, obsDef);
-  } else {
+  } else if (item.dataType === 'Quantity') {
     if (!item.normalRange) {
       throw new Error(`No normalRange for quantity type component ${componentName} ${JSON.stringify(item)}`);
     }
@@ -222,7 +241,13 @@ const getComponentObservationDefinition = (
     obsDef.qualifiedInterval = [makeQualifiedInterval(item)];
     obsDef.extension = makeObsDefExtension(item);
     contained.push(obsDef);
+  } else if (item.dataType === 'string') {
+    obsDef.extension = makeObsDefExtension(item);
+    contained.push(obsDef);
+  } else {
+    throw new Error(`Got unrecognized component item: ${JSON.stringify(item)}`);
   }
+
   return {
     obsDef,
     contained,
@@ -531,7 +556,16 @@ interface QuantityComponent extends BaseComponent {
   };
 }
 
-type TestItemComponent = CodeableConceptComponent | QuantityComponent;
+// labs todo: may want to add units or a reference range in the future
+interface StringComponent extends BaseComponent {
+  dataType: 'string';
+  display: {
+    type: 'Free Text';
+    validations?: Validation;
+  };
+}
+
+type TestItemComponent = CodeableConceptComponent | QuantityComponent | StringComponent;
 export interface TestItem {
   name: string;
   methods: TestItemMethods;

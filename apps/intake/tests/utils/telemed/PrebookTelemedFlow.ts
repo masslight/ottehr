@@ -1,17 +1,124 @@
 import { expect } from '@playwright/test';
-import { BOOKING_CONFIG, DEPLOYED_TELEMED_LOCATIONS, shouldShowServiceCategorySelectionPage } from 'utils';
+import {
+  BOOKING_CONFIG,
+  DEPLOYED_TELEMED_LOCATIONS,
+  PROJECT_NAME,
+  shouldShowServiceCategorySelectionPage,
+} from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
-import { BaseTelemedFlow, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
+import { CancelPage } from '../CancelPage';
+import { TelemedPaperworkReturn } from '../Paperwork';
+import {
+  BaseTelemedFlow,
+  FilledPaperworkInput,
+  PatientBasicInfo,
+  SlotAndLocation,
+  StartVisitResponse,
+} from './BaseTelemedFlow';
 
 export class PrebookTelemedFlow extends BaseTelemedFlow {
+  // flow steps:
+  // - click button
+  // - start visit by choosing patient
+  // - click proceed to paperwork
+  // - fill paperwork
+  // - complete booking
+  // - cancel appointment
+
   async clickVisitButton(): Promise<void> {
     const scheduleButton = this.page.getByTestId(dataTestIds.scheduleVirtualVisitButton);
     await expect(scheduleButton).toBeVisible();
     await scheduleButton.click();
   }
-  async completeBooking(): Promise<void> {
+
+  async startVisitWithoutPaperwork(patient?: PatientBasicInfo): Promise<StartVisitResponse> {
+    await this.selectVisitAndContinue();
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
+      const availableCategories = BOOKING_CONFIG.serviceCategories || [];
+      const firstCategory = availableCategories[0]!;
+
+      if (firstCategory) {
+        await this.page.getByText(firstCategory.display).click();
+      }
+    }
+    const slotAndLocation = await this.selectTimeLocationAndContinue();
+
+    let patientBasicInfo: PatientBasicInfo;
+    if (patient) {
+      // find and select existing patient
+      const patientName = this.page.getByRole('heading', {
+        name: new RegExp(`.*${patient.firstName} ${patient.lastName}.*`, 'i'),
+      });
+      await expect(patientName).toBeVisible();
+      await patientName.scrollIntoViewIfNeeded();
+      await patientName.click({ timeout: 40_000, noWaitAfter: true, force: true });
+      await this.locator.clickContinueButton();
+
+      // confirm dob
+      await this.fillingInfo.fillCorrectDOB(patient.dob.m, patient.dob.d, patient.dob.y);
+      await this.locator.clickContinueButton();
+
+      // select reason for visit
+      await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
+      await expect(this.locator.flowHeading).toHaveText('About the patient');
+      await this.fillingInfo.fillTelemedReasonForVisit();
+      await this.locator.continueButton.click();
+
+      patientBasicInfo = patient;
+    } else {
+      await this.locator.selectDifferentFamilyMember();
+      patientBasicInfo = await this.fillNewPatientDataAndContinue();
+    }
     await this.locator.clickReserveButton();
+
+    await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
+    await expect(this.locator.flowHeading).toHaveText(`Thank you for choosing ${PROJECT_NAME}!`);
+
+    const timeBlock = this.page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock);
+    await expect(timeBlock).toHaveText(slotAndLocation.selectedSlot?.fullSlot ?? '');
+    await expect(this.locator.appointmentDescription).toHaveText(RegExp(slotAndLocation.location!));
+
+    const bookingURL = this.page.url();
+    console.log('Booking URL: ', bookingURL);
+    const match = bookingURL.match(/visit\/([0-9a-fA-F-]+)/);
+    const bookingUUID = match ? match[1] : null;
+
+    return {
+      patientBasicInfo,
+      slotAndLocation,
+      bookingURL,
+      bookingUUID,
+    };
   }
+
+  async fillPaperwork({
+    payment,
+    responsibleParty,
+    requiredOnly,
+  }: FilledPaperworkInput): Promise<TelemedPaperworkReturn<typeof payment, typeof responsibleParty, boolean>> {
+    return await this.paperworkGeneral.fillPaperworkTelemed({
+      payment,
+      responsibleParty,
+      requiredOnly: requiredOnly || false,
+    });
+  }
+
+  // proceed to paperwork
+
+  async completeBooking(): Promise<void> {
+    await this.locator.continueButton.click();
+    await this.locator.goToWaitingRoomButton.click();
+    await expect(this.page.getByText('Please wait, call will start automatically.')).toBeVisible({ timeout: 30000 });
+  }
+
+  async cancelAppointment(): Promise<void> {
+    const cancelPage = new CancelPage(this.page);
+    await cancelPage.clickCancelButton();
+    await cancelPage.selectCancellationReason('virtual');
+  }
+
+  // ---------------------------------------------------------------------------
+
   async selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>> {
     const statesSelector = this.page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector);
     await expect(statesSelector).toBeVisible();
@@ -34,7 +141,8 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
 
   async startVisitFullFlow(): Promise<StartVisitResponse> {
     await this.selectVisitAndContinue();
-    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
+    // Optional step: service category selection for Virtual Visit Request (prebook)
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'prebook' })) {
       const availableCategories = BOOKING_CONFIG.serviceCategories || [];
       const firstCategory = availableCategories[0]!;
 
@@ -43,7 +151,7 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
       }
     }
     const slotAndLocation = await this.selectTimeLocationAndContinue();
-    await this.selectDifferentFamilyMemberAndContinue();
+    await this.locator.selectDifferentFamilyMember();
     const patientBasicInfo = await this.fillNewPatientDataAndContinue();
     await this.completeBooking();
     await this.page.waitForURL(/\/visit/);
