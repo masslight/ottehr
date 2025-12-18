@@ -133,14 +133,6 @@ jobs:
         run: |
           cp secrets/terraform/${{ env.ENVIRONMENT }}_import.tf deploy
 
-      # If this succeeds, we will use the CDK config and deploy apps through AWS CDK
-      # If it fails, we will deploy using npm scripts and the AWS SDK
-      - name: Move aws-cdk-deploy-config into scripted deploy dir.
-        if: ${{ steps.copy-import-file.outcome != 'success' }}
-        id: copy-aws-cdk-deploy-config
-        continue-on-error: true
-        run: mkdir -p scripts/deploy; cp secrets/aws-cdk-deploy-config/deploy-config.${{ env.ENVIRONMENT }}.json scripts/deploy/deploy-config.json
-
       - name: Configure AWS Credentials
         id: configure-aws-credentials
         uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3 (v3.0.2)
@@ -161,63 +153,6 @@ jobs:
           aws configure --profile "${profile}" set aws_secret_access_key ${{ steps.configure-aws-credentials.outputs.aws-secret-access-key }}
           aws configure --profile "${profile}" set aws_session_token ${{ steps.configure-aws-credentials.outputs.aws-session-token }}
           aws configure --profile "${profile}" set region us-east-1
-
-      # Build once first because CDK checks for everything before deciding which stacks to deploy
-      - name: Build Intake
-        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
-        working-directory: apps/intake
-        run: npm run build:env --env=${{ env.ENVIRONMENT }}
-
-      - name: Build EHR
-        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
-        working-directory: apps/ehr
-        run: npm run build:env --env=${{ env.ENVIRONMENT }}
-
-      - name: Deploy Cloud Infrastructure Using Legacy Scripted Deploy
-        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
-        working-directory: scripts/deploy/aws
-        run: |
-          aws_profile=$(grep '"aws_profile"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
-          profile="${aws_profile:-ottehr}"
-          echo "Using AWS profile: ${profile}"
-          stack_prefix=$(grep '"stack_prefix"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
-          prefix="${stack_prefix:-ottehr}"
-          echo "Using stack prefix: ${prefix}"
-          npx cdk bootstrap --ci
-          npx cdk deploy --require-approval=never --profile "${profile}" "${prefix}-infra-stack-${{ env.ENVIRONMENT }}"
-          npx ts-node ./bin/update-config.ts --no-update-apps
-
-      - name: Build Intake
-        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
-        working-directory: apps/intake
-        run: npm run build:env --env=${{ env.ENVIRONMENT}}
-
-      - name: Build EHR
-        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
-        working-directory: apps/ehr
-        run: npm run build:env --env=${{ env.ENVIRONMENT }}
-
-      - name: Deploy Websites Using Legacy Scripted Deploy
-        if: ${{ steps.copy-aws-cdk-deploy-config.outcome == 'success' }}
-        working-directory: scripts/deploy/aws
-        run: |
-          aws_profile=$(grep '"aws_profile"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
-          profile="${aws_profile:-ottehr}"
-          echo "Using AWS profile: ${profile}"
-          stack_prefix=$(grep '"stack_prefix"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
-          prefix="${stack_prefix:-ottehr}"
-          echo "Using stack prefix: ${prefix}"
-          npx cdk deploy --require-approval=never --profile "${profile}" "${prefix}-data-stack-${{ env.ENVIRONMENT }}"
-
-      # Deploy using AWS SDK scripts if neither import file nor CDK config were present
-      - name: Deploy Patient Portal
-        if: ${{ steps.copy-import-file.outcome != 'success' && steps.copy-aws-cdk-deploy-config.outcome != 'success' }}
-        run: cd apps/intake && npm run ci-deploy:${{ env.ENVIRONMENT }}
-
-      # Deploy using AWS SDK scripts if neither import file nor CDK config were present
-      - name: Deploy EHR
-        if: ${{ steps.copy-import-file.outcome != 'success' && steps.copy-aws-cdk-deploy-config.outcome != 'success' }}
-        run: cd apps/ehr && npm run ci-deploy:${{ env.ENVIRONMENT }}
 
       - name: Deploy Ottehr Resources Using Terraform
         working-directory: deploy
