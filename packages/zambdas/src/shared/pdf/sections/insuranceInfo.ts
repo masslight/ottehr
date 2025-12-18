@@ -6,7 +6,7 @@ import {
   getFullName,
   getPayerId,
 } from 'utils';
-import { DataComposer } from '../pdf-common';
+import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { Insurance, InsuranceDataInput, InsuranceInfo, PdfSection } from '../types';
 
 export const composeInsuranceData: DataComposer<InsuranceDataInput, InsuranceInfo> = ({ coverages, insuranceOrgs }) => {
@@ -136,106 +136,132 @@ export const composeInsuranceData: DataComposer<InsuranceDataInput, InsuranceInf
 const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
   title: string,
   dataSelector: (data: TData) => Insurance | undefined
-): PdfSection<TData, Insurance> => ({
-  title,
-  dataSelector,
-  shouldRender: (coverage) => !!coverage.insuranceCarrier,
-  render: (client, data, styles) => {
-    client.drawLabelValueRow(
-      'Insurance Carrier',
-      data.insuranceCarrier,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+): PdfSection<TData, Insurance> => {
+  return createConfiguredSection('insurance', (shouldShow) => ({
+    title,
+    dataSelector,
+    shouldRender: (coverage) => !!coverage.insuranceCarrier,
+    render: (client, data, styles) => {
+      if (shouldShow('insurance-carrier')) {
+        client.drawLabelValueRow(
+          'Insurance Carrier',
+          data.insuranceCarrier,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow('Member ID', data.memberId, styles.textStyles.regular, styles.textStyles.regular, {
-      drawDivider: true,
-      dividerMargin: 8,
-    });
-    client.drawLabelValueRow(
-      `Policy holder's name`,
-      data.policyHoldersName,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('insurance-member-id')) {
+        client.drawLabelValueRow('Member ID', data.memberId, styles.textStyles.regular, styles.textStyles.regular, {
+          drawDivider: true,
+          dividerMargin: 8,
+        });
       }
-    );
-    client.drawLabelValueRow(
-      `Policy holder's date of birth`,
-      data.policyHoldersDateOfBirth,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (
+        shouldShow('policy-holder-first-name') ||
+        shouldShow('policy-holder-middle-name') ||
+        shouldShow('policy-holder-last-name')
+      ) {
+        client.drawLabelValueRow(
+          `Policy holder's name`,
+          data.policyHoldersName,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      `Policy holder's sex`,
-      data.policyHoldersSex,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('policy-holder-date-of-birth')) {
+        client.drawLabelValueRow(
+          `Policy holder's date of birth`,
+          data.policyHoldersDateOfBirth,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      'Street address',
-      data.streetAddress,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('policy-holder-birth-sex')) {
+        client.drawLabelValueRow(
+          `Policy holder's sex`,
+          data.policyHoldersSex,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      'Address line 2',
-      data.addressLineOptional,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('policy-holder-address')) {
+        client.drawLabelValueRow(
+          'Street address',
+          data.streetAddress,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      'City, State, ZIP',
-      `${data.city}, ${data.state}, ${data.zip}`,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('policy-holder-address-additional-line')) {
+        client.drawLabelValueRow(
+          'Address line 2',
+          data.addressLineOptional,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      `Patient's relationship to insured`,
-      data.relationship,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if ((shouldShow('policy-holder-city') && shouldShow('policy-holder-state')) || shouldShow('policy-holder-zip')) {
+        client.drawLabelValueRow(
+          'City, State, ZIP',
+          `${data.city}, ${data.state}, ${data.zip}`,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      `Additional insurance information`,
-      data.additionalInformation,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        spacing: 16,
+      if (shouldShow('patient-relationship-to-insured')) {
+        client.drawLabelValueRow(
+          `Patient's relationship to insured`,
+          data.relationship,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-  },
-});
+      if (shouldShow('insurance-additional-information')) {
+        client.drawLabelValueRow(
+          `Additional insurance information`,
+          data.additionalInformation,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            spacing: 16,
+          }
+        );
+      }
+    },
+  }));
+};
 
 export const createPrimaryInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(): PdfSection<
   TData,
