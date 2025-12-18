@@ -1,19 +1,56 @@
 import { DateTime } from 'luxon';
-import { DATE_FORMAT, genderMap, standardizePhoneNumber } from 'utils';
+import {
+  DATE_FORMAT,
+  FHIR_EXTENSION,
+  genderMap,
+  getFormattedPatientFullName,
+  getNameSuffix,
+  getUnconfirmedDOBForAppointment,
+  PATIENT_INDIVIDUAL_PRONOUNS_URL,
+  standardizePhoneNumber,
+} from 'utils';
 import { DataComposer } from '../pdf-common';
 import { PatientDataInput, PatientInfo, PdfSection } from '../types';
-import { getPatientLastFirstName } from '../visit-details-pdf/visit-note-pdf-creation';
 
 export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = ({ patient, appointment }) => {
-  const fullName = getPatientLastFirstName(patient) ?? '';
+  const fullName = getFormattedPatientFullName(patient, { skipNickname: true }) ?? '';
+  const suffix = getNameSuffix(patient) ?? '';
   const preferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0] ?? '';
   const dob = patient?.birthDate ? DateTime.fromFormat(patient?.birthDate, DATE_FORMAT).toFormat('MM.dd.yyyy') : '';
+  const unconfirmedDOB = getUnconfirmedDOBForAppointment(appointment);
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
   const id = patient.id ?? '';
   const phone = standardizePhoneNumber(patient.telecom?.find((telecom) => telecom.system === 'phone')?.value) ?? '';
   const reasonForVisit = appointment.description ?? '';
+  const authorizedNonlegalGuardians =
+    patient?.extension?.find((e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url)?.valueString ||
+    'none';
+  const pronouns =
+    patient.extension?.find((e) => e.url === PATIENT_INDIVIDUAL_PRONOUNS_URL)?.valueCodeableConcept?.coding?.[0]
+      ?.display ?? '';
+  let patientSex = '';
+  if (patient?.gender === 'male') {
+    patientSex = 'Male';
+  } else if (patient?.gender === 'female') {
+    patientSex = 'Female';
+  } else if (patient?.gender !== undefined) {
+    patientSex = 'Intersex';
+  }
 
-  return { fullName, preferredName, dob, sex, id, phone, reasonForVisit };
+  return {
+    fullName,
+    suffix,
+    preferredName,
+    dob,
+    unconfirmedDOB,
+    sex,
+    id,
+    phone,
+    reasonForVisit,
+    authorizedNonlegalGuardians,
+    pronouns,
+    patientSex,
+  };
 };
 
 export const createPatientHeader = <TData extends { patient?: PatientInfo }>(): PdfSection<TData, PatientInfo> => ({
@@ -31,6 +68,10 @@ export const createPatientInfoSection = <TData extends { patient?: PatientInfo }
   title: 'About the patient',
   dataSelector: (data) => data.patient,
   render: (client, patientInfo, styles) => {
+    client.drawLabelValueRow('Suffix', patientInfo.suffix, styles.textStyles.regular, styles.textStyles.regular, {
+      drawDivider: true,
+      dividerMargin: 8,
+    });
     client.drawLabelValueRow(
       'Chosen or preferred name',
       patientInfo.preferredName,
@@ -51,9 +92,21 @@ export const createPatientInfoSection = <TData extends { patient?: PatientInfo }
         dividerMargin: 8,
       }
     );
+    if (patientInfo.unconfirmedDOB) {
+      client.drawLabelValueRow(
+        'Date of birth (Unmatched)',
+        patientInfo.unconfirmedDOB,
+        styles.textStyles.regular,
+        styles.textStyles.regular,
+        {
+          drawDivider: true,
+          dividerMargin: 8,
+        }
+      );
+    }
     client.drawLabelValueRow(
-      'Date of birth (Unmatched)',
-      patientInfo.dob,
+      'Preferred pronouns',
+      patientInfo.pronouns,
       styles.textStyles.regular,
       styles.textStyles.regular,
       {
@@ -68,6 +121,23 @@ export const createPatientInfoSection = <TData extends { patient?: PatientInfo }
     client.drawLabelValueRow(
       'Reason for visit',
       patientInfo.reasonForVisit,
+      styles.textStyles.regular,
+      styles.textStyles.regular,
+      {
+        drawDivider: true,
+        dividerMargin: 8,
+      }
+    );
+    client.drawLabelValueRow(
+      'Authorized non-legal guardian(s)',
+      patientInfo.authorizedNonlegalGuardians,
+      styles.textStyles.regular,
+      styles.textStyles.regular,
+      { drawDivider: true, dividerMargin: 8 }
+    );
+    client.drawLabelValueRow(
+      'Birth sex',
+      patientInfo.patientSex,
       styles.textStyles.regular,
       styles.textStyles.regular,
       { spacing: 16 }

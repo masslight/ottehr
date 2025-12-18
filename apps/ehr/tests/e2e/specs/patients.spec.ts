@@ -1,6 +1,6 @@
 import { BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { formatDOB } from 'utils';
+import { formatDOB, PATIENT_RECORD_CONFIG } from 'utils';
 import {
   PATIENT_BIRTH_DATE_SHORT,
   PATIENT_BIRTHDAY,
@@ -18,6 +18,8 @@ import {
 } from '../../e2e-utils/resource-handler';
 import { expectPatientInformationPage, PatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientsPage } from '../page/PatientsPage';
+
+const patientSummary = PATIENT_RECORD_CONFIG.FormFields.patientSummary.items;
 
 // We may create new instances for the tests with mutable operations, and keep parallel tests isolated
 const PROCESS_ID = `patients.spec.ts-${DateTime.now().toMillis()}`;
@@ -216,9 +218,9 @@ test.describe('Patient header tests', () => {
   });
 
   test('Check patient info', async () => {
-    await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
-    await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
-    await patientInformationPage.verifyPatientDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
-    await patientInformationPage.verifyPatientBirthSex(PATIENT_GENDER);
+    await patientInformationPage.verifyTextFieldValue(patientSummary.lastName.key, PATIENT_LAST_NAME);
+    await patientInformationPage.verifyTextFieldValue(patientSummary.firstName.key, PATIENT_FIRST_NAME);
+    await patientInformationPage.verifyDateFieldValue(patientSummary.birthDate.key, PATIENT_BIRTH_DATE_SHORT);
+    await patientInformationPage.verifySelectFieldValue(patientSummary.birthSex.key, PATIENT_GENDER);
   });
 });

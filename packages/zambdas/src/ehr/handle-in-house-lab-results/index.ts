@@ -584,7 +584,11 @@ const formatObsValueAndInterpretation = (
   obsInterpretation: { interpretation?: CodeableConcept[] };
   nonNormalResult: NonNormalResult | undefined;
 } => {
-  if (obsDef.permittedDataType?.includes('Quantity')) {
+  if (!obsDef.permittedDataType) {
+    console.error('Obs def does not have a permittedDataType');
+    throw new Error('No permittedDataType found on ObsDef');
+  }
+  if (obsDef.permittedDataType.includes('Quantity')) {
     const floatVal = parseFloat(dataEntry);
     const obsValue = {
       valueQuantity: {
@@ -602,7 +606,7 @@ const formatObsValueAndInterpretation = (
     return { obsValue, obsInterpretation, nonNormalResult };
   }
 
-  if (obsDef.permittedDataType?.includes('CodeableConcept')) {
+  if (obsDef.permittedDataType.includes('CodeableConcept')) {
     const obsValue = {
       valueString: dataEntry,
     };
@@ -623,7 +627,17 @@ const formatObsValueAndInterpretation = (
     return { obsValue, obsInterpretation, nonNormalResult: isNeutral ? NonNormalResult.Neutral : nonNormalResult };
   }
 
-  throw new Error('obsDef.permittedDataType should be Quantity or CodeableConcept');
+  if (obsDef.permittedDataType.includes('string')) {
+    const obsValue = {
+      valueString: dataEntry,
+    };
+    // labs todo: in the future we can determine if we want to check string types for abnormality
+    const obsInterpretation = {
+      interpretation: [NORMAL_OBSERVATION_INTERPRETATION],
+    };
+    return { obsValue, obsInterpretation, nonNormalResult: undefined };
+  }
+  throw new Error('Cannot format Obs value and interpretation. Unrecognized obsDef.permittedDataType');
 };
 
 const determineQuantInterpretation = (

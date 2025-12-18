@@ -18,7 +18,6 @@ import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { FormSelect, FormTextField, LabeledField, Option } from 'src/components/form';
 import { BasicDatePicker } from 'src/components/form/DatePicker';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { FormFields, RELATIONSHIP_TO_INSURED_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
 import { useUpdatePatientAccount } from 'src/hooks/useGetPatient';
@@ -26,9 +25,10 @@ import { usePatientStore } from 'src/state/patient.store';
 import {
   InsurancePlanDTO,
   InsurancePlanType,
-  InsurancePlanTypes,
   isPostalCodeValid,
+  PATIENT_RECORD_CONFIG,
   REQUIRED_FIELD_ERROR_MESSAGE,
+  VALUE_SETS,
 } from 'utils';
 
 interface AddInsuranceModalProps {
@@ -39,7 +39,7 @@ interface AddInsuranceModalProps {
   onClose: () => void;
 }
 
-const insurance = FormFields.insurance[0];
+const insurance = PATIENT_RECORD_CONFIG.FormFields.insurance.items[0];
 
 export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
   open,
@@ -226,13 +226,16 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   name={insurance.insurancePlanType.key}
                   control={control}
                   rules={{
-                    validate: (value) => !value || InsurancePlanTypes.some((option) => option.candidCode === value),
+                    validate: (value) =>
+                      !value || VALUE_SETS.insuranceTypeOptions.some((option) => option.candidCode === value),
                   }}
                   render={({ field: { value }, fieldState: { error } }) => {
-                    const selectedOption = InsurancePlanTypes.find((option) => option.candidCode === value);
+                    const selectedOption = VALUE_SETS.insuranceTypeOptions.find(
+                      (option) => option.candidCode === value
+                    );
                     return (
                       <Autocomplete
-                        options={InsurancePlanTypes}
+                        options={VALUE_SETS.insuranceTypeOptions}
                         value={selectedOption ?? ({} as InsurancePlanType)}
                         isOptionEqualToValue={(option, value) => option?.candidCode === value?.candidCode}
                         getOptionLabel={(option) =>
@@ -338,7 +341,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   name={insurance.birthSex.key}
                   control={control}
                   defaultValue={''}
-                  options={SEX_OPTIONS}
+                  options={VALUE_SETS.birthSexOptions}
                   rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
                 />
               </LabeledField>
@@ -354,7 +357,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   name={insurance.relationship.key}
                   control={control}
                   defaultValue={''}
-                  options={RELATIONSHIP_TO_INSURED_OPTIONS}
+                  options={VALUE_SETS.relationshipToInsuredOptions}
                   rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
                 />
               </LabeledField>
@@ -405,13 +408,13 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   defaultValue={null}
                   rules={{
                     required: REQUIRED_FIELD_ERROR_MESSAGE,
-                    validate: (value) => !value || STATE_OPTIONS.some((option) => option.value === value),
+                    validate: (value) => !value || VALUE_SETS.stateOptions.some((option) => option.value === value),
                   }}
                   render={({ field: { onChange, value }, fieldState: { error } }) => (
                     <Autocomplete
                       data-testid={dataTestIds.addInsuranceDialog.state}
-                      options={STATE_OPTIONS}
-                      value={(STATE_OPTIONS.find((option) => option.value === value) || null) as Option}
+                      options={VALUE_SETS.stateOptions}
+                      value={(VALUE_SETS.stateOptions.find((option) => option.value === value) || null) as Option}
                       getOptionLabel={(option) => option.label || ''}
                       isOptionEqualToValue={(option, value) => option?.value === value?.value || (!option && !value)}
                       onChange={(_, newValue) => {

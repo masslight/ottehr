@@ -12,6 +12,7 @@ import {
   CODE_SYSTEM_CPT,
   CodeableConceptComponent,
   DiagnosisDTO,
+  IN_HOUSE_LAB_DISPLAY_TYPES,
   IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
@@ -19,6 +20,7 @@ import {
   OBSERVATION_INTERPRETATION_SYSTEM,
   ObservationCode,
   OD_DISPLAY_CONFIG,
+  OD_VALUE_VALIDATION_CONFIG,
   QuantityComponent,
   REFLEX_TEST_ALERT_URL,
   REFLEX_TEST_CONDITION_LANGUAGES,
@@ -28,9 +30,11 @@ import {
   REFLEX_TEST_TO_RUN_URL,
   REFLEX_TEST_TRIGGERED_URL,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
+  StringComponent,
   TestComponentResult,
   TestItem,
   TestItemComponent,
+  Validation,
 } from 'utils';
 
 export const extractAbnormalValueSetValues = (
@@ -86,7 +90,7 @@ export const extractQuantityRange = (
   };
 };
 
-const extractDisplayType = (obsDef: ObservationDefinition, obsName: string): 'Radio' | 'Select' | 'Numeric' => {
+const extractDisplayType = (obsDef: ObservationDefinition, obsName: string): IN_HOUSE_LAB_DISPLAY_TYPES => {
   const ext = obsDef.extension;
   const display = ext?.find((e) => e.url === OD_DISPLAY_CONFIG.url)?.valueString;
   if (!display) throw Error(`no display type set for this observation definition: ${obsName}`);
@@ -94,7 +98,8 @@ const extractDisplayType = (obsDef: ObservationDefinition, obsName: string): 'Ra
   if (
     display !== OD_DISPLAY_CONFIG.valueString.radio &&
     display !== OD_DISPLAY_CONFIG.valueString.select &&
-    display !== OD_DISPLAY_CONFIG.valueString.numeric
+    display !== OD_DISPLAY_CONFIG.valueString.numeric &&
+    display !== OD_DISPLAY_CONFIG.valueString.freeText
   )
     throw Error(
       `unknown display cast to this observation definition: ${obsName} (display should be one of the follow ${Object.values(
@@ -124,6 +129,21 @@ const extractNullOption = (
   return;
 };
 
+const extractValidations = (obsDef: ObservationDefinition): Validation | undefined => {
+  const validationExtensions = obsDef.extension?.filter((ext) => ext.url === OD_VALUE_VALIDATION_CONFIG.url);
+  if (!validationExtensions || !validationExtensions.length) return undefined;
+
+  // labs todo: in the future if we need additional validation types, we should grab them here
+  const formatValidation = validationExtensions.find(
+    (ext) => ext.valueCoding?.system === OD_VALUE_VALIDATION_CONFIG.formatValidation.url
+  );
+  if (!formatValidation || !formatValidation.valueCoding?.code) return undefined;
+
+  const format = { value: formatValidation.valueCoding.code, display: formatValidation.valueCoding.display };
+
+  return format ? { format } : undefined;
+};
+
 const processObservationDefinition = (
   obsDef: ObservationDefinition,
   containedResources: (ObservationDefinition | ValueSet)[],
@@ -131,7 +151,7 @@ const processObservationDefinition = (
 ): TestItemComponent | undefined => {
   const componentName = obsDef.code?.text || '';
   const observationDefinitionId = obsDef.id || '';
-  const dataType = obsDef.permittedDataType?.[0] as 'Quantity' | 'CodeableConcept';
+  const dataType = obsDef.permittedDataType?.[0] as 'Quantity' | 'CodeableConcept' | 'string';
   const loincCode =
     obsDef.code?.coding?.filter((coding) => coding.system === 'http://loinc.org').map((coding) => coding.code || '') ||
     [];
@@ -158,9 +178,9 @@ const processObservationDefinition = (
         ?.code ?? undefined;
 
     const displayType = extractDisplayType(obsDef, componentName);
-    if (displayType === 'Numeric')
+    if (displayType === 'Numeric' || displayType === 'Free Text')
       throw Error(
-        'Observation definition is flagged as Numeric, currently we are only configured to support Select or Radio for CodeableConcept observation definitions '
+        'Observation definition is flagged as Numeric or Free Text, currently we are only configured to support Select or Radio for CodeableConcept observation definitions '
       );
     const nullOption = extractNullOption(obsDef);
 
@@ -194,6 +214,23 @@ const processObservationDefinition = (
       unit: quantityInfo.unit,
       normalRange: quantityInfo.normalRange,
       displayType,
+      result,
+    };
+    return component;
+  } else if (dataType === 'string') {
+    const displayType = extractDisplayType(obsDef, componentName);
+    if (displayType !== 'Free Text') {
+      throw Error('String type observation definition is misconfigured, display type should be Free Text');
+    }
+    const validations = extractValidations(obsDef);
+    const result = getResult(observation, dataType);
+    const component: StringComponent = {
+      componentName,
+      loincCode,
+      observationDefinitionId,
+      dataType,
+      displayType,
+      validations,
       result,
     };
     return component;
@@ -271,8 +308,13 @@ export const convertActivityDefinitionToTestItem = (
         containedResources as (ObservationDefinition | ValueSet)[],
         resultObs
       );
+      console.log('this is the componentInfo', componentInfo);
       if (componentInfo) {
-        if (componentInfo.displayType === 'Select' || componentInfo.displayType === 'Numeric')
+        if (
+          componentInfo.displayType === 'Select' ||
+          componentInfo.displayType === 'Numeric' ||
+          componentInfo.displayType === 'Free Text'
+        )
           groupedComponents.push(componentInfo);
         if (componentInfo.displayType === 'Radio') radioComponents.push(componentInfo);
       }
@@ -324,12 +366,12 @@ export const resourceIsBasedOnServiceRequest = (
 
 const getResult = (
   observation: Observation | undefined,
-  dataType: 'CodeableConcept' | 'Quantity'
+  dataType: 'CodeableConcept' | 'Quantity' | 'string'
 ): TestComponentResult | undefined => {
   if (!observation) return;
   let result: TestComponentResult | undefined;
   let entry: string | undefined;
-  if (dataType === 'CodeableConcept') {
+  if (dataType === 'CodeableConcept' || dataType === 'string') {
     entry = observation.valueString;
   } else {
     const entryValue = observation?.valueQuantity?.value;

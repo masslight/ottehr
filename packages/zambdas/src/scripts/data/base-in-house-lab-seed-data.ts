@@ -650,6 +650,42 @@ export const testItems: TestItem[] = [
     ],
   },
   {
+    name: 'Snellen Test',
+    methods: {
+      manual: { device: 'Snellen Chart' },
+      analyzer: { device: 'Unknown' },
+    },
+    method: 'Manual',
+    device: 'Snellen Chart',
+    cptCode: ['99173'],
+    loincCode: ['98497-1'], // Visual Acuity Panel
+    repeatTest: false,
+    components: [
+      {
+        componentName: 'Left Eye',
+        loincCode: ['79883-5'], // Visual acuity uncorrected Left eye by Snellen eye chart
+        dataType: 'string' as const,
+        display: {
+          type: 'Free Text',
+          validations: {
+            format: { value: '^\\d+\\/\\d+(?:.\\d+)?(?:-\\d+\\/\\d+)?$', display: '#/#' }, // the regex allows values like "20/20", "20/12.5", "20/60-20/70"
+          },
+        },
+      },
+      {
+        componentName: 'Right Eye',
+        loincCode: ['79882-7'], // Visual acuity uncorrected Right eye by Snellen eye chart
+        dataType: 'string' as const,
+        display: {
+          type: 'Free Text',
+          validations: {
+            format: { value: '^\\d+\\/\\d+(?:.\\d+)?(?:-\\d+\\/\\d+)?$', display: '#/#' }, // the regex allows values like "20/20", "20/12.5", "20/60-20/70"
+          },
+        },
+      },
+    ],
+  },
+  {
     name: 'Alcohol Test',
     methods: {
       analyzer: { device: 'breathalyzer' },

@@ -2,6 +2,7 @@ import { Box, CircularProgress } from '@mui/material';
 import { FC } from 'react';
 import { useChartData } from '../../stores/appointment/appointment.store';
 import { DispositionCard } from '../DispositionCard';
+import { FormsCard } from '../FormsCard';
 import { SchoolWorkExcuseCard } from '../SchoolWorkExcuseCard';
 import { ERxCard } from './ERxCard';
 import { HealthwiseDocumentsCard } from './HealthwiseDocumentsCard';
@@ -34,6 +35,7 @@ export const PlanTab: FC = () => {
       {tmpHideHealthwiseDocuments ? <></> : <HealthwiseDocumentsCard />}
       <DispositionCard />
       <SchoolWorkExcuseCard />
+      <FormsCard />
     </Box>
   );
 };

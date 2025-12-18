@@ -361,10 +361,9 @@ const groupLabOrderListPageDTOs = (
       orderBundles[requisitionNumber].orders.push(item);
     } else {
       const bundleName = `${item.fillerLab}${item.isPSC ? ' PSC' : ''}`;
-      const bundleNote = item.orderLevelNote;
       orderBundles[requisitionNumber] = {
         bundleName,
-        bundleNote,
+        bundleNote: undefined,
         abnPdfUrl: undefined,
         orderPdfUrl: undefined,
         orders: [item],
@@ -374,6 +373,9 @@ const groupLabOrderListPageDTOs = (
       }
       if ('orderPdfUrl' in item) {
         orderBundles[requisitionNumber].orderPdfUrl = item.orderPdfUrl;
+      }
+      if ('orderLevelNoteByUser' in item) {
+        orderBundles[requisitionNumber].bundleNote = item.orderLevelNoteByUser;
       }
     }
   };

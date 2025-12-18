@@ -105,14 +105,28 @@ export const IN_HOUSE_RESULTS_VALUESET_SYSTEM =
 
 const IN_HOUSE_LAB_OD_DISPLAY_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/valueset-display';
 
+export type IN_HOUSE_LAB_DISPLAY_TYPES = 'Radio' | 'Select' | 'Numeric' | 'Free Text';
 export const OD_DISPLAY_CONFIG = {
   url: IN_HOUSE_LAB_OD_DISPLAY_SYSTEM,
   valueString: {
-    radio: 'Radio',
-    select: 'Select',
-    numeric: 'Numeric',
+    radio: 'Radio' as IN_HOUSE_LAB_DISPLAY_TYPES,
+    select: 'Select' as IN_HOUSE_LAB_DISPLAY_TYPES,
+    numeric: 'Numeric' as IN_HOUSE_LAB_DISPLAY_TYPES,
+    freeText: 'Free Text' as IN_HOUSE_LAB_DISPLAY_TYPES,
   },
 } as const;
+
+const IN_HOUSE_LAB_OD_VALIDATION_SYSTEM =
+  'http://ottehr.org/fhir/StructureDefinition/observation-definition-validation';
+
+const IN_HOUSE_LAB_TEXT_VALIDATION_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/text-format-validation';
+
+export const OD_VALUE_VALIDATION_CONFIG = {
+  url: IN_HOUSE_LAB_OD_VALIDATION_SYSTEM,
+  formatValidation: {
+    url: IN_HOUSE_LAB_TEXT_VALIDATION_SYSTEM,
+  },
+};
 
 export const IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/allow-null-value';
 

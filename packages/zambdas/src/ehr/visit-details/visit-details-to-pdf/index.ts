@@ -1,10 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, Secrets, SecretsKeys, VisitDetailsResponse } from 'utils';
-import { getRelatedResources } from '../../../patient/appointment/helpers';
+import { Organization, Practitioner } from 'fhir/r4b';
+import {
+  checkForStripeCustomerDeletedError,
+  getConsentAndRelatedDocRefsForAppointment,
+  getSecret,
+  PatientPaymentDTO,
+  Secrets,
+  SecretsKeys,
+  VisitDetailsResponse,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  getStripeClient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -12,6 +21,9 @@ import {
 import { makeVisitDetailsPdfDocumentReference } from '../../../shared/pdf/make-visit-details-document-reference';
 import { createVisitDetailsPdf } from '../../../shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
+import { getPaymentsForEncounter } from '../../patient-payments/helpers';
+import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../shared/harvest';
+import { searchDocumentReferencesForVisit } from '../get-visit-files';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'visit-details-to-pdf';
@@ -70,19 +82,50 @@ export const performEffect = async (
 
   console.log('Chart data received');
 
-  const relatedResources = await getRelatedResources(oystehr, patient.id);
-  const { accountInfo, documents } = relatedResources;
+  const [consentResources, accountResources, documentReferences] = await Promise.all([
+    getConsentAndRelatedDocRefsForAppointment({ appointmentId, patientId: patient.id }, oystehr),
+    getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
+    searchDocumentReferencesForVisit(oystehr, patient.id, appointmentId),
+  ]);
+  const { consents } = consentResources;
 
-  if (!accountInfo) {
-    throw new Error(`Related resources not loaded`);
+  const { account, coverages, insuranceOrgs, guarantorResource, emergencyContactResource, employerOrganization } =
+    accountResources;
+  const primaryCarePhysician = accountResources.patient?.contained?.find(
+    (resource) => resource.resourceType === 'Practitioner' && resource.active === true
+  ) as Practitioner;
+  let payments: PatientPaymentDTO[] = [];
+  if (encounter.id && account) {
+    try {
+      const stripeClient = getStripeClient(secrets);
+      payments = await getPaymentsForEncounter({
+        oystehrClient: oystehr,
+        stripeClient,
+        account,
+        encounterId: encounter.id,
+        patientId: patient.id,
+      });
+    } catch (error) {
+      console.error('Failed to fetch payments for PDF generation:', error);
+      try {
+        checkForStripeCustomerDeletedError(error);
+      } catch (customerError) {
+        console.error(`Error: Stripe customer deleted, PDF will be generated without payment info. ${customerError}`);
+      }
+
+      payments = [];
+    }
   }
-
-  const { coverages, insuranceOrgs, guarantorResource, primaryCarePhysician, pharmacy } = accountInfo;
-
+  const pharmacy = accountResources.patient?.contained?.find(
+    (resource) => resource.resourceType === 'Organization' && resource.id === PATIENT_CONTAINED_PHARMACY_ID
+  ) as Organization;
   const { pdfInfo, attached } = await createVisitDetailsPdf(
     {
       patient,
+      emergencyContactResource,
+      employerOrganization,
       appointment,
+      encounter,
       location,
       timezone: effectiveTimezone,
       physician: primaryCarePhysician,
@@ -90,8 +133,10 @@ export const performEffect = async (
       coverages,
       insuranceOrgs,
       guarantorResource,
-      documents,
+      documents: documentReferences || [],
+      consents: consents || [],
       questionnaireResponse,
+      payments,
     },
     secrets,
     m2mToken

@@ -10,26 +10,14 @@
       "persistent": true
     },
     "build": {
-      "dependsOn": [
-        "^build"
-      ],
-      "outputs": [
-        "dist/**",
-        "build/**",
-        ".dist/**"
-      ]
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "build/**", ".dist/**"]
     },
     "ci-deploy": {
-      "dependsOn": [
-        "build",
-        "lint"
-      ]
+      "dependsOn": ["build", "lint"]
     },
     "ci-deploy:demo": {
-      "dependsOn": [
-        "build",
-        "lint"
-      ]
+      "dependsOn": ["build", "lint"]
     },
     "test": {
       "inputs": [
@@ -49,21 +37,19 @@
     },
     "e2e:login": {
       "cache": false,
-      "dependsOn": [
-        "^build"
-      ]
+      "dependsOn": ["^build"]
+    },
+    "e2e:login:ui": {
+      "cache": false,
+      "dependsOn": ["^build"]
     },
     "e2e:specs:ui": {
       "cache": false,
-      "dependsOn": [
-        "^build"
-      ]
+      "dependsOn": ["^build"]
     },
     "e2e:specs": {
       "cache": false,
-      "dependsOn": [
-        "^build"
-      ]
+      "dependsOn": ["^build"]
     }
   }
 }

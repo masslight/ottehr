@@ -12,6 +12,10 @@ export class Dialog {
     await expect(this.#page.getByTestId(dataTestIds.dialog.message)).toHaveText(message);
   }
 
+  async verifyModalContent(content: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.dialog.inPersonModalContent)).toContainText(content);
+  }
+
   async verifyTitle(title: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.dialog.title)).toHaveText(title);
   }

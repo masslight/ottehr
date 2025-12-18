@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-248a31f0-06b6-46ed-8f3e-a627d76d7fa4",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-a86026cf-6773-4704-b2fe-1a14976a388f"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-d245a8f0-7277-4de8-a06b-c377a992f429"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Chest is clear to auscultation bilaterally"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "chest-is-clear-to-auscultation-bilaterally",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

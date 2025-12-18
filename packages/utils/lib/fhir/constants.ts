@@ -700,4 +700,6 @@ export const RcmTaskCodings: { [key: string]: CodeableConcept } = {
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO = 'Summary of visit from audio recording';
 export const DOCUMENT_REFERENCE_SUMMARY_FROM_CHAT = 'Summary of visit from chat';
 
+export const EMPLOYER_ORG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('organization-type');
+
 export const SERVICE_CATEGORY_SYSTEM = ottehrCodeSystemUrl('service-category');

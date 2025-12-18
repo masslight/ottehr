@@ -69,7 +69,6 @@ import {
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
-  OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL,
   PATIENT_BILLING_ACCOUNT_TYPE,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
@@ -1267,8 +1266,6 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
     token
   );
 
-  const orderLevelNote = diagnosticReport.extension?.find((ext) => ext.url === OYSTEHR_LABS_PATIENT_VISIT_NOTE_EXT_URL)
-    ?.valueString;
   console.log('formatting dto');
   const dto: DiagnosticReportLabDetailPageDTO = {
     testItem: getTestNameOrCodeFromDr(diagnosticReport),
@@ -1281,7 +1278,6 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
     resultsDetails: [detail],
     questionnaire: [], // will always be empty but is easier for the front end to consume an empty array
     samples: [], // will always be empty but is easier for the front end to consume an empty array
-    orderLevelNote,
   };
 
   return dto;
