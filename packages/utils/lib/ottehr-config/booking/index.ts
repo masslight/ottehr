@@ -160,8 +160,14 @@ const BOOKING_DEFAULTS = {
   cancelReasonOptions: CANCEL_REASON_OPTIONS,
   serviceCategoriesEnabled: {
     serviceModes: ['in-person', 'virtual'],
-    visitType: ['prebook'],
+    visitType: ['prebook', 'walk-in'],
   },
+  homepageOptions: [
+    'start-in-person-visit',
+    'schedule-in-person-visit',
+    'start-virtual-visit',
+    'schedule-virtual-visit',
+  ],
   hiddenBookingFields,
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
   intakeQuestionnaires,
@@ -198,6 +204,22 @@ export const ServiceCategoryCodeSchema = z.enum(
 );
 
 export type ServiceCategoryCode = z.infer<typeof ServiceCategoryCodeSchema>;
+
+export const HomepageOptionSchema = z.enum(BOOKING_CONFIG.homepageOptions as [string, ...string[]]);
+
+export type HomepageOption = z.infer<typeof HomepageOptionSchema>;
+
+export function getEnabledHomepageOptions(): HomepageOption[] {
+  return BOOKING_CONFIG.homepageOptions ?? [];
+}
+
+export function getFirstEnabledHomepageOptionTestId(): string | undefined {
+  const enabledOptions = getEnabledHomepageOptions();
+  if (enabledOptions.length === 0) {
+    return undefined;
+  }
+  return enabledOptions.map((option) => `${option}-button`)[0];
+}
 
 export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): QuestionnaireResponseItem[] => {
   const {

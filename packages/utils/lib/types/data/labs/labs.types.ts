@@ -138,7 +138,8 @@ export type LabOrderListPageDTO = {
   abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_LAB_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
   orderPdfUrl: string | undefined; // will exist after order is submitted, DocRef containing LAB_ORDER_DOC_REF_CODING_CODE type
   location: Location | undefined; // Location that ordered the test. Was previously not required for lab orders, so can be undefined
-  orderLevelNote: string | undefined; // communication where cat === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY and sr is referenced in basedOn
+  orderLevelNoteByUser: string | undefined; // communication where cat === LAB_ORDER_LEVEL_NOTE_CATEGORY and sr is referenced in basedOn
+  clinicalInfoNoteByUser: string | undefined; // communication where cat === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY and sr is referenced in basedOn (these notes should be one to one with SRs)
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
@@ -177,6 +178,8 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
   | 'orderPdfUrl'
   | 'abnPdfUrl'
   | 'location'
+  | 'orderLevelNoteByUser'
+  | 'clinicalInfoNoteByUser'
 >;
 
 export type DiagnosticReportDrivenResultDTO = DiagnosticReportLabDetailPageDTO & {
@@ -309,6 +312,7 @@ export type CreateLabOrderParameters = {
   psc: boolean;
   orderingLocation: ModifiedOrderingLocation;
   selectedPaymentMethod: CreateLabPaymentMethod;
+  clinicalInfoNoteByUser?: string;
 };
 
 export type CreateLabOrderZambdaOutput = Record<string, never>;
@@ -464,7 +468,8 @@ export interface ExternalLabDocuments {
 }
 
 export interface ExternalLabCommunications {
-  orderLevelNotes: Communication[] | undefined;
+  orderLevelNotesByUser: Communication[];
+  clinicalInfoNotesByUser: Communication[];
 }
 
 export enum UnsolicitedResultsRequestType {

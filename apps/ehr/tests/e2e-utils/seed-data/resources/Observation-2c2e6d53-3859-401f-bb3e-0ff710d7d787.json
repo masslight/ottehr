@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-2c2e6d53-3859-401f-bb3e-0ff710d7d787",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-a86026cf-6773-4704-b2fe-1a14976a388f"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-d245a8f0-7277-4de8-a06b-c377a992f429"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Atraumatic"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "atraumatic",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

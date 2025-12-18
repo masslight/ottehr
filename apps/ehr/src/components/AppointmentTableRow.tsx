@@ -43,9 +43,9 @@ import {
   GetVitalsResponseData,
   InPersonAppointmentInformation,
   mdyStringFromISOString,
+  NON_LOS_STATUSES,
   OrdersForTrackingBoardRow,
   ROOM_EXTENSION_URL,
-  STATUSES_WITHOUT_TIME_TRACKER,
   VisitStatusHistoryEntry,
 } from 'utils';
 import { LANGUAGES } from '../constants';
@@ -126,6 +126,10 @@ const getInRoomExamTime = (visitStatusHistory: VisitStatusHistoryEntry[], now: D
 
   for (let i = visitStatusHistory.length - 1; i >= 0; i--) {
     const status = visitStatusHistory[i];
+
+    if (NON_LOS_STATUSES.includes(status.status)) {
+      continue;
+    }
 
     if (inRoomStatuses.includes(status.status)) {
       totalInRoomTime += getDurationOfStatus(status, now);
@@ -311,11 +315,13 @@ export default function AppointmentTableRow({
   };
 
   const recentStatus = appointment?.visitStatusHistory[appointment.visitStatusHistory.length - 1];
+
   const { totalMinutes, waitingMinutesEstimate } = useMemo(() => {
     const totalMinutes = getVisitTotalTime(appointment, appointment.visitStatusHistory, now);
     const waitingMinutesEstimate = appointment?.waitingMinutes;
     return { totalMinutes, waitingMinutesEstimate };
   }, [appointment, now]);
+
   if (recentStatus && recentStatus.period) {
     const currentStatusTime = getDurationOfStatus(recentStatus, now);
 
@@ -404,24 +410,25 @@ export default function AppointmentTableRow({
       }}
     >
       {isLongWaitingTime && longWaitFlag}
-      {appointment?.visitStatusHistory?.map((statusTemp, index) => {
-        const statusDuration = getDurationOfStatus(statusTemp, now);
+      {/* LOS-participating statuses */}
+      {appointment?.visitStatusHistory
+        ?.filter((status) => !NON_LOS_STATUSES.includes(status.status))
+        .map((statusTemp, index) => {
+          const statusDuration = getDurationOfStatus(statusTemp, now);
 
-        return (
-          <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography
-              variant="body2"
-              color={theme.palette.getContrastText(theme.palette.background.default)}
-              style={{ display: 'inline', marginTop: 1 }}
-            >
-              {!STATUSES_WITHOUT_TIME_TRACKER.includes(statusTemp.status)
-                ? `${formatMinutes(statusDuration)} mins`
-                : ''}
-            </Typography>
-            <InPersonAppointmentStatusChip status={statusTemp.status} />
-          </Box>
-        );
-      })}
+          return (
+            <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography
+                variant="body2"
+                color={theme.palette.getContrastText(theme.palette.background.default)}
+                style={{ display: 'inline', marginTop: 1 }}
+              >
+                {`${formatMinutes(statusDuration)} mins`}
+              </Typography>
+              <InPersonAppointmentStatusChip status={statusTemp.status} />
+            </Box>
+          );
+        })}
 
       <Typography
         variant="body2"
@@ -435,15 +442,44 @@ export default function AppointmentTableRow({
         color={theme.palette.getContrastText(theme.palette.background.default)}
         style={{ display: 'inline', fontWeight: 500 }}
       >
-        Estimated wait time at check-in:
-        {waitingMinutesEstimate !== undefined
-          ? ` ${formatMinutes(Math.floor(waitingMinutesEstimate / 5) * 5)} mins`
+        {waitingMinutesEstimate
+          ? `Estimated wait time at check-in: ${formatMinutes(Math.floor(waitingMinutesEstimate / 5) * 5)} mins`
           : ''}
-        {/* previous waiting minutes logic
-          {waitingMinutesEstimate
-            ? ` ${formatMinutes(waitingMinutesEstimate)} - ${formatMinutes(waitingMinutesEstimate + 15)} mins`
-            : ''} */}
       </Typography>
+
+      {/* Non-LOS statuses */}
+      {appointment?.visitStatusHistory?.some((status) => NON_LOS_STATUSES.includes(status.status)) && (
+        <>
+          <Typography
+            variant="body2"
+            color={theme.palette.getContrastText(theme.palette.background.default)}
+            style={{ display: 'inline', fontWeight: 500 }}
+          >
+            Other history:
+          </Typography>
+          {appointment?.visitStatusHistory
+            ?.filter((status) => NON_LOS_STATUSES.includes(status.status))
+            .map((statusTemp, index) => {
+              const statusDuration = getDurationOfStatus(statusTemp, now);
+
+              return (
+                <Box
+                  key={index}
+                  sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                  <Typography
+                    variant="body2"
+                    color={theme.palette.getContrastText(theme.palette.background.default)}
+                    style={{ display: 'inline', marginTop: 1 }}
+                  >
+                    {`${formatMinutes(statusDuration)} mins`}
+                  </Typography>
+                  <InPersonAppointmentStatusChip status={statusTemp.status} />
+                </Box>
+              );
+            })}
+        </>
+      )}
     </Box>
   );
 
