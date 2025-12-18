@@ -61,15 +61,13 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     await expect(this.locator.appointmentDescription).toHaveText(RegExp(slotAndLocation.location!));
 
     const bookingURL = this.page.url();
-    console.log('Booking URL: ', bookingURL);
     const match = bookingURL.match(/visit\/([0-9a-fA-F-]+)/);
     const bookingUUID = match ? match[1] : null;
 
     return {
       patientBasicInfo,
-      slotAndLocation,
-      bookingURL,
       bookingUUID,
+      slotAndLocation,
     };
   }
 

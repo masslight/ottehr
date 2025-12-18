@@ -54,7 +54,7 @@ export interface TelemedPatientTestData {
   lastName: string;
   email: string;
   birthSex: string;
-  dateOfBirth: {
+  dob: {
     m: string;
     d: string;
     y: string;

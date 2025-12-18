@@ -614,16 +614,18 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PRPI-6. Select self - check fields are prefilled with correct values', async () => {
-      const { y: year, m: month, d: day } = patient.dateOfBirth;
-      const dob = commonLocatorsHelper.getMonthDay(month, day);
-      if (!dob) {
+      const { y, m, d } = patient.dob;
+      const humanReadableDob = commonLocatorsHelper.getMonthDay(m, d);
+      if (!humanReadableDob) {
         throw new Error('DOB data is null');
       }
       await paperwork.fillResponsiblePartyDataSelf();
       await expect(locator.responsiblePartyFirstName).toHaveValue(patient.firstName);
       await expect(locator.responsiblePartyLastName).toHaveValue(patient.lastName);
       await expect(locator.responsiblePartyBirthSex).toHaveValue(patient.birthSex);
-      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
+      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
+        `${humanReadableDob?.monthNumber}/${humanReadableDob?.dayNumber}/${y}`
+      );
     });
 
     await test.step('PRPI-7. Select self - check fields are disabled', async () => {

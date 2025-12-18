@@ -12,10 +12,9 @@ export interface SlotAndLocation {
 }
 
 export interface StartVisitResponse {
-  slotAndLocation: Partial<SlotAndLocation>;
   patientBasicInfo: PatientBasicInfo;
-  bookingURL: string;
   bookingUUID: string | null;
+  slotAndLocation: Partial<SlotAndLocation>;
 }
 
 export interface PatientBasicInfo {

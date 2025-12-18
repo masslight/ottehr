@@ -42,16 +42,13 @@ export class WalkInTelemedFlow extends BaseTelemedFlow {
     await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
     await expect(this.locator.flowHeading).toHaveText('Contact information');
 
-    const bookingURL = this.page.url();
-    console.log('Booking URL: ', bookingURL);
-    const match = bookingURL.match(/paperwork\/([0-9a-fA-F-]+)/);
+    const match = this.page.url().match(/paperwork\/([0-9a-fA-F-]+)/);
     const bookingUUID = match ? match[1] : null;
 
     return {
       patientBasicInfo,
-      slotAndLocation,
-      bookingURL,
       bookingUUID,
+      slotAndLocation,
     };
   }
 

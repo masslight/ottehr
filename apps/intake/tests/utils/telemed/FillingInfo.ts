@@ -29,6 +29,7 @@ export class FillingInfo {
   }
 
   // randomize in tests maybe not a good idea, left one option for now
+  // todo grab from config!
   private reasonForVisit = [BOOKING_CONFIG.reasonForVisitOptions[0]];
   private ethnicity = ['Hispanic or Latino', 'Not Hispanic or Latino', 'Decline to Specify'];
   private race = ['American Indian or Alaska Native'];
