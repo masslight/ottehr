@@ -40,10 +40,14 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
       // todo labs if theres every a case where more than one test can be triggered, some work will have to be done here.
       // but also the design might change at that point so i wont handle now
       if (labDetails?.reflexAlert) {
-        const testName = labDetails.reflexAlert.testName;
-        const testWasRun = !!testDetails.some((detail) => detail.labDetails.name === testName);
+        const reflexTestName = labDetails.reflexAlert.testName;
+        const reflexTestCanonUrl = labDetails.reflexAlert.canonicalUrl;
+        const reflexTestWasRun = !!testDetails.some((test) => {
+          const testUrl = `${test.labDetails.adUrl}|${test.labDetails.adVersion}`;
+          return testUrl === reflexTestCanonUrl;
+        });
         // this drives if we show the button or not, if its already been run currently we don't show the button
-        if (testName && !testWasRun) acc.reflexTest = testName;
+        if (reflexTestName && !reflexTestWasRun) acc.reflexTest = reflexTestName;
       }
       return acc;
     },

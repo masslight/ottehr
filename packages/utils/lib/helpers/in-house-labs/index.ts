@@ -458,6 +458,7 @@ export const checkActivityDefinitionForReflexLogic = (
 
   console.log(`Evaluating reflex logic for ActivityDefinition/${activityDefinition.id}`);
 
+  // todo labs, could reduce iterations here by using reduce
   const reflexTestToRunCanonicalUrlExt = reflexLogic.find((ext) => ext.url === REFLEX_TEST_TO_RUN_URL);
   const reflexTestToRunNameExt = reflexLogic.find((ext) => ext.url === REFLEX_TEST_TO_RUN_NAME_URL);
   const reflexAlertExt = reflexLogic.find((ext) => ext.url === REFLEX_TEST_ALERT_URL);
@@ -487,7 +488,7 @@ export const checkActivityDefinitionForReflexLogic = (
 
 export const checkDiagnosticReportForReflexAlert = (
   diagnosticReport: DiagnosticReport | undefined
-): { testName: string; alert: string } | undefined => {
+): TestItem['reflexAlert'] | undefined => {
   if (!diagnosticReport) return;
   const reflexLogic = diagnosticReport.extension?.find((ext) => ext.url === REFLEX_TEST_TRIGGERED_URL)?.extension;
   if (!reflexLogic) return;
@@ -496,14 +497,15 @@ export const checkDiagnosticReportForReflexAlert = (
 
   const reflexTestToRunName = reflexLogic.find((ext) => ext.url === REFLEX_TEST_TO_RUN_NAME_URL)?.valueString;
   const reflexAlert = reflexLogic.find((ext) => ext.url === REFLEX_TEST_ALERT_URL)?.valueString;
+  const reflexCanonicalUrl = reflexLogic.find((ext) => ext.url === REFLEX_TEST_TO_RUN_URL)?.valueCanonical;
 
-  if (!reflexAlert || !reflexTestToRunName) {
+  if (!reflexAlert || !reflexTestToRunName || !reflexCanonicalUrl) {
     throw new Error(
       `Reflex test information on diagnostic report is misconfigured. reflexAlert or reflexTestToRunName is missing on DiagnosticReport/${diagnosticReport.id}`
     );
   }
 
-  return { testName: reflexTestToRunName, alert: reflexAlert };
+  return { testName: reflexTestToRunName, alert: reflexAlert, canonicalUrl: reflexCanonicalUrl };
 };
 
 export const getFormattedDiagnoses = (diagnoses: DiagnosisDTO[]): string => {

@@ -78,7 +78,7 @@ export interface TestItem {
     groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
   };
-  reflexAlert: { alert: string; testName: string } | undefined; // for now we are only ever expecting one alert but this might change in the future
+  reflexAlert: { alert: string; testName: string; canonicalUrl: string } | undefined; // for now we are only ever expecting one alert but this might change in the future
   adUrl: string;
   adVersion: string;
   note?: string;

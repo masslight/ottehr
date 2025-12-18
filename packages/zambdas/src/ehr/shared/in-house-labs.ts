@@ -217,6 +217,7 @@ interface RelatedSrResourceConfig {
     tasks: Task[];
     specimens: Specimen[];
     relatedAdUrlCanonicalUrl: string | undefined;
+    // type: 'reflex' | 'repeat'; // todo labs it would be nice to map this
   };
 }
 
