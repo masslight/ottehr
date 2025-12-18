@@ -35,6 +35,7 @@ import {
   CreateLabPaymentMethod,
   DiagnosisDTO,
   getAttendingPractitionerId,
+  HL7_NOTE_CHAR_LIMIT,
   LabPaymentMethod,
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
@@ -521,11 +522,11 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                       minRows={2}
                       value={clinicalInfoNotes}
                       onChange={(e) => setClinicalInfoNotes(e.target.value)}
-                      inputProps={{ maxLength: 300 }}
-                      error={!!(clinicalInfoNotes && clinicalInfoNotes?.length >= 300)}
+                      inputProps={{ maxLength: HL7_NOTE_CHAR_LIMIT }}
+                      error={!!(clinicalInfoNotes && clinicalInfoNotes?.length >= HL7_NOTE_CHAR_LIMIT)}
                       helperText={
-                        clinicalInfoNotes && clinicalInfoNotes?.length >= 300
-                          ? 'You have reached the 300 character limit'
+                        clinicalInfoNotes && clinicalInfoNotes?.length >= HL7_NOTE_CHAR_LIMIT
+                          ? `You have reached the ${HL7_NOTE_CHAR_LIMIT} character limit`
                           : ''
                       }
                     ></TextField>
