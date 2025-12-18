@@ -1,8 +1,39 @@
-import { BrowserContext, expect, Locator, Page } from '@playwright/test';
+import { BrowserContext, expect, Page } from '@playwright/test';
 import { chooseJson, GetSlotDetailsResponse } from 'utils';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import { Locators } from '../locators';
+import { InPersonPaperworkReturn, Paperwork } from '../Paperwork';
 import { FillingInfo } from './FillingInfo';
+
+export interface SlotAndLocation {
+  selectedSlot: string | undefined;
+  location: string | null;
+  locationTitle?: string | null;
+}
+
+export interface StartVisitResponse {
+  patientBasicInfo: PatientBasicInfo;
+  bookingUUID: string | null;
+  // only used in prebook flows
+  slotAndLocation?: SlotAndLocation;
+  slotDetails: GetSlotDetailsResponse | null;
+}
+
+export interface PatientBasicInfo {
+  firstName: string;
+  lastName: string;
+  birthSex: string;
+  email: string;
+  reasonForVisit: string;
+  dob: { m: string; d: string; y: string };
+}
+
+export interface FilledPaperworkInput {
+  payment: 'card' | 'insurance';
+  responsibleParty: 'self' | 'not-self';
+  requiredOnly?: boolean;
+  patientBasicInfo?: PatientBasicInfo;
+}
 
 export abstract class BaseInPersonFlow {
   protected page: Page;
@@ -10,6 +41,7 @@ export abstract class BaseInPersonFlow {
   protected fillingInfo: FillingInfo;
   protected context: BrowserContext;
   protected commonLocatorsHelper: CommonLocatorsHelper;
+  protected paperworkGeneral: Paperwork;
   slotDetails: GetSlotDetailsResponse | null = null;
 
   constructor(page: Page) {
@@ -18,6 +50,7 @@ export abstract class BaseInPersonFlow {
     this.fillingInfo = new FillingInfo(page);
     this.commonLocatorsHelper = new CommonLocatorsHelper(page);
     this.context = page.context();
+    this.paperworkGeneral = new Paperwork(page);
 
     this.page.on('response', async (response) => {
       if (response.url().includes('/get-slot-details/')) {
@@ -27,99 +60,77 @@ export abstract class BaseInPersonFlow {
     });
   }
 
-  async goToReviewPage(): Promise<{
-    firstName: string;
-    lastName: string;
-    birthSex: string;
-    email: string;
-    dateOfBirth: string;
-    slotDetails: GetSlotDetailsResponse | null;
-    selectedSlot?: { buttonName: string | null; selectedSlot: string | undefined };
-    location?: string | null;
-  }> {
+  // flow steps:
+  // - click button
+  // - start visit by choosing patient
+  // - fill paperwork
+  // - complete booking
+  // - cancel appointment
+
+  abstract clickVisitButton(): Promise<void>;
+
+  abstract startVisitWithoutPaperwork(
+    patient?: PatientBasicInfo
+  ): Promise<StartVisitResponse & Partial<SlotAndLocation>>;
+
+  abstract fillPaperwork({
+    payment,
+    responsibleParty,
+    requiredOnly,
+    patientBasicInfo,
+  }: FilledPaperworkInput): Promise<InPersonPaperworkReturn<typeof payment, typeof responsibleParty, boolean>>;
+
+  abstract completeBooking(): Promise<void>;
+
+  abstract cancelAppointment(): Promise<void>;
+
+  // ---------------------------------------------------------------------------
+
+  async selectVisitAndContinue(): Promise<void> {
     await this.page.goto(`/home`);
     await this.clickVisitButton();
-    const additionalData = await this.additionalStepsForPrebook();
-    const bookingData = await this.fillPatientDetailsAndContinue();
-    return {
-      ...bookingData, // Includes firstName, lastName, email
-      ...additionalData, // Includes selectedSlot & location (for prebook)
-      slotDetails: this.slotDetails,
-    };
   }
-  private async fillPatientDetailsAndContinue(): Promise<{
-    firstName: string;
-    lastName: string;
-    email: string;
-    birthSex: string;
-    dateOfBirth: string;
-  }> {
-    await this.locator.waitUntilLoadingIsFinished();
 
-    try {
-      await this.locator.selectDifferentFamilyMember();
-    } catch (error) {
-      console.error(
-        'selectDifferentFamilyMember invocation failed, but that is expected if there are no registered patients yet',
-        error
-      );
-    }
-
+  async fillNewPatientDataAndContinue(): Promise<PatientBasicInfo> {
     const bookingData = await this.fillingInfo.fillNewPatientInfo();
-    const dob = await this.fillingInfo.fillDOBgreater18();
+    const patientDob = await this.fillingInfo.fillDOBgreater18();
     await this.locator.clickContinueButton();
-
     return {
-      firstName: bookingData.firstName,
-      lastName: bookingData.lastName,
-      email: bookingData.email,
-      birthSex: bookingData.BirthSex,
-      dateOfBirth: `${dob.randomYear}-${dob.randomMonth}-${dob.randomDay}`,
-    };
-  }
-
-  // Abstract method to be implemented in subclasses
-  abstract additionalStepsForPrebook(): Promise<
-    Partial<{ selectedSlot: { buttonName: string | null; selectedSlot: string | undefined }; location: string | null }>
-  >;
-  protected abstract clickVisitButton(): Promise<void>;
-  protected abstract completeBooking(): Promise<void>;
-
-  async startVisit(): Promise<{
-    bookingURL: string;
-    bookingUUID: string | null;
-    firstName: string;
-    lastName: string;
-    email: string;
-    birthSex: string;
-    dateOfBirth: string;
-    slotDetails: GetSlotDetailsResponse | null;
-    location?: string | null;
-    selectedSlot?: string | null;
-  }> {
-    const bookingData = await this.goToReviewPage();
-    await this.completeBooking();
-    await this.page.waitForURL(/\/visit\//);
-    const bookingURL = this.page.url();
-    const match = bookingURL.match(/visit\/([0-9a-fA-F-]+)/);
-    const bookingUUID = match ? match[1] : null;
-    return {
-      bookingURL,
-      bookingUUID,
       firstName: bookingData.firstName,
       lastName: bookingData.lastName,
       email: bookingData.email,
       birthSex: bookingData.birthSex,
-      dateOfBirth: bookingData.dateOfBirth,
-      location: bookingData.location,
-      selectedSlot: bookingData.selectedSlot?.selectedSlot,
-      slotDetails: bookingData.slotDetails,
+      reasonForVisit: bookingData.reasonForVisit,
+      dob: {
+        d: patientDob.randomDay,
+        m: patientDob.randomMonth,
+        y: patientDob.randomYear,
+      },
     };
   }
-  async checkValueIsNotEmpty(value: Locator): Promise<void> {
-    const textContent = await value.textContent();
-    expect(textContent).not.toBeNull();
-    expect(textContent?.trim()).not.toBe('');
-    expect(textContent?.trim().toLowerCase()).not.toBe('unknown');
+
+  async findAndSelectExistingPatient(patient: PatientBasicInfo): Promise<void> {
+    // find and select existing patient
+    const patientName = this.page.getByRole('heading', {
+      name: new RegExp(`.*${patient.firstName} ${patient.lastName}.*`, 'i'),
+    });
+    await expect(patientName).toBeVisible();
+    await patientName.scrollIntoViewIfNeeded();
+    await patientName.click({ timeout: 40_000, noWaitAfter: true, force: true });
+    await this.locator.clickContinueButton();
+
+    // confirm dob
+    await this.fillingInfo.fillCorrectDOB(patient.dob.m, patient.dob.d, patient.dob.y);
+    await this.locator.clickContinueButton();
+
+    // select reason for visit
+    await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
+    await expect(this.locator.flowHeading).toHaveText('About the patient');
+    await this.fillingInfo.fillVisitReason();
+    await this.locator.continueButton.click();
+  }
+
+  async continue(): Promise<void> {
+    await this.locator.clickContinueButton();
   }
 }

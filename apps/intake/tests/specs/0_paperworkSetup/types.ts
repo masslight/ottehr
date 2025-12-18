@@ -15,7 +15,11 @@ export interface InPersonPatientTestData {
   lastName: string;
   email: string;
   birthSex: string;
-  dateOfBirth: string;
+  dob: {
+    m: string;
+    d: string;
+    y: string;
+  };
   appointmentId: string | null;
 }
 
