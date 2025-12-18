@@ -47,6 +47,14 @@ export const LabsTableBundleHeaderRow = ({
   const handleAddOrEditOrderNote = async (): Promise<void> => {
     if (!oystehr) throw Error('no oystehr configured');
     if (!requisitionNumber) throw Error('no requisitionNumber');
+    if (!orderNote && noteState === 'add') {
+      setNoteError('Please enter a note.');
+      return;
+    }
+    if (orderNote.length > 300) {
+      setNoteError(`Note must be under 300 characters long, length of note: ${orderNote.length}`);
+      return;
+    }
     setSavingNote(true);
     try {
       await updateLabOrderResources(oystehr, {
@@ -71,6 +79,7 @@ export const LabsTableBundleHeaderRow = ({
   const closeEditNoteDialog = (): void => {
     setOpenOrderNoteDialog(false);
     setNoteError(undefined);
+    setOrderNote(existingNote ?? '');
     if (existingNote) {
       setNoteState('view');
       setOrderNote(existingNote);
