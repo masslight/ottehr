@@ -29,6 +29,7 @@ import {
   createSecondaryInsuranceSection,
   createVisitInfoSection,
 } from './sections';
+import { composePrimaryCarePhysicianData, createPrimaryCarePhysicianSection } from './sections/primaryCarePhysician';
 import { AssetPaths, PdfResult, VisitDetailsData, VisitDetailsInput } from './types';
 
 const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData> = (input) => {
@@ -55,7 +56,8 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     patient: composePatientData({ patient, appointment }),
     visit: composeVisitData({ appointment, location, timezone }),
     contact: composeContactData({ patient, appointment }),
-    details: composePatientDetailsData({ patient, physician }),
+    details: composePatientDetailsData({ patient }),
+    pcp: composePrimaryCarePhysicianData({ physician }),
     pharmacy: composePharmacyData(pharmacy),
     insurances: composeInsuranceData({ coverages, insuranceOrgs }),
     responsibleParty: composeResponsiblePartyData({ guarantorResource }),
@@ -126,6 +128,7 @@ const visitDetailsRenderConfig: PdfRenderConfig<VisitDetailsData> = {
     { ...createPharmacyFormsSection(), preferredWidth: 'column' },
     { ...createSecondaryInsuranceSection(), preferredWidth: 'column' },
     { ...createPatientDetailsSection(), preferredWidth: 'column' },
+    { ...createPrimaryCarePhysicianSection(), preferredWidth: 'column' },
     { ...createResponsiblePartySection(), preferredWidth: 'column' },
     { ...createEmployerInfoSection(), preferredWidth: 'column' },
     { ...createEmergencyContactInfoSection(), preferredWidth: 'column' },
