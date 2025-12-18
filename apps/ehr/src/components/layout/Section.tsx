@@ -6,13 +6,14 @@ interface SectionProps {
   children: ReactNode;
   dataTestId?: string;
   titleWidget?: ReactNode;
+  id?: string;
 }
 
-export const Section: FC<SectionProps> = ({ title, children, dataTestId, titleWidget }) => {
+export const Section: FC<SectionProps> = ({ title, children, dataTestId, titleWidget, id }) => {
   const theme = useTheme();
 
   return (
-    <Paper sx={{ p: 3 }} data-testid={dataTestId}>
+    <Paper sx={{ p: 3 }} data-testid={dataTestId} id={id}>
       <Box
         sx={{
           display: 'flex',

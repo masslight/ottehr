@@ -33,10 +33,12 @@ import {
   getOrderNumber,
   getOrderNumberFromDr,
   getPractitionerNPIIdentifier,
+  getTestItemCodeFromDr,
   getTimezone,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
   IN_HOUSE_LAB_TASK,
+  IN_HOUSE_OBS_DEF_ID_SYSTEM,
   isPSCOrder,
   LAB_OBS_VALUE_WITH_PRECISION_EXT,
   LAB_ORDER_DOC_REF_CODING_CODE,
@@ -46,8 +48,9 @@ import {
   LabDrTypeTagCode,
   LabType,
   ObsContentType,
+  OBSERVATION_CODES,
+  OBSERVATION_INTERPRETATION_SYSTEM,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
-  OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LABS_ADDITIONAL_LAB_CODE_SYSTEM,
   OYSTEHR_LABS_CLINICAL_INFO_EXT_URL,
   OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
@@ -209,10 +212,7 @@ const getResultDataConfigForDrResources = (
     resultInterpretations,
     attachments,
     externalLabResults,
-    testItemCode:
-      diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
-      diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
-      '',
+    testItemCode: getTestItemCodeFromDr(diagnosticReport) || '',
     resultsReceivedDate,
     collectionDate,
   };
@@ -334,10 +334,7 @@ const getResultDataConfig = (
       resultInterpretations,
       attachments,
       externalLabResults,
-      testItemCode:
-        diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
-        diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
-        '',
+      testItemCode: getTestItemCodeFromDr(diagnosticReport) || '',
       resultsReceivedDate,
     };
     const data: ExternalLabResultsData = { ...baseData, ...externalLabData };
@@ -960,10 +957,11 @@ async function drawCommonExternalLabElements(
   }
 
   if (data.resultSpecimenInfo) {
-    console.log('Drawing result specimen info');
-    sectionHasContent = true;
+    console.log('Drawing result specimen info', JSON.stringify(data.resultSpecimenInfo));
+    if (data.resultSpecimenInfo.quantityString || data.resultSpecimenInfo.bodySite) sectionHasContent = true;
 
     if (data.resultSpecimenInfo.quantityString) {
+      console.log('Drawing specimen quantity/volume info');
       pdfClient = drawFieldLine(
         pdfClient,
         textStyles,
@@ -976,12 +974,13 @@ async function drawCommonExternalLabElements(
     }
 
     if (data.resultSpecimenInfo.bodySite) {
+      console.log('Drawing specimen bodysite info');
       pdfClient = drawFieldLine(pdfClient, textStyles, 'Specimen Source:', data.resultSpecimenInfo.bodySite);
       pdfClient.newLine(STANDARD_NEW_LINE);
     }
   }
 
-  if (data.fastingStatus || data.resultSpecimenInfo) {
+  if ((data.fastingStatus || data.resultSpecimenInfo) && sectionHasContent) {
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
@@ -1361,23 +1360,12 @@ function getResultRowDisplayColor(resultInterpretations: string[]): Color {
 }
 
 function getInHouseResultRowDisplayColor(labResult: InHouseLabResult): Color {
-  console.log('>>>in getInHouseResultRowDisplayColor, this is the result value ', labResult.value);
-  if (
-    (labResult.value && labResult.rangeString?.includes(labResult.value)) ||
-    labResult.value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode
-  ) {
-    return LAB_PDF_STYLES.color.black;
-  } else if (labResult.type === 'Quantity') {
-    if (labResult.value && labResult.rangeQuantity) {
-      const value = parseFloat(labResult.value);
-      const { low, high } = labResult.rangeQuantity.normalRange;
-      if (value >= low && value <= high) {
-        return LAB_PDF_STYLES.color.black;
-      }
-    }
+  console.log('>>>in getInHouseResultRowDisplayColor, this is the result', labResult);
+  const { interpretationCoding } = labResult;
+  if (interpretationCoding?.code === OBSERVATION_CODES.ABNORMAL) {
     return LAB_PDF_STYLES.color.red;
   }
-  return LAB_PDF_STYLES.color.red;
+  return LAB_PDF_STYLES.color.black;
 }
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
@@ -1571,7 +1559,29 @@ const getFormattedInHouseLabResults = async (
   const results: InHouseLabResult[] = [];
   const components = convertActivityDefinitionToTestItem(activityDefinition, observations).components;
   const componentsAll: TestItemComponent[] = [...components.radioComponents, ...components.groupedComponents];
+  const interpretationByComponentIdMap = new Map<string, Coding | undefined>(
+    observations
+      .map((ob) => {
+        const componentId = ob.extension
+          ?.find((ext) => ext.url === IN_HOUSE_OBS_DEF_ID_SYSTEM && ext.valueString)
+          ?.valueString?.replace(/^#/, '');
+
+        console.log('this is the componentId for the map', componentId);
+
+        if (!componentId) return undefined;
+
+        const interpretationCoding = ob.interpretation
+          ?.flatMap((interp) => interp.coding ?? [])
+          .find((coding) => coding.system === OBSERVATION_INTERPRETATION_SYSTEM);
+
+        return [componentId, interpretationCoding];
+      })
+      .filter((entry): entry is [string, Coding | undefined] => entry !== undefined)
+  );
+
   componentsAll.forEach((item) => {
+    const interpretationFromObs = interpretationByComponentIdMap.get(item.observationDefinitionId);
+    console.log('this is the interpretationFromObs for componentName', item.componentName, interpretationFromObs);
     if (item.dataType === 'CodeableConcept') {
       results.push({
         name: item.componentName,
@@ -1581,6 +1591,7 @@ const getFormattedInHouseLabResults = async (
         rangeString: item.valueSet
           .filter((value) => !item.abnormalValues.map((val) => val.code).includes(value.code))
           .map((value) => value.display),
+        interpretationCoding: interpretationFromObs,
       });
     } else if (item.dataType === 'Quantity') {
       results.push({
@@ -1589,6 +1600,14 @@ const getFormattedInHouseLabResults = async (
         value: item.result?.entry,
         units: item.unit,
         rangeQuantity: item,
+        interpretationCoding: interpretationFromObs,
+      });
+    } else if (item.dataType === 'string') {
+      results.push({
+        name: item.componentName,
+        type: item.dataType,
+        value: item.result?.entry,
+        interpretationCoding: interpretationFromObs,
       });
     }
   });
@@ -1684,7 +1703,13 @@ const parseObservationForPDF = (
   } else if (observation.valueString) {
     value = observation.valueString;
   } else if (observation.valueCodeableConcept) {
-    value = observation.valueCodeableConcept.coding?.map((coding) => coding.display).join(', ') || '';
+    // when it's a codeable concept, oystehr writes OBX-5 in coding.code, and then if there was also a note, we stick it in display as well as in observation.note
+    // so as a result, you end up with duplicated info. so we'll split it out based on whether or not there's a note
+    if (observation.note?.length) {
+      value = observation.valueCodeableConcept.coding?.find((coding) => coding.code)?.code || '';
+    } else {
+      value = observation.valueCodeableConcept.coding?.map((coding) => coding.display).join(', ') || '';
+    }
   }
 
   const referenceRangeText = observation.referenceRange

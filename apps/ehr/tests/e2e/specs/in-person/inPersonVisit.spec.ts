@@ -54,7 +54,7 @@ import { openVisitsPage } from '../../page/VisitsPage';
 
 // cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
-const EM_CODE = '99201 New Patient - E/M Level 1';
+const EM_CODE = '99202 New Patient - E/M Level 2';
 
 test.describe('In-person visit', async () => {
   // test('Book appointment, go to Hospitalization page and complete Intake, check statuses', async ({ page }) => {
@@ -191,6 +191,10 @@ test.describe('In-person visit', async () => {
       await patientInfoPage.sideMenu().clickReviewAndSign();
       await progressNotePage.clickDischargeButton();
       await progressNotePage.clickReviewAndSignButton();
+      const supervisorCheckbox = page.getByTestId(dataTestIds.progressNotePage.supervisorApprovalCheckbox);
+      if (await supervisorCheckbox.isVisible()) {
+        await supervisorCheckbox.uncheck();
+      }
       await progressNotePage.clickSignButton();
       await patientInfoPage.inPersonHeader().verifyStatus('completed');
       await openVisitsPage(page);

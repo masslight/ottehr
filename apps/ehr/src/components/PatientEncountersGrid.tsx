@@ -39,6 +39,7 @@ import {
   AppointmentType,
   FollowUpVisitHistoryRow,
   formatMinutes,
+  GetPatientAndResponsiblePartyInfoEndpointOutput,
   PatientVisitListResponse,
   PrefilledInvoiceInfo,
   ServiceMode,
@@ -191,6 +192,22 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     enabled: Boolean(patient?.id) && Boolean(oystehrZambda),
   });
 
+  const { data: patientAndRpForInvoiceData, isLoading: patientAndRPLoading } = useQuery({
+    queryKey: [`get-patient-and-responsible-party-info`, { patientId }],
+    queryFn: async (): Promise<GetPatientAndResponsiblePartyInfoEndpointOutput> => {
+      if (oystehrZambda && patient?.id) {
+        const result = await oystehrZambda.zambda.execute({
+          id: 'get-patient-and-responsible-party-info',
+          patientId: patient.id,
+        });
+        return result.output as GetPatientAndResponsiblePartyInfoEndpointOutput;
+      }
+
+      throw new Error('api client not defined or patient id is not provided');
+    },
+    enabled: Boolean(patient?.id) && Boolean(oystehrZambda),
+  });
+
   const filtered = useMemo(() => {
     if (!visitHistory) return [];
     const { visits, metadata } = visitHistory;
@@ -225,6 +242,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           taskId,
           status: 'requested',
           prefilledInvoiceInfo,
+          userTimezone: DateTime.local().zoneName,
         });
         setSelectedInvoiceTask(undefined);
         void refetchVisitHistory();
@@ -276,13 +294,11 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       case 'note': {
         const { encounterId, originalAppointmentId } = encounter;
         if (!originalAppointmentId) return '-';
-        const to = `/in-person/${originalAppointmentId}/follow-up-note`;
+        const to = `/in-person/${originalAppointmentId}/follow-up-note${
+          encounterId ? `?encounterId=${encounterId}` : ''
+        }`;
 
-        return (
-          <RoundedButton to={to} state={{ encounterId }}>
-            Progress Note
-          </RoundedButton>
-        );
+        return <RoundedButton to={to}>Progress Note</RoundedButton>;
       }
       default:
         return '-';
@@ -373,13 +389,13 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           <Tooltip title={tooltipText} placement="top">
             <Box>
               <RoundedButton
-                disabled={buttonDisabled}
+                disabled={buttonDisabled || patientAndRPLoading}
                 color={buttonColor}
                 onClick={() => {
                   setSelectedInvoiceTask(lastEncounterTask);
                 }}
               >
-                Invoice
+                Send Invoice
               </RoundedButton>
             </Box>
           </Tooltip>
@@ -595,9 +611,10 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         title="Send invoice"
         modalOpen={selectedInvoiceTask !== undefined}
         handleClose={() => setSelectedInvoiceTask(undefined)}
-        submitButtonName="Send"
+        submitButtonName="Send Invoice"
         onSubmit={sendInvoice}
         invoiceTask={selectedInvoiceTask}
+        patientAndRP={patientAndRpForInvoiceData}
       />
     </Paper>
   );

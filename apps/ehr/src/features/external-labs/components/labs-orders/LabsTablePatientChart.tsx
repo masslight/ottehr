@@ -79,23 +79,27 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
           </Box>
         ) : (
           <>
-            {Object.values(groupedLabOrdersForChartTable.pendingActionOrResults).map((orderBundle, idx) => (
-              <LabsTableContainer
-                key={`order-bundle-${idx}`}
-                labOrders={orderBundle.orders}
-                orderBundleName={orderBundle.bundleName}
-                abnPdfUrl={orderBundle.abnPdfUrl}
-                orderPdfUrl={orderBundle.orderPdfUrl}
-                searchBy={searchBy}
-                columns={columns}
-                allowDelete={allowDelete}
-                allowSubmit={allowSubmit}
-                fetchLabOrders={fetchLabOrders}
-                showDeleteLabOrderDialog={showDeleteLabOrderDialog}
-                DeleteOrderDialog={DeleteOrderDialog}
-                handleRejectedAbn={handleRejectedAbn}
-              />
-            ))}
+            {Object.entries(groupedLabOrdersForChartTable.pendingActionOrResults).map(
+              ([requisitionNumber, orderBundle], idx) => (
+                <LabsTableContainer
+                  key={`order-bundle-${idx}`}
+                  labOrders={orderBundle.orders}
+                  orderBundleName={orderBundle.bundleName}
+                  requisitionNumber={requisitionNumber}
+                  orderBundleNote={orderBundle.bundleNote}
+                  abnPdfUrl={orderBundle.abnPdfUrl}
+                  orderPdfUrl={orderBundle.orderPdfUrl}
+                  searchBy={searchBy}
+                  columns={columns}
+                  allowDelete={allowDelete}
+                  allowSubmit={allowSubmit}
+                  fetchLabOrders={fetchLabOrders}
+                  showDeleteLabOrderDialog={showDeleteLabOrderDialog}
+                  DeleteOrderDialog={DeleteOrderDialog}
+                  handleRejectedAbn={handleRejectedAbn}
+                />
+              )
+            )}
             {bundlesWithResults.length > 0 && (
               <LabsTableContainer
                 key={`orders-with-results`}

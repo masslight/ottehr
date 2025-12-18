@@ -77,14 +77,18 @@ export const CustomDialog: FC<CustomDialogProps> = ({
         )}
       </DialogTitle>
       <DialogContent>
-        <DialogContentText
-          sx={{
-            color: theme.palette.text.primary,
-          }}
-          data-testid={dataTestIds.dialog.message}
-        >
-          {description}
-        </DialogContentText>
+        {typeof description === 'string' ? (
+          <DialogContentText
+            sx={{
+              color: theme.palette.text.primary,
+            }}
+            data-testid={dataTestIds.dialog.message}
+          >
+            {description}
+          </DialogContentText>
+        ) : (
+          description
+        )}
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'start', px: 2 }}>
         {handleConfirm && (

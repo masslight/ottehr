@@ -1,8 +1,9 @@
-import { ChatAnthropic } from '@langchain/anthropic';
+import { AnthropicMessagesModelId, ChatAnthropic } from '@langchain/anthropic';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
-import { Condition, DocumentReference, Encounter, Observation } from 'fhir/r4b';
+import { Appointment, Condition, DocumentReference, Encounter, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
@@ -17,11 +18,32 @@ import {
   PUBLIC_EXTENSION_BASE_URL,
   Secrets,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
 import { makeObservationResource } from './chart-data/index';
 import { assertDefined } from './helpers';
 import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.helpers';
+
+export class ClaudeClient {
+  chatbot: ChatAnthropic;
+
+  constructor(anthropicApiKey: string, model: AnthropicMessagesModelId = 'claude-haiku-4-5-20251001') {
+    this.chatbot = new ChatAnthropic({
+      model,
+      anthropicApiKey,
+      temperature: 0,
+      clientOptions: {
+        timeout: 5000, // 5 seconds (in milliseconds)
+        maxRetries: 5, // Number of retries on failure
+      },
+    });
+  }
+
+  async invoke(input: BaseMessageLike[]): Promise<AIMessageChunk> {
+    return this.chatbot.invoke(input);
+  }
+}
 
 let chatbot: ChatAnthropic;
 // let chatbotVertexAI: ChatVertexAI;
@@ -36,6 +58,7 @@ The transcript: `;
 
 const AI_RESPONSE_KEY_TO_FIELD = {
   historyOfPresentIllness: AiObservationField.HistoryOfPresentIllness,
+  mechanismOfInjury: AiObservationField.MechanismOfInjury,
   pastMedicalHistory: AiObservationField.PastMedicalHistory,
   pastSurgicalHistory: AiObservationField.PastSurgicalHistory,
   medicationsHistory: AiObservationField.MedicationsHistory,
@@ -116,10 +139,41 @@ export async function createResourcesFromAiInterview(
   let fields =
     'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history and potential diagnoses';
   // if there is a provider user profile, it is a recording
+  const resources = (
+    await oystehr.fhir.search<Encounter | Appointment>({
+      resourceType: 'Encounter',
+      params: [
+        {
+          name: '_id',
+          value: encounterID,
+        },
+        {
+          name: '_include',
+          value: 'Encounter:appointment',
+        },
+      ],
+    })
+  ).unbundle();
+
+  const encounter = resources.find((resource) => resource.resourceType === 'Encounter');
+  const appointment = resources.find((resource) => resource.resourceType === 'Appointment');
+
+  if (
+    appointment?.serviceCategory?.find(
+      (serviceCategory) =>
+        serviceCategory.coding?.find(
+          (coding) => coding.system === SERVICE_CATEGORY_SYSTEM && coding.code === 'workmans-comp'
+        )
+    )
+  ) {
+    fields = 'mechanism of injury, ' + fields;
+  }
+
   const source = providerUserProfile ? 'audio-recording' : 'chat';
   if (source === 'audio-recording') {
     fields = 'labs, erx, procedures, ' + fields;
   }
+
   const aiResponseString = (
     await invokeChatbot([{ role: 'user', content: getPrompt(fields) + '\n' + chatTranscript }], secrets)
   ).content.toString();
@@ -131,10 +185,11 @@ export async function createResourcesFromAiInterview(
     console.warn('Failed to parse AI response, attempting to fix JSON format:', error);
     aiResponse = fixAndParseJsonObjectFromString(aiResponseString);
   }
-  const encounter = await oystehr.fhir.get<Encounter>({
-    resourceType: 'Encounter',
-    id: encounterID,
-  });
+
+  if (!encounter) {
+    throw new Error(`Encounter ID ${encounterID} not found`);
+  }
+
   const encounterId = assertDefined(encounter.id, 'encounter.id');
   const patientId = assertDefined(encounter.subject?.reference?.split('/')[1], 'patientId');
   const requests: BatchInputPostRequest<DocumentReference | Observation | Condition>[] = [];
@@ -292,13 +347,13 @@ Only suggest diagnoses that are supported by the clinical information provided. 
 }
 
 export async function generateIcdTenCodesFromNotes(
+  aiClient: BaseChatModel,
   hpiText: string | undefined,
-  mdmText: string | undefined,
-  secrets: Secrets | null
+  mdmText: string | undefined
 ): Promise<{ diagnosis: string; icd10: string }[]> {
   try {
     const prompt = getIcdTenCodesPrompt(hpiText, mdmText);
-    const aiResponseString = (await invokeChatbot([{ role: 'user', content: prompt }], secrets)).content.toString();
+    const aiResponseString = (await aiClient.invoke([{ role: 'user', content: prompt }])).content.toString();
 
     console.log(`AI ICD-10 codes response: "${aiResponseString}"`);
     let aiResponse;

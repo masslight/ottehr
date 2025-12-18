@@ -1,0 +1,39 @@
+{
+  "fullUrl": "urn:uuid:List-63f9b997-b92d-41dc-8964-1c6f3143ccba",
+  "request": {
+    "method": "POST",
+    "url": "/List"
+  },
+  "resource": {
+    "resourceType": "List",
+    "status": "current",
+    "mode": "working",
+    "title": "visit-notes",
+    "code": {
+      "coding": [
+        {
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+          "code": "patient-docs-folder",
+          "display": "Visit Notes"
+        }
+      ]
+    },
+    "subject": {
+      "reference": "urn:uuid:Patient-a86026cf-6773-4704-b2fe-1a14976a388f"
+    },
+    "identifier": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+              "code": "UDI",
+              "display": "Universal Device Identifier"
+            }
+          ]
+        },
+        "value": "visit-notes"
+      }
+    ]
+  }
+}

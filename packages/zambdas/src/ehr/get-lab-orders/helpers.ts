@@ -6,6 +6,7 @@ import {
   Bundle,
   BundleEntry,
   Coding,
+  Communication,
   DiagnosticReport,
   DocumentReference,
   Encounter,
@@ -33,6 +34,8 @@ import {
   docRefIsAbnAndCurrent,
   docRefIsOrderPDFAndCurrent,
   EMPTY_PAGINATION,
+  EXTERNAL_LAB_ERROR,
+  ExternalLabCommunications,
   ExternalLabDocuments,
   externalLabOrderIsManual,
   ExternalLabsStatus,
@@ -43,6 +46,8 @@ import {
   getOrderNumberFromDr,
   isPositiveNumberOrZero,
   LAB_DR_TYPE_TAG,
+  LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
+  LAB_ORDER_LEVEL_NOTE_CATEGORY,
   LAB_ORDER_TASK,
   LabDocumentRelatedToDiagnosticReport,
   LabDrTypeTagCode,
@@ -53,6 +58,7 @@ import {
   LabOrderResultDetails,
   LabOrdersSearchBy,
   LabOrderUnreceivedHistoryRow,
+  LABS_COMMUNICATION_CATEGORY_SYSTEM,
   LabType,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
@@ -105,6 +111,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   labDocuments: ExternalLabDocuments | undefined,
   specimens: Specimen[],
   appointmentScheduleMap: Record<string, Schedule>,
+  communications: ExternalLabCommunications | undefined,
   ENVIRONMENT: string
 ): LabOrderDTO<SearchBy>[] => {
   console.log('mapResourcesToLabOrderDTOs');
@@ -137,6 +144,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
           labDocuments,
           specimens,
           appointmentScheduleMap,
+          communications,
           cache,
         })
       );
@@ -154,6 +162,7 @@ export const mapResourcesToDrLabDTO = async (
 ): Promise<(ReflexLabDTO | PdfAttachmentDTO)[]> => {
   const reflexLabDTOs: ReflexLabDTO[] = [];
   const pdfAttachmentDTOs: PdfAttachmentDTO[] = [];
+  console.log('these are resourcesByDr in mapResourcesToDrLabDTO', JSON.stringify(resourcesByDr));
   const resourcesForDiagnosticReport = Object.values(resourcesByDr);
   for (const resources of resourcesForDiagnosticReport) {
     const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(resources, token);
@@ -195,6 +204,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   labDocuments,
   specimens,
   appointmentScheduleMap,
+  communications,
   cache,
 }: {
   searchBy: SearchBy;
@@ -211,6 +221,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   labDocuments: ExternalLabDocuments | undefined;
   specimens: Specimen[];
   appointmentScheduleMap: Record<string, Schedule>;
+  communications: ExternalLabCommunications | undefined;
   cache?: Cache;
 }): LabOrderDTO<SearchBy> => {
   console.log('parsing external lab order data');
@@ -235,6 +246,10 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     requisitionNumber && labDocuments?.orderPDFsByRequisitionNumber
       ? labDocuments?.orderPDFsByRequisitionNumber[requisitionNumber]?.presignedURL
       : undefined;
+  const { orderLevelNoteByUser, clinicalInfoNoteByUser } = parseLabCommunicationsForServiceRequest(
+    communications,
+    serviceRequest
+  );
 
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
@@ -256,6 +271,8 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     abnPdfUrl,
     orderPdfUrl,
     location: parseLocation(serviceRequest, locations),
+    orderLevelNoteByUser,
+    clinicalInfoNoteByUser,
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -511,6 +528,7 @@ export const getLabResources = async (
   specimens: Specimen[];
   patientLabItems: PatientLabItem[];
   appointmentScheduleMap: Record<string, Schedule>;
+  communications: ExternalLabCommunications | undefined;
 }> => {
   // does not include the location on the SR
   const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
@@ -555,7 +573,8 @@ export const getLabResources = async (
           | Appointment
           | Schedule
           | Slot
-          | Specimen => Boolean(res)
+          | Specimen
+          | Communication => Boolean(res)
       ) || [];
 
   const {
@@ -572,6 +591,7 @@ export const getLabResources = async (
     documentReferences,
     appointments,
     appointmentScheduleMap,
+    communications,
   } = extractLabResources(labResources);
 
   // todo labs team
@@ -657,6 +677,7 @@ export const getLabResources = async (
     pagination,
     patientLabItems,
     appointmentScheduleMap,
+    communications,
   };
 };
 
@@ -743,6 +764,12 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: '_revinclude:iterate',
       value: 'DocumentReference:related',
     });
+
+    // order level note
+    searchParams.push({
+      name: '_revinclude',
+      value: 'Communication:based-on',
+    });
   }
 
   // tracking board case
@@ -793,6 +820,12 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: '_revinclude:iterate',
       value: 'DocumentReference:related',
     });
+
+    // clinical info notes
+    searchParams.push({
+      name: '_revinclude',
+      value: 'Communication:based-on',
+    });
   }
 
   if (visitDate) {
@@ -821,6 +854,7 @@ export const extractLabResources = (
     | Appointment
     | Schedule
     | Slot
+    | Communication
   )[]
 ): {
   serviceRequests: ServiceRequest[];
@@ -836,6 +870,7 @@ export const extractLabResources = (
   documentReferences: DocumentReference[];
   appointments: Appointment[];
   appointmentScheduleMap: Record<string, Schedule>;
+  communications: ExternalLabCommunications | undefined;
 } => {
   console.log('extracting lab resources');
   console.log(`${resources.length} resources total`);
@@ -855,6 +890,8 @@ export const extractLabResources = (
   const slots: Slot[] = [];
   const scheduleMap: Record<string, Schedule> = {};
   const appointmentScheduleMap: Record<string, Schedule> = {};
+  const orderLevelNotesByUser: Communication[] = [];
+  const clinicalInfoNotesByUser: Communication[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -894,6 +931,10 @@ export const extractLabResources = (
       if (scheduleId && !scheduleMap[scheduleId]) {
         scheduleMap[scheduleId] = resource;
       }
+    } else if (resource.resourceType === 'Communication') {
+      const labCommType = labOrderCommunicationType(resource);
+      if (labCommType === 'order-level-note') orderLevelNotesByUser.push(resource);
+      if (labCommType === 'clinical-info-note') clinicalInfoNotesByUser.push(resource);
     }
   }
 
@@ -911,6 +952,14 @@ export const extractLabResources = (
     }
   }
 
+  let communications: ExternalLabCommunications | undefined;
+  if (orderLevelNotesByUser.length > 0 || clinicalInfoNotesByUser.length > 0) {
+    communications = {
+      orderLevelNotesByUser,
+      clinicalInfoNotesByUser,
+    };
+  }
+
   return {
     serviceRequests,
     tasks,
@@ -925,6 +974,7 @@ export const extractLabResources = (
     documentReferences,
     appointments,
     appointmentScheduleMap,
+    communications,
   };
 };
 
@@ -993,7 +1043,13 @@ export const checkForDiagnosticReportDrivenResults = async (
       })
     ).unbundle();
     if (resourceSearch.length) {
-      return groupResourcesByDr(resourceSearch);
+      console.log(
+        'These were the DR driven resource ids we got back: ',
+        resourceSearch.map((resource) => `${resource.resourceType}/${resource.id}`)
+      );
+      const drGroupedResources = groupResourcesByDr(resourceSearch);
+      console.log('got grouped dr resources');
+      return drGroupedResources;
     } else {
       return;
     }
@@ -1003,7 +1059,7 @@ export const checkForDiagnosticReportDrivenResults = async (
       JSON.stringify(error, null, 2)
     );
     await sendErrors(error, environment);
-    return;
+    throw EXTERNAL_LAB_ERROR('Reflex result search failed');
   }
 };
 
@@ -2553,4 +2609,70 @@ const parseLocation = (serviceRequest: ServiceRequest, locations: Location[]): L
 
   console.log(`parsed location from ServiceRequest/${serviceRequest.id}: ${location?.id}`);
   return location;
+};
+
+export const labOrderCommunicationType = (
+  communication: Communication
+): 'order-level-note' | 'clinical-info-note' | undefined => {
+  let commType = undefined;
+  communication.category?.forEach(
+    (cat) =>
+      cat.coding?.forEach((code) => {
+        if (code.system === LABS_COMMUNICATION_CATEGORY_SYSTEM) {
+          if (code.code === LAB_ORDER_LEVEL_NOTE_CATEGORY.code) {
+            commType = 'order-level-note';
+          }
+          if (code.code === LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.code) {
+            commType = 'clinical-info-note';
+          }
+        }
+      })
+  );
+  return commType;
+};
+
+type CommunicationNotes = { orderLevelNoteByUser: string | undefined; clinicalInfoNoteByUser: string | undefined };
+const parseLabCommunicationsForServiceRequest = (
+  communications: ExternalLabCommunications | undefined,
+  serviceRequest: ServiceRequest
+): CommunicationNotes => {
+  const notes: CommunicationNotes = { orderLevelNoteByUser: undefined, clinicalInfoNoteByUser: undefined };
+  if (!communications) return notes;
+  const { orderLevelNotesByUser, clinicalInfoNotesByUser } = communications;
+  const srReference = `ServiceRequest/${serviceRequest.id}`;
+  notes.orderLevelNoteByUser = getContentStringFromCommForSr(
+    orderLevelNotesByUser,
+    LAB_ORDER_LEVEL_NOTE_CATEGORY.code,
+    srReference
+  );
+  notes.clinicalInfoNoteByUser = getContentStringFromCommForSr(
+    clinicalInfoNotesByUser,
+    LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY.code,
+    srReference
+  );
+
+  return notes;
+};
+
+const getContentStringFromCommForSr = (
+  communications: Communication[],
+  communicationCode: string,
+  serviceRequestRef: string
+): string | undefined => {
+  console.log('parsing', communicationCode, 'from', communications);
+  const filteredCommunications = communications?.filter(
+    (comm) =>
+      comm.category?.find(
+        (cat) =>
+          cat.coding?.find(
+            (code) => code.system === LABS_COMMUNICATION_CATEGORY_SYSTEM && code.code === communicationCode
+          )
+      ) && comm.basedOn?.some((ref) => ref.reference === serviceRequestRef)
+  );
+  if (filteredCommunications.length === 0) return;
+  const contentStrings = filteredCommunications
+    .flatMap((comm) => (comm.payload ?? []).map((p) => p.contentString))
+    .filter(Boolean);
+  if (contentStrings.length === 0) return;
+  return contentStrings.join('; ');
 };

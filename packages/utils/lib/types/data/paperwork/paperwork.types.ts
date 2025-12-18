@@ -1,10 +1,10 @@
 import {
-  FhirResource,
   QuestionnaireItem,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
+import z from 'zod';
 import { AvailableLocationInformation, FileURLs, PatientBaseInfo } from '../../common';
 import { PaperworkResponse } from '../paperwork.types';
 import type { VisitType } from '../telemed/appointments/create-appointment.types';
@@ -49,16 +49,18 @@ const QuestionnaireDataTypes = [
   'Image',
   'PDF',
   'Payment Validation',
+  'Medical History',
   'Call Out',
   'SSN',
 ] as const;
-export type QuestionnaireDataType = (typeof QuestionnaireDataTypes)[number];
+export const QuestionnaireDataTypeSchema = z.enum(QuestionnaireDataTypes);
+export type QuestionnaireDataType = typeof QuestionnaireDataTypeSchema._type;
 export const validateQuestionnaireDataType = (str: any): QuestionnaireDataType | undefined => {
   if (str === undefined) {
     return undefined;
   }
   if (typeof str === 'string') {
-    return QuestionnaireDataTypes.includes(str as QuestionnaireDataType) ? (str as QuestionnaireDataType) : undefined;
+    return QuestionnaireDataTypeSchema.safeParse(str).data;
   }
   return undefined;
 };
@@ -75,10 +77,162 @@ export enum QuestionnaireItemGroupType {
   CreditCardCollection = 'credit-card-collection',
 }
 
-export interface AnswerOptionSource {
-  resourceType: FhirResource['resourceType'];
-  query: string;
-}
+export const FhirResourceTypeSchema = z.enum([
+  'Account',
+  'ActivityDefinition',
+  'AdministrableProductDefinition',
+  'AdverseEvent',
+  'AllergyIntolerance',
+  'Appointment',
+  'AppointmentResponse',
+  'AuditEvent',
+  'Basic',
+  'Binary',
+  'BiologicallyDerivedProduct',
+  'BodyStructure',
+  'Bundle',
+  'CapabilityStatement',
+  'CarePlan',
+  'CareTeam',
+  'CatalogEntry',
+  'ChargeItem',
+  'ChargeItemDefinition',
+  'Citation',
+  'Claim',
+  'ClaimResponse',
+  'ClinicalImpression',
+  'ClinicalUseDefinition',
+  'CodeSystem',
+  'Communication',
+  'CommunicationRequest',
+  'CompartmentDefinition',
+  'Composition',
+  'ConceptMap',
+  'Condition',
+  'Consent',
+  'Contract',
+  'Coverage',
+  'CoverageEligibilityRequest',
+  'CoverageEligibilityResponse',
+  'DetectedIssue',
+  'Device',
+  'DeviceDefinition',
+  'DeviceMetric',
+  'DeviceRequest',
+  'DeviceUseStatement',
+  'DiagnosticReport',
+  'DocumentManifest',
+  'DocumentReference',
+  'Encounter',
+  'Endpoint',
+  'EnrollmentRequest',
+  'EnrollmentResponse',
+  'EpisodeOfCare',
+  'EventDefinition',
+  'Evidence',
+  'EvidenceReport',
+  'EvidenceVariable',
+  'ExampleScenario',
+  'ExplanationOfBenefit',
+  'FamilyMemberHistory',
+  'Flag',
+  'Goal',
+  'GraphDefinition',
+  'Group',
+  'GuidanceResponse',
+  'HealthcareService',
+  'ImagingStudy',
+  'Immunization',
+  'ImmunizationEvaluation',
+  'ImmunizationRecommendation',
+  'ImplementationGuide',
+  'Ingredient',
+  'InsurancePlan',
+  'Invoice',
+  'Library',
+  'Linkage',
+  'List',
+  'Location',
+  'ManufacturedItemDefinition',
+  'Measure',
+  'MeasureReport',
+  'Media',
+  'Medication',
+  'MedicationAdministration',
+  'MedicationDispense',
+  'MedicationKnowledge',
+  'MedicationRequest',
+  'MedicationStatement',
+  'MedicinalProductDefinition',
+  'MessageDefinition',
+  'MessageHeader',
+  'MolecularSequence',
+  'NamingSystem',
+  'NutritionOrder',
+  'NutritionProduct',
+  'Observation',
+  'ObservationDefinition',
+  'OperationDefinition',
+  'OperationOutcome',
+  'Organization',
+  'OrganizationAffiliation',
+  'PackagedProductDefinition',
+  'Parameters',
+  'Patient',
+  'PaymentNotice',
+  'PaymentReconciliation',
+  'Person',
+  'PlanDefinition',
+  'Practitioner',
+  'PractitionerRole',
+  'Procedure',
+  'Provenance',
+  'Questionnaire',
+  'QuestionnaireResponse',
+  'RegulatedAuthorization',
+  'RelatedPerson',
+  'RequestGroup',
+  'ResearchDefinition',
+  'ResearchElementDefinition',
+  'ResearchStudy',
+  'ResearchSubject',
+  'RiskAssessment',
+  'Schedule',
+  'SearchParameter',
+  'ServiceRequest',
+  'Slot',
+  'Specimen',
+  'SpecimenDefinition',
+  'StructureDefinition',
+  'StructureMap',
+  'Subscription',
+  'SubscriptionStatus',
+  'SubscriptionTopic',
+  'Substance',
+  'SubstanceDefinition',
+  'SupplyDelivery',
+  'SupplyRequest',
+  'Task',
+  'TerminologyCapabilities',
+  'TestReport',
+  'TestScript',
+  'ValueSet',
+  'VerificationResult',
+  'VisionPrescription',
+]);
+/*
+  Prepended Identifier: when included, the identifier value with a system matching the prependedIdentifier
+  will be prepended to the display name of the returned resource, separated by ' - '
+  for example, if prependedIdentifier is {system_for_NPIs} and the resourceType is Practitioner, 
+  // the returned display name will be '{NPI_value} - {practitioner_name}'
+
+*/
+export const AnswerOptionSourceSchema = z.object({
+  resourceType: FhirResourceTypeSchema,
+  query: z.string(),
+  prependedIdentifier: z.string().optional(),
+});
+export type AnswerOptionSource = z.infer<typeof AnswerOptionSourceSchema>;
 
 export interface AnswerLoadingOptions {
   strategy: 'prefetch' | 'dynamic';
@@ -104,7 +258,7 @@ export interface QuestionnaireItemExtension {
   preferredElement?: FormElement;
   requireWhen?: QuestionnaireItemConditionDefinition;
   secondaryInfoText?: string;
-  textWhen?: QuestionnaireItemTextWhen;
+  textWhen?: QuestionnaireItemTextWhen[];
   validateAgeOver?: number;
   complexValidation?: {
     type: string; // only 'insurance validation' is supported out of the box right now, but defining this as string to allow for easy customization for other use cases

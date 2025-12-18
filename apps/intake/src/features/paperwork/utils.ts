@@ -41,6 +41,9 @@ const inputTypeForBoolean = (item: IntakeQuestionnaireItem): FormItemType => {
   if (item.dataType === 'Payment Validation') {
     return 'Credit Card';
   }
+  if (item.dataType === 'Medical History') {
+    return 'Medical History';
+  }
   if (item.preferredElement === 'Button') {
     return 'Button';
   }

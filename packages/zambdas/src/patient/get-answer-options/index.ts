@@ -59,7 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<QuestionnaireItemAnswerOption[]> => {
   const { type } = input;
   if (type === 'query') {
-    const { resourceType, query } = input.answerSource;
+    const { resourceType, query, prependedIdentifier } = input.answerSource;
     const paramsObject = new URLSearchParams(query);
     let offset = 0;
     const params = [
@@ -108,7 +108,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Ques
     const mappedResults = results
       .map((result) => {
         try {
-          return formatQueryResult(result, resourceType);
+          return formatQueryResult(result, resourceType, prependedIdentifier);
         } catch (e) {
           if (isApiError(e)) {
             error = e as APIError;
@@ -121,8 +121,8 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Ques
       throw error;
     }
     return mappedResults.sort((r1, r2) => {
-      const r1Val = r1.valueReference?.display ?? '';
-      const r2Val = r2.valueReference?.display ?? '';
+      const r1Val = r1.valueReference?.display?.split(' - ')[1] ?? r1.valueReference?.display ?? '';
+      const r2Val = r2.valueReference?.display?.split(' - ')[1] ?? r2.valueReference?.display ?? '';
 
       return r1Val.localeCompare(r2Val);
     });
@@ -132,8 +132,24 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Ques
   }
 };
 
-const formatQueryResult = (result: any, resourceType: FhirResource['resourceType']): QuestionnaireItemAnswerOption => {
-  const name = resourceType === 'Organization' ? result.alias?.[0] || result.name : result.name;
+const formatQueryResult = (
+  result: any,
+  resourceType: FhirResource['resourceType'],
+  prependedIdentifier?: string
+): QuestionnaireItemAnswerOption => {
+  let name = resourceType === 'Organization' ? result.alias?.[0] || result.name : result.name;
+  console.log('prependedIdentifier:', prependedIdentifier);
+  if (prependedIdentifier) {
+    const identifierValue = result.identifier?.find((id: any) => {
+      return (
+        id.system === prependedIdentifier ||
+        id.type?.coding?.some((coding: any) => coding.system === prependedIdentifier)
+      );
+    })?.value;
+    if (identifierValue) {
+      name = `${identifierValue} - ${name}`;
+    }
+  }
   if (name && result.id && typeof name === 'string' && typeof result.id === 'string') {
     return {
       valueReference: {
@@ -162,6 +178,11 @@ const validateInput = (input: ZambdaInput): EffectInput => {
     }
     if (!query) {
       throw MALFORMED_GET_ANSWER_OPTIONS_INPUT('"answerSource" must contain a "query" property');
+    }
+    if (answerSource.prependedIdentifier && typeof answerSource.prependedIdentifier !== 'string') {
+      throw MALFORMED_GET_ANSWER_OPTIONS_INPUT(
+        '"answerSource.prependedIdentifier" property must be a string if provided'
+      );
     }
     return { type: 'query', answerSource };
   } else if (valueSet) {

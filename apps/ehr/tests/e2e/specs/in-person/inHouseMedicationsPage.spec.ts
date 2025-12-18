@@ -15,38 +15,86 @@ import {
   OrderMedicationPage,
 } from '../../page/OrderMedicationPage';
 
+// Get all medication keys from JSON config
+function getAllMedicationKeys(): string[] {
+  const config = InHouseMedicationsConfig as any;
+  return Object.keys(config?.fhirResources || {});
+}
+
+// Helper function to safely get medication identifier value by key
+function getMedicationIdentifierByKey(medicationKey: string): string {
+  const config = InHouseMedicationsConfig as any;
+
+  if (!config?.fhirResources?.[medicationKey]?.resource?.identifier) {
+    throw new Error(`Medication ${medicationKey} not found or invalid structure in InHouseMedicationsConfig`);
+  }
+
+  const identifier = config.fhirResources[medicationKey].resource.identifier.find(
+    (id: { system: string; value: string }) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
+  );
+
+  if (!identifier?.value) {
+    throw new Error(
+      `Identifier with system '${MEDICATION_IDENTIFIER_NAME_SYSTEM}' not found for medication ${medicationKey}`
+    );
+  }
+
+  return identifier.value;
+}
+
+// Round-robin selector for unique medication identifiers
+class MedicationSelector {
+  private keys: string[];
+  private currentIndex = 0;
+
+  constructor() {
+    this.keys = getAllMedicationKeys();
+    if (this.keys.length === 0) {
+      throw new Error('No medications found in InHouseMedicationsConfig');
+    }
+  }
+
+  // Get next unique medication identifier (cycles through all medications)
+  next(): string {
+    const key = this.keys[this.currentIndex];
+    this.currentIndex = (this.currentIndex + 1) % this.keys.length;
+    return getMedicationIdentifierByKey(key);
+  }
+
+  // Get multiple unique medication identifiers
+  getUnique(count: number): string[] {
+    if (count > this.keys.length) {
+      throw new Error(`Requested ${count} unique medications, but only ${this.keys.length} available in config`);
+    }
+    const result: string[] = [];
+    for (let i = 0; i < count; i++) {
+      result.push(this.next());
+    }
+    return result;
+  }
+}
+
+// Create selector instance and get unique medications for test variables
+const medicationSelector = new MedicationSelector();
+const [
+  MEDICATION,
+  MEDICATION_FOR_ADMINISTERED,
+  MEDICATION_FOR_PARTLY_ADMINISTERED,
+  MEDICATION_FOR_NOT_ADMINISTERED,
+  NEW_MEDICATION,
+] = medicationSelector.getUnique(5);
+
 const PROCESS_ID = `inHouseMedicationsPage.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 
 // cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
-const MEDICATION =
-  InHouseMedicationsConfig.fhirResources.MEDICATION_ACETAMINOPHEN_80mg_SUPPOSITORY.resource.identifier.find(
-    (coding) => coding.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-  )?.value || '';
-const MEDICATION_FOR_ADMINISTERED =
-  InHouseMedicationsConfig.fhirResources.MEDICATION_ALBUTEROL.resource.identifier.find(
-    (coding) => coding.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-  )?.value || '';
-const MEDICATION_FOR_PARTLY_ADMINISTERED =
-  InHouseMedicationsConfig.fhirResources.MEDICATION_AMOXICILLIN.resource.identifier.find(
-    (coding) => coding.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-  )?.value || '';
-const MEDICATION_FOR_NOT_ADMINISTERED =
-  InHouseMedicationsConfig.fhirResources.MEDICATION_VENTOLIN_HFA.resource.identifier.find(
-    (coding) => coding.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-  )?.value || '';
 
 const DOSE = '2';
 const UNITS = 'mg';
 const MANUFACTURER = 'Test';
 const ROUTE = 'Sublingual route';
 const INSTRUCTIONS = 'Instructions';
-
-const NEW_MEDICATION =
-  InHouseMedicationsConfig.fhirResources.MEDICATION_ACETAMINOPHEN_325mg_SUPPOSITORY.resource.identifier.find(
-    (coding) => coding.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-  )?.value || '';
 const NEW_DOSE = '1';
 const NEW_UNITS = 'g';
 const NEW_MANUFACTURER = 'Edited test';
@@ -156,6 +204,7 @@ test('In-house medications page', async () => {
 
   await test.step('Verify order data is displayed correctly in medication details tab', async () => {
     medicationsPage = await editOrderPage.clickBackButton();
+
     await medicationsPage.verifyMedicationPresent({
       medicationName: MEDICATION,
       dose: DOSE,
@@ -164,6 +213,7 @@ test('In-house medications page', async () => {
       instructions: INSTRUCTIONS,
       status: STATUS,
     });
+
     await medicationsPage.clickMedicationDetailsTab();
     await medicationsPage.medicationDetails().verifyAssociatedDx(DIAGNOSIS);
     await medicationsPage.medicationDetails().verifyMedication(MEDICATION);
@@ -201,6 +251,7 @@ test('In-house medications page', async () => {
     await editOrderPage.editMedicationCard.verifyInstructions(NEW_INSTRUCTIONS);
 
     medicationsPage = await editOrderPage.clickBackButton();
+
     await medicationsPage.verifyMedicationPresent({
       medicationName: NEW_MEDICATION,
       dose: NEW_DOSE,
@@ -211,6 +262,7 @@ test('In-house medications page', async () => {
     });
 
     const progressNotePage = await medicationsPage.sideMenu().clickReviewAndSign();
+
     await progressNotePage.verifyInHouseMedication({
       medication: NEW_MEDICATION,
       dose: NEW_DOSE,
@@ -227,6 +279,7 @@ test('In-house medications page', async () => {
     await deleteDialog.verifyTitle('Delete Medication');
     await deleteDialog.verifyMessage('Are you sure you want to delete the medication ' + '"' + NEW_MEDICATION + '"?');
     await deleteDialog.clickProceedButton();
+
     await inHouseMedicationsPage.verifyMedicationPresent({
       medicationName: NEW_MEDICATION,
       dose: NEW_DOSE,
@@ -248,17 +301,21 @@ test('Making in-house medication order Administered happy path', async () => {
   const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickAdministeredButton();
   await administrationConfirmationDialog.verifyTitle('Medication Administered');
   await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
+
   await administrationConfirmationDialog.verifyMedication({
     medication: MEDICATION_FOR_ADMINISTERED,
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
   });
+
   await administrationConfirmationDialog.verifyMessage(
     'Please confirm that you want to mark this medication order as Administered.'
   );
+
   await administrationConfirmationDialog.clickMarkAsAdministeredButton();
   const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
+
   await inHouseMedicationsPage.verifyMedicationPresent({
     medicationName: MEDICATION_FOR_ADMINISTERED,
     dose: DOSE,
@@ -269,7 +326,9 @@ test('Making in-house medication order Administered happy path', async () => {
     instructions: INSTRUCTIONS,
     status: ADMINISTERED,
   });
+
   const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
+
   await inHouseMedicationsPage.verifyMedicationInMedicationHistoryTable({
     medication: MEDICATION_FOR_ADMINISTERED,
     dose: DOSE,
@@ -277,7 +336,9 @@ test('Making in-house medication order Administered happy path', async () => {
     type: 'In-house medication',
     whoAdded: getLastName(testUserPractitioner) + ', ' + getFirstName(testUserPractitioner),
   });
+
   const progressNotePage = await medicationsPage.sideMenu().clickReviewAndSign();
+
   await progressNotePage.verifyInHouseMedication({
     medication: MEDICATION_FOR_ADMINISTERED,
     dose: DOSE,
@@ -298,18 +359,22 @@ test('Making in-house medication order Partly Administered happy path', async ()
   const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickPartlyAdministeredButton();
   await administrationConfirmationDialog.verifyTitle('Medication Partly Administered');
   await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
+
   await administrationConfirmationDialog.verifyMedication({
     medication: MEDICATION_FOR_PARTLY_ADMINISTERED,
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
   });
+
   await administrationConfirmationDialog.verifyMessage(
     'Please confirm that you want to mark this medication order as Partly Administered and select the reason.'
   );
+
   await administrationConfirmationDialog.selectReason(PATIENT_REFUSED);
   await administrationConfirmationDialog.clickMarkAsAdministeredButton();
   const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
+
   await inHouseMedicationsPage.verifyMedicationPresent({
     medicationName: MEDICATION_FOR_PARTLY_ADMINISTERED,
     dose: DOSE,
@@ -321,7 +386,19 @@ test('Making in-house medication order Partly Administered happy path', async ()
     status: PARTLY_ADMINISTERED,
     reason: PATIENT_REFUSED,
   });
+
+  const testUserPractitioner = (await resourceHandler.getTestsUserAndPractitioner()).practitioner;
+
+  await inHouseMedicationsPage.verifyMedicationInMedicationHistoryTable({
+    medication: MEDICATION_FOR_PARTLY_ADMINISTERED,
+    dose: DOSE,
+    units: UNITS,
+    type: 'In-house medication',
+    whoAdded: getLastName(testUserPractitioner) + ', ' + getFirstName(testUserPractitioner),
+  });
+
   const progressNotePage = await medicationsPage.sideMenu().clickReviewAndSign();
+
   await progressNotePage.verifyInHouseMedication({
     medication: MEDICATION_FOR_PARTLY_ADMINISTERED,
     dose: DOSE,
@@ -342,18 +419,22 @@ test('Making in-house medication order Not Administered happy path', async () =>
   const administrationConfirmationDialog = await medicationsPage.medicationDetails().clickNotAdministeredButton();
   await administrationConfirmationDialog.verifyTitle('Medication Not Administered');
   await administrationConfirmationDialog.verifyPatientName(resourceHandler.patient);
+
   await administrationConfirmationDialog.verifyMedication({
     medication: MEDICATION_FOR_NOT_ADMINISTERED,
     dose: DOSE,
     units: UNITS,
     route: ROUTE,
   });
+
   await administrationConfirmationDialog.verifyMessage(
     'Please confirm that you want to mark this medication order as Not Administered and select the reason.'
   );
+
   await administrationConfirmationDialog.selectReason(PATIENT_REFUSED);
   await administrationConfirmationDialog.clickMarkAsAdministeredButton();
   const inHouseMedicationsPage = await medicationsPage.sideMenu().clickInHouseMedications();
+
   await inHouseMedicationsPage.verifyMedicationPresent({
     medicationName: MEDICATION_FOR_NOT_ADMINISTERED,
     dose: DOSE,
@@ -365,7 +446,9 @@ test('Making in-house medication order Not Administered happy path', async () =>
     status: NOT_ADMINISTERED,
     reason: PATIENT_REFUSED,
   });
+
   const progressNotePage = await medicationsPage.sideMenu().clickReviewAndSign();
+
   await progressNotePage.verifyInHouseMedication({
     medication: MEDICATION_FOR_NOT_ADMINISTERED,
     dose: DOSE,

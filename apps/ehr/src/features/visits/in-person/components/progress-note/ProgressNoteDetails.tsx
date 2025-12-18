@@ -18,6 +18,7 @@ import { CPTCodesContainer } from 'src/features/visits/shared/components/review-
 import { EMCodeContainer } from 'src/features/visits/shared/components/review-tab/components/EMCodeContainer';
 import { ExaminationContainer } from 'src/features/visits/shared/components/review-tab/components/ExaminationContainer';
 import { HistoryOfPresentIllnessContainer } from 'src/features/visits/shared/components/review-tab/components/HistoryOfPresentIllnessContainer';
+import { MechanismOfInjuryContainer } from 'src/features/visits/shared/components/review-tab/components/MechanismOfInjuryContainer';
 import { MedicalConditionsContainer } from 'src/features/visits/shared/components/review-tab/components/MedicalConditionsContainer';
 import { MedicalDecisionMakingContainer } from 'src/features/visits/shared/components/review-tab/components/MedicalDecisionMakingContainer';
 import { MedicationsContainer } from 'src/features/visits/shared/components/review-tab/components/MedicationsContainer';
@@ -94,6 +95,7 @@ export const ProgressNoteDetails: FC = () => {
   const externalLabResults = chartFields?.externalLabResults;
   const inHouseLabResults = chartFields?.inHouseLabResults;
   const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
+  const mechanismOfInjury = chartFields?.mechanismOfInjury?.text;
   const hpi = chartFields?.chiefComplaint?.text;
   const ros = chartFields?.ros?.text;
 
@@ -103,6 +105,7 @@ export const ProgressNoteDetails: FC = () => {
   const observations = chartData?.observations;
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
+  const showMechanismOfInjury = !!(mechanismOfInjury && mechanismOfInjury.length > 0);
   const showHpi = !!(hpi && hpi.length > 0);
   const showReviewOfSystems = !!(ros && ros.length > 0);
   const showAdditionalQuestions =
@@ -149,6 +152,7 @@ export const ProgressNoteDetails: FC = () => {
   const sections = [
     showChiefComplaint && <ChiefComplaintContainer />,
     showHpi && <HistoryOfPresentIllnessContainer />,
+    showMechanismOfInjury && <MechanismOfInjuryContainer />,
     showReviewOfSystems && <ReviewOfSystemsContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer notes={screeningNotes} />,
     showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,

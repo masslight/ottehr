@@ -174,6 +174,9 @@ function composeDataForPdf(
   const chiefComplaint = chartData.chiefComplaint?.text;
   const spentTime = chartData.addToVisitNote?.value ? getSpentTime(encounter.statusHistory) : undefined;
 
+  // --- Mechanism of injury ---
+  const mechanismOfInjury = chartData.mechanismOfInjury?.text;
+
   // --- Review of system ---
   const reviewOfSystems = chartData.ros?.text;
 
@@ -282,8 +285,7 @@ function composeDataForPdf(
   const otherDiagnoses = diagnoses.filter((item) => !item.isPrimary).map((item) => item.display);
 
   // --- MDM ---
-  // const medicalDecision = additionalChartData?.medicalDecision?.text;
-  const medicalDecision = '';
+  const medicalDecision = additionalChartData?.medicalDecision?.text;
 
   // --- E&M ---
   const emCode = chartData?.emCode?.display;
@@ -379,6 +381,7 @@ function composeDataForPdf(
     insuranceSubscriberId: subscriberID,
     address: address ?? '',
     chiefComplaint: chiefComplaint,
+    mechanismOfInjury: mechanismOfInjury,
     providerTimeSpan: spentTime,
     reviewOfSystems: reviewOfSystems,
     medications,
