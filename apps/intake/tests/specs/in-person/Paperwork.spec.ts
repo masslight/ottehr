@@ -146,13 +146,13 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
     });
 
     // if you skip the previous step, this step will fail, so we have to skip it as well
-    test.skip('PPO-4. Go back and select insurance', async () => {
+    /*test('PPO-4. Go back and select insurance', async () => {
       await locator.clickBackButton();
       await paperwork.selectInsurancePayment();
       await locator.clickContinueButton();
       // won't navigate without insurance details. expect same page.
       await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
-    });
+    });*/
   });
 
   test('PPI. Primary insurance', async () => {
