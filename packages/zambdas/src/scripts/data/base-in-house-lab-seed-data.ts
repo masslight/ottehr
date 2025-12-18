@@ -717,9 +717,10 @@ export const testItems: TestItem[] = [
           },
           triggerAlert: 'Alcohol ≥ 0.02% requires a confirmation test',
           condition: {
-            description: 'BAC > 0.2',
+            description: 'BAC > 0.02',
             language: 'text/fhirpath',
-            expression: "%resource.code.coding.where(code = '82075').exists() and %resource.valueQuantity.value > 0.02",
+            expression:
+              "%resource.code.coding.where(code = '82075').exists() and %resource.valueQuantity.value >= 0.02",
           },
         },
       },
