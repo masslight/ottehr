@@ -53,10 +53,13 @@ export async function uploadObjectToZ3(fileBytes: Uint8Array, presignedUploadUrl
 
         console.log(`uploadObjectToZ3: Successfully uploaded on attempt ${currentAttempt}`);
         resolve();
-      } catch (error: any) {
-        console.info(`uploadObjectToZ3: Network error on attempt ${currentAttempt}:`, error.message);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.info(`uploadObjectToZ3: Network error on attempt ${currentAttempt}:`, errorMessage);
 
-        if (!operation.retry(error)) {
+        const errorObj = error instanceof Error ? error : new Error(String(error));
+
+        if (!operation.retry(errorObj)) {
           console.error(`uploadObjectToZ3: All ${currentAttempt} attempts failed with network errors`);
           reject(operation.mainError());
         }
