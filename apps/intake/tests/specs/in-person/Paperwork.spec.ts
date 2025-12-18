@@ -145,7 +145,7 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
       await paperwork.checkCorrectPageOpens('Credit card details');
     });
 
-    test('PPO-4. Go back and select insurance', async () => {
+    await test.step('PPO-4. Go back and select insurance', async () => {
       // if you skip the previous step, this step will fail, so we have to skip it as well
       // await locator.clickBackButton();
       await paperwork.selectInsurancePayment();
