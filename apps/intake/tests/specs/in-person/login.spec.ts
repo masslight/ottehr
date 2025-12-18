@@ -1,31 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { login } from 'test-utils';
 import { FillingInfo } from '../../utils/in-person/FillingInfo';
 
 test('Should open home page', async ({ page }) => {
   await page.goto('/home');
   await expect(page).toHaveURL('/home');
-});
-
-test.skip('Selecting slot and logging in', async ({ page, context }) => {
-  const logoutButton = page.locator('text=Logout');
-  await context.clearCookies();
-  const fillingInfo = new FillingInfo(page);
-  await page.goto(`/location/${process.env.STATE_ONE}/${process.env.SLUG_ONE}/prebook`);
-  if (await logoutButton.isVisible()) {
-    // Step 3: If the button is visible, click it
-    await logoutButton.click();
-    console.log('Logout button clicked');
-  } else {
-    console.log('Logout button not found');
-  }
-  await page.goto(`/location/${process.env.STATE_ONE}/${process.env.SLUG_ONE}/prebook`);
-  await fillingInfo.selectSlot();
-  const continueButton = page.getByRole('button', { name: 'Continue' });
-  await continueButton.click();
-  await login(page, process.env.PHONE_NUMBER, process.env.TEXT_USERNAME, process.env.TEXT_PASSWORD);
-  // await expect(page.getByText('Thanks for choosing')).toBeVisible();
-  console.log('Logged in!');
 });
 
 test('Should open patients page after sign in', async ({ page }) => {
