@@ -1,17 +1,111 @@
 import test, { expect } from '@playwright/test';
 import { shouldShowServiceCategorySelectionPage } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
-import { BaseTelemedFlow, PatientBasicInfo, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
+import { CancelPage } from '../CancelPage';
+import { TelemedPaperworkReturn } from '../Paperwork';
+import {
+  BaseTelemedFlow,
+  FilledPaperworkInput,
+  PatientBasicInfo,
+  SlotAndLocation,
+  StartVisitResponse,
+} from './BaseTelemedFlow';
 
-export class TelemedVisitFlow extends BaseTelemedFlow {
+export class WalkInTelemedFlow extends BaseTelemedFlow {
+  // flow steps:
+  // - click button
+  // - start visit by choosing patient
+  // - fill paperwork
+  // - complete booking
+  // - cancel appointment
+
   async clickVisitButton(): Promise<void> {
     const scheduleButton = this.page.getByTestId(dataTestIds.startVirtualVisitButton);
     await expect(scheduleButton).toBeVisible();
     await scheduleButton.click();
   }
+
+  async startVisitWithoutPaperwork(patient?: PatientBasicInfo): Promise<StartVisitResponse> {
+    await this.selectVisitAndContinue();
+    const slotAndLocation = await this.selectTimeLocationAndContinue();
+
+    let patientBasicInfo: PatientBasicInfo;
+    if (patient) {
+      // find and select existing patient
+      const patientName = this.page.getByRole('heading', {
+        name: new RegExp(`.*${patient.firstName} ${patient.lastName}.*`, 'i'),
+      });
+      await expect(patientName).toBeVisible();
+      await patientName.scrollIntoViewIfNeeded();
+      await patientName.click({ timeout: 40_000, noWaitAfter: true, force: true });
+      await this.locator.clickContinueButton();
+
+      // confirm dob
+      await this.fillingInfo.fillCorrectDOB(patient.dob.m, patient.dob.d, patient.dob.y);
+      await this.locator.clickContinueButton();
+
+      // select reason for visit
+      await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
+      await expect(this.locator.flowHeading).toHaveText('About the patient');
+      await this.fillingInfo.fillTelemedReasonForVisit();
+      await this.locator.continueButton.click();
+
+      patientBasicInfo = patient;
+    } else {
+      await this.locator.selectDifferentFamilyMember();
+      patientBasicInfo = await this.fillNewPatientDataAndContinue();
+    }
+    await this.locator.confirmWalkInButton.click();
+
+    await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
+    await expect(this.locator.flowHeading).toHaveText('Contact information');
+
+    const bookingURL = this.page.url();
+    console.log('Booking URL: ', bookingURL);
+    const match = bookingURL.match(/paperwork\/([0-9a-fA-F-]+)/);
+    const bookingUUID = match ? match[1] : null;
+
+    return {
+      patientBasicInfo,
+      slotAndLocation,
+      bookingURL,
+      bookingUUID,
+    };
+  }
+
+  /**
+   * If you pass in patientBasicInfo, it will validate a few extra steps by checking non-linear flow
+   */
+  async fillPaperwork({
+    patientBasicInfo,
+    payment,
+    responsibleParty,
+    requiredOnly,
+  }: FilledPaperworkInput): Promise<TelemedPaperworkReturn<typeof payment, typeof responsibleParty, boolean>> {
+    if (patientBasicInfo) {
+      await this.ValidatePatientInfo(patientBasicInfo);
+    }
+
+    return await this.paperworkGeneral.fillPaperworkTelemed({
+      payment,
+      responsibleParty,
+      requiredOnly: requiredOnly || false,
+    });
+  }
+
   async completeBooking(): Promise<void> {
     await this.locator.goToWaitingRoomButton.click();
+    await expect(this.page.getByText('Please wait, call will start automatically.')).toBeVisible({ timeout: 30000 });
   }
+
+  async cancelAppointment(): Promise<void> {
+    const cancelPage = new CancelPage(this.page);
+    await cancelPage.clickCancelButton();
+    await cancelPage.selectCancellationReason('virtual');
+  }
+
+  // ---------------------------------------------------------------------------
+
   async selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>> {
     // Optional step: service category selection for Virtual Visit Check-In (walk-in)
     if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'walk-in' })) {
@@ -29,79 +123,6 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     await this.continue();
 
     return { locationTitle: location?.split('Working hours')[0] };
-  }
-
-  async startVisitWithoutPaperwork(): Promise<StartVisitResponse> {
-    await this.selectVisitAndContinue();
-    const slotAndLocation = await this.selectTimeLocationAndContinue();
-    await this.selectDifferentFamilyMemberAndContinue();
-    const patientBasicInfo = await this.fillNewPatientDataAndContinue();
-    await this.locator.confirmWalkInButton.click();
-    await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
-    await expect(this.locator.flowHeading).toHaveText('Contact information');
-    const bookingURL = this.page.url();
-    console.log('Booking URL: ', bookingURL);
-    const match = bookingURL.match(/paperwork\/([0-9a-fA-F-]+)/);
-    const bookingUUID = match ? match[1] : null;
-    return {
-      patientBasicInfo,
-      slotAndLocation,
-      bookingURL,
-      bookingUUID,
-    };
-  }
-
-  async startVisitFullFlow(checkFlow = false): Promise<StartVisitResponse & { stateValue: string }> {
-    const { patientBasicInfo, slotAndLocation, bookingURL, bookingUUID } = await this.startVisitWithoutPaperwork();
-
-    if (checkFlow) {
-      // skip extra steps if not specifically requested to speed up flow
-      await this.ValidatePatientInfo(patientBasicInfo);
-    }
-
-    const { stateValue } = await this.paperworkGeneral.fillContactInformationRequiredFields();
-    await this.continue();
-    await this.paperworkGeneral.fillPatientDetailsTelemedAllFields();
-    await this.continue();
-    // Primary Care Physician screen here
-    await this.continue();
-    // Preferred pharmacy screen here
-    await this.continue();
-    await this.paperwork.fillAndCheckEmptyCurrentMedications();
-    await this.continue();
-    await this.paperwork.fillAndCheckEmptyCurrentAllergies();
-    await this.continue();
-    await this.paperwork.fillAndCheckEmptyMedicalHistory();
-    await this.continue();
-    await this.paperwork.fillAndCheckEmptySurgicalHistory();
-    await this.continue();
-    // Additional questions screen here
-    await this.continue();
-    await this.paperwork.fillAndCheckSelfPay();
-    await this.paperwork.fillAndAddCreditCard();
-    await this.continue();
-    await this.paperworkGeneral.fillResponsiblePartyDataSelf();
-    await this.continue();
-    // Photo ID screen here
-    await this.continue();
-    // Patient conditions screen here
-    await this.continue();
-    await this.paperwork.fillAndCheckSchoolWorkNoteAsNone();
-    await this.continue();
-    await this.paperwork.fillAndCheckConsentForms();
-    await this.continue();
-    await this.paperwork.fillAndCheckNoInviteParticipant();
-    await this.continue();
-    await this.completeBooking();
-    await expect(this.page.getByText('Please wait, call will start automatically.')).toBeVisible({ timeout: 30000 });
-    await this.page.waitForTimeout(1_000);
-    return {
-      slotAndLocation,
-      patientBasicInfo,
-      bookingURL,
-      bookingUUID,
-      stateValue,
-    };
   }
 
   async ValidatePatientInfo(patientBasicInfo: PatientBasicInfo): Promise<void> {
