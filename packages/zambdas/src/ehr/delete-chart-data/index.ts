@@ -210,8 +210,9 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     // 14. delete school-work excuse note DocumentReference resource
     schoolWorkNotes?.forEach((element) => {
       const documentReference = allResources.find((resource) => resource.id === element.id);
-      if (documentReference)
+      if (documentReference) {
         deleteOrUpdateRequests.push(deleteResourceRequest('DocumentReference', documentReference.id!));
+      }
     });
 
     // 15. delete notes
