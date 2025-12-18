@@ -3802,6 +3802,13 @@
             "linkId": "attorney-mva-page",
             "text": "Attorney for Motor Vehicle Accident",
             "type": "group",
+            "enableWhen": [
+              {
+                "question": "appointment-service-category",
+                "operator": "=",
+                "answerString": "urgent-care"
+              }
+            ],
             "item": [
               {
                 "linkId": "attorney-mva-has-attorney",

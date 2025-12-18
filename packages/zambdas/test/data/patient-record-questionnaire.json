@@ -2931,6 +2931,41 @@
       ]
     },
     {
+      "linkId": "attorney-mva-page",
+      "type": "group",
+      "text": "Attorney for Motor Vehicle Accident",
+      "item": [
+        { "linkId": "attorney-mva-firm", "type": "string", "text": "Firm", "required": false },
+        { "linkId": "attorney-mva-first-name", "type": "string", "text": "First name", "required": false },
+        { "linkId": "attorney-mva-last-name", "type": "string", "text": "Last name", "required": false },
+        {
+          "linkId": "attorney-mva-email",
+          "type": "string",
+          "text": "Email",
+          "required": false,
+          "extension": [{ "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type", "valueString": "Email" }]
+        },
+        {
+          "linkId": "attorney-mva-mobile",
+          "type": "string",
+          "text": "Mobile",
+          "required": false,
+          "extension": [
+            { "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type", "valueString": "Phone Number" }
+          ]
+        },
+        {
+          "linkId": "attorney-mva-fax",
+          "type": "string",
+          "text": "Fax",
+          "required": false,
+          "extension": [
+            { "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type", "valueString": "Phone Number" }
+          ]
+        }
+      ]
+    },
+    {
       "linkId": "preferred-pharmacy-section",
       "type": "group",
       "text": "Preferred pharmacy",
