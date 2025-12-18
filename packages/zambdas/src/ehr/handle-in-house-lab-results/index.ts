@@ -27,6 +27,7 @@ import { DateTime } from 'luxon';
 import {
   ABNORMAL_OBSERVATION_INTERPRETATION,
   ABNORMAL_RESULT_DR_TAG,
+  activityDefinitionIsReflexTest,
   checkIfReflexIsTriggered,
   extractAbnormalValueSetValues,
   extractQuantityRange,
@@ -47,7 +48,6 @@ import {
   NonNormalResult,
   NORMAL_OBSERVATION_INTERPRETATION,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
-  REFLEX_ARTIFACT_DISPLAY,
   REFLEX_TEST_TO_RUN_NAME_URL,
   ResultEntryInput,
   SecretsKeys,
@@ -372,27 +372,25 @@ const makeResultEntryRequests = (
   attendingPractitioner: PractitionerConfig,
   relatedServiceRequests: ServiceRequest[] | undefined
 ): BatchInputRequest<FhirResource>[] => {
+  const requests: BatchInputRequest<FhirResource>[] = [];
+
+  const serviceRequestPatchOperations: Operation[] = [
+    {
+      path: '/status',
+      op: 'replace',
+      value: 'completed',
+    },
+  ];
+
   const { provenancePostRequest, provenanceFullUrl } = makeProvenancePostRequest(
     serviceRequest.id || '',
     curUser,
     attendingPractitioner
   );
+  requests.push(provenancePostRequest);
 
   const irtTaskPatchRequest = makeIrtTaskPatchRequest(irtTask, provenanceFullUrl, curUser);
-
-  const serviceRequestPatchRequests: BatchInputPatchRequest<ServiceRequest>[] = [
-    {
-      method: 'PATCH',
-      url: `ServiceRequest/${serviceRequest.id}`,
-      operations: [
-        {
-          path: '/status',
-          op: 'replace',
-          value: 'completed',
-        },
-      ],
-    },
-  ];
+  requests.push(irtTaskPatchRequest);
 
   const { obsRefs, obsPostRequests, nonNormalResultRecorded, reflexTestTriggered } = makeObservationPostRequests(
     serviceRequest,
@@ -401,6 +399,7 @@ const makeResultEntryRequests = (
     curUser,
     resultsEntryData
   );
+  requests.push(...obsPostRequests);
 
   const diagnosticReportPostRequest = makeDiagnosticReportPostRequest(
     serviceRequest,
@@ -409,22 +408,18 @@ const makeResultEntryRequests = (
     nonNormalResultRecorded,
     reflexTestTriggered
   );
+  requests.push(diagnosticReportPostRequest);
 
-  const isReflex = activityDefinition.relatedArtifact?.some((artifact) => {
-    const isDependent = artifact.type === 'depends-on';
-    const isRelatedViaReflex = artifact.display === REFLEX_ARTIFACT_DISPLAY;
-
-    return isDependent && isRelatedViaReflex;
-  });
+  const isReflex = activityDefinitionIsReflexTest(activityDefinition);
 
   if (isReflex && reflexTestTriggered) {
     throw new Error(
-      `this test somehow is both triggering a reflex test and is a reflex test, we are not equipped to handle`
+      `this test somehow is both triggering a reflex test and is a reflex test, we are not equipped to handle: ServiceRequest/${serviceRequest.id}`
     );
   }
 
   if (reflexTestTriggered) {
-    console.log('reflexTestTriggered');
+    console.log(`reflexTestTriggered, we need to add pending reflex test tag to ServiceRequest/${serviceRequest.id}`);
     // if we make it here it would be very odd for this ext.valueString to not be found
     const testName =
       reflexTestTriggered.extension?.find((ext) => ext.url === REFLEX_TEST_TO_RUN_NAME_URL)?.valueString ??
@@ -432,21 +427,19 @@ const makeResultEntryRequests = (
 
     // tagging the service request so that we can validate signing the progress note
     // if a reflex test has been triggered progress note cannot be signed until the reflex test is created and results are inputted
-    const serviceRequestTagPatchRequest: BatchInputPatchRequest<ServiceRequest> = {
-      method: 'PATCH',
-      url: `ServiceRequest/${serviceRequest.id}`,
-      operations: getPatchOperationsForNewMetaTags(serviceRequest, [
-        {
-          system: SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
-          code: SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES.pending,
-          display: testName,
-        },
-      ]),
-    };
-    serviceRequestPatchRequests.push(serviceRequestTagPatchRequest);
+    const serviceRequestTagPatchOps = getPatchOperationsForNewMetaTags(serviceRequest, [
+      {
+        system: SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
+        code: SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES.pending,
+        display: testName,
+      },
+    ]);
+    serviceRequestPatchOperations.push(...serviceRequestTagPatchOps);
   } else if (isReflex) {
-    console.log('isReflex');
     // need to remove the reflex test pending tag from the parent SR so the user can sign progress note
+    console.log(
+      'Results are being entered for a reflex test, we need to remove the pending test tag from the parent ServiceRequest, searching for it now'
+    );
     const parentServiceRequestId = serviceRequest.basedOn
       ?.find((ref) => ref.reference?.startsWith('ServiceRequest/'))
       ?.reference?.replace('ServiceRequest/', '');
@@ -467,17 +460,18 @@ const makeResultEntryRequests = (
           ]),
         ],
       };
-      serviceRequestPatchRequests.push(parentTestServiceRequestTagPatch);
+      requests.push(parentTestServiceRequestTagPatch);
     }
   }
 
-  return [
-    provenancePostRequest,
-    irtTaskPatchRequest,
-    ...serviceRequestPatchRequests,
-    ...obsPostRequests,
-    diagnosticReportPostRequest,
-  ];
+  const serviceRequestPatchRequest: BatchInputPatchRequest<ServiceRequest> = {
+    method: 'PATCH',
+    url: `ServiceRequest/${serviceRequest.id}`,
+    operations: serviceRequestPatchOperations,
+  };
+  requests.push(serviceRequestPatchRequest);
+
+  return requests;
 };
 
 const makeObservationPostRequests = (
@@ -710,7 +704,7 @@ const makeDiagnosticReportPostRequest = (
   }
 
   if (reflexTestTriggered) {
-    console.log('reflexTestTriggered');
+    console.log('adding reflexTestTriggered extension to diagnostic report config');
     extension.push(reflexTestTriggered);
   }
 

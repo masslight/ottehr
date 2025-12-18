@@ -22,6 +22,7 @@ import {
   OD_DISPLAY_CONFIG,
   OD_VALUE_VALIDATION_CONFIG,
   QuantityComponent,
+  REFLEX_ARTIFACT_DISPLAY,
   REFLEX_TEST_ALERT_URL,
   REFLEX_TEST_CONDITION_LANGUAGES,
   REFLEX_TEST_CONDITION_URL,
@@ -331,7 +332,7 @@ export const convertActivityDefinitionToTestItem = (
   // validate service request and diagnostic report are indeed related
   const srIsRelatedToDr =
     diagnosticReport && serviceRequest ? resourceIsBasedOnServiceRequest(diagnosticReport, serviceRequest) : false;
-  if (srIsRelatedToDr && diagnosticReport) {
+  if (srIsRelatedToDr) {
     reflexAlert = checkDiagnosticReportForReflexAlert(diagnosticReport);
   }
 
@@ -394,12 +395,13 @@ const getResult = (
   return result;
 };
 
-// i suspect this function will need some tweaking if we add more types of conditions/expressions
+// todo labs i suspect this function will need some tweaking if we add more types of conditions/expressions
 export const checkIfReflexIsTriggered = (
   activityDefinition: ActivityDefinition,
   observation: Observation | undefined
 ): Extension | undefined => {
   if (!observation) return;
+  console.log(`checking if observation triggers reflex test: ${JSON.stringify(observation)}`);
 
   const reflexLogicExtensions = checkActivityDefinitionForReflexLogic(activityDefinition);
   if (!reflexLogicExtensions) return;
@@ -428,7 +430,7 @@ export const checkIfReflexIsTriggered = (
     throw new Error(
       `Reflex test logic has been added for a condition language we do not currently support. Language parsed: ${reflexConditionLanguage}. Languages supported: ${JSON.stringify(
         REFLEX_TEST_CONDITION_LANGUAGES
-      )}.`
+      )}. Offending ActivityDefinition: ${activityDefinition.id}.`
     );
   }
 };
@@ -484,8 +486,9 @@ export const checkActivityDefinitionForReflexLogic = (
 };
 
 export const checkDiagnosticReportForReflexAlert = (
-  diagnosticReport: DiagnosticReport
+  diagnosticReport: DiagnosticReport | undefined
 ): { testName: string; alert: string } | undefined => {
+  if (!diagnosticReport) return;
   const reflexLogic = diagnosticReport.extension?.find((ext) => ext.url === REFLEX_TEST_TRIGGERED_URL)?.extension;
   if (!reflexLogic) return;
 
@@ -505,4 +508,15 @@ export const checkDiagnosticReportForReflexAlert = (
 
 export const getFormattedDiagnoses = (diagnoses: DiagnosisDTO[]): string => {
   return diagnoses.map((d) => `${d.code} ${d.display}`).join(', ');
+};
+
+export const activityDefinitionIsReflexTest = (activityDefinition: ActivityDefinition): boolean => {
+  const isReflex = !!activityDefinition.relatedArtifact?.some((artifact) => {
+    const isDependent = artifact.type === 'depends-on';
+    const isRelatedViaReflex = artifact.display === REFLEX_ARTIFACT_DISPLAY;
+
+    return isDependent && isRelatedViaReflex;
+  });
+
+  return isReflex;
 };

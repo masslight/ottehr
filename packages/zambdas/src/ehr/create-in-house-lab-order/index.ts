@@ -232,7 +232,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     activityDefinition.relatedArtifact?.forEach((artifact) => {
       const isDependent = artifact.type === 'depends-on';
       const isRelatedViaReflex = artifact.display === REFLEX_ARTIFACT_DISPLAY;
+
       if (isDependent && isRelatedViaReflex) {
+        // todo labs this will take the last one it finds, so if we ever have a test be triggered by multiple parents, we'll need to update this
         parentTestCanonicalUrl = artifact.resource;
       }
     });
