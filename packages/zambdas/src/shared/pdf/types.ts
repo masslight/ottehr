@@ -1,5 +1,6 @@
 import {
   Appointment,
+  Coding,
   Consent,
   DocumentReference,
   Encounter,
@@ -213,6 +214,7 @@ export interface InHouseLabResult {
   units?: string;
   rangeString?: string[];
   rangeQuantity?: QuantityComponent;
+  interpretationCoding: Coding | undefined;
 }
 export interface InHouseLabResultConfig {
   collectionDate: string;
