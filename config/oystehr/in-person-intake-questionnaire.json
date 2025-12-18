@@ -3814,7 +3814,7 @@
                 "linkId": "attorney-mva-has-attorney",
                 "text": "Do you have an attorney?",
                 "type": "choice",
-                "required": true,
+                "required": false,
                 "answerOption": [
                   {
                     "valueString": "I have an attorney"
@@ -3825,6 +3825,23 @@
                 ],
                 "extension": [
                   {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                        "valueString": "appointment-service-category"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                        "valueString": "="
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                        "valueString": "urgent-care"
+                      }
+                    ]
+                  },
+                  {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element",
                     "valueString": "Radio"
                   }
@@ -3834,7 +3851,7 @@
                 "linkId": "attorney-mva-firm",
                 "text": "Firm",
                 "type": "string",
-                "required": true,
+                "required": false,
                 "enableWhen": [
                   {
                     "question": "attorney-mva-has-attorney",
@@ -3842,7 +3859,26 @@
                     "answerString": "I have an attorney"
                   }
                 ],
-                "enableBehavior": "all"
+                "enableBehavior": "all",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                        "valueString": "attorney-mva-has-attorney"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                        "valueString": "="
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                        "valueString": "I have an attorney"
+                      }
+                    ]
+                  }
+                ]
               },
               {
                 "linkId": "attorney-mva-first-name",
@@ -3929,6 +3965,18 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                     "valueString": "Phone Number"
+                  }
+                ]
+              },
+              {
+                "linkId": "appointment-service-category",
+                "type": "string",
+                "required": true,
+                "readOnly": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "hidden"
                   }
                 ]
               }

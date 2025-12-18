@@ -277,7 +277,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           patient,
           documents,
           insuranceOrgs: accountInfo?.insuranceOrgs ?? [],
-          appointmentServiceCategory: appointmentServiceCategory,
+          appointmentServiceCategory,
         });
       } else if (EMPLOYER_ITEMS.includes(item.linkId)) {
         return mapEmployerToQuestionnaireResponseItems({
@@ -288,6 +288,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         return mapAttorneyToQuestionnaireResponseItems({
           items: itemItems,
           attorneyRelatedPerson: accountInfo?.attorneyRelatedPerson,
+          appointmentServiceCategory,
         });
       } else if (item.linkId === 'photo-id-page') {
         return itemItems.map((item) => {
@@ -1105,10 +1106,11 @@ const ATTORNEY_ITEMS = ['attorney-mva-page'];
 interface MapAttorneyItemsInput {
   items: QuestionnaireItem[];
   attorneyRelatedPerson?: RelatedPerson;
+  appointmentServiceCategory?: string;
 }
 
 const mapAttorneyToQuestionnaireResponseItems = (input: MapAttorneyItemsInput): QuestionnaireResponseItem[] => {
-  const { attorneyRelatedPerson, items } = input;
+  const { attorneyRelatedPerson, items, appointmentServiceCategory } = input;
 
   const hasAttorney = attorneyRelatedPerson ? 'I have an attorney' : 'I do not have an attorney';
 
@@ -1156,6 +1158,9 @@ const mapAttorneyToQuestionnaireResponseItems = (input: MapAttorneyItemsInput): 
     }
     if (linkId === 'attorney-mva-fax' && fax) {
       answer = makeAnswer(fax);
+    }
+    if (linkId === 'appointment-service-category' && appointmentServiceCategory) {
+      answer = makeAnswer(appointmentServiceCategory);
     }
 
     return {
