@@ -94,9 +94,10 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
               const observation = examObservations[optionName];
               if (observation && typeof observation.value === 'boolean' && observation.value === true) {
                 const baseLabel = columnLabel ? `${columnLabel}: ${component.label}` : component.label;
+                const description = option.description ? ` (${option.description})` : '';
                 selectedOptions.push({
                   field: optionName,
-                  label: `${baseLabel}: ${option.label}`,
+                  label: `${baseLabel}: ${option.label}${description}`,
                   abnormal: section === 'abnormal',
                 });
               }
