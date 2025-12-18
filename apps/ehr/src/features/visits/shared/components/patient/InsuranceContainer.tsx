@@ -23,7 +23,6 @@ import {
   CoverageCheckWithDetails,
   EligibilityCheckSimpleStatus,
   FinancialDetails,
-  INSURANCE_CANDID_PLAN_TYPE_CODES,
   InsuranceEligibilityCheckStatus,
   mapEligibilityCheckResultToSimpleStatus,
   PATIENT_RECORD_CONFIG,
@@ -129,7 +128,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     mapInitialStatus(initialEligibilityCheck)
   );
 
-  const { setValue, watch } = useFormContext();
+  const { getValues, setValue, watch } = useFormContext();
 
   const {
     items: FormFields,
@@ -223,14 +222,16 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       }
       console.log('Eligibility check result:', result);
 
-      const insuranceCodeTemp = result?.coverageDetails?.insurance?.insuranceCode;
-      if (insuranceCodeTemp) {
-        const newInsurance = INSURANCE_CANDID_PLAN_TYPE_CODES.find(
-          (option) => (insuranceCodeToCandidCode as any)[insuranceCodeTemp] === option
-        );
+      const currentInsuranceCode = getValues(FormFields.insurancePlanType.key);
+      if (!currentInsuranceCode) {
+        const insuranceCodeTemp = result?.coverageDetails?.insurance?.insuranceCode;
 
-        if (newInsurance) {
-          setValue(FormFields.insurancePlanType.key, newInsurance, { shouldDirty: true });
+        if (insuranceCodeTemp) {
+          const newInsurance = (insuranceCodeToCandidCode as any)[insuranceCodeTemp];
+
+          if (newInsurance) {
+            setValue(FormFields.insurancePlanType.key, newInsurance, { shouldDirty: true });
+          }
         }
       }
     } catch (error) {
