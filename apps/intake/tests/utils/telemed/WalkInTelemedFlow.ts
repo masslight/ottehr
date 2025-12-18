@@ -31,25 +31,7 @@ export class WalkInTelemedFlow extends BaseTelemedFlow {
 
     let patientBasicInfo: PatientBasicInfo;
     if (patient) {
-      // find and select existing patient
-      const patientName = this.page.getByRole('heading', {
-        name: new RegExp(`.*${patient.firstName} ${patient.lastName}.*`, 'i'),
-      });
-      await expect(patientName).toBeVisible();
-      await patientName.scrollIntoViewIfNeeded();
-      await patientName.click({ timeout: 40_000, noWaitAfter: true, force: true });
-      await this.locator.clickContinueButton();
-
-      // confirm dob
-      await this.fillingInfo.fillCorrectDOB(patient.dob.m, patient.dob.d, patient.dob.y);
-      await this.locator.clickContinueButton();
-
-      // select reason for visit
-      await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
-      await expect(this.locator.flowHeading).toHaveText('About the patient');
-      await this.fillingInfo.fillTelemedReasonForVisit();
-      await this.locator.continueButton.click();
-
+      await this.findAndSelectExistingPatient(patient);
       patientBasicInfo = patient;
     } else {
       await this.locator.selectDifferentFamilyMember();

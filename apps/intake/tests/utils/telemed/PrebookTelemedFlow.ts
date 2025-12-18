@@ -45,25 +45,7 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
 
     let patientBasicInfo: PatientBasicInfo;
     if (patient) {
-      // find and select existing patient
-      const patientName = this.page.getByRole('heading', {
-        name: new RegExp(`.*${patient.firstName} ${patient.lastName}.*`, 'i'),
-      });
-      await expect(patientName).toBeVisible();
-      await patientName.scrollIntoViewIfNeeded();
-      await patientName.click({ timeout: 40_000, noWaitAfter: true, force: true });
-      await this.locator.clickContinueButton();
-
-      // confirm dob
-      await this.fillingInfo.fillCorrectDOB(patient.dob.m, patient.dob.d, patient.dob.y);
-      await this.locator.clickContinueButton();
-
-      // select reason for visit
-      await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
-      await expect(this.locator.flowHeading).toHaveText('About the patient');
-      await this.fillingInfo.fillTelemedReasonForVisit();
-      await this.locator.continueButton.click();
-
+      await this.findAndSelectExistingPatient(patient);
       patientBasicInfo = patient;
     } else {
       await this.locator.selectDifferentFamilyMember();
@@ -137,35 +119,5 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     const selectedSlot = await this.fillingInfo.selectRandomSlot();
     await this.continue();
     return { selectedSlot: { time: selectedSlot.time, fullSlot: selectedSlot.fullSlot }, location, locationTitle };
-  }
-
-  async startVisitFullFlow(): Promise<StartVisitResponse> {
-    await this.selectVisitAndContinue();
-    // Optional step: service category selection for Virtual Visit Request (prebook)
-    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'prebook' })) {
-      const availableCategories = BOOKING_CONFIG.serviceCategories || [];
-      const firstCategory = availableCategories[0]!;
-
-      if (firstCategory) {
-        await this.page.getByText(firstCategory.display).click();
-      }
-    }
-    const slotAndLocation = await this.selectTimeLocationAndContinue();
-    await this.locator.selectDifferentFamilyMember();
-    const patientBasicInfo = await this.fillNewPatientDataAndContinue();
-    await this.completeBooking();
-    await this.page.waitForURL(/\/visit/);
-    const timeBlock = this.page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock);
-    await expect(timeBlock).toHaveText(slotAndLocation.selectedSlot?.fullSlot ?? '');
-    await expect(this.locator.appointmentDescription).toHaveText(RegExp(slotAndLocation.location!));
-    const bookingURL = this.page.url();
-    const match = bookingURL.match(/visit\/([0-9a-fA-F-]+)/);
-    const bookingUUID = match ? match[1] : null;
-    return {
-      patientBasicInfo,
-      slotAndLocation,
-      bookingURL,
-      bookingUUID,
-    };
   }
 }
