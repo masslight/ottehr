@@ -30,7 +30,7 @@ export const createPrimaryCarePhysicianSection = <TData extends { pcp?: PrimaryC
     title: 'Primary care physician',
     dataSelector: (data) => data.pcp,
     render: (client, details, styles) => {
-      if (shouldShow('')) {
+      if (shouldShow('pcp-first') || shouldShow('pcp-last')) {
         client.drawLabelValueRow(
           'PCP first and last name',
           details.pcpName,
@@ -42,7 +42,7 @@ export const createPrimaryCarePhysicianSection = <TData extends { pcp?: PrimaryC
           }
         );
       }
-      if (shouldShow('')) {
+      if (shouldShow('pcp-practice')) {
         client.drawLabelValueRow(
           'PCP practice name',
           details.pcpPracticeName,
@@ -54,7 +54,7 @@ export const createPrimaryCarePhysicianSection = <TData extends { pcp?: PrimaryC
           }
         );
       }
-      if (shouldShow('')) {
+      if (shouldShow('pcp-address')) {
         client.drawLabelValueRow(
           'PCP address',
           details.pcpAddress,
@@ -66,7 +66,7 @@ export const createPrimaryCarePhysicianSection = <TData extends { pcp?: PrimaryC
           }
         );
       }
-      if (shouldShow('')) {
+      if (shouldShow('pcp-number')) {
         client.drawLabelValueRow(
           'PCP phone number',
           details.pcpPhone,

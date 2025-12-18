@@ -114,7 +114,7 @@ export const createPatientDetailsSection = <TData extends { details?: PatientDet
           }
         );
       }
-      if (shouldShow('')) {
+      if (shouldShow('mobile-opt-in')) {
         client.drawLabelValueRow(
           'Send marketing messages',
           details.patientSendMarketing ? 'Yes' : 'No',
@@ -126,7 +126,7 @@ export const createPatientDetailsSection = <TData extends { details?: PatientDet
           }
         );
       }
-      if (shouldShow('')) {
+      if (shouldShow('preferred-language')) {
         client.drawLabelValueRow(
           'Preferred language',
           details.preferredLanguage,
