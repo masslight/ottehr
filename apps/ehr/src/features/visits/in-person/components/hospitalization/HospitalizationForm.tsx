@@ -12,7 +12,7 @@ import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { HospitalizationDTO } from 'utils';
 
-const HospitalizationOptions: HospitalizationDTO[] = [
+export const HospitalizationOptions: HospitalizationDTO[] = [
   {
     display: 'Anaphylaxis',
     code: '39579001',

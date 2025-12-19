@@ -1,5 +1,6 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
+import { HospitalizationOptions } from 'src/features/visits/in-person/components/hospitalization/HospitalizationForm';
 import { expectHospitalizationPage } from 'tests/e2e/page/HospitalizationPage';
 import {
   expectInPersonProgressNotePage,
@@ -10,8 +11,8 @@ import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 
 const resourceHandler = new ResourceHandler(`screening-mutating-${DateTime.now().toMillis()}`);
 
-const ANAPHYLAXIS = 'Anaphylaxis';
-const APPENDICITIS = 'Appendicitis';
+const HOSPITALIZATION_REASON_1 = HospitalizationOptions[0].display;
+const HOSPITALIZATION_REASON_2 = HospitalizationOptions[1].display;
 const HOSPITALIZATION_NOTE = 'Test hospitalization note';
 const HOSPITALIZATION_NOTE_EDITED = 'Test medication note edited';
 
@@ -31,36 +32,36 @@ test.describe('Hospitalization Page mutating tests', () => {
       await test.step('HSP-1.1 Add few hospitalizations, verify hospitalizations are present in Hospitalization container', async () => {
         const progressNotePage = await expectInPersonProgressNotePage(page);
         const hospitalizationPage = await progressNotePage.sideMenu().clickHospitalization();
-        await hospitalizationPage.selectHospitalization(ANAPHYLAXIS);
-        await hospitalizationPage.verifyHospitalization(ANAPHYLAXIS);
-        await hospitalizationPage.selectHospitalization(APPENDICITIS);
-        await hospitalizationPage.verifyHospitalization(ANAPHYLAXIS);
-        await hospitalizationPage.verifyHospitalization(APPENDICITIS);
+        await hospitalizationPage.selectHospitalization(HOSPITALIZATION_REASON_1);
+        await hospitalizationPage.verifyHospitalization(HOSPITALIZATION_REASON_1);
+        await hospitalizationPage.selectHospitalization(HOSPITALIZATION_REASON_2);
+        await hospitalizationPage.verifyHospitalization(HOSPITALIZATION_REASON_1);
+        await hospitalizationPage.verifyHospitalization(HOSPITALIZATION_REASON_2);
         return await expectHospitalizationPage(page);
       });
 
     let progressNotePage = await test.step('HSP-1.2 Verify hospitalizations info on Progress note', async () => {
       const progressNotePage = await hospitalizationPage.sideMenu().clickReviewAndSign();
-      await progressNotePage.verifyHospitalization(ANAPHYLAXIS);
-      await progressNotePage.verifyHospitalization(APPENDICITIS);
+      await progressNotePage.verifyHospitalization(HOSPITALIZATION_REASON_1);
+      await progressNotePage.verifyHospitalization(HOSPITALIZATION_REASON_2);
 
       return await expectInPersonProgressNotePage(page);
     });
 
     await test.step('HSP-1.3 Delete hospitalizations and check they are removed from  Hospitalizations container', async () => {
       hospitalizationPage = await progressNotePage.sideMenu().clickHospitalization();
-      await hospitalizationPage.clickDeleteButton(ANAPHYLAXIS);
-      await hospitalizationPage.verifyHospitalization(APPENDICITIS);
-      await hospitalizationPage.verifyRemovedHospitalizationIsNotVisible(ANAPHYLAXIS);
-      await hospitalizationPage.clickDeleteButton(APPENDICITIS);
-      await hospitalizationPage.verifyRemovedHospitalizationIsNotVisible(ANAPHYLAXIS);
-      await hospitalizationPage.verifyRemovedHospitalizationIsNotVisible(APPENDICITIS);
+      await hospitalizationPage.clickDeleteButton(HOSPITALIZATION_REASON_1);
+      await hospitalizationPage.verifyHospitalization(HOSPITALIZATION_REASON_2);
+      await hospitalizationPage.verifyRemovedHospitalizationIsNotVisible(HOSPITALIZATION_REASON_1);
+      await hospitalizationPage.clickDeleteButton(HOSPITALIZATION_REASON_2);
+      await hospitalizationPage.verifyRemovedHospitalizationIsNotVisible(HOSPITALIZATION_REASON_1);
+      await hospitalizationPage.verifyRemovedHospitalizationIsNotVisible(HOSPITALIZATION_REASON_2);
     });
 
     await test.step('HSP-1.4 Check deleted hospitalizations are not present on Progress note', async () => {
       progressNotePage = await hospitalizationPage.sideMenu().clickReviewAndSign();
-      await progressNotePage.verifyRemovedHospitalizationIsNotShown(ANAPHYLAXIS);
-      await progressNotePage.verifyRemovedHospitalizationIsNotShown(APPENDICITIS);
+      await progressNotePage.verifyRemovedHospitalizationIsNotShown(HOSPITALIZATION_REASON_1);
+      await progressNotePage.verifyRemovedHospitalizationIsNotShown(HOSPITALIZATION_REASON_2);
     });
 
     await test.step('HSP-1.5 Add hospitalization note, check it is present on Hospitalizations page and on Progress note', async () => {
@@ -94,7 +95,7 @@ test.describe('Hospitalization Page mutating tests', () => {
 
       await hospitalizationPage.verifyRemovedHospitalizationNoteIsNotVisible(HOSPITALIZATION_NOTE_EDITED);
       progressNotePage = await hospitalizationPage.sideMenu().clickReviewAndSign();
-      await progressNotePage.verifyRemovedMedicationNoteIsNotShown(HOSPITALIZATION_NOTE_EDITED);
+      await progressNotePage.verifyRemovedHospitalizationNoteIsNotShown(HOSPITALIZATION_NOTE_EDITED);
     });
   });
 });
