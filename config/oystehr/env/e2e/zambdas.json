@@ -4,7 +4,7 @@
     "TEST-ENV-CLEANUP": {
       "name": "test-env-cleanup",
       "type": "cron",
-      "runtime": "nodejs20.x",
+      "runtime": "nodejs22.x",
       "timeout": "900",
       "memorySize": "1024",
       "src": "src/cron/test-env-cleanup/index",
