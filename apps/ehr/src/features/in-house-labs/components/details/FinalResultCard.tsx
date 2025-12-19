@@ -1,3 +1,5 @@
+import { otherColors } from '@ehrTheme/colors';
+import { WarningAmberOutlined } from '@mui/icons-material';
 import { Box, Paper, Typography } from '@mui/material';
 import React, { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -57,6 +59,25 @@ export const FinalResultCard: React.FC<FinalResultCardProps> = ({ testDetails })
               testItemComponents={testDetails.labDetails.components.groupedComponents}
               disabled={true}
             />
+          )}
+          {testDetails.labDetails.reflexAlert && (
+            <Box
+              key={`reflex-alert`}
+              sx={{
+                p: '6px 16px',
+                borderRadius: '4px',
+                display: 'flex',
+                background: otherColors.warningBackground,
+                mt: '16px',
+                alignItems: 'center',
+              }}
+              gap={'4px'}
+            >
+              <WarningAmberOutlined sx={{ height: '22px', width: '22px', my: '7px', mr: '12px' }} color="warning" />
+              <Typography variant="h6" color={otherColors.warningText}>
+                {testDetails.labDetails.reflexAlert.alert}
+              </Typography>
+            </Box>
           )}
         </FormProvider>
         <InHouseLabsDetailsCard

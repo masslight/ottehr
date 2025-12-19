@@ -7,6 +7,7 @@ import {
   CodeableConcept,
   DiagnosticReport,
   Encounter,
+  Extension,
   FhirResource,
   Location,
   Observation,
@@ -26,10 +27,14 @@ import { DateTime } from 'luxon';
 import {
   ABNORMAL_OBSERVATION_INTERPRETATION,
   ABNORMAL_RESULT_DR_TAG,
+  activityDefinitionIsReflexTest,
+  checkIfReflexIsTriggered,
   extractAbnormalValueSetValues,
   extractQuantityRange,
   getAttendingPractitionerId,
   getFullestAvailableName,
+  getPatchOperationsForNewMetaTags,
+  getPatchOperationToRemoveMetaTags,
   getSecret,
   HandleInHouseLabResultsZambdaOutput,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
@@ -43,8 +48,11 @@ import {
   NonNormalResult,
   NORMAL_OBSERVATION_INTERPRETATION,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
+  REFLEX_TEST_TO_RUN_NAME_URL,
   ResultEntryInput,
   SecretsKeys,
+  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
+  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -56,7 +64,7 @@ import {
 } from '../../shared';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
 import { createOwnerReference } from '../../shared/tasks';
-import { getServiceRequestsRelatedViaRepeat, getUrlAndVersionForADFromServiceRequest } from '../shared/in-house-labs';
+import { getRelatedServiceRequests, getUrlAndVersionForADFromServiceRequest } from '../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -88,7 +96,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       attendingPractitioner,
       schedule,
       location,
-      serviceRequestsRelatedViaRepeat,
+      relatedServiceRequests,
     } = await getInHouseLabResultResources(serviceRequestId, curUserPractitionerId, oystehr);
 
     const currentUserPractitionerName = getFullestAvailableName(currentUserPractitioner);
@@ -101,7 +109,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       activityDefinition,
       resultsEntryData,
       { id: curUserPractitionerId, name: currentUserPractitionerName },
-      { id: attendingPractitioner.id || '', name: attendingPractitionerName }
+      { id: attendingPractitioner.id || '', name: attendingPractitionerName },
+      relatedServiceRequests
     );
 
     console.log(`These are the fhir requests getting made: ${JSON.stringify(requests)}`);
@@ -155,7 +164,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         secrets,
         m2mToken,
         activityDefinition,
-        serviceRequestsRelatedViaRepeat,
+        relatedServiceRequests,
         specimen
       );
     } catch (e) {
@@ -192,7 +201,7 @@ const getInHouseLabResultResources = async (
   attendingPractitioner: Practitioner;
   location: Location | undefined;
   schedule: Schedule;
-  serviceRequestsRelatedViaRepeat: ServiceRequest[] | undefined;
+  relatedServiceRequests: ServiceRequest[] | undefined;
 }> => {
   const labOrderResources = (
     await oystehr.fhir.search<ServiceRequest | Patient | Encounter | Specimen | Task | Schedule | Location>({
@@ -292,9 +301,9 @@ const getInHouseLabResultResources = async (
     throw new Error(`One ready or in-progress IRT task should exist for ServiceRequest/${serviceRequestId}`);
   }
 
-  const serviceRequestsRelatedViaRepeat =
-    serviceRequests.length > 1 ? getServiceRequestsRelatedViaRepeat(serviceRequests, serviceRequestId) : undefined;
-  console.log('serviceRequestsRelatedViaRepeat ids ', serviceRequestsRelatedViaRepeat?.map((sr) => sr.id));
+  const relatedServiceRequests =
+    serviceRequests.length > 1 ? getRelatedServiceRequests(serviceRequests, serviceRequestId) : undefined;
+  console.log('relatedServiceRequests ids ', relatedServiceRequests?.map((sr) => sr.id));
 
   const patient = patients[0];
 
@@ -344,7 +353,7 @@ const getInHouseLabResultResources = async (
     attendingPractitioner,
     location,
     schedule,
-    serviceRequestsRelatedViaRepeat,
+    relatedServiceRequests,
   };
 };
 
@@ -360,53 +369,111 @@ const makeResultEntryRequests = (
   activityDefinition: ActivityDefinition,
   resultsEntryData: ResultEntryInput,
   curUser: PractitionerConfig,
-  attendingPractitioner: PractitionerConfig
+  attendingPractitioner: PractitionerConfig,
+  relatedServiceRequests: ServiceRequest[] | undefined
 ): BatchInputRequest<FhirResource>[] => {
+  const requests: BatchInputRequest<FhirResource>[] = [];
+
+  const serviceRequestPatchOperations: Operation[] = [
+    {
+      path: '/status',
+      op: 'replace',
+      value: 'completed',
+    },
+  ];
+
   const { provenancePostRequest, provenanceFullUrl } = makeProvenancePostRequest(
     serviceRequest.id || '',
     curUser,
     attendingPractitioner
   );
+  requests.push(provenancePostRequest);
 
   const irtTaskPatchRequest = makeIrtTaskPatchRequest(irtTask, provenanceFullUrl, curUser);
+  requests.push(irtTaskPatchRequest);
 
-  const serviceRequestPatchRequest: BatchInputPatchRequest<ServiceRequest> = {
-    method: 'PATCH',
-    url: `ServiceRequest/${serviceRequest.id}`,
-    operations: [
-      {
-        path: '/status',
-        op: 'replace',
-        value: 'completed',
-      },
-    ],
-  };
-
-  const { obsRefs, obsPostRequests, nonNormalResultRecorded } = makeObservationPostRequests(
+  const { obsRefs, obsPostRequests, nonNormalResultRecorded, reflexTestTriggered } = makeObservationPostRequests(
     serviceRequest,
     specimen,
     activityDefinition,
     curUser,
     resultsEntryData
   );
+  requests.push(...obsPostRequests);
 
   const diagnosticReportPostRequest = makeDiagnosticReportPostRequest(
     serviceRequest,
     activityDefinition,
     obsRefs,
-    nonNormalResultRecorded
+    nonNormalResultRecorded,
+    reflexTestTriggered
   );
+  requests.push(diagnosticReportPostRequest);
 
-  return [
-    provenancePostRequest,
-    irtTaskPatchRequest,
-    serviceRequestPatchRequest,
-    ...obsPostRequests,
-    diagnosticReportPostRequest,
-  ];
+  const isReflex = activityDefinitionIsReflexTest(activityDefinition);
+
+  if (isReflex && reflexTestTriggered) {
+    throw new Error(
+      `this test somehow is both triggering a reflex test and is a reflex test, we are not equipped to handle: ServiceRequest/${serviceRequest.id}`
+    );
+  }
+
+  if (reflexTestTriggered) {
+    console.log(`reflexTestTriggered, we need to add pending reflex test tag to ServiceRequest/${serviceRequest.id}`);
+    // if we make it here it would be very odd for this ext.valueString to not be found
+    const testName =
+      reflexTestTriggered.extension?.find((ext) => ext.url === REFLEX_TEST_TO_RUN_NAME_URL)?.valueString ??
+      'reflex test';
+
+    // tagging the service request so that we can validate signing the progress note
+    // if a reflex test has been triggered progress note cannot be signed until the reflex test is created and results are inputted
+    const serviceRequestTagPatchOps = getPatchOperationsForNewMetaTags(serviceRequest, [
+      {
+        system: SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
+        code: SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES.pending,
+        display: testName,
+      },
+    ]);
+    serviceRequestPatchOperations.push(...serviceRequestTagPatchOps);
+  } else if (isReflex) {
+    // need to remove the reflex test pending tag from the parent SR so the user can sign progress note
+    console.log(
+      'Results are being entered for a reflex test, we need to remove the pending test tag from the parent ServiceRequest, searching for it now'
+    );
+    const parentServiceRequestId = serviceRequest.basedOn
+      ?.find((ref) => ref.reference?.startsWith('ServiceRequest/'))
+      ?.reference?.replace('ServiceRequest/', '');
+    const parentServiceRequest = relatedServiceRequests?.find((sr) => sr.id === parentServiceRequestId);
+
+    if (parentServiceRequest) {
+      console.log(`found a parent test, ServiceRequest/${parentServiceRequest.id}`);
+      // remove the reflex-test-tag on the parent test service request
+      const parentTestServiceRequestTagPatch: BatchInputRequest<ServiceRequest> = {
+        method: 'PATCH',
+        url: `ServiceRequest/${parentServiceRequest.id}`,
+        operations: [
+          getPatchOperationToRemoveMetaTags(parentServiceRequest, [
+            {
+              system: SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
+              code: SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES.pending,
+            },
+          ]),
+        ],
+      };
+      requests.push(parentTestServiceRequestTagPatch);
+    }
+  }
+
+  const serviceRequestPatchRequest: BatchInputPatchRequest<ServiceRequest> = {
+    method: 'PATCH',
+    url: `ServiceRequest/${serviceRequest.id}`,
+    operations: serviceRequestPatchOperations,
+  };
+  requests.push(serviceRequestPatchRequest);
+
+  return requests;
 };
 
-// todo better errors
 const makeObservationPostRequests = (
   serviceRequest: ServiceRequest,
   specimen: Specimen,
@@ -417,6 +484,7 @@ const makeObservationPostRequests = (
   obsRefs: Reference[];
   obsPostRequests: BatchInputPostRequest<Observation>[];
   nonNormalResultRecorded: NonNormalResult[];
+  reflexTestTriggered: Extension | undefined;
 } => {
   if (!activityDefinition.code) throw new Error('activityDefinition.code is missing and is required');
 
@@ -449,6 +517,7 @@ const makeObservationPostRequests = (
   const obsPostRequests: BatchInputPostRequest<Observation>[] = [];
 
   const nonNormalResultRecorded: NonNormalResult[] = [];
+  let reflexTestTriggered: Extension | undefined;
   Object.keys(resultsEntryData).forEach((observationDefinitionId) => {
     const entry = resultsEntryData[observationDefinitionId];
     const obsFullUrl = `urn:uuid:${randomUUID()}`;
@@ -476,6 +545,9 @@ const makeObservationPostRequests = (
         },
       ],
     };
+
+    reflexTestTriggered = checkIfReflexIsTriggered(activityDefinition, obsFinalConfig);
+
     const request: BatchInputPostRequest<Observation> = {
       method: 'POST',
       fullUrl: obsFullUrl,
@@ -485,7 +557,7 @@ const makeObservationPostRequests = (
     obsPostRequests.push(request);
   });
 
-  return { obsRefs, obsPostRequests, nonNormalResultRecorded };
+  return { obsRefs, obsPostRequests, nonNormalResultRecorded, reflexTestTriggered };
 };
 
 const getObsDefFromActivityDef = (obsDefId: string, activityDefContained: FhirResource[]): ObservationDefinition => {
@@ -596,7 +668,8 @@ const makeDiagnosticReportPostRequest = (
   serviceRequest: ServiceRequest,
   activityDefinition: ActivityDefinition,
   obsRefs: Reference[],
-  nonNormalResultRecorded: NonNormalResult[]
+  nonNormalResultRecorded: NonNormalResult[],
+  reflexTestTriggered: Extension | undefined
 ): BatchInputPostRequest<DiagnosticReport> => {
   if (!activityDefinition.code) throw new Error('activityDefinition.code is missing and is required');
 
@@ -612,8 +685,11 @@ const makeDiagnosticReportPostRequest = (
     result: obsRefs,
   };
 
+  const tags = [];
+  const extension: Extension[] = [];
+
   if (nonNormalResultRecorded.length) {
-    const tags = [];
+    console.log('nonNormalResultRecorded', nonNormalResultRecorded);
     if (nonNormalResultRecorded.includes(NonNormalResult.Abnormal)) {
       tags.push(ABNORMAL_RESULT_DR_TAG);
     }
@@ -623,16 +699,25 @@ const makeDiagnosticReportPostRequest = (
     if (nonNormalResultRecorded.includes(NonNormalResult.Neutral)) {
       tags.push(NEUTRAL_RESULT_DR_TAG);
     }
-    if (tags.length) {
-      console.log('adding non normal result tags to dr, count: ', tags.length);
-      diagnosticReportConfig.meta = {
-        tag: tags,
-      };
-    } else {
-      console.log('something is off and no non normal tags are being recorded', nonNormalResultRecorded);
-    }
   } else {
     console.log('all recorded results are reported normal');
+  }
+
+  if (reflexTestTriggered) {
+    console.log('adding reflexTestTriggered extension to diagnostic report config');
+    extension.push(reflexTestTriggered);
+  }
+
+  if (tags.length) {
+    console.log('adding result tags to dr, count: ', tags.length);
+    diagnosticReportConfig.meta = {
+      tag: tags,
+    };
+  }
+
+  if (extension.length) {
+    console.log('adding extension to dr, count: ', extension.length);
+    diagnosticReportConfig.extension = extension;
   }
 
   const diagnosticReportPostRequest: BatchInputPostRequest<DiagnosticReport> = {

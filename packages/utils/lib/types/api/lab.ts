@@ -57,5 +57,6 @@ export interface InHouseLabResult extends LabOrderPDFDetail {
 }
 export interface EncounterInHouseLabResult {
   resultsPending: boolean;
+  reflexTestsPending: string[] | undefined; // some test triggered a reflex test and it has not been created
   labOrderResults: InHouseLabResult[];
 }
