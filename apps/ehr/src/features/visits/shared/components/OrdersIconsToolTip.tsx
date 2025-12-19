@@ -1,5 +1,6 @@
 import { Box } from '@mui/material';
 import { Link } from 'react-router-dom';
+import { MappedStatusChip } from 'src/components/MappedStatusChip';
 import { OrdersToolTip } from 'src/features/common/OrdersToolTip';
 import { LabsOrderStatusChip } from 'src/features/external-labs/components/ExternalLabsStatusChip';
 import { InHouseLabsStatusChip } from 'src/features/in-house-labs/components/InHouseLabsStatusChip';
@@ -7,6 +8,7 @@ import { NursingOrdersStatusChip } from 'src/features/nursing-orders/components/
 import { RadiologyTableStatusChip } from 'src/features/radiology/components/RadiologyTableStatusChip';
 import { MedicationStatusChip } from 'src/features/visits/in-person/components/medication-administration/statuses/MedicationStatusChip';
 import {
+  getErxUrl,
   getExternalLabOrderEditUrl,
   getExternalLabOrdersUrl,
   getInHouseLabOrderDetailsUrl,
@@ -27,6 +29,7 @@ import {
   OrderToolTipConfig,
 } from 'utils';
 import { GenericToolTip } from '../../../../components/GenericToolTip';
+import { medicationStatusMapper } from './plan-tab/ERxContainer';
 
 interface OrdersIconsToolTipProps {
   appointment: InPersonAppointmentInformation;
@@ -36,7 +39,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
   const ordersExistForAppointment = hasAtLeastOneOrder(orders);
   if (!ordersExistForAppointment) return null;
 
-  const { externalLabOrders, inHouseLabOrders, nursingOrders, inHouseMedications, radiologyOrders } = orders;
+  const { externalLabOrders, inHouseLabOrders, nursingOrders, inHouseMedications, radiologyOrders, erxOrders } = orders;
 
   const filteredInHouseMedications = inHouseMedications?.filter((med) => med?.status !== 'cancelled');
 
@@ -124,6 +127,21 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       })),
     };
     orderConfigs.push(radiologyOrdersConfig);
+  }
+
+  if (erxOrders?.length) {
+    const ordersConfig: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['eRX'],
+      title: 'eRx',
+      tableUrl: getErxUrl(appointment.id),
+      orders: erxOrders.map((order) => ({
+        fhirResourceId: order.resourceId ?? '',
+        itemDescription: order.name ?? '',
+        detailPageUrl: getErxUrl(appointment.id),
+        statusChip: <MappedStatusChip status={order.status ?? 'unknown'} mapper={medicationStatusMapper} />,
+      })),
+    };
+    orderConfigs.push(ordersConfig);
   }
 
   return (

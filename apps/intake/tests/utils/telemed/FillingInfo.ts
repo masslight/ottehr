@@ -3,6 +3,7 @@ import { assert } from 'console';
 import { DateTime } from 'luxon';
 import { BOOKING_CONFIG, patientScreeningQuestionsConfig } from 'utils';
 import { Locators } from '../locators';
+import { FlagsData } from '../Paperwork';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class FillingInfo {
@@ -28,6 +29,7 @@ export class FillingInfo {
   }
 
   // randomize in tests maybe not a good idea, left one option for now
+  // todo grab from config!
   private reasonForVisit = [BOOKING_CONFIG.reasonForVisitOptions[0]];
   private ethnicity = ['Hispanic or Latino', 'Not Hispanic or Latino', 'Decline to Specify'];
   private race = ['American Indian or Alaska Native'];
@@ -288,7 +290,7 @@ export class FillingInfo {
   }
 
   async fillAdditionalQuestions() {
-    const result: Record<string, string> = {};
+    const result = {} as FlagsData;
 
     // Get questions from config that exist in questionnaire (shown in intake additional questions)
     const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((f) => f.existsInQuestionnaire);
@@ -303,7 +305,7 @@ export class FillingInfo {
       const questionExists = await locator.isVisible({ timeout: 2000 }).catch(() => false);
       if (questionExists) {
         await locator.click();
-        result[field.fhirField] = answer;
+        result[field.fhirField as keyof FlagsData] = answer;
       } else {
         console.log(`Question "${field.question}" (${field.fhirField}) not found on page, skipping`);
       }

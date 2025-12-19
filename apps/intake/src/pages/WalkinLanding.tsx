@@ -5,7 +5,7 @@ import { ottehrLightBlue } from '@theme/icons';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
-import { generatePath, Link, useNavigate, useParams } from 'react-router-dom';
+import { generatePath, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { APIError, CreateSlotParams, isApiError, PROJECT_NAME, PROJECT_WEBSITE, ServiceMode } from 'utils';
 import { ottehrApi } from '../api';
 import { bookingBasePath } from '../App';
@@ -16,6 +16,8 @@ import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
 export const WalkinLanding: FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const serviceCategory = searchParams.get('serviceCategory');
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
   const { id: scheduleId, name } = useParams();
   const getWalkinAvailability = ottehrApi.getWalkinAvailability;
@@ -70,6 +72,7 @@ export const WalkinLanding: FC = () => {
                     lengthInMinutes: 15,
                     status: 'busy-tentative',
                     walkin: true,
+                    ...(serviceCategory ? { serviceCategoryCode: serviceCategory } : {}),
                   };
                   try {
                     const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);

@@ -220,6 +220,14 @@ export const intakeFlowPageRoute = {
     path: `/prebook/:${BOOKING_SERVICE_MODE_PARAM}/select-service-category`,
     getPage: () => <SelectServiceCategoryPage />,
   },
+  SelectServiceCategoryStartVirtual: {
+    path: '/start-virtual/select-service-category',
+    getPage: () => <SelectServiceCategoryPage />,
+  },
+  SelectServiceCategoryWalkin: {
+    path: '/walkin/location/:name/select-service-category',
+    getPage: () => <SelectServiceCategoryPage />,
+  },
   StartVirtualVisit: {
     path: '/start-virtual',
     getPage: () => <StartVirtualVisit />,
@@ -336,6 +344,14 @@ function App(): JSX.Element {
                 <Route
                   path={intakeFlowPageRoute.SelectServiceCategory.path}
                   element={intakeFlowPageRoute.SelectServiceCategory.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.SelectServiceCategoryStartVirtual.path}
+                  element={intakeFlowPageRoute.SelectServiceCategoryStartVirtual.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.SelectServiceCategoryWalkin.path}
+                  element={intakeFlowPageRoute.SelectServiceCategoryWalkin.getPage()}
                 />
                 <Route
                   path={intakeFlowPageRoute.StartVirtualVisit.path}

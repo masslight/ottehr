@@ -1,5 +1,6 @@
 import {
   Appointment,
+  Coding,
   Consent,
   DocumentReference,
   Encounter,
@@ -213,6 +214,7 @@ export interface InHouseLabResult {
   units?: string;
   rangeString?: string[];
   rangeQuantity?: QuantityComponent;
+  interpretationCoding: Coding | undefined;
 }
 export interface InHouseLabResultConfig {
   collectionDate: string;
@@ -450,6 +452,7 @@ export interface PdfSection<TData, TSectionData> {
   preferredWidth?: 'full' | 'column';
   extractImages?: (sectionData: TSectionData) => ImageReference[];
   render: (client: PdfClient, sectionData: TSectionData, styles: PdfStyles, assets: PdfAssets) => void;
+  skip?: boolean;
 }
 
 export interface VisitInfo extends PdfData {
@@ -473,6 +476,7 @@ export interface PatientInfo extends PdfData {
   suffix: string;
   pronouns: string;
   patientSex: string;
+  ssn: string;
 }
 
 export interface ContactInfo extends PdfData {
@@ -496,6 +500,9 @@ export interface PatientDetails extends PdfData {
   patientSendMarketing: boolean;
   preferredLanguage: string;
   patientCommonWellConsent: boolean;
+}
+
+export interface PrimaryCarePhysician extends PdfData {
   pcpName: string;
   pcpPracticeName: string;
   pcpAddress: string;
@@ -629,6 +636,9 @@ export interface PatientDataInput {
 
 export interface PatientDetailsInput {
   patient: Patient;
+}
+
+export interface PrimaryCarePhysicianInput {
   physician?: Practitioner;
 }
 
@@ -734,6 +744,7 @@ export interface VisitDetailsData extends PdfData {
   patient: PatientInfo;
   contact: ContactInfo;
   details: PatientDetails;
+  pcp: PrimaryCarePhysician;
   insurances: InsuranceInfo;
   responsibleParty: ResponsiblePartyInfo;
   emergencyContact: EmergencyContactInfo;

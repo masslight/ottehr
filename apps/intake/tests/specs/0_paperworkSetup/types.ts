@@ -1,11 +1,11 @@
 import { Locator } from '@playwright/test';
 import {
-  Flags,
+  FlagsData,
   InsuranceOptionalData,
   InsuranceRequiredData,
   PatientDetailsData,
   PrimaryCarePhysicianData,
-  ResponsibleParty,
+  ResponsiblePartyData,
   TelemedPaperworkData,
 } from 'tests/utils/Paperwork';
 import { GetSlotDetailsResponse } from 'utils';
@@ -15,7 +15,11 @@ export interface InPersonPatientTestData {
   lastName: string;
   email: string;
   birthSex: string;
-  dateOfBirth: string;
+  dob: {
+    m: string;
+    d: string;
+    y: string;
+  };
   appointmentId: string | null;
 }
 
@@ -46,7 +50,7 @@ export interface InPersonPatientNotSelfTestData extends InPersonPatientTestData 
     insuranceRequiredData: InsuranceRequiredData;
     insuranceOptionalData: InsuranceOptionalData;
   } | null;
-  responsiblePartyData: ResponsibleParty | null;
+  responsiblePartyData: ResponsiblePartyData | null;
 }
 
 export interface TelemedPatientTestData {
@@ -54,7 +58,7 @@ export interface TelemedPatientTestData {
   lastName: string;
   email: string;
   birthSex: string;
-  dateOfBirth: {
+  dob: {
     m: string;
     d: string;
     y: string;
@@ -74,12 +78,12 @@ export interface TelemedPrebookPatientTestData extends TelemedPatientTestData {
     insuranceRequiredData: InsuranceRequiredData;
     insuranceOptionalData: InsuranceOptionalData;
   } | null;
-  responsiblePartyData: ResponsibleParty | null;
+  responsiblePartyData: ResponsiblePartyData | null;
   medicationData: TelemedPaperworkData;
   allergiesData: TelemedPaperworkData;
   medicalHistoryData: TelemedPaperworkData;
   surgicalHistoryData: TelemedPaperworkData;
-  flags: Flags;
+  flags: FlagsData;
   uploadedPhotoCondition: Locator;
 }
 

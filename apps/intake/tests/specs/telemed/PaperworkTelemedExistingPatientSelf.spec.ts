@@ -44,15 +44,17 @@ test.describe.parallel('Telemed - Prefilled Paperwork, Responsible Party: Self, 
     });
 
     await test.step('VVPPS-1.2. Check all fields have prefilled values', async () => {
-      const { y: year, m: month, d: day } = patient.dateOfBirth;
-      const dob = commonLocatorsHelper.getMonthDay(month, day);
-      if (!dob) {
+      const { y, m, d } = patient.dob;
+      const humanReadableDob = commonLocatorsHelper.getMonthDay(m, d);
+      if (!humanReadableDob) {
         throw new Error('DOB data is null');
       }
       await expect(locator.responsiblePartyFirstName).toHaveValue(patient.firstName);
       await expect(locator.responsiblePartyLastName).toHaveValue(patient.lastName);
       await expect(locator.responsiblePartyBirthSex).toHaveValue(patient.birthSex);
-      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
+      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
+        `${humanReadableDob?.monthNumber}/${humanReadableDob?.dayNumber}/${y}`
+      );
       await expect(locator.responsiblePartyRelationship).toHaveValue(RELATIONSHIP_RESPONSIBLE_PARTY_SELF);
       await expect(locator.responsiblePartyCity).toHaveValue(PATIENT_CITY);
       await expect(locator.responsiblePartyState).toHaveValue(patient.state);

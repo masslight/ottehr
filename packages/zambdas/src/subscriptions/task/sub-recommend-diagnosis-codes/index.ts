@@ -158,10 +158,18 @@ export async function createDiagnosisCodeRecommendations(
   });
 
   console.timeLog('time', 'before saving resources');
-  await oystehr.fhir.transaction({
+  const result = await oystehr.fhir.batch({
     requests: saveOrUpdateRequests,
   });
   console.timeLog('time', 'after saving resources');
+  result.entry?.forEach(({ response }) => {
+    if (response && Number(response.status) >= 300) {
+      const outcome = response.outcome?.resourceType === 'OperationOutcome' ? response.outcome : undefined;
+      console.error(
+        `Error modifying resource: ${response.status} ${outcome?.issue.map((issue) => issue.details?.text).join(', ')}`
+      );
+    }
+  });
 
   console.timeEnd('time');
   return {

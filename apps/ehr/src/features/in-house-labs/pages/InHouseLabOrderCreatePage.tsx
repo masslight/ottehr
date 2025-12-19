@@ -243,7 +243,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           color="primary.dark"
           sx={{ mb: 3 }}
         >
-          Order In-house Lab
+          Order In-House Lab
         </Typography>
 
         <Paper sx={{ p: 4 }}>

@@ -20,6 +20,7 @@ interface PerformTestViewProps {
 }
 
 export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, setLoadingState, onBack }) => {
+  console.log('These are testDetails', testDetails);
   const methods = useForm<ResultEntryInput>({ mode: 'onChange' });
   const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
   const {
