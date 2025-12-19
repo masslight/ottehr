@@ -1,5 +1,5 @@
 import { capitalize } from 'lodash';
-import { DateTime } from 'luxon';
+import { formatDateForDisplay } from 'utils';
 import { DataComposer } from '../pdf-common';
 import { PatientPaymentsDataInput, PatientPaymentsInfo, PdfSection } from '../types';
 
@@ -7,7 +7,7 @@ export const composePatientPaymentsData: DataComposer<PatientPaymentsDataInput, 
   payments,
 }) => {
   const paymentsInfo = payments.map((payment) => {
-    const date = DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT);
+    const date = formatDateForDisplay(payment.dateISO) ?? '';
 
     let label = '';
     if (payment.paymentMethod === 'card') {

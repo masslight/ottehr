@@ -5,13 +5,13 @@ import { DateTime } from 'luxon';
 import {
   CRITICAL_CHANGE_SYSTEM,
   FhirAppointmentType,
+  formatDateForDisplay,
   getCriticalUpdateTagOp,
   getFullName,
   STATUS_UPDATE_TAG_SYSTEM,
 } from 'utils';
 import { HOP_QUEUE_URI } from '../constants';
 import { appointmentTypeLabels } from '../types/types';
-import { formatDateUsingSlashes } from './formatDateTime';
 
 const CREATED_BY_SYSTEM = 'created-by'; // exists in intake as well
 
@@ -138,8 +138,8 @@ export const formatActivityLogs = (
           activityDateTime: formatActivityDateTime(curPatientHistory.meta?.lastUpdated || '', timezone),
           activityBy: activityBy ? activityBy : 'n/a',
           moreDetails: {
-            valueBefore: formatDateUsingSlashes(previousPatientHistory.birthDate) || '',
-            valueAfter: formatDateUsingSlashes(curPatientHistory.birthDate) || '',
+            valueBefore: formatDateForDisplay(previousPatientHistory.birthDate) || '',
+            valueAfter: formatDateForDisplay(curPatientHistory.birthDate) || '',
           },
         };
         logs.push(dobChangeActivityLog);
@@ -268,7 +268,7 @@ const getStatusToDisplay = (diff: IChange): string => {
 
 export const formatActivityDateTime = (dateTime: string, timezone: string): string => {
   const date = DateTime.fromISO(dateTime).setZone(timezone);
-  const dateFormatted = formatDateUsingSlashes(date.toISO() || '');
+  const dateFormatted = formatDateForDisplay(date.toISO() || '');
   const timeFormatted = date.toLocaleString(DateTime.TIME_SIMPLE);
   const timezoneShort = date.offsetNameShort;
   return `${dateFormatted} ${timeFormatted} ${timezoneShort ?? ''}`;

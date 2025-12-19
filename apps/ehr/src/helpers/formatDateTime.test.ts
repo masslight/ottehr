@@ -1,9 +1,8 @@
 import { DateTime } from 'luxon';
-import { calculatePatientAge } from 'utils';
+import { calculatePatientAge, formatDateForDisplay } from 'utils';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   datesCompareFn,
-  formatDateUsingSlashes,
   formatHourNumber,
   formatISODateToLocaleDate,
   formatISOStringToDateAndTime,
@@ -77,15 +76,15 @@ describe('formatDateTime helpers', () => {
 
   describe('formatDateUsingSlashes', () => {
     it('should format date using slashes', () => {
-      expect(formatDateUsingSlashes('2023-05-15')).toBe('05/15/2023');
+      expect(formatDateForDisplay('2023-05-15')).toBe('05/15/2023');
     });
 
     it('should return undefined for undefined input', () => {
-      expect(formatDateUsingSlashes(undefined)).toBeUndefined();
+      expect(formatDateForDisplay(undefined)).toBeUndefined();
     });
 
     it('should handle invalid date strings', () => {
-      expect(formatDateUsingSlashes('invalid-date')).toBe('Invalid DateTime');
+      expect(formatDateForDisplay('invalid-date')).toBe('Invalid DateTime');
     });
   });
 

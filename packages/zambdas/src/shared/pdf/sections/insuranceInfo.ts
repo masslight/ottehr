@@ -1,6 +1,7 @@
 import { Reference } from 'fhir/r4b';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
+  formatDateForDisplay,
   genderMap,
   getCandidPlanTypeCodeFromCoverage,
   getFullName,
@@ -63,7 +64,7 @@ export const composeInsuranceData: DataComposer<InsuranceDataInput, InsuranceInf
     secondaryPlanType = getCandidPlanTypeCodeFromCoverage(secondary);
   }
 
-  const primarySubscriberDoB = primarySubscriber?.birthDate ?? '';
+  const primarySubscriberDoB = formatDateForDisplay(primarySubscriber?.birthDate) ?? '';
   const primarySubscriberBirthSex = genderMap[primarySubscriber?.gender as keyof typeof genderMap] ?? '';
   let primarySubscriberFullName = '';
   const relationshipToInsured = primary?.relationship?.coding?.[0].display ?? '';
@@ -81,7 +82,7 @@ export const composeInsuranceData: DataComposer<InsuranceDataInput, InsuranceInf
   const primaryAdditionalInformation =
     primary?.extension?.find((e: { url: string }) => e.url === COVERAGE_ADDITIONAL_INFORMATION_URL)?.valueString ?? '';
 
-  const secondarySubscriberDoB = secondarySubscriber?.birthDate ?? '';
+  const secondarySubscriberDoB = formatDateForDisplay(secondarySubscriber?.birthDate) ?? '';
   const secondarySubscriberBirthSex = genderMap[secondarySubscriber?.gender as keyof typeof genderMap] ?? '';
   let secondarySubscriberFullName = '';
   const secondaryRelationshipToInsured = secondary?.relationship?.coding?.[0].display ?? '';

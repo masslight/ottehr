@@ -1,5 +1,4 @@
-import { DateTime } from 'luxon';
-import { DISPLAY_DATE_FORMAT, flattenQuestionnaireAnswers, getAttestedConsentFromEncounter } from 'utils';
+import { flattenQuestionnaireAnswers, formatDateForDisplay, getAttestedConsentFromEncounter } from 'utils';
 import { DataComposer } from '../pdf-common';
 import { consentFormsInfo, ConsentsDataInput, PdfSection } from '../types';
 
@@ -23,12 +22,7 @@ export const composeConsentFormsData: DataComposer<ConsentsDataInput, consentFor
 
   const firstConsent = consents && consents.length > 0 ? consents[0] : undefined;
 
-  const dateISO = firstConsent?.dateTime;
-  let date: string = '';
-
-  if (dateISO) {
-    date = DateTime.fromISO(dateISO).setZone(timezone).toFormat(DISPLAY_DATE_FORMAT);
-  }
+  const date = formatDateForDisplay(firstConsent?.dateTime, timezone) ?? '';
 
   const flattenedPaperwork = flattenQuestionnaireAnswers(questionnaireResponse.item || []);
   const signature = flattenedPaperwork.find((item) => item.linkId === 'signature')?.answer?.[0]?.valueString ?? '';
