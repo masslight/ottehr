@@ -6,7 +6,7 @@ import { addProcessIdMetaTagToAppointment } from 'test-utils';
 import { ResourceHandler } from 'tests/utils/resource-handler';
 import { chooseJson, CreateAppointmentResponse, GetSlotDetailsResponse } from 'utils';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
-import { Paperwork, PatientDetailsData, PrimaryCarePhysicianData } from '../../utils/Paperwork';
+import { Paperwork, PatientDetailsData } from '../../utils/Paperwork';
 import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
 import { WalkInTelemedFlow } from '../../utils/telemed/WalkInTelemedFlow';
 import {
@@ -337,8 +337,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         state: filledPaperwork.stateValue,
         // todo because i'm not great at type conditional types apparently
         patientDetailsData: filledPaperwork.patientDetailsData as PatientDetailsData,
-        // todo because i'm not great at type conditional types apparently
-        pcpData: filledPaperwork.pcpData as PrimaryCarePhysicianData,
+        pcpData: filledPaperwork.pcpData!,
         insuranceData: filledPaperwork.insuranceData,
         secondaryInsuranceData: filledPaperwork.secondaryInsuranceData,
         responsiblePartyData: filledPaperwork.responsiblePartyData,
