@@ -27,7 +27,7 @@ describe('chart-data integration tests', () => {
     oystehrLocalZambdas = setup.oystehrTestUserM2M;
     baseResources = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
     cleanup = setup.cleanup;
-  });
+  }, 60_000);
 
   afterAll(async () => {
     await cleanup();
