@@ -1,0 +1,17 @@
+{
+  "schema-version": "2025-09-25",
+  "zambdas": {
+    "TEST-ENV-CLEANUP": {
+      "name": "test-env-cleanup",
+      "type": "cron",
+      "runtime": "nodejs20.x",
+      "timeout": "900",
+      "memorySize": "1024",
+      "src": "src/cron/test-env-cleanup/index",
+      "zip": ".dist/zips/test-env-cleanup.zip",
+      "schedule": {
+        "expression": "cron(0 * * * ? *)"
+      }
+    }
+  }
+}
