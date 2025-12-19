@@ -140,25 +140,20 @@ describe('generate-oystehr-resources', () => {
 
         mockFsForSuccess();
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readdir).mockImplementation(async (dirPath: any) => {
+        vi.mocked(fs.readdir).mockImplementation(async (dirPath) => {
           const pathStr = String(dirPath);
           if (pathStr === '/config/oystehr') {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            return [createMockDirent('zambdas.json', true)] as any;
+            return [createMockDirent('zambdas.json', true)] as never;
           }
           if (pathStr === '/config/oystehr/env/local') {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            return [createMockDirent('zambdas.json', true)] as any;
+            return [createMockDirent('zambdas.json', true)] as never;
           }
           return [];
         });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => true } as any);
+        vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => true } as Awaited<ReturnType<typeof fs.stat>>);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
           const pathStr = String(filePath);
           if (pathStr === '/config/oystehr/zambdas.json') {
             return JSON.stringify(baseSpec);
@@ -195,19 +190,16 @@ describe('generate-oystehr-resources', () => {
 
         mockFsForSuccess();
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readdir).mockImplementation(async (dirPath: any) => {
+        vi.mocked(fs.readdir).mockImplementation(async (dirPath) => {
           if (String(dirPath) === '/config/oystehr') {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            return [createMockDirent('zambdas.json', true)] as any;
+            return [createMockDirent('zambdas.json', true)] as never;
           }
           return [];
         });
 
         vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
           const pathStr = String(filePath);
           if (pathStr === '/config/oystehr/zambdas.json') {
             return JSON.stringify(baseSpec);
@@ -229,8 +221,7 @@ describe('generate-oystehr-resources', () => {
 
       it('propagates non-ENOENT errors', async () => {
         mockFsForSuccess();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('zambdas.json', true)] as any);
+        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('zambdas.json', true)] as never);
 
         const eaccesError = new Error('EACCES: permission denied') as NodeJS.ErrnoException;
         eaccesError.code = 'EACCES';
@@ -250,12 +241,10 @@ describe('generate-oystehr-resources', () => {
         vi.mocked(fs.readdir).mockResolvedValue([
           createMockDirent('spec1.json', true),
           createMockDirent('spec2.json', true),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ] as any);
+        ] as never);
         vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
           const pathStr = String(filePath);
           if (pathStr.endsWith('spec1.json')) return JSON.stringify(spec1);
           if (pathStr.endsWith('spec2.json')) return JSON.stringify(spec2);
@@ -273,12 +262,10 @@ describe('generate-oystehr-resources', () => {
         const vars: VarsFile = {};
 
         mockFsForSuccess();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('spec.json', true)] as any);
+        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('spec.json', true)] as never);
         vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
           const pathStr = String(filePath);
           if (pathStr.endsWith('spec.json')) return JSON.stringify(spec);
           if (pathStr.includes('.env/')) return JSON.stringify(vars);
@@ -312,12 +299,10 @@ describe('generate-oystehr-resources', () => {
     describe('JSON parsing', () => {
       it('throws error for invalid JSON in spec file', async () => {
         mockFsForSuccess();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('bad.json', true)] as any);
+        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('bad.json', true)] as never);
         vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
           const pathStr = String(filePath);
           if (pathStr.endsWith('bad.json')) return 'not valid json {{{';
           if (pathStr.includes('.env/')) return '{}';
@@ -331,12 +316,10 @@ describe('generate-oystehr-resources', () => {
         const spec: SpecFile = { 'schema-version': '2025-09-25', zambdas: {} };
 
         mockFsForSuccess();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('spec.json', true)] as any);
+        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('spec.json', true)] as never);
         vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
           const pathStr = String(filePath);
           if (pathStr.endsWith('spec.json')) return JSON.stringify(spec);
           if (pathStr.includes('.env/')) return 'not valid json';
@@ -350,12 +333,10 @@ describe('generate-oystehr-resources', () => {
         const spec: SpecFile = { 'schema-version': '2025-09-25', zambdas: {} };
 
         mockFsForSuccess();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('spec.json', true)] as any);
+        vi.mocked(fs.readdir).mockResolvedValue([createMockDirent('spec.json', true)] as never);
         vi.mocked(fs.stat).mockRejectedValue(createEnoentError());
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.mocked(fs.readFile).mockImplementation(async (filePath: any) => {
+        vi.mocked(fs.readFile).mockImplementation(async (filePath) => {
           const pathStr = String(filePath);
           if (pathStr.endsWith('spec.json')) return JSON.stringify(spec);
           if (pathStr.includes('.env/')) return JSON.stringify(['array', 'not', 'object']);
