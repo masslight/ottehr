@@ -44,15 +44,15 @@ test.describe.parallel('In-Person - Prefilled Paperwork, Responsible Party: Self
     });
 
     await test.step('IPPPS-1.2. Check all fields have prefilled values', async () => {
-      const [year, month, day] = patient.dateOfBirth.split('-');
-      const dob = commonLocatorsHelper.getMonthDay(month, day);
+      const { y, m, d } = patient.dob;
+      const dob = commonLocatorsHelper.getMonthDay(m, d);
       if (!dob) {
         throw new Error('DOB data is null');
       }
       await expect(locator.responsiblePartyFirstName).toHaveValue(patient.firstName);
       await expect(locator.responsiblePartyLastName).toHaveValue(patient.lastName);
       await expect(locator.responsiblePartyBirthSex).toHaveValue(patient.birthSex);
-      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
+      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${y}`);
       await expect(locator.responsiblePartyRelationship).toHaveValue(RELATIONSHIP_RESPONSIBLE_PARTY_SELF);
       await expect(locator.responsiblePartyCity).toHaveValue(PATIENT_CITY);
       await expect(locator.responsiblePartyState).toHaveValue(patient.state!);

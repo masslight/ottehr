@@ -15,7 +15,11 @@ export interface InPersonPatientTestData {
   lastName: string;
   email: string;
   birthSex: string;
-  dateOfBirth: string;
+  dob: {
+    m: string;
+    d: string;
+    y: string;
+  };
   appointmentId: string | null;
 }
 
@@ -54,7 +58,7 @@ export interface TelemedPatientTestData {
   lastName: string;
   email: string;
   birthSex: string;
-  dateOfBirth: {
+  dob: {
     m: string;
     d: string;
     y: string;
