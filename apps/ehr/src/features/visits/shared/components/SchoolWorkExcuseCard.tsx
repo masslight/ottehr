@@ -52,11 +52,19 @@ export const SchoolWorkExcuseCard: FC = () => {
             schoolWorkNotes: schoolWorkNotes,
           });
         },
+        onSuccess: () => {
+          setPartialChartData({
+            schoolWorkNotes: schoolWorkNotes.filter((note) => note.id !== id),
+          });
+        },
       }
     );
-    setPartialChartData({
-      schoolWorkNotes: schoolWorkNotes.filter((note) => note.id !== id),
-    });
+    setPartialChartData(
+      {
+        schoolWorkNotes: schoolWorkNotes.filter((note) => note.id !== id),
+      },
+      { invalidateQueries: false }
+    );
   };
 
   const onPublish = (id: string): void => {

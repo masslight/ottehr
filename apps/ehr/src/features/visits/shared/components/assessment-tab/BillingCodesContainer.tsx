@@ -71,7 +71,7 @@ export const BillingCodesContainer: FC = () => {
         },
       }
     );
-    setPartialChartData({ cptCodes: [...cptCodes, value] });
+    setPartialChartData({ cptCodes: [...cptCodes, value] }, { invalidateQueries: false });
   };
 
   const onDelete = (resourceId: string): void => {
@@ -94,7 +94,10 @@ export const BillingCodesContainer: FC = () => {
         },
       }
     );
-    setPartialChartData({ cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) });
+    setPartialChartData(
+      { cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) },
+      { invalidateQueries: false }
+    );
   };
 
   const onEMCodeChange = (value: CPTCodeOption | null): void => {
@@ -118,7 +121,7 @@ export const BillingCodesContainer: FC = () => {
           },
         }
       );
-      setPartialChartData({ emCode: value });
+      setPartialChartData({ emCode: { ...emCode, ...value } }, { invalidateQueries: false });
     } else if (emCode) {
       const prevValue = { ...emCode };
       deleteEMChartData(
@@ -133,7 +136,7 @@ export const BillingCodesContainer: FC = () => {
           },
         }
       );
-      setPartialChartData({ emCode: undefined });
+      setPartialChartData({ emCode: undefined }, { invalidateQueries: false });
     }
   };
 

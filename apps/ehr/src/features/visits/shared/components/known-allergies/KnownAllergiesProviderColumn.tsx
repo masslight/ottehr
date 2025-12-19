@@ -88,7 +88,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
   const [note, setNote] = useState(value.note || '');
   const areNotesEqual = note.trim() === (value.note || '');
   const featureFlags = useAppFlags();
-  const { chartDataSetState } = useChartData();
+  const { chartDataSetState } = useChartData({ refetchOnMount: false });
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
@@ -163,6 +163,15 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
         },
       }
     );
+    chartDataSetState(
+      (prevState) => ({
+        chartData: {
+          ...prevState.chartData!,
+          allergies: prevState.chartData?.allergies?.filter((allergy) => allergy.resourceId !== value.resourceId),
+        },
+      }),
+      { invalidateQueries: false }
+    );
   };
 
   return (
@@ -231,7 +240,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
 };
 
 const AddAllergyField: FC = () => {
-  const { isChartDataLoading } = useChartData();
+  const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
   const { onSubmit, isLoading } = useChartDataArrayValue('allergies');
 
   const methods = useForm<{ value: ExtractObjectType<ErxSearchAllergensResponse> | null; otherAllergyName: string }>({
@@ -277,9 +286,16 @@ const AddAllergyField: FC = () => {
         name: data.name,
         id: data.id?.toString(),
         current: true,
+        lastUpdated: new Date().toISOString(),
       };
 
       try {
+        setPartialChartData(
+          {
+            allergies: [...(chartData?.allergies || []), newValue],
+          },
+          { invalidateQueries: false }
+        );
         await onSubmit(newValue);
         reset({ value: null, otherAllergyName: '' });
         setIsOtherOptionSelected(false);

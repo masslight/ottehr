@@ -100,7 +100,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
   const isLoading = isUpdateLoading || isDeleteLoading;
   const isLoadingOrAwaiting = isLoading || !areNotesEqual;
   const isAlreadySaved = !!value.resourceId;
-  const { chartDataSetState } = useChartData();
+  const { chartDataSetState } = useChartData({ refetchOnMount: false });
 
   const updateNote = useMemo(
     () =>
@@ -171,6 +171,15 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
         },
       }
     );
+    chartDataSetState(
+      (prevState) => ({
+        chartData: {
+          ...prevState.chartData!,
+          conditions: prevState.chartData?.conditions?.filter((condition) => condition.resourceId !== value.resourceId),
+        },
+      }),
+      { invalidateQueries: false }
+    );
   };
 
   return (
@@ -239,7 +248,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 };
 
 const AddMedicalConditionField: FC = () => {
-  const { isChartDataLoading } = useChartData();
+  const { chartData, isChartDataLoading, setPartialChartData } = useChartData();
   const { onSubmit, isLoading } = useChartDataArrayValue('conditions');
 
   const methods = useForm<{ value: IcdSearchResponse['codes'][number] | null }>({
@@ -267,9 +276,16 @@ const AddMedicalConditionField: FC = () => {
         code: data.code,
         display: data.display,
         current: true,
+        lastUpdated: new Date().toISOString(),
       };
 
       try {
+        setPartialChartData(
+          {
+            conditions: [...(chartData?.conditions || []), newValue],
+          },
+          { invalidateQueries: false }
+        );
         await onSubmit(newValue);
         reset({ value: null });
       } catch {

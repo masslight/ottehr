@@ -73,14 +73,22 @@ export const PatientInstructionsCard: FC = () => {
   };
 
   const onDelete = (value: CommunicationDTO): void => {
-    setPartialChartData({
-      instructions: instructions.filter((item) => item.resourceId !== value.resourceId),
-    });
+    setPartialChartData(
+      {
+        instructions: instructions.filter((item) => item.resourceId !== value.resourceId),
+      },
+      { invalidateQueries: false }
+    );
     deleteChartData(
       {
         instructions: [value],
       },
       {
+        onSuccess: () => {
+          setPartialChartData({
+            instructions: instructions.filter((item) => item.resourceId !== value.resourceId),
+          });
+        },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting patient instruction. Please try again.', {
             variant: 'error',

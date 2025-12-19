@@ -12,9 +12,8 @@ export const EMCodeField: FC = () => {
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
 
   const onChange = (value: CPTCodeOption | null): void => {
+    const prevValue = emCode;
     if (value) {
-      const prevValue = emCode;
-
       saveChartData(
         { emCode: { ...emCode, ...value } },
         {
@@ -31,10 +30,21 @@ export const EMCodeField: FC = () => {
           },
         }
       );
-      setPartialChartData({ emCode: value });
+      setPartialChartData({ emCode: value }, { invalidateQueries: false });
     } else {
-      deleteChartData({ emCode });
-      setPartialChartData({ emCode: undefined });
+      deleteChartData(
+        { emCode },
+        {
+          onSuccess: async () => {
+            setPartialChartData({ emCode: undefined });
+          },
+          onError: () => {
+            enqueueSnackbar('An error has occurred while deleting E&M code. Please try again.', { variant: 'error' });
+            setPartialChartData({ emCode: prevValue });
+          },
+        }
+      );
+      setPartialChartData({ emCode: undefined }, { invalidateQueries: false });
     }
   };
 
