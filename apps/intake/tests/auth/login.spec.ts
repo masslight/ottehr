@@ -21,7 +21,7 @@ test('Should log in if not authorized', async ({ context, page }) => {
       await context.clearPermissions();
       await page.goto('/');
       await page.getByTestId('loading-button').click({ timeout: 20_000 });
-      await page.getByRole('button', { name: 'Past Visits' }).click({ timeout: 20_000 });
+      await page.getByRole('button', { name: 'Past Visits' }).click({ timeout: 20_000, noWaitAfter: true });
       await login(page, process.env.PHONE_NUMBER, process.env.TEXT_USERNAME, process.env.TEXT_PASSWORD);
     }
   } catch (error) {
