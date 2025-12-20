@@ -23,6 +23,12 @@ import {
   LabComponentValueSetConfig,
   OD_DISPLAY_CONFIG,
   OD_VALUE_VALIDATION_CONFIG,
+  REFLEX_TEST_ALERT_URL,
+  REFLEX_TEST_CONDITION_LANGUAGES,
+  REFLEX_TEST_CONDITION_URL,
+  REFLEX_TEST_LOGIC_URL,
+  REFLEX_TEST_TO_RUN_NAME_URL,
+  REFLEX_TEST_TO_RUN_URL,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
   Validation,
 } from 'utils';
@@ -142,12 +148,45 @@ const makeObsDefExtension = (item: TestItemComponent): Extension[] => {
   return extension;
 };
 
-const makeActivityDefinitionRepeatableExtension = (item: TestItem): Extension[] | undefined => {
+const makeActivityExtension = (item: TestItem): Extension[] | undefined => {
   const extension: Extension[] = [];
   if (item.repeatTest) {
     extension.push({
       url: REPEATABLE_TEXT_EXTENSION_CONFIG.url,
       valueString: REPEATABLE_TEXT_EXTENSION_CONFIG.valueString,
+    });
+  }
+  const reflexLogics: ReflexLogic[] = [];
+  item.components.forEach((component) => {
+    if (component.reflexLogic) reflexLogics.push(component.reflexLogic);
+  });
+  if (reflexLogics.length) {
+    reflexLogics.forEach((logic) => {
+      extension.push({
+        url: REFLEX_TEST_LOGIC_URL,
+        extension: [
+          {
+            url: REFLEX_TEST_TO_RUN_URL,
+            valueCanonical: logic.testToRun.testCanonicalUrl,
+          },
+          {
+            url: REFLEX_TEST_TO_RUN_NAME_URL,
+            valueString: logic.testToRun.testName,
+          },
+          {
+            url: REFLEX_TEST_ALERT_URL,
+            valueString: logic.triggerAlert,
+          },
+          {
+            url: REFLEX_TEST_CONDITION_URL,
+            valueExpression: {
+              description: logic.condition.description,
+              language: logic.condition.language,
+              expression: logic.condition.expression,
+            },
+          },
+        ],
+      });
     });
   }
 
@@ -436,7 +475,7 @@ async function main(): Promise<void> {
           },
         ],
       },
-      extension: makeActivityDefinitionRepeatableExtension(testItem),
+      extension: makeActivityExtension(testItem),
     };
 
     activityDefinitions.push(activityDef);
@@ -531,9 +570,26 @@ interface TestItemMethods {
   analyzer?: { device: string };
   machine?: { device: string };
 }
+
+interface ReflexLogic {
+  // you may want to generate the AD for the reflex test first to be sure they match
+  // these need to match the reflex test activity definition
+  testToRun: {
+    testName: string;
+    testCanonicalUrl: string;
+  };
+  // this what will be shown on the front end when conditions are met
+  triggerAlert: string;
+  condition: {
+    description: string; // human readable description of what is being evaluated, purely informational
+    language: typeof REFLEX_TEST_CONDITION_LANGUAGES.fhirPath; // the only language we are set up to handle at the moment, code changes are needed if we want to handle something else
+    expression: string; // should be something that fhirPath can accept
+  };
+}
 interface BaseComponent {
   componentName: string;
   loincCode: string[];
+  reflexLogic?: ReflexLogic;
 }
 
 export interface CodeableConceptComponent extends BaseComponent {

@@ -45,9 +45,12 @@ export class OrderInHouseLabPage {
   async selectTestType(): Promise<string> {
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeField).click();
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).waitFor({ state: 'visible' });
-    const firstOption = this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).locator('li').first();
-    const optionValue = await firstOption.innerText();
-    await firstOption.click();
+    // todo this should be selecting a specific test but it needs to be a test that we are guaranteed to have in all repos - i don't even know if something like that exists
+    // a better solution would be that the way we do result entry within these tests needs to change
+    // because as soon as a test that isn't radio entry becomes first this breaks
+    const thirdOption = this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).locator('li').nth(2);
+    const optionValue = await thirdOption.innerText();
+    await thirdOption.click();
     return optionValue;
   }
   async verifyCPTCode(CPTCode: string): Promise<void> {
