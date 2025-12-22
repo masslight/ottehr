@@ -174,6 +174,8 @@ async function main(): Promise<void> {
       }
       jsonStr = jsonStr.split(questionnaireUrl).join('{{questionnaireUrl}}');
       jsonStr = jsonStr.split(today).join('{{date}}');
+      // eliminate timezone issues with dates being at midnight
+      jsonStr = jsonStr.replace(/\{\{date\}\}T\d\d:/g, '{{date}}T12:');
 
       const entry = {
         fullUrl,
