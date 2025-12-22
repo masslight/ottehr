@@ -67,7 +67,7 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
   // ---------------------------------------------------------------------------
 
   async additionalStepsForPrebook(): Promise<{
-    selectedSlot: string | undefined;
+    slot: string | undefined;
     location: string | null;
   }> {
     // Handle service category selection if present
@@ -79,8 +79,8 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
     const title = await this.locator.pageTitle.textContent();
     const location = title ? title.replace('Book a visit at ', '').trim() : null;
 
-    const { selectedSlot } = await this.fillingInfo.selectRandomSlot();
-    return { selectedSlot, location };
+    const { slot } = await this.fillingInfo.selectRandomSlot();
+    return { slot, location };
   }
 
   // for ReservationScreen.spec.ts

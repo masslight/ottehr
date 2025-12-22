@@ -6,7 +6,7 @@ import { InPersonPaperworkReturn, Paperwork } from '../Paperwork';
 import { FillingInfo } from './FillingInfo';
 
 export interface SlotAndLocation {
-  selectedSlot: string | undefined;
+  slot: string | undefined;
   location: string | null;
   locationTitle?: string | null;
 }

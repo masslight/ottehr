@@ -114,7 +114,7 @@ export type InPersonPaperworkReturn<
   PaperworkResponsibleParty extends 'self' | 'not-self',
   PaperworkRequiredOnly extends boolean = false,
 > = {
-  stateValue: string;
+  state: string;
   patientDetailsData: PaperworkRequiredOnly extends true ? PatientDetailsRequiredData : PatientDetailsData;
   pcpData: PaperworkRequiredOnly extends true ? null : PrimaryCarePhysicianData;
   insuranceData: PaperworkPayment extends 'insurance'
@@ -143,7 +143,7 @@ export type TelemedPaperworkReturn<
   PaperworkResponsibleParty extends 'self' | 'not-self',
   PaperworkRequiredOnly extends boolean = false,
 > = {
-  stateValue: string;
+  state: string;
   patientDetailsData: PaperworkRequiredOnly extends true ? PatientDetailsRequiredData : PatientDetailsData;
   pcpData: PaperworkRequiredOnly extends true ? null : PrimaryCarePhysicianData;
   medicationData: TelemedPaperworkData;
@@ -267,13 +267,11 @@ export class Paperwork {
     requiredOnly: RO;
   }): Promise<InPersonPaperworkReturn<P, RP, RO>> {
     await this.checkCorrectPageOpens('Contact information');
-    let stateValue: string;
+    let state: string;
     if (requiredOnly) {
-      const { stateValue: sv } = await this.fillContactInformationRequiredFields();
-      stateValue = sv;
+      state = await this.fillContactInformationRequiredFields();
     } else {
-      const { stateValue: sv } = await this.fillContactInformationAllFields();
-      stateValue = sv;
+      state = await this.fillContactInformationAllFields();
     }
     await this.locator.clickContinueButton();
 
@@ -357,7 +355,7 @@ export class Paperwork {
     await this.locator.clickContinueButton();
 
     return {
-      stateValue,
+      state,
       patientDetailsData,
       pcpData,
       responsiblePartyData,
@@ -394,13 +392,11 @@ export class Paperwork {
     requiredOnly: RO;
   }): Promise<TelemedPaperworkReturn<P, RP, RO>> {
     await this.checkCorrectPageOpens('Contact information');
-    let stateValue: string;
+    let state: string;
     if (requiredOnly) {
-      const { stateValue: sv } = await this.fillContactInformationRequiredFields();
-      stateValue = sv;
+      state = await this.fillContactInformationRequiredFields();
     } else {
-      const { stateValue: sv } = await this.fillContactInformationAllFields();
-      stateValue = sv;
+      state = await this.fillContactInformationAllFields();
     }
     await this.locator.clickContinueButton();
 
@@ -505,7 +501,7 @@ export class Paperwork {
     await this.locator.clickContinueButton();
 
     return {
-      stateValue,
+      state,
       patientDetailsData,
       pcpData,
       medicationData,
@@ -522,8 +518,8 @@ export class Paperwork {
 
   // ---------------------------------------------------------------------------
 
-  async fillContactInformationRequiredFields(): Promise<{ stateValue: string }> {
-    const { stateValue } = await this.fillPatientState();
+  async fillContactInformationRequiredFields(): Promise<string> {
+    const state = await this.fillPatientState();
     await this.fillStreetAddress();
     await this.fillPatientCity();
     await this.fillPatientZip();
@@ -532,13 +528,13 @@ export class Paperwork {
     await expect(this.locator.patientCity).not.toBeEmpty();
     await expect(this.locator.patientState).not.toBeEmpty();
     await expect(this.locator.patientZip).not.toBeEmpty();
-    return { stateValue };
+    return state;
   }
-  async fillContactInformationAllFields(): Promise<{ stateValue: string }> {
-    const { stateValue } = await this.fillContactInformationRequiredFields();
+  async fillContactInformationAllFields(): Promise<string> {
+    const state = await this.fillContactInformationRequiredFields();
     await this.fillStreetAddressLine2();
     await this.fillMobileOptIn();
-    return { stateValue };
+    return state;
   }
   async fillStreetAddress(): Promise<void> {
     await this.locator.streetAddress.fill(PATIENT_ADDRESS);
@@ -552,13 +548,13 @@ export class Paperwork {
     await this.locator.patientCity.fill(PATIENT_CITY);
     await expect(this.locator.patientCity).toHaveValue(PATIENT_CITY);
   }
-  async fillPatientState(): Promise<{ stateValue: string }> {
-    const stateValue = this.getRandomState();
+  async fillPatientState(): Promise<string> {
+    const state = this.getRandomState();
     await this.locator.patientState.click();
-    await this.locator.patientState.fill(stateValue);
-    await this.page.getByRole('option', { name: stateValue }).click();
-    await expect(this.locator.patientState).toHaveValue(stateValue);
-    return { stateValue };
+    await this.locator.patientState.fill(state);
+    await this.page.getByRole('option', { name: state }).click();
+    await expect(this.locator.patientState).toHaveValue(state);
+    return state;
   }
   async fillPatientZip(): Promise<void> {
     await this.locator.patientZip.fill(PATIENT_ZIP);
