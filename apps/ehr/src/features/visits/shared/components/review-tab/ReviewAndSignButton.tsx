@@ -127,7 +127,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       }
     }
 
-    if (!primaryDiagnosis || !medicalDecision || !emCode || !hpi || !chiefComplaint) {
+    if (!primaryDiagnosis || !medicalDecision || !emCode || !hpi || (isInPerson && !chiefComplaint)) {
       messages.push('You need to fill in the missing data');
     }
 
