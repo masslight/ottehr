@@ -37,6 +37,21 @@ export const RosField: FC = () => {
     ],
     content: chartDataFields?.ros?.text || '',
     editable: !isRosChartDataLoading,
+    editorProps: {
+      handlePaste: (view, event) => {
+        const text = event.clipboardData?.getData('text/plain');
+        if (text) {
+          // Check if it looks like markdown
+          const hasMarkdownSyntax = /[#*\-[\]`]/.test(text);
+          if (hasMarkdownSyntax && editor) {
+            event.preventDefault();
+            editor.commands.setContent(text, { contentType: 'markdown' });
+            return true;
+          }
+        }
+        return false;
+      },
+    },
     onUpdate: ({ editor }) => {
       onRosChange(editor.getMarkdown());
     },
