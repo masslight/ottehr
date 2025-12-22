@@ -36,7 +36,7 @@ export const MissingCard: FC = () => {
   const hpi = chartFields?.chiefComplaint?.text;
   const chiefComplaint = chartFields?.historyOfPresentIllness?.text;
 
-  if (primaryDiagnosis && medicalDecision && emCode && hpi) {
+  if (primaryDiagnosis && medicalDecision && emCode && hpi && chiefComplaint) {
     return null;
   }
 
