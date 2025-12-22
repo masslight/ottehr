@@ -73,6 +73,7 @@ import {
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
   SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
   SR_REVOKED_REASON_EXT,
+  WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { parseLabOrderStatusWithSpecificTask } from '../get-lab-orders/helpers';
 
@@ -1378,4 +1379,13 @@ export const accountIsPatientBill = (account: Account): boolean => {
     (coding) => coding.system === patientBillSystem && coding.code === patientBillCode
   );
   return !!isPatientBill;
+};
+
+export const accountIsWorkersComp = (account: Account): boolean => {
+  const workersCompSystem = WORKERS_COMP_ACCOUNT_TYPE?.coding?.[0].system;
+  const workersCompCode = WORKERS_COMP_ACCOUNT_TYPE?.coding?.[0].code;
+  const isWorkersComp = account.type?.coding?.some(
+    (coding) => coding.system === workersCompSystem && coding.code === workersCompCode
+  );
+  return !!isWorkersComp;
 };

@@ -188,6 +188,8 @@ export const getTestNameOrCodeFromDr = (dr: DiagnosticReport): string => {
   return testDescription;
 };
 
+// todo sarah need to update this once OTR-1568 is done - i'm assuming there will be some identifier on the coverage that marks is as workers comp
+// just not sure what this is yet
 export function paymentMethodFromCoverage(coverage: Coverage): CreateLabPaymentMethod {
   let paymentMethod = LabPaymentMethod.Insurance;
   const coverageTypeFromCoding = coverage.type?.coding?.[0]?.code;
@@ -197,6 +199,9 @@ export function paymentMethodFromCoverage(coverage: Coverage): CreateLabPaymentM
       break;
     case LAB_CLIENT_BILL_COVERAGE_TYPE_CODING.code:
       paymentMethod = LabPaymentMethod.ClientBill;
+      break;
+    case 'workers-comp': // todo sarah update this
+      paymentMethod = LabPaymentMethod.WorkersComp;
       break;
   }
   return paymentMethod;
