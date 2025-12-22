@@ -23,7 +23,7 @@ test.beforeAll(async ({ browser }) => {
   paperworkTelemed = new PaperworkTelemed(page);
   locator = new Locators(page);
 
-  const testDataPath = path.join('test-data', 'waitingRoomPatient.json');
+  const testDataPath = path.join('test-data', 'telemedWaitingRoomPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {

@@ -18,7 +18,7 @@ test.beforeAll(async ({ browser }) => {
   paperwork = new Paperwork(page);
   locator = new Locators(page);
 
-  const testDataPath = path.join('test-data', 'insurancePaymentNotSelfPatient.json');
+  const testDataPath = path.join('test-data', 'inPersonRpInsNoReqPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {

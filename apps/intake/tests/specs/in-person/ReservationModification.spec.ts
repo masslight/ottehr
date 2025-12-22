@@ -13,7 +13,7 @@ test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
 
-  const testDataPath = path.join('test-data', 'reservationModificationPatient.json');
+  const testDataPath = path.join('test-data', 'inPersonReservationModificationPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 

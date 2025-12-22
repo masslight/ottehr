@@ -28,7 +28,7 @@ test.beforeAll(async ({ browser }) => {
   locator = new Locators(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
 
-  const testDataPath = path.join('test-data', 'walkInTelemedPatient.json');
+  const testDataPath = path.join('test-data', 'telemedNoRpNoInsReqPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {

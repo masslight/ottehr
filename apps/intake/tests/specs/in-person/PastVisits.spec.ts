@@ -15,10 +15,10 @@ test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
 
-  const emptyTestDataPath = path.join('test-data', 'patientWithoutPaperwork.json');
+  const emptyTestDataPath = path.join('test-data', 'inPersonNoPwPatient.json');
   emptyPatient = JSON.parse(fs.readFileSync(emptyTestDataPath, 'utf-8'));
 
-  const appointmentTestDataPath = path.join('test-data', 'cardPaymentSelfPatient.json');
+  const appointmentTestDataPath = path.join('test-data', 'inPersonNoRpNoInsReqPatient.json');
   appointmentPatient = JSON.parse(fs.readFileSync(appointmentTestDataPath, 'utf-8'));
 });
 test.afterAll(async () => {

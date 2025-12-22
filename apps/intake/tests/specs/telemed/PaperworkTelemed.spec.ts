@@ -28,7 +28,7 @@ test.beforeAll(async ({ browser }) => {
   uploadDocs = new UploadDocs(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
 
-  const testDataPath = path.join('test-data', 'telemedPatientWithoutPaperwork.json');
+  const testDataPath = path.join('test-data', 'telemedNoPwPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {

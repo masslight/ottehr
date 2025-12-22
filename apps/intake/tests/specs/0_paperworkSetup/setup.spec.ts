@@ -119,6 +119,31 @@ function writeTestData(filename: string, data: unknown): void {
   fs.writeFileSync(path.join(testDataPath, filename), JSON.stringify(data, null, 2));
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Most patients created in this file have the following naming convention:
+// [inPerson|telemed][[Rp|NoRp][Ins|NoIns][Req|NoReq]|NoPw]Patient.json.
+//
+// Other patients can be created for a specific test suite and will follow this naming convention:
+// [inPerson|telemed][<unique test name>]Patient.json.
+//
+// This way each test suite can grab the paperwork data it needs without coupling it with the flow type used to create
+// the patient. The names correspond to the arguments passed to the paperwork filling functions.
+//
+//   Key:
+// Rp: Responsible party provided.
+// NoRp: Self is chosen as responsible party.
+//
+// Ins: Insurance details provided, thus no credit card needed for payment.
+//      NB: core ottehr requires credit card for telemed appointments regardless.
+// NoIns: No insurance details provided, thus credit card needed for payment.
+//
+// Req: Only required fields filled in paperwork.
+// NoReq: All fields filled in paperwork.
+//
+// NoPw: No paperwork filled in. The appointment flow gets to the first paperwork page to create a patient but doesn't
+//       fill in any paperwork.
+// ---------------------------------------------------------------------------------------------------------------------
+
 test.describe.parallel('In-Person: Create test patients and appointments', () => {
   test('Create prebook patient without responsible party, with card payment, filling only required fields', async ({
     page,
@@ -156,7 +181,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
       });
 
     await test.step('Save test data', async () => {
-      const cardPaymentSelfPatient: InPersonPatientSelfTestData = {
+      const inPersonNoRpNoInsReqPatient: InPersonPatientSelfTestData = {
         firstName: bookingData.patientBasicInfo.firstName,
         lastName: bookingData.patientBasicInfo.lastName,
         email: bookingData.patientBasicInfo.email,
@@ -172,8 +197,8 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
           ...(bookingData.slotDetails as GetSlotDetailsResponse),
         },
       };
-      console.log('cardPaymentSelfPatient', JSON.stringify(cardPaymentSelfPatient));
-      writeTestData('cardPaymentSelfPatient.json', cardPaymentSelfPatient);
+      console.log('inPersonNoRpNoInsReqPatient', JSON.stringify(inPersonNoRpNoInsReqPatient));
+      writeTestData('inPersonNoRpNoInsReqPatient.json', inPersonNoRpNoInsReqPatient);
     });
   });
 
@@ -213,7 +238,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
       });
 
     await test.step('Save test data', async () => {
-      const insurancePaymentNotSelfPatient: InPersonPatientNotSelfTestData = {
+      const inPersonRpInsNoReqPatient: InPersonPatientNotSelfTestData = {
         firstName: bookingData.patientBasicInfo.firstName,
         lastName: bookingData.patientBasicInfo.lastName,
         email: bookingData.patientBasicInfo.email,
@@ -230,8 +255,8 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
         secondaryInsuranceData: filledPaperwork.secondaryInsuranceData,
         responsiblePartyData: filledPaperwork.responsiblePartyData,
       };
-      console.log('insurancePaymentNotSelfPatient', JSON.stringify(insurancePaymentNotSelfPatient));
-      writeTestData('insurancePaymentNotSelfPatient.json', insurancePaymentNotSelfPatient);
+      console.log('inPersonRpInsNoReqPatient', JSON.stringify(inPersonRpInsNoReqPatient));
+      writeTestData('inPersonRpInsNoReqPatient.json', inPersonRpInsNoReqPatient);
     });
   });
 
@@ -251,7 +276,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     await test.step('Save test data', async () => {
-      const patientWithoutPaperwork: InPersonPatientTestData = {
+      const inPersonNoPwPatient: InPersonPatientTestData = {
         firstName: bookingData.patientBasicInfo.firstName,
         lastName: bookingData.patientBasicInfo.lastName,
         email: bookingData.patientBasicInfo.email,
@@ -259,8 +284,8 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
         dob: bookingData.patientBasicInfo.dob,
         appointmentId: bookingData.bookingUUID,
       };
-      console.log('patientWithoutPaperwork', JSON.stringify(patientWithoutPaperwork));
-      writeTestData('patientWithoutPaperwork.json', patientWithoutPaperwork);
+      console.log('inPersonNoPwPatient', JSON.stringify(inPersonNoPwPatient));
+      writeTestData('inPersonNoPwPatient.json', inPersonNoPwPatient);
     });
   });
 
@@ -281,7 +306,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     await test.step('Save test data', async () => {
-      const reservationModificationPatient: ReservationModificationPatient = {
+      const inPersonReservationModificationPatient: ReservationModificationPatient = {
         firstName: bookingData.patientBasicInfo.firstName,
         lastName: bookingData.patientBasicInfo.lastName,
         email: bookingData.patientBasicInfo.email,
@@ -290,8 +315,8 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
         appointmentId: bookingData.bookingUUID,
         slotDetails: slotDetailsRef.current,
       };
-      console.log('reservationModificationPatient', JSON.stringify(reservationModificationPatient));
-      writeTestData('reservationModificationPatient.json', reservationModificationPatient);
+      console.log('inPersonReservationModificationPatient', JSON.stringify(inPersonReservationModificationPatient));
+      writeTestData('inPersonReservationModificationPatient.json', inPersonReservationModificationPatient);
     });
   });
 });
@@ -327,7 +352,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Write test data to file', async () => {
-      const prebookTelemedPatient: TelemedPrebookPatientTestData = {
+      const telemedRpInsNoReqPatient: TelemedPrebookPatientTestData = {
         firstName: bookingData.patientBasicInfo.firstName,
         lastName: bookingData.patientBasicInfo.lastName,
         email: bookingData.patientBasicInfo.email,
@@ -348,8 +373,8 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         flags: filledPaperwork.flags!,
         uploadedPhotoCondition: filledPaperwork.uploadedPhotoCondition!,
       };
-      console.log('prebookTelemedPatient', JSON.stringify(prebookTelemedPatient));
-      writeTestData('prebookTelemedPatient.json', prebookTelemedPatient);
+      console.log('telemedRpInsNoReqPatient', JSON.stringify(telemedRpInsNoReqPatient));
+      writeTestData('telemedRpInsNoReqPatient.json', telemedRpInsNoReqPatient);
     });
   });
 
@@ -380,7 +405,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Write test data to file', async () => {
-      const walkInTelemedPatient: TelemedWalkInPatientTestData = {
+      const telemedNoRpNoInsReqPatient: TelemedWalkInPatientTestData = {
         firstName: bookingData.patientBasicInfo.firstName,
         lastName: bookingData.patientBasicInfo.lastName,
         email: bookingData.patientBasicInfo.email,
@@ -390,8 +415,8 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         state: filledPaperwork.stateValue,
         location: bookingData.slotAndLocation.locationTitle,
       };
-      console.log('walkInTelemedPatient', JSON.stringify(walkInTelemedPatient));
-      writeTestData('walkInTelemedPatient.json', walkInTelemedPatient);
+      console.log('telemedNoRpNoInsReqPatient', JSON.stringify(telemedNoRpNoInsReqPatient));
+      writeTestData('telemedNoRpNoInsReqPatient.json', telemedNoRpNoInsReqPatient);
     });
   });
 
@@ -415,7 +440,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Write test data to file', async () => {
-      const waitingRoomPatient: TelemedWalkInPatientTestData = {
+      const telemedWaitingRoomPatient: TelemedWalkInPatientTestData = {
         firstName: bookingData.patientBasicInfo.firstName,
         lastName: bookingData.patientBasicInfo.lastName,
         email: bookingData.patientBasicInfo.email,
@@ -425,8 +450,8 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         state: filledPaperwork.stateValue,
         location: bookingData.slotAndLocation.locationTitle,
       };
-      console.log('waitingRoomPatient', JSON.stringify(waitingRoomPatient));
-      writeTestData('waitingRoomPatient.json', waitingRoomPatient);
+      console.log('telemedWaitingRoomPatient', JSON.stringify(telemedWaitingRoomPatient));
+      writeTestData('telemedWaitingRoomPatient.json', telemedWaitingRoomPatient);
     });
   });
 
@@ -441,7 +466,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Save test data', async () => {
-      const telemedPatientWithoutPaperwork: TelemedPatientTestData = {
+      const telemedNoPwPatient: TelemedPatientTestData = {
         firstName: bookingData.patientBasicInfo.firstName,
         lastName: bookingData.patientBasicInfo.lastName,
         email: bookingData.patientBasicInfo.email,
@@ -449,8 +474,8 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         dob: bookingData.patientBasicInfo.dob,
         appointmentId: bookingData.bookingUUID,
       };
-      console.log('telemedPatientWithoutPaperwork', JSON.stringify(telemedPatientWithoutPaperwork));
-      writeTestData('telemedPatientWithoutPaperwork.json', telemedPatientWithoutPaperwork);
+      console.log('telemedNoPwPatient', JSON.stringify(telemedNoPwPatient));
+      writeTestData('telemedNoPwPatient.json', telemedNoPwPatient);
     });
   });
 });
