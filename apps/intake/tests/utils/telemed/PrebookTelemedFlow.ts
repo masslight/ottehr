@@ -1,8 +1,8 @@
 import { expect } from '@playwright/test';
 import {
   BOOKING_CONFIG,
+  BRANDING_CONFIG,
   DEPLOYED_TELEMED_LOCATIONS,
-  PROJECT_NAME,
   shouldShowServiceCategorySelectionPage,
 } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
@@ -72,7 +72,7 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     await this.locator.clickReserveButton();
 
     await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
-    await expect(this.locator.flowHeading).toHaveText(`Thank you for choosing ${PROJECT_NAME}!`);
+    await expect(this.locator.flowHeading).toHaveText(`Thank you for choosing ${BRANDING_CONFIG.projectName}!`);
 
     const timeBlock = this.page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock);
     await expect(timeBlock).toHaveText(slotAndLocation.selectedSlot?.fullSlot ?? '');

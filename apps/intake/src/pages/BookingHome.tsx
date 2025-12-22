@@ -4,7 +4,16 @@ import { useQuery } from '@tanstack/react-query';
 import { FC, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { generatePath, Navigate, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
-import { getSelectors, PatientInfo, PROJECT_WEBSITE, ServiceMode, Timezone, TIMEZONES, VisitType } from 'utils';
+import {
+  BRANDING_CONFIG,
+  getSelectors,
+  PatientInfo,
+  PROJECT_WEBSITE,
+  ServiceMode,
+  Timezone,
+  TIMEZONES,
+  VisitType,
+} from 'utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import ottehrApi from '../api/ottehrApi';
@@ -272,7 +281,8 @@ const BookingHome: FC = () => {
     return (
       <PageContainer title={t('welcome.errors.notFound.title')}>
         <Typography variant="body1">
-          {t('welcome.errors.notFound.description')} <a href={PROJECT_WEBSITE}>{t('welcome.errors.notFound.link')}</a>.
+          {t('welcome.errors.notFound.description', { PROJECT_NAME: BRANDING_CONFIG.projectName })}{' '}
+          <a href={PROJECT_WEBSITE}>{t('welcome.errors.notFound.link')}</a>.
         </Typography>
       </PageContainer>
     );

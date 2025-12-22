@@ -8,10 +8,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   APIError,
   AvailableLocationInformation,
+  BRANDING_CONFIG,
   CANT_UPDATE_CANCELED_APT_ERROR,
   GetAppointmentResponseAppointmentDetails,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
-  PROJECT_NAME,
   PROJECT_WEBSITE,
   SlotListItem,
   VisitType,
@@ -182,7 +182,7 @@ const Reschedule = (): JSX.Element => {
     return (
       <PageContainer title={t('modify.errors.notFound.title')}>
         <Typography variant="body1">
-          {t('modify.errors.notFound.description', { PROJECT_NAME })}{' '}
+          {t('modify.errors.notFound.description', { PROJECT_NAME: BRANDING_CONFIG.projectName })}{' '}
           <a href={`${PROJECT_WEBSITE}/find-care/`}>{t('modify.errors.notFound.link')}</a>.
         </Typography>
       </PageContainer>
@@ -196,7 +196,7 @@ const Reschedule = (): JSX.Element => {
       subtext={loading ? '' : t('modify.selectNew')}
       isFirstPage
       img={ottehrLightBlue}
-      imgAlt={`${PROJECT_NAME} icon`}
+      imgAlt={`${BRANDING_CONFIG.projectName} icon`}
       imgWidth={150}
     >
       <>

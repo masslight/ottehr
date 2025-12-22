@@ -3,7 +3,7 @@ import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { ottehrLightBlue } from '@theme/icons';
 import { useNavigate } from 'react-router-dom';
-import { PROJECT_NAME } from 'utils';
+import { BRANDING_CONFIG } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
 import { dataTestIds } from '../../helpers/data-test-ids';
 import { EmergencyBanner } from '../components/EmergencyBanner';
@@ -17,10 +17,10 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
 
   return (
     <CustomContainer
-      title={`Welcome to ${PROJECT_NAME}`}
+      title={`Welcome to ${BRANDING_CONFIG.projectName}`}
       img={ottehrLightBlue}
-      imgAlt={`${PROJECT_NAME} icon`}
-      imgWidth={150}
+      imgAlt={`${BRANDING_CONFIG.projectName} icon`}
+      imgWidth={100}
       isFirstPage={true}
       outsideCardComponent={showEmergencyBanner ? <EmergencyBanner /> : undefined}
     >
@@ -33,7 +33,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
         <LoadingButton
           variant="contained"
-          color="primary"
+          color="secondary"
           size="large"
           className="next-button"
           type="submit"

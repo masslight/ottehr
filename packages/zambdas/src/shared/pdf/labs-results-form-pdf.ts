@@ -21,6 +21,7 @@ import {
 import { DateTime } from 'luxon';
 import { Color, PDFImage } from 'pdf-lib';
 import {
+  BRANDING_CONFIG,
   BUCKET_NAMES,
   compareDates,
   convertActivityDefinitionToTestItem,
@@ -63,7 +64,6 @@ import {
   OYSTEHR_OBS_CONTENT_TYPES,
   PERFORMING_PHYSICIAN_EXTENSION_URLS,
   PERFORMING_SITE_INFO_EXTENSION_URLS,
-  PROJECT_NAME,
   quantityRangeFormat,
   Secrets,
   SupportedObsImgAttachmentTypes,
@@ -835,7 +835,10 @@ async function drawCommonLabsElements(
   console.log(
     `Drawing location name. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
-  pdfClient.drawText(`${PROJECT_NAME ? PROJECT_NAME + ' ' : ''}${data.locationName || ''}`, textStyles.textBoldRight);
+  pdfClient.drawText(
+    `${BRANDING_CONFIG.projectName ? BRANDING_CONFIG.projectName + ' ' : ''}${data.locationName || ''}`,
+    textStyles.textBoldRight
+  );
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   const locationCityStateZip = `${data.locationCity?.toUpperCase() || ''}${data.locationCity ? ', ' : ''}${
