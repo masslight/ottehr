@@ -323,30 +323,30 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
   test('Create prebook patient with responsible party, with insurance payment, filling all fields', async ({
     page,
   }) => {
-    const { prebookFlowClass, paperwork } = await test.step('Set up playwright', async () => {
+    const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
-      const prebookFlowClass = new PrebookTelemedFlow(page);
+      const flowClass = new PrebookTelemedFlow(page);
       const paperwork = new Paperwork(page);
-      return { prebookFlowClass, paperwork };
+      return { flowClass, paperwork };
     });
 
     const { bookingData, filledPaperwork } = await test.step('Book first appointment', async () => {
-      await prebookFlowClass.selectVisitAndContinue();
-      const bookingData = await prebookFlowClass.startVisitWithoutPaperwork();
+      await flowClass.selectVisitAndContinue();
+      const bookingData = await flowClass.startVisitWithoutPaperwork();
       await paperwork.clickProceedToPaperwork();
-      const filledPaperwork = await prebookFlowClass.fillPaperwork({
+      const filledPaperwork = await flowClass.fillPaperwork({
         payment: 'insurance',
         responsibleParty: 'not-self',
         patientBasicInfo: bookingData.patientBasicInfo,
       });
-      await prebookFlowClass.completeBooking();
-      await prebookFlowClass.cancelAppointment();
+      await flowClass.completeBooking();
+      await flowClass.cancelAppointment();
       return { bookingData, filledPaperwork };
     });
 
     await test.step('Book second appointment without filling paperwork', async () => {
-      await prebookFlowClass.selectVisitAndContinue();
-      await prebookFlowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
+      await flowClass.selectVisitAndContinue();
+      await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
     });
 
     await test.step('Write test data to file', async () => {
@@ -379,27 +379,27 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
   test('Create walk-in patient without responsible party, with card payment, filling only required fields', async ({
     page,
   }) => {
-    const walkInFlowClass = await test.step('Set up playwright', async () => {
+    const flowClass = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       return new WalkInTelemedFlow(page);
     });
 
     const { bookingData, filledPaperwork } = await test.step('Book first appointment', async () => {
-      await walkInFlowClass.selectVisitAndContinue();
-      const bookingData = await walkInFlowClass.startVisitWithoutPaperwork();
-      const filledPaperwork = await walkInFlowClass.fillPaperwork({
+      await flowClass.selectVisitAndContinue();
+      const bookingData = await flowClass.startVisitWithoutPaperwork();
+      const filledPaperwork = await flowClass.fillPaperwork({
         payment: 'card',
         responsibleParty: 'self',
         requiredOnly: true,
       });
-      await walkInFlowClass.completeBooking();
-      await walkInFlowClass.cancelAppointment();
+      await flowClass.completeBooking();
+      await flowClass.cancelAppointment();
       return { bookingData, filledPaperwork };
     });
 
     await test.step('Book second appointment without filling paperwork', async () => {
-      await walkInFlowClass.clickVisitButton();
-      await walkInFlowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
+      await flowClass.clickVisitButton();
+      await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
     });
 
     await test.step('Write test data to file', async () => {
@@ -419,21 +419,21 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
   });
 
   test('Create walk-in patient to check patient validation and for waiting room tests', async ({ page }) => {
-    const walkInFlowClass = await test.step('Set up playwright', async () => {
+    const flowClass = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       return new WalkInTelemedFlow(page);
     });
 
     const { bookingData, filledPaperwork } = await test.step('Book appointment and check flow', async () => {
-      await walkInFlowClass.selectVisitAndContinue();
-      const bookingData = await walkInFlowClass.startVisitWithoutPaperwork();
-      const filledPaperwork = await walkInFlowClass.fillPaperwork({
+      await flowClass.selectVisitAndContinue();
+      const bookingData = await flowClass.startVisitWithoutPaperwork();
+      const filledPaperwork = await flowClass.fillPaperwork({
         // this is the fastest way to go through paperwork. changing these shouldn't break the test.
         payment: 'card',
         responsibleParty: 'self',
         requiredOnly: true,
       });
-      await walkInFlowClass.completeBooking();
+      await flowClass.completeBooking();
       return { bookingData, filledPaperwork };
     });
 
@@ -454,13 +454,13 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
   });
 
   test('Create patient without filling in paperwork', async ({ page }) => {
-    const walkInFlowClass = await test.step('Set up playwright', async () => {
+    const flowClass = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       return new WalkInTelemedFlow(page);
     });
 
     const bookingData = await test.step('Create patient', async () => {
-      return await walkInFlowClass.startVisitWithoutPaperwork();
+      return await flowClass.startVisitWithoutPaperwork();
     });
 
     await test.step('Save test data', async () => {
