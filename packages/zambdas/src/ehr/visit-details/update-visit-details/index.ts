@@ -396,7 +396,7 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     throw INVALID_INPUT_ERROR('reasonForVisit must be a string');
   } else if (
     bookingDetails.reasonForVisit &&
-    !VALUE_SETS.reasonForVisitOptions.includes(bookingDetails.reasonForVisit)
+    !VALUE_SETS.reasonForVisitOptions.map((option) => option.value).includes(bookingDetails.reasonForVisit)
   ) {
     throw INVALID_INPUT_ERROR(`reasonForVisit, "${bookingDetails.reasonForVisit}", is not a valid option`);
   }
