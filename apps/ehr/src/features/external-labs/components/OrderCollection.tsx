@@ -153,7 +153,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         {labOrder.clinicalInfoNoteByUser && (
           <Box sx={{ mb: 2 }}>
             <Typography variant="body1">
-              <span style={{ fontWeight: 500 }}>Clinical Info Note: </span> {labOrder.clinicalInfoNoteByUser}
+              <span style={{ fontWeight: 500 }}>Clinical Info Notes: </span> {labOrder.clinicalInfoNoteByUser}
             </Typography>
           </Box>
         )}

@@ -9,6 +9,9 @@ export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 // recommended from Dorn as a good length (also matches the len currently used when oystehr sets the order number)
 export const ORDER_NUMBER_LEN = 20;
 
+// currently using for PID level NTEs (order level notes) & OBR-13
+export const HL7_NOTE_CHAR_LIMIT = 300;
+
 export const PSC_HOLD_CONFIG = {
   system: 'psc-identifier',
   code: 'psc',

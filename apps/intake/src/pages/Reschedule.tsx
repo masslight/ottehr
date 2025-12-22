@@ -94,11 +94,11 @@ const Reschedule = (): JSX.Element => {
   // todo: this can be simplified greatly by handling on the backend
   const allAvailableSlots = useMemo(() => {
     const slots = (slotData ?? []).map((si) => si.slot);
-    const currentDateTime = DateTime.now().setZone(location?.timezone);
+    // we're assuming all slots use same timezone, which is likely true but not guaranteed
+    const tz = (slotData ?? [])[0]?.timezone;
+    const currentDateTime = DateTime.now().setZone(tz);
     if (slotData && selectedSlot) {
-      const currentSlotTime = DateTime.fromISO(selectedSlot.start)
-        .setZone(location?.timezone)
-        .setLocale(i18n.language);
+      const currentSlotTime = DateTime.fromISO(selectedSlot.start).setZone(tz).setLocale(i18n.language);
       const currentSlotTimePassed = currentSlotTime > currentDateTime;
       if (currentSlotTimePassed) {
         return slots;
@@ -110,7 +110,7 @@ const Reschedule = (): JSX.Element => {
       return [...slots, selectedSlot]?.sort((a: Slot, b: Slot) => a.start.localeCompare(b.start));
     }
     return slotData?.map((si) => si.slot);
-  }, [selectedSlot, location?.timezone, slotData]);
+  }, [selectedSlot, slotData]);
 
   const { officeHasClosureOverrideToday, officeHasClosureOverrideTomorrow } = useCheckOfficeOpen(location);
   const { t } = useTranslation();
