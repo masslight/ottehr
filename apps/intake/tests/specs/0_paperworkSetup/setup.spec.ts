@@ -145,7 +145,7 @@ function writeTestData(filename: string, data: unknown): void {
 // ---------------------------------------------------------------------------------------------------------------------
 
 test.describe.parallel('In-Person: Create test patients and appointments', () => {
-  test('Create prebook patient without responsible party, with card payment, filling only required fields', async ({
+  test('Create patient without responsible party, with card payment, filling only required fields', async ({
     page,
   }) => {
     const slotDetailsRef: { current: GetSlotDetailsResponse } = { current: {} as GetSlotDetailsResponse };
@@ -201,9 +201,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
   });
 
-  test('Create prebook patient with responsible party, with insurance payment, filling all fields', async ({
-    page,
-  }) => {
+  test('Create patient with responsible party, with insurance payment, filling all fields', async ({ page }) => {
     const slotDetailsRef: { current: GetSlotDetailsResponse } = { current: {} as GetSlotDetailsResponse };
 
     const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
@@ -258,7 +256,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
   });
 
-  test('Create prebook patient without filling in paperwork', async ({ page }) => {
+  test('Create patient without filling in paperwork', async ({ page }) => {
     const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       const flowClass = new PrebookInPersonFlow(page);
@@ -320,9 +318,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
 });
 
 test.describe.parallel('Telemed: Create test patients and appointments', () => {
-  test('Create prebook patient with responsible party, with insurance payment, filling all fields', async ({
-    page,
-  }) => {
+  test('Create patient with responsible party, with insurance payment, filling all fields', async ({ page }) => {
     const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       const flowClass = new PrebookTelemedFlow(page);
@@ -376,7 +372,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
   });
 
-  test('Create walk-in patient without responsible party, with card payment, filling only required fields', async ({
+  test('Create patient without responsible party, with card payment, filling only required fields', async ({
     page,
   }) => {
     const flowClass = await test.step('Set up playwright', async () => {
@@ -418,7 +414,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
   });
 
-  test('Create walk-in patient to check patient validation and for waiting room tests', async ({ page }) => {
+  test('Create patient to check patient validation and for waiting room tests', async ({ page }) => {
     const flowClass = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       return new WalkInTelemedFlow(page);
