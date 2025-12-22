@@ -22,7 +22,7 @@ const VitalsConfig = {
       {
         rules: [
           { type: 'min', units: 'celsius', value: 36 },
-          { type: 'max', units: 'celsius', value: 38.4 },
+          { type: 'max', units: 'celsius', value: 37.9 },
         ],
         minAge: { unit: 'months', value: 2 },
         maxAge: { unit: 'months', value: 144 },
@@ -30,7 +30,7 @@ const VitalsConfig = {
       {
         rules: [
           { type: 'min', units: 'celsius', value: 36 },
-          { type: 'max', units: 'celsius', value: 38.5 },
+          { type: 'max', units: 'celsius', value: 37.9 },
         ],
         minAge: { unit: 'months', value: 144 },
       },

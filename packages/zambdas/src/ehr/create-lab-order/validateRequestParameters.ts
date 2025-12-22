@@ -6,7 +6,8 @@ export function validateRequestParameters(input: ZambdaInput): CreateLabOrderPar
     throw MISSING_REQUEST_BODY;
   }
 
-  const { dx, encounter, orderableItem, psc, orderingLocation, selectedPaymentMethod } = JSON.parse(input.body);
+  const { dx, encounter, orderableItem, psc, orderingLocation, selectedPaymentMethod, clinicalInfoNoteByUser } =
+    JSON.parse(input.body);
 
   const missingResources = [];
   if (!dx) missingResources.push('dx (diagnosis)');
@@ -25,6 +26,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateLabOrderPar
     psc,
     orderingLocation,
     selectedPaymentMethod,
+    clinicalInfoNoteByUser,
     secrets: input.secrets,
   };
 }

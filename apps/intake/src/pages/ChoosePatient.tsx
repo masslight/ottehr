@@ -6,7 +6,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CancellationReasonOptionsInPerson, PatientAppointmentDTO, PROJECT_NAME, ServiceMode, VisitType } from 'utils';
+import {
+  BRANDING_CONFIG,
+  CancellationReasonOptionsInPerson,
+  PatientAppointmentDTO,
+  ServiceMode,
+  VisitType,
+} from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { ottehrApi } from '../api';
 import { intakeFlowPageRoute } from '../App';
@@ -357,7 +363,7 @@ const ChoosePatient = (): JSX.Element => {
           <CardWithDescriptionAndLink
             iconHeight={50}
             icon={ottehrLightBlue}
-            iconAlt={`${PROJECT_NAME} icon`}
+            iconAlt={`${BRANDING_CONFIG.projectName} icon`}
             mainText={t('welcomeBack.alreadyReserved')}
             textColor={otherColors.white}
             descText={t('welcomeBack.checkIn')}

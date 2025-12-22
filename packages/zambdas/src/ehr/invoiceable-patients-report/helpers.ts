@@ -80,7 +80,7 @@ export function mapResourcesToInvoiceablePatient(input: {
     appointmentDate: appointmentStart ? isoToFormat(appointmentStart, dateFormat) : '--',
     finalizationDate: isoToFormat(claim.timestamp, dateFormat + ' HH:mm'),
     responsiblePartyName: responsibleParty ? getFullName(responsibleParty) ?? '--' : '--',
-    responsiblePartyRelationshipToPatient: getResponsiblePartyRelationship(responsibleParty) ?? '--',
+    responsiblePartyRelationshipToPatient: getResponsiblePartyRelationship(responsibleParty)?.toLowerCase() ?? '--',
     amountInvoiceable: `${patientBalance / 100}`, // converting from cents to USD
   };
 }

@@ -122,7 +122,9 @@ const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequest, oyst
   ).unbundle();
 
   if (srResults.length === 0) {
-    throw new Error('No ServiceRequest found with the given accession number');
+    console.log('No matching ServiceRequest found in Oystehr. Doing nothing for accession number: ', accessionNumber);
+    return;
+    // throw new Error('No ServiceRequest found with the given accession number');
   }
 
   if (srResults.length > 1) {

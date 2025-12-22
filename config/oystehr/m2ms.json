@@ -67,6 +67,13 @@
           "effect": "Allow"
         },
         {
+          "resource": [
+            "Z3:#{var/PROJECT_ID}-school-work-notes/*"
+          ],
+          "action": ["Z3:DeleteObject"],
+          "effect": "Allow"
+        },
+        {
           "action": ["Messaging:SendTransactionalSMS"],
           "effect": "Allow",
           "resource": ["*"]

@@ -20,6 +20,7 @@ import {
   DocumentReference,
   FhirResource,
   Flag,
+  Identifier,
   List,
   Location,
   Organization,
@@ -52,6 +53,7 @@ import {
   deduplicateContactPoints,
   deduplicateIdentifiers,
   deduplicateObjectsByStrictKeyValEquality,
+  EMPLOYER_ORG_IDENTIFIER_SYSTEM,
   extractResourceTypeAndPath,
   FHIR_BASE_URL,
   FHIR_EXTENSION,
@@ -1156,16 +1158,15 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
       return operations;
     }
 
-    let newContained: Patient['contained'] = [newPCP];
-
-    if (currentContainedPCP) {
-      newContained = (patient.contained ?? []).map((resource) => {
-        if (resource.id === currentContainedPCP?.id) {
-          return newPCP;
-        }
-        return resource;
-      });
-    }
+    const existingContained = patient.contained ?? [];
+    const newContained: Patient['contained'] = currentContainedPCP
+      ? existingContained.map((resource) => {
+          if (resource.id === currentContainedPCP.id) {
+            return newPCP;
+          }
+          return resource;
+        })
+      : [...existingContained.filter((resource) => resource.id !== newPCP.id), newPCP];
 
     operations.push({
       op: patient.contained != undefined ? 'replace' : 'add',
@@ -2062,6 +2063,12 @@ const buildEmployerOrganization = (details: EmployerInformation, id?: string): O
         ]
       : undefined;
 
+  const employerOrgCode = 'employer';
+
+  // fhir dictates that an Organization SHALL at least have a name or an identifier, and possibly more than one
+  // adding this id allows users to enter employee data with out an employee name
+  const employerOrgIdentifier: Identifier = { system: EMPLOYER_ORG_IDENTIFIER_SYSTEM, value: employerOrgCode };
+
   return {
     resourceType: 'Organization',
     id,
@@ -2069,12 +2076,13 @@ const buildEmployerOrganization = (details: EmployerInformation, id?: string): O
     address,
     telecom: telecom.length ? telecom : undefined,
     contact: contactEntry,
+    identifier: [employerOrgIdentifier],
     type: [
       {
         coding: [
           {
             system: FHIR_EXTENSION.Organization.organizationType.url,
-            code: 'employer',
+            code: employerOrgCode,
           },
         ],
       },

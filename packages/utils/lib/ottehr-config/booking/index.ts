@@ -282,7 +282,7 @@ const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): Pat
 const BOOKING_DEFAULTS = {
   serviceCategoriesEnabled: {
     serviceModes: ['in-person', 'virtual'],
-    visitType: ['prebook'],
+    visitType: ['prebook', 'walk-in'],
   },
   homepageOptions: [
     'start-in-person-visit',

@@ -107,7 +107,7 @@ export class FillingInfo {
   }
 
   async cancelPrebookVisit() {
-    const randomCancelReason = this.getRandomElement(this.cancelReason);
+    const randomCancelReason = this.getRandomElement(this.cancelReason.map((option) => option.label));
     await this.page.getByRole('button', { name: 'Cancel' }).click();
     await this.page.locator('#cancellationReason').click();
     await this.page.getByRole('option', { name: randomCancelReason }).click();

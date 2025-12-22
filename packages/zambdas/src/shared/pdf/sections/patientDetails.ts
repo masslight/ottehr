@@ -1,18 +1,8 @@
-import {
-  getFullName,
-  PATIENT_GENDER_IDENTITY_URL,
-  PATIENT_SEXUAL_ORIENTATION_URL,
-  PRACTICE_NAME_URL,
-  PRIVATE_EXTENSION_BASE_URL,
-  standardizePhoneNumber,
-} from 'utils';
-import { DataComposer } from '../pdf-common';
+import { PATIENT_GENDER_IDENTITY_URL, PATIENT_SEXUAL_ORIENTATION_URL, PRIVATE_EXTENSION_BASE_URL } from 'utils';
+import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { PatientDetails, PatientDetailsInput, PdfSection } from '../types';
 
-export const composePatientDetailsData: DataComposer<PatientDetailsInput, PatientDetails> = ({
-  patient,
-  physician,
-}) => {
+export const composePatientDetailsData: DataComposer<PatientDetailsInput, PatientDetails> = ({ patient }) => {
   const patientsEthnicity =
     patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/ethnicity`)?.valueCodeableConcept
       ?.coding?.[0]?.display ?? '';
@@ -22,14 +12,6 @@ export const composePatientDetailsData: DataComposer<PatientDetailsInput, Patien
   const howDidYouHearAboutUs =
     patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/point-of-discovery`)?.valueString ?? '';
   const preferredLanguage = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display ?? '';
-  const pcpName = physician ? getFullName(physician) : '';
-  const pcpPracticeName =
-    physician?.extension?.find((e: { url: string }) => e.url === PRACTICE_NAME_URL)?.valueString ?? '';
-  const pcpAddress = physician?.address?.[0]?.text ?? '';
-  const pcpPhone =
-    standardizePhoneNumber(
-      physician?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value
-    ) ?? '';
   const patientSendMarketing =
     patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)?.valueBoolean ?? false;
   const patientCommonWellConsent =
@@ -55,138 +37,118 @@ export const composePatientDetailsData: DataComposer<PatientDetailsInput, Patien
     patientSendMarketing,
     preferredLanguage,
     patientCommonWellConsent,
-    pcpName,
-    pcpPracticeName,
-    pcpAddress,
-    pcpPhone,
   };
 };
 
 export const createPatientDetailsSection = <TData extends { details?: PatientDetails }>(): PdfSection<
   TData,
   PatientDetails
-> => ({
-  title: 'Patient details',
-  dataSelector: (data) => data.details,
-  render: (client, details, styles) => {
-    client.drawLabelValueRow(
-      'Ethnicity',
-      details.patientsEthnicity,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+> => {
+  return createConfiguredSection('patientDetails', (shouldShow) => ({
+    title: 'Patient details',
+    dataSelector: (data) => data.details,
+    render: (client, details, styles) => {
+      if (shouldShow('patient-ethnicity')) {
+        client.drawLabelValueRow(
+          'Ethnicity',
+          details.patientsEthnicity,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow('Race', details.patientsRace, styles.textStyles.regular, styles.textStyles.regular, {
-      drawDivider: true,
-      dividerMargin: 8,
-    });
-    client.drawLabelValueRow(
-      'Sexual orientation',
-      details.patientSexualOrientation,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
-      }
-    );
-    client.drawLabelValueRow(
-      'Gender identity',
-      details.patientGenderIdentity,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
-      }
-    );
-    if (details.patientGenderIdentity === 'Other') {
-      client.drawLabelValueRow(
-        '',
-        details.patientGenderIdentityDetails,
-        styles.textStyles.regular,
-        styles.textStyles.regular,
-        {
+      if (shouldShow('patient-race')) {
+        client.drawLabelValueRow('Race', details.patientsRace, styles.textStyles.regular, styles.textStyles.regular, {
           drawDivider: true,
           dividerMargin: 8,
-        }
-      );
-    }
-    client.drawLabelValueRow(
-      'How did you hear about us',
-      details.howDidYouHearAboutUs,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+        });
       }
-    );
-    client.drawLabelValueRow(
-      'Send marketing messages',
-      details.patientSendMarketing ? 'Yes' : 'No',
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('patient-sexual-orientation')) {
+        client.drawLabelValueRow(
+          'Sexual orientation',
+          details.patientSexualOrientation,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      'Preferred language',
-      details.preferredLanguage,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('patient-gender-identity')) {
+        client.drawLabelValueRow(
+          'Gender identity',
+          details.patientGenderIdentity,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      'Send marketing messages',
-      details.patientCommonWellConsent ? 'Yes' : 'No',
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('patient-gender-identity-details') && details.patientGenderIdentity === 'Other') {
+        client.drawLabelValueRow(
+          '',
+          details.patientGenderIdentityDetails,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      'PCP first and last name',
-      details.pcpName,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('patient-point-of-discovery')) {
+        client.drawLabelValueRow(
+          'How did you hear about us',
+          details.howDidYouHearAboutUs,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      'PCP practice name',
-      details.pcpPracticeName,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('mobile-opt-in')) {
+        client.drawLabelValueRow(
+          'Send marketing messages',
+          details.patientSendMarketing ? 'Yes' : 'No',
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow('PCP address', details.pcpAddress, styles.textStyles.regular, styles.textStyles.regular, {
-      drawDivider: true,
-      dividerMargin: 8,
-    });
-    client.drawLabelValueRow(
-      'PCP phone number',
-      details.pcpPhone,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        spacing: 16,
+      if (shouldShow('preferred-language')) {
+        client.drawLabelValueRow(
+          'Preferred language',
+          details.preferredLanguage,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-  },
-});
+      if (shouldShow('common-well-consent')) {
+        client.drawLabelValueRow(
+          'CommonWell consent',
+          details.patientCommonWellConsent ? 'Yes' : 'No',
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            spacing: 16,
+          }
+        );
+      }
+    },
+  }));
+};

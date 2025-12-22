@@ -1,4 +1,4 @@
-import { CancellationReasonOptionsProviderSideTelemed, CancellationReasonOptionsTelemed } from 'utils';
+import { VALUE_SETS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 import { CancelTelemedAppointmentInputValidated } from '.';
 
@@ -17,14 +17,14 @@ export function validateRequestParameters(input: ZambdaInput): CancelTelemedAppo
 
   if (
     !(
-      Object.values(CancellationReasonOptionsTelemed).includes(cancellationReason) ||
-      Object.values(CancellationReasonOptionsProviderSideTelemed).includes(cancellationReason)
+      Object.values(VALUE_SETS.cancelReasonOptionsVirtual).includes(cancellationReason) ||
+      Object.values(VALUE_SETS.cancelReasonOptionsVirtualProviderSide).includes(cancellationReason)
     )
   ) {
     throw new Error(
       `"cancellationReason" must be one of the following values: ${JSON.stringify(
-        Object.values(CancellationReasonOptionsTelemed),
-        Object.values(CancellationReasonOptionsProviderSideTelemed)
+        VALUE_SETS.cancelReasonOptionsVirtual.map((option) => option.value),
+        VALUE_SETS.cancelReasonOptionsVirtualProviderSide.map((option) => option.value)
       )}`
     );
   }

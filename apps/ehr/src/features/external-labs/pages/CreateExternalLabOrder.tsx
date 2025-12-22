@@ -35,6 +35,7 @@ import {
   CreateLabPaymentMethod,
   DiagnosisDTO,
   getAttendingPractitionerId,
+  HL7_NOTE_CHAR_LIMIT,
   LabPaymentMethod,
   ModifiedOrderingLocation,
   OrderableItemSearchResult,
@@ -89,6 +90,8 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const [labOrgIdsForSelectedOffice, setLabOrgIdsForSelectedOffice] = useState<string>('');
   const [isOrderingDisabled, setIsOrderingDisabled] = useState<boolean>(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<CreateLabPaymentMethod | ''>('');
+  const [showNotesFields, setShowNotesFields] = useState(false);
+  const [clinicalInfoNotes, setClinicalInfoNotes] = useState<string | undefined>(undefined);
 
   // used to fetch dx icd10 codes
   const [debouncedDxSearchTerm, setDebouncedDxSearchTerm] = useState('');
@@ -192,6 +195,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           psc,
           orderingLocation: orderingLocationIdToLocationAndLabGUIDsMap.get(selectedOfficeId)!.location,
           selectedPaymentMethod: selectedPaymentMethod,
+          clinicalInfoNoteByUser: clinicalInfoNotes,
         });
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
@@ -503,12 +507,46 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     setSelectedLab={setSelectedLab}
                   ></LabsAutocomplete>
                 </Grid>
-                <Grid item xs={12}>
+                {showNotesFields && (
+                  <Grid item xs={12}>
+                    <Typography
+                      variant="h6"
+                      sx={{ fontWeight: '600px', color: theme.palette.primary.dark, marginBottom: '8px' }}
+                    >
+                      Clinical Info Notes
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      multiline
+                      minRows={2}
+                      value={clinicalInfoNotes}
+                      onChange={(e) => setClinicalInfoNotes(e.target.value)}
+                      inputProps={{ maxLength: HL7_NOTE_CHAR_LIMIT }}
+                      error={!!(clinicalInfoNotes && clinicalInfoNotes?.length >= HL7_NOTE_CHAR_LIMIT)}
+                      helperText={
+                        clinicalInfoNotes && clinicalInfoNotes?.length >= HL7_NOTE_CHAR_LIMIT
+                          ? `You have reached the ${HL7_NOTE_CHAR_LIMIT} character limit`
+                          : ''
+                      }
+                    ></TextField>
+                  </Grid>
+                )}
+                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <FormControlLabel
                     sx={{ fontSize: '14px' }}
                     control={<Switch checked={psc} onChange={() => setPsc((psc) => !psc)} />}
                     label={<Typography variant="body2">{PSC_HOLD_LOCALE}</Typography>}
                   />
+                  <Button
+                    sx={{ textTransform: 'none' }}
+                    onClick={() => {
+                      if (showNotesFields) setClinicalInfoNotes(undefined);
+                      setShowNotesFields(!showNotesFields);
+                    }}
+                  >
+                    {`${showNotesFields ? 'Remove' : 'Add'} Note`}
+                  </Button>
                 </Grid>
                 <Grid item xs={6}>
                   <Button

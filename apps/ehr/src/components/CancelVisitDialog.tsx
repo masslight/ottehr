@@ -17,7 +17,7 @@ import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { cancelTelemedAppointment } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { CancellationReasonOptionsProviderSideTelemed } from 'utils';
+import { VALUE_SETS } from 'utils';
 
 interface CancelVisitDialogProps {
   onClose: () => void;
@@ -32,7 +32,7 @@ const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement =>
   const { id: appointmentID } = useParams();
   const navigate = useNavigate();
 
-  const cancellationReasons = Object.values(CancellationReasonOptionsProviderSideTelemed);
+  const cancellationReasons = VALUE_SETS.cancelReasonOptionsVirtualProviderSide;
 
   const handleReasonChange = (event: SelectChangeEvent<string>): void => {
     setReason(event.target.value);
@@ -54,11 +54,12 @@ const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement =>
     setIsCancelling(true);
     if (!oystehrZambda) throw new Error('Zambda client not found');
 
-    if (cancellationReasons.find((r) => r === reason) === undefined) {
+    const typedReason = cancellationReasons.find((r) => r.value === reason);
+
+    if (!typedReason) {
       throw new Error(`Invalid cancellation reason: ${reason}`);
     }
 
-    const typedReason = reason as CancellationReasonOptionsProviderSideTelemed;
     let errorReceived = false;
     try {
       const response = await cancelTelemedAppointment(oystehrZambda, {
@@ -117,8 +118,8 @@ const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement =>
               onChange={handleReasonChange}
             >
               {cancellationReasons.map((reason) => (
-                <MenuItem key={reason} value={reason}>
-                  {reason}
+                <MenuItem key={reason.value} value={reason.value}>
+                  {reason.label}
                 </MenuItem>
               ))}
             </Select>
