@@ -1,6 +1,6 @@
 import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
-import { AnswerOptionSourceSchema, QuestionnaireDataTypeSchema } from '../types';
+import { AnswerOptionSourceSchema, QuestionnaireDataTypeSchema } from '../types/data/paperwork/paperwork.types';
 
 const triggerEffectSchema = z.enum(['enable', 'require']);
 const triggerSchema = z
