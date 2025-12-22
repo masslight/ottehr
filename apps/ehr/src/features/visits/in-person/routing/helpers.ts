@@ -85,3 +85,7 @@ export const getChiefComplaintUrl = (appointmentId: string): string => {
 export const getHPIUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/history-of-present-illness-and-templates`;
 };
+
+export const getErxUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/erx`;
+};

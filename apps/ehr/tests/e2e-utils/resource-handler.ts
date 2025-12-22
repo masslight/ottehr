@@ -130,6 +130,7 @@ export type CreateTestAppointmentInput = {
   telemedLocationState?: string;
   selectedLocationId?: string;
   skipPaperwork?: boolean;
+  serviceCategory?: 'urgent-care' | 'occupational-medicine' | 'workmans-comp';
 };
 
 export class ResourceHandler {
@@ -170,7 +171,7 @@ export class ResourceHandler {
     });
   }
 
-  private async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
+  public async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
     try {
       const address: Address = {
         city: inputParams?.city ?? PATIENT_CITY,
@@ -222,6 +223,7 @@ export class ResourceHandler {
         paperworkAnswers: this.#paperworkAnswers,
         appointmentMetadata: getProcessMetaTag(this.#processId!),
         skipPaperwork: inputParams?.skipPaperwork,
+        serviceCategory: inputParams?.serviceCategory,
       });
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');

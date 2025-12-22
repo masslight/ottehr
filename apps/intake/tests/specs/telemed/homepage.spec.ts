@@ -5,6 +5,16 @@ test.describe.parallel('THP. Telemed Homepage', () => {
   test('THP-1. Should open home page and show Request a Virtual Visit button', async ({ page }) => {
     await page.goto('/home');
     await page.getByRole('button', { name: 'Virtual Visit Check-In' }).click();
+
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'walk-in' })) {
+      const availableCategories = BOOKING_CONFIG.serviceCategories || [];
+      const firstCategory = availableCategories[0]!;
+
+      if (firstCategory) {
+        await page.getByText(firstCategory.display).click();
+      }
+    }
+
     await expect(page.getByRole('heading', { name: 'Request a Virtual Visit', level: 2 })).toBeVisible({
       timeout: 15000,
     });
@@ -23,7 +33,11 @@ test.describe.parallel('THP. Telemed Homepage', () => {
       }
     }
 
-    await expect(page.getByRole('heading', { name: 'Book a visit', level: 2 })).toBeVisible({
+    await expect(
+      page.getByRole('tablist', {
+        name: 'Appointment tabs for switching between appointments slots for today and tomorrow',
+      })
+    ).toBeVisible({
       timeout: 15000,
     });
   });
