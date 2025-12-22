@@ -25,6 +25,9 @@ export class PerformTestPage {
   async clickSubmitButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.performTestPage.submitButton).click();
   }
+  async checkResultType(result: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.performTestPage.testResult(result));
+  }
   async selectTestResult(result: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.performTestPage.testResult(result)).click();
   }
