@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import { shouldShowServiceCategorySelectionPage } from 'utils';
 import { CancelPage } from '../CancelPage';
-import { StartVisitResponse } from '../in-person/BaseInPersonFlow';
+import { SlotAndLocation, StartVisitResponse } from '../in-person/BaseInPersonFlow';
 import { InPersonPaperworkReturn } from '../Paperwork';
 import { BaseInPersonFlow, FilledPaperworkInput, PatientBasicInfo } from './BaseInPersonFlow';
 
@@ -66,10 +66,7 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
 
   // ---------------------------------------------------------------------------
 
-  async additionalStepsForPrebook(): Promise<{
-    slot: string | undefined;
-    location: string | null;
-  }> {
+  async additionalStepsForPrebook(): Promise<SlotAndLocation> {
     // Handle service category selection if present
     if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
       await this.fillingInfo.selectFirstServiceCategory();

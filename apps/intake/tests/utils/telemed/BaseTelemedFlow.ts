@@ -77,6 +77,7 @@ export abstract class BaseTelemedFlow {
 
   // ---------------------------------------------------------------------------
 
+  abstract additionalStepsForPrebook(): Promise<void>;
   abstract selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>>;
 
   async selectVisitAndContinue(): Promise<void> {
@@ -160,6 +161,7 @@ export abstract class BaseTelemedFlow {
       await test.step('run the flow again', async () => {
         await this.page.waitForTimeout(1_000);
         await this.selectVisitAndContinue();
+        await this.additionalStepsForPrebook();
         await this.selectTimeLocationAndContinue();
       });
 

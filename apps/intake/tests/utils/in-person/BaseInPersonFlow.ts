@@ -86,6 +86,8 @@ export abstract class BaseInPersonFlow {
 
   // ---------------------------------------------------------------------------
 
+  abstract additionalStepsForPrebook(): Promise<SlotAndLocation>;
+
   async selectVisitAndContinue(): Promise<void> {
     await this.page.goto(`/home`);
     await this.clickVisitButton();

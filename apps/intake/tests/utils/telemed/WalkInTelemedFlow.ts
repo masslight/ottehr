@@ -85,6 +85,8 @@ export class WalkInTelemedFlow extends BaseTelemedFlow {
 
   // ---------------------------------------------------------------------------
 
+  async additionalStepsForPrebook(): Promise<void> {}
+
   async selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>> {
     // Optional step: service category selection for Virtual Visit Check-In (walk-in)
     if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'walk-in' })) {

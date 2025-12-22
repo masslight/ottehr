@@ -1,10 +1,5 @@
 import { expect } from '@playwright/test';
-import {
-  BOOKING_CONFIG,
-  DEPLOYED_TELEMED_LOCATIONS,
-  PROJECT_NAME,
-  shouldShowServiceCategorySelectionPage,
-} from 'utils';
+import { DEPLOYED_TELEMED_LOCATIONS, PROJECT_NAME, shouldShowServiceCategorySelectionPage } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { CancelPage } from '../CancelPage';
 import { TelemedPaperworkReturn } from '../Paperwork';
@@ -33,14 +28,7 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
 
   async startVisitWithoutPaperwork(patient?: PatientBasicInfo): Promise<StartVisitResponse> {
     await this.selectVisitAndContinue();
-    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
-      const availableCategories = BOOKING_CONFIG.serviceCategories || [];
-      const firstCategory = availableCategories[0]!;
-
-      if (firstCategory) {
-        await this.page.getByText(firstCategory.display).click();
-      }
-    }
+    await this.additionalStepsForPrebook();
     const slotAndLocation = await this.selectTimeLocationAndContinue();
 
     let patientBasicInfo: PatientBasicInfo;
@@ -106,6 +94,13 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
   }
 
   // ---------------------------------------------------------------------------
+
+  async additionalStepsForPrebook(): Promise<void> {
+    // Handle service category selection if present
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'prebook' })) {
+      await this.fillingInfo.selectFirstServiceCategory();
+    }
+  }
 
   async selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>> {
     const statesSelector = this.page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector);

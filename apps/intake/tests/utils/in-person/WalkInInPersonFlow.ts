@@ -1,6 +1,12 @@
 import { CancelPage } from '../CancelPage';
 import { InPersonPaperworkReturn } from '../Paperwork';
-import { BaseInPersonFlow, FilledPaperworkInput, PatientBasicInfo, StartVisitResponse } from './BaseInPersonFlow';
+import {
+  BaseInPersonFlow,
+  FilledPaperworkInput,
+  PatientBasicInfo,
+  SlotAndLocation,
+  StartVisitResponse,
+} from './BaseInPersonFlow';
 
 export class WalkInInPersonFlow extends BaseInPersonFlow {
   // flow steps:
@@ -60,4 +66,11 @@ export class WalkInInPersonFlow extends BaseInPersonFlow {
   }
 
   // ---------------------------------------------------------------------------
+
+  async additionalStepsForPrebook(): Promise<SlotAndLocation> {
+    return {
+      slot: undefined,
+      location: null,
+    };
+  }
 }
