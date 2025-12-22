@@ -71,11 +71,19 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     };
   }
 
+  /**
+   * If you pass in patientBasicInfo, it will validate a few extra steps by checking non-linear flow
+   */
   async fillPaperwork({
+    patientBasicInfo,
     payment,
     responsibleParty,
     requiredOnly,
   }: FilledPaperworkInput): Promise<TelemedPaperworkReturn<typeof payment, typeof responsibleParty, boolean>> {
+    if (patientBasicInfo) {
+      await this.ValidatePatientInfo(patientBasicInfo);
+    }
+
     return await this.paperworkGeneral.fillPaperworkTelemed({
       payment,
       responsibleParty,
