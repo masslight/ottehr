@@ -333,7 +333,7 @@ const rows: Row[] = [
     render: (patient) => patient.pcp || '-',
   },
   {
-    title: `How did patient heard about ${BRANDING_CONFIG.projectName}`,
+    title: `How did patient hear about ${BRANDING_CONFIG.projectName}`,
     field: 'pointOfDiscovery',
     render: (patient) => patient.pointOfDiscovery || '-',
   },
