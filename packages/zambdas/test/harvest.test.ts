@@ -1,5 +1,6 @@
-import { Patient, QuestionnaireResponse } from 'fhir/r4b';
-import { createMasterRecordPatchOperations } from '../src/ehr/shared/harvest';
+import { Patient, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { PREFERRED_PHARMACY_EXTENSION_URL } from 'utils';
+import { createMasterRecordPatchOperations, PATIENT_CONTAINED_PHARMACY_ID } from '../src/ehr/shared/harvest';
 import patient1 from './data/patient-1.json';
 import patient2 from './data/patient-2.json';
 import patient3 from './data/patient-3.json';
@@ -313,69 +314,69 @@ describe('Patient Master Record Tests', () => {
       relatedPerson: {},
     });
   });
-  // test('should not drop pharmacy contained resource when adding PCP', () => {
-  //   const patientWithPharmacy: Patient = {
-  //     id: 'patient-with-pharmacy',
-  //     resourceType: 'Patient',
-  //     contained: [
-  //       {
-  //         id: PATIENT_CONTAINED_PHARMACY_ID,
-  //         name: 'Existing Pharmacy',
-  //         resourceType: 'Organization',
-  //       },
-  //     ],
-  //     extension: [
-  //       {
-  //         url: PREFERRED_PHARMACY_EXTENSION_URL,
-  //         valueReference: {
-  //           reference: `#${PATIENT_CONTAINED_PHARMACY_ID}`,
-  //         },
-  //       },
-  //     ],
-  //   };
+  test('should not drop pharmacy contained resource when adding PCP', () => {
+    const patientWithPharmacy: Patient = {
+      id: 'patient-with-pharmacy',
+      resourceType: 'Patient',
+      contained: [
+        {
+          id: PATIENT_CONTAINED_PHARMACY_ID,
+          name: 'Existing Pharmacy',
+          resourceType: 'Organization',
+        },
+      ],
+      extension: [
+        {
+          url: PREFERRED_PHARMACY_EXTENSION_URL,
+          valueReference: {
+            reference: `#${PATIENT_CONTAINED_PHARMACY_ID}`,
+          },
+        },
+      ],
+    };
 
-  //   const pcpItems: QuestionnaireResponseItem[] = [
-  //     { linkId: 'pcp-first', answer: [{ valueString: 'Jane' }] },
-  //     { linkId: 'pcp-last', answer: [{ valueString: 'Doe' }] },
-  //   ];
+    const pcpItems: QuestionnaireResponseItem[] = [
+      { linkId: 'pcp-first', answer: [{ valueString: 'Jane' }] },
+      { linkId: 'pcp-last', answer: [{ valueString: 'Doe' }] },
+    ];
 
-  //   const result = createMasterRecordPatchOperations(pcpItems, patientWithPharmacy);
+    const result = createMasterRecordPatchOperations(pcpItems, patientWithPharmacy);
 
-  //   expect(result).toEqual({
-  //     coverage: {},
-  //     patient: {
-  //       conflictingUpdates: [],
-  //       patchOpsForDirectUpdate: [
-  //         {
-  //           op: 'replace',
-  //           path: '/contained',
-  //           value: [
-  //             {
-  //               id: PATIENT_CONTAINED_PHARMACY_ID,
-  //               name: 'Existing Pharmacy',
-  //               resourceType: 'Organization',
-  //             },
-  //             {
-  //               resourceType: 'Practitioner',
-  //               id: 'primary-care-physician',
-  //               name: [
-  //                 {
-  //                   family: 'Doe',
-  //                   given: ['Jane'],
-  //                 },
-  //               ],
-  //               active: true,
-  //             },
-  //           ],
-  //         },
-  //         {
-  //           op: 'add',
-  //           path: '/generalPractitioner',
-  //           value: [{ reference: '#primary-care-physician', resourceType: 'Practitioner' }],
-  //         },
-  //       ],
-  //     },
-  //     relatedPerson: {},
-  //   });
-  // });
+    expect(result).toEqual({
+      coverage: {},
+      patient: {
+        conflictingUpdates: [],
+        patchOpsForDirectUpdate: [
+          {
+            op: 'replace',
+            path: '/contained',
+            value: [
+              {
+                id: PATIENT_CONTAINED_PHARMACY_ID,
+                name: 'Existing Pharmacy',
+                resourceType: 'Organization',
+              },
+              {
+                resourceType: 'Practitioner',
+                id: 'primary-care-physician',
+                name: [
+                  {
+                    family: 'Doe',
+                    given: ['Jane'],
+                  },
+                ],
+                active: true,
+              },
+            ],
+          },
+          {
+            op: 'add',
+            path: '/generalPractitioner',
+            value: [{ reference: '#primary-care-physician', resourceType: 'Practitioner' }],
+          },
+        ],
+      },
+      relatedPerson: {},
+    });
+  });
 });
