@@ -50,6 +50,12 @@ export const BillingCodesContainer: FC = () => {
   };
 
   const onAdd = (value: CPTCodeOption): void => {
+    const optimisticCptCodes = [...cptCodes, value];
+    const previousCptCodes = cptCodes;
+
+    // Optimistic update
+    setPartialChartData({ cptCodes: optimisticCptCodes }, false);
+
     saveCPTChartData(
       {
         cptCodes: [value],
@@ -58,82 +64,90 @@ export const BillingCodesContainer: FC = () => {
         onSuccess: (data) => {
           const cptCode = data.chartData?.cptCodes?.[0];
           if (cptCode) {
+            // Update only the added code with server response (resourceId, etc.)
             setPartialChartData({
-              cptCodes: [...cptCodes, cptCode],
+              cptCodes: [...previousCptCodes, cptCode],
             });
           }
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while adding CPT code. Please try again.', { variant: 'error' });
+          // Rollback to previous state
           setPartialChartData({
-            cptCodes: cptCodes,
+            cptCodes: previousCptCodes,
           });
         },
       }
     );
-    setPartialChartData({ cptCodes: [...cptCodes, value] });
   };
 
   const onDelete = (resourceId: string): void => {
-    let localCodes = cptCodes;
-    const preparedValue = localCodes.find((item) => item.resourceId === resourceId)!;
-    const prevCodes = [...localCodes];
+    const preparedValue = cptCodes.find((item) => item.resourceId === resourceId)!;
+    const prevCodes = [...cptCodes];
+    const optimisticCodes = cptCodes.filter((i) => i.resourceId !== resourceId);
+
+    // Optimistic update
+    setPartialChartData({ cptCodes: optimisticCodes }, false);
 
     deleteCPTChartData(
       {
         cptCodes: [preparedValue],
       },
       {
-        onSuccess: () => {
-          localCodes = localCodes.filter((item) => item.resourceId !== resourceId);
-          setPartialChartData({ cptCodes: [...localCodes] });
-        },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting CPT code. Please try again.', { variant: 'error' });
+          // Rollback to previous state
           setPartialChartData({ cptCodes: prevCodes });
         },
       }
     );
-    setPartialChartData({ cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) });
   };
 
   const onEMCodeChange = (value: CPTCodeOption | null): void => {
     if (value) {
       const prevValue = emCode ? { ...emCode } : undefined;
+      const optimisticValue = { ...emCode, ...value };
+
+      // Optimistic update
+      setPartialChartData({ emCode: optimisticValue }, false);
 
       saveEMChartData(
-        { emCode: { ...emCode, ...value } },
+        { emCode: optimisticValue },
         {
           onSuccess: (data) => {
             const saved = data.chartData?.emCode;
-            console.log(data);
 
             if (saved) {
+              // Update with server response (resourceId, etc.)
               setPartialChartData({ emCode: saved });
             }
           },
           onError: () => {
             enqueueSnackbar('An error has occurred while saving E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
             setPartialChartData({ emCode: prevValue || undefined });
           },
         }
       );
-      setPartialChartData({ emCode: value });
     } else if (emCode) {
       const prevValue = { ...emCode };
+
+      // Optimistic update
+      setPartialChartData({ emCode: undefined }, false);
+
       deleteEMChartData(
         { emCode },
         {
           onSuccess: async () => {
-            setPartialChartData({ emCode: undefined });
+            // No need to update again, optimistic update already applied
           },
           onError: () => {
             enqueueSnackbar('An error has occurred while deleting E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
             setPartialChartData({ emCode: prevValue });
           },
         }
       );
-      setPartialChartData({ emCode: undefined });
     }
   };
 

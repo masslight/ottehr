@@ -14,27 +14,45 @@ export const EMCodeField: FC = () => {
   const onChange = (value: CPTCodeOption | null): void => {
     if (value) {
       const prevValue = emCode;
+      const optimisticValue = { ...emCode, ...value };
+
+      // Optimistic update
+      setPartialChartData({ emCode: optimisticValue }, false);
 
       saveChartData(
-        { emCode: { ...emCode, ...value } },
+        { emCode: optimisticValue },
         {
           onSuccess: (data) => {
             const saved = data.chartData?.emCode;
 
             if (saved) {
+              // Update with server response (resourceId, etc.)
               setPartialChartData({ emCode: saved });
             }
           },
           onError: () => {
             enqueueSnackbar('An error has occurred while saving E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
             setPartialChartData({ emCode: prevValue });
           },
         }
       );
-      setPartialChartData({ emCode: value });
     } else {
-      deleteChartData({ emCode });
-      setPartialChartData({ emCode: undefined });
+      const prevValue = emCode;
+
+      // Optimistic update
+      setPartialChartData({ emCode: undefined }, false);
+
+      deleteChartData(
+        { emCode },
+        {
+          onError: () => {
+            enqueueSnackbar('An error has occurred while deleting E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
+            setPartialChartData({ emCode: prevValue });
+          },
+        }
+      );
     }
   };
 

@@ -20,7 +20,12 @@ import {
 } from 'fhir/r4b';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { APPOINTMENT_REFRESH_INTERVAL, CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
+import {
+  APPOINTMENT_REFRESH_INTERVAL,
+  CHART_DATA_QUERY_KEY,
+  CHART_FIELDS_QUERY_KEY,
+  QUERY_STALE_TIME,
+} from 'src/constants';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import {
   createRefreshableAppointmentData,
@@ -126,9 +131,12 @@ export type ChartDataState = {
 };
 
 interface ChartDataStateUpdater {
-  setPartialChartData: (value: Partial<GetChartDataResponse>) => void;
+  setPartialChartData: (value: Partial<GetChartDataResponse>, shouldInvalidate?: boolean) => void;
   updateObservation: (observation: ObservationDTO) => void;
-  chartDataSetState: (updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>)) => void;
+  chartDataSetState: (
+    updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>),
+    shouldInvalidate?: boolean
+  ) => void;
   chartDataRefetch: () => any;
   chartDataError: any;
 }
@@ -640,7 +648,10 @@ export const useChartData = ({
   );
 
   const setQueryCache = useCallback(
-    (updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>)) => {
+    (
+      updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>),
+      shouldInvalidate: boolean = true
+    ) => {
       queryClient.setQueryData(queryKey, (prevData: ChartDataResponse | null) => {
         const currentState = {
           chartData: prevData || chartDataResponse || undefined,
@@ -651,21 +662,26 @@ export const useChartData = ({
         return newData.chartData || prevData;
       });
 
-      // Force invalidate all related queries to update the UI
-      void queryClient.invalidateQueries({
-        queryKey: [CHART_DATA_QUERY_KEY, encounterId],
-        exact: false,
-        refetchType: 'active',
-      });
+      if (shouldInvalidate) {
+        // Force invalidate all related queries to update the UI
+        void queryClient.invalidateQueries({
+          queryKey: [CHART_DATA_QUERY_KEY, encounterId],
+          exact: false,
+          refetchType: 'active',
+        });
+      }
     },
     [queryClient, queryKey, chartDataResponse, isLoading, encounterId]
   );
 
   const setPartialChartData = useCallback(
-    (data: Partial<ChartDataResponse>) => {
-      setQueryCache((state) => ({
-        chartData: { ...state.chartData, patientId: state.chartData?.patientId || '', ...data },
-      }));
+    (data: Partial<ChartDataResponse>, shouldInvalidate: boolean = true) => {
+      setQueryCache(
+        (state) => ({
+          chartData: { ...state.chartData, patientId: state.chartData?.patientId || '', ...data },
+        }),
+        shouldInvalidate
+      );
     },
     [setQueryCache]
   );
@@ -770,7 +786,7 @@ export const useGetChartData = (
     },
 
     enabled: !!apiClient && !!encounterId && !!user && enabled,
-    staleTime: 0, // TODO: screening note is not refreshed after saving on the progress note screen, fix this and similar cases and add staleTime with default QUERY_STALE_TIME
+    staleTime: QUERY_STALE_TIME,
     refetchInterval: refetchInterval || false,
   });
 

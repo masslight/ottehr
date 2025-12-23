@@ -226,18 +226,19 @@ describe('PrimaryCareContainer', () => {
       // Trigger validation for this specific field
       await formMethods!.trigger(field.key);
 
-      // Check if error appears based on config
-      const errorElement = document.getElementById(field.key)?.querySelector('p.MuiFormHelperText-root.Mui-error');
-
       if (field.shouldBeRequired) {
         // Field should show required error
         await waitFor(() => {
+          const errorElement = document.getElementById(field.key)?.querySelector('p.MuiFormHelperText-root.Mui-error');
           expect(errorElement).toBeInTheDocument();
           expect(errorElement).toHaveTextContent('This field is required');
         });
       } else {
-        // Field should NOT show required error
-        expect(errorElement).not.toBeInTheDocument();
+        // Field should NOT show required error - wait a bit to ensure no error appears
+        await waitFor(() => {
+          const errorElement = document.getElementById(field.key)?.querySelector('p.MuiFormHelperText-root.Mui-error');
+          expect(errorElement).not.toBeInTheDocument();
+        });
       }
     }
   });
