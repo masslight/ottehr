@@ -181,6 +181,7 @@ interface SetUpOutput {
   schedule: Schedule;
   scheduleOwnerType: ScheduleOwnerFhirResource['resourceType'];
   slug: string;
+  location: Location;
 }
 
 interface GetSlotFromScheduleInput extends SetUpOutput {
@@ -289,6 +290,7 @@ describe('prebook integration - from getting list of slots to booking with selec
       schedule,
       slug,
       scheduleOwnerType: owner.resourceType,
+      location: owner as Location,
     };
   };
 
@@ -357,6 +359,7 @@ describe('prebook integration - from getting list of slots to booking with selec
       schedule,
       slug,
       scheduleOwnerType: owner.resourceType,
+      location: owner as Location,
     };
   };
 
@@ -647,6 +650,21 @@ describe('prebook integration - from getting list of slots to booking with selec
     return validated;
   };
 
+  const cleanUpResources = async (initialResources: SetUpOutput): Promise<void> => {
+    if (initialResources.schedule.id) {
+      await oystehrAdmin.fhir.delete({
+        resourceType: 'Schedule',
+        id: initialResources.schedule.id,
+      });
+    }
+    if (initialResources.location.id) {
+      await oystehrAdmin.fhir.delete({
+        resourceType: 'Location',
+        id: initialResources.location.id,
+      });
+    }
+  };
+
   beforeAll(async () => {
     processId = randomUUID();
     const setup = await setupIntegrationTest('booking-integration.test.ts', M2MClientMockType.patient);
@@ -704,6 +722,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         appointmentId,
         oldSlotId: newSlotId,
       });
+
+      await cleanUpResources(initialResources);
     }
   );
 
@@ -748,6 +768,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         appointmentId,
         oldSlotId: newSlotId,
       });
+
+      await cleanUpResources(initialResources);
     }
   );
 
@@ -855,6 +877,8 @@ describe('prebook integration - from getting list of slots to booking with selec
       expect(canceledAppointment).toBeDefined();
       assert(canceledAppointment);
       expect(canceledAppointment.status).toEqual('booked'); // should still be booked since we can't cancel it
+
+      await cleanUpResources(initialResources);
     }
   );
 
@@ -909,6 +933,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         appointmentId,
         oldSlotId: newSlotId,
       });
+
+      await cleanUpResources(initialResources);
     }
   );
 
@@ -963,6 +989,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         appointmentId,
         oldSlotId: newSlotId,
       });
+
+      await cleanUpResources(initialResources);
     }
   );
 
@@ -1006,6 +1034,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         patient: undefined,
         slot: createdSlotResponse,
       });
+
+      await cleanUpResources(initialResources);
     }
   );
   describe('walkin appointments', () => {
@@ -1044,6 +1074,8 @@ describe('prebook integration - from getting list of slots to booking with selec
           patient: undefined,
           slot: createdSlotResponse,
         });
+
+        await cleanUpResources(initialResources);
       }
     );
     test.concurrent(
@@ -1073,6 +1105,8 @@ describe('prebook integration - from getting list of slots to booking with selec
           patient: existingTestPatient,
           slot: createdSlotResponse,
         });
+
+        await cleanUpResources(initialResources);
       }
     );
     test.concurrent('successfully creates a virtual walkin appointment for a new patient', async () => {
@@ -1108,6 +1142,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         patient: undefined,
         slot: createdSlotResponse,
       });
+
+      await cleanUpResources(initialResources);
     });
     test.concurrent('successfully creates a virtual walkin appointment for an existing patient', async () => {
       assert(processId);
@@ -1134,6 +1170,8 @@ describe('prebook integration - from getting list of slots to booking with selec
         patient: existingTestPatient,
         slot: createdSlotResponse,
       });
+
+      await cleanUpResources(initialResources);
     });
   });
 });
