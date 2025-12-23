@@ -28,7 +28,7 @@ import {
   ZambdaInput,
 } from '../../../shared';
 
-const ZAMBDA_NAME = 'get-visit-files';
+const ZAMBDA_NAME = 'update-visit-files';
 
 let m2mToken: string;
 

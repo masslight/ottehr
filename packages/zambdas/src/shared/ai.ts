@@ -15,10 +15,10 @@ import {
   getFormatDuration,
   getSecret,
   MIME_TYPES,
-  OTTEHR_CODE_SYSTEM_BASE_URL,
   PUBLIC_EXTENSION_BASE_URL,
   Secrets,
   SecretsKeys,
+  SERVICE_CATEGORY_SYSTEM,
   VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
 import { makeObservationResource } from './chart-data/index';
@@ -162,8 +162,7 @@ export async function createResourcesFromAiInterview(
     appointment?.serviceCategory?.find(
       (serviceCategory) =>
         serviceCategory.coding?.find(
-          (coding) =>
-            coding.system === `${OTTEHR_CODE_SYSTEM_BASE_URL}/service-category` && coding.code === 'workmans-comp'
+          (coding) => coding.system === SERVICE_CATEGORY_SYSTEM && coding.code === 'workmans-comp'
         )
     )
   ) {

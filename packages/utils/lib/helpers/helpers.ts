@@ -12,7 +12,6 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { patientScreeningQuestionsConfig } from '../configuration/questionnaire';
 import {
   allLicensesForPractitioner,
   CANDID_PLAN_TYPE_SYSTEM,
@@ -24,6 +23,7 @@ import {
   PROVIDER_TYPE_EXTENSION_URL,
   SLUG_SYSTEM,
 } from '../fhir';
+import { patientScreeningQuestionsConfig } from '../ottehr-config/questionnaire';
 import {
   appointmentTypeLabels,
   appointmentTypeMap,
@@ -287,10 +287,11 @@ export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): 
 }
 
 export const formatPhoneNumberForQuestionnaire = (phone: string): string => {
-  if (phone.length !== 10) {
+  const phoneDigits = phone.replace(/\D/g, '');
+  if (phoneDigits.length !== 10) {
     throw new Error('Invalid phone number');
   }
-  return `(${phone.slice(0, 3)}) ${phone.slice(3, 6)}-${phone.slice(6)}`;
+  return `(${phoneDigits.slice(0, 3)}) ${phoneDigits.slice(3, 6)}-${phoneDigits.slice(6)}`;
 };
 
 export const objectToDateString = (dateObj: { year: string; month: string; day: string }): string => {
@@ -1595,7 +1596,12 @@ export interface TemplateVariables {
 
 // <key> syntax
 export function replaceTemplateVariablesArrows(template: string, variables: TemplateVariables): string {
-  return template.replace(/<([\w-]+)>/g, (match, key) => {
-    return variables[key]?.toString() || match;
-  });
+  try {
+    if (!template) return '';
+    return template.replace(/<([\w-]+)>/g, (match, key) => {
+      return variables[key]?.toString() || match;
+    });
+  } catch {
+    return template;
+  }
 }

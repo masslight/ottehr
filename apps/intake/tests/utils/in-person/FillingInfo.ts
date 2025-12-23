@@ -18,6 +18,7 @@ export class FillingInfo {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
+  // todo grab from config!
   private reasonForVisit = [BOOKING_CONFIG.reasonForVisitOptions[0]];
   private cancelReason = BOOKING_CONFIG.cancelReasonOptions.slice();
   private months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -69,21 +70,21 @@ export class FillingInfo {
     const birthSexes = ['Male', 'Female', 'Intersex'];
     // cspell:disable-next ykulik
     const email = `ykulik+${firstName}@masslight.com`;
-    const reason = this.getRandomElement(this.reasonForVisit);
+    const reasonForVisit = this.getRandomElement(this.reasonForVisit);
     const enteredReason = this.getRandomString();
     await this.page.locator('#patient-first-name').click();
     await this.page.locator('#patient-first-name').fill(firstName);
     await this.page.locator('#patient-last-name').click();
     await this.page.locator('#patient-last-name').fill(lastName);
     await this.page.locator('#patient-birth-sex').click();
-    const BirthSex = this.getRandomElement(birthSexes);
-    await this.page.getByRole('option', { name: BirthSex, exact: true }).click();
+    const birthSex = this.getRandomElement(birthSexes);
+    await this.page.getByRole('option', { name: birthSex, exact: true }).click();
     await this.page.locator('#patient-email').click();
     await this.page.locator('#patient-email').fill(email);
     await this.page.getByLabel('Reason for visit *', { exact: true }).click();
-    await this.page.getByRole('option', { name: reason, exact: true }).click();
+    await this.page.getByRole('option', { name: reasonForVisit, exact: true }).click();
     await this.page.getByRole('textbox', { name: 'Tell us more (optional)' }).fill(enteredReason);
-    return { firstName, lastName, BirthSex, email, reason, enteredReason };
+    return { firstName, lastName, birthSex, email, reasonForVisit, enteredReason };
   }
 
   async fillDOBgreater18() {

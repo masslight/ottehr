@@ -8,6 +8,11 @@ export class ScreeningPage {
   constructor(page: Page) {
     this.#page = page;
   }
+
+  page(): Page {
+    return this.#page;
+  }
+
   sideMenu(): SideMenu {
     return new SideMenu(this.#page);
   }
@@ -26,7 +31,13 @@ export class ScreeningPage {
   }
 
   async clickAddScreeningNoteButton(): Promise<ScreeningPage> {
+    // Wait for the save API call to complete before returning
+    const savePromise = this.#page.waitForResponse(
+      (response) => response.url().includes('/save-chart-data') && response.status() === 200,
+      { timeout: 10000 }
+    );
     await this.#page.getByTestId(dataTestIds.screeningPage.addNoteButton).click();
+    await savePromise;
     return expectScreeningPage(this.#page);
   }
 

@@ -151,8 +151,8 @@ export const ProgressNoteDetails: FC = () => {
 
   const sections = [
     showChiefComplaint && <ChiefComplaintContainer />,
-    showMechanismOfInjury && <MechanismOfInjuryContainer />,
     showHpi && <HistoryOfPresentIllnessContainer />,
+    showMechanismOfInjury && <MechanismOfInjuryContainer />,
     showReviewOfSystems && <ReviewOfSystemsContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer notes={screeningNotes} />,
     showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,

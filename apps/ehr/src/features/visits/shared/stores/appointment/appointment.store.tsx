@@ -12,13 +12,14 @@ import {
   DocumentReference,
   Encounter,
   FhirResource,
+  HealthcareService,
   Location,
   Patient,
   Practitioner,
   QuestionnaireResponse,
 } from 'fhir/r4b';
 import { useCallback, useEffect, useMemo } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { APPOINTMENT_REFRESH_INTERVAL, CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import {
@@ -58,7 +59,9 @@ export type AppointmentTelemedState = {
   patient: Patient | undefined;
   location: Location | undefined;
   locationVirtual: Location | undefined;
-  practitioner?: Practitioner;
+  locations: Location[];
+  practitioners?: Practitioner[];
+  group?: HealthcareService;
   followUpOriginEncounter: Encounter;
   encounter: Encounter;
   followupEncounters?: Encounter[];
@@ -135,7 +138,8 @@ const APPOINTMENT_INITIAL: AppointmentTelemedState & AppointmentRawResourcesStat
   patient: undefined,
   location: undefined,
   locationVirtual: undefined,
-  practitioner: undefined,
+  locations: [],
+  practitioners: [],
   followUpOriginEncounter: {} as Encounter,
   encounter: {} as Encounter,
   followupEncounters: [],
@@ -170,8 +174,7 @@ export const useAppointmentData = (
   AppointmentStateUpdater &
   ReactQueryState => {
   const { id: appointmentIdFromUrl } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const appointmentId = appointmentIdFromProps || appointmentIdFromUrl;
   const queryClient = useQueryClient();
   const { data: currentState, isLoading, isFetching, refetch, error, isPending } = useGetAppointment({ appointmentId });
@@ -221,16 +224,12 @@ export const useAppointmentData = (
     if (isLoading || isPending) {
       return;
     }
-    const encounterIdFromLocation = (
-      location.state as {
-        encounterId?: string;
-      }
-    )?.encounterId;
-    if (encounterIdFromLocation && !isLoading && !isPending) {
-      setSelectedEncounter(encounterIdFromLocation);
-      navigate('.', { replace: true });
+    const encounterIdFromUrl = searchParams.get('encounterId');
+
+    if (encounterIdFromUrl) {
+      setSelectedEncounter(encounterIdFromUrl);
     }
-  }, [isLoading, isPending, location.state, navigate, setSelectedEncounter]);
+  }, [isLoading, isPending, searchParams, setSelectedEncounter]);
 
   const getSelectedEncounter = useCallback(() => {
     const state = currentState || APPOINTMENT_INITIAL;
@@ -289,6 +288,8 @@ export type AppointmentResources =
   | DocumentReference
   | Encounter
   | Location
+  | HealthcareService
+  | Practitioner
   | Patient
   | QuestionnaireResponse;
 
@@ -305,8 +306,13 @@ const selectAppointmentData = (
   const parsed = parseBundle(data);
   const appointment = data?.find((resource: FhirResource) => resource.resourceType === 'Appointment') as Appointment;
   const patient = data?.find((resource: FhirResource) => resource.resourceType === 'Patient') as Patient;
-  const location = (data?.filter((resource: FhirResource) => resource.resourceType === 'Location') as Location[]).find(
-    (location) => !isLocationVirtual(location)
+
+  const appointmentLocationRef = appointment?.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))
+    ?.actor?.reference;
+  const appointmentLocationId = appointmentLocationRef?.split('/')?.pop();
+  const location = data.find(
+    (resource): resource is Location =>
+      resource.resourceType === 'Location' && resource.id === appointmentLocationId && !isLocationVirtual(resource)
   );
 
   const followUpOriginEncounter = data?.find(
@@ -328,12 +334,10 @@ const selectAppointmentData = (
     appointment,
     patient,
     location,
-    locationVirtual: (
-      data?.filter((resource: FhirResource) => resource.resourceType === 'Location') as Location[]
-    ).find(isLocationVirtual),
-    practitioner: data?.find(
-      (resource: FhirResource) => resource.resourceType === 'Practitioner'
-    ) as unknown as Practitioner,
+    locationVirtual: (data?.filter((resource) => resource.resourceType === 'Location') || []).find(isLocationVirtual),
+    locations: data?.filter((resource): resource is Location => resource.resourceType === 'Location'),
+    practitioners: data?.filter((resource): resource is Practitioner => resource.resourceType === 'Practitioner'),
+    group: data?.find((resource): resource is HealthcareService => resource.resourceType === 'HealthcareService'),
     followUpOriginEncounter,
     encounter: followUpOriginEncounter, // Default to main encounter, will be updated by hook
     followupEncounters,
@@ -406,12 +410,24 @@ const useGetAppointment = (
                 value: 'Appointment:location',
               },
               {
+                name: '_include',
+                value: 'Appointment:practitioner',
+              },
+              {
+                name: '_include',
+                value: 'Appointment:actor:HealthcareService',
+              },
+              {
                 name: '_include:iterate',
                 value: 'Encounter:participant:Practitioner',
               },
               {
                 name: '_revinclude:iterate',
                 value: 'Encounter:appointment',
+              },
+              {
+                name: '_include:iterate',
+                value: 'Encounter:location',
               },
               {
                 name: '_revinclude:iterate',

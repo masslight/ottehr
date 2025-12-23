@@ -1,6 +1,24 @@
 import { Close } from '@mui/icons-material';
-import { Box, Chip, Dialog, DialogContent, DialogTitle, Divider, IconButton, Paper, Typography } from '@mui/material';
-import { FC } from 'react';
+import { TabContext, TabList, TabPanel } from '@mui/lab';
+import {
+  Box,
+  Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  IconButton,
+  Paper,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+  useTheme,
+} from '@mui/material';
+import { FC, useState } from 'react';
 import {
   CoverageCheckWithDetails,
   EligibilityCheckSimpleStatus,
@@ -95,6 +113,8 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
   errorDetails,
   rawErrorResponse,
 }) => {
+  const theme = useTheme();
+  const [currentTab, setCurrentTab] = useState<string>('copay-tab');
   if (!eligibilityCheck) {
     return null;
   }
@@ -107,16 +127,13 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
     eligibilityCheck.status === InsuranceEligibilityCheckStatus.eligibilityNotChecked ||
     eligibilityCheck.status === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed;
 
-  // Show benefits if we have valid benefits, regardless of eligibility status (to match CopayWidget behavior)
-  const hasValidBenefits =
-    copayBenefits.length > 0 &&
-    copayBenefits.some(
-      (benefit) =>
-        benefit &&
-        ((benefit.amountInUSD &&
-          (typeof benefit.amountInUSD === 'number' || typeof benefit.amountInUSD === 'string')) ||
-          (benefit.percentage && (typeof benefit.percentage === 'number' || typeof benefit.percentage === 'string')))
-    );
+  function formatName(firstName?: string, middleName?: string, lastName?: string): string {
+    if (middleName) {
+      return `${firstName} ${middleName} ${lastName}`;
+    }
+
+    return `${firstName} ${lastName}`;
+  }
 
   return (
     <Dialog
@@ -150,14 +167,169 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {/* Status Section */}
           <Paper sx={{ p: 3, backgroundColor: '#f8f9fa' }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-              Status Information
-            </Typography>
+            <Grid container>
+              <Grid item xs={6}>
+                <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
+                  Subscriber
+                </Typography>
+                <Grid container spacing={1}>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      First name, last name
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">
+                      {formatName(
+                        eligibilityCheck.coverageDetails?.subscriber?.firstName,
+                        eligibilityCheck.coverageDetails?.subscriber?.middleName,
+                        eligibilityCheck.coverageDetails?.subscriber?.lastName
+                      )}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      Member ID
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">{eligibilityCheck.coverageDetails?.subscriber?.memberID}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      DOB
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">{eligibilityCheck.coverageDetails?.subscriber?.dateOfBirth}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      Address
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">{eligibilityCheck.coverageDetails?.subscriber?.address}</Typography>
+                  </Grid>
+                </Grid>
+                <Typography variant="h5" sx={{ color: theme.palette.primary.dark, marginTop: '30px' }}>
+                  Patient
+                </Typography>
+                <Grid container spacing={1}>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      First name, last name
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">
+                      {formatName(
+                        eligibilityCheck.coverageDetails?.patient?.firstName,
+                        eligibilityCheck.coverageDetails?.patient?.middleName,
+                        eligibilityCheck.coverageDetails?.patient?.lastName
+                      )}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      DOB
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">{eligibilityCheck.coverageDetails?.patient?.dateOfBirth}</Typography>
+                  </Grid>
+                </Grid>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
+                  Insurance/Plan
+                </Typography>
+                <Grid container spacing={1}>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      Plan number
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">{eligibilityCheck.coverageDetails?.insurance?.planNumber}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      Policy number
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">{eligibilityCheck.coverageDetails?.insurance?.policyNumber}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      Insurance type
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">
+                      {eligibilityCheck.coverageDetails?.insurance?.insuranceCode} -{' '}
+                      {eligibilityCheck.coverageDetails?.insurance?.insuranceDescription}
+                    </Typography>
+                  </Grid>
+                </Grid>
+                <Typography variant="h5" sx={{ color: theme.palette.primary.dark, marginTop: '30px' }}>
+                  Payer
+                </Typography>
+                <Grid container spacing={1}>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      Name of the payer
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">{eligibilityCheck.coverageDetails?.payer?.name}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      Payer ID
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">{eligibilityCheck.coverageDetails?.payer?.payerID}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      Address
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">{eligibilityCheck.coverageDetails?.payer?.address}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      Website
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">{eligibilityCheck.coverageDetails?.payer?.website}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      Phone
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">{eligibilityCheck.coverageDetails?.payer?.phone}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1" sx={{ color: theme.palette.primary.dark }}>
+                      Fax
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body1">{eligibilityCheck.coverageDetails?.payer?.fax}</Typography>
+                  </Grid>
+                </Grid>
+              </Grid>
+            </Grid>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
               <Box>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
-                  Current Status
-                </Typography>
                 <Chip
                   label={simpleStatus || statusDisplay.text}
                   sx={{
@@ -173,13 +345,8 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
                     },
                   }}
                 />
-              </Box>
-              <Box>
                 <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
-                  Last Checked
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                  {formatDate(eligibilityCheck.dateISO)}
+                  Last checked {formatDate(eligibilityCheck.dateISO)}
                 </Typography>
               </Box>
             </Box>
@@ -243,80 +410,68 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
             </Paper>
           )}
 
-          {/* Benefits Section */}
-          {hasValidBenefits && (
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                Payment Benefits
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {copayBenefits
-                  .filter((benefit) => {
-                    // Accept both string and number types for amountInUSD and percentage
-                    const hasAmount =
-                      typeof benefit.amountInUSD === 'number' ||
-                      (typeof benefit.amountInUSD === 'string' && benefit.amountInUSD !== '');
-                    const hasPercentage =
-                      typeof benefit.percentage === 'number' ||
-                      (typeof benefit.percentage === 'string' && benefit.percentage !== '');
-                    const isValid = benefit && (hasAmount || hasPercentage);
-                    if (!isValid) {
-                      console.log('Filtered out benefit:', benefit);
-                    }
-                    return isValid;
-                  })
-                  .map((benefit, index) => (
-                    <Box key={index} sx={{ borderLeft: 3, borderColor: 'primary.main', pl: 2 }}>
-                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2, mb: 1 }}>
-                        <Box>
-                          <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
-                            Type
-                          </Typography>
-                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                            {benefit.coverageCode === 'B' ? 'Copay' : 'Coinsurance'}
-                          </Typography>
-                        </Box>
-                        <Box>
-                          <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
-                            Amount
-                          </Typography>
-                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                            {formatBenefitAmount(benefit)}
-                          </Typography>
-                        </Box>
-                        <Box>
-                          <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
-                            Network
-                          </Typography>
-                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                            {benefit.inNetwork ? 'In-Network' : 'Out-of-Network'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      {benefit.description && (
-                        <Box>
-                          <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
-                            Description
-                          </Typography>
-                          <Typography variant="body2">{benefit.description}</Typography>
-                        </Box>
-                      )}
-                      {benefit.coverageDescription && (
-                        <Box sx={{ mt: 1 }}>
-                          <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
-                            Coverage Description
-                          </Typography>
-                          <Typography variant="body2">{benefit.coverageDescription}</Typography>
-                        </Box>
-                      )}
-                      {index < copayBenefits.length - 1 && <Divider sx={{ mt: 2 }} />}
-                    </Box>
-                  ))}
-              </Box>
-            </Paper>
-          )}
+          <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
+            Payment Benefits
+          </Typography>
+
+          <TabContext value={currentTab}>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+              <TabList onChange={(event, newValue) => setCurrentTab(newValue)} aria-label="benefits">
+                <Tab label="Co-Pay" value="copay-tab" />
+                <Tab label="Co-Insurance" value="coinsurance-tab" />
+              </TabList>
+            </Box>
+            <TabPanel value="copay-tab" sx={{ padding: 0 }}>
+              <BenefitsTable benefits={copayBenefits.filter((benefit) => benefit.coverageCode === 'B')} />
+            </TabPanel>
+            <TabPanel value="coinsurance-tab" sx={{ padding: 0 }}>
+              <BenefitsTable benefits={copayBenefits.filter((benefit) => benefit.coverageCode === 'A')} />
+            </TabPanel>
+          </TabContext>
         </Box>
       </DialogContent>
     </Dialog>
+  );
+};
+
+const BenefitsTable: FC<{ benefits: PatientPaymentBenefit[] }> = ({ benefits }): JSX.Element => {
+  return (
+    <Table>
+      <TableHead>
+        <TableRow>
+          <TableCell>Benefit Description</TableCell>
+          <TableCell>Status</TableCell>
+          <TableCell>Amount</TableCell>
+          <TableCell>Period</TableCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {benefits.map((benefit, index) => (
+          <TableRow key={index}>
+            <TableCell>{benefit.description || 'N/A'}</TableCell>
+            <TableCell>
+              <Chip
+                label={benefit.inNetwork ? 'In Network' : 'Out of Network'}
+                sx={{
+                  backgroundColor: benefit.inNetwork ? '#C8E6C9' : '#FECDD2',
+                  textTransform: 'uppercase',
+                  color: benefit.inNetwork ? '#1B5E20' : '#B71C1C',
+                  borderRadius: '4px',
+                  padding: '0 9px',
+                  height: '24px',
+                  '& .MuiChip-label': {
+                    padding: 0,
+                    fontWeight: 'bold',
+                    fontSize: '0.7rem',
+                  },
+                }}
+              />
+            </TableCell>
+            <TableCell>{formatBenefitAmount(benefit)}</TableCell>
+            <TableCell>{benefit.periodDescription}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 };

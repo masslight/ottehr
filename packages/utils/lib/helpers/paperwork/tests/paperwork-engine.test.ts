@@ -1941,10 +1941,11 @@ describe('Conditional logic', () => {
       expect(conditionalStringItem).toBeDefined();
       assert(conditionalStringItem != undefined);
       expect(conditionalStringItem.textWhen).toBeDefined();
-      expect(conditionalStringItem.textWhen?.answerString).toBeDefined();
-      expect(conditionalStringItem.textWhen?.operator).toBe('=');
-      expect(conditionalStringItem.textWhen?.question).toBe(KEYS.triggers.string.primary);
-      expect(conditionalStringItem.textWhen?.substituteText).toBe(
+      expect(conditionalStringItem.textWhen?.length).toBe(1);
+      expect(conditionalStringItem.textWhen?.[0]?.answerString).toBeDefined();
+      expect(conditionalStringItem.textWhen?.[0]?.operator).toBe('=');
+      expect(conditionalStringItem.textWhen?.[0]?.question).toBe(KEYS.triggers.string.primary);
+      expect(conditionalStringItem.textWhen?.[0]?.substituteText).toBe(
         'If this text is shown it means my condition was satisfied!'
       );
       let itemText = evalItemText(conditionalStringItem, formValues);

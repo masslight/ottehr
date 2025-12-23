@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { escapeTerraformTemplateSyntax } from './escape-terraform';
 import { Schema, SpecFile } from './schema';
 
 export const VAR_REGEX = /#\{var\/([^}]+)\}/g;
@@ -410,7 +411,8 @@ export class Schema20250925 implements Schema<Spec20250925> {
         return match;
       }
     );
-    return refReplacedValue;
+    // Escape Terraform template syntax in literal values
+    return escapeTerraformTemplateSyntax(refReplacedValue);
   }
 
   replaceVariableWithValue(value: string): string {

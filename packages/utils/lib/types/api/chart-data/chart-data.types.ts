@@ -94,7 +94,8 @@ export type RequestedFields =
   | 'inhouseMedications'
   | 'observations'
   | 'preferredPharmacies'
-  | 'reasonForVisit';
+  | 'reasonForVisit'
+  | 'aiPotentialDiagnosis';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 
@@ -164,6 +165,7 @@ export interface PrescribedMedicationDTO extends SaveableDTO {
   provider?: string;
   added?: string;
   prescriptionId?: string;
+  encounterId?: string;
 }
 
 export interface AllergyDTO extends SaveableDTO {

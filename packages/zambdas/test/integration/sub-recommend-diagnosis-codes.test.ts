@@ -22,7 +22,7 @@ describe('sub-recommend-diagnosis-codes integration tests', () => {
     oystehr = setup.oystehr;
     baseResources = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
     cleanup = setup.cleanup;
-  });
+  }, 60_000);
 
   afterAll(async () => {
     await cleanup();
@@ -216,6 +216,65 @@ describe('sub-recommend-diagnosis-codes integration tests', () => {
       expect(aiConditions.length).toBe(1);
       expect(aiConditions[0].code?.coding?.[0].code).toBe('R06.02');
       expect(aiConditions[0].code?.coding?.[0].display).toBe('Sneezing');
+    });
+    it('should remove all prior recommendations when all input is empty-- success', async () => {
+      const task: Task = {
+        id: '8665a43e-d0d5-41d2-9f0e-1322db6f1bd5',
+        resourceType: 'Task',
+        status: 'requested',
+        intent: 'order',
+        focus: { reference: `Encounter/${baseResources.encounter.id}` },
+        code: {
+          coding: [
+            {
+              system: OttehrTaskSystem,
+              code: 'recommend-diagnosis-codes',
+            },
+          ],
+        },
+      };
+      const mockAIClient = new FakeListChatModel({
+        responses: [
+          `{
+  "potentialDiagnoses": [
+    {
+      "diagnosis": "Sneezing",
+      "icd10": "R06.02"
+    }
+  ]
+}`,
+        ],
+      });
+
+      await oystehr.fhir.delete({ resourceType: 'ClinicalImpression', id: baseResources.clinicalImpression.id! });
+
+      let result: { taskStatus: Task['status']; statusReason?: string } | undefined;
+      let error: any;
+      try {
+        result = await createDiagnosisCodeRecommendations(task, oystehr, mockAIClient);
+      } catch (err) {
+        error = err as Error;
+      }
+      expect(error).toBeUndefined();
+      expect(result).toBeDefined();
+      expect(result).toHaveProperty('taskStatus');
+      expect(result?.taskStatus).toEqual('completed');
+      expect(result).toHaveProperty('statusReason');
+      expect(result?.statusReason).toEqual('Recommended 0 diagnosis codes');
+
+      const savedConditions = (
+        await oystehr.fhir.search<Condition>({
+          resourceType: 'Condition',
+          params: [{ name: 'encounter', value: baseResources.encounter.id! }],
+        })
+      ).unbundle();
+      const aiConditions = savedConditions.filter((resource) => {
+        return (
+          resource.meta?.tag?.find((tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/ai-potential-diagnosis`)
+            ?.code === 'ai-potential-diagnosis'
+        );
+      });
+      expect(aiConditions.length).toBe(0);
     });
   });
 });

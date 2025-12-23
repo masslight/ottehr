@@ -15,9 +15,9 @@ import { Stripe } from '@stripe/stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { AddCreditCardForm, loadStripe } from 'ui-components';
 import {
-  BOOKING_CONFIG,
   CreditCardInfo,
   findQuestionnaireResponseItemLinkId,
+  IntakeQuestionnaireItem,
   pickFirstValueFromAnswerItem,
 } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
@@ -30,12 +30,14 @@ interface CreditCardVerificationProps {
   onChange: (event: { target: { value: boolean } }) => void;
   required: boolean;
   value?: boolean;
+  pageItem?: IntakeQuestionnaireItem;
 }
 
 export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
   value: validCreditCardOnFile,
   required,
   onChange,
+  pageItem,
 }) => {
   const {
     patient,
@@ -116,6 +118,8 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
     onMakePrimary(id);
   };
 
+  const detailsText = pageItem?.item?.find((item) => item.linkId === 'card-payment-details-text')?.text;
+
   return (
     <Box
       sx={{
@@ -130,9 +134,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
           provider. If you are self-paying, the selected card will be charged for the total amount due.
         </Typography>
       </Card>
-      {BOOKING_CONFIG.paperwork.creditCardDetails.copy ? (
-        <Typography variant="body2">{BOOKING_CONFIG.paperwork.creditCardDetails.copy}</Typography>
-      ) : null}
+      {detailsText ? <Typography variant="body2">{detailsText}</Typography> : null}
       <CreditCardContent
         setupData={setupData as any}
         pendingSelection={pendingSelection}
