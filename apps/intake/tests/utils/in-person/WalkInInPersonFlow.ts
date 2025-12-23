@@ -1,3 +1,4 @@
+import { uuidRegex } from 'utils/lib/validation/regex';
 import { CancelPage } from '../CancelPage';
 import { InPersonPaperworkReturn } from '../Paperwork';
 import {
@@ -34,11 +35,14 @@ export class WalkInInPersonFlow extends BaseInPersonFlow {
     await this.locator.confirmWalkInButton.click();
 
     await this.page.waitForURL(/\/visit\//);
-    const match = this.page.url().match(/visit\/([0-9a-fA-F-]+)/);
-    const bookingUUID = match ? match[1] : null;
+    const urlRegex = new RegExp(`visit\\/(${uuidRegex.source.slice(1, -1)})`);
+    const appointmentId = this.page.url().match(urlRegex)?.[1];
+    if (!appointmentId) {
+      throw new Error('regex is broken or page could not load url');
+    }
     return {
       patientBasicInfo,
-      bookingUUID,
+      appointmentId,
       slotDetails: this.slotDetails,
     };
   }

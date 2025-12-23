@@ -4,12 +4,12 @@ import { DateTime } from 'luxon';
 import * as path from 'path';
 import { Homepage } from 'tests/utils/in-person/Homepage';
 import { PastVisitsPage } from '../../utils/in-person/PastVisitsPage';
-import { InPersonPatientSelfTestData, InPersonPatientTestData } from '../0_paperworkSetup/types';
+import { InPersonNoPwPatient, InPersonNoRpNoInsReqPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
-let emptyPatient: InPersonPatientTestData;
-let appointmentPatient: InPersonPatientSelfTestData;
+let emptyPatient: InPersonNoPwPatient;
+let appointmentPatient: InPersonNoRpNoInsReqPatient;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();

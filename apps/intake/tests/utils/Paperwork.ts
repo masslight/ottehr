@@ -59,7 +59,7 @@ export interface ResponsiblePartyData {
   zip: string;
 }
 
-interface EmployerInformationData {
+export interface EmployerInformationData {
   employerName: string;
   address1: string;
   address2: string;
@@ -74,7 +74,7 @@ interface EmployerInformationData {
   contactFax: string;
 }
 
-interface EmergencyContactData {
+export interface EmergencyContactData {
   relationship: string;
   firstName: string;
   lastName: string;

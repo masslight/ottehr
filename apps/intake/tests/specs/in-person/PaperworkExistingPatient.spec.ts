@@ -4,13 +4,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Locators } from '../../utils/locators';
 import { Paperwork, PATIENT_ADDRESS, PATIENT_ADDRESS_LINE_2, PATIENT_CITY, PATIENT_ZIP } from '../../utils/Paperwork';
-import { InPersonPatientNotSelfTestData } from '../0_paperworkSetup/types';
+import { InPersonRpInsNoReqPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
 let paperwork: Paperwork;
 let locator: Locators;
-let patient: InPersonPatientNotSelfTestData;
+let patient: InPersonRpInsNoReqPatient;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();

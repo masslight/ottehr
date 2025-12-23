@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { DEPLOYED_TELEMED_LOCATIONS, PROJECT_NAME, shouldShowServiceCategorySelectionPage } from 'utils';
+import { DEPLOYED_TELEMED_LOCATIONS, PROJECT_NAME, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { CancelPage } from '../CancelPage';
 import { TelemedPaperworkReturn } from '../Paperwork';
@@ -48,13 +48,15 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     await expect(timeBlock).toHaveText(slotAndLocation.selectedSlot?.fullSlot ?? '');
     await expect(this.locator.appointmentDescription).toHaveText(RegExp(slotAndLocation.location!));
 
-    const bookingURL = this.page.url();
-    const match = bookingURL.match(/visit\/([0-9a-fA-F-]+)/);
-    const bookingUUID = match ? match[1] : null;
-
+    await this.page.waitForURL(/\/visit\//);
+    const urlRegex = new RegExp(`visit\\/(${uuidRegex.source.slice(1, -1)})`);
+    const appointmentId = this.page.url().match(urlRegex)?.[1];
+    if (!appointmentId) {
+      throw new Error('regex is broken or page could not load url');
+    }
     return {
       patientBasicInfo,
-      bookingUUID,
+      appointmentId,
       slotAndLocation,
     };
   }

@@ -6,14 +6,14 @@ import { addProcessIdMetaTagToAppointment } from 'test-utils';
 import { ResourceHandler } from 'tests/utils/resource-handler';
 import { chooseJson, CreateAppointmentResponse, GetSlotDetailsResponse } from 'utils';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
-import { Paperwork, PatientDetailsData } from '../../utils/Paperwork';
+import { Paperwork, PatientDetailsData, PatientDetailsRequiredData } from '../../utils/Paperwork';
 import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
 import { WalkInTelemedFlow } from '../../utils/telemed/WalkInTelemedFlow';
 import {
-  InPersonPatientNotSelfTestData,
-  InPersonPatientSelfTestData,
-  InPersonPatientTestData,
-  ReservationModificationPatient,
+  InPersonNoPwPatient,
+  InPersonNoRpNoInsReqPatient,
+  InPersonReservationModificationPatient,
+  InPersonRpInsNoReqPatient,
   TelemedPatientTestData,
   TelemedPrebookPatientTestData,
   TelemedWalkInPatientTestData,
@@ -180,21 +180,19 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     await test.step('Save test data', async () => {
-      const inPersonNoRpNoInsReqPatient: InPersonPatientSelfTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
+      const inPersonNoRpNoInsReqPatient: InPersonNoRpNoInsReqPatient = {
+        ...bookingData.patientBasicInfo,
+        ...slotAndLocation,
         appointmentId: getLastAppointmentId(page),
-        slot: slotAndLocation.slot,
-        location: slotAndLocation.location!,
-        state: filledPaperwork.state,
         slotDetails: slotDetailsRef.current,
         cancelledSlotDetails: {
           appointmentId: getSecondToLastAppointmentId(page),
           ...(bookingData.slotDetails as GetSlotDetailsResponse),
         },
+        state: filledPaperwork.state,
+        patientDetailsData: filledPaperwork.patientDetailsData as PatientDetailsRequiredData,
+        employerInformation: filledPaperwork.employerInformation,
+        emergencyContact: filledPaperwork.emergencyContactInformation,
       };
       console.log('inPersonNoRpNoInsReqPatient', JSON.stringify(inPersonNoRpNoInsReqPatient));
       writeTestData('inPersonNoRpNoInsReqPatient.json', inPersonNoRpNoInsReqPatient);
@@ -234,22 +232,23 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     await test.step('Save test data', async () => {
-      const inPersonRpInsNoReqPatient: InPersonPatientNotSelfTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
+      const inPersonRpInsNoReqPatient: InPersonRpInsNoReqPatient = {
+        ...bookingData.patientBasicInfo,
+        ...slotAndLocation,
         appointmentId: getLastAppointmentId(page),
-        slot: slotAndLocation.slot,
-        location: slotAndLocation.location!,
         slotDetails: slotDetailsRef.current,
+        cancelledSlotDetails: {
+          appointmentId: getSecondToLastAppointmentId(page),
+          ...(bookingData.slotDetails as GetSlotDetailsResponse),
+        },
         state: filledPaperwork.state,
         patientDetailsData: filledPaperwork.patientDetailsData as PatientDetailsData,
+        employerInformation: filledPaperwork.employerInformation,
+        emergencyContact: filledPaperwork.emergencyContactInformation,
         pcpData: filledPaperwork.pcpData!,
-        insuranceData: filledPaperwork.insuranceData,
-        secondaryInsuranceData: filledPaperwork.secondaryInsuranceData,
-        responsiblePartyData: filledPaperwork.responsiblePartyData,
+        insuranceData: filledPaperwork.insuranceData!,
+        secondaryInsuranceData: filledPaperwork.secondaryInsuranceData!,
+        responsiblePartyData: filledPaperwork.responsiblePartyData!,
       };
       console.log('inPersonRpInsNoReqPatient', JSON.stringify(inPersonRpInsNoReqPatient));
       writeTestData('inPersonRpInsNoReqPatient.json', inPersonRpInsNoReqPatient);
@@ -272,13 +271,9 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     await test.step('Save test data', async () => {
-      const inPersonNoPwPatient: InPersonPatientTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
-        appointmentId: bookingData.bookingUUID,
+      const inPersonNoPwPatient: InPersonNoPwPatient = {
+        ...bookingData.patientBasicInfo,
+        appointmentId: bookingData.appointmentId,
       };
       console.log('inPersonNoPwPatient', JSON.stringify(inPersonNoPwPatient));
       writeTestData('inPersonNoPwPatient.json', inPersonNoPwPatient);
@@ -302,13 +297,9 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     await test.step('Save test data', async () => {
-      const inPersonReservationModificationPatient: ReservationModificationPatient = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
-        appointmentId: bookingData.bookingUUID,
+      const inPersonReservationModificationPatient: InPersonReservationModificationPatient = {
+        ...bookingData.patientBasicInfo,
+        appointmentId: bookingData.appointmentId,
         slotDetails: slotDetailsRef.current,
       };
       console.log('inPersonReservationModificationPatient', JSON.stringify(inPersonReservationModificationPatient));
@@ -466,7 +457,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         email: bookingData.patientBasicInfo.email,
         birthSex: bookingData.patientBasicInfo.birthSex,
         dob: bookingData.patientBasicInfo.dob,
-        appointmentId: bookingData.bookingUUID,
+        appointmentId: bookingData.appointmentId,
       };
       console.log('telemedNoPwPatient', JSON.stringify(telemedNoPwPatient));
       writeTestData('telemedNoPwPatient.json', telemedNoPwPatient);

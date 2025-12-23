@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { shouldShowServiceCategorySelectionPage } from 'utils';
+import { shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { CancelPage } from '../CancelPage';
 import { SlotAndLocation, StartVisitResponse } from '../in-person/BaseInPersonFlow';
 import { InPersonPaperworkReturn } from '../Paperwork';
@@ -32,11 +32,14 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
     await this.locator.clickReserveButton();
 
     await this.page.waitForURL(/\/visit\//);
-    const match = this.page.url().match(/visit\/([0-9a-fA-F-]+)/);
-    const bookingUUID = match ? match[1] : null;
+    const urlRegex = new RegExp(`visit\\/(${uuidRegex.source.slice(1, -1)})`);
+    const appointmentId = this.page.url().match(urlRegex)?.[1];
+    if (!appointmentId) {
+      throw new Error('regex is broken or page could not load url');
+    }
     return {
       patientBasicInfo,
-      bookingUUID,
+      appointmentId,
       slotAndLocation,
       slotDetails: this.slotDetails,
     };
@@ -81,7 +84,7 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
   }
 
   // for ReservationScreen.spec.ts
-  async goToReviewPage(): Promise<Omit<StartVisitResponse, 'bookingUUID'>> {
+  async goToReviewPage(): Promise<Omit<StartVisitResponse, 'appointmentId'>> {
     await this.selectVisitAndContinue();
     const slotAndLocation = await this.additionalStepsForPrebook();
 

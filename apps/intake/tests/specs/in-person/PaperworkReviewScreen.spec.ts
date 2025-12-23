@@ -6,7 +6,7 @@ import { getPrivacyPolicyLinkDefForLocation, getTermsAndConditionsLinkDefForLoca
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
-import { InPersonPatientSelfTestData } from '../0_paperworkSetup/types';
+import { InPersonNoRpNoInsReqPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
@@ -14,7 +14,7 @@ let paperwork: Paperwork;
 let locator: Locators;
 let uploadPhoto: UploadDocs;
 let commonLocatorsHelper: CommonLocatorsHelper;
-let patient: InPersonPatientSelfTestData;
+let patient: InPersonNoRpNoInsReqPatient;
 const REVIEW_PAGE_ID = 'PAPERWORK_REVIEW_PAGE';
 
 test.beforeAll(async ({ browser }) => {

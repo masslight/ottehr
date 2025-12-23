@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { shouldShowServiceCategorySelectionPage } from 'utils';
+import { shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { CancelPage } from '../CancelPage';
 import { TelemedPaperworkReturn } from '../Paperwork';
@@ -42,12 +42,15 @@ export class WalkInTelemedFlow extends BaseTelemedFlow {
     await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
     await expect(this.locator.flowHeading).toHaveText('Contact information');
 
-    const match = this.page.url().match(/paperwork\/([0-9a-fA-F-]+)/);
-    const bookingUUID = match ? match[1] : null;
-
+    await this.page.waitForURL(/\/paperwork\//);
+    const urlRegex = new RegExp(`paperwork\\/(${uuidRegex.source.slice(1, -1)})`);
+    const appointmentId = this.page.url().match(urlRegex)?.[1];
+    if (!appointmentId) {
+      throw new Error('regex is broken or page could not load url');
+    }
     return {
       patientBasicInfo,
-      bookingUUID,
+      appointmentId,
       slotAndLocation,
     };
   }

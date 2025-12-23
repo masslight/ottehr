@@ -12,14 +12,14 @@ import {
   PATIENT_ZIP,
   RELATIONSHIP_RESPONSIBLE_PARTY_SELF,
 } from '../../utils/Paperwork';
-import { InPersonPatientSelfTestData } from '../0_paperworkSetup/types';
+import { InPersonNoRpNoInsReqPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
 let paperwork: Paperwork;
 let locator: Locators;
 let commonLocatorsHelper: CommonLocatorsHelper;
-let patient: InPersonPatientSelfTestData;
+let patient: InPersonNoRpNoInsReqPatient;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
