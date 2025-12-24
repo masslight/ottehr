@@ -49,12 +49,7 @@ export class CommonLocatorsHelper {
     await this.clickContinue();
   }
   getToday(): string {
-    const today = new Date();
-    const month = today.getMonth() + 1;
-    const day = today.getDate();
-    const year = today.getFullYear().toString().slice(-2);
-    const formattedDate = `${month}/${day}/${year}`;
-    return formattedDate;
+    return DateTime.now().setZone('America/New_York').toFormat('MM/dd/yy');
   }
   getMonthDay(monthStr: string, dayStr: string): { monthNumber: string; dayNumber: string } | null {
     // Using year 2000 as it's a leap year, ensuring February 29th is valid
