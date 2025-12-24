@@ -1569,7 +1569,6 @@ export const FULL_DAY_SCHEDULE = `{
       "closingBuffer": 0,
       "workingDay": true,
       "hours": [
-        
         { "hour": 0, "capacity": 200 },
         { "hour": 1, "capacity": 200 },
         { "hour": 2, "capacity": 200 },
