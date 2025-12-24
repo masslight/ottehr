@@ -50,7 +50,6 @@ interface PrePopulationInput {
   rp?: RelatedPerson;
   documents?: DocumentReference[];
   accountInfo?: PatientAccountResponse | undefined;
-  stripeAccountId?: string | undefined;
 }
 
 export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): QuestionnaireResponseItem[] => {
@@ -66,7 +65,6 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
     questionnaire,
     documents,
     accountInfo,
-    stripeAccountId,
   } = input;
 
   let formattedVerifiedPhoneNumber: string | undefined;
@@ -297,18 +295,6 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
             answer = makeAnswer(photoIdBack, 'Attachment');
           }
 
-          return {
-            linkId,
-            answer,
-          };
-        });
-      } else if (item.linkId === 'payment-information-page') {
-        return itemItems.map((item) => {
-          let answer: QuestionnaireResponseItemAnswer[] | undefined;
-          const { linkId } = item;
-          if (linkId === 'stripe-account-id' && stripeAccountId) {
-            answer = makeAnswer(stripeAccountId);
-          }
           return {
             linkId,
             answer,
