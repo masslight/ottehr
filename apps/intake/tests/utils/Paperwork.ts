@@ -1080,8 +1080,7 @@ export class Paperwork {
 
   async checkImagesIsSaved(image: Locator): Promise<void> {
     const today = this.CommonLocatorsHelper.getToday();
-    const todayET = DateTime.fromFormat(today, 'MM/dd/yy').setZone('America/New_York').toFormat('MM/dd/yy');
-    await expect(image).toHaveText(`We already have this! It was saved on ${todayET}. Click to re-upload.`);
+    await expect(image).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
   }
   async fillConsentForms(): Promise<{ signature: string; relationshipConsentForms: string; consentFullName: string }> {
     await this.validateAllOptions(
