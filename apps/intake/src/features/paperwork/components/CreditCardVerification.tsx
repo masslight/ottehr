@@ -14,13 +14,7 @@ import { Elements } from '@stripe/react-stripe-js';
 import { Stripe } from '@stripe/stripe-js';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { AddCreditCardForm, loadStripe } from 'ui-components';
-import {
-  CreditCardInfo,
-  findQuestionnaireResponseItemLinkId,
-  IntakeQuestionnaireItem,
-  PaymentMethodSetupZambdaOutput,
-  pickFirstValueFromAnswerItem,
-} from 'utils';
+import { CreditCardInfo, IntakeQuestionnaireItem, PaymentMethodSetupZambdaOutput } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
 import { dataTestIds } from '../../../helpers/data-test-ids';
 import { otherColors } from '../../../IntakeThemeProvider';
@@ -48,7 +42,6 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
     stripeSetupData: setupData,
     paymentMethodStateInitializing,
     cardsAreLoading,
-    paperwork,
   } = usePaperworkContext();
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
 
@@ -57,20 +50,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
   const defaultCard = useMemo(() => cards.find((card) => card.default), [cards]);
   const [selectedOption, setSelectedOption] = useState<string | undefined>(defaultCard?.id);
 
-  let stripeAccount: string | undefined;
-
-  const stripeAccountIdFromPaperwork = findQuestionnaireResponseItemLinkId('stripe-account-id', paperwork);
-  if (stripeAccountIdFromPaperwork) {
-    const stripeAccountId = pickFirstValueFromAnswerItem(stripeAccountIdFromPaperwork, 'string');
-    if (stripeAccountId) {
-      stripeAccount = stripeAccountId;
-    } else {
-      console.error('stripe-account-id was in paperwork but did not have a value');
-      throw new Error('stripe-account-id was in paperwork but did not have a value');
-    }
-  }
-
-  const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY, stripeAccount);
+  const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY, setupData?.stripeAccount);
 
   useEffect(() => {
     if (selectedOption !== defaultCard?.id) {
