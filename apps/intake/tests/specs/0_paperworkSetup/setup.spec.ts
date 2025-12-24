@@ -1,10 +1,18 @@
 import { Page, test } from '@playwright/test';
-import { Appointment } from 'fhir/r4b';
+import { randomUUID } from 'crypto';
+import { Appointment, Location, Schedule } from 'fhir/r4b';
 import * as fs from 'fs';
 import * as path from 'path';
 import { addProcessIdMetaTagToAppointment } from 'test-utils';
 import { ResourceHandler } from 'tests/utils/resource-handler';
-import { chooseJson, CreateAppointmentResponse, GetSlotDetailsResponse } from 'utils';
+import {
+  chooseJson,
+  CreateAppointmentResponse,
+  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+  FULL_DAY_SCHEDULE,
+  GetSlotDetailsResponse,
+  SLUG_SYSTEM,
+} from 'utils';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Paperwork, PatientDetailsData } from '../../utils/Paperwork';
 import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
@@ -118,6 +126,86 @@ function writeTestData(filename: string, data: unknown): void {
   }
   fs.writeFileSync(path.join(testDataPath, filename), JSON.stringify(data, null, 2));
 }
+
+export const E2E_TELEMED_LOCATION_NAME = `E2E-${randomUUID()}`;
+const e2eTelemedLocation: Location = {
+  resourceType: 'Location',
+  status: 'active',
+  description: 'We only just met but I will be gone soon',
+  identifier: [
+    {
+      system: SLUG_SYSTEM,
+      value: `busy-slots-slimy-slug-${randomUUID()}`,
+    },
+  ],
+  meta: {
+    tag: [
+      {
+        system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+        code: processId,
+      },
+    ],
+  },
+  name: E2E_TELEMED_LOCATION_NAME,
+  address: {
+    state: 'FL',
+  },
+  hoursOfOperation: [
+    {
+      openingTime: '00:00:00',
+      closingTime: '23:59:59',
+      daysOfWeek: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+    },
+  ],
+  extension: [
+    {
+      url: 'https://extensions.fhir.zapehr.com/location-form-pre-release',
+      valueCoding: {
+        system: 'http://terminology.hl7.org/CodeSystem/location-physical-type',
+        code: 'vi',
+        display: 'Virtual',
+      },
+    },
+  ],
+};
+
+test.beforeAll(async () => {
+  const resourceHandler = new ResourceHandler();
+  await resourceHandler.initApi();
+  const oystehr = resourceHandler.apiClient;
+
+  const telemedLocation = await oystehr.fhir.create<Location>(e2eTelemedLocation);
+  console.log('telemed location id', telemedLocation.id);
+
+  const e2eTelemedSchedule: Schedule = {
+    resourceType: 'Schedule',
+    actor: [
+      {
+        reference: `Location/${telemedLocation.id}`,
+      },
+    ],
+    meta: {
+      tag: [
+        {
+          system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+          code: processId,
+        },
+      ],
+    },
+    extension: [
+      {
+        url: 'http://hl7.org/fhir/StructureDefinition/timezone',
+        valueString: 'America/New_York',
+      },
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/schedule',
+        valueString: FULL_DAY_SCHEDULE,
+      },
+    ],
+  };
+  const telemedSchedule = await oystehr.fhir.create<Schedule>(e2eTelemedSchedule);
+  console.log('telemed schedule id', telemedSchedule.id);
+});
 
 test.describe.parallel('In-Person: Create test patients and appointments', () => {
   test('Create prebook patient without responsible party, with card payment, filling only required fields', async ({

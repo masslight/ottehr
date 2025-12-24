@@ -1,10 +1,6 @@
 import { expect } from '@playwright/test';
-import {
-  BOOKING_CONFIG,
-  DEPLOYED_TELEMED_LOCATIONS,
-  PROJECT_NAME,
-  shouldShowServiceCategorySelectionPage,
-} from 'utils';
+import { E2E_TELEMED_LOCATION_NAME } from 'tests/specs/0_paperworkSetup/setup.spec';
+import { BOOKING_CONFIG, PROJECT_NAME, shouldShowServiceCategorySelectionPage } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { CancelPage } from '../CancelPage';
 import { TelemedPaperworkReturn } from '../Paperwork';
@@ -104,11 +100,7 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     await expect(statesSelector).toBeVisible();
 
     await statesSelector.getByRole('button').click();
-    const firstAvailableState = DEPLOYED_TELEMED_LOCATIONS[0]?.name;
-    if (!firstAvailableState) {
-      throw new Error('No deployed telemed locations found');
-    }
-    const locationOption = this.page.locator('[role="option"]').getByText(firstAvailableState, { exact: true });
+    const locationOption = this.page.locator('[role="option"]').getByText(E2E_TELEMED_LOCATION_NAME, { exact: true });
     const location = (await locationOption.textContent()) ?? undefined;
     await locationOption.click();
     await expect(this.locator.firstAvailableTime).toBeVisible();

@@ -1,4 +1,5 @@
 import test, { expect } from '@playwright/test';
+import { E2E_TELEMED_LOCATION_NAME } from 'tests/specs/0_paperworkSetup/setup.spec';
 import { shouldShowServiceCategorySelectionPage } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { CancelPage } from '../CancelPage';
@@ -92,10 +93,7 @@ export class WalkInTelemedFlow extends BaseTelemedFlow {
     }
 
     await this.page.getByPlaceholder('Search or select').click();
-    const locationOption = this.page
-      .locator('[role="option"]')
-      .filter({ hasNot: this.page.locator('[aria-disabled="true"], [disabled]') }) // Exclude disabled options
-      .first();
+    const locationOption = this.page.locator('[role="option"]').getByText(E2E_TELEMED_LOCATION_NAME, { exact: true });
     const location = await locationOption.textContent();
     console.log('Video call location: ', location);
     await locationOption.click();
