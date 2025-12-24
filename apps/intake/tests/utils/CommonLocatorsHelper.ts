@@ -48,7 +48,7 @@ export class CommonLocatorsHelper {
     }
     await this.clickContinue();
   }
-  async getToday(): Promise<string> {
+  getToday(): string {
     const today = new Date();
     const month = today.getMonth() + 1;
     const day = today.getDate();
