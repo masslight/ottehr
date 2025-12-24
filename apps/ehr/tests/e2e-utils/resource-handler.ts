@@ -414,7 +414,7 @@ export class ResourceHandler {
   }
 
   public async cleanupResources(page?: Page): Promise<void> {
-    if (process.env.SMOKE_TEST) {
+    if (process.env.SMOKE_TEST === 'true') {
       console.log('Smoke test mode detected, canceling visits through UI');
       if (!page) {
         throw new Error('Page instance parameter is required to cancel visit in smoke test mode');
