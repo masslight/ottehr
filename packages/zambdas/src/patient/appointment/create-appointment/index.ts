@@ -41,6 +41,7 @@ import {
   OTTEHR_MODULE,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PatientInfo,
+  SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
   ScheduleOwnerFhirResource,
   Secrets,
   SecretsKeys,
@@ -546,7 +547,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   }
 
   const stripeAccountId: string | undefined = scheduleOwner.extension?.find(
-    (ext) => ext.url === 'https://fhir.ottehr.com/Extension/stripe-account-id' && ext.valueString
+    (ext) => ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL && ext.valueString
   )?.valueString;
 
   const item: QuestionnaireResponseItem[] = makePrepopulatedItemsForPatient({

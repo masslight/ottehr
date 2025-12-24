@@ -39,7 +39,11 @@ export const index = wrapHandler('payment-set-default', async (input: ZambdaInpu
       { beneficiaryPatientId, secrets, zambdaInput: input },
       oystehrClient
     ));
-    const { stripeCustomerId } = await complexValidation({ patientId: beneficiaryPatientId, oystehrClient });
+    const { stripeCustomerId } = await complexValidation({
+      patientId: beneficiaryPatientId,
+      appointmentId,
+      oystehrClient,
+    });
 
     const stripeClient = getStripeClient(secrets);
 

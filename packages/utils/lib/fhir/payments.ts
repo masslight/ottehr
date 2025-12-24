@@ -1,8 +1,7 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Appointment, HealthcareService, Location, Practitioner, Schedule, Slot } from 'fhir/r4b';
 import { APPOINTMENT_NOT_FOUND_ERROR, SCHEDULE_NOT_FOUND_ERROR } from '../types';
-import { ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT } from './constants';
-
+import { SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL } from './constants';
 // Returns undefined if there is no stripe account registered on the schedule owner
 export const getStripeAccountForAppointmentOrEncounter = async (
   input: { appointmentId?: string; encounterId?: string },
@@ -73,7 +72,7 @@ export const getStripeAccountForAppointmentOrEncounter = async (
   }
 
   const stripeAccountFromScheduleOwner = scheduleOwner.extension?.find((ext) => {
-    return ext.url === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT;
+    return ext.url === SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL;
   })?.valueString;
 
   if (stripeAccountFromScheduleOwner) {
