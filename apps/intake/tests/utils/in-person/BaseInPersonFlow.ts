@@ -7,14 +7,13 @@ import { InPersonPaperworkReturn, Paperwork } from '../Paperwork';
 import { FillingInfo } from './FillingInfo';
 
 export interface SlotAndLocation {
-  selectedSlot: string | undefined;
+  slot: string | undefined;
   location: string | null;
-  locationTitle?: string | null;
 }
 
 export interface StartVisitResponse {
   patientBasicInfo: PatientBasicInfo;
-  bookingUUID: string | null;
+  appointmentId: string;
   // only used in prebook flows
   slotAndLocation?: SlotAndLocation;
   slotDetails: GetSlotDetailsResponse | null;
@@ -75,6 +74,8 @@ export abstract class BaseInPersonFlow extends BaseFlow {
   abstract cancelAppointment(): Promise<void>;
 
   // ---------------------------------------------------------------------------
+
+  abstract additionalStepsForPrebook(): Promise<SlotAndLocation>;
 
   async selectVisitAndContinue(): Promise<void> {
     await this.page.goto(`/home`);
