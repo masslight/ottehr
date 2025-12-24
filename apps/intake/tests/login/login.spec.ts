@@ -11,7 +11,7 @@ test('Should log in and generate fresh user.json', async ({ page }) => {
   // Always start fresh - go to home and initiate login flow
   await page.goto('/');
   await page.getByTestId('loading-button').click({ timeout: 20_000 });
-  await page.getByRole('button', { name: 'Past Visits' }).click({ timeout: 20_000 });
+  await page.getByRole('button', { name: 'Past Visits' }).click({ timeout: 20_000, noWaitAfter: true });
 
   // Perform login - this will generate user.json via storageState()
   await login(page, process.env.PHONE_NUMBER, process.env.TEXT_USERNAME, process.env.TEXT_PASSWORD);

@@ -149,7 +149,7 @@ Once set up, you should always use the same values for a given environment, othe
 
 ### Application Variables
 
-The environment file `packages/zambdas/.env/${env}.json` contains configuration values that control how the application works. When you run `npm run generate`, these values are combined with the resource definitions in `config/` to create `.tf.json` files in `deploy/oystehr/`. The values are also used as input for filling in environment variable templates 
+The environment file `packages/zambdas/.env/${env}.json` contains configuration values that control how the application works. When you run `npm run generate`, these values are combined with the resource definitions in `config/` to create `.tf.json` files in `deploy/oystehr/`. The values are also used as input for filling in environment variable templates
 
 Each environment will have its own application configuration file because you will want to use different names, secrets, and API keys in your local, test, and production environments.
 
@@ -166,6 +166,31 @@ terraform workspace new uat
 ```
 
 Then you can either add an `apply-uat` npm script or run `./apply.sh uat` directly to deploy your environment.
+
+## Environment-Specific Configuration
+
+Some resources should only be deployed to specific environments (e.g., test cleanup jobs should not run in production). This is supported through environment-specific config directories:
+
+```
+config/oystehr/
+├── zambdas.json              # Base config (all environments)
+├── apps.json
+├── roles.json
+└── env/
+    ├── local/
+    │   └── zambdas.json      # Only deployed to 'local' environment
+    └── e2e/
+        └── zambdas.json      # Only deployed to 'e2e' environment
+```
+
+When running `npm run generate` with a specific environment, the script:
+
+1. Reads all `.json` files from `config/oystehr/`
+2. Checks if `config/oystehr/env/<env>/` exists
+3. If it exists, also reads `.json` files from that directory
+4. Merges all specs together (duplicate resource names will cause an error)
+
+This allows environment-specific resources like test data cleanup cron jobs to be deployed only to test environments without affecting production.
 
 ## Modules
 
@@ -217,13 +242,13 @@ If you are migrating an environment to IaC, you will need to follow a couple ste
 1. Use `scripts/config/generate-oystehr-resource-imports.ts` to create resource import commands corresponding to your Terraform configuration
 1. Run the imports and check the plan produced by `terraform plan -no-color -parallelism=20 -var-file="${ENV}.tfvars" 2>&1 | tee out.log` for further resources to import
 1. Delete ephemeral and canonical resources by running the following scripts:
-    - packages/zambdas/src/scripts/remove-insurances-and-payer-orgs.ts
-    - packages/zambdas/src/scripts/delete-value-sets.ts
-    - packages/zambdas/src/scripts/recreate-global-templates.ts
-    - packages/zambdas/src/scripts/delete-in-house-medications-list.ts
-    - packages/zambdas/src/scripts/retire-in-house-lab-activity-definitions.ts
-    - packages/zambdas/src/scripts/recreate-vaccines-list.ts
-    - packages/zambdas/src/scripts/delete-subscriptions.ts
+   - packages/zambdas/src/scripts/remove-insurances-and-payer-orgs.ts
+   - packages/zambdas/src/scripts/delete-value-sets.ts
+   - packages/zambdas/src/scripts/recreate-global-templates.ts
+   - packages/zambdas/src/scripts/delete-in-house-medications-list.ts
+   - packages/zambdas/src/scripts/retire-in-house-lab-activity-definitions.ts
+   - packages/zambdas/src/scripts/recreate-vaccines-list.ts
+   - packages/zambdas/src/scripts/delete-subscriptions.ts
 
 ### AWS or GCP Resources
 
