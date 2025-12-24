@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { E2E_TELEMED_LOCATION_NAME } from 'tests/specs/0_paperworkSetup/setup.spec';
 import { shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { CancelPage } from '../CancelPage';
