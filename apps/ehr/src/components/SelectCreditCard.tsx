@@ -46,7 +46,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     isRefetching: isSetupDataRefetching,
   } = useSetupStripe(patient?.id, appointmentId);
 
-  const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY, setupData?.stripeAccount);
+  const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY, setupData?.clientSecret);
 
   const { mutate: setDefault } = useSetDefaultPaymentMethod(patient?.id, appointmentId);
 

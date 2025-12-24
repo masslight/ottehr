@@ -18,6 +18,7 @@ import {
   CreditCardInfo,
   findQuestionnaireResponseItemLinkId,
   IntakeQuestionnaireItem,
+  PaymentMethodSetupZambdaOutput,
   pickFirstValueFromAnswerItem,
 } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
@@ -134,7 +135,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
       </Card>
       {detailsText ? <Typography variant="body2">{detailsText}</Typography> : null}
       <CreditCardContent
-        setupData={setupData as any}
+        setupData={setupData}
         pendingSelection={pendingSelection}
         selectedOption={selectedOption}
         cards={cards}
@@ -151,7 +152,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
 };
 
 interface CreditCardContentProps {
-  setupData: string | undefined;
+  setupData: PaymentMethodSetupZambdaOutput | undefined;
   pendingSelection: string | undefined;
   selectedOption: string | undefined;
   cards: CreditCardInfo[];
@@ -255,9 +256,9 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         </RadioGroup>
       </Box>
 
-      <Elements stripe={stripePromise} options={{ clientSecret: setupData }}>
+      <Elements stripe={stripePromise} options={{ clientSecret: setupData?.clientSecret || '' }}>
         <AddCreditCardForm
-          clientSecret={setupData ?? ''}
+          clientSecret={setupData?.clientSecret || ''}
           isLoading={disabled}
           disabled={disabled}
           selectPaymentMethod={handleNewPaymentMethod}
