@@ -302,9 +302,9 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
                     value={selectedOption}
                     onChange={(_, newValue) => {
                       if (newValue) {
-                        setValue(item.key, newValue.value);
+                        setValue(item.key, newValue.value, { shouldDirty: true });
                       } else {
-                        setValue(item.key, '');
+                        setValue(item.key, '', { shouldDirty: true });
                       }
                     }}
                     disableClearable
