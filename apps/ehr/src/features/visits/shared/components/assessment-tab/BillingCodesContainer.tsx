@@ -50,6 +50,8 @@ export const BillingCodesContainer: FC = () => {
   };
 
   const onAdd = (value: CPTCodeOption): void => {
+    // Optimistic update
+    setPartialChartData({ cptCodes: [...cptCodes, value] }, { invalidateQueries: false });
     saveCPTChartData(
       {
         cptCodes: [value],
@@ -65,38 +67,39 @@ export const BillingCodesContainer: FC = () => {
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while adding CPT code. Please try again.', { variant: 'error' });
+          // Rollback to previous state
           setPartialChartData({
             cptCodes: cptCodes,
           });
         },
       }
     );
-    setPartialChartData({ cptCodes: [...cptCodes, value] }, { invalidateQueries: false });
   };
 
   const onDelete = (resourceId: string): void => {
-    let localCodes = cptCodes;
+    const localCodes = cptCodes;
     const preparedValue = localCodes.find((item) => item.resourceId === resourceId)!;
     const prevCodes = [...localCodes];
 
+    // Optimistic update
+    setPartialChartData(
+      { cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) },
+      { invalidateQueries: false }
+    );
     deleteCPTChartData(
       {
         cptCodes: [preparedValue],
       },
       {
         onSuccess: () => {
-          localCodes = localCodes.filter((item) => item.resourceId !== resourceId);
-          setPartialChartData({ cptCodes: [...localCodes] });
+          // No need to update again, optimistic update already applied
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting CPT code. Please try again.', { variant: 'error' });
+          // Rollback to previous state
           setPartialChartData({ cptCodes: prevCodes });
         },
       }
-    );
-    setPartialChartData(
-      { cptCodes: cptCodes.filter((i) => i.resourceId !== resourceId) },
-      { invalidateQueries: false }
     );
   };
 
@@ -104,6 +107,8 @@ export const BillingCodesContainer: FC = () => {
     if (value) {
       const prevValue = emCode ? { ...emCode } : undefined;
 
+      // Optimistic update
+      setPartialChartData({ emCode: { ...emCode, ...value } }, { invalidateQueries: false });
       saveEMChartData(
         { emCode: { ...emCode, ...value } },
         {
@@ -117,26 +122,29 @@ export const BillingCodesContainer: FC = () => {
           },
           onError: () => {
             enqueueSnackbar('An error has occurred while saving E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
             setPartialChartData({ emCode: prevValue || undefined });
           },
         }
       );
-      setPartialChartData({ emCode: { ...emCode, ...value } }, { invalidateQueries: false });
     } else if (emCode) {
       const prevValue = { ...emCode };
+
+      // Optimistic update
+      setPartialChartData({ emCode: undefined }, { invalidateQueries: false });
       deleteEMChartData(
         { emCode },
         {
           onSuccess: async () => {
-            setPartialChartData({ emCode: undefined });
+            // No need to update again, optimistic update already applied
           },
           onError: () => {
             enqueueSnackbar('An error has occurred while deleting E&M code. Please try again.', { variant: 'error' });
+            // Rollback to previous state
             setPartialChartData({ emCode: prevValue });
           },
         }
       );
-      setPartialChartData({ emCode: undefined }, { invalidateQueries: false });
     }
   };
 

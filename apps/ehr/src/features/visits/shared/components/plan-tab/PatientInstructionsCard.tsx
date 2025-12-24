@@ -43,6 +43,7 @@ export const PatientInstructionsCard: FC = () => {
   const onAdd = (): void => {
     const localInstructions = [...instructions, { text: instruction }];
 
+    // Optimistic update
     setPartialChartData({
       instructions: localInstructions,
     });
@@ -63,6 +64,7 @@ export const PatientInstructionsCard: FC = () => {
           enqueueSnackbar('An error has occurred while adding patient instruction. Please try again.', {
             variant: 'error',
           });
+          // Rollback to previous state
           setPartialChartData({ instructions });
           setInstruction(instruction);
         },
@@ -73,6 +75,8 @@ export const PatientInstructionsCard: FC = () => {
   };
 
   const onDelete = (value: CommunicationDTO): void => {
+    const prevInstructions = [...instructions];
+    // Optimistic update
     setPartialChartData(
       {
         instructions: instructions.filter((item) => item.resourceId !== value.resourceId),
@@ -85,15 +89,14 @@ export const PatientInstructionsCard: FC = () => {
       },
       {
         onSuccess: () => {
-          setPartialChartData({
-            instructions: instructions.filter((item) => item.resourceId !== value.resourceId),
-          });
+          // No need to update again, optimistic update already applied
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting patient instruction. Please try again.', {
             variant: 'error',
           });
-          setPartialChartData({ instructions });
+          // Rollback to previous state
+          setPartialChartData({ instructions: prevInstructions });
         },
       }
     );

@@ -143,26 +143,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
   };
 
   const deleteAllergy = (): void => {
-    deleteChartData(
-      {
-        allergies: [value],
-      },
-      {
-        onSuccess: () => {
-          chartDataSetState((prevState) => ({
-            chartData: {
-              ...prevState.chartData!,
-              allergies: prevState.chartData?.allergies?.filter((allergy) => allergy.resourceId !== value.resourceId),
-            },
-          }));
-        },
-        onError: () => {
-          enqueueSnackbar('An error has occurred while deleting allergy. Please try again.', {
-            variant: 'error',
-          });
-        },
-      }
-    );
+    // Optimistic update
     chartDataSetState(
       (prevState) => ({
         chartData: {
@@ -171,6 +152,28 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
         },
       }),
       { invalidateQueries: false }
+    );
+    deleteChartData(
+      {
+        allergies: [value],
+      },
+      {
+        onSuccess: () => {
+          // No need to update again, optimistic update already applied
+        },
+        onError: () => {
+          enqueueSnackbar('An error has occurred while deleting allergy. Please try again.', {
+            variant: 'error',
+          });
+          // Rollback to previous state
+          chartDataSetState((prevState) => ({
+            chartData: {
+              ...prevState.chartData!,
+              allergies: [...(prevState.chartData?.allergies || []), value],
+            },
+          }));
+        },
+      }
     );
   };
 

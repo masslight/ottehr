@@ -149,28 +149,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
   };
 
   const deleteCondition = (): void => {
-    deleteChartData(
-      {
-        conditions: [value],
-      },
-      {
-        onSuccess: () => {
-          chartDataSetState((prevState) => ({
-            chartData: {
-              ...prevState.chartData!,
-              conditions: prevState.chartData?.conditions?.filter(
-                (condition) => condition.resourceId !== value.resourceId
-              ),
-            },
-          }));
-        },
-        onError: () => {
-          enqueueSnackbar('An error has occurred while deleting medical condition. Please try again.', {
-            variant: 'error',
-          });
-        },
-      }
-    );
+    // Optimistic update
     chartDataSetState(
       (prevState) => ({
         chartData: {
@@ -179,6 +158,28 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
         },
       }),
       { invalidateQueries: false }
+    );
+    deleteChartData(
+      {
+        conditions: [value],
+      },
+      {
+        onSuccess: () => {
+          // No need to update again, optimistic update already applied
+        },
+        onError: () => {
+          enqueueSnackbar('An error has occurred while deleting medical condition. Please try again.', {
+            variant: 'error',
+          });
+          // Rollback to previous state
+          chartDataSetState((prevState) => ({
+            chartData: {
+              ...prevState.chartData!,
+              conditions: [...(prevState.chartData?.conditions || []), value],
+            },
+          }));
+        },
+      }
     );
   };
 

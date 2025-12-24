@@ -20,7 +20,12 @@ import {
 } from 'fhir/r4b';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { APPOINTMENT_REFRESH_INTERVAL, CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
+import {
+  APPOINTMENT_REFRESH_INTERVAL,
+  CHART_DATA_QUERY_KEY,
+  CHART_FIELDS_QUERY_KEY,
+  QUERY_STALE_TIME,
+} from 'src/constants';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import {
   createRefreshableAppointmentData,
@@ -783,7 +788,7 @@ export const useGetChartData = (
     },
 
     enabled: !!apiClient && !!encounterId && !!user && enabled,
-    staleTime: 0, // TODO: screening note is not refreshed after saving on the progress note screen, fix this and similar cases and add staleTime with default QUERY_STALE_TIME
+    staleTime: QUERY_STALE_TIME,
     refetchInterval: refetchInterval || false,
     refetchOnMount: refetchOnMount ?? true,
   });
