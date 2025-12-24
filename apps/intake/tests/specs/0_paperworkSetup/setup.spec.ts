@@ -309,8 +309,8 @@ test.describe.parallel('In-Person: Create test patients and appointments', { tag
   });
 });
 
-test.describe.parallel('Telemed: Create test patients and appointments', () => {
-  test('Create patient with responsible party, with insurance payment, filling all fields', { tag: '@smoke' }, async ({ page }) => {
+test.describe.parallel('Telemed: Create test patients and appointments', { tag: '@smoke' }, () => {
+  test('Create patient with responsible party, with insurance payment, filling all fields', async ({ page }) => {
     const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       const flowClass = new PrebookTelemedFlow(page);

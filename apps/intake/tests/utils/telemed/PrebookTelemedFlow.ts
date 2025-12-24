@@ -73,7 +73,6 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     payment,
     responsibleParty,
     requiredOnly,
-    patientBasicInfo,
   }: FilledPaperworkInput): Promise<TelemedPaperworkReturn<typeof payment, typeof responsibleParty, boolean>> {
     if (patientBasicInfo) {
       await this.ValidatePatientInfo(patientBasicInfo);

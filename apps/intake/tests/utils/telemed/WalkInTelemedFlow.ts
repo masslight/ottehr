@@ -1,15 +1,10 @@
 import { expect } from '@playwright/test';
 import { shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
+import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
 import { TelemedPaperworkReturn } from '../Paperwork';
-import {
-  BaseTelemedFlow,
-  FilledPaperworkInput,
-  PatientBasicInfo,
-  SlotAndLocation,
-  StartVisitResponse,
-} from './BaseTelemedFlow';
+import { BaseTelemedFlow, FilledPaperworkInput, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
 
 export class WalkInTelemedFlow extends BaseTelemedFlow {
   // flow steps:

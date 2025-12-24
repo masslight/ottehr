@@ -19,7 +19,7 @@ export abstract class BaseFillingInfo {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-  protected getStringDateByDateUnits(
+  getStringDateByDateUnits(
     month: string,
     day: string,
     year: string,
