@@ -6,15 +6,10 @@ import {
   shouldShowServiceCategorySelectionPage,
 } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
+import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
 import { TelemedPaperworkReturn } from '../Paperwork';
-import {
-  BaseTelemedFlow,
-  FilledPaperworkInput,
-  PatientBasicInfo,
-  SlotAndLocation,
-  StartVisitResponse,
-} from './BaseTelemedFlow';
+import { BaseTelemedFlow, FilledPaperworkInput, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
 
 export class PrebookTelemedFlow extends BaseTelemedFlow {
   // flow steps:
@@ -44,6 +39,15 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     const slotAndLocation = await this.selectTimeLocationAndContinue();
 
     let patientBasicInfo: PatientBasicInfo;
+
+    if (process.env.SMOKE_TEST === 'true') {
+      try {
+        patient = await this.findTestPatient();
+      } catch {
+        console.warn('Test patient not found, proceeding to create a new patient.');
+      }
+    }
+
     if (patient) {
       await this.findAndSelectExistingPatient(patient);
       patientBasicInfo = patient;
@@ -75,11 +79,13 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     payment,
     responsibleParty,
     requiredOnly,
+    patientBasicInfo,
   }: FilledPaperworkInput): Promise<TelemedPaperworkReturn<typeof payment, typeof responsibleParty, boolean>> {
     return await this.paperworkGeneral.fillPaperworkTelemed({
       payment,
       responsibleParty,
       requiredOnly: requiredOnly || false,
+      patientBasicInfo,
     });
   }
 

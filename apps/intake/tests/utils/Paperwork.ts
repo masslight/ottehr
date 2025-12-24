@@ -1,6 +1,7 @@
 import { BrowserContext, expect, Locator, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { AllStates, PatientEthnicity, PatientRace } from 'utils';
+import { PatientBasicInfo } from './BaseFlow';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
@@ -388,10 +389,12 @@ export class Paperwork {
     payment,
     responsibleParty,
     requiredOnly,
+    patientBasicInfo,
   }: {
     payment: P;
     responsibleParty: RP;
     requiredOnly: RO;
+    patientBasicInfo?: PatientBasicInfo;
   }): Promise<TelemedPaperworkReturn<P, RP, RO>> {
     await this.checkCorrectPageOpens('Contact information');
     let stateValue: string;
@@ -407,7 +410,7 @@ export class Paperwork {
     await this.checkCorrectPageOpens('Patient details');
     const patientDetailsData = requiredOnly
       ? await this.fillPatientDetailsRequiredFields(true)
-      : await this.fillPatientDetailsAllFields(true);
+      : await this.fillPatientDetailsAllFields(true, patientBasicInfo?.isNewPatient);
     await this.locator.clickContinueButton();
 
     await this.checkCorrectPageOpens('Primary Care Physician');
@@ -653,11 +656,14 @@ export class Paperwork {
     }
     return { randomEthnicity, randomRace, randomLanguage };
   }
-  async fillPatientDetailsAllFields(telemed?: boolean): Promise<PatientDetailsData> {
+  async fillPatientDetailsAllFields(telemed?: boolean, isNewPatient?: boolean): Promise<PatientDetailsData> {
     const randomEthnicity = await this.fillEthnicity();
     const randomRace = await this.fillRace();
     const randomPronoun = await this.fillPronoun();
-    const randomPoint = await this.fillPointOfDiscovery();
+    let randomPoint = '';
+    if (isNewPatient) {
+      randomPoint = await this.fillPointOfDiscovery();
+    }
     const randomLanguage = await this.fillPreferredLanguage();
     if (telemed) {
       await this.locator.relayServiceNo.check();

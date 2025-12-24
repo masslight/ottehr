@@ -262,7 +262,7 @@ const populateAllRequiredFields = async (patientInformationPage: PatientInformat
   }
 };
 
-test.describe('Patient Record Page tests', () => {
+test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
   const PROCESS_ID = `patientRecordPage-mutating-patient-info-fields-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID);
 
@@ -276,9 +276,9 @@ test.describe('Patient Record Page tests', () => {
     page = await context.newPage();
   });
   test.afterAll(async () => {
+    await resourceHandler.cleanupResources(page);
     await page.close();
     await context.close();
-    await resourceHandler.cleanupResources();
   });
   let patientInformationPage: PatientInformationPage;
 
@@ -1729,7 +1729,7 @@ test.describe('Patient Record Page tests', () => {
   });
 });
 
-test.describe('Patient Record Page tests with zero patient data filled in', async () => {
+test.describe('Patient Record Page tests with zero patient data filled in', { tag: '@smoke' }, async () => {
   const PROCESS_ID = `patientRecordPage-zero-data-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID);
 
@@ -1743,7 +1743,9 @@ test.describe('Patient Record Page tests with zero patient data filled in', asyn
   });
 
   test.afterAll(async () => {
-    await resourceHandler.cleanupResources();
+    await resourceHandler.cleanupResources(page);
+    await page.close();
+    await context.close();
   });
 
   test('Check state, ethnicity, race, relationship to patient are required', async () => {

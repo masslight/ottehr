@@ -119,7 +119,7 @@ function writeTestData(filename: string, data: unknown): void {
   fs.writeFileSync(path.join(testDataPath, filename), JSON.stringify(data, null, 2));
 }
 
-test.describe.parallel('In-Person: Create test patients and appointments', () => {
+test.describe.parallel('In-Person: Create test patients and appointments', { tag: '@smoke' }, () => {
   test('Create prebook patient without responsible party, with card payment, filling only required fields', async ({
     page,
   }) => {
@@ -296,7 +296,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
   });
 });
 
-test.describe.parallel('Telemed: Create test patients and appointments', () => {
+test.describe.parallel('Telemed: Create test patients and appointments', { tag: '@smoke' }, () => {
   test('Create prebook patient with responsible party, with insurance payment, filling all fields', async ({
     page,
   }) => {

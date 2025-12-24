@@ -1,9 +1,10 @@
 import { expect } from '@playwright/test';
 import { shouldShowServiceCategorySelectionPage } from 'utils';
+import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
 import { StartVisitResponse } from '../in-person/BaseInPersonFlow';
 import { InPersonPaperworkReturn } from '../Paperwork';
-import { BaseInPersonFlow, FilledPaperworkInput, PatientBasicInfo } from './BaseInPersonFlow';
+import { BaseInPersonFlow, FilledPaperworkInput } from './BaseInPersonFlow';
 
 export class PrebookInPersonFlow extends BaseInPersonFlow {
   // flow steps:

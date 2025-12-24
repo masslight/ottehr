@@ -1,31 +1,24 @@
 import { expect, Page } from '@playwright/test';
 import { assert } from 'console';
-import { DateTime } from 'luxon';
-import { BOOKING_CONFIG, patientScreeningQuestionsConfig } from 'utils';
+import { TEST_PATIENT_EMAIL, TEST_PATIENT_FIRST_NAME, TEST_PATIENT_LAST_NAME } from 'test-utils';
+import { BOOKING_CONFIG, genderMap, patientScreeningQuestionsConfig } from 'utils';
+import { BaseFillingInfo } from '../BaseFillingInfo';
 import { Locators } from '../locators';
 import { FlagsData } from '../Paperwork';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
-export class FillingInfo {
+export class FillingInfo extends BaseFillingInfo {
   page: Page;
   locators: Locators;
 
   constructor(page: Page) {
+    super(page);
     this.page = page;
     this.locators = new Locators(page);
-  }
-  // Helper method to get a random element from an array
-  private getRandomElement(arr: string[]) {
-    return arr[Math.floor(Math.random() * arr.length)];
   }
 
   private async clickContinueButton(awaitRedirect = true): Promise<void> {
     await this.locators.clickContinueButton(awaitRedirect);
-  }
-
-  // Helper method to get a random integer between min and max (inclusive)
-  private getRandomInt(min: number, max: number) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
   // randomize in tests maybe not a good idea, left one option for now
@@ -34,23 +27,9 @@ export class FillingInfo {
   private ethnicity = ['Hispanic or Latino', 'Not Hispanic or Latino', 'Decline to Specify'];
   private race = ['American Indian or Alaska Native'];
   private discovery = ['Friend/Family'];
-  private months = ['Jan'];
   private birthSexes = ['Male'];
   private thisEmailBelongsTo = ['Patient'];
   private preferredLanguage = ['Spanish'];
-
-  getStringDateByDateUnits(month: string, day: string, year: string, format: string | undefined = 'MMMM dd, yyyy') {
-    const monthIndex = this.months.indexOf(month);
-    return DateTime.fromObject({
-      year: +year,
-      month: monthIndex + 1,
-      day: +day,
-    }).toFormat(format);
-  }
-
-  getRandomString() {
-    return Math.random().toString().slice(2, 7);
-  }
 
   async fillNewPatientInfo() {
     const firstName = `TM-UserFN${this.getRandomString()}`;
@@ -77,19 +56,41 @@ export class FillingInfo {
     return { firstName, lastName, birthSex, email, thisEmailBelongsTo, reasonForVisit };
   }
 
-  async fillReasonForVisit() {
-    const reasonForVisit = this.getRandomElement(this.reasonForVisit);
-    await this.page.getByPlaceholder('Type or select all that apply').click();
-    await this.page.getByRole('option', { name: reasonForVisit, exact: true }).click();
-    return reasonForVisit;
+  async fillNewPatientInfoSmoke() {
+    const firstName = TEST_PATIENT_FIRST_NAME;
+    const lastName = TEST_PATIENT_LAST_NAME;
+    // cspell:disable-next ykulik
+    const email = TEST_PATIENT_EMAIL;
+    const enteredReason = this.getRandomString();
+    await this.page.locator('#patient-first-name').click();
+    await this.page.locator('#patient-first-name').fill(firstName);
+    await this.page.locator('#patient-last-name').click();
+    await this.page.locator('#patient-last-name').fill(lastName);
+    await this.page.locator('#patient-birth-sex').click();
+    const birthSex = genderMap.female;
+    await this.page.getByRole('option', { name: birthSex, exact: true }).click();
+    await this.page.locator('#patient-email').click();
+    await this.page.locator('#patient-email').fill(email);
+    await this.page.locator('#reason-for-visit').click();
+    const reasonForVisit: string = (await this.page.getByRole('option').first().textContent()) || '';
+    await this.page.getByRole('option').first().click({ timeout: 5000 });
+    const thisEmailBelongsTo = this.getRandomElement(this.thisEmailBelongsTo);
+    return { firstName, lastName, birthSex, email, reasonForVisit, thisEmailBelongsTo, enteredReason };
   }
 
-  async fillTelemedReasonForVisit() {
+  async fillVisitReason() {
     await this.page.locator('#reason-for-visit').click();
     const reasonForVisit = this.getRandomElement(this.reasonForVisit);
     await this.page.getByRole('option', { name: reasonForVisit, exact: true }).click({ timeout: 5000 });
-    return reasonForVisit;
+    return { reason: reasonForVisit, enteredReason: '' };
   }
+
+  // async fillTelemedReasonForVisit() {
+  //   await this.page.locator('#reason-for-visit').click();
+  //   const reasonForVisit = this.getRandomElement(this.reasonForVisit);
+  //   await this.page.getByRole('option', { name: reasonForVisit, exact: true }).click({ timeout: 5000 });
+  //   return reasonForVisit;
+  // }
 
   async fillDOBless18() {
     const today = new Date();
@@ -128,17 +129,6 @@ export class FillingInfo {
     await this.page.getByPlaceholder('MM/DD/YYYY').fill(dateString);
 
     return { randomMonth, randomDay, randomYear };
-  }
-
-  async fillCorrectDOB(month: string, day: string, year: string) {
-    await this.page.getByRole('combobox').nth(0).click();
-    await this.page.getByRole('option', { name: month }).click();
-
-    await this.page.getByRole('combobox').nth(1).click();
-    await this.page.getByRole('option', { name: day, exact: true }).click();
-
-    await this.page.getByRole('combobox').nth(2).click();
-    await this.page.getByRole('option', { name: year }).click();
   }
 
   async fillWrongDOB(month: string, day: string, year: string) {
