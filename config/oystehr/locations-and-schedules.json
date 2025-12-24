@@ -23,7 +23,7 @@
           },
           {
             "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
-            "valueString": "acct_123456789"
+            "valueString": "acct_1ShWrxE8e4kO74BH"
           }
         ],
         "identifier": [
@@ -76,6 +76,10 @@
           {
             "url": "http://hl7.org/fhir/StructureDefinition/timezone",
             "valueString": "America/New_York"
+          },
+          {
+            "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
+            "valueString": "acct_1ShWrxE8e4kO74BH"
           }
         ],
         "identifier": [
@@ -197,6 +201,10 @@
           {
             "url": "http://hl7.org/fhir/StructureDefinition/room",
             "valueString": "11"
+          },
+          {
+            "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
+            "valueString": "acct_1Sg7yxCWTiEVsf24"
           }
         ],
         "hoursOfOperation": [
@@ -357,6 +365,10 @@
           {
             "url": "http://hl7.org/fhir/StructureDefinition/room",
             "valueString": "11"
+          },
+          {
+            "url": "https://fhir.ottehr.com/Extension/stripe-account-id",
+            "valueString": "acct_1Sg7yxCWTiEVsf24"
           }
         ],
         "hoursOfOperation": [

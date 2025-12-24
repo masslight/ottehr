@@ -41,6 +41,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
 }) => {
   const {
     patient,
+    appointment,
     paymentMethods: cards,
     refetchPaymentMethods,
     stripeSetupData: setupData,
@@ -55,26 +56,20 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
   const defaultCard = useMemo(() => cards.find((card) => card.default), [cards]);
   const [selectedOption, setSelectedOption] = useState<string | undefined>(defaultCard?.id);
 
-  let stripePublicKey: string = import.meta.env.VITE_APP_STRIPE_KEY;
+  let stripeAccount: string | undefined;
 
   const stripeAccountIdFromPaperwork = findQuestionnaireResponseItemLinkId('stripe-account-id', paperwork);
   if (stripeAccountIdFromPaperwork) {
     const stripeAccountId = pickFirstValueFromAnswerItem(stripeAccountIdFromPaperwork, 'string');
     if (stripeAccountId) {
-      const stripePublicKeyForAccountId = import.meta.env[`VITE_APP_STRIPE_KEY_FOR_ACCOUNT_ID_${stripeAccountId}`];
-      if (stripePublicKeyForAccountId) {
-        stripePublicKey = stripePublicKeyForAccountId;
-      } else {
-        console.error(`No Stripe public key found for account ID: ${stripeAccountId}`);
-        throw new Error(`No Stripe public key found for account ID: ${stripeAccountId}`);
-      }
+      stripeAccount = stripeAccountId;
     } else {
       console.error('stripe-account-id was in paperwork but did not have a value');
       throw new Error('stripe-account-id was in paperwork but did not have a value');
     }
   }
 
-  const stripePromise = loadStripe(stripePublicKey);
+  const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY, stripeAccount);
 
   useEffect(() => {
     if (selectedOption !== defaultCard?.id) {
@@ -82,7 +77,10 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({
     }
   }, [cards, defaultCard?.id, selectedOption]);
 
-  const { mutate: setDefault, isPending: isSetDefaultLoading } = useSetDefaultPaymentMethod(patient?.id);
+  const { mutate: setDefault, isPending: isSetDefaultLoading } = useSetDefaultPaymentMethod(
+    patient?.id,
+    appointment?.id
+  );
 
   useEffect(() => {
     if (selectedOption !== undefined && validCreditCardOnFile !== true) {
