@@ -8,7 +8,7 @@ import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
 import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
 import { UploadDocs } from '../../utils/UploadDocs';
-import { TelemedPatientTestData } from '../0_paperworkSetup/types';
+import { TelemedNoPwPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
@@ -17,7 +17,7 @@ let paperworkTelemed: PaperworkTelemed;
 let locator: Locators;
 let uploadDocs: UploadDocs;
 let commonLocatorsHelper: CommonLocatorsHelper;
-let patient: TelemedPatientTestData;
+let patient: TelemedNoPwPatient;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -28,7 +28,7 @@ test.beforeAll(async ({ browser }) => {
   uploadDocs = new UploadDocs(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
 
-  const testDataPath = path.join('test-data', 'telemedPatientWithoutPaperwork.json');
+  const testDataPath = path.join('test-data', 'telemedNoPwPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {

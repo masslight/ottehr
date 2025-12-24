@@ -6,17 +6,18 @@ import { addProcessIdMetaTagToAppointment } from 'test-utils';
 import { ResourceHandler } from 'tests/utils/resource-handler';
 import { chooseJson, CreateAppointmentResponse, GetSlotDetailsResponse } from 'utils';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
-import { Paperwork, PatientDetailsData } from '../../utils/Paperwork';
+import { Paperwork, PatientDetailsData, PatientDetailsRequiredData } from '../../utils/Paperwork';
 import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
 import { WalkInTelemedFlow } from '../../utils/telemed/WalkInTelemedFlow';
 import {
-  InPersonPatientNotSelfTestData,
-  InPersonPatientSelfTestData,
-  InPersonPatientTestData,
-  ReservationModificationPatient,
-  TelemedPatientTestData,
-  TelemedPrebookPatientTestData,
-  TelemedWalkInPatientTestData,
+  InPersonNoPwPatient,
+  InPersonNoRpNoInsReqPatient,
+  InPersonReservationModificationPatient,
+  InPersonRpInsNoReqPatient,
+  TelemedNoPwPatient,
+  TelemedNoRpNoInsReqPatient,
+  TelemedRpInsNoReqPatient,
+  TelemedWaitingRoomPatient,
 } from './types';
 
 // Track if ANY setup test failed - used to decide whether to write success marker
@@ -119,8 +120,33 @@ function writeTestData(filename: string, data: unknown): void {
   fs.writeFileSync(path.join(testDataPath, filename), JSON.stringify(data, null, 2));
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Most patients created in this file have the following naming convention:
+// [inPerson|telemed][[Rp|NoRp][Ins|NoIns][Req|NoReq]|NoPw]Patient.json.
+//
+// Other patients can be created for a specific test suite and will follow this naming convention:
+// [inPerson|telemed][<unique test name>]Patient.json.
+//
+// This way each test suite can grab the paperwork data it needs without coupling it with the flow type used to create
+// the patient. The names correspond to the arguments passed to the paperwork filling functions.
+//
+//   Key:
+// Rp: Responsible party provided.
+// NoRp: Self is chosen as responsible party.
+//
+// Ins: Insurance details provided, thus no credit card needed for payment.
+//      NB: core ottehr requires credit card for telemed appointments regardless.
+// NoIns: No insurance details provided, thus credit card needed for payment.
+//
+// Req: Only required fields filled in paperwork.
+// NoReq: All fields filled in paperwork.
+//
+// NoPw: No paperwork filled in. The appointment flow gets to the first paperwork page to create a patient but doesn't
+//       fill in any paperwork.
+// ---------------------------------------------------------------------------------------------------------------------
+
 test.describe.parallel('In-Person: Create test patients and appointments', () => {
-  test('Create prebook patient without responsible party, with card payment, filling only required fields', async ({
+  test('Create patient without responsible party, with card payment, filling only required fields', async ({
     page,
   }) => {
     const slotDetailsRef: { current: GetSlotDetailsResponse } = { current: {} as GetSlotDetailsResponse };
@@ -147,39 +173,34 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
       return { bookingData, filledPaperwork };
     });
 
-    const { selectedSlot, location } =
-      await test.step('Book second appointment without filling paperwork', async () => {
-        await flowClass.selectVisitAndContinue();
-        const newBookingData = await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
-        await paperwork.clickProceedToPaperwork();
-        return newBookingData.slotAndLocation!;
-      });
+    const slotAndLocation = await test.step('Book second appointment without filling paperwork', async () => {
+      await flowClass.selectVisitAndContinue();
+      const newBookingData = await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
+      await paperwork.clickProceedToPaperwork();
+      return newBookingData.slotAndLocation!;
+    });
 
     await test.step('Save test data', async () => {
-      const cardPaymentSelfPatient: InPersonPatientSelfTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
+      const inPersonNoRpNoInsReqPatient: InPersonNoRpNoInsReqPatient = {
+        ...bookingData.patientBasicInfo,
+        ...slotAndLocation,
         appointmentId: getLastAppointmentId(page),
-        slot: selectedSlot,
-        location: location!,
-        state: filledPaperwork.stateValue,
         slotDetails: slotDetailsRef.current,
         cancelledSlotDetails: {
           appointmentId: getSecondToLastAppointmentId(page),
           ...(bookingData.slotDetails as GetSlotDetailsResponse),
         },
+        state: filledPaperwork.state,
+        patientDetailsData: filledPaperwork.patientDetailsData as PatientDetailsRequiredData,
+        employerInformation: filledPaperwork.employerInformation,
+        emergencyContact: filledPaperwork.emergencyContactInformation,
       };
-      console.log('cardPaymentSelfPatient', JSON.stringify(cardPaymentSelfPatient));
-      writeTestData('cardPaymentSelfPatient.json', cardPaymentSelfPatient);
+      console.log('inPersonNoRpNoInsReqPatient', JSON.stringify(inPersonNoRpNoInsReqPatient));
+      writeTestData('inPersonNoRpNoInsReqPatient.json', inPersonNoRpNoInsReqPatient);
     });
   });
 
-  test('Create prebook patient with responsible party, with insurance payment, filling all fields', async ({
-    page,
-  }) => {
+  test('Create patient with responsible party, with insurance payment, filling all fields', async ({ page }) => {
     const slotDetailsRef: { current: GetSlotDetailsResponse } = { current: {} as GetSlotDetailsResponse };
 
     const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
@@ -204,38 +225,38 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
       return { bookingData, filledPaperwork };
     });
 
-    const { selectedSlot, location } =
-      await test.step('Book second appointment without filling paperwork', async () => {
-        await flowClass.selectVisitAndContinue();
-        const newBookingData = await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
-        await paperwork.clickProceedToPaperwork();
-        return newBookingData.slotAndLocation!;
-      });
+    const slotAndLocation = await test.step('Book second appointment without filling paperwork', async () => {
+      await flowClass.selectVisitAndContinue();
+      const newBookingData = await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
+      await paperwork.clickProceedToPaperwork();
+      return newBookingData.slotAndLocation!;
+    });
 
     await test.step('Save test data', async () => {
-      const insurancePaymentNotSelfPatient: InPersonPatientNotSelfTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
+      const inPersonRpInsNoReqPatient: InPersonRpInsNoReqPatient = {
+        ...bookingData.patientBasicInfo,
+        ...slotAndLocation,
         appointmentId: getLastAppointmentId(page),
-        slot: selectedSlot,
-        location: location!,
         slotDetails: slotDetailsRef.current,
-        state: filledPaperwork.stateValue,
+        cancelledSlotDetails: {
+          appointmentId: getSecondToLastAppointmentId(page),
+          ...(bookingData.slotDetails as GetSlotDetailsResponse),
+        },
+        state: filledPaperwork.state,
         patientDetailsData: filledPaperwork.patientDetailsData as PatientDetailsData,
+        employerInformation: filledPaperwork.employerInformation,
+        emergencyContact: filledPaperwork.emergencyContactInformation,
         pcpData: filledPaperwork.pcpData!,
-        insuranceData: filledPaperwork.insuranceData,
-        secondaryInsuranceData: filledPaperwork.secondaryInsuranceData,
-        responsiblePartyData: filledPaperwork.responsiblePartyData,
+        insuranceData: filledPaperwork.insuranceData!,
+        secondaryInsuranceData: filledPaperwork.secondaryInsuranceData!,
+        responsiblePartyData: filledPaperwork.responsiblePartyData!,
       };
-      console.log('insurancePaymentNotSelfPatient', JSON.stringify(insurancePaymentNotSelfPatient));
-      writeTestData('insurancePaymentNotSelfPatient.json', insurancePaymentNotSelfPatient);
+      console.log('inPersonRpInsNoReqPatient', JSON.stringify(inPersonRpInsNoReqPatient));
+      writeTestData('inPersonRpInsNoReqPatient.json', inPersonRpInsNoReqPatient);
     });
   });
 
-  test('Create prebook patient without filling in paperwork', async ({ page }) => {
+  test('Create patient without filling in paperwork', async ({ page }) => {
     const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       const flowClass = new PrebookInPersonFlow(page);
@@ -251,16 +272,12 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     await test.step('Save test data', async () => {
-      const patientWithoutPaperwork: InPersonPatientTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
-        appointmentId: bookingData.bookingUUID,
+      const inPersonNoPwPatient: InPersonNoPwPatient = {
+        ...bookingData.patientBasicInfo,
+        appointmentId: bookingData.appointmentId,
       };
-      console.log('patientWithoutPaperwork', JSON.stringify(patientWithoutPaperwork));
-      writeTestData('patientWithoutPaperwork.json', patientWithoutPaperwork);
+      console.log('inPersonNoPwPatient', JSON.stringify(inPersonNoPwPatient));
+      writeTestData('inPersonNoPwPatient.json', inPersonNoPwPatient);
     });
   });
 
@@ -281,66 +298,57 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
     });
 
     await test.step('Save test data', async () => {
-      const reservationModificationPatient: ReservationModificationPatient = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
-        appointmentId: bookingData.bookingUUID,
+      const inPersonReservationModificationPatient: InPersonReservationModificationPatient = {
+        ...bookingData.patientBasicInfo,
+        appointmentId: bookingData.appointmentId,
         slotDetails: slotDetailsRef.current,
       };
-      console.log('reservationModificationPatient', JSON.stringify(reservationModificationPatient));
-      writeTestData('reservationModificationPatient.json', reservationModificationPatient);
+      console.log('inPersonReservationModificationPatient', JSON.stringify(inPersonReservationModificationPatient));
+      writeTestData('inPersonReservationModificationPatient.json', inPersonReservationModificationPatient);
     });
   });
 });
 
 test.describe.parallel('Telemed: Create test patients and appointments', () => {
-  test('Create prebook patient with responsible party, with insurance payment, filling all fields', async ({
-    page,
-  }) => {
-    const { prebookFlowClass, paperwork } = await test.step('Set up playwright', async () => {
+  test('Create patient with responsible party, with insurance payment, filling all fields', async ({ page }) => {
+    const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
-      const prebookFlowClass = new PrebookTelemedFlow(page);
+      const flowClass = new PrebookTelemedFlow(page);
       const paperwork = new Paperwork(page);
-      return { prebookFlowClass, paperwork };
+      return { flowClass, paperwork };
     });
 
     const { bookingData, filledPaperwork } = await test.step('Book first appointment', async () => {
-      await prebookFlowClass.selectVisitAndContinue();
-      const bookingData = await prebookFlowClass.startVisitWithoutPaperwork();
+      await flowClass.selectVisitAndContinue();
+      const bookingData = await flowClass.startVisitWithoutPaperwork();
       await paperwork.clickProceedToPaperwork();
-      const filledPaperwork = await prebookFlowClass.fillPaperwork({
+      const filledPaperwork = await flowClass.fillPaperwork({
         payment: 'insurance',
         responsibleParty: 'not-self',
         patientBasicInfo: bookingData.patientBasicInfo,
       });
-      await prebookFlowClass.completeBooking();
-      await prebookFlowClass.cancelAppointment();
+      await flowClass.completeBooking();
+      await flowClass.cancelAppointment();
       return { bookingData, filledPaperwork };
     });
 
     await test.step('Book second appointment without filling paperwork', async () => {
-      await prebookFlowClass.selectVisitAndContinue();
-      await prebookFlowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
+      await flowClass.selectVisitAndContinue();
+      await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
     });
 
     await test.step('Write test data to file', async () => {
-      const prebookTelemedPatient: TelemedPrebookPatientTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
+      const telemedRpInsNoReqPatient: TelemedRpInsNoReqPatient = {
+        ...bookingData.patientBasicInfo,
         appointmentId: getLastAppointmentId(page),
-        state: filledPaperwork.stateValue,
+        location: bookingData.slotAndLocation.location,
+        state: filledPaperwork.state,
         // todo because i'm not great at type conditional types apparently
         patientDetailsData: filledPaperwork.patientDetailsData as PatientDetailsData,
         pcpData: filledPaperwork.pcpData!,
-        insuranceData: filledPaperwork.insuranceData,
-        secondaryInsuranceData: filledPaperwork.secondaryInsuranceData,
-        responsiblePartyData: filledPaperwork.responsiblePartyData,
+        insuranceData: filledPaperwork.insuranceData!,
+        secondaryInsuranceData: filledPaperwork.secondaryInsuranceData!,
+        responsiblePartyData: filledPaperwork.responsiblePartyData!,
         medicationData: filledPaperwork.medicationData,
         allergiesData: filledPaperwork.allergiesData,
         medicalHistoryData: filledPaperwork.medicalHistoryData,
@@ -348,109 +356,98 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         flags: filledPaperwork.flags!,
         uploadedPhotoCondition: filledPaperwork.uploadedPhotoCondition!,
       };
-      console.log('prebookTelemedPatient', JSON.stringify(prebookTelemedPatient));
-      writeTestData('prebookTelemedPatient.json', prebookTelemedPatient);
+      console.log('telemedRpInsNoReqPatient', JSON.stringify(telemedRpInsNoReqPatient));
+      writeTestData('telemedRpInsNoReqPatient.json', telemedRpInsNoReqPatient);
     });
   });
 
-  test('Create walk-in patient without responsible party, with card payment, filling only required fields', async ({
+  test('Create patient without responsible party, with card payment, filling only required fields', async ({
     page,
   }) => {
-    const walkInFlowClass = await test.step('Set up playwright', async () => {
+    const flowClass = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       return new WalkInTelemedFlow(page);
     });
 
     const { bookingData, filledPaperwork } = await test.step('Book first appointment', async () => {
-      await walkInFlowClass.selectVisitAndContinue();
-      const bookingData = await walkInFlowClass.startVisitWithoutPaperwork();
-      const filledPaperwork = await walkInFlowClass.fillPaperwork({
+      await flowClass.selectVisitAndContinue();
+      const bookingData = await flowClass.startVisitWithoutPaperwork();
+      const filledPaperwork = await flowClass.fillPaperwork({
         payment: 'card',
         responsibleParty: 'self',
         requiredOnly: true,
       });
-      await walkInFlowClass.completeBooking();
-      await walkInFlowClass.cancelAppointment();
+      await flowClass.completeBooking();
+      await flowClass.cancelAppointment();
       return { bookingData, filledPaperwork };
     });
 
     await test.step('Book second appointment without filling paperwork', async () => {
-      await walkInFlowClass.clickVisitButton();
-      await walkInFlowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
+      await flowClass.clickVisitButton();
+      await flowClass.startVisitWithoutPaperwork(bookingData.patientBasicInfo);
     });
 
     await test.step('Write test data to file', async () => {
-      const walkInTelemedPatient: TelemedWalkInPatientTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
+      const telemedNoRpNoInsReqPatient: TelemedNoRpNoInsReqPatient = {
+        ...bookingData.patientBasicInfo,
         appointmentId: getLastAppointmentId(page),
-        state: filledPaperwork.stateValue,
-        location: bookingData.slotAndLocation.locationTitle,
+        location: bookingData.slotAndLocation.location,
+        state: filledPaperwork.state,
+        patientDetailsData: filledPaperwork.patientDetailsData as PatientDetailsRequiredData,
       };
-      console.log('walkInTelemedPatient', JSON.stringify(walkInTelemedPatient));
-      writeTestData('walkInTelemedPatient.json', walkInTelemedPatient);
+      console.log('telemedNoRpNoInsReqPatient', JSON.stringify(telemedNoRpNoInsReqPatient));
+      writeTestData('telemedNoRpNoInsReqPatient.json', telemedNoRpNoInsReqPatient);
     });
   });
 
-  test('Create walk-in patient to check patient validation and for waiting room tests', async ({ page }) => {
-    const walkInFlowClass = await test.step('Set up playwright', async () => {
+  test('Create patient to check patient validation and for waiting room tests', async ({ page }) => {
+    const flowClass = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       return new WalkInTelemedFlow(page);
     });
 
     const { bookingData, filledPaperwork } = await test.step('Book appointment and check flow', async () => {
-      await walkInFlowClass.selectVisitAndContinue();
-      const bookingData = await walkInFlowClass.startVisitWithoutPaperwork();
-      const filledPaperwork = await walkInFlowClass.fillPaperwork({
+      await flowClass.selectVisitAndContinue();
+      const bookingData = await flowClass.startVisitWithoutPaperwork();
+      const filledPaperwork = await flowClass.fillPaperwork({
         // this is the fastest way to go through paperwork. changing these shouldn't break the test.
         payment: 'card',
         responsibleParty: 'self',
         requiredOnly: true,
       });
-      await walkInFlowClass.completeBooking();
+      await flowClass.completeBooking();
       return { bookingData, filledPaperwork };
     });
 
     await test.step('Write test data to file', async () => {
-      const waitingRoomPatient: TelemedWalkInPatientTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
+      const telemedWaitingRoomPatient: TelemedWaitingRoomPatient = {
+        ...bookingData.patientBasicInfo,
         appointmentId: getLastAppointmentId(page),
-        state: filledPaperwork.stateValue,
-        location: bookingData.slotAndLocation.locationTitle,
+        location: bookingData.slotAndLocation.location,
+        state: filledPaperwork.state,
       };
-      console.log('waitingRoomPatient', JSON.stringify(waitingRoomPatient));
-      writeTestData('waitingRoomPatient.json', waitingRoomPatient);
+      console.log('telemedWaitingRoomPatient', JSON.stringify(telemedWaitingRoomPatient));
+      writeTestData('telemedWaitingRoomPatient.json', telemedWaitingRoomPatient);
     });
   });
 
   test('Create patient without filling in paperwork', async ({ page }) => {
-    const walkInFlowClass = await test.step('Set up playwright', async () => {
+    const flowClass = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       return new WalkInTelemedFlow(page);
     });
 
     const bookingData = await test.step('Create patient', async () => {
-      return await walkInFlowClass.startVisitWithoutPaperwork();
+      return await flowClass.startVisitWithoutPaperwork();
     });
 
     await test.step('Save test data', async () => {
-      const telemedPatientWithoutPaperwork: TelemedPatientTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
-        appointmentId: bookingData.bookingUUID,
+      const telemedNoPwPatient: TelemedNoPwPatient = {
+        ...bookingData.patientBasicInfo,
+        appointmentId: bookingData.appointmentId,
       };
-      console.log('telemedPatientWithoutPaperwork', JSON.stringify(telemedPatientWithoutPaperwork));
-      writeTestData('telemedPatientWithoutPaperwork.json', telemedPatientWithoutPaperwork);
+      console.log('telemedNoPwPatient', JSON.stringify(telemedNoPwPatient));
+      writeTestData('telemedNoPwPatient.json', telemedNoPwPatient);
     });
   });
 });

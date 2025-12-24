@@ -4,13 +4,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Locators } from '../../utils/locators';
 import { Paperwork, PATIENT_ADDRESS, PATIENT_ADDRESS_LINE_2, PATIENT_CITY, PATIENT_ZIP } from '../../utils/Paperwork';
-import { TelemedPrebookPatientTestData } from '../0_paperworkSetup/types';
+import { TelemedRpInsNoReqPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
 let paperwork: Paperwork;
 let locator: Locators;
-let patient: TelemedPrebookPatientTestData;
+let patient: TelemedRpInsNoReqPatient;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -18,7 +18,7 @@ test.beforeAll(async ({ browser }) => {
   paperwork = new Paperwork(page);
   locator = new Locators(page);
 
-  const testDataPath = path.join('test-data', 'prebookTelemedPatient.json');
+  const testDataPath = path.join('test-data', 'telemedRpInsNoReqPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {

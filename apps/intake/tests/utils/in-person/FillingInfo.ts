@@ -58,10 +58,10 @@ export class FillingInfo {
     await selectedButton.click();
     const selectButton = await this.page.getByRole('button', { name: /^Select/ });
     const selectButtonContent = await selectButton.textContent();
-    const selectedSlot = selectButtonContent?.replace('Select ', '').trim();
+    const slot = selectButtonContent?.replace('Select ', '').trim();
     await selectButton.click();
-    console.log(`Selected slot: ${selectedSlot}`);
-    return { buttonName, selectedSlot };
+    console.log(`Selected slot: ${slot}`);
+    return { buttonName, slot };
   }
 
   async fillNewPatientInfo() {

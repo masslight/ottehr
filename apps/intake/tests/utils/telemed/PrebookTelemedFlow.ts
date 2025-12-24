@@ -1,10 +1,5 @@
 import { expect } from '@playwright/test';
-import {
-  BOOKING_CONFIG,
-  DEPLOYED_TELEMED_LOCATIONS,
-  PROJECT_NAME,
-  shouldShowServiceCategorySelectionPage,
-} from 'utils';
+import { DEPLOYED_TELEMED_LOCATIONS, PROJECT_NAME, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { CancelPage } from '../CancelPage';
 import { TelemedPaperworkReturn } from '../Paperwork';
@@ -33,14 +28,7 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
 
   async startVisitWithoutPaperwork(patient?: PatientBasicInfo): Promise<StartVisitResponse> {
     await this.selectVisitAndContinue();
-    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
-      const availableCategories = BOOKING_CONFIG.serviceCategories || [];
-      const firstCategory = availableCategories[0]!;
-
-      if (firstCategory) {
-        await this.page.getByText(firstCategory.display).click();
-      }
-    }
+    await this.additionalStepsForPrebook();
     const slotAndLocation = await this.selectTimeLocationAndContinue();
 
     let patientBasicInfo: PatientBasicInfo;
@@ -57,25 +45,35 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     await expect(this.locator.flowHeading).toHaveText(`Thank you for choosing ${PROJECT_NAME}!`);
 
     const timeBlock = this.page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock);
-    await expect(timeBlock).toHaveText(slotAndLocation.selectedSlot?.fullSlot ?? '');
+    await expect(timeBlock).toHaveText(slotAndLocation.slot?.fullSlot ?? '');
     await expect(this.locator.appointmentDescription).toHaveText(RegExp(slotAndLocation.location!));
 
-    const bookingURL = this.page.url();
-    const match = bookingURL.match(/visit\/([0-9a-fA-F-]+)/);
-    const bookingUUID = match ? match[1] : null;
-
+    await this.page.waitForURL(/\/visit\//);
+    const urlRegex = new RegExp(`visit\\/(${uuidRegex.source.slice(1, -1)})`);
+    const appointmentId = this.page.url().match(urlRegex)?.[1];
+    if (!appointmentId) {
+      throw new Error('regex is broken or page could not load url');
+    }
     return {
       patientBasicInfo,
-      bookingUUID,
+      appointmentId,
       slotAndLocation,
     };
   }
 
+  /**
+   * If you pass in patientBasicInfo, it will validate a few extra steps by checking non-linear flow
+   */
   async fillPaperwork({
+    patientBasicInfo,
     payment,
     responsibleParty,
     requiredOnly,
   }: FilledPaperworkInput): Promise<TelemedPaperworkReturn<typeof payment, typeof responsibleParty, boolean>> {
+    if (patientBasicInfo) {
+      await this.ValidatePatientInfo(patientBasicInfo);
+    }
+
     return await this.paperworkGeneral.fillPaperworkTelemed({
       payment,
       responsibleParty,
@@ -99,6 +97,13 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
 
   // ---------------------------------------------------------------------------
 
+  async additionalStepsForPrebook(): Promise<void> {
+    // Handle service category selection if present
+    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'virtual', visitType: 'prebook' })) {
+      await this.fillingInfo.selectFirstServiceCategory();
+    }
+  }
+
   async selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>> {
     const statesSelector = this.page.getByTestId(dataTestIds.scheduleVirtualVisitStatesSelector);
     await expect(statesSelector).toBeVisible();
@@ -109,13 +114,12 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
       throw new Error('No deployed telemed locations found');
     }
     const locationOption = this.page.locator('[role="option"]').getByText(firstAvailableState, { exact: true });
-    const location = (await locationOption.textContent()) ?? undefined;
     await locationOption.click();
     await expect(this.locator.firstAvailableTime).toBeVisible();
     const title = await this.locator.pageTitle.textContent();
-    const locationTitle = title ? title.replace('Book a visit at ', '').trim() : null;
-    const selectedSlot = await this.fillingInfo.selectRandomSlot();
+    const location = title ? title.replace('Book a visit at ', '').trim() : null;
+    const slot = await this.fillingInfo.selectRandomSlot();
     await this.continue();
-    return { selectedSlot: { time: selectedSlot.time, fullSlot: selectedSlot.fullSlot }, location, locationTitle };
+    return { slot, location };
   }
 }
