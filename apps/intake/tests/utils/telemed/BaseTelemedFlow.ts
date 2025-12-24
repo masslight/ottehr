@@ -6,9 +6,8 @@ import { FillingInfo } from './FillingInfo';
 import { PaperworkTelemed } from './Paperwork';
 
 export interface SlotAndLocation {
-  selectedSlot: { time: string; fullSlot: string };
-  location: string;
-  locationTitle?: string | null;
+  slot: { time: string; fullSlot: string };
+  location: string | null;
 }
 
 export interface StartVisitResponse {

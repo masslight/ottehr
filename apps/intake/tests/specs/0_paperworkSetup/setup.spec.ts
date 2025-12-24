@@ -14,9 +14,10 @@ import {
   InPersonNoRpNoInsReqPatient,
   InPersonReservationModificationPatient,
   InPersonRpInsNoReqPatient,
-  TelemedPatientTestData,
-  TelemedPrebookPatientTestData,
-  TelemedWalkInPatientTestData,
+  TelemedNoPwPatient,
+  TelemedNoRpNoInsReqPatient,
+  TelemedRpInsNoReqPatient,
+  TelemedWaitingRoomPatient,
 } from './types';
 
 // Track if ANY setup test failed - used to decide whether to write success marker
@@ -337,20 +338,17 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Write test data to file', async () => {
-      const telemedRpInsNoReqPatient: TelemedPrebookPatientTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
+      const telemedRpInsNoReqPatient: TelemedRpInsNoReqPatient = {
+        ...bookingData.patientBasicInfo,
         appointmentId: getLastAppointmentId(page),
+        location: bookingData.slotAndLocation.location,
         state: filledPaperwork.state,
         // todo because i'm not great at type conditional types apparently
         patientDetailsData: filledPaperwork.patientDetailsData as PatientDetailsData,
         pcpData: filledPaperwork.pcpData!,
-        insuranceData: filledPaperwork.insuranceData,
-        secondaryInsuranceData: filledPaperwork.secondaryInsuranceData,
-        responsiblePartyData: filledPaperwork.responsiblePartyData,
+        insuranceData: filledPaperwork.insuranceData!,
+        secondaryInsuranceData: filledPaperwork.secondaryInsuranceData!,
+        responsiblePartyData: filledPaperwork.responsiblePartyData!,
         medicationData: filledPaperwork.medicationData,
         allergiesData: filledPaperwork.allergiesData,
         medicalHistoryData: filledPaperwork.medicalHistoryData,
@@ -390,15 +388,12 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Write test data to file', async () => {
-      const telemedNoRpNoInsReqPatient: TelemedWalkInPatientTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
+      const telemedNoRpNoInsReqPatient: TelemedNoRpNoInsReqPatient = {
+        ...bookingData.patientBasicInfo,
         appointmentId: getLastAppointmentId(page),
+        location: bookingData.slotAndLocation.location,
         state: filledPaperwork.state,
-        location: bookingData.slotAndLocation.locationTitle,
+        patientDetailsData: filledPaperwork.patientDetailsData as PatientDetailsRequiredData,
       };
       console.log('telemedNoRpNoInsReqPatient', JSON.stringify(telemedNoRpNoInsReqPatient));
       writeTestData('telemedNoRpNoInsReqPatient.json', telemedNoRpNoInsReqPatient);
@@ -425,15 +420,11 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Write test data to file', async () => {
-      const telemedWaitingRoomPatient: TelemedWalkInPatientTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
+      const telemedWaitingRoomPatient: TelemedWaitingRoomPatient = {
+        ...bookingData.patientBasicInfo,
         appointmentId: getLastAppointmentId(page),
+        location: bookingData.slotAndLocation.location,
         state: filledPaperwork.state,
-        location: bookingData.slotAndLocation.locationTitle,
       };
       console.log('telemedWaitingRoomPatient', JSON.stringify(telemedWaitingRoomPatient));
       writeTestData('telemedWaitingRoomPatient.json', telemedWaitingRoomPatient);
@@ -451,12 +442,8 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
     });
 
     await test.step('Save test data', async () => {
-      const telemedNoPwPatient: TelemedPatientTestData = {
-        firstName: bookingData.patientBasicInfo.firstName,
-        lastName: bookingData.patientBasicInfo.lastName,
-        email: bookingData.patientBasicInfo.email,
-        birthSex: bookingData.patientBasicInfo.birthSex,
-        dob: bookingData.patientBasicInfo.dob,
+      const telemedNoPwPatient: TelemedNoPwPatient = {
+        ...bookingData.patientBasicInfo,
         appointmentId: bookingData.appointmentId,
       };
       console.log('telemedNoPwPatient', JSON.stringify(telemedNoPwPatient));

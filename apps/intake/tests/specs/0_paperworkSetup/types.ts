@@ -12,6 +12,7 @@ import {
   ResponsiblePartyData,
   TelemedPaperworkData,
 } from 'tests/utils/Paperwork';
+import { PatientBasicInfo as TelemedPatientBasicInfo } from 'tests/utils/telemed/BaseTelemedFlow';
 import { GetSlotDetailsResponse } from 'utils';
 
 // common interfaces
@@ -27,11 +28,11 @@ interface InsurancePayment {
   };
 }
 
-// in-person interfaces
-
-interface InPersonMinimumAppointmentData {
+interface MinimumAppointmentData {
   appointmentId: string;
 }
+
+// in-person interfaces
 
 interface InPersonMinimumPaperworkData {
   state: string;
@@ -47,7 +48,7 @@ interface CancelledSlotDetails extends GetSlotDetailsResponse {
 
 export interface InPersonNoRpNoInsReqPatient
   extends InPersonPatientBasicInfo,
-    InPersonMinimumAppointmentData,
+    MinimumAppointmentData,
     SlotAndLocation,
     InPersonMinimumPaperworkData {
   patientDetailsData: PatientDetailsRequiredData;
@@ -57,7 +58,7 @@ export interface InPersonNoRpNoInsReqPatient
 
 export interface InPersonRpInsNoReqPatient
   extends InPersonPatientBasicInfo,
-    InPersonMinimumAppointmentData,
+    MinimumAppointmentData,
     SlotAndLocation,
     InPersonMinimumPaperworkData,
     InsurancePayment {
@@ -68,49 +69,36 @@ export interface InPersonRpInsNoReqPatient
   responsiblePartyData: ResponsiblePartyData;
 }
 
-export interface InPersonNoPwPatient extends InPersonPatientBasicInfo, InPersonMinimumAppointmentData {}
+export interface InPersonNoPwPatient extends InPersonPatientBasicInfo, MinimumAppointmentData {}
 
-export interface InPersonReservationModificationPatient
-  extends InPersonPatientBasicInfo,
-    InPersonMinimumAppointmentData {
+export interface InPersonReservationModificationPatient extends InPersonPatientBasicInfo, MinimumAppointmentData {
   slotDetails: GetSlotDetailsResponse;
 }
 
 // telemed interfaces
 
-// telemed patients
-
-// TelemedRpInsNoReqPatient
-// TelemedNoRpNoInsReqPatient
-// TelemedWaitingRoomPatient
-// TelemedNoPwPatient
-
-export interface TelemedPatientTestData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  birthSex: string;
-  dob: {
-    m: string;
-    d: string;
-    y: string;
-  };
-  appointmentId: string | null;
+interface TelemedMinimumPaperworkData {
+  location: string | null | undefined;
+  state: string;
 }
 
-export interface TelemedPrebookPatientTestData extends TelemedPatientTestData {
-  state: string;
+// telemed patients
+
+export interface TelemedNoRpNoInsReqPatient
+  extends TelemedPatientBasicInfo,
+    MinimumAppointmentData,
+    TelemedMinimumPaperworkData {
+  patientDetailsData: PatientDetailsRequiredData;
+}
+
+export interface TelemedRpInsNoReqPatient
+  extends TelemedPatientBasicInfo,
+    MinimumAppointmentData,
+    TelemedMinimumPaperworkData,
+    InsurancePayment {
   patientDetailsData: PatientDetailsData;
   pcpData: PrimaryCarePhysicianData;
-  insuranceData: {
-    insuranceRequiredData: InsuranceRequiredData;
-    insuranceOptionalData: InsuranceOptionalData;
-  } | null;
-  secondaryInsuranceData: {
-    insuranceRequiredData: InsuranceRequiredData;
-    insuranceOptionalData: InsuranceOptionalData;
-  } | null;
-  responsiblePartyData: ResponsiblePartyData | null;
+  responsiblePartyData: ResponsiblePartyData;
   medicationData: TelemedPaperworkData;
   allergiesData: TelemedPaperworkData;
   medicalHistoryData: TelemedPaperworkData;
@@ -119,7 +107,9 @@ export interface TelemedPrebookPatientTestData extends TelemedPatientTestData {
   uploadedPhotoCondition: Locator;
 }
 
-export interface TelemedWalkInPatientTestData extends TelemedPatientTestData {
-  state: string;
-  location: string | null | undefined;
-}
+export interface TelemedWaitingRoomPatient
+  extends TelemedPatientBasicInfo,
+    MinimumAppointmentData,
+    TelemedMinimumPaperworkData {}
+
+export interface TelemedNoPwPatient extends TelemedPatientBasicInfo, MinimumAppointmentData {}

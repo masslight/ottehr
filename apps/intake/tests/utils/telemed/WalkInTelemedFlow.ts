@@ -106,6 +106,6 @@ export class WalkInTelemedFlow extends BaseTelemedFlow {
     await locationOption.click();
     await this.continue();
 
-    return { locationTitle: location?.split('Working hours')[0] };
+    return { location: location?.split('Working hours')[0] ?? null };
   }
 }

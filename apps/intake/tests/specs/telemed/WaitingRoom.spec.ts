@@ -5,7 +5,7 @@ import * as path from 'path';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
 import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
-import { TelemedWalkInPatientTestData } from '../0_paperworkSetup/types';
+import { TelemedWaitingRoomPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
@@ -14,7 +14,7 @@ let paperworkTelemed: PaperworkTelemed;
 let locator: Locators;
 let inviteeData: Awaited<ReturnType<PaperworkTelemed['fillInviteParticipant']>>;
 let inviteeFullName: string;
-let patient: TelemedWalkInPatientTestData;
+let patient: TelemedWaitingRoomPatient;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();

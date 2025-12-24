@@ -8,7 +8,6 @@ import { FillingInfo } from './FillingInfo';
 export interface SlotAndLocation {
   slot: string | undefined;
   location: string | null;
-  locationTitle?: string | null;
 }
 
 export interface StartVisitResponse {

@@ -45,7 +45,7 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     await expect(this.locator.flowHeading).toHaveText(`Thank you for choosing ${PROJECT_NAME}!`);
 
     const timeBlock = this.page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock);
-    await expect(timeBlock).toHaveText(slotAndLocation.selectedSlot?.fullSlot ?? '');
+    await expect(timeBlock).toHaveText(slotAndLocation.slot?.fullSlot ?? '');
     await expect(this.locator.appointmentDescription).toHaveText(RegExp(slotAndLocation.location!));
 
     await this.page.waitForURL(/\/visit\//);
@@ -114,13 +114,12 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
       throw new Error('No deployed telemed locations found');
     }
     const locationOption = this.page.locator('[role="option"]').getByText(firstAvailableState, { exact: true });
-    const location = (await locationOption.textContent()) ?? undefined;
     await locationOption.click();
     await expect(this.locator.firstAvailableTime).toBeVisible();
     const title = await this.locator.pageTitle.textContent();
-    const locationTitle = title ? title.replace('Book a visit at ', '').trim() : null;
-    const selectedSlot = await this.fillingInfo.selectRandomSlot();
+    const location = title ? title.replace('Book a visit at ', '').trim() : null;
+    const slot = await this.fillingInfo.selectRandomSlot();
     await this.continue();
-    return { selectedSlot: { time: selectedSlot.time, fullSlot: selectedSlot.fullSlot }, location, locationTitle };
+    return { slot, location };
   }
 }
