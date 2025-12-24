@@ -135,11 +135,7 @@ export abstract class BaseTelemedFlow extends BaseFlow {
       });
 
       await test.step('select existing patient', async () => {
-        const patientName = this.page.getByText(`${patientBasicInfo?.firstName} ${patientBasicInfo?.lastName}`);
-        await expect(patientName).toBeVisible();
-        await patientName.scrollIntoViewIfNeeded();
-        await patientName.click();
-        await this.continue();
+        await this.findAndSelectExistingPatient(patientBasicInfo);
       });
 
       const dob = await test.step('check selecting an incorrect dob', async () => {

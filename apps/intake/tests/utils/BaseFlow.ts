@@ -75,6 +75,7 @@ export abstract class BaseFlow {
   }
 
   async findAndSelectExistingPatient(patient: PatientBasicInfo): Promise<void> {
+    await expect(this.page.getByRole('radio').first()).toBeVisible();
     // find and select existing patient
     const dobString = DateTime.fromFormat(
       patient.dob.y + '-' + patient.dob.m + '-' + patient.dob.d || '',

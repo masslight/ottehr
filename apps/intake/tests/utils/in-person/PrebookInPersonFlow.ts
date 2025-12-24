@@ -23,6 +23,15 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
     const slotAndLocation = await this.additionalStepsForPrebook();
 
     let patientBasicInfo: PatientBasicInfo;
+
+    if (process.env.SMOKE_TEST === 'true') {
+      try {
+        patient = await this.findTestPatient();
+      } catch {
+        console.warn('Test patient not found, proceeding to create a new patient.');
+      }
+    }
+
     if (patient) {
       await this.findAndSelectExistingPatient(patient);
       patientBasicInfo = patient;

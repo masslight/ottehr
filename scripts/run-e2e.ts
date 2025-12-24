@@ -144,10 +144,15 @@ const setupTestDeps = async (): Promise<void> => {
     try {
       // Run the e2e-test-setup.sh script with skip-prompts and current environment
       console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
-      execSync(`bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV} ${SMOKE_TEST && '--mode smoke'}`, {
-        stdio: 'inherit',
-        env: { ...process.env, ENV },
-      });
+      execSync(
+        `bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV} ${
+          SMOKE_TEST === 'true' && '--mode smoke'
+        }`,
+        {
+          stdio: 'inherit',
+          env: { ...process.env, ENV },
+        }
+      );
     } catch (error) {
       console.error(`Failed to run e2e-test-setup.js for ${app}`);
       console.error(error?.message);
@@ -202,7 +207,7 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
 
     console.log('SMOKE_TEST value:', SMOKE_TEST);
 
-    if (SMOKE_TEST) {
+    if (SMOKE_TEST === 'true') {
       playwrightArgs.push('--grep', '@smoke');
     }
 
@@ -227,7 +232,7 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
   const baseArgs = commands[testType];
   const extraArgs = isUI ? [] : ['--', '--headed=false'];
 
-  if (SMOKE_TEST && testType !== 'login') {
+  if (SMOKE_TEST === 'true' && testType !== 'login') {
     extraArgs.push('--grep', '@smoke');
   }
 
