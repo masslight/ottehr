@@ -66,7 +66,8 @@ export const ControlledCheckboxSelect: FC<ControlledCheckboxSelectProps> = (prop
               });
               const fieldsToDelete = fieldsToChange.filter((f) => f.value === true);
               const fieldsToAdd = fieldsToChange.filter((f) => f.value === false);
-              if (fieldsToDelete.length > 0) deleteObservations(fieldsToDelete);
+              if (fieldsToDelete.length > 0)
+                deleteObservations(fieldsToDelete.map((field) => ({ ...field, value: false })));
               if (fieldsToAdd.length > 0) update(fieldsToAdd.map((field) => ({ ...field, value: true })));
             }}
             renderValue={(selected) =>

@@ -5,6 +5,7 @@ import { Appointment, Encounter, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ApptTab } from 'src/components/AppointmentTabs';
 import {
+  BRANDING_CONFIG,
   formatDateForDisplay,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
@@ -14,7 +15,6 @@ import {
   isPhysician,
   isPhysicianProviderType,
   OrdersForTrackingBoardRow,
-  PROJECT_NAME,
   ProviderTypeCode,
 } from 'utils';
 import { EvolveUser } from '../hooks/useEvolveUser';
@@ -147,7 +147,10 @@ export const patchAppointmentComment = async (
     resourceType: 'Appointment',
     id: appointment.id,
   });
-  const updateTag = getCriticalUpdateTagOp(fhirAppointment, user?.name || `${PROJECT_NAME} Team Member (${user?.id})`);
+  const updateTag = getCriticalUpdateTagOp(
+    fhirAppointment,
+    user?.name || `${BRANDING_CONFIG.projectName} Team Member (${user?.id})`
+  );
   patchOperations.push(updateTag);
   console.log('patchOperations', patchOperations);
   const updatedAppointment = await oystehr.fhir.patch<Appointment>({

@@ -22,7 +22,7 @@ import {
   useEnrollPractitionerToERX,
 } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import { getPractitionerMissingFields } from 'src/shared/utils';
-import { getFullestAvailableName, PROJECT_NAME, RoleType } from 'utils';
+import { BRANDING_CONFIG, getFullestAvailableName, RoleType } from 'utils';
 import { dataTestIds } from '../../constants/data-test-ids';
 import useEvolveUser from '../../hooks/useEvolveUser';
 
@@ -62,7 +62,9 @@ export const UserMenu: FC = () => {
     }
   }, [connectPractitionerForConfirmation, enrollPractitioner, practitioner]);
 
-  const name = user?.profileResource && (getFullestAvailableName(user.profileResource, true) ?? `${PROJECT_NAME} Team`);
+  const name =
+    user?.profileResource &&
+    (getFullestAvailableName(user.profileResource, true) ?? `${BRANDING_CONFIG.projectName} Team`);
   const suffix = user?.profileResource?.name?.[0]?.suffix?.[0];
 
   return (
@@ -90,7 +92,7 @@ export const UserMenu: FC = () => {
       >
         <MenuItem>
           <Box>
-            <Typography variant="body1">{PROJECT_NAME} Admin</Typography>
+            <Typography variant="body1">{BRANDING_CONFIG.projectName} Admin</Typography>
             <Typography variant="caption">{user?.email}</Typography>
           </Box>
         </MenuItem>

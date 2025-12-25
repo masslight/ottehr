@@ -5,6 +5,7 @@ import { BRANDING_OVERRIDES as OVERRIDES } from '../../../ottehr-config-override
 const overrides: any = OVERRIDES || {};
 const BRANDING_DEFAULTS: any = {
   projectName: 'Ottehr',
+  projectDomain: 'ottehr.com',
   email: {
     logoURL: '',
     supportPhoneNumber: '(202) 555-1212',
@@ -22,6 +23,7 @@ const BRANDING_DEFAULTS: any = {
     email: '',
     pdf: '',
   },
+  supportScheduleGroups: [],
   /*
   palette: {
     // these are dummy values, but ottehr theme defaults should come from here eventually
@@ -37,6 +39,7 @@ const mergedBrandingConfig = _.merge({ ...BRANDING_DEFAULTS }, { ...overrides })
 
 const BrandingConfigSchema = z.object({
   projectName: z.string().min(1, { message: 'Project name cannot be empty' }),
+  projectDomain: z.string().min(1, { message: 'Project domain cannot be empty' }),
   email: z.object({
     logoURL: z.string().optional(),
     supportPhoneNumber: z.string().optional(),
@@ -56,6 +59,14 @@ const BrandingConfigSchema = z.object({
     email: z.string().optional(),
     pdf: z.string().optional(),
   }),
+  supportScheduleGroups: z
+    .array(
+      z.object({
+        hours: z.string().min(1),
+        locations: z.array(z.string().min(1)),
+      })
+    )
+    .optional(),
 });
 
 export const BRANDING_CONFIG = Object.freeze(BrandingConfigSchema.parse(mergedBrandingConfig));
@@ -88,4 +99,28 @@ export function getLocationNames(): string[] {
   }
 
   return Object.keys(locationSupportPhoneNumberMap);
+}
+
+export function getSupportScheduleGroups(): Array<{ hours: string; locations: string[] }> {
+  return BRANDING_CONFIG.supportScheduleGroups ?? [];
+}
+
+export function getSupportHoursFor(locationName?: string): string | undefined {
+  const scheduleGroups = getSupportScheduleGroups();
+  if (scheduleGroups.length === 0) {
+    return;
+  }
+
+  if (locationName) {
+    const normalizedLocationName = locationName.toLowerCase();
+    const matchedGroup = scheduleGroups.find((group) =>
+      group.locations.some((location) => location.toLowerCase() === normalizedLocationName)
+    );
+
+    if (matchedGroup) {
+      return matchedGroup.hours;
+    }
+  }
+
+  return scheduleGroups[0]?.hours;
 }

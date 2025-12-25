@@ -6,7 +6,7 @@ import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
 import { generatePath, Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { APIError, CreateSlotParams, isApiError, PROJECT_NAME, PROJECT_WEBSITE, ServiceMode } from 'utils';
+import { APIError, BRANDING_CONFIG, CreateSlotParams, isApiError, PROJECT_WEBSITE, ServiceMode } from 'utils';
 import { ottehrApi } from '../api';
 import { bookingBasePath } from '../App';
 import { PageContainer } from '../components';
@@ -41,7 +41,8 @@ export const WalkinLanding: FC = () => {
     return (
       <PageContainer title={t('welcome.errors.notFound.title')}>
         <Typography variant="body1">
-          {t('welcome.errors.notFound.description')} <a href={PROJECT_WEBSITE}>{t('welcome.errors.notFound.link')}</a>.
+          {t('welcome.errors.notFound.description', { PROJECT_NAME: BRANDING_CONFIG.projectName })}{' '}
+          <a href={PROJECT_WEBSITE}>{t('welcome.errors.notFound.link')}</a>.
         </Typography>
       </PageContainer>
     );
@@ -49,12 +50,12 @@ export const WalkinLanding: FC = () => {
 
   return (
     <PageContainer
-      title={somethingIsLoadingInSomeWay ? 'Loading...' : 'Welcome to Ottehr'} // todo: get some copy for this
+      title={somethingIsLoadingInSomeWay ? 'Loading...' : `Welcome to ${BRANDING_CONFIG.projectName} `}
       subtitle={somethingIsLoadingInSomeWay ? '' : data?.scheduleOwnerName ?? ''}
       isFirstPage
       img={ottehrLightBlue}
-      imgAlt={`${PROJECT_NAME} icon`}
-      imgWidth={150}
+      imgAlt={`${BRANDING_CONFIG.projectName} icon`}
+      imgWidth={120}
     >
       {!somethingIsLoadingInSomeWay && data ? (
         data.walkinOpen ? (
@@ -112,9 +113,9 @@ export const WalkinLanding: FC = () => {
               {t('welcome.errors.closed.description')}
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2.5 }}>
-              <Link to={PROJECT_WEBSITE} aria-label={`${PROJECT_NAME} website`} target="_blank">
+              <Link to={PROJECT_WEBSITE} aria-label={`${BRANDING_CONFIG.projectName} website`} target="_blank">
                 <Button variant="contained" color="primary" data-testid="loading-button">
-                  {t('welcome.goToWebsite', { PROJECT_NAME })}
+                  {t('welcome.goToWebsite', { PROJECT_NAME: BRANDING_CONFIG.projectName })}
                 </Button>
               </Link>
             </Box>
