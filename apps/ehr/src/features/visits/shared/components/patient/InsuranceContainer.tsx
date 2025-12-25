@@ -390,7 +390,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     return (
       <>
         <Typography variant="body1" color={theme.palette.primary.dark}>
-          Individual Deductible
+          {detail.name}
         </Typography>
         {detail.total !== undefined && detail.paid !== undefined && (
           <LinearProgress
