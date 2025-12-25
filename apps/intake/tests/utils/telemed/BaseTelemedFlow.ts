@@ -138,38 +138,39 @@ export abstract class BaseTelemedFlow extends BaseFlow {
         await this.findAndSelectExistingPatient(patientBasicInfo);
       });
 
-      const dob = await test.step('check selecting an incorrect dob', async () => {
-        await expect(this.page.getByText(`Confirm ${patientBasicInfo?.firstName}'s date of birth`)).toBeVisible();
-        const { dob } = patientBasicInfo;
-        await this.fillingInfo.fillWrongDOB(dob.m, dob.d, dob.y);
-        await this.continue();
+      // TOOD: those steps are performed in findAndSelectExistingPatient now, need to transfer checking the incorrect DOB picking there
+      // const dob = await test.step('check selecting an incorrect dob', async () => {
+      //   await expect(this.page.getByText(`Confirm ${patientBasicInfo?.firstName}'s date of birth`)).toBeVisible();
+      //   const { dob } = patientBasicInfo;
+      //   await this.fillingInfo.fillWrongDOB(dob.m, dob.d, dob.y);
+      //   await this.continue();
 
-        const errorText = await this.page
-          .getByText('Unfortunately, this patient record is not confirmed.') // modal, in that case try again option should be selected
-          .or(this.page.getByText('Date may not be in the future')) // validation error directly on the form
-          .textContent();
+      //   const errorText = await this.page
+      //     .getByText('Unfortunately, this patient record is not confirmed.') // modal, in that case try again option should be selected
+      //     .or(this.page.getByText('Date may not be in the future')) // validation error directly on the form
+      //     .textContent();
 
-        // close if it is modal
-        if (errorText?.includes('Unfortunately, this patient record is not confirmed')) {
-          await this.page.getByRole('button', { name: 'Try again' }).click();
-        }
-        return dob;
-      });
+      //   // close if it is modal
+      //   if (errorText?.includes('Unfortunately, this patient record is not confirmed')) {
+      //     await this.page.getByRole('button', { name: 'Try again' }).click();
+      //   }
+      //   return dob;
+      // });
 
-      await test.step('select the correct dob', async () => {
-        await this.fillingInfo.fillCorrectDOB(dob.m, dob.d, dob.y);
-        await this.continue();
+      // await test.step('select the correct dob', async () => {
+      //   await this.fillingInfo.fillCorrectDOB(dob.m, dob.d, dob.y);
+      //   await this.continue();
 
-        await expect(this.page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
+      //   await expect(this.page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
 
-        const patientName = this.page.getByText(`${patientBasicInfo?.firstName} ${patientBasicInfo?.lastName}`);
-        await expect(patientName).toBeVisible();
-        await expect(
-          this.page.getByText(
-            `Birthday: ${this.fillingInfo.getStringDateByDateUnits(dob.m, dob.d, dob.y, 'MMMM dd, yyyy')}`
-          )
-        ).toBeVisible();
-      });
+      //   const patientName = this.page.getByText(`${patientBasicInfo?.firstName} ${patientBasicInfo?.lastName}`);
+      //   await expect(patientName).toBeVisible();
+      //   await expect(
+      //     this.page.getByText(
+      //       `Birthday: ${this.fillingInfo.getStringDateByDateUnits(dob.m, dob.d, dob.y, 'MMMM dd, yyyy')}`
+      //     )
+      //   ).toBeVisible();
+      // });
 
       await test.step('go back to paperwork page', async () => {
         await this.page.waitForTimeout(1_000);
