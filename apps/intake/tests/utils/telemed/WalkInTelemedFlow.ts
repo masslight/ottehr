@@ -97,7 +97,6 @@ export class WalkInTelemedFlow extends BaseTelemedFlow {
       .filter({ hasNot: this.page.locator('[aria-disabled="true"], [disabled]') }) // Exclude disabled options
       .first();
     const location = await locationOption.textContent();
-    console.log('Video call location: ', location);
     await locationOption.click();
     await this.continue();
 
