@@ -138,8 +138,8 @@ export const formatActivityLogs = (
           activityDateTime: formatActivityDateTime(curPatientHistory.meta?.lastUpdated || '', timezone),
           activityBy: activityBy ? activityBy : 'n/a',
           moreDetails: {
-            valueBefore: formatDateForDisplay(previousPatientHistory.birthDate) || '',
-            valueAfter: formatDateForDisplay(curPatientHistory.birthDate) || '',
+            valueBefore: formatDateForDisplay(previousPatientHistory.birthDate),
+            valueAfter: formatDateForDisplay(curPatientHistory.birthDate),
           },
         };
         logs.push(dobChangeActivityLog);

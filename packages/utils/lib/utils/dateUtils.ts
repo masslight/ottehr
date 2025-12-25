@@ -161,15 +161,13 @@ export const formatDOB = (birthDate: string | undefined): string | undefined => 
   return `${birthday} (${age})`;
 };
 
-export function formatDateForDisplay(date: string | undefined, timezone?: string): string | undefined {
-  if (!date) {
-    return date;
-  }
-  if (timezone) {
-    return DateTime.fromISO(date).setZone(timezone).toFormat(DISPLAY_DATE_FORMAT);
-  } else {
-    return DateTime.fromISO(date).toFormat(DISPLAY_DATE_FORMAT);
-  }
+export function formatDateForDisplay(date?: string, timezone?: string): string {
+  if (!date) return '';
+
+  const dt = DateTime.fromISO(date);
+  if (!dt.isValid) return '';
+
+  return (timezone ? dt.setZone(timezone) : dt).toFormat(DISPLAY_DATE_FORMAT);
 }
 
 /**

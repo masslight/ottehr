@@ -80,11 +80,11 @@ describe('formatDateTime helpers', () => {
     });
 
     it('should return undefined for undefined input', () => {
-      expect(formatDateForDisplay(undefined)).toBeUndefined();
+      expect(formatDateForDisplay(undefined)).toBe('');
     });
 
     it('should handle invalid date strings', () => {
-      expect(formatDateForDisplay('invalid-date')).toBe('Invalid DateTime');
+      expect(formatDateForDisplay('invalid-date')).toBe('');
     });
   });
 
