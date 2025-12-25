@@ -1,6 +1,5 @@
 import { Skeleton } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { PROJECT_NAME_LOWER } from 'utils';
 import { otherColors } from '../IntakeThemeProvider';
 import { ottehrLightBlue } from '../themes/ottehr/icons';
 import CardWithDescription from './CardWithDescription';
@@ -19,7 +18,7 @@ export const WaitingEstimateCard = ({ waitingMinutes }: WaitingEstimateCardProps
   return (
     <CardWithDescription
       icon={ottehrLightBlue}
-      iconAlt={`${PROJECT_NAME_LOWER} icon`}
+      iconAlt="ottehr icon"
       iconHeight={70}
       mainText={t('waitingEstimate.title')}
       descText={

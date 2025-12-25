@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.24.6",
+  "version": "1.24.14",
   "private": true,
   "scripts": {
     "start": "npm run start:iac",
@@ -64,6 +64,7 @@
     "luxon": "^3.4.3",
     "query-string": "^8.1.0",
     "randomstring": "^1.3.1",
+    "retry": "^0.13.1",
     "short-uuid": "^4.2.2",
     "stripe": "^17.7.0",
     "utils": "*",

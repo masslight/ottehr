@@ -33,7 +33,11 @@ test.describe.parallel('THP. Telemed Homepage', () => {
       }
     }
 
-    await expect(page.getByRole('heading', { name: 'Book a visit', level: 2 })).toBeVisible({
+    await expect(
+      page.getByRole('tablist', {
+        name: 'Appointment tabs for switching between appointments slots for today and tomorrow',
+      })
+    ).toBeVisible({
       timeout: 15000,
     });
   });
