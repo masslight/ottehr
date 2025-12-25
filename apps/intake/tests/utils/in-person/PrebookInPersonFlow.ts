@@ -1,9 +1,10 @@
 import { expect } from '@playwright/test';
 import { shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
+import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
 import { SlotAndLocation, StartVisitResponse } from '../in-person/BaseInPersonFlow';
 import { InPersonPaperworkReturn } from '../Paperwork';
-import { BaseInPersonFlow, FilledPaperworkInput, PatientBasicInfo } from './BaseInPersonFlow';
+import { BaseInPersonFlow, FilledPaperworkInput } from './BaseInPersonFlow';
 
 export class PrebookInPersonFlow extends BaseInPersonFlow {
   // flow steps:
@@ -22,6 +23,15 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
     const slotAndLocation = await this.additionalStepsForPrebook();
 
     let patientBasicInfo: PatientBasicInfo;
+
+    if (process.env.SMOKE_TEST === 'true') {
+      try {
+        patient = await this.findTestPatient();
+      } catch {
+        console.warn('Test patient not found, proceeding to create a new patient.');
+      }
+    }
+
     if (patient) {
       await this.findAndSelectExistingPatient(patient);
       patientBasicInfo = patient;

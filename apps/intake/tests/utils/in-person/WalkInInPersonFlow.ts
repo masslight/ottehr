@@ -1,13 +1,8 @@
 import { uuidRegex } from 'utils/lib/validation/regex';
+import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
 import { InPersonPaperworkReturn } from '../Paperwork';
-import {
-  BaseInPersonFlow,
-  FilledPaperworkInput,
-  PatientBasicInfo,
-  SlotAndLocation,
-  StartVisitResponse,
-} from './BaseInPersonFlow';
+import { BaseInPersonFlow, FilledPaperworkInput, SlotAndLocation, StartVisitResponse } from './BaseInPersonFlow';
 
 export class WalkInInPersonFlow extends BaseInPersonFlow {
   // flow steps:

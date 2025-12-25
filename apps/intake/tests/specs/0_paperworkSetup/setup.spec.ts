@@ -145,7 +145,7 @@ function writeTestData(filename: string, data: unknown): void {
 //       fill in any paperwork.
 // ---------------------------------------------------------------------------------------------------------------------
 
-test.describe.parallel('In-Person: Create test patients and appointments', () => {
+test.describe.parallel('In-Person: Create test patients and appointments', { tag: '@smoke' }, () => {
   test('Create patient without responsible party, with card payment, filling only required fields', async ({
     page,
   }) => {
@@ -309,7 +309,7 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
   });
 });
 
-test.describe.parallel('Telemed: Create test patients and appointments', () => {
+test.describe.parallel('Telemed: Create test patients and appointments', { tag: '@smoke' }, () => {
   test('Create patient with responsible party, with insurance payment, filling all fields', async ({ page }) => {
     const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);

@@ -5,6 +5,7 @@ import path from 'path';
 const isCI = Boolean(process.env.CI);
 const ENV = process.env.ENV?.trim?.() || 'local';
 const INTEGRATION_TEST = process.env.INTEGRATION_TEST || 'false';
+const SMOKE_TEST = process.env.SMOKE_TEST || 'false';
 const isUI = process.argv.includes('--ui');
 const isLoginOnly = process.argv.includes('--login-only');
 const isSpecsOnly = process.argv.includes('--specs-only');
@@ -143,10 +144,15 @@ const setupTestDeps = async (): Promise<void> => {
     try {
       // Run the e2e-test-setup.sh script with skip-prompts and current environment
       console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
-      execSync(`bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV}`, {
-        stdio: 'inherit',
-        env: { ...process.env, ENV },
-      });
+      execSync(
+        `bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV} ${
+          SMOKE_TEST === 'true' && '--mode smoke'
+        }`,
+        {
+          stdio: 'inherit',
+          env: { ...process.env, ENV },
+        }
+      );
     } catch (error) {
       console.error(`Failed to run e2e-test-setup.js for ${app}`);
       console.error(error?.message);
@@ -199,6 +205,12 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
       playwrightArgs.push('--headed=false');
     }
 
+    console.log('SMOKE_TEST value:', SMOKE_TEST);
+
+    if (SMOKE_TEST === 'true') {
+      playwrightArgs.push('--grep', '@smoke');
+    }
+
     return spawn('env-cmd', ['-f', `./env/tests.${ENV}.json`, 'npx', 'playwright', ...playwrightArgs], {
       shell: true,
       stdio: 'inherit',
@@ -207,6 +219,7 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
         ...process.env,
         ENV,
         INTEGRATION_TEST,
+        SMOKE_TEST,
       },
     });
   }
@@ -219,6 +232,14 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
   const baseArgs = commands[testType];
   const extraArgs = isUI ? [] : ['--', '--headed=false'];
 
+  if (SMOKE_TEST === 'true' && testType !== 'login') {
+    extraArgs.push('--grep', '@smoke');
+  }
+
+  if (extraArgs.length > 0 && extraArgs[0] !== '--') {
+    extraArgs.unshift('--');
+  }
+
   return spawn('turbo', [...baseArgs, ...extraArgs], {
     shell: true,
     stdio: 'inherit',
@@ -228,6 +249,7 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
       PLAYWRIGHT_REPORT_SUFFIX: testType === 'login' ? '-login' : '',
       IS_LOGIN_TEST: testType === 'login' ? 'true' : 'false',
       ...(testType === 'specs' && { INTEGRATION_TEST }),
+      SMOKE_TEST,
     },
   });
 }
