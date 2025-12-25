@@ -18,7 +18,7 @@ export const composeResponsiblePartyData: DataComposer<ResponsiblePartyInput, Re
     const genderString = guarantorResource?.gender === 'other' ? 'Intersex' : guarantorResource?.gender;
     sex = capitalize(genderString);
   }
-  const dob = formatDateForDisplay(guarantorResource?.birthDate) ?? '';
+  const dob = formatDateForDisplay(guarantorResource?.birthDate);
   let fullName = '';
   if (guarantorResource) {
     fullName = getFullName(guarantorResource) ?? '';

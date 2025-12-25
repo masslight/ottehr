@@ -22,7 +22,7 @@ export const composeConsentFormsData: DataComposer<ConsentsDataInput, consentFor
 
   const firstConsent = consents && consents.length > 0 ? consents[0] : undefined;
 
-  const date = formatDateForDisplay(firstConsent?.dateTime, timezone) ?? '';
+  const date = formatDateForDisplay(firstConsent?.dateTime, timezone);
 
   const flattenedPaperwork = flattenQuestionnaireAnswers(questionnaireResponse.item || []);
   const signature = flattenedPaperwork.find((item) => item.linkId === 'signature')?.answer?.[0]?.valueString ?? '';

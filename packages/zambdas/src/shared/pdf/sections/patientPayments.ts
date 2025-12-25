@@ -7,7 +7,7 @@ export const composePatientPaymentsData: DataComposer<PatientPaymentsDataInput, 
   payments,
 }) => {
   const paymentsInfo = payments.map((payment) => {
-    const date = formatDateForDisplay(payment.dateISO) ?? '';
+    const date = formatDateForDisplay(payment.dateISO);
 
     let label = '';
     if (payment.paymentMethod === 'card') {

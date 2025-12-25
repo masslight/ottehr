@@ -15,7 +15,7 @@ export const composePatientData: DataComposer<PatientDataInput, PatientInfo> = (
   const fullName = getFormattedPatientFullName(patient, { skipNickname: true }) ?? '';
   const suffix = getNameSuffix(patient) ?? '';
   const preferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0] ?? '';
-  const dob = formatDateForDisplay(patient?.birthDate) ?? '';
+  const dob = formatDateForDisplay(patient?.birthDate);
   const unconfirmedDOB = formatDateForDisplay(getUnconfirmedDOBForAppointment(appointment));
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
   const id = patient.id ?? '';
