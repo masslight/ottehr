@@ -21,6 +21,14 @@ on:
           - staging
           - demo
         default: 'local'
+      mode:
+        description: 'Tests running mode'
+        required: false
+        type: choice
+        options:
+          - normal
+          - smoke
+        default: 'normal'
   workflow_call:
     inputs:
       environment:
@@ -158,7 +166,12 @@ jobs:
           if [ "$ENV" == "local" ] || [ "$ENV" == "e2e" ]; then
             npm run ehr:e2e:$ENV:integration
           else
-            npm run ehr:e2e:$ENV
+            MODE="${{ inputs.mode }}"
+            if [ "$MODE" == "smoke" ]; then
+              npm run ehr:e2e:$ENV:smoke
+            else
+              npm run ehr:e2e:$ENV
+            fi
           fi
         env:
           CI: true
