@@ -15,6 +15,7 @@ import { useGetNursingOrders } from 'src/features/nursing-orders/components/orde
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
 import { useGetVitalsForEncounters } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
 import { useGetMedicationOrders } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import { useGetErxOrders } from 'src/hooks/useGetErxOrders';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
   ExtendedMedicationDataForResponse,
@@ -25,6 +26,7 @@ import {
   LabOrderListPageDTO,
   NursingOrder,
   OrdersForTrackingBoardTable,
+  PrescribedMedicationDTO,
 } from 'utils';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
@@ -183,12 +185,27 @@ export default function Appointments(): ReactElement {
     );
   }, [radiologyOrders]);
 
+  const { data: erxOrders } = useGetErxOrders({ encounterIds: encountersIdsEligibleForOrders });
+  const erxOrdersByEncounterId = useMemo(() => {
+    if (!erxOrders?.orders) return {};
+
+    return erxOrders?.orders?.reduce(
+      (acc, med) => {
+        const encounterId = med.encounterId ?? '';
+        acc[encounterId] = [...(acc[encounterId] || []), med];
+        return acc;
+      },
+      {} as Record<string, PrescribedMedicationDTO[]>
+    );
+  }, [erxOrders?.orders]);
+
   const orders: OrdersForTrackingBoardTable = {
     externalLabOrdersByAppointmentId,
     inHouseLabOrdersByAppointmentId,
     nursingOrdersByAppointmentId,
     inHouseMedicationsByEncounterId,
     radiologyOrdersByAppointmentId,
+    erxOrdersByEncounterId,
   };
 
   const { data: vitals } = useGetVitalsForEncounters({

@@ -14,10 +14,33 @@ interface ZambdaSpec {
   zip: string;
 }
 
+interface ZambdasJson {
+  'schema-version': string;
+  zambdas: Record<string, ZambdaSpec>;
+}
+
+const loadEnvZambdas = (env: string): ZambdaSpec[] => {
+  const envConfigPath = path.resolve(__dirname, `../../config/oystehr/env/${env}/zambdas.json`);
+  try {
+    if (fs.existsSync(envConfigPath)) {
+      const envSpec = JSON.parse(fs.readFileSync(envConfigPath, 'utf-8')) as ZambdasJson;
+      console.log(`Loading env-specific zambdas from: ${envConfigPath}`);
+      return Object.values(envSpec.zambdas);
+    }
+  } catch (error) {
+    console.warn(`Failed to load env-specific zambdas from ${envConfigPath}:`, error);
+  }
+  return [];
+};
+
 const zambdasList = (): ZambdaSpec[] => {
-  return Object.entries(zambdasSpec.zambdas).map(([_key, spec]) => {
-    return spec;
-  });
+  const baseZambdas = Object.entries(zambdasSpec.zambdas).map(([_key, spec]) => spec);
+  const env = process.env.ENV || '';
+  if (env) {
+    const envZambdas = loadEnvZambdas(env);
+    return [...baseZambdas, ...envZambdas];
+  }
+  return baseZambdas;
 };
 
 const chunkArray = <T>(array: T[], chunkSize: number): T[][] => {

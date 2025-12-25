@@ -6,7 +6,7 @@ const DEFAULT_FORMS_CONFIG: FormsConfig = {
   forms: [
     {
       title: 'Texas Workers Compensation Form DWC073',
-      link: 'https://drive.google.com/file/d/1H2PLOAOlblpPJUkgmFvnw6XLJYRnW2GX/view?usp=drive_link',
+      link: '/dwc073.pdf',
     },
   ],
 };

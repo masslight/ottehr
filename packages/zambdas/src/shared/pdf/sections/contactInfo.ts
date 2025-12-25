@@ -1,5 +1,5 @@
 import { formatPhoneNumberDisplay, PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL } from 'utils';
-import { DataComposer } from '../pdf-common';
+import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { ContactInfo, PatientDataInput, PdfSection } from '../types';
 
 export const composeContactData: DataComposer<PatientDataInput, ContactInfo> = ({ patient }) => {
@@ -31,65 +31,82 @@ export const composeContactData: DataComposer<PatientDataInput, ContactInfo> = (
   };
 };
 
-export const createContactInfoSection = <TData extends { contact?: ContactInfo }>(): PdfSection<
-  TData,
-  ContactInfo
-> => ({
-  title: 'Contact information',
-  dataSelector: (data) => data.contact,
-  render: (client, contactInfo, styles) => {
-    client.drawLabelValueRow(
-      'Street address',
-      contactInfo.streetAddress,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+export const createContactInfoSection = <TData extends { contact?: ContactInfo }>(): PdfSection<TData, ContactInfo> => {
+  return createConfiguredSection('patientContactInformation', (shouldShow) => ({
+    title: 'Contact information',
+    dataSelector: (data) => data.contact,
+    render: (client, contactInfo, styles) => {
+      if (shouldShow('patient-street-address')) {
+        client.drawLabelValueRow(
+          'Street address',
+          contactInfo.streetAddress,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      'Address line 2',
-      contactInfo.addressLineOptional,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('patient-street-address-2')) {
+        client.drawLabelValueRow(
+          'Address line 2',
+          contactInfo.addressLineOptional,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      'City, State, ZIP',
-      `${contactInfo.city}, ${contactInfo.state}, ${contactInfo.zip}`,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('patient-city') && shouldShow('patient-state') && shouldShow('patient-zip')) {
+        client.drawLabelValueRow(
+          'City, State, ZIP',
+          `${contactInfo.city}, ${contactInfo.state}, ${contactInfo.zip}`,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow('Email', contactInfo.patientEmail, styles.textStyles.regular, styles.textStyles.regular, {
-      drawDivider: true,
-      dividerMargin: 8,
-    });
-    client.drawLabelValueRow(
-      'Mobile',
-      contactInfo.patientMobile,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        drawDivider: true,
-        dividerMargin: 8,
+      if (shouldShow('patient-email')) {
+        client.drawLabelValueRow(
+          'Email',
+          contactInfo.patientEmail,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-    client.drawLabelValueRow(
-      'Preferred Communication Method',
-      contactInfo.patientPreferredCommunicationMethod,
-      styles.textStyles.regular,
-      styles.textStyles.regular,
-      {
-        spacing: 16,
+      if (shouldShow('patient-number')) {
+        client.drawLabelValueRow(
+          'Mobile',
+          contactInfo.patientMobile,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            drawDivider: true,
+            dividerMargin: 8,
+          }
+        );
       }
-    );
-  },
-});
+      if (shouldShow('patient-preferred-communication-method')) {
+        client.drawLabelValueRow(
+          'Preferred Communication Method',
+          contactInfo.patientPreferredCommunicationMethod,
+          styles.textStyles.regular,
+          styles.textStyles.regular,
+          {
+            spacing: 16,
+          }
+        );
+      }
+    },
+  }));
+};

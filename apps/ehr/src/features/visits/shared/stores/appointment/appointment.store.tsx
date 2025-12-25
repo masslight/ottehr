@@ -19,7 +19,7 @@ import {
   QuestionnaireResponse,
 } from 'fhir/r4b';
 import { useCallback, useEffect, useMemo } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { APPOINTMENT_REFRESH_INTERVAL, CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import {
@@ -174,8 +174,7 @@ export const useAppointmentData = (
   AppointmentStateUpdater &
   ReactQueryState => {
   const { id: appointmentIdFromUrl } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const appointmentId = appointmentIdFromProps || appointmentIdFromUrl;
   const queryClient = useQueryClient();
   const { data: currentState, isLoading, isFetching, refetch, error, isPending } = useGetAppointment({ appointmentId });
@@ -225,16 +224,12 @@ export const useAppointmentData = (
     if (isLoading || isPending) {
       return;
     }
-    const encounterIdFromLocation = (
-      location.state as {
-        encounterId?: string;
-      }
-    )?.encounterId;
-    if (encounterIdFromLocation && !isLoading && !isPending) {
-      setSelectedEncounter(encounterIdFromLocation);
-      navigate('.', { replace: true });
+    const encounterIdFromUrl = searchParams.get('encounterId');
+
+    if (encounterIdFromUrl) {
+      setSelectedEncounter(encounterIdFromUrl);
     }
-  }, [isLoading, isPending, location.state, navigate, setSelectedEncounter]);
+  }, [isLoading, isPending, searchParams, setSelectedEncounter]);
 
   const getSelectedEncounter = useCallback(() => {
     const state = currentState || APPOINTMENT_INITIAL;

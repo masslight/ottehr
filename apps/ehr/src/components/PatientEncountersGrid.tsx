@@ -294,13 +294,11 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       case 'note': {
         const { encounterId, originalAppointmentId } = encounter;
         if (!originalAppointmentId) return '-';
-        const to = `/in-person/${originalAppointmentId}/follow-up-note`;
+        const to = `/in-person/${originalAppointmentId}/follow-up-note${
+          encounterId ? `?encounterId=${encounterId}` : ''
+        }`;
 
-        return (
-          <RoundedButton to={to} state={{ encounterId }}>
-            Progress Note
-          </RoundedButton>
-        );
+        return <RoundedButton to={to}>Progress Note</RoundedButton>;
       }
       default:
         return '-';

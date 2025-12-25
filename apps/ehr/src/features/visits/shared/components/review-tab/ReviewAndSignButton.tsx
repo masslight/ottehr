@@ -76,6 +76,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const emCode = chartData?.emCode;
   const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
   const inHouseLabResultsPending = chartFields?.inHouseLabResults?.resultsPending;
+  const inHouseLabReflexTestPending = chartFields?.inHouseLabResults?.reflexTestsPending;
 
   const patientName = getPatientName(patient?.name).firstLastName;
 
@@ -134,6 +135,12 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       messages.push('In-House lab results pending');
     }
 
+    if (inHouseLabReflexTestPending) {
+      inHouseLabReflexTestPending.forEach((test) =>
+        messages.push(`In-House lab results have triggered a reflex test for ${test}`)
+      );
+    }
+
     return messages;
   }, [
     isInPerson,
@@ -147,6 +154,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     appointmentAccessibility.status,
     inHouseLabResultsPending,
     isFollowup,
+    inHouseLabReflexTestPending,
   ]);
 
   const handleCloseTooltip = (): void => {
