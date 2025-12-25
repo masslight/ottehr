@@ -101,15 +101,15 @@ export const createConsentFormsSection = <TData extends { consentForms?: consent
         drawDivider: true,
         dividerMargin: 8,
       });
-      client.drawLabelValueRow(
-        'I verify that patient consent has been obtained',
-        data.consentIsAttested ? 'Yes' : 'No',
-        styles.textStyles.regular,
-        styles.textStyles.regular,
-        {
-          spacing: 16,
-        }
-      );
     }
+    client.drawLabelValueRow(
+      'I verify that patient consent has been obtained',
+      data.consentIsAttested ? 'Yes' : 'No',
+      styles.textStyles.regular,
+      styles.textStyles.regular,
+      {
+        spacing: 16,
+      }
+    );
   },
 });
