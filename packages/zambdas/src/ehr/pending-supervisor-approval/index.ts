@@ -8,8 +8,10 @@ import {
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
   getSecret,
+  getTaskResource,
   PendingSupervisorApprovalInputValidated,
   SecretsKeys,
+  TaskIndicator,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
 import {
@@ -117,6 +119,14 @@ export const index = wrapHandler(
 
       console.log(`Updated encounter: ${encounter.id}.`);
       const appointmentId = encounter.appointment?.[0].reference?.split('/')[1];
+
+      if (appointmentId === undefined) {
+        throw new Error('Appointment ID is not defined');
+      }
+
+      const visitNoteAndEmailTaskResource = getTaskResource(TaskIndicator.visitNotePDFAndEmail, appointmentId);
+      const taskCreationResults = await oystehr.fhir.create(visitNoteAndEmailTaskResource);
+      console.log('Task creation results ', taskCreationResults);
 
       return {
         statusCode: 200,

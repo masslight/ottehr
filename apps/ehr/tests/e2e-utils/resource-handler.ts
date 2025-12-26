@@ -426,6 +426,36 @@ export class ResourceHandler {
     }
   }
 
+  async waitTillVisitNotePdfCreated(): Promise<DocumentReference> {
+    const apiClient = await this.apiClient;
+
+    try {
+      for (let i = 0; i < 20; i++) {
+        const searchResult = await apiClient.fhir.search<DocumentReference>({
+          resourceType: 'DocumentReference',
+          params: [
+            { name: 'encounter', value: `Encounter/${this.encounter.id}` },
+            { name: 'patient', value: `Patient/${this.patient.id}` },
+            { name: 'type', value: '75498-6' },
+          ],
+        });
+
+        const documentReferences = searchResult.unbundle() as DocumentReference[];
+
+        if (documentReferences.length > 0) {
+          return documentReferences[0];
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      throw new Error(`Visit Note PDF DocumentReference wasn't created for encounter ${this.encounter.id}`);
+    } catch (e) {
+      console.error('Error during waitTillVisitNotePdfCreated', e);
+      throw e;
+    }
+  }
+
   async setEmployees(): Promise<void> {
     const apiClient = await this.apiClient;
     const authToken = await this.#authToken;
