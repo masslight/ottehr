@@ -152,15 +152,25 @@ const usePatientData = (
 } => {
   const apiClient = useOystehrAPIClient();
 
-  const { isFetching: accountFetching, data: accountData } = useGetPatientAccount({
+  const {
+    isFetching: accountFetching,
+    data: accountData,
+    status,
+  } = useGetPatientAccount({
     apiClient,
     patientId: id ?? null,
   });
 
-  const { data: insuranceData, isFetching: coveragesFetching } = useGetPatientCoverages({
-    apiClient,
-    patientId: id ?? null,
-  });
+  const { data: insuranceData, isFetching: coveragesFetching } = useGetPatientCoverages(
+    {
+      apiClient,
+      patientId: id ?? null,
+    },
+    undefined,
+    {
+      enabled: apiClient != null && id != null && status === 'success',
+    }
+  );
 
   const maybeQuestionnaire = Object.values(ehrInsuranceUpdateFormJson.fhirResources).find(
     (q) =>

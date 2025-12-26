@@ -1,5 +1,5 @@
 import { BundleEntry } from '@oystehr/sdk';
-import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useMutation, UseMutationResult, useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
 import { Bundle, FhirResource, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
@@ -145,6 +145,8 @@ export const useGetPatientAccount = (
   return queryResult;
 };
 
+type SafeQueryOptions<TData> = Omit<UseQueryOptions<TData, Error>, 'queryKey' | 'queryFn'>;
+
 export const useGetPatientCoverages = (
   {
     apiClient,
@@ -153,16 +155,17 @@ export const useGetPatientCoverages = (
     apiClient: OystehrTelemedAPIClient | null;
     patientId: string | null;
   },
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientCoverages']>> | null) => void
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientCoverages']>> | null) => void,
+  options?: SafeQueryOptions<PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientCoverages']>>>
 ): UseQueryResult<PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientCoverages']>>, Error> => {
   const queryResult = useQuery({
-    queryKey: ['patient-coverages', { apiClient, patientId }],
+    queryKey: ['patient-coverages', { patientId }],
     queryFn: () => {
       return apiClient!.getPatientCoverages({
         patientId: patientId!,
       });
     },
-    enabled: apiClient != null && patientId != null,
+    enabled: options?.enabled ?? (apiClient != null && patientId != null),
   });
 
   useSuccessQuery(queryResult.data, onSuccess);
