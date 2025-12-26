@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitForElementToBeRemoved } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -62,7 +62,7 @@ describe('AddPatient - Validation Tests', () => {
 
     await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
 
-    const errorMessage = screen.getByText('Phone number must be 10 digits in the format (xxx) xxx-xxxx');
+    const errorMessage = screen.getByText('Please enter at least one search term');
     expect(errorMessage).toBeVisible();
   });
 
@@ -218,6 +218,7 @@ describe('AddPatient - Validation Tests', () => {
 
       const notFoundButton = await screen.findByTestId(dataTestIds.addPatientPage.patientNotFoundButton);
       await user.click(notFoundButton);
+      await waitForElementToBeRemoved(notFoundButton);
 
       // Fill required fields
       const firstNameInput = screen.getByTestId(dataTestIds.addPatientPage.firstNameInput).querySelector('input');
@@ -280,6 +281,7 @@ describe('AddPatient - Validation Tests', () => {
 
       const notFoundButton = await screen.findByTestId(dataTestIds.addPatientPage.patientNotFoundButton);
       await user.click(notFoundButton);
+      await waitForElementToBeRemoved(notFoundButton);
 
       // Fill required fields
       const firstNameInput = screen.getByTestId(dataTestIds.addPatientPage.firstNameInput).querySelector('input');

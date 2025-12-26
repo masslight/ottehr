@@ -1,0 +1,101 @@
+{
+  "schema-version": "2025-09-25",
+  "m2ms": {
+    "ZAMBDAS_ADMIN": {
+      "name": "Zambdas Admin",
+      "description": "This M2M Client is used inside Ottehr Zambdas",
+      "accessPolicy": [
+        {
+          "resource": ["FHIR:*"],
+          "action": ["FHIR:*"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Telemed:*"],
+          "action": ["Telemed:*"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["App:User"],
+          "action": ["App:CreateUser", "App:GetUser", "App:UpdateUser", "App:ListAllUsers"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Zambda:*"],
+          "action": ["Zambda:*"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Fax:Fax:*"],
+          "action": ["Fax:Send"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["IAM:M2MClient:*"],
+          "action": ["IAM:ListAllM2MClients", "IAM:GetM2MClient"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["IAM:Role"],
+          "action": ["IAM:GetRole", "IAM:ListAllRoles", "IAM:CreateRole", "IAM:UpdateRole"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Lab:*"],
+          "action": ["Lab:*"],
+          "effect": "Allow"
+        },
+        {
+          "resource": [
+            "Z3:#{var/PROJECT_ID}-photo-id-cards/*",
+            "Z3:#{var/PROJECT_ID}-insurance-cards/*",
+            "Z3:#{var/PROJECT_ID}-school-work-note-templates/*",
+            "Z3:#{var/PROJECT_ID}-patient-photos/*",
+            "Z3:#{var/PROJECT_ID}-consent-forms/*",
+            "Z3:#{var/PROJECT_ID}-visit-notes/*",
+            "Z3:#{var/PROJECT_ID}-receipts/*",
+            "Z3:#{var/PROJECT_ID}-school-work-notes/*",
+            "Z3:#{var/PROJECT_ID}-privacy-policy/*",
+            "Z3:#{var/PROJECT_ID}-audio-recordings/*",
+            "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
+            "Z3:#{var/PROJECT_ID}-discharge-summaries/*",
+            "Z3:#{var/PROJECT_ID}-labs/*",
+            "Z3:#{var/PROJECT_ID}-invoiceable-patients-reports/*",
+            "Z3:#{var/PROJECT_ID}-statements/*"
+          ],
+          "action": ["Z3:PutObject", "Z3:GetObject"],
+          "effect": "Allow"
+        },
+        {
+          "resource": [
+            "Z3:#{var/PROJECT_ID}-school-work-notes/*"
+          ],
+          "action": ["Z3:DeleteObject"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["Messaging:SendTransactionalSMS"],
+          "effect": "Allow",
+          "resource": ["*"]
+        },
+        {
+          "action": ["RCM:CheckInsuranceEligibility"],
+          "effect": "Allow",
+          "resource": ["RCM:InsuranceEligibility"]
+        }
+      ]
+    },
+    "E2E_M2M_CLIENT": {
+      "name": "E2E Tests M2M Client",
+      "description": "This M2M Client is used to drive and clean up E2E tests",
+      "accessPolicy": [
+        {
+          "resource": ["*"],
+          "action": ["*"],
+          "effect": "Allow"
+        }
+      ],
+      "roles": ["#{ref/roles/PROVIDER/id}"]
+    }
+  }
+}

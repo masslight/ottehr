@@ -2,42 +2,32 @@ name: Unit, Component, and Integration Tests
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main, develop]
-    paths:
-      - 'apps/ehr/**'
-      - 'apps/intake/**'
-      - 'packages/zambdas/**'
-      - 'packages/utils/**'
-      - 'packages/ui-components/**'
-      - 'scripts/**'
-      - '.github/**'
-      - '.prettierignore'
-      - 'package.json'
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - 'apps/ehr/**'
-      - 'apps/intake/**'
-      - 'packages/zambdas/**'
-      - 'packages/utils/**'
-      - 'packages/ui-components/**'
-      - 'scripts/**'
-      - '.github/**'
-      - '.prettierignore'
-      - 'package.json'
+    inputs:
+      environment:
+        description: "Environment to run tests on"
+        required: false
+        type: choice
+        options:
+          - local
+          - e2e
+        default: "local"
+  workflow_call:
+    inputs:
+      environment:
+        required: false
+        type: string
+
+env:
+  SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
 
 jobs:
   automated-tests:
-    if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest-4-cores
     timeout-minutes: 15
     strategy:
       matrix:
         node-version:
           - "22"
-    env:
-      SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
     steps:
       - name: Install SSH Client
         uses: webfactory/ssh-agent@836c84ec59a0e7bc0eabc79988384eb567561ee2 # v0.7.0
@@ -59,7 +49,7 @@ jobs:
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
-          path: 'secrets'
+          path: "secrets"
 
       - name: Setup secrets
         run: |
@@ -73,48 +63,56 @@ jobs:
 
       - name: Cache node modules
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        env:
-          cache-name: cache-node-modules
+        id: npm-cache
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            deploy/node_modules
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+            ${{ runner.os }}-npm-cache-
 
       - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
         run: npm ci
 
-      # Tests start here
+      - name: Determine Environment
+        id: env
+        run: |
+          INPUT_ENV="${{ inputs.environment }}"
+          if [ -n "$INPUT_ENV" ]; then
+            echo "environment=$INPUT_ENV" >> $GITHUB_OUTPUT
+          elif [ "${{ github.repository }}" == "masslight/ottehr" ]; then
+            echo "environment=e2e" >> $GITHUB_OUTPUT
+          else
+            echo "environment=local" >> $GITHUB_OUTPUT
+          fi
+
       - name: Unit tests
         run: npm run test
         env:
+          ENV: ${{ steps.env.outputs.environment }}
           CI: true
-          NODE_OPTIONS: '--max-old-space-size=8192'
+          NODE_OPTIONS: "--max-old-space-size=8192"
 
       - name: Patient component tests
         run: cd apps/intake && npm run component-tests
         env:
-          ENV: 'local'
+          ENV: ${{ steps.env.outputs.environment }}
           CI: true
-          NODE_OPTIONS: '--max-old-space-size=8192'
+          NODE_OPTIONS: "--max-old-space-size=8192"
 
       - name: EHR component tests
         run: cd apps/ehr && npm run component-tests
         env:
-          ENV: 'local'
+          ENV: ${{ steps.env.outputs.environment }}
           CI: true
-          NODE_OPTIONS: '--max-old-space-size=8192'
-
-      - name: Integration tests
-        run: npm run integration:zambdas
-        env:
-          ENV: 'local'
-          CI: true
-          NODE_OPTIONS: '--max-old-space-size=8192'
+          NODE_OPTIONS: "--max-old-space-size=8192"
 
       - name: Set GitHub Commit Status
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |

@@ -210,7 +210,8 @@ export const getEncounterStatusHistoryUpdateOp = (
     const didOttEhrStatusHistoryChange = ottehrHistoryStatusExtension?.valueCode !== ottehrVisitStatus;
 
     if (curStatus && (didFhirStatusHistoryChange || didOttEhrStatusHistoryChange)) {
-      curStatus.period.end = now;
+      const startTime = curStatus.period.start;
+      curStatus.period.end = startTime && startTime > now ? startTime : now;
       statusHistory.push(newStatusHistory);
     } else if (!curStatus) {
       statusHistory.push(newStatusHistory);
@@ -239,6 +240,7 @@ export const checkEncounterIsVirtual = (encounter: Encounter): boolean => {
 export enum PaymentVariant {
   insurance = 'insurance',
   selfPay = 'selfPay',
+  employer = 'employer',
 }
 
 export const getPaymentVariantFromEncounter = (encounter: Encounter): PaymentVariant | undefined => {

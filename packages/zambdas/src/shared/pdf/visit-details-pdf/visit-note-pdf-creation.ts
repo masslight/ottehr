@@ -41,11 +41,11 @@ import {
   isDropdownComponent,
   isInPersonAppointment,
   isMultiSelectComponent,
+  LabDocumentRelatedToDiagnosticReport,
   mapDispositionTypeToLabel,
   mapVitalsToDisplay,
   NOTE_TYPE,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
-  OttehrGeneratedResultDocument,
   Pagination,
   PatientLabItem,
   patientScreeningQuestionsConfig,
@@ -96,7 +96,7 @@ type AllChartData = {
     observations: Observation[];
     pagination: Pagination;
     diagnosticReports: DiagnosticReport[];
-    resultsPDFs: OttehrGeneratedResultDocument[];
+    resultsPDFs: LabDocumentRelatedToDiagnosticReport[];
     currentPractitioner?: Practitioner;
     appointmentScheduleMap: Record<string, Schedule>;
   };
@@ -173,6 +173,9 @@ function composeDataForPdf(
   // --- Chief complaint ---
   const chiefComplaint = chartData.chiefComplaint?.text;
   const spentTime = chartData.addToVisitNote?.value ? getSpentTime(encounter.statusHistory) : undefined;
+
+  // --- Mechanism of injury ---
+  const mechanismOfInjury = chartData.mechanismOfInjury?.text;
 
   // --- Review of system ---
   const reviewOfSystems = chartData.ros?.text;
@@ -282,8 +285,7 @@ function composeDataForPdf(
   const otherDiagnoses = diagnoses.filter((item) => !item.isPrimary).map((item) => item.display);
 
   // --- MDM ---
-  // const medicalDecision = additionalChartData?.medicalDecision?.text;
-  const medicalDecision = '';
+  const medicalDecision = additionalChartData?.medicalDecision?.text;
 
   // --- E&M ---
   const emCode = chartData?.emCode?.display;
@@ -379,6 +381,7 @@ function composeDataForPdf(
     insuranceSubscriberId: subscriberID,
     address: address ?? '',
     chiefComplaint: chiefComplaint,
+    mechanismOfInjury: mechanismOfInjury,
     providerTimeSpan: spentTime,
     reviewOfSystems: reviewOfSystems,
     medications,
@@ -599,9 +602,10 @@ function parseExamFieldsFromExamObservations(
             Object.entries(component.options).forEach(([optionName, option]) => {
               const observation = examObservations[optionName];
               if (observation && typeof observation.value === 'boolean' && observation.value === true) {
+                const description = option.description ? ` (${option.description})` : '';
                 selectedOptions.push({
                   field: optionName,
-                  label: `${component.label}: ${option.label}`,
+                  label: `${component.label}: ${option.label}${description}`,
                   abnormal: section === 'abnormal',
                 });
               }

@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-virtual-previsit-1_0_14": {
+    "questionnaire-virtual-previsit-1_0_19": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-        "version": "1.0.14",
+        "version": "1.0.19",
         "name": "virtual_pre-visit_paperwork",
         "title": "virtual pre-visit paperwork",
         "status": "active",
@@ -395,6 +395,29 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
                     "valueString": "section-patient shipping tel"
+                  }
+                ]
+              },
+              {
+                "linkId": "patient-preferred-communication-method",
+                "text": "Preferred Communication Method",
+                "required": true,
+                "type": "choice",
+                "answerOption": [
+                  {
+                    "valueString": "No preference"
+                  },
+                  {
+                    "valueString": "Email"
+                  },
+                  {
+                    "valueString": "Home Phone"
+                  },
+                  {
+                    "valueString": "Cell Phone"
+                  },
+                  {
+                    "valueString": "Mail"
                   }
                 ]
               },
@@ -1719,6 +1742,48 @@
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/review-text",
                 "valueString": "Insurance details"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question",
+                    "valueString": "appointment-service-category"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator",
+                    "valueString": "="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer",
+                    "valueString": "occupational-medicine"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text",
+                    "valueString": "Who is paying for the visit?"
+                  }
+                ]
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question",
+                    "valueString": "appointment-service-category"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator",
+                    "valueString": "="
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer",
+                    "valueString": "workmans-comp"
+                  },
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text",
+                    "valueString": "Who is responsible for the claim?"
+                  }
+                ]
               }
             ],
             "type": "group",
@@ -1730,10 +1795,43 @@
                 "required": true,
                 "answerOption": [
                   {
-                    "valueString": "I have insurance"
+                    "valueString": "I have insurance",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
+                        "valueString": "appointment-service-category != occupational-medicine"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label-when",
+                        "valueString": "appointment-service-category = workmans-comp : Insurance"
+                      }
+                    ]
                   },
                   {
-                    "valueString": "I will pay without insurance"
+                    "valueString": "I will pay without insurance",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
+                        "valueString": "appointment-service-category != workmans-comp"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-label-when",
+                        "valueString": "appointment-service-category = occupational-medicine : Self"
+                      }
+                    ]
+                  },
+                  {
+                    "valueString": "Employer",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
+                        "valueString": "appointment-service-category = occupational-medicine"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-enable-when",
+                        "valueString": "appointment-service-category = workmans-comp"
+                      }
+                    ]
                   }
                 ],
                 "extension": [
@@ -3343,6 +3441,18 @@
                         "valueString": "64290-0"
                       }
                     ]
+                  }
+                ]
+              },
+              {
+                "linkId": "appointment-service-category",
+                "type": "string",
+                "required": true,
+                "readOnly": true,
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                    "valueString": "hidden"
                   }
                 ]
               }

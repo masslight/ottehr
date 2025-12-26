@@ -9,6 +9,7 @@ import {
   FhirResource,
   List,
   Observation,
+  Organization,
   Patient,
   Person,
   QuestionnaireResponse,
@@ -18,6 +19,7 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getAppointmentGraphSearchParams } from 'utils';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
 const PROCESS_ID = `contractTests-${DateTime.now().toMillis()}`;
@@ -113,6 +115,11 @@ test('Ensure Resources created by generate test data -> harvest -> prefill is th
   accountTests(e2eResources, integrationResources);
   console.groupEnd();
   console.debug('account tests success');
+
+  console.group('organization tests');
+  organizationTests(e2eResources, integrationResources);
+  console.groupEnd();
+  console.debug('organization tests success');
 });
 
 const appointmentTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
@@ -337,9 +344,44 @@ const accountTests = (e2eResources: Resource[], integrationResources: Resource[]
 
   expect(e2eAccounts.length).toEqual(integrationAccounts.length);
 
-  const e2eAccount = cleanAccount(e2eAccounts[0]);
-  const integrationAccount = cleanAccount(integrationAccounts[0]);
-  checkKeysAndValuesBothWays(e2eAccount, integrationAccount, 'Account');
+  const e2eCleaned = e2eAccounts.map((account) => cleanAccount(account));
+  const integrationCleaned = integrationAccounts.map((account) => cleanAccount(account));
+
+  e2eCleaned.forEach((e2eAccount) => {
+    const accountTypeCode = e2eAccount.type?.coding?.[0]?.code;
+    const integrationAccount = integrationCleaned.find(
+      (account) => account.type?.coding?.[0]?.code === accountTypeCode
+    );
+    if (!integrationAccount) {
+      throw new Error(`Could not find matching Account for type code ${accountTypeCode}`);
+    }
+    checkKeysAndValuesBothWays(e2eAccount, integrationAccount, `${accountTypeCode} Account`);
+  });
+};
+
+const organizationTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
+  const e2eOrganizations = e2eResources.filter(
+    (resource) => resource.resourceType === 'Organization'
+  ) as Organization[];
+  const integrationOrganizations = integrationResources.filter(
+    (resource) => resource.resourceType === 'Organization'
+  ) as Organization[];
+
+  expect(e2eOrganizations.length).toEqual(integrationOrganizations.length);
+
+  const e2eCleaned = e2eOrganizations.map((organization) => cleanOrganization(organization));
+  const integrationCleaned = integrationOrganizations.map((organization) => cleanOrganization(organization));
+
+  e2eCleaned.forEach((e2eOrganization) => {
+    const organizationTypeCode = e2eOrganization.type?.[0]?.coding?.[0]?.code;
+    const integrationOrganization = integrationCleaned.find(
+      (organization) => organization.type?.[0]?.coding?.[0]?.code === organizationTypeCode
+    );
+    if (!integrationOrganization) {
+      throw new Error(`Could not find matching Organization for type code ${organizationTypeCode}`);
+    }
+    checkKeysAndValuesBothWays(e2eOrganization, integrationOrganization, `${organizationTypeCode} Organization`);
+  });
 };
 
 const checkKeysAndValuesBothWays = (e2eResource: any, integrationResource: any, label: string): void => {
@@ -453,6 +495,9 @@ const cleanEncounter = (encounter: Encounter): Encounter => {
     appointment.reference = appointment.reference?.split('/')[0]; // cut off the UUID for comparison
   });
   cleanedEncounter.subject!.reference = cleanedEncounter.subject!.reference?.split('/')[0]; // cut off the UUID for comparison
+  cleanedEncounter.account?.forEach((account) => {
+    account.reference = account.reference?.split('/')[0]; // cut off the UUID for comparison
+  });
   cleanedEncounter.statusHistory?.forEach((statusHistory) => {
     statusHistory.period!.start = SKIP_ME;
   });
@@ -533,10 +578,20 @@ const cleanAccount = (account: Account): Account => {
   cleanedAccount.subject?.forEach((subject) => {
     subject.reference = subject.reference?.split('/')[0]; // cut off the UUID for comparison
   });
+  if (cleanedAccount.owner?.reference) {
+    cleanedAccount.owner.reference = cleanedAccount.owner.reference?.split('/')[0]; // cut off the UUID for comparison
+  }
+  cleanedAccount.guarantor?.forEach((guarantor) => {
+    if (guarantor.party?.reference) {
+      guarantor.party.reference = guarantor.party.reference?.split('/')[0]; // cut off the UUID for comparison
+    }
+  });
   const containedRelatedPerson = cleanedAccount.contained?.find(
     (contained) => contained.resourceType === 'RelatedPerson'
-  ) as RelatedPerson;
-  containedRelatedPerson.patient.reference = containedRelatedPerson.patient.reference?.split('/')[0]; // cut off the UUID for comparison
+  );
+  if (containedRelatedPerson) {
+    containedRelatedPerson.patient.reference = containedRelatedPerson.patient.reference?.split('/')[0]; // cut off the UUID for comparison
+  }
   // stripe id is the only identifier we use. if that changes, update this
   if (
     cleanedAccount.identifier &&
@@ -548,76 +603,21 @@ const cleanAccount = (account: Account): Account => {
   return cleanedAccount;
 };
 
+const cleanOrganization = (organization: Organization): Organization => {
+  let cleanedOrganization = { ...organization };
+  cleanedOrganization = cleanOutMetaStuff(cleanedOrganization) as Organization;
+  return cleanedOrganization;
+};
+
 const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[]> => {
-  return (
+  const baseResults = (
     await (
       await e2eHandler.apiClient
-    ).fhir.search<Appointment>({
+    ).fhir.search<FhirResource>({
       resourceType: 'Appointment',
-      params: [
-        {
-          name: '_id',
-          value: appointmentId,
-        },
-        {
-          name: '_include',
-          value: 'Appointment:patient',
-        },
-        {
-          name: '_include',
-          value: 'Appointment:slot',
-        },
-        {
-          name: '_include',
-          value: 'Appointment:location',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'RelatedPerson:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Encounter:appointment',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'DocumentReference:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'QuestionnaireResponse:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Person:relatedperson',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'List:subject',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Consent:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Account:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Observation:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'ServiceRequest:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'ClinicalImpression:encounter',
-        },
-      ],
+      params: getAppointmentGraphSearchParams(appointmentId),
     })
   ).unbundle();
 
-  // Note it does not include AuditEvent yet but could?
+  return baseResults;
 };

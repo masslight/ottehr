@@ -59,12 +59,14 @@ type PaperworkState = {
   updateTimestamp: number | undefined;
   paperworkInProgress: { [pageId: string]: QuestionnaireFormFields };
   paperworkResponse: UCGetPaperworkResponse | undefined;
+  continueLabel: string | undefined;
 };
 
 interface PaperworkStateActions {
   setResponse: (response: UCGetPaperworkResponse) => void;
   saveProgress: (pageId: string, responses: any) => void;
   patchCompletedPaperwork: (QR: QuestionnaireResponse) => void;
+  setContinueLabel: (label: string | undefined) => void;
   clear: () => void;
 }
 
@@ -72,6 +74,7 @@ const PAPERWORK_STATE_INITIAL: PaperworkState = {
   updateTimestamp: undefined,
   paperworkInProgress: {},
   paperworkResponse: undefined,
+  continueLabel: undefined,
 };
 
 export const usePaperworkStore = create<PaperworkState & PaperworkStateActions>()(
@@ -108,6 +111,12 @@ export const usePaperworkStore = create<PaperworkState & PaperworkStateActions>(
           paperworkInProgress: {},
         }));
       },
+      setContinueLabel: (label: string | undefined) => {
+        set((state) => ({
+          ...state,
+          continueLabel: label,
+        }));
+      },
       clear: () => {
         set(PAPERWORK_STATE_INITIAL);
       },
@@ -124,12 +133,10 @@ export const PaperworkHome: FC = () => {
   const [authedFetchState, setAuthedFetchState] = useState(AuthedLoadingState.initial);
   const [saveButtonDisabled, setSaveButtonDisabled] = useState(false);
 
-  const { paperworkInProgress, paperworkResponse, updateTimestamp, setResponse } = getSelectors(usePaperworkStore, [
-    'paperworkInProgress',
-    'setResponse',
-    'paperworkResponse',
-    'updateTimestamp',
-  ]);
+  const { paperworkInProgress, paperworkResponse, updateTimestamp, setResponse, setContinueLabel } = getSelectors(
+    usePaperworkStore,
+    ['paperworkInProgress', 'setResponse', 'paperworkResponse', 'updateTimestamp', 'setContinueLabel']
+  );
 
   const { allItems, questionnaireResponse, appointment, patient } = useMemo(() => {
     if (paperworkResponse === undefined) {
@@ -235,6 +242,7 @@ export const PaperworkHome: FC = () => {
       paymentMethodStateInitializing:
         (stripeSetupData === undefined && isSetupDataLoading) || (cardData?.cards.length === 0 && cardsAreLoading),
       stripeSetupData,
+      setContinueLabel,
       refetchPaymentMethods,
       setSaveButtonDisabled,
       findAnswerWithLinkId: (linkId: string): QuestionnaireResponseItem | undefined => {
@@ -255,6 +263,7 @@ export const PaperworkHome: FC = () => {
     cardData?.cards,
     stripeSetupData,
     isSetupDataLoading,
+    setContinueLabel,
     refetchPaymentMethods,
   ]);
 
@@ -316,6 +325,7 @@ export const PaperworkPage: FC = () => {
     patient: paperworkPatient,
     questionnaireResponse,
     allItems,
+    setContinueLabel,
   } = usePaperworkContext();
 
   const questionnaireResponseId = questionnaireResponse?.id;
@@ -374,6 +384,13 @@ export const PaperworkPage: FC = () => {
   }, [lastLoggedPageName, pageName]);
 
   const [loading, setLoading] = useState<boolean>(false);
+  // when the page changes, update continue label
+  useEffect(() => {
+    if (!setContinueLabel) {
+      return;
+    }
+    setContinueLabel(undefined);
+  }, [setContinueLabel, pageName]);
 
   const controlButtons = useMemo(
     () => ({
@@ -522,12 +539,7 @@ export const PaperworkPage: FC = () => {
   );
 
   return (
-    <PageContainer
-      title={pageName ?? ''}
-      patientFullName={
-        pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName
-      }
-    >
+    <PageContainer>
       {empty ? (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <CircularProgress />
@@ -537,6 +549,10 @@ export const PaperworkPage: FC = () => {
           <PagedQuestionnaire
             onSubmit={finishPaperworkPage}
             pageId={currentPage?.linkId ?? ''}
+            pageItem={currentPage}
+            patientName={
+              pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName
+            }
             options={{ controlButtons }}
             items={questionnaireItems}
             defaultValues={paperworkGroupDefaults}

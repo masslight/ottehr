@@ -18,6 +18,7 @@ import {
   getAttendingPractitionerId,
   getSecret,
   NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
+  PATIENT_BILLING_ACCOUNT_TYPE,
   SecretsKeys,
 } from 'utils';
 import {
@@ -56,9 +57,6 @@ export const index = wrapHandler('create-nursing-order', async (input: ZambdaInp
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-    const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
-
     const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
       (
         await oystehr.fhir.search({
@@ -90,7 +88,7 @@ export const index = wrapHandler('create-nursing-order', async (input: ZambdaInp
 
     const userPractitionerIdRequest = async (): Promise<string> => {
       try {
-        const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
+        const oystehrCurrentUser = createOystehrClient(userToken, secrets);
         return await getMyPractitionerId(oystehrCurrentUser);
       } catch {
         throw Error('Resource configuration error - user creating this order must have a Practitioner resource linked');
@@ -117,7 +115,15 @@ export const index = wrapHandler('create-nursing-order', async (input: ZambdaInp
         if (resource.resourceType === 'Coverage' && resource.status === 'active')
           acc.coverageSearchResults.push(resource as Coverage);
 
-        if (resource.resourceType === 'Account' && resource.status === 'active')
+        if (
+          resource.resourceType === 'Account' &&
+          resource.status === 'active' &&
+          resource.type?.coding?.some(
+            (coding) =>
+              coding.code === PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0].code &&
+              coding.system === PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0].system
+          )
+        )
           acc.accountSearchResults.push(resource as Account);
 
         return acc;

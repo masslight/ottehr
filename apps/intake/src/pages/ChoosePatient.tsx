@@ -5,8 +5,14 @@ import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
-import { CancellationReasonOptionsInPerson, PatientAppointmentDTO, PROJECT_NAME, ServiceMode, VisitType } from 'utils';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import {
+  BRANDING_CONFIG,
+  CancellationReasonOptionsInPerson,
+  PatientAppointmentDTO,
+  ServiceMode,
+  VisitType,
+} from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { ottehrApi } from '../api';
 import { intakeFlowPageRoute } from '../App';
@@ -17,7 +23,7 @@ import PatientList from '../features/patients/components/selectable-list';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
-import { useBookingContext } from './BookingHome';
+import { PROGRESS_STORAGE_KEY, useBookingContext } from './BookingHome';
 
 const ChoosePatient = (): JSX.Element => {
   const navigate = useNavigate();
@@ -28,7 +34,6 @@ const ChoosePatient = (): JSX.Element => {
     patients,
     patientInfo,
     visitType,
-    slotId,
     timezone,
     patientsLoading,
     scheduleOwnerName,
@@ -45,6 +50,7 @@ const ChoosePatient = (): JSX.Element => {
   const [cancellingAppointment, setCancellingAppointment] = useState<boolean>(false);
   const [errorDialog, setErrorDialog] = useState<ErrorDialogConfig | undefined>(undefined);
   const { t } = useTranslation();
+  const slotId = useParams<{ slotId: string }>().slotId;
 
   const navigateInFlow = useNavigateInFlow();
 
@@ -158,6 +164,9 @@ const ChoosePatient = (): JSX.Element => {
           email: undefined,
         });
       }
+    }
+    if (patientInfo?.id !== data.patientID) {
+      sessionStorage.removeItem(PROGRESS_STORAGE_KEY);
     }
 
     if (data.patientID !== 'new-patient') {
@@ -354,7 +363,7 @@ const ChoosePatient = (): JSX.Element => {
           <CardWithDescriptionAndLink
             iconHeight={50}
             icon={ottehrLightBlue}
-            iconAlt={`${PROJECT_NAME} icon`}
+            iconAlt={`${BRANDING_CONFIG.projectName} icon`}
             mainText={t('welcomeBack.alreadyReserved')}
             textColor={otherColors.white}
             descText={t('welcomeBack.checkIn')}

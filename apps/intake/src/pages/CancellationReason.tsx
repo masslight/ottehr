@@ -11,7 +11,6 @@ import {
   BOOKING_CONFIG,
   CancellationReasonOptionsTelemed,
   CANT_CANCEL_CHECKED_IN_APT_ERROR,
-  PROJECT_NAME,
   ServiceMode,
 } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
@@ -150,12 +149,12 @@ const CancellationReason = (): JSX.Element => {
     return isVirtualAppt
       ? Object.keys(CancellationReasonOptionsTelemed).map((key, index) => ({
           label:
-            t(`cancel.telemedReasons.reason${index + 1}`, { PROJECT_NAME }) ||
+            t(`cancel.telemedReasons.reason${index + 1}`) ||
             CancellationReasonOptionsTelemed[key as keyof typeof CancellationReasonOptionsTelemed],
           value: CancellationReasonOptionsTelemed[key as keyof typeof CancellationReasonOptionsTelemed],
         }))
       : Object.keys(BOOKING_CONFIG.cancelReasonOptions).map((key, index) => ({
-          label: t(`cancel.reasons.reason${index + 1}`, { PROJECT_NAME }) || BOOKING_CONFIG.cancelReasonOptions[index],
+          label: t(`cancel.reasons.reason${index + 1}`) || BOOKING_CONFIG.cancelReasonOptions[index],
           value: BOOKING_CONFIG.cancelReasonOptions[index],
         }));
   }, [t, isVirtualAppt]);

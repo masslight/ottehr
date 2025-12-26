@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-8d90de76-5df4-4f94-ab2c-7b4165be28a3",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-a86026cf-6773-4704-b2fe-1a14976a388f"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-d245a8f0-7277-4de8-a06b-c377a992f429"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Good air movement throughout lung fields"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "good-air-movement-throughout-lung-fields",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

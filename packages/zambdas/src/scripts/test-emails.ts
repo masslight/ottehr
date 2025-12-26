@@ -97,6 +97,7 @@ const telemedCompletionTestInput = (env: any, appointmentData: AppointmentData):
 const telemedInvitationTestInput = (env: any, appointmentData: AppointmentData): TelemedInvitationTemplateData => ({
   'join-visit-url': `${env['WEBSITE_URL']}/visit/${appointmentData.id ?? randomVisitId}/join`,
   'patient-name': appointmentData.patientName ?? 'John Doe',
+  location: `${appointmentData.locationName}`,
 });
 
 const errorReportTestInput = (env: any): ErrorReportTemplateData => ({

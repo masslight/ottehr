@@ -14,6 +14,7 @@ import {
   QuestionnaireResponse,
   Task,
 } from 'fhir/r4b';
+import { ottehrCodeSystemUrl } from '../fhir/systemUrls';
 import { ScheduleExtension } from '../utils';
 import { TIMEZONES } from './constants';
 
@@ -100,6 +101,7 @@ export type FormItemType =
   | 'Form list'
   | 'Attachment'
   | 'Credit Card'
+  | 'Medical History'
   | 'Call Out'
   | undefined;
 
@@ -503,20 +505,22 @@ export const InHouseMedications: InHouseMedicationInfo[] = [
 
 export type TaskStatus = Task['status'];
 
-export interface TaskSubscriptionInput {
-  task: Task;
-}
+export const OttehrTaskSystem = ottehrCodeSystemUrl('ottehr-system-task');
 
 type Appointment_Update_Task_Codes = 'cancelled' | 'ready' | 'checkin' | 'record-wait-time';
 type Appointment_Created_Task_Codes = 'create-appointment-confirmation-messages';
 type Send_Claim_Task_Codes = 'send-claim';
 type Task_Visit_Note_PDF_And_Email_Codes = 'visit-note-pdf-and-email';
+type Task_Patient_Payment_Candid_Sync_And_Receipt_Codes = 'patient-payment-candid-sync-and-receipt';
+type RecommendDiagnosisCodesCode = 'recommend-diagnosis-codes';
 
 type Task_Codes =
   | Appointment_Update_Task_Codes
   | Appointment_Created_Task_Codes
   | Send_Claim_Task_Codes
-  | Task_Visit_Note_PDF_And_Email_Codes;
+  | Task_Visit_Note_PDF_And_Email_Codes
+  | Task_Patient_Payment_Candid_Sync_And_Receipt_Codes
+  | RecommendDiagnosisCodesCode;
 
 export const Task_Email_Communication_Url = 'urgent-care-email';
 export const Task_Text_Communication_Url = 'urgent-care-text';
@@ -525,6 +529,8 @@ export const Task_Send_Messages_Url = 'urgent-care-send-messages';
 export const Task_Sync_DocumentRef_Url = 'urgent-care-sync-document-ref';
 export const Task_Claims_System_Url = 'https://fhir.ottehr.com/CodeSystem/claim-sync';
 export const Task_Visit_Note_PDF_And_Email_Url = 'https://fhir.ottehr.com/CodeSystem/visit-note-pdf-and-email';
+export const Task_Patient_Payment_Candid_Sync_And_Receipt_Url =
+  'https://fhir.ottehr.com/CodeSystem/patient-payment-candid-sync-and-receipt';
 
 type Task_System_Member =
   | typeof Task_Email_Communication_Url
@@ -533,7 +539,9 @@ type Task_System_Member =
   | typeof Task_Send_Messages_Url
   | typeof Task_Sync_DocumentRef_Url
   | typeof Task_Claims_System_Url
-  | typeof Task_Visit_Note_PDF_And_Email_Url;
+  | typeof Task_Visit_Note_PDF_And_Email_Url
+  | typeof Task_Patient_Payment_Candid_Sync_And_Receipt_Url
+  | typeof OttehrTaskSystem;
 
 export type TaskCoding = {
   readonly system: Task_System_Member;
@@ -547,7 +555,8 @@ type TaskId =
   | 'recordWaitTime'
   | 'confirmationMessages'
   | 'sendClaim'
-  | 'visitNotePDFAndEmail';
+  | 'visitNotePDFAndEmail'
+  | 'patientPaymentCandidSyncAndReceipt';
 type TaskIndicator = {
   [key in TaskId]: TaskCoding;
 };
@@ -580,6 +589,10 @@ export const TaskIndicator: TaskIndicator = {
   visitNotePDFAndEmail: {
     system: Task_Visit_Note_PDF_And_Email_Url,
     code: 'visit-note-pdf-and-email',
+  },
+  patientPaymentCandidSyncAndReceipt: {
+    system: Task_Patient_Payment_Candid_Sync_And_Receipt_Url,
+    code: 'patient-payment-candid-sync-and-receipt',
   },
 };
 

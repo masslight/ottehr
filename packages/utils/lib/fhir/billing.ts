@@ -6,7 +6,9 @@ import {
   BillingProviderResource,
   CoverageCheckCoverageDetails,
   CoverageCodeToDescriptionMap,
+  FinancialDetails,
   InsuranceCheckStatusWithDate,
+  InsuranceDetails,
   InsuranceEligibilityCheckStatus,
   PatientPaymentBenefit,
 } from '../types';
@@ -117,15 +119,88 @@ export const parseCoverageEligibilityResponse = (
     });
 
     if (eligible) {
+      const fullBenefitsRequestJSON = coverageResponse.extension?.find(
+        (e) => e.url === 'https://extensions.fhir.oystehr.com/raw-request'
+      )?.valueString;
       const fullBenefitJSON = coverageResponse.extension?.find(
         (e) => e.url === 'https://extensions.fhir.oystehr.com/raw-response'
       )?.valueString;
       let copay: PatientPaymentBenefit[] | undefined;
+      let deductible: PatientPaymentBenefit[] | undefined;
+      const details: InsuranceDetails = {};
+      const financialDetails: FinancialDetails[] = [];
+      if (fullBenefitsRequestJSON) {
+        const benefitsRequest = JSON.parse(fullBenefitsRequestJSON);
+        details['patient'] = {
+          firstName: benefitsRequest['pat_name_f'],
+          middleName: benefitsRequest['pat_name_m'],
+          lastName: benefitsRequest['pat_name_l'],
+          dateOfBirth: `${benefitsRequest['pat_dob'].slice(4, 6)}/${benefitsRequest['pat_dob'].slice(
+            6,
+            8
+          )}/${benefitsRequest['pat_dob'].slice(0, 4)}`,
+        };
+      }
       if (fullBenefitJSON) {
         try {
-          // cSpell:disable-next eligibility
-          const benefitList = JSON.parse(fullBenefitJSON)?.elig?.benefit;
-          copay = parseObjectsToCopayBenefits(benefitList);
+          const benefitsResponse = JSON.parse(fullBenefitJSON);
+          const benefitList = benefitsResponse?.elig?.benefit;
+          const benefitsTemp = parseObjectsToCopayBenefits(benefitList);
+          details['subscriber'] = {
+            firstName: benefitsResponse['elig']?.['ins_name_f'],
+            middleName: benefitsResponse['elig']?.['ins_name_m'],
+            lastName: benefitsResponse['elig']?.['ins_name_l'],
+            dateOfBirth: `${benefitsResponse['elig']?.['ins_dob']?.slice(4, 6)}/${benefitsResponse['elig']?.[
+              'ins_dob'
+            ]?.slice(6, 8)}/${benefitsResponse['elig']?.['ins_dob']?.slice(0, 4)}`,
+            memberID: benefitsResponse['elig']?.['ins_number'],
+            address: `${benefitsResponse['elig']?.['ins_addr_1']} ${benefitsResponse['elig']?.['ins_city']}, ${benefitsResponse['elig']?.['ins_state']} ${benefitsResponse['elig']?.['ins_zip']}`,
+          };
+          const insuranceDetails = benefitsTemp.find(
+            (benefit) => benefit.coverageCode === '1' && benefit.code === '30'
+          );
+          details['insurance'] = {
+            planNumber: benefitsResponse['elig']?.['plan_number'],
+            policyNumber: insuranceDetails?.policyNumber,
+            insuranceCode: insuranceDetails?.insuranceCode,
+            insuranceDescription: insuranceDetails?.insuranceDescription,
+          };
+
+          details['payer'] = {
+            name: insuranceDetails?.payerName,
+            payerID: insuranceDetails?.payerID,
+            address: insuranceDetails?.payerAddress,
+            website: insuranceDetails?.payerWebsite,
+            phone: insuranceDetails?.payerPhone,
+            fax: insuranceDetails?.payerFax,
+          };
+
+          copay = benefitsTemp.filter((benefit) => benefit.coverageCode === 'A' || benefit.coverageCode === 'B');
+          deductible = benefitsTemp.filter((benefit) => benefit.coverageCode === 'C');
+
+          const individualDeductible = deductible.filter((benefit) => benefit.levelCode === 'IND');
+          const familyDeductible = deductible.filter((benefit) => benefit.levelCode === 'FAM');
+          const outOfPocketMax = benefitsTemp.filter(
+            (benefit) => benefit.coverageCode === 'G' && benefit.levelCode === 'IND'
+          );
+          financialDetails.push({
+            name: 'Individual Deductible',
+            paid: individualDeductible.find((benefit) => benefit.periodCode === '24')?.amountInUSD,
+            total: individualDeductible.find((benefit) => benefit.periodCode === '23')?.amountInUSD,
+            remaining: individualDeductible.find((benefit) => benefit.periodCode === '29')?.amountInUSD,
+          });
+          financialDetails.push({
+            name: 'Family Deductible',
+            paid: familyDeductible.find((benefit) => benefit.periodCode === '24')?.amountInUSD,
+            total: familyDeductible.find((benefit) => benefit.periodCode === '23')?.amountInUSD,
+            remaining: familyDeductible.find((benefit) => benefit.periodCode === '29')?.amountInUSD,
+          });
+          financialDetails.push({
+            name: 'Out-of-Pocket Max',
+            paid: outOfPocketMax.find((benefit) => benefit.periodCode === '24')?.amountInUSD,
+            total: outOfPocketMax.find((benefit) => benefit.periodCode === '23')?.amountInUSD,
+            remaining: outOfPocketMax.find((benefit) => benefit.periodCode === '29')?.amountInUSD,
+          });
         } catch (error) {
           console.error('Error parsing fullBenefitJSON', error);
         }
@@ -133,7 +208,10 @@ export const parseCoverageEligibilityResponse = (
       return {
         status: InsuranceEligibilityCheckStatus.eligibilityConfirmed,
         dateISO,
+        coverageDetails: details,
+        financialDetails,
         copay,
+        deductible,
         errors: coverageResponse.error,
       };
     } else {
@@ -154,19 +232,11 @@ export const parseCoverageEligibilityResponse = (
 };
 
 export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit[] => {
-  const filteredInputs = input.filter((item) => {
-    return (
-      item &&
-      typeof item === 'object' &&
-      (item['benefit_coverage_code'] === 'B' || item['benefit_coverage_code'] === 'A')
-    );
-  });
-
-  return filteredInputs
+  return input
     .map((item) => {
-      const benefitCoverageCode = item['benefit_coverage_code'] as 'A' | 'B';
+      const benefitCoverageCode = item['benefit_coverage_code'] as '1' | 'A' | 'B' | 'C';
       const CP: PatientPaymentBenefit = {
-        amountInUSD: item['benefit_amount'] ?? 0,
+        amountInUSD: Number(item['benefit_amount']) ?? 0,
         percentage: item['benefit_percent'] ?? 0,
         code: item['benefit_code'] ?? '',
         description: item['benefit_description'] ?? CoverageCodeToDescriptionMap[benefitCoverageCode] ?? '',
@@ -178,6 +248,15 @@ export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit
         periodCode: item['benefit_period_code'] ?? '',
         levelDescription: item['benefit_level_description'] ?? '',
         levelCode: item['benefit_level_code'] ?? '',
+        policyNumber: item['policy_number'] ?? '',
+        insuranceCode: item['insurance_type_code'] ?? '',
+        insuranceDescription: item['insurance_type_description'] ?? '',
+        payerName: item['entity_name']?.[0],
+        payerID: item['entity_id']?.[0],
+        payerAddress: `${item['entity_addr_1']?.[0]} ${item['entity_city']}, ${item['entity_state']} ${item['entity_zip']}`,
+        payerWebsite: item['entity_website']?.[0],
+        payerPhone: item['entity_phone']?.[0],
+        payerFax: item['entity_fax']?.[0],
       };
       return CP;
     })

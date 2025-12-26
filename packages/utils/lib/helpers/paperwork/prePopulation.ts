@@ -11,6 +11,7 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
+import _ from 'lodash';
 import { capitalize } from 'lodash-es';
 import { DateTime } from 'luxon';
 import {
@@ -31,6 +32,7 @@ import {
   PATIENT_SEXUAL_ORIENTATION_URL,
   PatientAccountResponse,
   PRACTICE_NAME_URL,
+  PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL,
 } from '../../types';
 import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId } from '../helpers';
 
@@ -38,6 +40,7 @@ import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId
 interface PrePopulationInput {
   patient: Patient;
   appointmentStartTime: string;
+  appointmentServiceCategory: string;
   isNewQrsPatient: boolean;
   verifiedPhoneNumber: string | undefined;
   questionnaire: Questionnaire;
@@ -55,6 +58,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
     newPatientDob,
     unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
+    appointmentServiceCategory,
     isNewQrsPatient,
     verifiedPhoneNumber,
     contactInfo,
@@ -89,6 +93,9 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
     ?.valueCodeableConcept?.coding?.[0]?.display;
   const patientRace = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/race`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
+  const patientPreferredCommunicationMethod = patient.extension?.find(
+    (e) => e.url === PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL
+  )?.valueString;
 
   const pronouns = getPronounsFromExtension(patient);
   const customPronouns = patient.extension?.find(
@@ -183,6 +190,9 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           if (linkId === 'patient-email' && patientEmail) {
             answer = makeAnswer(patientEmail);
           }
+          if (linkId === 'patient-preferred-communication-method' && patientPreferredCommunicationMethod) {
+            answer = makeAnswer(patientPreferredCommunicationMethod);
+          }
           if (linkId === 'mobile-opt-in' && patientSendMarketing !== undefined) {
             answer = makeAnswer(patientSendMarketing, 'Boolean');
           }
@@ -258,6 +268,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
         return mapEmergencyContactToQuestionnaireResponseItems({
           items: itemItems,
           emergencyContactResource: accountInfo?.emergencyContactResource,
+          patient,
         });
       } else if (COVERAGE_ITEMS.includes(item.linkId)) {
         return mapCoveragesToQuestionnaireResponseItems({
@@ -266,6 +277,12 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           patient,
           documents,
           insuranceOrgs: accountInfo?.insuranceOrgs ?? [],
+          appointmentServiceCategory: appointmentServiceCategory,
+        });
+      } else if (EMPLOYER_ITEMS.includes(item.linkId)) {
+        return mapEmployerToQuestionnaireResponseItems({
+          items: itemItems,
+          employerOrganization: accountInfo?.employerOrganization,
         });
       } else if (item.linkId === 'photo-id-page') {
         return itemItems.map((item) => {
@@ -347,6 +364,7 @@ export const extractFirstValueFromAnswer = (
 
 export interface PrePopulationFromPatientRecordInput extends PatientAccountResponse {
   questionnaire: Questionnaire;
+  overriddenItems?: QuestionnaireResponseItem[];
 }
 
 export const makePrepopulatedItemsFromPatientRecord = (
@@ -361,8 +379,27 @@ export const makePrepopulatedItemsFromPatientRecord = (
     insuranceOrgs,
     emergencyContactResource,
     pharmacy,
+    employerOrganization,
+    overriddenItems = [],
   } = input;
-  console.log('making prepopulated items from patient record', coverages, pharmacy);
+
+  // allows passing in pre-prepopulated logical fields
+  const mergeQuestionnaireResponseItems = (
+    defaultItems: QuestionnaireResponseItem[],
+    overrides: QuestionnaireResponseItem[]
+  ): QuestionnaireResponseItem[] => {
+    return defaultItems.map((defaultItem) => {
+      if (defaultItem.answer === undefined) {
+        const existingOverride = overrides.find((oi) => oi.linkId === defaultItem.linkId && oi.answer !== undefined);
+        if (existingOverride) {
+          return { ...existingOverride };
+        }
+      }
+      return defaultItem;
+    });
+  };
+
+  // console.log('making prepopulated items from patient record', input, coverages, pharmacy);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
       const itemItems = (item.item ?? []).filter((i: QuestionnaireItem) => i.type !== 'display');
@@ -391,7 +428,11 @@ export const makePrepopulatedItemsFromPatientRecord = (
         return mapGuarantorToQuestionnaireResponseItems({ items: itemItems, guarantorResource });
       }
       if (EMERGENCY_CONTACT_ITEMS.includes(item.linkId)) {
-        return mapEmergencyContactToQuestionnaireResponseItems({ items: itemItems, emergencyContactResource });
+        return mapEmergencyContactToQuestionnaireResponseItems({
+          items: itemItems,
+          emergencyContactResource,
+          patient,
+        });
       }
       if (PHARMACY_ITEMS.includes(item.linkId)) {
         return mapPharmacyToQuestionnaireResponseItems({
@@ -399,11 +440,17 @@ export const makePrepopulatedItemsFromPatientRecord = (
           pharmacyResource: pharmacy,
         });
       }
+      if (EMPLOYER_ITEMS.includes(item.linkId)) {
+        return mapEmployerToQuestionnaireResponseItems({
+          items: itemItems,
+          employerOrganization,
+        });
+      }
       return [];
     })();
     return {
       linkId: item.linkId,
-      item: populatedItem,
+      item: mergeQuestionnaireResponseItems(populatedItem, overriddenItems),
     };
   });
 
@@ -452,8 +499,6 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     patientSex = 'Intersex';
   }
 
-  const patientDOB = patient.birthDate;
-
   const patientSexualOrientation = patient.extension?.find((e) => e.url === PATIENT_SEXUAL_ORIENTATION_URL)
     ?.valueCodeableConcept?.coding?.[0]?.display;
   const patientGenderIdentity = patient.extension?.find((e) => e.url === PATIENT_GENDER_IDENTITY_URL)
@@ -470,10 +515,23 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
   const patientCommonWellConsent = patient.extension?.find(
     (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/common-well-consent`
   )?.valueBoolean;
+  const patientPreferredCommunicationMethod = patient.extension?.find(
+    (e) => e.url === PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL
+  )?.valueString;
 
   return items.map((item) => {
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
-    const { linkId } = item;
+    const { linkId, initial } = item;
+
+    let initialBooleanValue: boolean | undefined;
+    let initialStringValue: string | undefined;
+
+    if (initial) {
+      initialBooleanValue = initial?.[0]?.valueBoolean;
+      initialStringValue = initial?.[0]?.valueString;
+    }
+
+    const patientDOB = patient.birthDate;
 
     if (linkId === 'patient-birthdate' && patientDOB) {
       answer = makeAnswer(patientDOB);
@@ -511,8 +569,8 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     if (linkId === 'patient-city' && patientCity) {
       answer = makeAnswer(patientCity);
     }
-    if (linkId === 'patient-state' && patientState) {
-      answer = makeAnswer(patientState);
+    if (linkId === 'patient-state' && (patientState || initialStringValue)) {
+      answer = makeAnswer(patientState ?? initialStringValue);
     }
     if (linkId === 'patient-zip' && patientPostalCode) {
       answer = makeAnswer(patientPostalCode);
@@ -547,6 +605,9 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     if (linkId === 'patient-point-of-discovery' && patientPointOfDiscovery) {
       answer = makeAnswer(patientPointOfDiscovery);
     }
+    if (linkId === 'patient-preferred-communication-method' && patientPreferredCommunicationMethod) {
+      answer = makeAnswer(patientPreferredCommunicationMethod);
+    }
     if (linkId === 'mobile-opt-in' && patientSendMarketing !== undefined) {
       answer = makeAnswer(patientSendMarketing, 'Boolean');
     }
@@ -564,6 +625,8 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     }
     if (linkId === 'common-well-consent' && patientCommonWellConsent !== undefined) {
       answer = makeAnswer(patientCommonWellConsent, 'Boolean');
+    } else if (linkId === 'common-well-consent' && initialBooleanValue !== undefined) {
+      answer = makeAnswer(initialBooleanValue, 'Boolean');
     }
     return {
       linkId,
@@ -636,9 +699,10 @@ interface MapCoverageItemsInput {
   patient: Patient;
   insuranceOrgs: Organization[];
   documents?: DocumentReference[];
+  appointmentServiceCategory?: string;
 }
 const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput): QuestionnaireResponseItem[] => {
-  const { items, coverages, patient, documents, insuranceOrgs } = input;
+  const { items, coverages, patient, documents, insuranceOrgs, appointmentServiceCategory } = input;
 
   const patientAddress = patient.address?.[0];
 
@@ -931,12 +995,97 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       if (linkId === 'display-secondary-insurance') {
         answer = secondary ? makeAnswer(true, 'Boolean') : makeAnswer(false, 'Boolean');
       }
+      if (linkId === 'appointment-service-category' && appointmentServiceCategory) {
+        answer = makeAnswer(appointmentServiceCategory);
+      }
 
       return {
         linkId,
         answer,
       };
     });
+};
+
+const EMPLOYER_ITEMS = ['employer-information-page'];
+
+interface MapEmployerItemsInput {
+  items: QuestionnaireItem[];
+  employerOrganization?: Organization;
+}
+
+const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): QuestionnaireResponseItem[] => {
+  const { employerOrganization, items } = input;
+  const address = employerOrganization?.address?.[0];
+  const contact = employerOrganization?.contact?.[0];
+
+  const getTelecomValue = (system: string): string | undefined => {
+    const contactValue = contact?.telecom?.find((tel) => tel.system === system && tel.value)?.value;
+    const orgValue = employerOrganization?.telecom?.find((tel) => tel.system === system && tel.value)?.value;
+    return contactValue ?? orgValue;
+  };
+
+  const formatPhone = (value?: string): string | undefined => {
+    if (!value) return undefined;
+    const formatted = formatPhoneNumberDisplay(value);
+    return formatted || value;
+  };
+
+  return items.map((item) => {
+    let answer: QuestionnaireResponseItemAnswer[] | undefined;
+    const { linkId } = item;
+
+    switch (linkId) {
+      case 'employer-name':
+        if (employerOrganization?.name) answer = makeAnswer(employerOrganization.name);
+        break;
+      case 'employer-address':
+        if (address?.line?.[0]) answer = makeAnswer(address.line[0]);
+        break;
+      case 'employer-address-2':
+        if (address?.line?.[1]) answer = makeAnswer(address.line[1]);
+        break;
+      case 'employer-city':
+        if (address?.city) answer = makeAnswer(address.city);
+        break;
+      case 'employer-state':
+        if (address?.state) answer = makeAnswer(address.state);
+        break;
+      case 'employer-zip':
+        if (address?.postalCode) answer = makeAnswer(address.postalCode);
+        break;
+      case 'employer-contact-first-name': {
+        const firstName = contact?.name?.given?.[0];
+        if (firstName) answer = makeAnswer(firstName);
+        break;
+      }
+      case 'employer-contact-last-name':
+        if (contact?.name?.family) answer = makeAnswer(contact.name.family);
+        break;
+      case 'employer-contact-title':
+        if (contact?.purpose?.text) answer = makeAnswer(contact.purpose.text);
+        break;
+      case 'employer-contact-email': {
+        const email = getTelecomValue('email');
+        if (email) answer = makeAnswer(email);
+        break;
+      }
+      case 'employer-contact-phone': {
+        const phone = formatPhone(getTelecomValue('phone'));
+        if (phone) answer = makeAnswer(phone);
+        break;
+      }
+      case 'employer-contact-fax': {
+        const fax = formatPhone(getTelecomValue('fax'));
+        if (fax) answer = makeAnswer(fax);
+        break;
+      }
+    }
+
+    return {
+      linkId,
+      answer,
+    };
+  });
 };
 
 const GUARANTOR_ITEMS = ['responsible-party-section', 'responsible-party-page'];
@@ -1039,12 +1188,23 @@ const EMERGENCY_CONTACT_ITEMS = ['emergency-contact-section', 'emergency-contact
 interface MapEmergencyContactInput {
   items: QuestionnaireItem[];
   emergencyContactResource?: RelatedPerson;
+  patient?: Patient;
 }
 
 const mapEmergencyContactToQuestionnaireResponseItems = (
   input: MapEmergencyContactInput
 ): QuestionnaireResponseItem[] => {
-  const { emergencyContactResource, items } = input;
+  const { emergencyContactResource, items, patient } = input;
+
+  const patientAddress = patient?.address?.[0];
+  const emergencyContactAddress = emergencyContactResource?.address?.[0];
+  const emergencyContactAddressLine = emergencyContactAddress?.line?.[0];
+  const emergencyContactAddressLine2 = emergencyContactAddress?.line?.[1];
+  const emergencyContactCity = emergencyContactAddress?.city;
+  const emergencyContactState = emergencyContactAddress?.state;
+  const emergencyContactZip = emergencyContactAddress?.postalCode;
+  const emergencyContactAddressAsPatient =
+    patientAddress && emergencyContactAddress ? areAddressesEqual(emergencyContactAddress, patientAddress) : undefined;
 
   const phone = formatPhoneNumberDisplay(
     emergencyContactResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''
@@ -1091,6 +1251,24 @@ const mapEmergencyContactToQuestionnaireResponseItems = (
     }
     if (linkId === 'emergency-contact-number' && phone) {
       answer = makeAnswer(phone);
+    }
+    if (linkId === 'emergency-contact-address-as-patient' && emergencyContactAddressAsPatient !== undefined) {
+      answer = makeAnswer(emergencyContactAddressAsPatient, 'Boolean');
+    }
+    if (linkId === 'emergency-contact-address' && emergencyContactAddressLine) {
+      answer = makeAnswer(emergencyContactAddressLine);
+    }
+    if (linkId === 'emergency-contact-address-2' && emergencyContactAddressLine2) {
+      answer = makeAnswer(emergencyContactAddressLine2);
+    }
+    if (linkId === 'emergency-contact-city' && emergencyContactCity) {
+      answer = makeAnswer(emergencyContactCity);
+    }
+    if (linkId === 'emergency-contact-state' && emergencyContactState) {
+      answer = makeAnswer(emergencyContactState);
+    }
+    if (linkId === 'emergency-contact-zip' && emergencyContactZip) {
+      answer = makeAnswer(emergencyContactZip);
     }
     return {
       linkId,

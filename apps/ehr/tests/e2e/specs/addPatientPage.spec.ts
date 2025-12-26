@@ -1,13 +1,14 @@
 import { Page, test } from '@playwright/test';
+import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { waitForResponseWithData } from 'test-utils';
-import { unpackFhirResponse } from 'utils';
+import { addProcessIdMetaTagToAppointment, waitForResponseWithData } from 'test-utils';
+import { chooseJson, unpackFhirResponse } from 'utils';
 import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import {
   PATIENT_BIRTH_DATE_LONG,
   PATIENT_BIRTH_DATE_SHORT,
-  PATIENT_EMAIL,
+  // PATIENT_EMAIL,
   PATIENT_FIRST_NAME,
   PATIENT_LAST_NAME,
   PATIENT_PHONE_NUMBER,
@@ -37,6 +38,20 @@ const resourceHandler = new ResourceHandler(PROCESS_ID);
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/visits/add');
+  page.on('response', async (response) => {
+    if (response.url().includes('/create-appointment/')) {
+      const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+      const oystehr = await ResourceHandler.getOystehr();
+      const appointment = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: appointmentId,
+      });
+      await oystehr.fhir.update(addProcessIdMetaTagToAppointment(appointment, PROCESS_ID));
+    }
+  });
+});
+test.afterAll(async () => {
+  await resourceHandler.cleanupResources();
 });
 
 // Note: Simple validation tests have been migrated to component tests
@@ -150,7 +165,7 @@ async function createAppointment(
     await addPatientPage.verifyPrefilledPatientName(PATIENT_PREFILL_NAME);
     await addPatientPage.verifyPrefilledPatientBirthday(PATIENT_BIRTH_DATE_LONG);
     await addPatientPage.verifyPrefilledPatientBirthSex(PATIENT_INPUT_GENDER);
-    await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL);
+    // await addPatientPage.verifyPrefilledPatientEmail(PATIENT_EMAIL); // this has been removed
     await addPatientPage.selectReasonForVisit(PATIENT_REASON_FOR_VISIT);
   } else {
     await addPatientPage.clickPatientNotFoundButton();
@@ -174,5 +189,6 @@ async function createAppointment(
   if (!response.appointmentId) {
     throw new Error('Appointment ID should be present in the response');
   }
+
   return { appointmentId: response.appointmentId, slotTime };
 }

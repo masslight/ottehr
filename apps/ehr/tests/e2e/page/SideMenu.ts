@@ -1,14 +1,17 @@
 import { Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { expectHospitalizationPage, HospitalizationPage } from './HospitalizationPage';
+import { expectHpiAndTemplatesPage, HpiAndTemplatesPage } from './HpiAndTemplatesPage';
 import { AllergiesPage, expectAllergiesPage } from './in-person/AllergiesPage';
 import { expectInHouseLabsPage, InHouseLabsPage } from './in-person/InHouseLabsPage';
 import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './in-person/InHouseMedicationsPage';
 import { expectAssessmentPage, InPersonAssessmentPage } from './in-person/InPersonAssessmentPage';
 import { expectExamPage, InPersonExamPage } from './in-person/InPersonExamsPage';
 import { expectInPersonProgressNotePage, InPersonProgressNotePage } from './in-person/InPersonProgressNotePage';
+import { expectMedicationsPage, MedicationsPage } from './in-person/MedicationsPage';
 import { expectScreeningPage, ScreeningPage } from './in-person/ScreeningPage';
 import { expectMedicalConditionsPage, MedicalConditionsPage } from './MedicalConditionsPage';
+import { expectNursingOrdersPage, NursingOrdersPage } from './NursingOrdersPage';
 import { expectPatientInfoPage, PatientInfoPage } from './PatientInfo';
 import { expectProceduresPage, ProceduresPage } from './ProceduresPage';
 import { expectSurgicalHistoryPage, SurgicalHistoryPage } from './SurgicalHistoryPage';
@@ -50,6 +53,11 @@ export class SideMenu {
     return expectPatientInfoPage(this.#page);
   }
 
+  async clickHpiAndTemplates(): Promise<HpiAndTemplatesPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('history-of-present-illness-and-templates')).click();
+    return expectHpiAndTemplatesPage(this.#page);
+  }
+
   async clickReviewAndSign(): Promise<InPersonProgressNotePage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('review-and-sign')).click();
     return expectInPersonProgressNotePage(this.#page);
@@ -70,9 +78,19 @@ export class SideMenu {
     return expectProceduresPage(this.#page);
   }
 
+  async clickNursingOrders(): Promise<NursingOrdersPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('nursing-orders')).click();
+    return expectNursingOrdersPage(this.#page);
+  }
+
   async clickScreening(): Promise<ScreeningPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('screening-questions')).click();
     return expectScreeningPage(this.#page);
+  }
+
+  async clickMedications(): Promise<MedicationsPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('medications')).click();
+    return expectMedicationsPage(this.#page);
   }
 
   async clickCompleteIntakeButton(): Promise<void> {

@@ -22,6 +22,12 @@ export class PageWithTablePagination {
     ).toBeVisible();
   }
 
+  async verifyPaginationWithPositiveNumbersIsDisplayed(): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.pagination.paginationContainer).locator('p').filter({ hasText: /[1-9]/ })
+    ).toBeVisible();
+  }
+
   async selectRowsPerPage(rowsPerPage: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.pagination.paginationContainer).getByText('10', { exact: true }).click();
     await this.#page.getByText(rowsPerPage).click();

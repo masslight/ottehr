@@ -1,80 +1,133 @@
-import { FC } from 'react';
+import { Box } from '@mui/material';
+import { FC, useEffect, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { FormSelect, FormTextField } from 'src/components/form';
-import InputMask from 'src/components/InputMask';
-import { Row, Section } from 'src/components/layout';
-import { EMERGENCY_CONTACT_RELATIONSHIP_OPTIONS, FormFields as AllFormFields } from 'src/constants';
-import { isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { Row } from 'src/components/layout';
+import { PatientAddressFields } from 'src/constants';
+import { PATIENT_RECORD_CONFIG } from 'utils';
+import PatientRecordFormField from './PatientRecordFormField';
+import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
 
-const FormFields = AllFormFields.emergencyContact;
+const { emergencyContact } = PATIENT_RECORD_CONFIG.FormFields;
 
 export const EmergencyContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
-  const { control } = useFormContext();
+  const { watch, setValue } = useFormContext();
+
+  const {
+    hiddenFields,
+    requiredFields,
+    items: FormFields,
+  } = usePatientRecordFormSection({ formSection: emergencyContact });
+
+  const emergencyAddressFields = useMemo(
+    () => [
+      FormFields.streetAddress.key,
+      FormFields.addressLine2.key,
+      FormFields.city.key,
+      FormFields.state.key,
+      FormFields.zip.key,
+    ],
+    [
+      FormFields.addressLine2.key,
+      FormFields.city.key,
+      FormFields.state.key,
+      FormFields.streetAddress.key,
+      FormFields.zip.key,
+    ]
+  );
+
+  const patientAddressData = watch(PatientAddressFields);
+  const emergencyAddressData = watch(emergencyAddressFields);
+  const sameAsPatientAddress = watch(FormFields.addressAsPatient.key, false);
+
+  useEffect(() => {
+    if (!sameAsPatientAddress) return;
+    for (let i = 0; i < emergencyAddressData.length; i++) {
+      if (patientAddressData[i] && emergencyAddressData[i] !== patientAddressData[i]) {
+        setValue(emergencyAddressFields[i], patientAddressData[i]);
+      }
+    }
+  }, [emergencyAddressData, emergencyAddressFields, patientAddressData, sameAsPatientAddress, setValue]);
 
   return (
-    <Section title="Emergency contact information">
-      <Row label={FormFields.relationship.label} required>
-        <FormSelect
-          name={FormFields.relationship.key}
-          control={control}
-          options={EMERGENCY_CONTACT_RELATIONSHIP_OPTIONS}
-          rules={{
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value: string) =>
-              EMERGENCY_CONTACT_RELATIONSHIP_OPTIONS.some((option) => option.value === value),
-          }}
-          id={FormFields.relationship.key}
-          disabled={isLoading}
-        />
+    <PatientRecordFormSection formSection={emergencyContact}>
+      <PatientRecordFormField
+        item={FormFields.relationship}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.firstName}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.middleName}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.lastName}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.phone}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.addressAsPatient}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
+      <PatientRecordFormField
+        item={FormFields.streetAddress}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+        disabled={sameAsPatientAddress && Boolean(patientAddressData[0])}
+      />
+      <PatientRecordFormField
+        item={FormFields.addressLine2}
+        isLoading={isLoading}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+        disabled={sameAsPatientAddress}
+      />
+      <Row label="City, State, ZIP">
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <PatientRecordFormField
+            item={FormFields.city}
+            isLoading={isLoading}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+            disabled={sameAsPatientAddress && Boolean(patientAddressData[2])}
+            omitRowWrapper
+          />
+          <PatientRecordFormField
+            item={FormFields.state}
+            isLoading={isLoading}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+            disabled={sameAsPatientAddress && Boolean(patientAddressData[3])}
+            omitRowWrapper
+          />
+          <PatientRecordFormField
+            item={FormFields.zip}
+            isLoading={isLoading}
+            requiredFormFields={requiredFields}
+            hiddenFormFields={hiddenFields}
+            disabled={sameAsPatientAddress && Boolean(patientAddressData[4])}
+            omitRowWrapper
+          />
+        </Box>
       </Row>
-      <Row label={FormFields.firstName.label} required inputId={FormFields.firstName.key}>
-        <FormTextField
-          name={FormFields.firstName.key}
-          control={control}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-          id={FormFields.firstName.key}
-          disabled={isLoading}
-        />
-      </Row>
-      <Row label={FormFields.middleName.label} inputId={FormFields.middleName.key}>
-        <FormTextField
-          name={FormFields.middleName.key}
-          control={control}
-          id={FormFields.middleName.key}
-          disabled={isLoading}
-        />
-      </Row>
-      <Row label={FormFields.lastName.label} required inputId={FormFields.lastName.key}>
-        <FormTextField
-          name={FormFields.lastName.key}
-          control={control}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-          id={FormFields.lastName.key}
-          disabled={isLoading}
-        />
-      </Row>
-      <Row label={FormFields.phone.label} required inputId={FormFields.phone.key}>
-        <FormTextField
-          id={FormFields.phone.key}
-          name={FormFields.phone.key}
-          control={control}
-          inputProps={{ mask: '(000) 000-0000' }}
-          InputProps={{
-            inputComponent: InputMask as any,
-          }}
-          rules={{
-            validate: (value: string) => {
-              if (!value) return true;
-              return (
-                isPhoneNumberValid(value) ||
-                'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number'
-              );
-            },
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-          }}
-          disabled={isLoading}
-        />
-      </Row>
-    </Section>
+    </PatientRecordFormSection>
   );
 };

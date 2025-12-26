@@ -22,6 +22,7 @@ import {
   Reference,
   Resource,
   ServiceRequest,
+  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -82,6 +83,7 @@ import {
   SchoolWorkNoteExcuseDocFileDTO,
   SchoolWorkNoteType,
   SNOMEDCodeConceptInterface,
+  TaskCoding,
   VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
@@ -298,6 +300,7 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
     prescriptionId: medRequest.identifier?.find(
       (identifier) => identifier.system === 'https://identifiers.fhir.oystehr.com/erx-prescription-id'
     )?.value,
+    encounterId: medRequest.encounter?.reference?.split('/')?.[1],
   };
 }
 
@@ -1177,6 +1180,14 @@ const mapResourceToChartDataFields = (
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Condition' &&
+    chartDataResourceHasMetaTagByCode(resource, 'mechanism-of-injury') &&
+    resourceReferencesEncounter(resource, encounterId)
+  ) {
+    logDuplicationWarning(data.mechanismOfInjury, 'chart-data duplication warning: "mechanismOfInjury" already exists');
+    data.mechanismOfInjury = makeFreeTextNoteDTO(resource);
+    resourceMapped = true;
+  } else if (
+    resource?.resourceType === 'Condition' &&
     chartDataResourceHasMetaTagByCode(resource, 'ros') &&
     resourceReferencesEncounter(resource, encounterId)
   ) {
@@ -1730,4 +1741,17 @@ function getMedicationDosage(medication: MedicationStatement, medicationType: st
     return `${doseQuantity.value} ${doseQuantity.unit}`;
   }
   return medication.dosage?.[0].text;
+}
+
+export function makeEncounterTaskResource(encounterId: string, coding: TaskCoding): Task {
+  return {
+    resourceType: 'Task',
+    status: 'requested',
+    intent: 'order',
+    focus: { reference: `Encounter/${encounterId}` },
+    encounter: { reference: `Encounter/${encounterId}` },
+    code: {
+      coding: [coding],
+    },
+  };
 }

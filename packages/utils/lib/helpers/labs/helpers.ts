@@ -1,6 +1,7 @@
 import { Coverage, DiagnosticReport, DocumentReference, Location, Organization, ServiceRequest } from 'fhir/r4b';
 import {
   CreateLabPaymentMethod,
+  DEFAULT_OYSTEHR_LABS_HL7_SYSTEM,
   EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
@@ -168,15 +169,16 @@ export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
   const testName =
     dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
     dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.display ||
-    dr.code.coding?.find((temp) => temp.system === '(HL7_V2)')?.display;
+    dr.code.coding?.find((temp) => temp.system === DEFAULT_OYSTEHR_LABS_HL7_SYSTEM)?.display;
   return testName;
 };
 
-export const getTestItemCodeFromDr = (dr: DiagnosticReport): string | undefined => {
-  const testName =
-    dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
-    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code;
-  return testName;
+export const getTestItemCodeFromDr = (diagnosticReport: DiagnosticReport): string | undefined => {
+  const testItemCode =
+    diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
+    diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
+    diagnosticReport.code.coding?.find((temp) => temp.system === DEFAULT_OYSTEHR_LABS_HL7_SYSTEM)?.code;
+  return testItemCode;
 };
 
 export const getTestNameOrCodeFromDr = (dr: DiagnosticReport): string => {

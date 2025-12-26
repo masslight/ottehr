@@ -15,6 +15,7 @@ import {
   Patient,
   Procedure,
   ServiceRequest,
+  Task,
 } from 'fhir/r4b';
 import {
   AllergyDTO,
@@ -26,11 +27,13 @@ import {
   MedicalConditionDTO,
   MedicationDTO,
   ObservationDTO,
+  OttehrTaskSystem,
   SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   parseCreatedResourcesBundle,
+  saveResourceRequest,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -39,6 +42,7 @@ import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
   deleteEncounterDiagnosis,
+  makeEncounterTaskResource,
   updateEncounterDischargeDisposition,
 } from '../../shared/chart-data';
 import { createOystehrClient } from '../../shared/helpers';
@@ -59,7 +63,8 @@ type ChartData =
   | MedicationStatement
   | Observation
   | Procedure
-  | ServiceRequest;
+  | ServiceRequest
+  | Task;
 
 export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -69,6 +74,7 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
       encounterId,
       chiefComplaint,
       historyOfPresentIllness,
+      mechanismOfInjury,
       ros,
       conditions,
       medications,
@@ -120,6 +126,9 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     }
     if (historyOfPresentIllness) {
       deleteOrUpdateRequests.push(deleteResourceRequest('Condition', historyOfPresentIllness.resourceId!));
+    }
+    if (mechanismOfInjury) {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Condition', mechanismOfInjury.resourceId!));
     }
     if (ros) {
       deleteOrUpdateRequests.push(deleteResourceRequest('Condition', ros.resourceId!));
@@ -201,8 +210,9 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     // 14. delete school-work excuse note DocumentReference resource
     schoolWorkNotes?.forEach((element) => {
       const documentReference = allResources.find((resource) => resource.id === element.id);
-      if (documentReference)
+      if (documentReference) {
         deleteOrUpdateRequests.push(deleteResourceRequest('DocumentReference', documentReference.id!));
+      }
     });
 
     // 15. delete notes
@@ -214,6 +224,15 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     vitalsObservations?.forEach((element) => {
       deleteOrUpdateRequests.push(deleteResourceRequest('Observation', element.resourceId!));
     });
+
+    // 17. regenerate diagnosis code recommendations if chief complaint or medical decision were deleted
+    if (chiefComplaint || historyOfPresentIllness || medicalDecision) {
+      deleteOrUpdateRequests.push(
+        saveResourceRequest(
+          makeEncounterTaskResource(encounterId, { system: OttehrTaskSystem, code: 'recommend-diagnosis-codes' })
+        )
+      );
+    }
 
     episodeOfCare?.forEach((element) => {
       deleteOrUpdateRequests.push(deleteResourceRequest('EpisodeOfCare', element.resourceId!));

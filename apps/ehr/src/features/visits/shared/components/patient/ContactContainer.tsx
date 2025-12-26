@@ -1,132 +1,87 @@
-import { Autocomplete, Box, TextField } from '@mui/material';
+import { Box } from '@mui/material';
 import { FC } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
-import { FormTextField } from 'src/components/form';
-import InputMask from 'src/components/InputMask';
-import { Row, Section } from 'src/components/layout';
-import { FormFields, STATE_OPTIONS } from 'src/constants';
-import { dataTestIds } from 'src/constants/data-test-ids';
-import { emailRegex, isPhoneNumberValid, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { Row } from 'src/components/layout';
+import { PATIENT_RECORD_CONFIG } from 'utils';
+import PatientRecordFormField from './PatientRecordFormField';
+import PatientRecordFormSection, { usePatientRecordFormSection } from './PatientRecordFormSection';
 
-const contact = FormFields.patientContactInformation;
-
+const contactSection = PATIENT_RECORD_CONFIG.FormFields.patientContactInformation;
 export const ContactContainer: FC<{ isLoading: boolean }> = ({ isLoading }) => {
-  const { control, setValue } = useFormContext();
+  /*
+  // this is just something that is known about the implementation ahead of time, so we can code it
+  // into the config object rather than looking into the patient intake questionnaire
+  // leaving this commented in order to help figure out which projects do need to show this
+  const showPreferredCommunicationMethod =
+    Object.values(inPersonIntakeQuestionnaire.fhirResources)[0]
+      .resource.item.find((item) => item.linkId === 'contact-information-page')
+      ?.item.find((item) => item.linkId === 'patient-preferred-communication-method') != null;
+  */
+
+  const {
+    items: contact,
+    hiddenFields: hiddenFormFields,
+    requiredFields: requiredFormFields,
+  } = usePatientRecordFormSection({
+    formSection: contactSection,
+  });
 
   return (
-    <Section title="Contact information">
-      <Row label="Street address" inputId={contact.streetAddress.key} required>
-        <FormTextField
-          name={contact.streetAddress.key}
-          data-testid={dataTestIds.contactInformationContainer.streetAddress}
-          control={control}
-          disabled={isLoading}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-          id={contact.streetAddress.key}
-        />
-      </Row>
-      <Row label="Address line 2" inputId={contact.addressLine2.key}>
-        <FormTextField
-          name={contact.addressLine2.key}
-          control={control}
-          id={contact.addressLine2.key}
-          disabled={isLoading}
-          data-testid={dataTestIds.contactInformationContainer.addressLineOptional}
-        />
-      </Row>
+    <PatientRecordFormSection formSection={contactSection}>
+      <PatientRecordFormField
+        item={contact.streetAddress}
+        hiddenFormFields={hiddenFormFields}
+        requiredFormFields={requiredFormFields}
+        isLoading={isLoading}
+      />
+      <PatientRecordFormField
+        item={contact.addressLine2}
+        hiddenFormFields={hiddenFormFields}
+        requiredFormFields={requiredFormFields}
+        isLoading={isLoading}
+      />
       <Row label="City, State, ZIP" required>
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <FormTextField
-            name={contact.city.key}
-            control={control}
-            disabled={isLoading}
-            rules={{
-              required: REQUIRED_FIELD_ERROR_MESSAGE,
-            }}
-            data-testid={dataTestIds.contactInformationContainer.city}
+          <PatientRecordFormField
+            item={contact.city}
+            hiddenFormFields={hiddenFormFields}
+            requiredFormFields={requiredFormFields}
+            isLoading={isLoading}
+            omitRowWrapper
           />
-          <Controller
-            name={contact.state.key}
-            control={control}
-            rules={{
-              required: REQUIRED_FIELD_ERROR_MESSAGE,
-            }}
-            render={({ field: { value }, fieldState: { error } }) => {
-              return (
-                <Autocomplete
-                  options={STATE_OPTIONS.map((option) => option.value)}
-                  value={value ?? ''}
-                  data-testid={dataTestIds.contactInformationContainer.state}
-                  onChange={(_, newValue) => {
-                    if (newValue) {
-                      setValue(contact.state.key, newValue);
-                    } else {
-                      setValue(contact.state.key, '');
-                    }
-                  }}
-                  disableClearable
-                  fullWidth
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      variant="standard"
-                      error={!!error}
-                      required
-                      helperText={error?.message}
-                      disabled={isLoading}
-                    />
-                  )}
-                />
-              );
-            }}
+          <PatientRecordFormField
+            item={contact.state}
+            hiddenFormFields={hiddenFormFields}
+            requiredFormFields={requiredFormFields}
+            isLoading={isLoading}
+            omitRowWrapper
           />
-          <FormTextField
-            name={contact.zip.key}
-            control={control}
-            disabled={isLoading}
-            rules={{
-              required: REQUIRED_FIELD_ERROR_MESSAGE,
-              validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
-            }}
-            data-testid={dataTestIds.contactInformationContainer.zip}
+          <PatientRecordFormField
+            item={contact.zip}
+            hiddenFormFields={hiddenFormFields}
+            requiredFormFields={requiredFormFields}
+            isLoading={isLoading}
+            omitRowWrapper
           />
         </Box>
       </Row>
-      <Row label="Patient email" required={true}>
-        <FormTextField
-          id={contact.email.key}
-          name={contact.email.key}
-          data-testid={dataTestIds.contactInformationContainer.patientEmail}
-          control={control}
-          disabled={isLoading}
-          rules={{
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-            pattern: {
-              value: emailRegex,
-              message: 'Must be in the format "email@example.com"',
-            },
-          }}
-        />
-      </Row>
-      <Row label="Patient mobile" required={true}>
-        <FormTextField
-          id={contact.phone.key}
-          name={contact.phone.key}
-          control={control}
-          disabled={isLoading}
-          inputProps={{ mask: '(000) 000-0000' }}
-          InputProps={{
-            inputComponent: InputMask as any,
-          }}
-          rules={{
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value: string) =>
-              isPhoneNumberValid(value) ||
-              'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number',
-          }}
-          data-testid={dataTestIds.contactInformationContainer.patientMobile}
-        />
-      </Row>
-    </Section>
+      <PatientRecordFormField
+        item={contact.email}
+        hiddenFormFields={hiddenFormFields}
+        requiredFormFields={requiredFormFields}
+        isLoading={isLoading}
+      />
+      <PatientRecordFormField
+        item={contact.phone}
+        hiddenFormFields={hiddenFormFields}
+        requiredFormFields={requiredFormFields}
+        isLoading={isLoading}
+      />
+      <PatientRecordFormField
+        item={contact.preferredCommunicationMethod}
+        hiddenFormFields={hiddenFormFields}
+        requiredFormFields={requiredFormFields}
+        isLoading={isLoading}
+      />
+    </PatientRecordFormSection>
   );
 };

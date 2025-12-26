@@ -34,6 +34,7 @@ import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsI
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
+  BRANDING_CONFIG,
   formatMinutes,
   getAbnormalVitals,
   getDurationOfStatus,
@@ -42,10 +43,9 @@ import {
   GetVitalsResponseData,
   InPersonAppointmentInformation,
   mdyStringFromISOString,
+  NON_LOS_STATUSES,
   OrdersForTrackingBoardRow,
-  PROJECT_NAME,
   ROOM_EXTENSION_URL,
-  STATUSES_WITHOUT_TIME_TRACKER,
   VisitStatusHistoryEntry,
 } from 'utils';
 import { LANGUAGES } from '../constants';
@@ -126,6 +126,10 @@ const getInRoomExamTime = (visitStatusHistory: VisitStatusHistoryEntry[], now: D
 
   for (let i = visitStatusHistory.length - 1; i >= 0; i--) {
     const status = visitStatusHistory[i];
+
+    if (NON_LOS_STATUSES.includes(status.status)) {
+      continue;
+    }
 
     if (inRoomStatuses.includes(status.status)) {
       totalInRoomTime += getDurationOfStatus(status, now);
@@ -311,11 +315,13 @@ export default function AppointmentTableRow({
   };
 
   const recentStatus = appointment?.visitStatusHistory[appointment.visitStatusHistory.length - 1];
+
   const { totalMinutes, waitingMinutesEstimate } = useMemo(() => {
     const totalMinutes = getVisitTotalTime(appointment, appointment.visitStatusHistory, now);
     const waitingMinutesEstimate = appointment?.waitingMinutes;
     return { totalMinutes, waitingMinutesEstimate };
   }, [appointment, now]);
+
   if (recentStatus && recentStatus.period) {
     const currentStatusTime = getDurationOfStatus(recentStatus, now);
 
@@ -404,24 +410,25 @@ export default function AppointmentTableRow({
       }}
     >
       {isLongWaitingTime && longWaitFlag}
-      {appointment?.visitStatusHistory?.map((statusTemp, index) => {
-        const statusDuration = getDurationOfStatus(statusTemp, now);
+      {/* LOS-participating statuses */}
+      {appointment?.visitStatusHistory
+        ?.filter((status) => !NON_LOS_STATUSES.includes(status.status))
+        .map((statusTemp, index) => {
+          const statusDuration = getDurationOfStatus(statusTemp, now);
 
-        return (
-          <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography
-              variant="body2"
-              color={theme.palette.getContrastText(theme.palette.background.default)}
-              style={{ display: 'inline', marginTop: 1 }}
-            >
-              {!STATUSES_WITHOUT_TIME_TRACKER.includes(statusTemp.status)
-                ? `${formatMinutes(statusDuration)} mins`
-                : ''}
-            </Typography>
-            <InPersonAppointmentStatusChip status={statusTemp.status} />
-          </Box>
-        );
-      })}
+          return (
+            <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography
+                variant="body2"
+                color={theme.palette.getContrastText(theme.palette.background.default)}
+                style={{ display: 'inline', marginTop: 1 }}
+              >
+                {`${formatMinutes(statusDuration)} mins`}
+              </Typography>
+              <InPersonAppointmentStatusChip status={statusTemp.status} />
+            </Box>
+          );
+        })}
 
       <Typography
         variant="body2"
@@ -435,15 +442,44 @@ export default function AppointmentTableRow({
         color={theme.palette.getContrastText(theme.palette.background.default)}
         style={{ display: 'inline', fontWeight: 500 }}
       >
-        Estimated wait time at check-in:
-        {waitingMinutesEstimate !== undefined
-          ? ` ${formatMinutes(Math.floor(waitingMinutesEstimate / 5) * 5)} mins`
+        {waitingMinutesEstimate
+          ? `Estimated wait time at check-in: ${formatMinutes(Math.floor(waitingMinutesEstimate / 5) * 5)} mins`
           : ''}
-        {/* previous waiting minutes logic
-          {waitingMinutesEstimate
-            ? ` ${formatMinutes(waitingMinutesEstimate)} - ${formatMinutes(waitingMinutesEstimate + 15)} mins`
-            : ''} */}
       </Typography>
+
+      {/* Non-LOS statuses */}
+      {appointment?.visitStatusHistory?.some((status) => NON_LOS_STATUSES.includes(status.status)) && (
+        <>
+          <Typography
+            variant="body2"
+            color={theme.palette.getContrastText(theme.palette.background.default)}
+            style={{ display: 'inline', fontWeight: 500 }}
+          >
+            Other history:
+          </Typography>
+          {appointment?.visitStatusHistory
+            ?.filter((status) => NON_LOS_STATUSES.includes(status.status))
+            .map((statusTemp, index) => {
+              const statusDuration = getDurationOfStatus(statusTemp, now);
+
+              return (
+                <Box
+                  key={index}
+                  sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                  <Typography
+                    variant="body2"
+                    color={theme.palette.getContrastText(theme.palette.background.default)}
+                    style={{ display: 'inline', marginTop: 1 }}
+                  >
+                    {`${formatMinutes(statusDuration)} mins`}
+                  </Typography>
+                  <InPersonAppointmentStatusChip status={statusTemp.status} />
+                </Box>
+              );
+            })}
+        </>
+      )}
     </Box>
   );
 
@@ -507,14 +543,14 @@ export default function AppointmentTableRow({
         spanish: 'Estamos listos para atender al paciente; ingrese al centro.',
       },
       {
-        english: `${PROJECT_NAME} is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
+        english: `${BRANDING_CONFIG.projectName} is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
         // cSpell:disable-next Spanish
-        spanish: `${PROJECT_NAME} está intentando comunicarse con usted. Llámenos al ${officePhoneNumber} o responda a este mensaje de texto.`,
+        spanish: `${BRANDING_CONFIG.projectName} está intentando comunicarse con usted. Llámenos al ${officePhoneNumber} o responda a este mensaje de texto.`,
       },
       {
-        english: `${PROJECT_NAME} hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
+        english: `${BRANDING_CONFIG.projectName} hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
         // cSpell:disable-next Spanish
-        spanish: `${PROJECT_NAME} espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
+        spanish: `${BRANDING_CONFIG.projectName} espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
       },
       {
         english: `Please complete a brief AI chat session for ${appointment.patient.firstName} to help your provider prepare for your visit: ${VITE_APP_PATIENT_APP_URL}/visit/${appointment.id}/ai-interview-start`,

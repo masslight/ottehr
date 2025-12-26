@@ -15,6 +15,8 @@ export const vitalsObservationsRequest: SearchParams = {
 
 export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   chiefComplaint: { _tag: 'chief-complaint' },
+  mechanismOfInjury: { _tag: 'mechanism-of-injury' },
+  historyOfPresentIllness: { _tag: 'history-of-present-illness' },
   ros: { _tag: 'ros' },
   episodeOfCare: {},
   prescribedMedications: {},
@@ -55,6 +57,11 @@ export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFiel
   },
   surgicalHistoryNote: {
     _tag: 'surgical-history-note',
+  },
+  notes: {
+    _sort: '-_lastUpdated',
+    _count: 1000,
+    _tag: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.VITALS}|${IN_PERSON_NOTE_ID}`,
   },
   vitalsObservations: vitalsObservationsRequest,
 };

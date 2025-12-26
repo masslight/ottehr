@@ -6,7 +6,6 @@ import {
   GetTelemedAppointmentsInput,
   getTelemedVisitStatus,
   PATIENT_PHOTO_CODE,
-  PROJECT_NAME,
   RefreshableAppointmentData,
   ReviewAndSignData,
   TelemedAppointmentInformation,
@@ -290,8 +289,8 @@ export type GetAppointmentsRequestParams = Pick<
 
 const defaultSupportPhone = BRANDING_CONFIG.email.supportPhoneNumber;
 export const quickTexts: string[] = [
-  `Hello from ${PROJECT_NAME} Telemedicine. A provider will see you soon. Please have your child with you, seated & in a quiet room. Please be in an area where you have strong wifi connection sufficient for video use. Have your video turned on. Questions? Call <phone>${defaultSupportPhone}</phone>`,
-  `Hello from ${PROJECT_NAME} Telemedicine. Due to high volumes our providers are busier than usual. A provider will message you when they have an update or are ready to see you. We apologize for the delay. Questions? Call <phone>${defaultSupportPhone}</phone>`,
-  `Hello from ${PROJECT_NAME} Telemedicine. We tried connecting, you seem to be having trouble connecting. If you still want a visit, log out then log back in. Click “Return to call” and we will connect with you in 5-10 minutes. If you are still having trouble, call <phone>${defaultSupportPhone}</phone>`,
-  `Hello from ${PROJECT_NAME} Telemedicine. We are sorry you canceled your visit. If accidental, please request a new visit. We will be sure to see you. If you are experiencing technical difficulties, call <phone>${defaultSupportPhone}</phone>`,
+  `Hello from ${BRANDING_CONFIG.projectName} Telemedicine. A provider will see you soon. Please have your child with you, seated & in a quiet room. Please be in an area where you have strong wifi connection sufficient for video use. Have your video turned on. Questions? Call <phone>${defaultSupportPhone}</phone>`,
+  `Hello from ${BRANDING_CONFIG.projectName} Telemedicine. Due to high volumes our providers are busier than usual. A provider will message you when they have an update or are ready to see you. We apologize for the delay. Questions? Call <phone>${defaultSupportPhone}</phone>`,
+  `Hello from ${BRANDING_CONFIG.projectName} Telemedicine. We tried connecting, you seem to be having trouble connecting. If you still want a visit, log out then log back in. Click “Return to call” and we will connect with you in 5-10 minutes. If you are still having trouble, call <phone>${defaultSupportPhone}</phone>`,
+  `Hello from ${BRANDING_CONFIG.projectName} Telemedicine. We are sorry you canceled your visit. If accidental, please request a new visit. We will be sure to see you. If you are experiencing technical difficulties, call <phone>${defaultSupportPhone}</phone>`,
 ];

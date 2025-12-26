@@ -348,6 +348,12 @@ async function createVisitNotePdfBytes(
       separateLine();
     }
 
+    if (data.mechanismOfInjury) {
+      drawBlockHeader('Mechanism of Injury');
+      regularText(data.mechanismOfInjury);
+      separateLine();
+    }
+
     if (data.reviewOfSystems) {
       drawBlockHeader('Review of Systems');
       regularText(data.reviewOfSystems);

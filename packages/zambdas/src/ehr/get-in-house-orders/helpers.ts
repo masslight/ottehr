@@ -31,7 +31,7 @@ import {
   InHouseOrderListPageItemDTO,
   InHouseOrdersSearchBy,
   isPositiveNumberOrZero,
-  OttehrGeneratedResultDocument,
+  LabDocumentRelatedToDiagnosticReport,
   Pagination,
   TestStatus,
 } from 'utils';
@@ -39,20 +39,14 @@ import { createOystehrClient, getMyPractitionerId, sendErrors } from '../../shar
 import {
   buildOrderHistory,
   determineOrderStatus,
-  fetchResultResourcesForRepeatServiceRequest,
-  getServiceRequestsRelatedViaRepeat,
+  fetchResultResourcesForRelatedServiceRequest,
+  getRelatedServiceRequests,
   getSpecimenDetails,
   getUrlAndVersionForADFromServiceRequest,
   taskIsBasedOnServiceRequest,
 } from '../shared/in-house-labs';
 import { fetchLabDocumentPresignedUrls, parseTimezoneForAppointmentSchedule } from '../shared/labs';
 import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
-
-// cache for the service request context
-type Cache = {
-  parsedTasks?: ReturnType<typeof parseTasks>;
-  activityDefinition?: ActivityDefinition;
-};
 
 export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSearchBy>(
   searchBy: SearchBy,
@@ -66,7 +60,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
   specimens: Specimen[],
   observations: Observation[],
   diagnosticReports: DiagnosticReport[],
-  resultsPDFs: OttehrGeneratedResultDocument[],
+  resultsPDFs: LabDocumentRelatedToDiagnosticReport[],
   ENVIRONMENT: string,
   appointmentScheduleMap: Record<string, Schedule>,
   currentPractitioner?: Practitioner
@@ -75,20 +69,15 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
 
   for (const serviceRequest of serviceRequests) {
     try {
-      const parsedTasks = parseTasks(tasks, serviceRequest);
-
-      const activityDefinition = findActivityDefinitionForServiceRequest(serviceRequest, activityDefinitions);
-
-      const cache: Cache = {
-        parsedTasks,
-        activityDefinition,
-      };
-
       const relatedDiagnosticReports = diagnosticReports.filter(
         (dr) => dr.basedOn?.some((ref) => ref.reference === `ServiceRequest/${serviceRequest.id}`)
       );
 
-      const resultsPDF = resultsPDFs.find((pdf) => pdf.diagnosticReportId === relatedDiagnosticReports[0]?.id);
+      // todo labs team should we be validating the number of items in the array is 1?
+      // we should probably fix this in the future, if we ever have a case where a diagnostic report gets linked to more than one service request we will have an issue
+      const relatedDiagnosticReport = relatedDiagnosticReports[0];
+      const drId = relatedDiagnosticReport?.id;
+      const resultsPDF = drId ? resultsPDFs.find((pdf) => pdf.diagnosticReportIds.includes(drId)) : undefined;
 
       result.push(
         parseOrderData({
@@ -102,8 +91,8 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
           activityDefinitions,
           specimens,
           observations,
+          relatedDiagnosticReport,
           appointmentScheduleMap,
-          cache,
           resultsPDF,
           currentPractitionerName: currentPractitioner ? getFullestAvailableName(currentPractitioner) || '' : '',
           currentPractitionerId: currentPractitioner?.id || '',
@@ -129,8 +118,8 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   activityDefinitions,
   specimens,
   observations,
+  relatedDiagnosticReport,
   appointmentScheduleMap,
-  cache,
   resultsPDF,
   currentPractitionerName,
   currentPractitionerId,
@@ -145,9 +134,9 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   activityDefinitions: ActivityDefinition[];
   specimens: Specimen[];
   observations: Observation[];
+  relatedDiagnosticReport: DiagnosticReport;
   appointmentScheduleMap: Record<string, Schedule>;
-  cache?: Cache;
-  resultsPDF?: OttehrGeneratedResultDocument;
+  resultsPDF?: LabDocumentRelatedToDiagnosticReport;
   currentPractitionerName?: string;
   currentPractitionerId?: string;
 }): InHouseGetOrdersResponseDTO<SearchBy>['data'][number] => {
@@ -160,15 +149,19 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   const appointment = appointments.find((a) => a.id === appointmentId);
   const encounter = encounters.find((e) => e.id === parseEncounterId(serviceRequest));
 
-  const activityDefinition =
-    cache?.activityDefinition || findActivityDefinitionForServiceRequest(serviceRequest, activityDefinitions);
+  const activityDefinition = findActivityDefinitionForServiceRequest(serviceRequest, activityDefinitions);
 
   if (!activityDefinition) {
     console.error(`ActivityDefinition not found for ServiceRequest ${serviceRequest.id}`);
     throw new Error(`ActivityDefinition not found for ServiceRequest ${serviceRequest.id}`);
   }
 
-  const testItem = convertActivityDefinitionToTestItem(activityDefinition, observations, serviceRequest);
+  const testItem = convertActivityDefinitionToTestItem(
+    activityDefinition,
+    observations,
+    serviceRequest,
+    relatedDiagnosticReport
+  );
   const orderStatus = determineOrderStatus(serviceRequest, tasks);
   console.log('orderStatus:', orderStatus);
   const attendingPractitioner = parseAttendingPractitioner(encounter, practitioners);
@@ -259,7 +252,7 @@ export const getInHouseResources = async (
   observations: Observation[];
   pagination: Pagination;
   diagnosticReports: DiagnosticReport[];
-  resultsPDFs: OttehrGeneratedResultDocument[];
+  resultsPDFs: LabDocumentRelatedToDiagnosticReport[];
   currentPractitioner?: Practitioner;
   appointmentScheduleMap: Record<string, Schedule>;
 }> => {
@@ -292,23 +285,30 @@ export const getInHouseResources = async (
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
 
   let currentPractitioner: Practitioner | undefined;
-  let resultsPDFs: OttehrGeneratedResultDocument[] = [];
+  let resultsPDFs: LabDocumentRelatedToDiagnosticReport[] = [];
 
   if (isDetailPageRequest && userToken) {
     // if more than one ServiceRequest is returned for when this is called from the detail page
-    // we can assume that there are related tests via the repeat test workflow
+    // we can assume that there are related tests via the repeat test workflow OR reflex test workflow
     // either the service request id passed was the initial test (no basedOn)
-    // or it was a repeat test (will have a baseOn property)
+    // or it was a repeat/reflex test (will have a baseOn property)
     if (serviceRequests.length > 1) {
-      const repeatTestingSrs = getServiceRequestsRelatedViaRepeat(serviceRequests, searchBy.searchBy.value as string);
+      const relatedSrs = getRelatedServiceRequests(serviceRequests, searchBy.searchBy.value as string);
       // we need to grab additional resources for these additional SRs that will be rendered on the detail page
-      const { repeatDiagnosticReports, repeatObservations, repeatProvenances, repeatTasks, repeatSpecimens } =
-        await fetchResultResourcesForRepeatServiceRequest(oystehr, repeatTestingSrs);
-      diagnosticReports.push(...repeatDiagnosticReports);
-      observations.push(...repeatObservations);
-      provenances.push(...repeatProvenances);
-      tasks.push(...repeatTasks);
-      specimens.push(...repeatSpecimens);
+      const {
+        additionalDiagnosticReports,
+        additionalObservations,
+        additionalProvenances,
+        additionalTasks,
+        additionalSpecimens,
+        additionalActivityDefinitions,
+      } = await fetchResultResourcesForRelatedServiceRequest(oystehr, relatedSrs);
+      diagnosticReports.push(...additionalDiagnosticReports);
+      observations.push(...additionalObservations);
+      provenances.push(...additionalProvenances);
+      tasks.push(...additionalTasks);
+      specimens.push(...additionalSpecimens);
+      activityDefinitions.push(...additionalActivityDefinitions);
     }
 
     const oystehrCurrentUser = createOystehrClient(userToken, params.secrets);

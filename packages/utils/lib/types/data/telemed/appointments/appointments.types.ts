@@ -49,11 +49,6 @@ export interface GetVisitDetailsResponse {
   files: FileURLs;
   medications: PrescribedMedication[];
   appointmentTime: string;
-  charge: {
-    amount: number;
-    currency: string;
-    date: string;
-  };
   followUps: FollowUpDetails[];
 }
 

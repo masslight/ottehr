@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputPutRequest, User } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Patient, Practitioner, Procedure, ServiceRequest } from 'fhir/r4b';
+import { Encounter, HumanName, Patient, Practitioner, Procedure, ServiceRequest } from 'fhir/r4b';
 import { ServiceRequest as ServiceRequestR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
 import randomstring from 'randomstring';
@@ -9,7 +9,6 @@ import {
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
   getSecret,
-  RoleType,
   Secrets,
   SecretsKeys,
   userMe,
@@ -87,7 +86,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     const validatedInput = await validateInput(unsafeInput, secrets, oystehr);
 
     const callerUser = await getCallerUserWithAccessToken(validatedInput.callerAccessToken, secrets);
-    await accessCheck(callerUser);
 
     const output = await performEffect(validatedInput, callerUser.profile, secrets, oystehr);
 
@@ -99,15 +97,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
   }
 });
-
-const accessCheck = async (callerUser: User): Promise<void> => {
-  if (callerUser.profile.indexOf('Practitioner/') === -1) {
-    throw new Error('Caller does not have a practitioner profile');
-  }
-  if (callerUser.roles?.find((role) => role.name === RoleType.Provider) === undefined) {
-    throw new Error('Caller does not have provider role');
-  }
-};
 
 const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
   return userMe(token, secrets);
@@ -349,6 +338,16 @@ const writeAdvaPacsTransaction = async (
     const ourPatientId = ourPatient.id;
     const ourRequestingPractitionerId = ourServiceRequest.requester?.reference?.split('/')[1];
 
+    // Advapacs supports only a single name: send first official if there is one otherwise grab the first
+    const bestNameToSendForActor = (resource: Patient | Practitioner): HumanName[] | undefined => {
+      let nameToSend: HumanName[] | undefined = resource.name;
+      if (resource.name && resource.name.length > 0) {
+        const officialName = resource.name.find((name) => name.use === 'official');
+        nameToSend = officialName ? [officialName] : [resource.name[0]];
+      }
+      return nameToSend;
+    };
+
     const patientToCreate: BatchInputPutRequest<Patient> = {
       method: 'PUT',
       url: `Patient?identifier=${PERSON_IDENTIFIER_CODE_SYSTEM}|${ourPatientId}`,
@@ -360,7 +359,7 @@ const writeAdvaPacsTransaction = async (
             value: ourPatientId,
           },
         ],
-        name: ourPatient.name,
+        name: bestNameToSendForActor(ourPatient),
         birthDate: ourPatient.birthDate,
         gender: ourPatient.gender,
       },
@@ -377,7 +376,7 @@ const writeAdvaPacsTransaction = async (
             value: ourRequestingPractitionerId,
           },
         ],
-        name: ourPractitioner.name,
+        name: bestNameToSendForActor(ourPractitioner),
         birthDate: ourPractitioner.birthDate,
         gender: ourPractitioner.gender,
       },
