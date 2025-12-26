@@ -279,6 +279,11 @@ const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): Pat
   return patientInfo;
 };
 
+const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
+  { key: 'bookingOn', value: 'visit-followup-group' },
+  { key: 'scheduleType', value: 'group' },
+];
+
 const BOOKING_DEFAULTS = {
   serviceCategoriesEnabled: {
     serviceModes: ['in-person', 'virtual'],
@@ -305,6 +310,7 @@ const BOOKING_DEFAULTS = {
   },
   mapBookingQRItemToPatientInfo,
   formConfig,
+  inPersonPrebookRoutingParams,
 };
 
 // todo: it would be nice to use zod to validate the merged booking config shape here
