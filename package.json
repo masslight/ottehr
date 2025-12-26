@@ -57,6 +57,7 @@
     "ehr:e2e:local": "tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:local:integration": "INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:local:ui": "tsx scripts/run-e2e.ts --app=ehr --ui",
+    "ehr:e2e:local:smoke": "SMOKE_TEST=true INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:local:smoke:ui": "SMOKE_TEST=true INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=ehr --ui",
     "ehr:e2e:local:integration:ui": "INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=ehr --ui",
     "ehr:e2e:demo": "ENV=demo tsx scripts/run-e2e.ts --app=ehr",

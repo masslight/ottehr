@@ -230,17 +230,22 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
   };
 
   const baseArgs = commands[testType];
-  const extraArgs = isUI ? [] : ['--', '--headed=false'];
+  const extraArgs: string[] = [];
+
+  // Only add --headed if we want headed mode (UI mode)
+  // By default Playwright runs headless, so we don't need to pass anything for headless
+  if (isUI) {
+    extraArgs.push('--headed');
+  }
 
   if (SMOKE_TEST === 'true' && testType !== 'login') {
     extraArgs.push('--grep', '@smoke');
   }
 
-  if (extraArgs.length > 0 && extraArgs[0] !== '--') {
-    extraArgs.unshift('--');
-  }
+  // Build the playwright args as an environment variable for turbo to pass through
+  const playwrightArgs = extraArgs.length > 0 ? extraArgs.join(' ') : '';
 
-  return spawn('turbo', [...baseArgs, ...extraArgs], {
+  return spawn('turbo', baseArgs, {
     shell: true,
     stdio: 'inherit',
     env: {
@@ -250,6 +255,7 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
       IS_LOGIN_TEST: testType === 'login' ? 'true' : 'false',
       ...(testType === 'specs' && { INTEGRATION_TEST }),
       SMOKE_TEST,
+      PLAYWRIGHT_EXTRA_ARGS: playwrightArgs,
     },
   });
 }
