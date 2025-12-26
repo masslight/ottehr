@@ -60,6 +60,18 @@ export const OrdersToolTip: React.FC<{
               <Box display="flex" alignItems="center" gap="8px" color="text.primary">
                 <Typography variant="body2">{order.itemDescription}</Typography>
                 {order.statusChip}
+                {order.unreadBadge && (
+                  <Box
+                    component="span" // Renders as a span so it sits inline with text
+                    sx={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: '50%',
+                      bgcolor: 'warning.main', // Uses the standard warning color from your theme
+                      display: 'inline-block',
+                    }}
+                  />
+                )}
               </Box>
             </Link>
           ))}
