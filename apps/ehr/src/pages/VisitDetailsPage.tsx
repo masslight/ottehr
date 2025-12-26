@@ -51,6 +51,7 @@ import {
   EHRVisitDetails,
   FHIR_EXTENSION,
   FhirAppointmentType,
+  formatDateForDisplay,
   getFirstName,
   getFullName,
   getInPersonVisitStatus,
@@ -98,7 +99,6 @@ import {
   getCriticalUpdateTagOp,
   NoteHistory,
 } from '../helpers/activityLogsUtils';
-import { formatDateUsingSlashes } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
@@ -573,7 +573,7 @@ export default function VisitDetailsPage(): ReactElement {
   const locationTimeZone = visitDetailsData?.visitTimezone || '';
   const appointmentStartTime = DateTime.fromISO(appointment?.start ?? '').setZone(locationTimeZone);
   const appointmentTime = appointmentStartTime.toLocaleString(DateTime.TIME_SIMPLE);
-  const appointmentDate = formatDateUsingSlashes(appointmentStartTime.toISO() || '', locationTimeZone);
+  const appointmentDate = formatDateForDisplay(appointmentStartTime.toISO() || '', locationTimeZone);
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
@@ -1021,7 +1021,7 @@ export default function VisitDetailsPage(): ReactElement {
                         patientDetails={{
                           ...(unconfirmedDOB
                             ? {
-                                "Patient's date of birth (Unmatched)": formatDateUsingSlashes(unconfirmedDOB),
+                                "Patient's date of birth (Unmatched)": formatDateForDisplay(unconfirmedDOB),
                               }
                             : {}),
                           'Reason for visit': `${reasonForVisit} ${additionalDetails ? `- ${additionalDetails}` : ''}`,
@@ -1357,7 +1357,7 @@ export default function VisitDetailsPage(): ReactElement {
                   <Grid item width="35%">
                     Original DOB:
                   </Grid>
-                  <Grid item>{formatDateUsingSlashes(patient?.birthDate)}</Grid>
+                  <Grid item>{formatDateForDisplay(patient?.birthDate)}</Grid>
                 </Grid>
 
                 {unconfirmedDOB && (
@@ -1365,7 +1365,7 @@ export default function VisitDetailsPage(): ReactElement {
                     <Grid item width="35%">
                       Unmatched DOB:
                     </Grid>
-                    <Grid item>{formatDateUsingSlashes(unconfirmedDOB)}</Grid>
+                    <Grid item>{formatDateForDisplay(unconfirmedDOB)}</Grid>
                   </Grid>
                 )}
               </Grid>
