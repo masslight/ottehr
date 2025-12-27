@@ -168,7 +168,11 @@ const FORM_DEFAULTS = {
   FormFields,
 };
 
-const mergedBookingQConfig = _.merge(FORM_DEFAULTS, BOOKING_OVERRIDES.formConfig ?? {});
+const mergedBookingQConfig = _.merge(FORM_DEFAULTS, {
+  FormFields: BOOKING_OVERRIDES.FormFields ?? {},
+  questionnaireBase: BOOKING_OVERRIDES.questionnaireBase ?? {},
+});
+mergedBookingQConfig.hiddenFormSections = BOOKING_OVERRIDES.hiddenFormSections ?? FORM_DEFAULTS.hiddenFormSections;
 
 const BookingPaperworkConfigSchema = QuestionnaireConfigSchema.extend({
   FormFields: FormFieldsSchema,
