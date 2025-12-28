@@ -45,7 +45,6 @@ import { ScannerModal } from 'src/components/ScannerModal';
 import { TelemedAppointmentStatusChip } from 'src/components/TelemedAppointmentStatusChip';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
-  BOOKING_CONFIG,
   DocumentInfo,
   DocumentType,
   EHRVisitDetails,
@@ -66,6 +65,7 @@ import {
   TelemedAppointmentStatus,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
+  VALUE_SETS,
   VisitDocuments,
   VisitStatusLabel,
 } from 'utils';
@@ -1305,9 +1305,9 @@ export default function VisitDetailsPage(): ReactElement {
                           )
                         }
                       >
-                        {BOOKING_CONFIG.reasonForVisitOptions.map((reason) => (
-                          <MenuItem key={reason} value={reason}>
-                            {reason}
+                        {VALUE_SETS.reasonForVisitOptions.map((reason) => (
+                          <MenuItem key={reason.value} value={reason.value}>
+                            {reason.label}
                           </MenuItem>
                         ))}
                       </Select>
