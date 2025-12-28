@@ -65,6 +65,15 @@ const performEffect = async (input: PatchPaperworkEffectInput, oystehr: Oystehr)
     });
   }
 
+  // temp fix to harvest paperwork after consent forms page is complete
+  if (questionnaireResponseId === 'consent-forms-page') {
+    operations.push({
+      op: 'replace',
+      path: '/status',
+      value: 'completed',
+    });
+  }
+
   return oystehr.fhir.patch<QuestionnaireResponse>({
     id: questionnaireResponseId,
     resourceType: 'QuestionnaireResponse',
