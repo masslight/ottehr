@@ -2,7 +2,7 @@
   "name": "test-utils",
   "type": "module",
   "private": true,
-  "version": "1.24.19",
+  "version": "1.24.20",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "engines": {
