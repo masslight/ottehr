@@ -68,11 +68,14 @@ export async function getMedicationOrders(
   validatedParameters: GetMedicationOrdersInput
 ): Promise<GetMedicationOrdersResponse> {
   const orderPackages = await getOrderPackages(oystehr, validatedParameters.searchBy);
-  const result = orderPackages?.map((pkg) => mapMedicalAdministrationToDTO(pkg));
-  // Previously we did it on the frontend, but it's better to do it here, we can extend the interface if needed later with 'deleted medication orders' field.
-  const filteredResult = result?.filter((med) => !isDeletedMedicationOrder(med));
+  const allOrders = orderPackages?.map((pkg) => mapMedicalAdministrationToDTO(pkg)) ?? [];
+
+  const orders = allOrders.filter((med) => !isDeletedMedicationOrder(med));
+  const cancelledOrders = allOrders.filter((med) => isDeletedMedicationOrder(med));
+
   return {
-    orders: filteredResult ?? [],
+    orders,
+    cancelledOrders,
   };
 }
 

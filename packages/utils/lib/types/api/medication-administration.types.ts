@@ -30,6 +30,7 @@ export type GetMedicationOrdersInput = z.infer<typeof GetMedicationOrdersInputSc
 
 export interface GetMedicationOrdersResponse {
   orders: ExtendedMedicationDataForResponse[];
+  cancelledOrders: ExtendedMedicationDataForResponse[];
 }
 
 export interface UpdateMedicationOrderInput {
