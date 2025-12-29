@@ -54,7 +54,7 @@ export const WalkinLanding: FC = () => {
       subtitle={somethingIsLoadingInSomeWay ? '' : data?.scheduleOwnerName ?? ''}
       isFirstPage
       img={ottehrLightBlue}
-      imgAlt={`${BRANDING_CONFIG.projectName} icon`}
+      imgAlt={BRANDING_CONFIG.primaryIconAlt}
       imgWidth={120}
     >
       {!somethingIsLoadingInSomeWay && data ? (

@@ -361,7 +361,7 @@ const ChoosePatient = (): JSX.Element => {
           <CardWithDescriptionAndLink
             iconHeight={50}
             icon={ottehrLightBlue}
-            iconAlt={`${BRANDING_CONFIG.projectName} icon`}
+            iconAlt={BRANDING_CONFIG.primaryIconAlt}
             mainText={t('welcomeBack.alreadyReserved')}
             textColor={otherColors.white}
             descText={t('welcomeBack.checkIn')}
