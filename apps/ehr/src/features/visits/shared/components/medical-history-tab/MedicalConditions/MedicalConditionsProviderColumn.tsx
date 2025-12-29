@@ -255,7 +255,6 @@ const AddMedicalConditionField: FC = () => {
   const debouncedHandleInputChange = useMemo(
     () =>
       debounce((data) => {
-        console.log(data);
         setDebouncedSearchTerm(data);
       }, 800),
     []

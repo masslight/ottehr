@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React, { type InputHTMLAttributes } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -220,23 +220,30 @@ describe('PrimaryCareContainer', () => {
     for (const field of conditionalFields) {
       const input = getFieldInput(field.key);
 
-      // Clear the field
+      // Clear the field - userEvent actions are automatically wrapped in act()
       await user.clear(input);
 
-      // Trigger validation for this specific field
-      await formMethods!.trigger(field.key);
+      // Trigger validation and wait for all async updates
+      await act(async () => {
+        await formMethods!.trigger(field.key);
+      });
+
+      // Wait for validation to complete and DOM to update
+      await waitFor(() => {
+        expect(formMethods!.formState.isValidating).toBe(false);
+      });
 
       // Check if error appears based on config
-      const errorElement = document.getElementById(field.key)?.querySelector('p.MuiFormHelperText-root.Mui-error');
-
       if (field.shouldBeRequired) {
         // Field should show required error
         await waitFor(() => {
+          const errorElement = document.getElementById(field.key)?.querySelector('p.MuiFormHelperText-root.Mui-error');
           expect(errorElement).toBeInTheDocument();
           expect(errorElement).toHaveTextContent('This field is required');
         });
       } else {
         // Field should NOT show required error
+        const errorElement = document.getElementById(field.key)?.querySelector('p.MuiFormHelperText-root.Mui-error');
         expect(errorElement).not.toBeInTheDocument();
       }
     }

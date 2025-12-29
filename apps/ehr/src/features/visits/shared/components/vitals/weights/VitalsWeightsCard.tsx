@@ -158,6 +158,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                     loading={isSaving}
                     onClick={() => weightKg && handleSaveWeightObservation(weightKg)}
                     color="primary"
+                    data-testid="add-weight-button"
                     sx={{
                       height: '40px',
                       px: 2,
