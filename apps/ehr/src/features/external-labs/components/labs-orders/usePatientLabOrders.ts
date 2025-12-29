@@ -227,8 +227,6 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
         return true;
       } catch (err) {
-        console.error('Error deleting external lab order:', err);
-
         const errorObj =
           err instanceof Error ? err : new Error(typeof err === 'string' ? err : 'Failed to delete lab order');
 
