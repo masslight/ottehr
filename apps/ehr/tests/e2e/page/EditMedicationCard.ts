@@ -51,7 +51,7 @@ export class EditMedicationCard {
   async selectMedication(medication: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.MEDICATION);
     await this.#page.getByTestId(dataTestId).click();
-    await this.#page.getByText(medication, { exact: true }).click();
+    await this.chooseOption(medication);
   }
 
   async clearMedication(): Promise<void> {
@@ -117,6 +117,13 @@ export class EditMedicationCard {
 
   async waitForLoadOrderedBy(): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ORDERED_BY);
+    await this.#page.locator(`[data-testid="${dataTestId}"] [role="combobox"][tabindex="0"]`).waitFor({
+      timeout: 30000,
+    });
+  }
+
+  async waitForLoadAssociatedDx(): Promise<void> {
+    const dataTestId = this.getDataTestId(Field.ASSOCIATED_DX);
     await this.#page.locator(`[data-testid="${dataTestId}"] [role="combobox"][tabindex="0"]`).waitFor({
       timeout: 30000,
     });
