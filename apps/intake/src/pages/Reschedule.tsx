@@ -196,7 +196,7 @@ const Reschedule = (): JSX.Element => {
       subtext={loading ? '' : t('modify.selectNew')}
       isFirstPage
       img={ottehrLightBlue}
-      imgAlt={`${BRANDING_CONFIG.projectName} icon`}
+      imgAlt={BRANDING_CONFIG.primaryIconAlt}
       imgWidth={150}
     >
       <>
