@@ -4,9 +4,9 @@ import { Patient, Questionnaire, QuestionnaireResponse, Slot, ValueSet } from 'f
 import {
   BOOKING_CONFIG,
   FHIR_RESOURCE_NOT_FOUND,
-  GetQuestionnaireParams,
-  GetQuestionnaireParamsSchema,
-  GetQuestionnaireResponse,
+  GetBookingQuestionnaireParams,
+  GetBookingQuestionnaireParamsSchema,
+  GetBookingQuestionnaireResponse,
   getSecret,
   getServiceCategoryFromSlot,
   getServiceModeFromSlot,
@@ -60,7 +60,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetQuestionnaireResponse> => {
+const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetBookingQuestionnaireResponse> => {
   const { qUrl, qVersion, patient, templateQuestionnaire, serviceCategoryCode, serviceMode } = input;
 
   // if the ENV is local, we pass in a template questionnaire directly, otherwise we fetch it from Oystehr
@@ -139,15 +139,15 @@ const validateUserAccess = async (input: AccessValidationInput): Promise<Access_
   return Access_Level.anonymous;
 };
 
-type ValidatedInput = GetQuestionnaireParams & { secrets: Secrets | null; userToken: string | null };
+type ValidatedInput = GetBookingQuestionnaireParams & { secrets: Secrets | null; userToken: string | null };
 const validateRequestParameters = (input: ZambdaInput): ValidatedInput => {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  let parsed: GetQuestionnaireParams;
+  let parsed: GetBookingQuestionnaireParams;
   try {
-    parsed = GetQuestionnaireParamsSchema.parse(JSON.parse(input.body));
+    parsed = GetBookingQuestionnaireParamsSchema.parse(JSON.parse(input.body));
   } catch (e: any) {
     throw INVALID_INPUT_ERROR(e.message);
   }
