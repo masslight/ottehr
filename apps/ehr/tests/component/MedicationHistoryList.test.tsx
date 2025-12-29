@@ -81,6 +81,7 @@ describe('MedicationHistoryList - Display Tests', () => {
 
     mockUseMedicationAPI.mockReturnValue({
       medications: [],
+      cancelledMedications: [],
       isLoading: false,
       loadMedications: vi.fn(),
       updateMedication: vi.fn(),

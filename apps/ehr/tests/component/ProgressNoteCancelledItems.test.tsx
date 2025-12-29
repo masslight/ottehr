@@ -174,6 +174,7 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
 
     mockUseMedicationAPI.mockReturnValue({
       medications: [],
+      cancelledMedications: [],
       isLoading: false,
       loadMedications: vi.fn(),
       updateMedication: vi.fn(),
@@ -264,6 +265,7 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
 
     mockUseMedicationAPI.mockReturnValue({
       medications,
+      cancelledMedications: [],
       isLoading: false,
       loadMedications: vi.fn(),
       updateMedication: vi.fn(),
@@ -281,6 +283,7 @@ describe('ProgressNoteDetails - Deleted Items Backend Filtering Tests', () => {
     // Backend filtered out all deleted medications, returning empty array
     mockUseMedicationAPI.mockReturnValue({
       medications: [],
+      cancelledMedications: [],
       isLoading: false,
       loadMedications: vi.fn(),
       updateMedication: vi.fn(),
