@@ -44,9 +44,11 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
+    testItemStatus,
   }: {
     serviceRequestId: string;
     testItemName: string;
+    testItemStatus: ExternalLabsStatus;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
   markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId?: string }) => Promise<void>;

@@ -3,6 +3,7 @@ import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDrExternalLabEditUrl, getExternalLabOrderEditUrl } from 'src/features/visits/in-person/routing/helpers';
 import {
+  ExternalLabsStatus,
   getColumnHeader,
   getColumnWidth,
   LabOrderDTO,
@@ -20,9 +21,11 @@ interface LabsTableProps {
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
+    testItemStatus,
   }: {
     serviceRequestId: string;
     testItemName: string;
+    testItemStatus: ExternalLabsStatus;
   }) => void;
   allowDelete?: boolean;
   bundleRow?: ReactElement;
@@ -95,6 +98,7 @@ export const LabsTable = ({
                     showDeleteLabOrderDialog({
                       serviceRequestId: order.serviceRequestId,
                       testItemName: order.testItem,
+                      testItemStatus: order.orderStatus,
                     })
                   }
                   onRowClick={() => onRowClick(order)}

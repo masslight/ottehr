@@ -174,7 +174,7 @@ export const LabsTableRow = ({
       case 'detail':
         return lab.isPSC ? PSC_LOCALE : '';
       case 'actions':
-        if (allowDelete && (lab.orderStatus === 'pending' || lab.orderStatus === 'ready')) {
+        if (allowDelete) {
           return (
             <Button
               onClick={handleDeleteClick}
