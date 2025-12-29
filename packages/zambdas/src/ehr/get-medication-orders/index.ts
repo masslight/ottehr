@@ -24,6 +24,7 @@ import {
   getProviderIdAndDateMedicationWasAdministered,
   getReasonAndOtherReasonForNotAdministeredOrder,
   getSecret,
+  isDeletedMedicationOrder,
   mapFhirToOrderStatus,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
   OrderPackage,
@@ -68,8 +69,10 @@ export async function getMedicationOrders(
 ): Promise<GetMedicationOrdersResponse> {
   const orderPackages = await getOrderPackages(oystehr, validatedParameters.searchBy);
   const result = orderPackages?.map((pkg) => mapMedicalAdministrationToDTO(pkg));
+  // Previously we did it on the frontend, but it's better to do it here, we can extend the interface if needed later with 'deleted medication orders' field.
+  const filteredResult = result?.filter((med) => !isDeletedMedicationOrder(med));
   return {
-    orders: result ?? [],
+    orders: filteredResult ?? [],
   };
 }
 
