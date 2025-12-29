@@ -306,10 +306,6 @@ test.describe('In-person visit', async () => {
     });
 
     test('Complete visit with supervisor approval required and verify PDF creation', async ({ page }) => {
-      test.skip(
-        !SUPERVISOR_APPROVAL_ENABLED,
-        'Approval flow is not available when supervisor approval feature flag is disabled'
-      );
       test.setTimeout(240000);
 
       const visitsPage = await openVisitsPage(page);
