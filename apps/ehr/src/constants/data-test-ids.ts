@@ -316,17 +316,23 @@ export const dataTestIds = {
   patientInfoPage: {
     patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
   },
+  vitalsPage: {
+    addWeightButton: 'add-weight-button',
+    addHeightButton: 'add-height-button',
+  },
   inHouseMedicationsPage: {
     title: 'medications-title',
     orderButton: 'order-button',
+    marTableLoader: 'mar-table-loader',
     marTable: {
       row: 'mar-table-row',
+      medicationRow: (medicationId: string) => `mar-table-medication-${medicationId}`,
       medicationCell: 'mar-table-medication-cell',
       statusCell: 'mar-table-status-cell',
       doseCell: 'mar-table-dose-cell',
       routeCell: 'mar-table-route-cell',
-      orderedByCell: ' mar-table-ordered-by-cell',
-      givenByCell: ' mar-table-given-by-cell',
+      orderedByCell: 'mar-table-ordered-by-cell',
+      givenByCell: 'mar-table-given-by-cell',
       reasonCell: 'mar-table-reason-cell',
       instructionsCell: 'mar-table-instructions-cell',
     },
@@ -340,7 +346,7 @@ export const dataTestIds = {
     medicationHistoryTableMedication: 'medication-history-table-medication',
     medicationHistoryTableType: 'medication-history-table-type',
     medicationHistoryTableWhoAdded: 'medication-history-table-who-added',
-    medicationHistoryTableRow: ' medication-history-table-row',
+    medicationHistoryTableRow: 'medication-history-table-row',
   },
   orderMedicationPage: {
     inputField: (field: string): string => `input-${field}`,
@@ -591,5 +597,13 @@ export const dataTestIds = {
     proceedButton: 'edit-note-dialog-proceed-button',
     title: 'edit-note-dialog-title',
     message: 'edit-note-dialog-message',
+  },
+
+  radiologyPage: {
+    title: 'radiology-page-title',
+    orderButton: 'radiology-order-button',
+    submitOrderButton: 'radiology-submit-order-button',
+    radiologyOrderRow: (serviceRequestId: string) => `radiology-order-row-${serviceRequestId}`,
+    deleteOrderButton: (serviceRequestId: string) => `radiology-delete-order-${serviceRequestId}`,
   },
 };
