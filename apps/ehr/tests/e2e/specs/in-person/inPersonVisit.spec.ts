@@ -52,6 +52,8 @@ import { expectInPersonProgressNotePage } from '../../page/in-person/InPersonPro
 import { expectPatientInfoPage } from '../../page/PatientInfo';
 import { openVisitsPage } from '../../page/VisitsPage';
 
+const SUPERVISOR_APPROVAL_ENABLED = process.env.VITE_APP_IS_SUPERVISOR_APPROVAL_ENABLED_FEATURE_FLAG === 'true';
+
 // cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
 const EM_CODE = '99202 New Patient - E/M Level 2';
@@ -209,6 +211,11 @@ test.describe('In-person visit', async () => {
   });
 
   test.describe('awaiting for approval flow', () => {
+    test.skip(
+      !SUPERVISOR_APPROVAL_ENABLED,
+      'Approval flow is not available when supervisor approval feature flag is disabled'
+    );
+
     const PROCESS_ID = `inPersonVisit-approval.spec.ts-${DateTime.now().toMillis()}`;
     let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined;
     let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined;
@@ -299,6 +306,10 @@ test.describe('In-person visit', async () => {
     });
 
     test('Complete visit with supervisor approval required and verify PDF creation', async ({ page }) => {
+      test.skip(
+        !SUPERVISOR_APPROVAL_ENABLED,
+        'Approval flow is not available when supervisor approval feature flag is disabled'
+      );
       test.setTimeout(240000);
 
       const visitsPage = await openVisitsPage(page);
