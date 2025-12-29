@@ -1,6 +1,6 @@
 {
   "name": "spec",
-  "version": "1.24.17",
+  "version": "1.24.22",
   "description": "Library for interacting with Ottehr spec and var files",
   "scripts": {
     "build": "tsc --noEmit",
