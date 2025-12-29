@@ -75,7 +75,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
   }
 
   if (inHouseLabOrders?.length) {
-    const unreadStatuses: TestStatus[] = ['ORDERED', 'COLLECTED', 'FINAL'];
+    const unreadStatuses: TestStatus[] = ['ORDERED', 'COLLECTED', 'FINAL']; // todo this is all statuses possible, is it ok that all of them are 'unread'?
     const inHouseLabOrderConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['In-House Labs'],
       title: 'In-House Labs',
@@ -177,7 +177,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       <Box sx={{ display: 'flex', width: '100%' }}>
         {orderConfigs.map((config) => {
           const button = (
-            <Link to={config.tableUrl} style={{ textDecoration: 'none' }} key={`${config.title}-icon-indicator`}>
+            <Link to={config.tableUrl} style={{ textDecoration: 'none' }}>
               <Box
                 sx={{
                   display: 'flex',
@@ -196,27 +196,29 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
               </Box>
             </Link>
           );
-          if (config.unreadBadge) {
-            return (
-              <Badge
-                variant="dot"
-                color="warning"
-                sx={{
-                  '& .MuiBadge-badge': {
-                    width: '9px',
-                    height: '9px',
-                    borderRadius: '10px',
-                    top: '4px',
-                    right: '11px',
-                  },
-                }}
-              >
-                {button}
-              </Badge>
-            );
-          } else {
-            return button;
-          }
+          return (
+            <Box key={`${config.title}-icon-indicator`}>
+              {config.unreadBadge ? (
+                <Badge
+                  variant="dot"
+                  color="warning"
+                  sx={{
+                    '& .MuiBadge-badge': {
+                      width: '9px',
+                      height: '9px',
+                      borderRadius: '10px',
+                      top: '4px',
+                      right: '11px',
+                    },
+                  }}
+                >
+                  {button}
+                </Badge>
+              ) : (
+                button
+              )}
+            </Box>
+          );
         })}
       </Box>
     </GenericToolTip>
