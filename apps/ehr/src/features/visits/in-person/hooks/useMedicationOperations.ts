@@ -8,6 +8,7 @@ import { useAppointmentData } from '../../shared/stores/appointment/appointment.
 
 interface MedicationAPI {
   medications: ExtendedMedicationDataForResponse[];
+  cancelledMedications: ExtendedMedicationDataForResponse[];
   isLoading: boolean;
   loadMedications: () => Promise<void>;
   updateMedication: (updatedMedication: UpdateMedicationOrderInput) => Promise<{ id: string; message: string }>;
@@ -47,6 +48,7 @@ export const useMedicationAPI = (): MedicationAPI => {
 
   return {
     medications: medicationsData?.orders || emptyArray,
+    cancelledMedications: medicationsData?.cancelledOrders || emptyArray,
     isLoading,
     loadMedications: invalidateCache,
     updateMedication: async (updatedMedication: UpdateMedicationOrderInput) => {
