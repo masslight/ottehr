@@ -27,6 +27,7 @@ export const GetMedicationOrdersInputSchema = z.object({
   ]),
 });
 export type GetMedicationOrdersInput = z.infer<typeof GetMedicationOrdersInputSchema>;
+
 export interface GetMedicationOrdersResponse {
   orders: ExtendedMedicationDataForResponse[];
 }
