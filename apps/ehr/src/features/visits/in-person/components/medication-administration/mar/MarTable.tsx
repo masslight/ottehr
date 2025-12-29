@@ -43,10 +43,12 @@ const sortByDateTimeCreated = (
 export const MarTable: React.FC = () => {
   const [isPendingCollapsed, setIsPendingCollapsed] = useState(false);
   const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(false);
-  const { medications, isLoading } = useMedicationAPI();
+  const { medications, cancelledMedications, isLoading } = useMedicationAPI();
 
-  const pendingMedications = sortByDateTimeCreated(medications?.filter?.((med) => med.status === 'pending') || []);
-  const completedMedications = sortByDateTimeCreated(medications?.filter?.((med) => med.status !== 'pending') || []);
+  // show cancelled in-house medications in the completed section for the backward compatibility
+  const allMedications = [...medications, ...cancelledMedications];
+  const pendingMedications = sortByDateTimeCreated(allMedications?.filter?.((med) => med.status === 'pending') || []);
+  const completedMedications = sortByDateTimeCreated(allMedications?.filter?.((med) => med.status !== 'pending') || []);
 
   const handlePendingToggle = (): void => {
     setIsPendingCollapsed((prev) => !prev);
