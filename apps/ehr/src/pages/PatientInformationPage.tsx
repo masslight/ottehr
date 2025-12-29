@@ -150,7 +150,7 @@ const usePatientData = (
   const {
     isFetching: accountFetching,
     data: accountData,
-    status,
+    status: accountStatus,
   } = useGetPatientAccount({
     apiClient,
     patientId: id ?? null,
@@ -163,7 +163,7 @@ const usePatientData = (
     },
     undefined,
     {
-      enabled: apiClient != null && id != null && status === 'success',
+      enabled: accountStatus === 'success',
     }
   );
 
