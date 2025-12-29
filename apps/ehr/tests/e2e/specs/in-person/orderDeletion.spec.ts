@@ -377,7 +377,7 @@ test.describe('Order Deletion - Happy Path', () => {
       await expect(page.getByText(MEDICATION_NAME)).not.toBeVisible();
     });
 
-    await test.step('Verify medication is removed from MAR', async () => {
+    await test.step('Verify medication is marked as cancelled in MAR', async () => {
       // Navigate back to MAR
       await sideMenu.clickInHouseMedications();
 
@@ -391,9 +391,17 @@ test.describe('Order Deletion - Happy Path', () => {
         // Loader might not appear if data loads very quickly, which is fine
       });
 
-      // Verify deleted medication is not in MAR
-      // (The backend filters out medications with status 'cancelled')
-      await expect(page.getByText(MEDICATION_NAME)).not.toBeVisible();
+      // Verify medication is visible in MAR with "Cancelled" status
+      // (Cancelled medications now appear in the "Completed" section for backward compatibility)
+      const medicationRow = page.getByTestId(dataTestIds.inHouseMedicationsPage.marTable.medicationRow(medicationId));
+
+      await expect(medicationRow).toBeVisible({ timeout: 30_000 });
+
+      // Verify the status is "Cancelled"
+      await expect(medicationRow.getByTestId(dataTestIds.inHouseMedicationsPage.marTable.statusCell)).toContainText(
+        'Cancelled',
+        { timeout: 30_000 }
+      );
     });
 
     await test.step('Verify medication not shown in Progress Note', async () => {
