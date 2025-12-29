@@ -20,7 +20,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
       title={`Welcome to ${BRANDING_CONFIG.projectName}`}
       img={ottehrLightBlue}
       imgAlt={BRANDING_CONFIG.primaryIconAlt}
-      imgWidth={150}
+      imgWidth={100}
       isFirstPage={true}
       outsideCardComponent={showEmergencyBanner ? <EmergencyBanner /> : undefined}
     >
