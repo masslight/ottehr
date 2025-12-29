@@ -258,7 +258,7 @@ const PaperworkPageTitle: FC<PaperworkPageTitleProps> = ({ pageItem, patientName
         color="primary.main"
         data-testid="flow-page-title"
       >
-        {styledPageItem.text}
+        {styledPageItem?.text}
       </Typography>
       {patientName && (
         <Typography variant="body2" color={theme.palette.secondary.main} fontSize={'18px'}>
