@@ -77,7 +77,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
           : { cursor: 'default' }),
       }}
       onClick={handleRowClick}
-      data-testid={dataTestIds.immunizationPage.marTableRow}
+      data-testid={dataTestIds.immunizationPage.marTableRow(order.id)}
     >
       <TableCell data-testid={dataTestIds.immunizationPage.marTableVaccineCell}>
         {order.details.medication.name}

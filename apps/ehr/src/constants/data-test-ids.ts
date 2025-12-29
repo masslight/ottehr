@@ -325,7 +325,7 @@ export const dataTestIds = {
     orderButton: 'order-button',
     marTableLoader: 'mar-table-loader',
     marTable: {
-      row: 'mar-table-row',
+      medicationRowPrefix: 'mar-table-medication-',
       medicationRow: (medicationId: string) => `mar-table-medication-${medicationId}`,
       medicationCell: 'mar-table-medication-cell',
       statusCell: 'mar-table-status-cell',
@@ -523,7 +523,8 @@ export const dataTestIds = {
   immunizationPage: {
     title: 'immunization-title',
     newOrderButton: 'new-order-button',
-    marTableRow: 'mar-table-row',
+    marTableRowPrefix: 'mar-table-vaccine-',
+    marTableRow: (vaccineId: string) => `mar-table-vaccine-${vaccineId}`,
     marTableVaccineCell: 'mar-table-vaccine-cell',
     marTableStatusCell: 'mar-table-status-cell',
     marTableDoseRouteCell: 'mar-table-dose-route-cell',

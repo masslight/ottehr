@@ -79,9 +79,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
 
   return (
     <TableRow
-      data-testid={`${
-        dataTestIds.inHouseMedicationsPage.marTable.row
-      } ${dataTestIds.inHouseMedicationsPage.marTable.medicationRow(medication.id)}`}
+      data-testid={dataTestIds.inHouseMedicationsPage.marTable.medicationRow(medication.id)}
       sx={{
         cursor: 'pointer',
         position: 'relative',
