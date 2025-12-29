@@ -41,8 +41,6 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
 
   const { externalLabOrders, inHouseLabOrders, nursingOrders, inHouseMedications, radiologyOrders, erxOrders } = orders;
 
-  const filteredInHouseMedications = inHouseMedications?.filter((med) => med?.status !== 'cancelled');
-
   const orderConfigs: OrderToolTipConfig[] = [];
 
   if (externalLabOrders?.length) {
@@ -92,12 +90,12 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     if (nursingOrdersConfig.orders.length > 0) orderConfigs.push(nursingOrdersConfig);
   }
 
-  if (filteredInHouseMedications?.length) {
+  if (inHouseMedications?.length) {
     const inHouseMedicationConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['Med. Administration'],
       title: 'In-House Medications',
       tableUrl: getInHouseMedicationMARUrl(appointment.id),
-      orders: filteredInHouseMedications.map((med) => {
+      orders: inHouseMedications.map((med) => {
         const isPending = med.status === 'pending';
         const targetUrl = isPending
           ? `${getInHouseMedicationDetailsUrl(appointment.id)}?scrollTo=${med.id}`

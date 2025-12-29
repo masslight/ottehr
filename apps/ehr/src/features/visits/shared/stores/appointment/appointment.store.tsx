@@ -717,7 +717,7 @@ export const useChartData = ({
   return {
     refetch: chartDataRefetch,
     chartDataRefetch: chartDataRefetch,
-    chartData: chartDataResponse || undefined,
+    chartData: chartDataResponse,
     isLoading,
     isChartDataLoading: isLoading,
     error: chartDataError,
