@@ -58,6 +58,7 @@ export const MedicationHistoryList: React.FC = () => {
                 <TableCell>Type</TableCell>
                 <TableCell>Who Added</TableCell>
                 <TableCell>Last Time Taken</TableCell>
+                <TableCell />
               </TableRow>
             </TableHead>
             <TableBody>
@@ -76,6 +77,7 @@ export const MedicationHistoryList: React.FC = () => {
                     <TableCell>
                       <Skeleton width={'100%'} height={24} />
                     </TableCell>
+                    <TableCell />
                   </TableRow>
                   <TableRow>
                     <TableCell>
@@ -90,6 +92,7 @@ export const MedicationHistoryList: React.FC = () => {
                     <TableCell>
                       <Skeleton width={'100%'} height={24} />
                     </TableCell>
+                    <TableCell />
                   </TableRow>
                   <TableRow>
                     <TableCell>
@@ -104,6 +107,7 @@ export const MedicationHistoryList: React.FC = () => {
                     <TableCell>
                       <Skeleton width={'100%'} height={24} />
                     </TableCell>
+                    <TableCell />
                   </TableRow>
                 </>
               ) : (

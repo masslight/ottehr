@@ -21,7 +21,7 @@ export const useMedicationAPI = (): MedicationAPI => {
   const queryClient = useQueryClient();
   const { mutateAsync: createUpdateMedicationOrder } = useCreateUpdateMedicationOrder();
   const searchBy: GetMedicationOrdersInput['searchBy'] = { field: 'encounterId', value: encounter.id || '' };
-  const { data: medications, isLoading } = useGetMedicationOrders(searchBy);
+  const { data: medicationsData, isLoading } = useGetMedicationOrders(searchBy);
 
   const invalidateCache = async (): Promise<void> => {
     const encounterId = encounter.id;
@@ -46,7 +46,7 @@ export const useMedicationAPI = (): MedicationAPI => {
   };
 
   return {
-    medications: medications?.orders || emptyArray,
+    medications: medicationsData?.orders || emptyArray,
     isLoading,
     loadMedications: invalidateCache,
     updateMedication: async (updatedMedication: UpdateMedicationOrderInput) => {
