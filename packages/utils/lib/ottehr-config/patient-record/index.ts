@@ -776,9 +776,10 @@ const PatientRecordConfigSchema = QuestionnaireConfigSchema.extend({
 });
 
 export const PATIENT_RECORD_CONFIG = PatientRecordConfigSchema.parse(mergedPatientRecordConfig);
-
 const prepopulateLogicalFields = (questionnaire: Questionnaire): QuestionnaireResponseItem[] => {
-  const shouldShowSSNField = !PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields?.includes('patient-ssn');
+  const shouldShowSSNField = !(
+    PATIENT_RECORD_CONFIG.FormFields.patientSummary.hiddenFields?.includes('patient-ssn') ?? false
+  );
   const ssnRequired =
     shouldShowSSNField && PATIENT_RECORD_CONFIG.FormFields.patientSummary.requiredFields?.includes('patient-ssn');
 
@@ -808,7 +809,7 @@ const prepopulateLogicalFields = (questionnaire: Questionnaire): QuestionnaireRe
     };
   });
 
-  return item;
+  return item.flatMap((i) => i.item ?? []).filter((i) => i.answer !== undefined);
 };
 
 export const prepopulatePatientRecordItems = (
@@ -820,6 +821,8 @@ export const prepopulatePatientRecordItems = (
 
   const q = input.questionnaire;
   const logicalFieldItems = prepopulateLogicalFields(q);
+  // todo: this is exported from another util file, but only used here. probably want to move it and
+  // consolidate the interface exposed to the rest of the system.
   const patientRecordItems = makePrepopulatedItemsFromPatientRecord({ ...input, overriddenItems: logicalFieldItems });
 
   return patientRecordItems;
