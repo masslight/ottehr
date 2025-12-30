@@ -2,7 +2,6 @@ import { BrowserContext, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForResponseWithData } from 'test-utils';
 import {
-  BOOKING_CONFIG,
   CreateAppointmentResponse,
   DEMO_VISIT_CITY,
   DEMO_VISIT_MARKETING_MESSAGING,
@@ -31,6 +30,7 @@ import {
   FormFieldsItem,
   PATIENT_RECORD_CONFIG,
   unpackFhirResponse,
+  VALUE_SETS,
 } from 'utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
@@ -94,7 +94,7 @@ const NEW_PRACTICE_NAME = 'Dental';
 const NEW_PHYSICIAN_ADDRESS = '5th avenue';
 const NEW_PHYSICIAN_MOBILE = '(202) 222-2222';
 const NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD = 'testing gender';
-const NEW_REASON_FOR_VISIT = BOOKING_CONFIG.reasonForVisitOptions[0];
+const NEW_REASON_FOR_VISIT = VALUE_SETS.reasonForVisitOptions[0].value;
 
 // Emergency Contact test data
 const NEW_EMERGENCY_CONTACT_RELATIONSHIP = 'Parent';
@@ -154,6 +154,7 @@ const getConditionalFields = (
     .filter((item) => {
       if (!item.triggers || item.triggers.length === 0) return false;
       if (!item.disabledDisplay || item.disabledDisplay === 'disabled') return false;
+      if (!item.label) return false;
       return item.triggers.some((trigger) => trigger.targetQuestionLinkId === controlFieldKey);
     })
     .map((item) => {
@@ -162,7 +163,7 @@ const getConditionalFields = (
       );
       return {
         key: item.key,
-        label: item.label,
+        label: item.label || '',
         shouldBeRequired,
         disabledDisplay: item.disabledDisplay || 'disabled',
       };

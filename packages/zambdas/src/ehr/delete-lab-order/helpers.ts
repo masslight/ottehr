@@ -170,7 +170,7 @@ export const makeCommunicationRequestForOrderNote = (
   orderLevelNotes: Communication[] | undefined,
   serviceRequest: ServiceRequest
 ): BatchInputPatchRequest<Communication> | BatchInputDeleteRequest | undefined => {
-  if (!orderLevelNotes) return;
+  if (!orderLevelNotes || orderLevelNotes.length === 0) return;
 
   if (orderLevelNotes.length !== 1) {
     throw new Error(

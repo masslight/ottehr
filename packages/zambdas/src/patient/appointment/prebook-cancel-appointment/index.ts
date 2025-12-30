@@ -8,7 +8,6 @@ import {
   APPOINTMENT_NOT_FOUND_ERROR,
   CancelAppointmentZambdaInput,
   CancelAppointmentZambdaOutput,
-  CancellationReasonCodesInPerson,
   CANT_CANCEL_CHECKED_IN_APT_ERROR,
   DATETIME_FULL_NO_YEAR,
   FHIR_ZAPEHR_URL,
@@ -128,7 +127,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
             {
               // todo reassess codes and reasons, just using custom codes atm
               system: `${FHIR_ZAPEHR_URL}/CodeSystem/appointment-cancellation-reason`,
-              code: CancellationReasonCodesInPerson[cancellationReason],
+              code: cancellationReason,
               display: cancellationReason,
             },
           ],

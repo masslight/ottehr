@@ -1,9 +1,4 @@
-import {
-  CancellationReasonOptionsInPerson,
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
-} from 'utils';
+import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS, VALUE_SETS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 import { CancelAppointmentZambdaInputValidated } from '.';
 
@@ -25,7 +20,7 @@ export function validateRequestParameters(input: ZambdaInput): CancelAppointment
     throw MISSING_REQUIRED_PARAMETERS(missingFields);
   }
 
-  const validReasons = Object.values(CancellationReasonOptionsInPerson);
+  const validReasons = VALUE_SETS.cancelReasonOptions.map((option) => option.value);
 
   if (!validReasons.includes(cancellationReason)) {
     throw INVALID_INPUT_ERROR(

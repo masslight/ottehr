@@ -8,10 +8,9 @@ import { useOystehrAPIClient } from 'src/telemed/utils';
 import {
   APIError,
   APPOINTMENT_NOT_FOUND_ERROR,
-  BOOKING_CONFIG,
-  CancellationReasonOptionsTelemed,
   CANT_CANCEL_CHECKED_IN_APT_ERROR,
   ServiceMode,
+  VALUE_SETS,
 } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import ottehrApi from '../api/ottehrApi';
@@ -136,6 +135,10 @@ const CancellationReason = (): JSX.Element => {
 
   const appointmentNotFoundInformation = useAppointmentNotFoundInformation();
 
+  const cancelReasonOptions = useMemo(() => {
+    return isVirtualAppt ? VALUE_SETS.cancelReasonOptionsVirtual : VALUE_SETS.cancelReasonOptions;
+  }, [isVirtualAppt]);
+
   if (notFound) {
     return (
       <PageContainer title={t('cancel.errors.errorCanceling')} description={appointmentNotFoundInformation}>
@@ -143,21 +146,6 @@ const CancellationReason = (): JSX.Element => {
       </PageContainer>
     );
   }
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const cancelReasonOptions = useMemo(() => {
-    return isVirtualAppt
-      ? Object.keys(CancellationReasonOptionsTelemed).map((key, index) => ({
-          label:
-            t(`cancel.telemedReasons.reason${index + 1}`) ||
-            CancellationReasonOptionsTelemed[key as keyof typeof CancellationReasonOptionsTelemed],
-          value: CancellationReasonOptionsTelemed[key as keyof typeof CancellationReasonOptionsTelemed],
-        }))
-      : Object.keys(BOOKING_CONFIG.cancelReasonOptions).map((key, index) => ({
-          label: t(`cancel.reasons.reason${index + 1}`) || BOOKING_CONFIG.cancelReasonOptions[index],
-          value: BOOKING_CONFIG.cancelReasonOptions[index],
-        }));
-  }, [t, isVirtualAppt]);
 
   return (
     <PageContainer title={t('cancel.title')}>

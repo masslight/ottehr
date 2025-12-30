@@ -114,7 +114,6 @@ const Homepage = (): JSX.Element => {
       visitType: 'prebook',
     });
     let destination = '';
-    console.log('Should select service category:', shouldSelectServiceCategory);
     if (shouldSelectServiceCategory) {
       destination = intakeFlowPageRoute.SelectServiceCategory.path.replace(
         `:${BOOKING_SERVICE_MODE_PARAM}`,
@@ -126,8 +125,8 @@ const Homepage = (): JSX.Element => {
         ServiceMode['in-person']
       );
     }
-    destination += `?bookingOn=visit-followup-group&scheduleType=group`;
-    console.log('Navigating to:', destination);
+
+    destination += resolvePrebookInPersonPathQueryParams();
     navigate(destination);
   };
 
@@ -264,6 +263,13 @@ const Homepage = (): JSX.Element => {
       ) : null}
     </CustomContainer>
   );
+};
+
+const resolvePrebookInPersonPathQueryParams = (): string => {
+  if (!BOOKING_CONFIG.inPersonPrebookRoutingParams?.length) {
+    return '';
+  }
+  return '?' + BOOKING_CONFIG.inPersonPrebookRoutingParams.map((param) => `${param.key}=${param.value}`).join('&');
 };
 
 export default Homepage;

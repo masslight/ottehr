@@ -6,13 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import {
-  BRANDING_CONFIG,
-  CancellationReasonOptionsInPerson,
-  PatientAppointmentDTO,
-  ServiceMode,
-  VisitType,
-} from 'utils';
+import { BRANDING_CONFIG, PatientAppointmentDTO, ServiceMode, VALUE_SETS, VisitType } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { ottehrApi } from '../api';
 import { intakeFlowPageRoute } from '../App';
@@ -293,7 +287,9 @@ const ChoosePatient = (): JSX.Element => {
       zambdaClient,
       {
         appointmentID: appointmentID,
-        cancellationReason: CancellationReasonOptionsInPerson['Duplicate visit or account error'],
+        cancellationReason:
+          VALUE_SETS.cancelReasonOptions.find((option) => option.value === 'Duplicate visit or account error')?.value ||
+          'Other',
         silent: true,
         language: 'en', // replace with i18n.language to enable
       },
@@ -309,7 +305,9 @@ const ChoosePatient = (): JSX.Element => {
         zambdaClient,
         {
           appointmentID: bookedAppointment.id,
-          cancellationReason: CancellationReasonOptionsInPerson['Duplicate visit or account error'],
+          cancellationReason:
+            VALUE_SETS.cancelReasonOptions.find((option) => option.value === 'Duplicate visit or account error')
+              ?.value || 'Other',
           language: 'en', // replace with i18n.language to enable
         },
         false
@@ -363,7 +361,7 @@ const ChoosePatient = (): JSX.Element => {
           <CardWithDescriptionAndLink
             iconHeight={50}
             icon={ottehrLightBlue}
-            iconAlt={`${BRANDING_CONFIG.projectName} icon`}
+            iconAlt={BRANDING_CONFIG.primaryIconAlt}
             mainText={t('welcomeBack.alreadyReserved')}
             textColor={otherColors.white}
             descText={t('welcomeBack.checkIn')}
