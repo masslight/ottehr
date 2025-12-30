@@ -1,10 +1,6 @@
 import { Meta } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import {
-  CANCELLATION_TAG_SYSTEM,
-  createCancellationTagOperations,
-  PREVIOUS_STATUS_CODE,
-} from './cancellation-meta.helper';
+import { CANCELLATION_TAG_SYSTEM, createCancellationTagOperations } from './cancellation-meta.helper';
 
 describe('cancellation-meta.helper', () => {
   describe('createCancellationTagOperations', () => {
@@ -19,7 +15,7 @@ describe('cancellation-meta.helper', () => {
           tag: [
             {
               system: CANCELLATION_TAG_SYSTEM,
-              code: PREVIOUS_STATUS_CODE,
+              code: 'active',
               display: 'active',
             },
           ],
@@ -41,7 +37,7 @@ describe('cancellation-meta.helper', () => {
         value: [
           {
             system: CANCELLATION_TAG_SYSTEM,
-            code: PREVIOUS_STATUS_CODE,
+            code: 'completed',
             display: 'completed',
           },
         ],
@@ -67,7 +63,7 @@ describe('cancellation-meta.helper', () => {
         path: '/meta/tag/-',
         value: {
           system: CANCELLATION_TAG_SYSTEM,
-          code: PREVIOUS_STATUS_CODE,
+          code: 'in-progress',
           display: 'in-progress',
         },
       });
@@ -87,7 +83,7 @@ describe('cancellation-meta.helper', () => {
         value: [
           {
             system: CANCELLATION_TAG_SYSTEM,
-            code: PREVIOUS_STATUS_CODE,
+            code: 'draft',
             display: 'draft',
           },
         ],
@@ -99,7 +95,12 @@ describe('cancellation-meta.helper', () => {
 
       statuses.forEach((status) => {
         const operations = createCancellationTagOperations(status, undefined);
-        const operation = operations[0] as { op: 'add'; path: string; value: { tag: Array<{ display: string }> } };
+        const operation = operations[0] as {
+          op: 'add';
+          path: string;
+          value: { tag: Array<{ code: string; display: string }> };
+        };
+        expect(operation.value.tag[0].code).toBe(status);
         expect(operation.value.tag[0].display).toBe(status);
       });
     });

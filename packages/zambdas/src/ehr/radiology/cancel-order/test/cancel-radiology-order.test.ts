@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ServiceRequest } from 'fhir/r4b';
-import { CANCELLATION_TAG_SYSTEM, PREVIOUS_STATUS_CODE } from 'utils';
+import { CANCELLATION_TAG_SYSTEM } from 'utils';
 import { describe, expect, it, vi } from 'vitest';
 
 describe('cancel-radiology-order zambda', () => {
@@ -28,7 +28,7 @@ describe('cancel-radiology-order zambda', () => {
           tag: [
             {
               system: CANCELLATION_TAG_SYSTEM,
-              code: PREVIOUS_STATUS_CODE,
+              code: 'active',
               display: 'active',
             },
           ],
@@ -54,7 +54,7 @@ describe('cancel-radiology-order zambda', () => {
               tag: [
                 {
                   system: CANCELLATION_TAG_SYSTEM,
-                  code: PREVIOUS_STATUS_CODE,
+                  code: 'active',
                   display: 'active',
                 },
               ],
@@ -90,7 +90,7 @@ describe('cancel-radiology-order zambda', () => {
       expect(mockPatchedServiceRequest.status).toBe('revoked');
       expect(mockPatchedServiceRequest.meta?.tag).toBeDefined();
       expect(mockPatchedServiceRequest.meta?.tag?.[0].system).toBe(CANCELLATION_TAG_SYSTEM);
-      expect(mockPatchedServiceRequest.meta?.tag?.[0].code).toBe(PREVIOUS_STATUS_CODE);
+      expect(mockPatchedServiceRequest.meta?.tag?.[0].code).toBe('active');
       expect(mockPatchedServiceRequest.meta?.tag?.[0].display).toBe('active');
     });
 
@@ -115,7 +115,7 @@ describe('cancel-radiology-order zambda', () => {
           tag: [
             {
               system: CANCELLATION_TAG_SYSTEM,
-              code: PREVIOUS_STATUS_CODE,
+              code: 'completed',
               display: 'completed',
             },
           ],
@@ -123,6 +123,7 @@ describe('cancel-radiology-order zambda', () => {
       };
 
       // Verify the mock structure
+      expect(mockPatchedServiceRequest.meta?.tag?.[0].code).toBe('completed');
       expect(mockPatchedServiceRequest.meta?.tag?.[0].display).toBe('completed');
     });
 
@@ -155,7 +156,7 @@ describe('cancel-radiology-order zambda', () => {
             },
             {
               system: CANCELLATION_TAG_SYSTEM,
-              code: PREVIOUS_STATUS_CODE,
+              code: 'active',
               display: 'active',
             },
           ],
@@ -166,6 +167,7 @@ describe('cancel-radiology-order zambda', () => {
       expect(mockPatchedServiceRequest.meta?.tag).toHaveLength(2);
       expect(mockPatchedServiceRequest.meta?.tag?.[0].system).toBe('http://example.com');
       expect(mockPatchedServiceRequest.meta?.tag?.[1].system).toBe(CANCELLATION_TAG_SYSTEM);
+      expect(mockPatchedServiceRequest.meta?.tag?.[1].code).toBe('active');
     });
   });
 

@@ -2,14 +2,11 @@ import { Operation } from 'fast-json-patch';
 import { Meta } from 'fhir/r4b';
 
 /**
- * System identifier for cancellation-related metadata tags
+ * System identifier for cancellation-related metadata tags.
+ * This CodeSystem represents a collection of statuses that an order may have been in before being canceled.
+ * Each code in this system represents one such previous status value.
  */
-export const CANCELLATION_TAG_SYSTEM = 'http://ottehr.com/cancellation';
-
-/**
- * Code for storing the previous status before cancellation
- */
-export const PREVIOUS_STATUS_CODE = 'previous-status';
+export const CANCELLATION_TAG_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/canceled-order-previous-status';
 
 /**
  * Creates FHIR PATCH operations to add a cancellation tag with the previous status.
@@ -33,7 +30,7 @@ export function createCancellationTagOperations(currentStatus: string, existingM
 
   const cancellationTag = {
     system: CANCELLATION_TAG_SYSTEM,
-    code: PREVIOUS_STATUS_CODE,
+    code: currentStatus,
     display: currentStatus,
   };
 
