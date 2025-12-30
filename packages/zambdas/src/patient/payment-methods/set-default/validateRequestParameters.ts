@@ -46,6 +46,7 @@ export function validateRequestParameters(
 
 interface ComplexValidationInput {
   patientId: string;
+  appointmentId: string;
   oystehrClient: Oystehr;
 }
 export async function complexValidation(input: ComplexValidationInput): Promise<{ stripeCustomerId: string }> {
