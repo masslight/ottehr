@@ -30,8 +30,14 @@ Object.entries(zambdasSpec.zambdas).forEach(([_key, spec]) => {
   console.log(`Registered POST: ${path}`);
 });
 
-app.listen(3000, () => {
-  console.log(`Zambda local server is running on port 3000`);
-});
+let server: ReturnType<typeof app.listen> | undefined;
+
+// Only start server if not already running and not in test environment
+if (!process.env.VITEST && !server) {
+  server = app.listen(3000, () => {
+    console.log(`Zambda local server is running on port 3000`);
+  });
+}
 
 export default app;
+export { server };
