@@ -147,15 +147,25 @@ const usePatientData = (
 } => {
   const apiClient = useOystehrAPIClient();
 
-  const { isFetching: accountFetching, data: accountData } = useGetPatientAccount({
+  const {
+    isFetching: accountFetching,
+    data: accountData,
+    status: accountStatus,
+  } = useGetPatientAccount({
     apiClient,
     patientId: id ?? null,
   });
 
-  const { data: insuranceData, isFetching: coveragesFetching } = useGetPatientCoverages({
-    apiClient,
-    patientId: id ?? null,
-  });
+  const { data: insuranceData, isFetching: coveragesFetching } = useGetPatientCoverages(
+    {
+      apiClient,
+      patientId: id ?? null,
+    },
+    undefined,
+    {
+      enabled: accountStatus === 'success',
+    }
+  );
 
   const coverages: CoverageWithPriority[] = useMemo(() => {
     if (!insuranceData?.coverages) return [];
