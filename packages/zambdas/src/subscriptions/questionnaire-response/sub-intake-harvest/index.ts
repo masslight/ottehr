@@ -41,6 +41,7 @@ import {
 import { getStripeClient } from '../../../patient/payment-methods/helpers';
 import {
   createOystehrClient,
+  fetchQuestionnaireFromCanonicalUrl,
   getAuth0Token,
   makeObservationResource,
   saveResourceRequest,
@@ -144,8 +145,16 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     throw new Error('Patient resource not found');
   }
 
+  // Fetch questionnaire to enable enableWhen filtering
+  console.log('fetching questionnaire for enableWhen evaluation');
+  const questionnaireForEnableWhenFiltering = await fetchQuestionnaireFromCanonicalUrl(qr.questionnaire, oystehr);
+
   console.log('creating patch operations');
-  const patientPatchOps = createMasterRecordPatchOperations(qr.item || [], patientResource);
+  const patientPatchOps = createMasterRecordPatchOperations(
+    qr.item || [],
+    patientResource,
+    questionnaireForEnableWhenFiltering
+  );
 
   console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
 

@@ -10,8 +10,8 @@ import {
   QuestionnaireResponseItemAnswer,
   Schedule,
 } from 'fhir/r4b';
-import { formatDateToMDYWithTime, getAppointmentType, getCanonicalQuestionnaire } from 'utils';
-import { assertDefined, resolveTimezone } from '../../shared/helpers';
+import { formatDateToMDYWithTime, getAppointmentType } from 'utils';
+import { assertDefined, fetchQuestionnaireFromCanonicalUrl, resolveTimezone } from '../../shared';
 
 export interface Document {
   patientInfo: PatientInfo;
@@ -61,10 +61,13 @@ export async function createDocument(
   schedule?: Schedule,
   location?: Location
 ): Promise<Document> {
-  const questionnaire = await fetchQuestionnaire(
-    assertDefined(questionnaireResponse.questionnaire, 'questionnaireResponse.questionnaire'),
-    oystehr
-  );
+  const canonicalUrl = assertDefined(questionnaireResponse.questionnaire, 'questionnaireResponse.questionnaire');
+  const questionnaire = await fetchQuestionnaireFromCanonicalUrl(canonicalUrl, oystehr);
+
+  if (!questionnaire) {
+    throw new Error(`Failed to fetch questionnaire: ${canonicalUrl}`);
+  }
+
   const [subjectType, subjectId] = (questionnaireResponse.subject?.reference ?? '').split('/');
   if (subjectType !== 'Patient') {
     throw new Error(`Only "Patient" subject is supported but was "${subjectType}"`);
@@ -233,17 +236,6 @@ function collectImageItems(
       );
     }
   }
-}
-
-function fetchQuestionnaire(questionnaire: string, oystehr: Oystehr): Promise<Questionnaire> {
-  const [questionnaireURL, questionnaireVersion] = questionnaire.split('|');
-  return getCanonicalQuestionnaire(
-    {
-      url: questionnaireURL,
-      version: questionnaireVersion,
-    },
-    oystehr
-  );
 }
 
 async function downloadImage(url: string, oystehr: Oystehr): Promise<ArrayBuffer> {
