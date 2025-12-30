@@ -43,6 +43,8 @@ import ImageUploader from 'src/components/ImageUploader';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { TelemedAppointmentStatusChip } from 'src/components/TelemedAppointmentStatusChip';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
   DocumentInfo,
@@ -222,6 +224,24 @@ export default function VisitDetailsPage(): ReactElement {
   const [scannerFileType, setScannerFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
   const [uploadingFileType, setUploadingFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
   const user = useEvolveUser();
+
+  const apiClient = useOystehrAPIClient();
+
+  const { status: accountStatus } = useGetPatientAccount({
+    apiClient,
+    patientId: patient?.id ?? null,
+  });
+
+  const { data: insuranceData } = useGetPatientCoverages(
+    {
+      apiClient,
+      patientId: patient?.id ?? null,
+    },
+    undefined,
+    {
+      enabled: accountStatus === 'success',
+    }
+  );
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
 
@@ -1159,6 +1179,7 @@ export default function VisitDetailsPage(): ReactElement {
                           fullName: visitDetailsData?.responsiblePartyName || '',
                           email: visitDetailsData?.responsiblePartyEmail || '',
                         }}
+                        insuranceCoverages={insuranceData}
                       />
                     </Grid>
                     <Grid item>
