@@ -1,12 +1,10 @@
 import {
-  Questionnaire,
   QuestionnaireItem,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
 import z from 'zod';
-import { evalEnableWhen } from '../../../helpers/paperwork/validation';
 import { AvailableLocationInformation, FileURLs, PatientBaseInfo } from '../../common';
 import { PaperworkResponse } from '../paperwork.types';
 import type { VisitType } from '../telemed/appointments/create-appointment.types';
@@ -350,99 +348,6 @@ export const findQuestionnaireResponseItemLinkId = (
 ): QuestionnaireResponseItem | undefined => {
   return flattenQuestionnaireAnswers(rootItem).find((item) => {
     return item.linkId === linkId;
-  });
-};
-
-/**
- * Finds a QuestionnaireItem by linkId in a nested structure of QuestionnaireItems
- */
-export const findQuestionnaireItemByLinkId = (
-  items: QuestionnaireItem[],
-  linkId: string
-): QuestionnaireItem | undefined => {
-  for (const item of items) {
-    if (item.linkId === linkId) return item;
-    if (item.item) {
-      const found = findQuestionnaireItemByLinkId(item.item, linkId);
-      if (found) return found;
-    }
-  }
-  return undefined;
-};
-
-/**
- * Creates a Map of linkId to QuestionnaireItem for fast lookup
- * Useful when you need to lookup many items
- */
-export const createQuestionnaireItemsMap = (items: QuestionnaireItem[]): Map<string, QuestionnaireItem> => {
-  const map = new Map<string, QuestionnaireItem>();
-
-  const addToMap = (itemsToAdd: QuestionnaireItem[]): void => {
-    itemsToAdd.forEach((item) => {
-      map.set(item.linkId, item);
-      if (item.item) {
-        addToMap(item.item);
-      }
-    });
-  };
-
-  addToMap(items);
-  return map;
-};
-
-/**
- * Filters QuestionnaireResponse items based on enableWhen conditions from Questionnaire definition.
- * Items that are hidden according to enableWhen logic will be excluded from the result.
- */
-export const filterQuestionnaireResponseByEnableWhen = (
-  responseItems: QuestionnaireResponseItem[],
-  questionnaire: Questionnaire
-): QuestionnaireResponseItem[] => {
-  if (!questionnaire.item) {
-    return responseItems;
-  }
-
-  // Create a map of linkId -> QuestionnaireItem for O(1) lookups
-  const questionnaireItemsMap = createQuestionnaireItemsMap(questionnaire.item);
-
-  // Build values map from all flattened items for evalEnableWhen
-  const values: Record<string, QuestionnaireResponseItem> = {};
-  responseItems.forEach((item) => {
-    values[item.linkId] = item;
-  });
-
-  // Filter items - only process those that should be shown according to enableWhen
-  return responseItems.filter((responseItem) => {
-    const itemDef = questionnaireItemsMap.get(responseItem.linkId);
-
-    // If item not found in questionnaire definition, process it (backwards compatibility)
-    if (!itemDef) {
-      return true;
-    }
-
-    // If no enableWhen, the item is always shown
-    if (!itemDef.enableWhen || itemDef.enableWhen.length === 0) {
-      return true;
-    }
-
-    // Evaluate enableWhen conditions
-    try {
-      const shouldShow = evalEnableWhen(
-        itemDef as IntakeQuestionnaireItem,
-        questionnaire.item as IntakeQuestionnaireItem[],
-        values
-      );
-
-      if (!shouldShow) {
-        console.log(`Filtering out item ${responseItem.linkId} - hidden by enableWhen condition`);
-      }
-
-      return shouldShow;
-    } catch (error) {
-      console.warn(`Error evaluating enableWhen for ${responseItem.linkId}:`, error);
-      // On error, include the item (fail-safe)
-      return true;
-    }
   });
 };
 
