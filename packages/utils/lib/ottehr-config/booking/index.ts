@@ -385,7 +385,7 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
 
   // assuming here we never need to collect this when we already have it
   const shouldShowSSNField = !ssn && !formConfig.FormFields.patientInfo.hiddenFields?.includes('patient-ssn');
-  const ssnRequired = serviceCategoryCode === 'workmans_comp' && shouldShowSSNField;
+  const ssnRequired = serviceCategoryCode === 'workmans-comp' && shouldShowSSNField;
 
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
