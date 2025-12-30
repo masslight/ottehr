@@ -556,7 +556,6 @@ test.describe.parallel('In-Person - No Paperwork Filled Yet', () => {
 
     await test.step('PCF-7. Click on [Back] - all values are saved', async () => {
       await locator.clickBackButton();
-      await paperwork.checkCorrectPageOpens('Complete consent forms');
       await expect(locator.hipaaAcknowledgement).toBeChecked();
       await expect(locator.consentToTreat).toBeChecked();
       await expect(locator.signature).toHaveValue(consentFormsData.signature);

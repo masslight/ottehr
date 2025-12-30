@@ -39,6 +39,15 @@ export const SchoolWorkExcuseCard: FC = () => {
   const onDelete = (id: string): void => {
     const schoolWorkNotes = chartData?.schoolWorkNotes || [];
     const note = schoolWorkNotes.find((note) => note.id === id)!;
+    const previousSchoolWorkNotes = [...schoolWorkNotes];
+
+    // Optimistic update
+    setPartialChartData(
+      {
+        schoolWorkNotes: schoolWorkNotes.filter((note) => note.id !== id),
+      },
+      { invalidateQueries: false }
+    );
     deleteChartData(
       {
         schoolWorkNotes: [note],
@@ -48,15 +57,16 @@ export const SchoolWorkExcuseCard: FC = () => {
           enqueueSnackbar('An error has occurred while deleting excuse. Please try again.', {
             variant: 'error',
           });
+          // Rollback to previous state
           setPartialChartData({
-            schoolWorkNotes: schoolWorkNotes,
+            schoolWorkNotes: previousSchoolWorkNotes,
           });
+        },
+        onSuccess: () => {
+          // No need to update again, optimistic update already applied
         },
       }
     );
-    setPartialChartData({
-      schoolWorkNotes: schoolWorkNotes.filter((note) => note.id !== id),
-    });
   };
 
   const onPublish = (id: string): void => {

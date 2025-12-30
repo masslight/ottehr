@@ -33,7 +33,7 @@ const CallEndedPage = (): JSX.Element => {
               gap: 3,
             }}
           >
-            <img alt={`${BRANDING_CONFIG.projectName} icon`} src={ottehrLightBlue} width={120} />
+            <img alt={BRANDING_CONFIG.primaryIconAlt} src={ottehrLightBlue} width={120} />
 
             <Box>
               <Typography variant="h2" color="primary.main" textAlign="center">

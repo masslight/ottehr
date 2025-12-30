@@ -6,6 +6,7 @@ const overrides: any = OVERRIDES || {};
 const BRANDING_DEFAULTS: any = {
   projectName: 'Ottehr',
   projectDomain: 'ottehr.com',
+  primaryIconAlt: 'Ottehr icon',
   email: {
     logoURL: '',
     supportPhoneNumber: '(202) 555-1212',
@@ -40,6 +41,7 @@ const mergedBrandingConfig = _.merge({ ...BRANDING_DEFAULTS }, { ...overrides })
 const BrandingConfigSchema = z.object({
   projectName: z.string().min(1, { message: 'Project name cannot be empty' }),
   projectDomain: z.string().min(1, { message: 'Project domain cannot be empty' }),
+  primaryIconAlt: z.string().min(1, { message: 'Primary icon alt text cannot be empty' }),
   email: z.object({
     logoURL: z.string().optional(),
     supportPhoneNumber: z.string().optional(),

@@ -1,6 +1,6 @@
 import { RelatedPerson } from 'fhir/r4b';
 import { capitalize } from 'lodash-es';
-import { getFullName, standardizePhoneNumber } from 'utils';
+import { formatDateForDisplay, getFullName, standardizePhoneNumber } from 'utils';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { PdfSection, ResponsiblePartyInfo, ResponsiblePartyInput } from '../types';
 
@@ -18,7 +18,7 @@ export const composeResponsiblePartyData: DataComposer<ResponsiblePartyInput, Re
     const genderString = guarantorResource?.gender === 'other' ? 'Intersex' : guarantorResource?.gender;
     sex = capitalize(genderString);
   }
-  const dob = guarantorResource?.birthDate ?? '';
+  const dob = formatDateForDisplay(guarantorResource?.birthDate);
   let fullName = '';
   if (guarantorResource) {
     fullName = getFullName(guarantorResource) ?? '';

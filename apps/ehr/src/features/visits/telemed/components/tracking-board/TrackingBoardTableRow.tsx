@@ -24,8 +24,12 @@ import GoToButton from 'src/components/GoToButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import ChatModal from 'src/features/chat/ChatModal';
 import { AppointmentStatusChip } from 'src/features/visits/shared/components/AppointmentStatusChip';
-import { formatDateUsingSlashes } from 'src/helpers/formatDateTime';
-import { calculatePatientAge, TelemedAppointmentInformation, TelemedAppointmentStatusEnum } from 'utils';
+import {
+  calculatePatientAge,
+  formatDateForDisplay,
+  TelemedAppointmentInformation,
+  TelemedAppointmentStatusEnum,
+} from 'utils';
 import { quickTexts } from '../../utils/appointments';
 import { getTelemedAppointmentUrl, getTelemedVisitDetailsUrl } from '../../utils/routing';
 import { StatusHistory } from '../tracking-board/StatusHistory';
@@ -52,7 +56,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
   const showChatIcon = appointment?.smsModel !== undefined;
 
   const patientInfo = useMemo((): React.ReactNode => {
-    const dob = formatDateUsingSlashes(appointment?.patient?.dateOfBirth);
+    const dob = formatDateForDisplay(appointment?.patient?.dateOfBirth);
     const age = calculatePatientAge(appointment?.patient?.dateOfBirth);
     const sex = appointment?.patient?.sex?.replace?.(/^[a-z]/i, (str) => str.toUpperCase());
     const dobAge = dob && age && `DOB: ${dob} (${age})`;
