@@ -8,7 +8,7 @@ import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
 import { QuestionnaireHelper } from '../../utils/QuestionnaireHelper';
 import { UploadDocs } from '../../utils/UploadDocs';
-import { InPersonPatientTestData } from '../0_paperworkSetup/types';
+import { InPersonNoPwPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
@@ -16,7 +16,7 @@ let paperwork: Paperwork;
 let locator: Locators;
 let uploadPhoto: UploadDocs;
 let commonLocatorsHelper: CommonLocatorsHelper;
-let patient: InPersonPatientTestData;
+let patient: InPersonNoPwPatient;
 const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
 
 test.beforeAll(async ({ browser }) => {
@@ -27,7 +27,7 @@ test.beforeAll(async ({ browser }) => {
   uploadPhoto = new UploadDocs(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
 
-  const testDataPath = path.join('test-data', 'patientWithoutPaperwork.json');
+  const testDataPath = path.join('test-data', 'inPersonNoPwPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {

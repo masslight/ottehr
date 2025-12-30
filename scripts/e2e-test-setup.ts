@@ -30,7 +30,15 @@ const getEnvironment = (): string => {
   return 'local';
 };
 
+const getMode = (): string | undefined => {
+  const modeFlagIndex = process.argv.findIndex((arg) => arg === '--mode');
+  const mode =
+    modeFlagIndex !== -1 && modeFlagIndex < process.argv.length - 1 ? process.argv[modeFlagIndex + 1] : undefined;
+  return mode || undefined;
+};
+
 const environment = getEnvironment();
+const mode = getMode();
 console.log(`Using environment: ${environment}`);
 
 interface EhrConfig {
@@ -212,14 +220,16 @@ async function getLocationsForTesting(
   console.log(`Found virtual location by state: ${firstDefaultVirtualLocation.state} with ID: ${virtualLocation?.id}`);
   console.log(`Location name: ${virtualLocation?.name}, state: ${virtualLocation?.address?.state}`);
 
-  console.group('Ensure test location schedules and slots');
-  await Promise.all([
-    ensureOwnerResourceSchedulesAndSlots(locationResource, schedules, oystehr),
-    ensureOwnerResourceSchedulesAndSlots(virtualLocation, schedules, oystehr),
-    defaultGroupLocationsAndPractitioners.map((owner) =>
-      ensureOwnerResourceSchedulesAndSlots(owner, defaultGroupSchedules, oystehr)
-    ),
-  ]);
+  console.group('Ensure test location schedules and slots. Only if mode is not SMOKE');
+  if (mode !== 'smoke') {
+    await Promise.all([
+      ensureOwnerResourceSchedulesAndSlots(locationResource, schedules, oystehr),
+      ensureOwnerResourceSchedulesAndSlots(virtualLocation, schedules, oystehr),
+      defaultGroupLocationsAndPractitioners.map((owner) =>
+        ensureOwnerResourceSchedulesAndSlots(owner, defaultGroupSchedules, oystehr)
+      ),
+    ]);
+  }
   console.groupEnd();
 
   return {
