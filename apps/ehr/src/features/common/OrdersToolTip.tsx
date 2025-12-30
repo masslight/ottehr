@@ -62,12 +62,12 @@ export const OrdersToolTip: React.FC<{
                 {order.statusChip}
                 {order.unreadBadge && (
                   <Box
-                    component="span" // Renders as a span so it sits inline with text
+                    component="span"
                     sx={{
                       width: 9,
                       height: 9,
                       borderRadius: '50%',
-                      bgcolor: 'warning.main', // Uses the standard warning color from your theme
+                      bgcolor: 'warning.main',
                       display: 'inline-block',
                     }}
                   />
