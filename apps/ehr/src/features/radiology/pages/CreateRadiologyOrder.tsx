@@ -26,11 +26,10 @@ import {
   useSaveChartData,
 } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
-import { CPTCodeDTO, DiagnosisDTO } from 'utils';
+import { CPTCodeDTO, DiagnosisDTO, radiologyStudiesConfig } from 'utils';
 import { createRadiologyOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
-import { defaultStudies } from '../constants/defaultStudies';
 
 interface CreateRadiologyOrdersProps {
   appointmentID?: string;
@@ -72,7 +71,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     sabs: 'CPT',
     radiologyOnly: true, // Only fetch CPT codes related to radiology
   });
-  const cptSearchOptions = cptData?.codes || defaultStudies;
+  const cptSearchOptions = cptData?.codes || radiologyStudiesConfig;
   const { debounce } = useDebounce(800);
   const debouncedCptHandleInputChange = (data: string): void => {
     debounce(() => {

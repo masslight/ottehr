@@ -1,6 +1,9 @@
 import { Coding } from 'fhir/r4b';
+import { customRadiologyStudiesConfig } from '../../../ottehr-config-overrides/radiology';
 
-export const defaultStudies: Pick<Coding, 'code' | 'display'>[] = [
+export type RadiologyStudy = Pick<Coding, 'code' | 'display'>;
+
+export const baseRadiologyStudiesConfig: RadiologyStudy[] = [
   { code: '71045', display: 'X-ray of chest, 1 view' },
   { code: '71046', display: 'X-ray of chest, 2 views' },
   { code: '74018', display: 'X-ray of abdomen, 1 view' },
@@ -25,3 +28,5 @@ export const defaultStudies: Pick<Coding, 'code' | 'display'>[] = [
   { code: '73630', display: 'X-ray of foot, minimum of 3 views' },
   { code: '73660', display: 'X-ray of toe, minimum of 2 views' },
 ];
+
+export const radiologyStudiesConfig = customRadiologyStudiesConfig || baseRadiologyStudiesConfig;

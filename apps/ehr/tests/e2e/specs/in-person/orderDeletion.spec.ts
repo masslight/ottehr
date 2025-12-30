@@ -1,7 +1,6 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { defaultStudies } from 'src/features/radiology/constants/defaultStudies';
 import { DocumentProcedurePage, openDocumentProcedurePage } from 'tests/e2e/page/DocumentProcedurePage';
 import { InHouseMedicationsPage } from 'tests/e2e/page/in-person/InHouseMedicationsPage';
 import { expectAssessmentPage } from 'tests/e2e/page/in-person/InPersonAssessmentPage';
@@ -18,7 +17,12 @@ import {
 } from 'tests/e2e/page/RadiologyPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import { MEDICATION_IDENTIFIER_NAME_SYSTEM, medicationApplianceRoutes, UNIT_OPTIONS } from 'utils';
+import {
+  MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  medicationApplianceRoutes,
+  radiologyStudiesConfig,
+  UNIT_OPTIONS,
+} from 'utils';
 import InHouseMedicationsConfig from '../../../../../../config/oystehr/in-house-medications.json' assert { type: 'json' };
 import procedureType from '../../../../../../config/oystehr/procedure-type.json' assert { type: 'json' };
 
@@ -83,7 +87,7 @@ const MEDICATION_UNITS = UNIT_OPTIONS[0].label;
 const MEDICATION_ROUTE = medicationApplianceRoutes.ORAL.display || 'Oral route';
 
 // Radiology from component's default studies
-const RADIOLOGY_STUDY = defaultStudies[0];
+const RADIOLOGY_STUDY = radiologyStudiesConfig[0];
 if (!RADIOLOGY_STUDY?.display || !RADIOLOGY_STUDY?.code) {
   throw new Error('No radiology study with code and display found in defaultStudies');
 }
