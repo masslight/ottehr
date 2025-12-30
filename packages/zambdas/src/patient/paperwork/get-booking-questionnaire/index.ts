@@ -99,8 +99,6 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetQ
 
   console.log('prepopulatedItem', JSON.stringify(prepopulatedItem, null, 2));
 
-  console.log('this is a test to trigger CI jobs to run for the release branch');
-
   const questionnaireResponse: QuestionnaireResponse = {
     resourceType: 'QuestionnaireResponse',
     questionnaire: `${questionnaire.url}|${questionnaire.version}`,
