@@ -181,6 +181,26 @@ const waitForZambdas = async (): Promise<void> => {
   });
 };
 
+const generateSeedData = async (): Promise<void> => {
+  if (appName !== 'ehr') {
+    return; // Only generate for EHR tests
+  }
+
+  try {
+    console.log(`Generating seed data for ${ENV} environment...`);
+    execSync('npm run seed', {
+      stdio: 'inherit',
+      env: { ...process.env, ENV },
+    });
+    console.log('Seed data generated successfully');
+  } catch (error) {
+    console.error('Failed to generate seed data');
+    console.error(error?.message);
+    clearPorts();
+    process.exit(1);
+  }
+};
+
 const startApps = async (): Promise<void> => {
   if (isEnvWithZambdaLocalServer) {
     startZambdas();
@@ -299,11 +319,21 @@ function runTests(): void {
       //     process.exit(additionalLoginCode ?? 1);
       //   }
       // });
-      const specs = createTestProcess('specs', appName);
-      specs.on('close', (specsCode) => {
-        clearPorts();
-        process.exit(specsCode ?? 1);
-      });
+
+      // Generate seed data after successful login
+      generateSeedData()
+        .then(() => {
+          const specs = createTestProcess('specs', appName);
+          specs.on('close', (specsCode) => {
+            clearPorts();
+            process.exit(specsCode ?? 1);
+          });
+        })
+        .catch((error) => {
+          console.error('Seed generation failed:', error);
+          clearPorts();
+          process.exit(1);
+        });
     } else {
       clearPorts();
       process.exit(loginCode ?? 1);
