@@ -175,6 +175,7 @@ jobs:
           HAS_SKIP_AUTOMATED_TESTS: ${{ contains(inputs.pr_body, '/skip-automated-tests') }}
           HAS_SKIP_EHR_E2E: ${{ contains(inputs.pr_body, '/skip-ehr-e2e') }}
           HAS_SKIP_INTAKE_E2E: ${{ contains(inputs.pr_body, '/skip-intake-e2e') }}
+          HAS_SKIP_TERRAFORM_APPLY: ${{ contains(inputs.pr_body, '/skip-terraform-apply') }}
         run: |
           FOUND_COMMANDS=()
           
@@ -182,6 +183,7 @@ jobs:
           [ "$HAS_SKIP_AUTOMATED_TESTS" == "true" ] && FOUND_COMMANDS+=("/skip-automated-tests")
           [ "$HAS_SKIP_EHR_E2E" == "true" ] && FOUND_COMMANDS+=("/skip-ehr-e2e")
           [ "$HAS_SKIP_INTAKE_E2E" == "true" ] && FOUND_COMMANDS+=("/skip-intake-e2e")
+          [ "$HAS_SKIP_TERRAFORM_APPLY" == "true" ] && FOUND_COMMANDS+=("/skip-terraform-apply")
           
           if [ ${#FOUND_COMMANDS[@]} -gt 0 ]; then
             echo "Found skip commands in PR description:"
