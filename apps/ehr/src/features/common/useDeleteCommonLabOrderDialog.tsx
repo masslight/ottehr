@@ -58,7 +58,7 @@ interface UseDeleteCommonLabOrderDialogResult {
   }: {
     serviceRequestId: string;
     testItemName: string;
-    testItemStatus: ExternalLabsStatus;
+    testItemStatus?: ExternalLabsStatus;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
 }
@@ -82,7 +82,7 @@ export const useDeleteCommonLabOrderDialog = ({
     }: {
       serviceRequestId: string;
       testItemName: string;
-      testItemStatus: ExternalLabsStatus;
+      testItemStatus?: ExternalLabsStatus;
     }): void => {
       setServiceRequestIdToDelete(serviceRequestId);
       setTestItemNameToDelete(testItemName);
