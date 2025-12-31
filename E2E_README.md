@@ -75,18 +75,23 @@ The setup script (`e2e-test-setup.ts`) automatically:
 
 ## Test Execution Commands
 
-| Environment | App    | Command                                | Description             |
-| ----------- | ------ | -------------------------------------- | ----------------------- |
+| Environment | App    | Command                                | Description                                              |
+| ----------- | ------ | -------------------------------------- | ------------------------------------------------------- |
 | Local       | EHR    | `npm run ehr:e2e:local:integration`    | Fast mode (recommended) |
-| Local       | EHR    | `npm run ehr:e2e:local:integration:ui` | Debug UI (recommended)  |
-| Local       | EHR    | `npm run ehr:e2e:local`                | Standard mode           |
-| Local       | EHR    | `npm run ehr:e2e:local:ui`             | Debug UI                |
-| Demo        | EHR    | `npm run ehr:e2e:demo`                 | Demo environment        |
-| Staging     | EHR    | `npm run ehr:e2e:staging`              | Staging environment     |
-| Local       | Intake | `npm run intake:e2e:local`             | Standard mode           |
-| Local       | Intake | `npm run intake:e2e:local:ui`          | Debug UI                |
-| Demo        | Intake | `npm run intake:e2e:demo`              | Demo environment        |
-| Staging     | Intake | `npm run intake:e2e:staging`           | Staging environment     |
+| Local       | EHR    | `npm run ehr:e2e:local:integration:ui` | Fast mode with debug UI (recommended)                   |
+| Local       | EHR    | `npm run ehr:e2e:local`                | Full API mode  |
+| Local       | EHR    | `npm run ehr:e2e:local:ui`             | Full API mode                           |
+| Demo        | EHR    | `npm run ehr:e2e:demo`                 | Full API mode                                           |
+| Staging     | EHR    | `npm run ehr:e2e:staging`              | Full API mode                                           |
+| Local       | Intake | `npm run intake:e2e:local`             | Full API mode                                           |
+| Local       | Intake | `npm run intake:e2e:local:ui`          | Full API mode                            |
+| Demo        | Intake | `npm run intake:e2e:demo`              | Full API mode                                           |
+| Staging     | Intake | `npm run intake:e2e:staging`           | Full API mode                                           |
+
+**Note**: All EHR test commands automatically run: Login → Seed Data Generation → Test Specs.
+
+- **Fast mode**: Uses single batch FHIR transaction with pre-generated seed data templates
+- **Full API mode**: Uses sequential API calls through zambdas with subscriptions (slower but tests complete workflow)
 
 ## Architecture
 
@@ -156,6 +161,12 @@ This architecture separates provider and patient interfaces to meet different us
                 ┃
                 ▼
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃   SEED: Generate Test Data      ┃
+┃  Fresh seed data for each run   ┃
+┗━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┛
+                ┃
+                ▼
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃      RUN: Test Execution        ┃
 ┃    integration vs standard      ┃
 ┗━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┛
@@ -177,7 +188,9 @@ Each environment has complete configuration sets with specific behaviors:
 
 ### Test Data Creation Strategy
 
-**Integration Mode (`INTEGRATION_TEST=true`)**: Resources created with single batch request directly to FHIR API. Faster and more stable since it bypasses application logic.
+**Seed Data Generation**: EHR tests automatically generate fresh seed data after login for fast test execution. The seed data is created from a real appointment workflow and contains all necessary FHIR resources (Patient, Appointment, Encounter, Observations, etc.) with proper relationships. Generated seed data is not committed to git and is recreated for each test run to ensure data freshness.
+
+**Integration Mode (`INTEGRATION_TEST=true`)**: Resources created with single batch request directly to FHIR API using pre-generated seed data. Faster since it bypasses application logic. Seed data is automatically regenerated after login test to ensure it matches current environment configuration.
 
 **Standard Mode**: Resources created through application endpoints that create demo appointments. This mode uses a zambda that is used in the "add patient" feature to create appointments, and triggers multiple zambda function calls and subscriptions.
 
@@ -205,12 +218,14 @@ export class ResourceHandler {
 
 #### Key Variables
 
-- **ENV**: Determines configuration set (`local`, `demo`, `staging`, `testing`) and cascades through entire system
-- **INTEGRATION_TEST**: Controls resource creation method (batch vs application endpoints)
-- **SMOKE TEST**:  Controls picking the right patient and avoid cleanup (for production environments)
+- **ENV**: Determines configuration set (`local`, `demo`, `staging`, `testing`) and cascades through entire system, including seed data generation
+- **INTEGRATION_TEST**: Controls resource creation method (batch with seed data vs application endpoints)
+- **SMOKE TEST**: Controls picking the right patient and avoid cleanup (for production environments)
 - **CI**: Auto-detected, affects retry logic, worker count, and artifact capture settings
 - **UI Flag**: Enables headed mode for debugging instead of headless execution
 - **Auth Credentials**: System automatically uses enhanced test credentials when available
+
+**Note**: For EHR tests, seed data is automatically regenerated after login to ensure it matches the current environment configuration.
 
 ## Fast Testing Mode
 
@@ -220,20 +235,30 @@ Standard testing required orchestration involving multiple zambda function calls
 
 ### Solution
 
-Fast mode uses single atomic FHIR transactions instead of multi-step orchestration:
+Fast mode uses single atomic FHIR transactions with automatically generated seed data:
+
+#### Automatic Seed Data Generation
+
+Before running tests, the system automatically generates fresh seed data:
+
+1. **Login Phase**: Authenticates and creates `user.json` with session credentials
+2. **Seed Generation**: Creates a real appointment with all related resources (Patient, Encounter, Observations, etc.)
+3. **Data Capture**: Fetches the complete resource graph and saves as JSON templates
+4. **Template Hydration**: Replaces environment-specific values (locationId, scheduleId, dates) with placeholders
 
 ```typescript
+// Seed data is automatically generated and used by ResourceHandler
 public async setResourcesFast(): Promise<void> {
   let seedDataString = JSON.stringify(fastSeedData);
 
-  // Apply dynamic values
+  // Apply dynamic values for current environment
   seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
   seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
   seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
 
   const hydratedFastSeedJSON = JSON.parse(seedDataString);
 
-  // Single atomic transaction
+  // Single atomic transaction creates all resources
   const createdResources = await this.#apiClient.fhir.transaction({
     requests: hydratedFastSeedJSON.entry.map((entry: any) => ({
       method: entry.request.method,
@@ -245,12 +270,46 @@ public async setResourcesFast(): Promise<void> {
 }
 ```
 
-### Benefits
+#### Seed Data Generation Process
+
+The seed generation happens automatically in the test execution flow:
+
+```
+Login Test → Generate Seed Data → Run Spec Tests
+```
+
+Seed data is not committed to git and is regenerated for each test run to ensure:
+
+- Data matches current environment configuration
+- Resources reflect latest FHIR schema changes
+- Tests use fresh, isolated data
+
+### Benefits and Details
 
 - Reduces API calls from 30+ operations to 1 transaction
 - Eliminates cascade failures through atomic operations
 - Faster execution (seconds vs minutes)
 - More predictable timing
+- Always up-to-date with current environment configuration
+
+**Generation Process:**
+
+1. **Trigger**: Runs automatically after successful login test
+2. **Creation**: Uses `ResourceHandler` to create a complete appointment workflow
+3. **Harvesting**: Waits for all async processing (preprocessing, harvesting) to complete
+4. **Extraction**: Fetches all related FHIR resources using graph search
+5. **Templating**: Replaces environment-specific values with placeholders
+6. **Storage**: Saves individual resource files to `apps/ehr/tests/e2e-utils/seed-data/resources/`
+
+**Manual Generation (Optional):**
+
+```bash
+# Generate seed data manually for specific environment
+ENV=local npm run seed
+ENV=e2e npm run seed
+```
+
+**Note**: Seed data `resources/` directory is git-ignored. Only `index.ts` (contains import logic) is committed.
 
 ### Contract Testing
 
@@ -534,20 +593,24 @@ You can use special commands in pull request descriptions to control CI pipeline
 
 ### Skip Commands
 
-| Command                 | Description                                              | Workflow              |
-| :---------------------- | :------------------------------------------------------- | :-------------------- |
-| `/skip-build-and-lint`  | Skips build and linting steps                            | `lint-and-build.yml`  |
-| `/skip-automated-tests` | Skips all automated tests (unit, component, integration) | `automated-tests.yml` |
-| `/skip-intake-e2e`      | Skips Intake E2E tests                                   | `e2e-intake.yml`      |
-| `/skip-ehr-e2e`         | Skips EHR E2E tests                                      | `e2e-ehr.yml`         |
+| Command                 | Description                                              | Workflow                                |
+| :---------------------- | :------------------------------------------------------- | :-------------------------------------- |
+| `/skip-build-and-lint`  | Skips build and linting steps                            | `lint-and-build.yml`                    |
+| `/skip-automated-tests` | Skips all automated tests (unit, component, integration) | `automated-tests.yml`                   |
+| `/skip-intake-e2e`      | Skips Intake E2E tests                                   | `e2e-intake.yml`                        |
+| `/skip-ehr-e2e`         | Skips EHR E2E tests                                      | `e2e-ehr.yml`                           |
+| `/skip-terraform-apply` | Skips terraform apply (runs by default)                  | `terraform-apply-and-test-pipeline.yml` |
+
+**Note**: Terraform apply now runs by default on all PRs. Use `/skip-terraform-apply` only when you're certain the infrastructure hasn't changed.
 
 ### Force Run Commands
 
-| Command                | Description                                                              | Workflow                                |
-| :--------------------- | :----------------------------------------------------------------------- | :-------------------------------------- |
-| `/run-terraform-apply` | Forces Terraform Apply to run even if no changes in config/subscriptions | `terraform-apply-and-test-pipeline.yml` |
-| `/run-intake-e2e`      | Forces Intake E2E tests to run even if no relevant changes detected      | `e2e-intake.yml`                        |
-| `/run-ehr-e2e`         | Forces EHR E2E tests to run even if no relevant changes detected         | `e2e-ehr.yml`                           |
+| Command           | Description                                                         | Workflow         |
+| :---------------- | :------------------------------------------------------------------ | :--------------- |
+| `/run-intake-e2e` | Forces Intake E2E tests to run even if no relevant changes detected | `e2e-intake.yml` |
+| `/run-ehr-e2e`    | Forces EHR E2E tests to run even if no relevant changes detected    | `e2e-ehr.yml`    |
+
+**Important**: Skip commands are not allowed for merging to ensure code quality. They are only for debugging and development purposes.
 
 ## Clear all resources
 
@@ -578,13 +641,15 @@ The script is called `clean-up-e2e`.
 | :---------------------------------------- | :---------------------------------------------------------------------- |
 | `apps/ehr/tests/e2e/specs/*.spec.ts`      | Test scenarios and user workflow validation                             |
 | `apps/ehr/tests/e2e/e2e-utils/*.ts`       | Helper utilities including ResourceHandler for FHIR resource management |
+| `apps/ehr/tests/e2e-utils/seed-data/`     | Auto-generated seed data templates (resources/ dir is git-ignored)      |
 | `apps/ehr/src/constants/data-test-ids.ts` | Centralized repository of data-test ID selectors                        |
 | `.github/workflows/e2e-ehr.yml`           | CI/CD pipeline for EHR tests with artifact collection                   |
 | `packages/zambdas/.env/*`                 | Backend API configuration and credentials                               |
 | `apps/ehr/env/*`                          | UI application and test environment variables                           |
 | `apps/ehr/playwright.config.ts`           | Playwright configuration with browser settings and reporters            |
-| `scripts/run-e2e.js`                      | Main test orchestration script with environment management              |
+| `scripts/run-e2e.ts`                      | Main test orchestration script with login → seed → specs flow           |
 | `scripts/e2e-test-setup.ts`               | Dynamic environment setup and resource discovery                        |
+| `scripts/generate-seed-data.ts`           | Automatic seed data generation from real appointment workflow           |
 
 The Intake app has the same structure.
 
@@ -609,7 +674,9 @@ apps/ehr/tests/e2e/
 └── e2e-utils/ # Healthcare utilities
 ├── resource-handler.ts # FHIR resource management
 ├── auth/ # Authentication helpers
-└── seed-data/ # Pre-constructed scenarios
+└── seed-data/ # Auto-generated test data
+  ├── index.ts # Bundle loader (committed)
+  └── resources/ # Generated JSON files (git-ignored)
 
 ```
 
