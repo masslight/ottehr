@@ -211,7 +211,11 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
                 }}
               />
             )}
-            <DeleteIconButton disabled={isLoadingOrAwaiting || !isAlreadySaved} onClick={deleteAllergy} />
+            <DeleteIconButton
+              disabled={isLoadingOrAwaiting || !isAlreadySaved}
+              onClick={deleteAllergy}
+              dataTestId={dataTestIds.allergies.knownAllergiesListItemDeleteButton}
+            />
           </Box>
         )}
       </Box>
@@ -291,6 +295,7 @@ const AddAllergyField: FC = () => {
         current: true,
         lastUpdated: new Date().toISOString(),
       };
+      const prevAllergies = [...(chartData?.allergies ?? [])];
 
       try {
         setPartialChartData(
@@ -303,7 +308,10 @@ const AddAllergyField: FC = () => {
         reset({ value: null, otherAllergyName: '' });
         setIsOtherOptionSelected(false);
       } catch {
-        // Error is already handled by useChartDataArrayValue
+        // Rollback to previous state
+        setPartialChartData({
+          allergies: prevAllergies,
+        });
       }
     }
   };
