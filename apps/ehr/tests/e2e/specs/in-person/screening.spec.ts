@@ -8,30 +8,9 @@ import {
 import { expectScreeningPage, ScreeningPage } from 'tests/e2e/page/in-person/ScreeningPage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
-import { patientScreeningQuestionsConfig } from 'utils';
+import { ASQKeys, asqLabels, patientScreeningQuestionsConfig } from 'utils';
 
 const resourceHandler = new ResourceHandler(`screening-mutating-${DateTime.now().toMillis()}`);
-
-interface ScreeningInfo {
-  screeningAnswersOption: number;
-  vaccinationNotes: string;
-  asqAnswer: string;
-  screeningNote: string;
-}
-
-const SCREENING_A: ScreeningInfo = {
-  screeningAnswersOption: 0,
-  vaccinationNotes: 'Test vaccine notes',
-  asqAnswer: 'Negative',
-  screeningNote: 'Test screening note',
-};
-
-const SCREENING_B: ScreeningInfo = {
-  screeningAnswersOption: 1,
-  vaccinationNotes: 'Test vaccine notes edited',
-  asqAnswer: 'Not offered',
-  screeningNote: 'Test screening note edited',
-};
 
 test.describe('Screening Page mutating tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -72,11 +51,82 @@ test.describe('Screening Page mutating tests', () => {
       const progressNotePage = await screeningPage.sideMenu().clickReviewAndSign();
       const editedProgressNoteLines = createProgressNoteLines(SCREENING_B);
       editedProgressNoteLines.push('ASQ - ' + SCREENING_B.asqAnswer);
+      // Screening notes are additive - both original and new note should be visible
+      editedProgressNoteLines.push(SCREENING_A.screeningNote);
       editedProgressNoteLines.push(SCREENING_B.screeningNote);
       await progressNotePage.verifyScreening(editedProgressNoteLines);
     });
   });
 });
+
+interface ScreeningInfo {
+  fieldValues: Record<string, any>; // field.id -> value (option index for radio/select, {startDate, endDate} for dateRange)
+  vaccinationNotes?: string;
+  asqAnswer: string;
+  screeningNote: string;
+}
+
+// Helper function to generate test answers from screening questions config
+function generateAnswersFromConfig(variant: 'first' | 'second'): Record<string, any> {
+  const fieldValues: Record<string, any> = {};
+  const askPatientFields = patientScreeningQuestionsConfig.fields.filter((field) => !field.existsInQuestionnaire);
+
+  for (const field of askPatientFields) {
+    if (field.type === 'radio' || field.type === 'select') {
+      // Safely select option based on what's available
+      const options = field.options || [];
+      if (options.length === 0) continue;
+
+      // For 'first' variant: select first option, for 'second': select second option or cycle back
+      const optionIndex = variant === 'first' ? 0 : Math.min(1, options.length - 1);
+      fieldValues[field.id] = optionIndex;
+    } else if (field.type === 'dateRange') {
+      // Use specific dates in the middle of current month - always visible in calendar
+      // Different dates for each variant to test edit functionality
+      const today = DateTime.now();
+      if (variant === 'first') {
+        fieldValues[field.id] = {
+          startDate: today.set({ day: 20 }),
+          endDate: today.set({ day: 23 }),
+        };
+      } else {
+        fieldValues[field.id] = {
+          startDate: today.set({ day: 27 }),
+          endDate: today.set({ day: 30 }),
+        };
+      }
+    } else if (field.type === 'text' || field.type === 'textarea') {
+      // For text/textarea fields, use sample text based on variant
+      const suffix = variant === 'first' ? '1' : '2';
+      fieldValues[field.id] = `Test ${field.type} value ${suffix}`;
+    }
+  }
+  return fieldValues;
+}
+
+// Helper function to generate complete screening info from config
+function generateScreeningInfo(variant: 'first' | 'second'): ScreeningInfo {
+  const suffix = variant === 'first' ? '' : ' edited';
+
+  const asqLabel =
+    variant === 'first'
+      ? asqLabels[ASQKeys.Negative] // 'Negative'
+      : asqLabels[ASQKeys.NotOffered]; // 'Not offered'
+
+  // Check if vaccinations field has a note field
+  const vaccinationsField = patientScreeningQuestionsConfig.fields.find((f) => f.id === 'vaccinations');
+  const hasVaccinationNotes = vaccinationsField?.noteField !== undefined;
+
+  return {
+    fieldValues: generateAnswersFromConfig(variant),
+    ...(hasVaccinationNotes && { vaccinationNotes: `Test vaccine notes${suffix}` }),
+    asqAnswer: asqLabel,
+    screeningNote: `Test screening note${suffix}`,
+  };
+}
+
+const SCREENING_A: ScreeningInfo = generateScreeningInfo('first');
+const SCREENING_B: ScreeningInfo = generateScreeningInfo('second');
 
 async function setupPractitioners(page: Page): Promise<void> {
   const progressNotePage = new InPersonProgressNotePage(page);
@@ -94,8 +144,6 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
   const askPatientFields = patientScreeningQuestionsConfig.fields.filter((field) => !field.existsInQuestionnaire);
 
   for (const field of askPatientFields) {
-    const answer = field.options?.[screeningInfo.screeningAnswersOption]?.label ?? '';
-
     // Check if the question exists on the page before filling
     const questionLocator = screeningPage
       .page()
@@ -105,11 +153,32 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
     const questionExists = await questionLocator.isVisible({ timeout: 2000 }).catch(() => false);
 
     if (questionExists) {
-      if (field.type === 'radio') {
-        await screeningPage.selectRadioAnswer(field.question, answer);
-      }
-      if (field.type === 'select') {
-        await screeningPage.selectDropdownAnswer(field.question, answer);
+      const fieldValue = screeningInfo.fieldValues[field.id];
+
+      if (field.type === 'radio' || field.type === 'select') {
+        // fieldValue is an option index
+        const answer = field.options?.[fieldValue as number]?.label ?? '';
+        if (field.type === 'radio') {
+          await screeningPage.selectRadioAnswer(field.question, answer);
+        } else if (field.type === 'select') {
+          await screeningPage.selectDropdownAnswer(field.question, answer);
+        }
+      } else if (field.type === 'dateRange') {
+        // fieldValue is {startDate: DateTime, endDate: DateTime}
+        const dateRangeValue = fieldValue as { startDate: DateTime; endDate: DateTime };
+        if (dateRangeValue?.startDate && dateRangeValue?.endDate) {
+          await screeningPage.selectDateRange(field.question, dateRangeValue.startDate, dateRangeValue.endDate);
+        }
+      } else if (field.type === 'text') {
+        // fieldValue is a string
+        if (fieldValue) {
+          await screeningPage.enterTextAnswer(field.question, fieldValue as string);
+        }
+      } else if (field.type === 'textarea') {
+        // fieldValue is a string
+        if (fieldValue) {
+          await screeningPage.enterTextareaAnswer(field.question, fieldValue as string);
+        }
       }
     } else {
       console.log(`Question "${field.question}" not found, skipping as it's optional`);
@@ -118,7 +187,7 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
 
   // Only enter vaccination note if the vaccinations field exists and is not in questionnaire
   const vaccinationsField = patientScreeningQuestionsConfig.fields.find((f) => f.id === 'vaccinations');
-  if (vaccinationsField && !vaccinationsField.existsInQuestionnaire) {
+  if (vaccinationsField && !vaccinationsField.existsInQuestionnaire && screeningInfo.vaccinationNotes) {
     const vaccinationNoteExists = await screeningPage
       .page()
       .getByTestId(dataTestIds.screeningPage.vaccinationNoteField)
@@ -131,6 +200,7 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
   }
 
   await screeningPage.selectAsqAnswer(screeningInfo.asqAnswer);
+
   await screeningPage.enterScreeningNote(screeningInfo.screeningNote);
   await screeningPage.clickAddScreeningNoteButton();
 }
@@ -140,11 +210,38 @@ function createProgressNoteLines(screeningInfo: ScreeningInfo): string[] {
   return patientScreeningQuestionsConfig.fields
     .filter((field) => !field.existsInQuestionnaire)
     .map((field) => {
-      const answer = field.options?.[screeningInfo.screeningAnswersOption]?.label ?? '';
-      if (field.id === 'vaccinations') {
-        return field.question + ' - ' + answer + ': ' + screeningInfo.vaccinationNotes;
+      const fieldValue = screeningInfo.fieldValues[field.id];
+
+      if (field.type === 'radio' || field.type === 'select') {
+        const answer = field.options?.[fieldValue as number]?.label ?? '';
+        if (field.id === 'vaccinations' && screeningInfo.vaccinationNotes) {
+          return field.question + ' - ' + answer + ': ' + screeningInfo.vaccinationNotes;
+        } else {
+          return field.question + ' - ' + answer;
+        }
+      } else if (field.type === 'dateRange') {
+        const dateRangeValue = fieldValue as { startDate: DateTime; endDate: DateTime };
+        if (dateRangeValue?.startDate && dateRangeValue?.endDate) {
+          const startDateStr = dateRangeValue.startDate.toFormat('MM/dd/yyyy');
+          const endDateStr = dateRangeValue.endDate.toFormat('MM/dd/yyyy');
+          return field.question + ' - ' + startDateStr + ' - ' + endDateStr;
+        } else {
+          // If no dates provided, return empty or skip
+          return field.question + ' - ';
+        }
+      } else if (field.type === 'text' || field.type === 'textarea') {
+        // fieldValue is a string
+        const textValue = fieldValue as string;
+        if (textValue) {
+          return field.question + ' - ' + textValue;
+        } else {
+          return field.question + ' - ';
+        }
       } else {
-        return field.question + ' - ' + answer;
+        // For any future field types not yet supported
+        console.warn(`Unsupported field type: ${field.type}`);
+        return field.question + ' - ';
       }
-    });
+    })
+    .filter((line) => line); // Filter out any empty lines
 }
