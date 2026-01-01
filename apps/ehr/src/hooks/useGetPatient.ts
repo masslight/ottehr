@@ -136,8 +136,8 @@ export const useGetPatientAccount = (
         patientId: patientId!,
       });
     },
-
     enabled: apiClient != null && patientId != null,
+    refetchOnMount: false,
   });
 
   useSuccessQuery(queryResult.data, onSuccess);
@@ -166,6 +166,7 @@ export const useGetPatientCoverages = (
       });
     },
     enabled: options?.enabled ?? (apiClient != null && patientId != null),
+    refetchOnMount: false,
   });
 
   useSuccessQuery(queryResult.data, onSuccess);
