@@ -32,7 +32,13 @@ export class ScreeningPage {
   }
 
   async clickAddScreeningNoteButton(): Promise<ScreeningPage> {
+    // Wait for the save API call to complete before returning
+    const savePromise = this.#page.waitForResponse(
+      (response) => response.url().includes('/save-chart-data') && response.status() === 200,
+      { timeout: 30_000 }
+    );
     await this.#page.getByTestId(dataTestIds.screeningPage.addNoteButton).click();
+    await savePromise;
     return expectScreeningPage(this.#page);
   }
 
@@ -52,13 +58,6 @@ export class ScreeningPage {
       .click();
 
     await savePromise;
-  }
-
-  async enterVaccinationNote(note: string): Promise<void> {
-    const inputField = this.#page.getByTestId(dataTestIds.screeningPage.vaccinationNoteField).getByRole('textbox');
-
-    await inputField.waitFor({ state: 'visible', timeout: 30_000 });
-    await inputField.fill(note);
   }
 
   async selectDropdownAnswer(question: string, answer: string): Promise<void> {

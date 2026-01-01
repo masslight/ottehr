@@ -60,8 +60,7 @@ test.describe('Screening Page mutating tests', () => {
 });
 
 interface ScreeningInfo {
-  fieldValues: Record<string, any>; // field.id -> value (option index for radio/select, {startDate, endDate} for dateRange)
-  vaccinationNotes?: string;
+  fieldValues: Record<string, any>; // field.id -> value (option index for radio/select, {startDate, endDate} for dateRange, string for text/textarea/noteField)
   asqAnswer: string;
   screeningNote: string;
 }
@@ -70,6 +69,7 @@ interface ScreeningInfo {
 function generateAnswersFromConfig(variant: 'first' | 'second'): Record<string, any> {
   const fieldValues: Record<string, any> = {};
   const askPatientFields = patientScreeningQuestionsConfig.fields.filter((field) => !field.existsInQuestionnaire);
+  const suffix = variant === 'first' ? '' : ' edited';
 
   for (const field of askPatientFields) {
     if (field.type === 'radio' || field.type === 'select') {
@@ -80,6 +80,17 @@ function generateAnswersFromConfig(variant: 'first' | 'second'): Record<string, 
       // For 'first' variant: select first option, for 'second': select second option or cycle back
       const optionIndex = variant === 'first' ? 0 : Math.min(1, options.length - 1);
       fieldValues[field.id] = optionIndex;
+
+      // Add noteField value if it exists AND it should be visible for the selected option
+      if (field.noteField) {
+        const selectedOption = options[optionIndex];
+        // Only add noteField if:
+        // 1. No conditionalValue (always visible, like vaccination_notes)
+        // 2. OR selected option's fhirValue matches conditionalValue
+        if (!field.noteField.conditionalValue || field.noteField.conditionalValue === selectedOption?.fhirValue) {
+          fieldValues[field.noteField.id] = `Test ${field.noteField.label.toLowerCase()}${suffix}`;
+        }
+      }
     } else if (field.type === 'dateRange') {
       // Use specific dates in the middle of current month - always visible in calendar
       // Different dates for each variant to test edit functionality
@@ -97,8 +108,8 @@ function generateAnswersFromConfig(variant: 'first' | 'second'): Record<string, 
       }
     } else if (field.type === 'text' || field.type === 'textarea') {
       // For text/textarea fields, use sample text based on variant
-      const suffix = variant === 'first' ? '1' : '2';
-      fieldValues[field.id] = `Test ${field.type} value ${suffix}`;
+      const suffixNum = variant === 'first' ? '1' : '2';
+      fieldValues[field.id] = `Test ${field.type} value ${suffixNum}`;
     }
   }
   return fieldValues;
@@ -113,13 +124,8 @@ function generateScreeningInfo(variant: 'first' | 'second'): ScreeningInfo {
       ? asqLabels[ASQKeys.Negative] // 'Negative'
       : asqLabels[ASQKeys.NotOffered]; // 'Not offered'
 
-  // Check if vaccinations field has a note field
-  const vaccinationsField = patientScreeningQuestionsConfig.fields.find((f) => f.id === 'vaccinations');
-  const hasVaccinationNotes = vaccinationsField?.noteField !== undefined;
-
   return {
     fieldValues: generateAnswersFromConfig(variant),
-    ...(hasVaccinationNotes && { vaccinationNotes: `Test vaccine notes${suffix}` }),
     asqAnswer: asqLabel,
     screeningNote: `Test screening note${suffix}`,
   };
@@ -163,6 +169,24 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
         } else if (field.type === 'select') {
           await screeningPage.selectDropdownAnswer(field.question, answer);
         }
+
+        // Handle noteField if it exists for this radio/select field
+        if (field.noteField) {
+          const noteValue = screeningInfo.fieldValues[field.noteField.id];
+          if (noteValue && typeof noteValue === 'string') {
+            // If noteValue exists in fieldValues, it means noteField MUST be visible
+            // (conditionalValue was already checked during data generation)
+            // Wait for it to appear - if it doesn't, the test should fail
+            const questionLocatorRefreshed = screeningPage
+              .page()
+              .getByTestId(dataTestIds.screeningPage.askPatientQuestion)
+              .filter({ hasText: field.question });
+            const noteFieldLocator = questionLocatorRefreshed.getByRole('textbox', { name: field.noteField.label });
+
+            await noteFieldLocator.waitFor({ state: 'visible', timeout: 30_000 });
+            await noteFieldLocator.fill(noteValue);
+          }
+        }
       } else if (field.type === 'dateRange') {
         // fieldValue is {startDate: DateTime, endDate: DateTime}
         const dateRangeValue = fieldValue as { startDate: DateTime; endDate: DateTime };
@@ -185,20 +209,6 @@ async function enterScreeningInfo(screeningInfo: ScreeningInfo, screeningPage: S
     }
   }
 
-  // Only enter vaccination note if the vaccinations field exists and is not in questionnaire
-  const vaccinationsField = patientScreeningQuestionsConfig.fields.find((f) => f.id === 'vaccinations');
-  if (vaccinationsField && !vaccinationsField.existsInQuestionnaire && screeningInfo.vaccinationNotes) {
-    const vaccinationNoteExists = await screeningPage
-      .page()
-      .getByTestId(dataTestIds.screeningPage.vaccinationNoteField)
-      .isVisible({ timeout: 2000 })
-      .catch(() => false);
-
-    if (vaccinationNoteExists) {
-      await screeningPage.enterVaccinationNote(screeningInfo.vaccinationNotes);
-    }
-  }
-
   await screeningPage.selectAsqAnswer(screeningInfo.asqAnswer);
 
   await screeningPage.enterScreeningNote(screeningInfo.screeningNote);
@@ -214,11 +224,19 @@ function createProgressNoteLines(screeningInfo: ScreeningInfo): string[] {
 
       if (field.type === 'radio' || field.type === 'select') {
         const answer = field.options?.[fieldValue as number]?.label ?? '';
-        if (field.id === 'vaccinations' && screeningInfo.vaccinationNotes) {
-          return field.question + ' - ' + answer + ': ' + screeningInfo.vaccinationNotes;
-        } else {
-          return field.question + ' - ' + answer;
+        // Check if there's a noteField with a value that should be visible
+        if (field.noteField) {
+          const noteValue = screeningInfo.fieldValues[field.noteField.id];
+          if (noteValue && typeof noteValue === 'string') {
+            const selectedOption = field.options?.[fieldValue as number];
+            const shouldShowNoteField =
+              !field.noteField.conditionalValue || field.noteField.conditionalValue === selectedOption?.fhirValue;
+            if (shouldShowNoteField) {
+              return field.question + ' - ' + answer + ': ' + noteValue;
+            }
+          }
         }
+        return field.question + ' - ' + answer;
       } else if (field.type === 'dateRange') {
         const dateRangeValue = fieldValue as { startDate: DateTime; endDate: DateTime };
         if (dateRangeValue?.startDate && dateRangeValue?.endDate) {
