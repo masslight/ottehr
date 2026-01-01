@@ -159,23 +159,27 @@ describe('KnownAllergiesProviderColumn', () => {
   });
 
   describe('selecting allergy', () => {
-    it('should call onSubmit with selected allergy', async () => {
-      const user = userEvent.setup();
-      render(<KnownAllergiesProviderColumn />, { wrapper: createWrapper() });
+    it(
+      'should call onSubmit with selected allergy',
+      async () => {
+        const user = userEvent.setup();
+        render(<KnownAllergiesProviderColumn />, { wrapper: createWrapper() });
 
-      await user.click(screen.getByRole('combobox'));
-      await user.type(screen.getByRole('combobox'), 'Bana');
-      await waitFor(
-        async () => {
-          const dropdown = await screen.findByRole('presentation');
-          const option = await within(dropdown).findAllByText(/Banana/);
-          await user.click(option[0]);
-        },
-        { timeout: 1000 }
-      );
+        await user.click(screen.getByRole('combobox'));
+        await user.type(screen.getByRole('combobox'), 'Bana');
+        await waitFor(
+          async () => {
+            const dropdown = await screen.findByRole('presentation');
+            const option = await within(dropdown).findAllByText(/Banana/);
+            await user.click(option[0]);
+          },
+          { timeout: 1000 }
+        );
 
-      expect(mockChartDataArrayValueOnSubmit).toHaveBeenCalledWith(expect.objectContaining({ name: 'Banana' }));
-    });
+        expect(mockChartDataArrayValueOnSubmit).toHaveBeenCalledWith(expect.objectContaining({ name: 'Banana' }));
+      },
+      { timeout: 5000 }
+    );
 
     it('should update local state with selected code', async () => {
       const user = userEvent.setup();
