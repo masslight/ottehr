@@ -168,10 +168,9 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
 
     // The nested-field's enableWhen references has-condition which is in the same group
     // Since has-condition is true, nested-field should be included
-    // However, evalEnableWhen may not find cross-group references in flattened items
-    // This is expected behavior - the function works with already flattened response items
-    expect(result).toHaveLength(1); // Only has-condition is kept
-    expect(result[0].linkId).toBe('has-condition');
+    expect(result).toHaveLength(2); // Both items are kept
+    expect(result.find((item) => item.linkId === 'has-condition')).toBeDefined();
+    expect(result.find((item) => item.linkId === 'nested-field')).toBeDefined();
   });
 
   it('should work with flat structure (real-world usage)', () => {
@@ -327,6 +326,99 @@ describe('filterQuestionnaireResponseByEnableWhen', () => {
     expect(result).toHaveLength(2);
     expect(result.find((item) => item.linkId === 'is-new-qrs-patient')).toBeDefined();
     expect(result.find((item) => item.linkId === 'patient-first-name')).toBeDefined();
+    expect(result.find((item) => item.linkId === 'patient-point-of-discovery')).toBeUndefined();
+  });
+
+  it('should handle nested items correctly with enableWhen', () => {
+    // This tests the fix for the bug where items nested in groups couldn't be found
+    // when referenced in enableWhen conditions
+    const responseItems: QuestionnaireResponseItem[] = [
+      { linkId: 'is-new-qrs-patient', text: 'Is New Patient?', answer: [{ valueBoolean: true }] },
+      {
+        linkId: 'patient-point-of-discovery',
+        text: 'How did you hear about us?',
+        answer: [{ valueString: 'Website' }],
+      },
+    ];
+
+    const questionnaire: Questionnaire = {
+      resourceType: 'Questionnaire',
+      status: 'active',
+      item: [
+        {
+          linkId: 'contact-information-page',
+          text: 'Contact information',
+          type: 'group',
+          item: [
+            { linkId: 'is-new-qrs-patient', text: 'Is New Patient?', type: 'boolean', readOnly: true },
+            {
+              linkId: 'patient-point-of-discovery',
+              text: 'How did you hear about us?',
+              type: 'choice',
+              enableWhen: [
+                {
+                  question: 'is-new-qrs-patient',
+                  operator: '=',
+                  answerBoolean: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+
+    // Both items should be kept since is-new-qrs-patient is true
+    expect(result).toHaveLength(2);
+    expect(result.find((item) => item.linkId === 'is-new-qrs-patient')).toBeDefined();
+    expect(result.find((item) => item.linkId === 'patient-point-of-discovery')).toBeDefined();
+  });
+
+  it('should filter out nested items when enableWhen condition is false', () => {
+    // This tests that filtering still works correctly with nested items
+    const responseItems: QuestionnaireResponseItem[] = [
+      { linkId: 'is-new-qrs-patient', text: 'Is New Patient?', answer: [{ valueBoolean: false }] },
+      {
+        linkId: 'patient-point-of-discovery',
+        text: 'How did you hear about us?',
+        answer: [{ valueString: 'Website' }],
+      },
+    ];
+
+    const questionnaire: Questionnaire = {
+      resourceType: 'Questionnaire',
+      status: 'active',
+      item: [
+        {
+          linkId: 'contact-information-page',
+          text: 'Contact information',
+          type: 'group',
+          item: [
+            { linkId: 'is-new-qrs-patient', text: 'Is New Patient?', type: 'boolean', readOnly: true },
+            {
+              linkId: 'patient-point-of-discovery',
+              text: 'How did you hear about us?',
+              type: 'choice',
+              enableWhen: [
+                {
+                  question: 'is-new-qrs-patient',
+                  operator: '=',
+                  answerBoolean: true,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = filterQuestionnaireResponseByEnableWhen(responseItems, questionnaire);
+
+    // Only is-new-qrs-patient should be kept, patient-point-of-discovery should be filtered out
+    expect(result).toHaveLength(1);
+    expect(result.find((item) => item.linkId === 'is-new-qrs-patient')).toBeDefined();
     expect(result.find((item) => item.linkId === 'patient-point-of-discovery')).toBeUndefined();
   });
 });
