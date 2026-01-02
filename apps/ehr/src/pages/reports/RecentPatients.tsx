@@ -217,7 +217,7 @@ export default function RecentPatients(): React.ReactElement {
         },
         {
           field: 'serviceCategory',
-          headerName: 'Service Category',
+          headerName: 'In-person / Telemed',
           flex: 1,
           minWidth: 150,
           sortable: true,
@@ -252,13 +252,24 @@ export default function RecentPatients(): React.ReactElement {
   const transformedRows = useMemo(() => {
     if (!reportData) return [];
 
-    return reportData.patients.map((patient) => ({
-      ...patient,
-      serviceCategory: patient.mostRecentVisit?.serviceCategory || '',
-      mostRecentVisitDate: patient.mostRecentVisit?.date
-        ? DateTime.fromISO(patient.mostRecentVisit.date).toFormat('MMM dd, yyyy')
-        : '',
-    }));
+    return reportData.patients.map((patient) => {
+      let serviceCategory = patient.mostRecentVisit?.serviceCategory || '';
+
+      // Transform service category display names
+      if (serviceCategory === 'in-person-service-mode') {
+        serviceCategory = 'In-person';
+      } else if (serviceCategory === 'virtual-service-mode') {
+        serviceCategory = 'Telemed';
+      }
+
+      return {
+        ...patient,
+        serviceCategory,
+        mostRecentVisitDate: patient.mostRecentVisit?.date
+          ? DateTime.fromISO(patient.mostRecentVisit.date).toFormat('MMM dd, yyyy')
+          : '',
+      };
+    });
   }, [reportData]);
 
   return (
