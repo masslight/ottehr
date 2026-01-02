@@ -10,17 +10,6 @@ export function formatHourNumber(hour: number): string {
   return DateTime.fromFormat(String(hour), 'h').toFormat('h a');
 }
 
-export function formatDateUsingSlashes(date: string | undefined, timezone?: string): string | undefined {
-  if (!date) {
-    return date;
-  }
-  if (timezone) {
-    return DateTime.fromISO(date).setZone(timezone).toFormat(DATE_FORMAT);
-  } else {
-    return DateTime.fromISO(date).toFormat(DATE_FORMAT);
-  }
-}
-
 export function datesCompareFn(format: string) {
   return (d1: string, d2: string): number => {
     const seconds1 = DateTime.fromFormat(d1, format).toSeconds();

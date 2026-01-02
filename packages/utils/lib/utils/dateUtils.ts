@@ -161,6 +161,15 @@ export const formatDOB = (birthDate: string | undefined): string | undefined => 
   return `${birthday} (${age})`;
 };
 
+export function formatDateForDisplay(date?: string, timezone?: string): string {
+  if (!date) return '';
+
+  const dt = DateTime.fromISO(date);
+  if (!dt.isValid) return '';
+
+  return (timezone ? dt.setZone(timezone) : dt).toFormat(DISPLAY_DATE_FORMAT);
+}
+
 /**
  * Compares two dates.
  * The most recent date will be first,

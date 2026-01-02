@@ -95,7 +95,7 @@ export const createEmployerInfoSection = <TData extends { employer?: EmployerInf
           styles.textStyles.regular,
           styles.textStyles.regular,
           {
-            dividerMargin: 8,
+            spacing: 16,
           }
         );
       }

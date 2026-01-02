@@ -1,7 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { assert } from 'console';
 import { TEST_PATIENT_EMAIL, TEST_PATIENT_FIRST_NAME, TEST_PATIENT_LAST_NAME } from 'test-utils';
-import { BOOKING_CONFIG, genderMap, patientScreeningQuestionsConfig } from 'utils';
+import { BOOKING_CONFIG, genderMap, patientScreeningQuestionsConfig, VALUE_SETS } from 'utils';
 import { BaseFillingInfo } from '../BaseFillingInfo';
 import { Locators } from '../locators';
 import { FlagsData } from '../Paperwork';
@@ -22,8 +22,7 @@ export class FillingInfo extends BaseFillingInfo {
   }
 
   // randomize in tests maybe not a good idea, left one option for now
-  // todo grab from config!
-  private reasonForVisit = [BOOKING_CONFIG.reasonForVisitOptions[0]];
+  private reasonForVisit = [VALUE_SETS.reasonForVisitOptions[0].value];
   private ethnicity = ['Hispanic or Latino', 'Not Hispanic or Latino', 'Decline to Specify'];
   private race = ['American Indian or Alaska Native'];
   private discovery = ['Friend/Family'];
