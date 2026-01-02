@@ -1,6 +1,7 @@
 import { Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { evalEnableWhen } from '../../../helpers/paperwork/validation';
 import { createQuestionnaireItemsMap } from './createQuestionnaireItemsMap';
+import { IntakeQuestionnaireItem } from './paperwork.types';
 
 export const filterQuestionnaireResponseByEnableWhen = (
   responseItems: QuestionnaireResponseItem[],
@@ -29,7 +30,13 @@ export const filterQuestionnaireResponseByEnableWhen = (
     }
 
     try {
-      const shouldShow = evalEnableWhen(itemDef as any, questionnaire.item as any, values);
+      const shouldShow = evalEnableWhen(
+        itemDef as IntakeQuestionnaireItem,
+        questionnaire.item as IntakeQuestionnaireItem[],
+        values,
+        undefined,
+        questionnaireItemsMap
+      );
 
       if (!shouldShow) {
         console.log(`Filtering out item ${responseItem.linkId} - hidden by enableWhen condition`);
