@@ -9,5 +9,10 @@ export default defineConfig({
     hookTimeout: 30000, // 30 seconds
     teardownTimeout: 30000, // 30 seconds
     globalSetup: './test/helpers/integration-global-setup.ts',
+    server: {
+      deps: {
+        inline: [/@sentry/, /utils/],
+      },
+    },
   },
 });

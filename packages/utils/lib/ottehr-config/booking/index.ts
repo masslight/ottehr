@@ -9,7 +9,6 @@ import {
 } from 'fhir/r4b';
 import _ from 'lodash';
 import z from 'zod';
-import bookAppointmentQuestionnaireJson from '../../../../../config/oystehr/book-appointment-questionnaire.json' assert { type: 'json' };
 import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import { BOOKING_OVERRIDES } from '../../../ottehr-config-overrides';
@@ -17,14 +16,172 @@ import { FHIR_EXTENSION, getFirstName, getLastName, getMiddleName, SERVICE_CATEG
 import { makeAnswer, pickFirstValueFromAnswerItem } from '../../helpers';
 import { flattenQuestionnaireAnswers, PatientInfo, PersonSex } from '../../types';
 import { mergeAndFreezeConfigObjects } from '../helpers';
+import {
+  createQuestionnaireFromConfig,
+  FormFieldTrigger,
+  FormSectionSimpleSchema,
+  QuestionnaireBase,
+  QuestionnaireConfigSchema,
+} from '../shared-questionnaire';
+import { VALUE_SETS } from '../value-sets';
 
-const BookingQuestionnaire = Object.values(bookAppointmentQuestionnaireJson.fhirResources)![0]
-  .resource as Questionnaire;
+const PatientDoesntExistTriggerEnableAndRequire: FormFieldTrigger = {
+  targetQuestionLinkId: 'existing-patient-id',
+  effect: ['enable', 'require'],
+  operator: 'exists',
+  answerBoolean: false,
+};
 
-const REASON_FOR_VISIT_OPTIONS =
-  BookingQuestionnaire.item![0].item!.find(
-    (item: QuestionnaireItem) => item.linkId === 'reason-for-visit'
-  )!.answerOption?.map((option: any) => option.valueString) ?? [];
+const PatientDoesntExistTriggerEnableOnly: FormFieldTrigger = {
+  targetQuestionLinkId: 'existing-patient-id',
+  effect: ['enable'],
+  operator: 'exists',
+  answerBoolean: false,
+};
+
+const FormFields = {
+  patientInfo: {
+    linkId: 'patient-information-page',
+    title: 'About the patient',
+    logicalItems: {
+      shouldDisplaySsnField: {
+        key: 'should-display-ssn-field',
+        type: 'boolean',
+        initialValue: false,
+      },
+      ssnFieldRequired: {
+        key: 'ssn-field-required',
+        type: 'boolean',
+      },
+      existingPatientId: {
+        key: 'existing-patient-id',
+        type: 'string',
+      },
+    },
+    items: {
+      firstName: {
+        key: 'patient-first-name',
+        label: 'First name (legal)',
+        type: 'string',
+        disabledDisplay: 'hidden',
+        triggers: [PatientDoesntExistTriggerEnableAndRequire],
+      },
+      middleName: {
+        key: 'patient-middle-name',
+        label: 'Middle name (legal)',
+        type: 'string',
+        disabledDisplay: 'hidden',
+        triggers: [PatientDoesntExistTriggerEnableOnly],
+      },
+      lastName: {
+        key: 'patient-last-name',
+        label: 'Last name (legal)',
+        type: 'string',
+        disabledDisplay: 'hidden',
+        triggers: [PatientDoesntExistTriggerEnableAndRequire],
+      },
+      preferredName: {
+        key: 'patient-preferred-name',
+        label: 'Chosen or preferred name (optional)',
+        type: 'string',
+      },
+      dateOfBirth: {
+        key: 'patient-birthdate',
+        label: 'Date of birth',
+        type: 'date',
+        dataType: 'DOB',
+        triggers: [PatientDoesntExistTriggerEnableAndRequire],
+      },
+      birthSex: {
+        key: 'patient-birth-sex',
+        label: 'Birth sex',
+        type: 'choice',
+        options: VALUE_SETS.birthSexOptions,
+      },
+      ssn: {
+        key: 'patient-ssn',
+        label: 'SSN',
+        type: 'string',
+        dataType: 'SSN',
+        disabledDisplay: 'hidden',
+        triggers: [
+          {
+            targetQuestionLinkId: 'should-display-ssn-field',
+            effect: ['enable'],
+            operator: '=',
+            answerBoolean: true,
+          },
+          {
+            targetQuestionLinkId: 'ssn-field-required',
+            effect: ['require'],
+            operator: '=',
+            answerBoolean: true,
+          },
+        ],
+      },
+      email: {
+        key: 'patient-email',
+        label: 'Email',
+        type: 'string',
+        dataType: 'Email',
+      },
+      reasonForVisit: {
+        key: 'reason-for-visit',
+        label: 'Reason for visit',
+        type: 'choice',
+        options: VALUE_SETS.reasonForVisitOptions,
+      },
+      tellUsMore: {
+        key: 'tell-us-more',
+        label: 'Tell us more (optional)',
+        type: 'string',
+      },
+      authorizedNonLegalGuardians: {
+        key: 'authorized-non-legal-guardian',
+        label: 'Who, besides the parent or legal guardian, is allowed to bring in the patient?',
+        type: 'string',
+      },
+    },
+    hiddenFields: [],
+    requiredFields: ['patient-birth-sex', 'patient-email', 'reason-for-visit'],
+  },
+};
+
+const FormFieldsSchema = z.object({
+  patientInfo: FormSectionSimpleSchema,
+});
+
+const hiddenFormSections: string[] = [];
+
+const questionnaireBaseDefaults: QuestionnaireBase = {
+  resourceType: 'Questionnaire',
+  url: 'https://ottehr.com/FHIR/Questionnaire/book-appointment',
+  version: '1.0.0',
+  name: 'BookAppointmentQuestionnaire',
+  title: 'Book Appointment Form',
+  status: 'active',
+};
+
+const FORM_DEFAULTS = {
+  questionnaireBase: questionnaireBaseDefaults,
+  hiddenFormSections,
+  FormFields,
+};
+
+const mergedBookingQConfig = _.merge(FORM_DEFAULTS, {
+  FormFields: BOOKING_OVERRIDES.FormFields ?? {},
+  questionnaireBase: BOOKING_OVERRIDES.questionnaireBase ?? {},
+});
+mergedBookingQConfig.hiddenFormSections = BOOKING_OVERRIDES.hiddenFormSections ?? FORM_DEFAULTS.hiddenFormSections;
+
+const BookingPaperworkConfigSchema = QuestionnaireConfigSchema.extend({
+  FormFields: FormFieldsSchema,
+});
+
+const formConfig = BookingPaperworkConfigSchema.parse(mergedBookingQConfig);
+
+const BOOKING_QUESTIONNAIRE = (): Questionnaire =>
+  JSON.parse(JSON.stringify(createQuestionnaireFromConfig(formConfig)));
 
 export const intakeQuestionnaires: Readonly<Array<Questionnaire>> = (() => {
   const inPersonQ = Object.values(inPersonIntakeQuestionnaireJson.fhirResources).find(
@@ -48,29 +205,6 @@ export const intakeQuestionnaires: Readonly<Array<Questionnaire>> = (() => {
   }
   return questionnaires;
 })();
-
-const bookAppointmentQuestionnaire: {
-  url: string | undefined;
-  version: string | undefined;
-  templateQuestionnaire: Questionnaire | undefined;
-} = (() => {
-  const templateResource = _.cloneDeep(BookingQuestionnaire);
-  return {
-    url: templateResource?.url,
-    version: templateResource?.version,
-    templateQuestionnaire: templateResource as Questionnaire,
-  };
-})();
-
-const CANCEL_REASON_OPTIONS = [
-  'Patient improved',
-  'Wait time too long',
-  'Prefer another provider',
-  'Changing location',
-  'Changing to telemedicine',
-  'Financial responsibility concern',
-  'Insurance issue',
-];
 
 interface StrongCoding extends Coding {
   code: string;
@@ -149,15 +283,12 @@ const mapBookingQRItemToPatientInfo = (qrItem: QuestionnaireResponseItem[]): Pat
   return patientInfo;
 };
 
-type BookingQuestionnaireLinkId = NonNullable<
-  NonNullable<typeof BookingQuestionnaire.item>[number]['item']
->[number]['linkId'];
-
-const hiddenBookingFields: BookingQuestionnaireLinkId[] = [];
+const inPersonPrebookRoutingParams: { key: string; value: string }[] = [
+  { key: 'bookingOn', value: 'visit-followup-group' },
+  { key: 'scheduleType', value: 'group' },
+];
 
 const BOOKING_DEFAULTS = {
-  reasonForVisitOptions: REASON_FOR_VISIT_OPTIONS,
-  cancelReasonOptions: CANCEL_REASON_OPTIONS,
   serviceCategoriesEnabled: {
     serviceModes: ['in-person', 'virtual'],
     visitType: ['prebook', 'walk-in'],
@@ -168,7 +299,6 @@ const BOOKING_DEFAULTS = {
     'start-virtual-visit',
     'schedule-virtual-visit',
   ],
-  hiddenBookingFields,
   serviceCategories: SERVICE_CATEGORIES_AVAILABLE,
   intakeQuestionnaires,
   selectBookingQuestionnaire: (
@@ -176,16 +306,15 @@ const BOOKING_DEFAULTS = {
   ): { url: string; version: string; templateQuestionnaire: Questionnaire } => {
     // can read properties of slot to determine which questionnaire to return
     // if desired. by default, we return just a single questionnaire regardless of slot
-    if (
-      bookAppointmentQuestionnaire.url &&
-      bookAppointmentQuestionnaire.version &&
-      bookAppointmentQuestionnaire.templateQuestionnaire
-    ) {
-      return JSON.parse(JSON.stringify(bookAppointmentQuestionnaire));
+    const Q = BOOKING_QUESTIONNAIRE();
+    if (!Q.url || !Q.version) {
+      throw new Error('Booking questionnaire is missing url or version');
     }
-    throw new Error('No booking questionnaire configured');
+    return { url: Q.url, version: Q.version, templateQuestionnaire: Q };
   },
   mapBookingQRItemToPatientInfo,
+  formConfig,
+  inPersonPrebookRoutingParams,
 };
 
 // todo: it would be nice to use zod to validate the merged booking config shape here
@@ -255,8 +384,8 @@ export const prepopulateBookingForm = (input: BookingFormPrePopulationInput): Qu
   )?.value;
 
   // assuming here we never need to collect this when we already have it
-  const shouldShowSSNField = !ssn && !BOOKING_CONFIG.hiddenBookingFields.includes('patient-ssn');
-  const ssnRequired = serviceCategoryCode === 'workmans_comp' && shouldShowSSNField;
+  const shouldShowSSNField = !ssn && !formConfig.FormFields.patientInfo.hiddenFields?.includes('patient-ssn');
+  const ssnRequired = serviceCategoryCode === 'workmans-comp' && shouldShowSSNField;
 
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {

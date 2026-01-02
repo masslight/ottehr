@@ -383,17 +383,16 @@ export const makePrepopulatedItemsFromPatientRecord = (
     overriddenItems = [],
   } = input;
 
-  // allows passing in pre-prepopulated logical fields
+  // allows passing in pre-prepopulated logical fields (which are not technically overrides)
+  // or any overrides
   const mergeQuestionnaireResponseItems = (
     defaultItems: QuestionnaireResponseItem[],
     overrides: QuestionnaireResponseItem[]
   ): QuestionnaireResponseItem[] => {
     return defaultItems.map((defaultItem) => {
-      if (defaultItem.answer === undefined) {
-        const existingOverride = overrides.find((oi) => oi.linkId === defaultItem.linkId && oi.answer !== undefined);
-        if (existingOverride) {
-          return { ...existingOverride };
-        }
+      const existingOverride = overrides.find((oi) => oi.linkId === defaultItem.linkId && oi.answer !== undefined);
+      if (existingOverride) {
+        return { ...existingOverride };
       }
       return defaultItem;
     });

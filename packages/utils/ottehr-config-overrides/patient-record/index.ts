@@ -1,5 +1,1 @@
-export const PATIENT_RECORD_OVERRIDES = {
-  /*hiddenFormFields: {
-    patientSummary: ['patient-ssn'],
-  },*/
-};
+export const PATIENT_RECORD_OVERRIDES = {} as any;

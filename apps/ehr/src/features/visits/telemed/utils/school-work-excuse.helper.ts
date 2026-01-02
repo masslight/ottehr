@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { ArrayElement } from 'src/shared/types';
-import { PROJECT_NAME, SchoolWorkNoteExcuseDocDTO } from 'utils';
+import { BRANDING_CONFIG, SchoolWorkNoteExcuseDocDTO } from 'utils';
 
 export const mapExcuseTypeToFields = {
   workTemplate: ['headerNote', 'workFields', 'footerNote'],
@@ -164,7 +164,7 @@ export const getDefaultExcuseFormValues = (params: {
     : `${params.patientName || '{Patient name}'},`;
 
   const headerNoteEnding = !params.isSchool && params.isTemplate ? 'They:' : 'They are:';
-  defaultFormValues.headerNote = `To whom it may concern:\n${headerNoteName} was treated by ${PROJECT_NAME} on ${currentDate}. ${headerNoteEnding}`;
+  defaultFormValues.headerNote = `To whom it may concern:\n${headerNoteName} was treated by ${BRANDING_CONFIG.projectName} on ${currentDate}. ${headerNoteEnding}`;
 
   if (params.isTemplate) {
     if (params.phoneNumber) {
