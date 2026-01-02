@@ -135,7 +135,8 @@ export const getLabOrderRelatedResources = async (
         acc.serviceRequests.push(resource);
       } else if (
         resource.resourceType === 'Task' &&
-        resource.basedOn?.some((ref) => ref.reference === `ServiceRequest/${params.serviceRequestId}`)
+        resource.status !== 'cancelled' &&
+        resource.status !== 'completed'
       ) {
         acc.tasks.push(resource);
       } else if (resource.resourceType === 'Condition') {
@@ -210,10 +211,24 @@ export const getLabOrderRelatedResources = async (
       return null;
     })();
 
+    // confirm the task is related to the lab service request or some lab diagnostic report
+    const drRefSet = new Set(diagnosticReports.map((dr) => `DiagnosticReport/${dr.id}`));
+    const filteredTasks = tasks.filter((task) => {
+      return !!task.basedOn?.some((ref) => {
+        const basedOn = ref.reference;
+        if (!basedOn) return false;
+
+        const isBasedOnServiceRequest = basedOn.endsWith(`/ServiceRequest/${params.serviceRequestId}`);
+        const isBasedOnSomeDR = drRefSet.has(basedOn);
+
+        return isBasedOnServiceRequest || isBasedOnSomeDR;
+      });
+    });
+
     return {
       serviceRequest,
       questionnaireResponse,
-      tasks,
+      tasks: filteredTasks,
       labConditions,
       communications,
       documentReferences,
