@@ -14,6 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbarContainer, GridToolbarExport } from '@mui/x-data-grid';
+import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -27,14 +28,14 @@ import PageContainer from '../../layout/PageContainer';
 function CustomToolbar(): React.ReactElement {
   return (
     <GridToolbarContainer>
-      <GridToolbarExport />
+      <GridToolbarExport printOptions={{ disableToolbarButton: true }} />
     </GridToolbarContainer>
   );
 }
 
 export default function RecentPatients(): React.ReactElement {
   const navigate = useNavigate();
-  const { oystehrZambda } = useApiClients();
+  const { oystehrZambda, oystehr } = useApiClients();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [reportData, setReportData] = useState<RecentPatientsReportZambdaOutput | null>(null);
@@ -42,6 +43,35 @@ export default function RecentPatients(): React.ReactElement {
   const [customStartDate, setCustomStartDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [locationFilter, setLocationFilter] = useState<string>('all');
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState<boolean>(true);
+
+  // Fetch locations on component mount
+  useEffect(() => {
+    const fetchLocations = async (): Promise<void> => {
+      if (!oystehr) return;
+
+      try {
+        setLoadingLocations(true);
+        const locationResults = await oystehr.fhir.search<Location>({
+          resourceType: 'Location',
+          params: [
+            { name: '_count', value: '1000' },
+            { name: '_sort', value: 'name' },
+          ],
+        });
+
+        const locationsList = locationResults.unbundle();
+        setLocations(locationsList);
+      } catch (err) {
+        console.error('Error fetching locations:', err);
+      } finally {
+        setLoadingLocations(false);
+      }
+    };
+
+    void fetchLocations();
+  }, [oystehr]);
 
   const handleBack = (): void => {
     navigate('/reports');
@@ -388,9 +418,16 @@ export default function RecentPatients(): React.ReactElement {
               value={locationFilter}
               label="Location"
               onChange={handleLocationFilterChange}
+              disabled={loadingLocations}
             >
               <MenuItem value="all">All Locations</MenuItem>
-              {/* TODO: Add actual locations from API */}
+              {locations
+                .filter((loc) => loc.name)
+                .map((location) => (
+                  <MenuItem key={location.id} value={location.id}>
+                    {location.name}
+                  </MenuItem>
+                ))}
             </Select>
           </FormControl>
         </Box>
