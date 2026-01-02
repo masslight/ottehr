@@ -213,6 +213,7 @@ export const PROVENANCE_ACTIVITY_CODES = {
   deleteOrder: 'DELETE EXTERNAL LAB ORDER', // this is a soft delete, resources are marked as cancelled or entered-in-error
 } as const;
 
+// ATHENA TODO: need to update these provenance codes
 export const PROVENANCE_ACTIVITY_DISPLAY = {
   review: 'review',
   submit: 'submit',

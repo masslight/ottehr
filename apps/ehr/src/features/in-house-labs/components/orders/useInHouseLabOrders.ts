@@ -186,6 +186,7 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
       setError(null);
 
       try {
+        // Athena TODO: this is where we'll need to update the zambda to do stuff
         await deleteInHouseLabOrder(oystehrZambda, {
           serviceRequestId,
         });

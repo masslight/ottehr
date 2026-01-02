@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Bundle, FhirResource, Provenance, ServiceRequest, Task } from 'fhir/r4b';
+import { Bundle, DiagnosticReport, DocumentReference, FhirResource, ServiceRequest, Task } from 'fhir/r4b';
 import {
   DeleteInHouseLabOrderParameters,
   DeleteInHouseLabOrderZambdaOutput,
@@ -18,13 +18,13 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
-const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInputDeleteRequest => ({
-  method: 'DELETE',
-  url: `${resourceType}/${id}`,
-});
+// const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInputDeleteRequest => ({
+//   method: 'DELETE',
+//   url: `${resourceType}/${id}`,
+// });
 
 const canDeleteInHouseLabOrder = (serviceRequest: ServiceRequest): boolean => {
-  return serviceRequest.status === 'draft';
+  return ['draft', 'active', 'completed'].includes(serviceRequest.status);
 };
 
 const getInHouseLabOrderRelatedResources = async (
@@ -33,43 +33,49 @@ const getInHouseLabOrderRelatedResources = async (
 ): Promise<{
   serviceRequest: ServiceRequest | null;
   task: Task | null;
-  provenance: Provenance | null;
+  diagnosticReport: DiagnosticReport | null;
+  documentReference: DocumentReference | null;
 }> => {
   try {
     const searchResponse = (
-      await oystehr.fhir.search<ServiceRequest | Task | Provenance>({
+      await oystehr.fhir.search<ServiceRequest | Task | DiagnosticReport | DocumentReference>({
         resourceType: 'ServiceRequest',
         params: [
           {
             name: '_id',
             value: serviceRequestId,
           },
+          // ATHENA TODO: check that this actually grabs the DR related tasks as well
           {
             name: '_revinclude',
             value: 'Task:based-on',
           },
           {
             name: '_revinclude',
-            value: 'Provenance:target',
+            value: 'DiagnosticReport:based-on',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'DocumentReference:related',
           },
         ],
       })
     ).unbundle();
 
-    const { serviceRequests, tasks, provenances } = searchResponse.reduce(
+    const results = searchResponse.reduce(
       (acc, resource) => {
         if (resource.resourceType === 'ServiceRequest' && resource.id === serviceRequestId) {
           acc.serviceRequests.push(resource);
         } else if (
           resource.resourceType === 'Task' &&
-          resource.basedOn?.some((ref) => ref.reference === `ServiceRequest/${serviceRequestId}`)
+          resource.basedOn?.some((ref) => ref.reference === `ServiceRequest/${serviceRequestId}`) &&
+          ['ready', 'in-progress'].includes(resource.status)
         ) {
           acc.tasks.push(resource);
-        } else if (
-          resource.resourceType === 'Provenance' &&
-          resource.target?.some((ref) => ref.reference === `ServiceRequest/${serviceRequestId}`)
-        ) {
-          acc.provenances.push(resource);
+        } else if (resource.resourceType === 'DiagnosticReport') {
+          acc.diagnosticReports.push(resource);
+        } else if (resource.resourceType === 'DocumentReference' && resource.status === 'current') {
+          acc.documentReferences.push(resource);
         }
 
         return acc;
@@ -77,16 +83,31 @@ const getInHouseLabOrderRelatedResources = async (
       {
         serviceRequests: [] as ServiceRequest[],
         tasks: [] as Task[],
-        provenances: [] as Provenance[],
+        diagnosticReports: [] as DiagnosticReport[],
+        documentReferences: [] as DocumentReference[],
       }
     );
+    console.log(
+      'These are the resources to "delete": ',
+      Object.fromEntries(
+        Object.entries(results).map(([key, arr]) => [key, arr.map((item) => `${item.resourceType}/${item.id}`)])
+      )
+    );
+
+    const { serviceRequests, tasks, diagnosticReports, documentReferences } = results;
 
     const serviceRequest = serviceRequests[0] || null;
     const task = tasks[0] || null;
-    const provenance = provenances[0] || null;
+    const diagnosticReport = diagnosticReports[0] || null;
+    const documentReference = documentReferences[0] || null;
+
+    if (diagnosticReport || documentReference)
+      console.log(
+        `Found DiagnosticReport or DocRef to delete: DiagnosticReport/${diagnosticReport.id} or DocumentReference/${documentReference.id}`
+      );
 
     if (serviceRequest && !canDeleteInHouseLabOrder(serviceRequest)) {
-      const errorMessage = `Cannot delete in-house lab order; ServiceRequest has status: ${serviceRequest.status}. Only draft orders can be deleted.`;
+      const errorMessage = `Cannot delete in-house lab order; ServiceRequest has status: ${serviceRequest.status}. Only draft, active, or completed orders can be deleted.`;
       console.error(errorMessage);
       throw new Error(errorMessage);
     }
@@ -94,7 +115,8 @@ const getInHouseLabOrderRelatedResources = async (
     return {
       serviceRequest,
       task,
-      provenance,
+      diagnosticReport,
+      documentReference,
     };
   } catch (error) {
     console.error('Error fetching in-house lab order and related resources:', error);
@@ -130,7 +152,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const { serviceRequest, task, provenance } = await getInHouseLabOrderRelatedResources(oystehr, serviceRequestId);
+    // ATHENA TODO: continue here
+    const { serviceRequest, task } = await getInHouseLabOrderRelatedResources(oystehr, serviceRequestId);
 
     if (!serviceRequest) {
       return {

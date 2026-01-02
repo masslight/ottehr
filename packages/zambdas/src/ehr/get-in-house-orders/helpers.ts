@@ -416,6 +416,11 @@ export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouse
       name: '_include:iterate',
       value: 'Slot:schedule',
     },
+    // filter out any soft deleted orders
+    {
+      name: 'status:not',
+      value: 'revoked',
+    },
   ];
 
   // Search by specific criteria
