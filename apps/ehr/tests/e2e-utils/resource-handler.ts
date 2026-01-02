@@ -25,7 +25,6 @@ import { dirname, join } from 'path';
 import { VisitDetailsPage } from 'tests/e2e/page/VisitDetailsPage';
 import { fileURLToPath } from 'url';
 import {
-  CancellationReasonOptionsInPerson,
   cleanAppointmentGraph,
   CreateAppointmentResponse,
   createFetchClientWithOystehrAuth,
@@ -422,7 +421,7 @@ export class ResourceHandler {
       await page?.goto(`/visit/${this.appointment.id!}`);
       const visitDetails = new VisitDetailsPage(page!);
       await visitDetails.clickCancelVisitButton();
-      await visitDetails.selectCancelationReason(CancellationReasonOptionsInPerson['Patient improved']);
+      await visitDetails.selectCancelationReason(VALUE_SETS.cancelReasonOptions[0].label);
       await visitDetails.clickCancelButtonFromDialogue();
       return;
     }
