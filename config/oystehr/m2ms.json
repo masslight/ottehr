@@ -89,6 +89,17 @@
         }
       ],
       "roles": ["#{ref/roles/PROVIDER/id}"]
+    },
+    "PACS_POLL": {
+      "name": "PACS Poll M2M Client",
+      "description": "This M2M Client is used by the PACS Poll service",
+      "accessPolicy": [
+        {
+          "resource": ["FHIR:ServiceRequest:*"],
+          "action": ["Read", "Search", "Update"],
+          "effect": "Allow"
+        }
+      ]
     }
   }
 }

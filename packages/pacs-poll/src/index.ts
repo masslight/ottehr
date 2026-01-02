@@ -4,13 +4,15 @@ import { readdirSync } from 'fs';
 import { DateTime } from 'luxon';
 import path from 'path';
 import {
+  FILLER_ORDER_NUMBER_CODE_SYSTEM,
   getPatchOperationToUpdateExtension,
+  PLACER_ORDER_NUMBER_CODE_SYSTEM,
   SERVICE_REQUEST_HAS_BEEN_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
 } from 'utils';
 
 const createOystehrClientFromConfig = async (config: ProjectConfig): Promise<any> => {
-  const tokenResponse = await fetch('https://oystehr.auth0.com/oauth/token', {
+  const tokenResponse = await fetch('https://auth.zapehr.com/oauth/token', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -19,7 +21,7 @@ const createOystehrClientFromConfig = async (config: ProjectConfig): Promise<any
       grant_type: 'client_credentials',
       client_id: config.clientId,
       client_secret: config.clientSecret,
-      audience: 'https://api.oystehr.com/',
+      audience: 'https://api.zapehr.com',
     }),
   });
 
@@ -41,16 +43,19 @@ interface ProjectConfig {
   projectId: string;
   clientId: string;
   clientSecret: string;
+  isProduction: boolean;
 }
+
+const pathToEnvFiles = path.resolve(__dirname, '../.env');
 
 const loadProjectConfigurations = async (): Promise<ProjectConfig[]> => {
   // Load all JSON files from .env, parse them, and return ProjectConfig array
   const projectConfigs: ProjectConfig[] = [];
-  const envFiles = readdirSync(path.resolve(__dirname, '.env'));
+  const envFiles = readdirSync(pathToEnvFiles);
 
   for (const file of envFiles) {
     if (file.endsWith('.env.json')) {
-      const configPath = path.resolve(__dirname, `.env/${file}`);
+      const configPath = path.resolve(pathToEnvFiles, file);
       const config = await import(configPath);
       if (!config.projectId || !config.clientId || !config.clientSecret) {
         console.error('Invalid config in file: ', file);
@@ -64,25 +69,26 @@ const loadProjectConfigurations = async (): Promise<ProjectConfig[]> => {
   return projectConfigs;
 };
 
-const findServiceRequestsToSend = async (oystehr: any): Promise<any[]> => {
+const findServiceRequestsToSend = async (oystehr: Oystehr): Promise<ServiceRequest[]> => {
   // 1. Fetch ServiceRequests that need to be sent to teleradiology
 
   const twoWeeksAgo = DateTime.now().minus({ weeks: 2 });
-  const serviceRequests = await oystehr.fhir.search({
-    resourceType: 'ServiceRequest',
-    params: [
-      { name: 'status', value: 'completed' },
-      {
-        name: 'authored',
-        value: `ge${twoWeeksAgo.toISODate()}`,
-      },
-    ],
-  });
+  const serviceRequests = (
+    await oystehr.fhir.search<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      params: [
+        { name: 'status', value: 'completed' },
+        {
+          name: 'authored',
+          value: `ge${twoWeeksAgo.toISODate()}`,
+        },
+      ],
+    })
+  ).unbundle();
 
   const serviceRequestsToSend: ServiceRequest[] = [];
-  for (const sr of serviceRequests.entry || []) {
-    const serviceRequest = sr.resource as ServiceRequest;
-    const existingExtensions = serviceRequest.extension || [];
+  for (const sr of serviceRequests) {
+    const existingExtensions = sr.extension || [];
     const needsToBeSent = existingExtensions.some(
       (ext) => ext.url === SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL
     );
@@ -91,30 +97,42 @@ const findServiceRequestsToSend = async (oystehr: any): Promise<any[]> => {
     );
 
     if (needsToBeSent && !hasBeenSent) {
-      serviceRequestsToSend.push(serviceRequest);
+      serviceRequestsToSend.push(sr);
     }
   }
 
-  return serviceRequests;
+  return serviceRequestsToSend;
 };
 
-const _sendWithMirth = async (serviceRequests: ServiceRequest[]): Promise<ServiceRequest[]> => {
+const sendWithMirth = async (serviceRequests: ServiceRequest[], isProduction: boolean): Promise<ServiceRequest[]> => {
   const serviceRequestsSentWithMirth: ServiceRequest[] = [];
+  const _port = isProduction ? 'TODO' : '8989';
   for (const sr of serviceRequests) {
     try {
       console.log(`Sending ServiceRequest ${sr.id} to teleradiology via Mirth...`);
+      const fillerOrderNumber = sr.identifier?.find((id) => id.system === FILLER_ORDER_NUMBER_CODE_SYSTEM)?.value;
+      if (!fillerOrderNumber) {
+        console.error(`ServiceRequest ${sr.id} is missing filler order number, skipping.`);
+        continue;
+      }
+      const placerOrderNumber = sr.identifier?.find((id) => id.system === PLACER_ORDER_NUMBER_CODE_SYSTEM)?.value;
+      if (!placerOrderNumber) {
+        console.error(`ServiceRequest ${sr.id} is missing placer order number, skipping.`);
+        continue;
+      }
       // TODO
-      const _mirthResponse = await fetch('localhost::8080/mirth-send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          accessionNumber: sr.identifier,
-        }),
-      });
+      // const _mirthResponse = await fetch(`http://localhost:${port}/`, {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: JSON.stringify({
+      //     fillerOrderNumber,
+      //     placerOrderNumber,
+      //   }),
+      // });
 
-      // TODO If successful, add to the list to patch as 'sent'
+      // TODO If successful, add to the list to patch as 'sent' -- Not sure how to know if it succeeded yet
       serviceRequestsSentWithMirth.push(sr);
     } catch (error) {
       console.error(`Failed to send ServiceRequest ${sr.id}:`, error);
@@ -143,8 +161,12 @@ const patchServiceRequests = async (serviceRequests: ServiceRequest[], oystehr: 
 const sendStudiesToTeleradiology = async (config: ProjectConfig): Promise<void> => {
   const oystehr = await createOystehrClientFromConfig(config);
   const serviceRequestsToSend = await findServiceRequestsToSend(oystehr);
-  // const serviceRequestsToPatchAsSent = await sendWithMirth(serviceRequestsToSend);
-  // await patchServiceRequests(serviceRequestsToPatchAsSent, oystehr);
+  if (serviceRequestsToSend.length === 0) {
+    console.log(`No ServiceRequests to send to teleradiology for project ${config.projectId}`);
+    return;
+  }
+  const serviceRequestsToPatchAsSent = await sendWithMirth(serviceRequestsToSend, config.isProduction);
+  await patchServiceRequests(serviceRequestsToPatchAsSent, oystehr);
   // TODO for testing just patch any SRs that are passed in without making a mirth call
   await patchServiceRequests(serviceRequestsToSend, oystehr);
 };
