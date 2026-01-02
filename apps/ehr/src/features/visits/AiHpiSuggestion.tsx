@@ -35,7 +35,7 @@ export const AiHpiSuggestion: FC = () => {
       )}
       {aiMechanismOfInjury && aiMechanismOfInjury.length > 0 && (
         <>
-          <AiSuggestion title="Mechanism of Injury" chartData={chartData} content={aiMechanismOfInjury} />
+          <AiSuggestion title="Mechanism of Injury (MOI)" chartData={chartData} content={aiMechanismOfInjury} />
         </>
       )}
     </>

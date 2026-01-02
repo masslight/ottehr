@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
-import { getLocationNames, getSupportPhoneFor } from 'utils/lib/configuration/branding';
+import { getLocationNames, getSupportPhoneFor } from 'utils';
 import { CustomDialog } from './CustomDialog';
 import PageForm from './PageForm';
 

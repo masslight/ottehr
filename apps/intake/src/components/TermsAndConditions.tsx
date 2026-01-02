@@ -3,8 +3,7 @@ import { useTheme } from '@mui/material/styles';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { getLegalCompositionForLocation } from 'utils';
-import { DisplayTextDef } from 'utils/lib/configuration/types';
+import { DisplayTextDef, getLegalCompositionForLocation } from 'utils';
 
 interface TermsAndConditionsProps {
   pageId: string;

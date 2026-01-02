@@ -7,10 +7,8 @@ import {
   CancelRadiologyOrderZambdaInput,
   fetchServiceRequestFromAdvaPACS,
   getSecret,
-  RoleType,
   Secrets,
   SecretsKeys,
-  User,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -42,8 +40,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
 
     const validatedInput = await validateInput(unsafeInput, oystehr);
 
-    await accessCheck(validatedInput.callerAccessToken, secrets);
-
     await performEffect(validatedInput, secrets, oystehr);
 
     return {
@@ -55,22 +51,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     return topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, unsafeInput.secrets));
   }
 });
-
-const accessCheck = async (callerAccessToken: string, secrets: Secrets): Promise<void> => {
-  const callerUser = await getCallerUserWithAccessToken(callerAccessToken, secrets);
-
-  if (callerUser.profile.indexOf('Practitioner/') === -1) {
-    throw new Error('Caller does not have a practitioner profile');
-  }
-  if (callerUser.roles?.find((role) => role.name === RoleType.Provider) === undefined) {
-    throw new Error('Caller does not have provider role');
-  }
-};
-
-const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
-  const oystehr = createOystehrClient(token, secrets);
-  return await oystehr.user.me();
-};
 
 const performEffect = async (validatedInput: ValidatedInput, secrets: Secrets, oystehr: Oystehr): Promise<void> => {
   const oystehrServiceRequest = await patchServiceRequestToRevokedInOystehr(

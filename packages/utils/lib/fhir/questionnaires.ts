@@ -1,16 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { FhirResource, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import ehrInsuranceUpdateQuestionnaire from '../../../../config/oystehr/ehr-insurance-update-questionnaire.json' assert { type: 'json' };
 import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import inPersonIntakeQuestionnaireArchive from '../../../../config/oystehr/in-person-intake-questionnaire-archive.json' assert { type: 'json' };
 import virtualIntakeQuestionnaire from '../../../../config/oystehr/virtual-intake-questionnaire.json' assert { type: 'json' };
 import virtualIntakeQuestionnaireArchive from '../../../../config/oystehr/virtual-intake-questionnaire-archive.json' assert { type: 'json' };
-import { BOOKING_CONFIG } from '../configuration';
+import { BOOKING_CONFIG, PATIENT_RECORD_QUESTIONNAIRE } from '../ottehr-config';
 import { CanonicalUrl } from '../types';
 
-const questionnaires: Array<Questionnaire> = [
+// todo: refactor this to avoid dependency on Oystehr client in utils (take all Q literals from config, stop relying on literal historic resources)
+const getQuestionnaires = (): Array<Questionnaire> => [
   ...Object.values(inPersonIntakeQuestionnaire.fhirResources).map((r) => r.resource as Questionnaire),
-  ...Object.values(ehrInsuranceUpdateQuestionnaire.fhirResources).map((r) => r.resource as Questionnaire),
+  PATIENT_RECORD_QUESTIONNAIRE(),
   ...Object.values(virtualIntakeQuestionnaire.fhirResources).map((r) => r.resource as Questionnaire),
   ...Object.values(virtualIntakeQuestionnaireArchive.fhirResources).map((r) => r.resource as Questionnaire),
   ...Object.values(inPersonIntakeQuestionnaireArchive.fhirResources).map((r) => r.resource as Questionnaire),
@@ -23,7 +23,7 @@ export const getCanonicalQuestionnaire = async (
 ): Promise<Questionnaire> => {
   const { url, version } = canonical;
 
-  const maybeQuestionnaireFromFile = questionnaires.find((q) => q.url === url && q.version === version);
+  const maybeQuestionnaireFromFile = getQuestionnaires().find((q) => q.url === url && q.version === version);
   // if we found the Q in the local file, return it
   if (maybeQuestionnaireFromFile) {
     return JSON.parse(JSON.stringify(maybeQuestionnaireFromFile));

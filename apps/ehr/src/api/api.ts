@@ -48,7 +48,6 @@ import {
   DeleteLabOrderZambdaOutput,
   DownloadPatientProfilePhotoInput,
   EHRVisitDetails,
-  GenerateStatementInput,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
   GetConversationInput,
@@ -180,7 +179,6 @@ const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
 const INVOICEABLE_PATIENTS_REPORT_ZAMBDA_ID = 'invoiceable-patients-report';
 const BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID = 'bulk-update-insurance-status';
 const UPDATE_INVOICE_TASK_ZAMBDA_ID = 'update-invoice-task';
-const GENERATE_STATEMENT_ZAMBDA_ID = 'generate-statement';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1184,22 +1182,6 @@ export const generatePaperworkPdf = async (
   try {
     const response = await oystehr.zambda.execute({
       id: PAPERWORK_TO_PDF_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const generateStatementPdf = async (
-  oystehr: Oystehr,
-  parameters: GenerateStatementInput
-): Promise<{ documentReference: string }> => {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: GENERATE_STATEMENT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

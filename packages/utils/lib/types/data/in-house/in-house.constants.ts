@@ -105,14 +105,28 @@ export const IN_HOUSE_RESULTS_VALUESET_SYSTEM =
 
 const IN_HOUSE_LAB_OD_DISPLAY_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/valueset-display';
 
+export type IN_HOUSE_LAB_DISPLAY_TYPES = 'Radio' | 'Select' | 'Numeric' | 'Free Text';
 export const OD_DISPLAY_CONFIG = {
   url: IN_HOUSE_LAB_OD_DISPLAY_SYSTEM,
   valueString: {
-    radio: 'Radio',
-    select: 'Select',
-    numeric: 'Numeric',
+    radio: 'Radio' as IN_HOUSE_LAB_DISPLAY_TYPES,
+    select: 'Select' as IN_HOUSE_LAB_DISPLAY_TYPES,
+    numeric: 'Numeric' as IN_HOUSE_LAB_DISPLAY_TYPES,
+    freeText: 'Free Text' as IN_HOUSE_LAB_DISPLAY_TYPES,
   },
 } as const;
+
+const IN_HOUSE_LAB_OD_VALIDATION_SYSTEM =
+  'http://ottehr.org/fhir/StructureDefinition/observation-definition-validation';
+
+const IN_HOUSE_LAB_TEXT_VALIDATION_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/text-format-validation';
+
+export const OD_VALUE_VALIDATION_CONFIG = {
+  url: IN_HOUSE_LAB_OD_VALIDATION_SYSTEM,
+  formatValidation: {
+    url: IN_HOUSE_LAB_TEXT_VALIDATION_SYSTEM,
+  },
+};
 
 export const IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/allow-null-value';
 
@@ -155,3 +169,22 @@ export const NEUTRAL_RESULT_DR_TAG = {
   code: 'neutral',
   display: 'Tests done should be displayed in neutral ui', // no colors, no indications positive/negative (example pregnancy)
 };
+
+export const REFLEX_TEST_LOGIC_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-logic';
+export const REFLEX_TEST_TO_RUN_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-to-run';
+export const REFLEX_TEST_TO_RUN_NAME_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-to-run-name';
+export const REFLEX_TEST_ALERT_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-trigger-alert';
+export const REFLEX_TEST_CONDITION_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-condition';
+export const REFLEX_TEST_CONDITION_LANGUAGES = {
+  fhirPath: 'text/fhirpath',
+} as const;
+export const REFLEX_TEST_TRIGGERED_URL = 'http://ottehr.org/fhir/StructureDefinition/reflex-test-triggered';
+
+// tag needed to validating the progress note
+// the display value for this tag will be the reflex test name
+export const SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM = 'reflex-test-triggered';
+export const SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES = {
+  pending: 'pending', // test is not created, you cannot sign
+};
+
+export const REFLEX_ARTIFACT_DISPLAY = 'reflex relationship'; // added to the depends-on relatedArtifact on reflex test activity definitions

@@ -3,7 +3,16 @@
  *
  * This script creates appointment resources using ResourceHandler (same as e2e tests),
  * waits for preprocessing/harvesting, fetches all related resources,
- * and saves them to seed-ehr-appointment-data.json with placeholders.
+ * and saves them as individual JSON files in seed-data/resources/ directory.
+ *
+ * Output structure:
+ *   seed-data/
+ *     resources/
+ *       Account-0.json
+ *       Appointment-0.json
+ *       Patient-0.json
+ *       ...
+ *     index.ts (static file that merges all resources)
  *
  * Usage:
  *   ENV={env} npx env-cmd -f apps/ehr/env/tests.{env}.json tsx scripts/generate-seed-data.ts
@@ -13,10 +22,11 @@
  *   - Environment variables must be set (AUTH0_*, FHIR_API, PROJECT_API_ZAMBDA_URL, etc.)
  */
 
-import { writeFileSync } from 'fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, getAppointmentGraphSearchParams } from 'utils';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -58,23 +68,7 @@ async function main(): Promise<void> {
     const resources = (
       await apiClient.fhir.search({
         resourceType: 'Appointment',
-        params: [
-          { name: '_id', value: appointmentId },
-          { name: '_include', value: 'Appointment:patient' },
-          { name: '_include', value: 'Appointment:slot' },
-          { name: '_include', value: 'Appointment:location' },
-          { name: '_revinclude:iterate', value: 'RelatedPerson:patient' },
-          { name: '_revinclude:iterate', value: 'Encounter:appointment' },
-          { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
-          { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
-          { name: '_revinclude:iterate', value: 'Person:relatedperson' },
-          { name: '_revinclude:iterate', value: 'List:subject' },
-          { name: '_revinclude:iterate', value: 'Consent:patient' },
-          { name: '_revinclude:iterate', value: 'Account:patient' },
-          { name: '_revinclude:iterate', value: 'Observation:encounter' },
-          { name: '_revinclude:iterate', value: 'ServiceRequest:encounter' },
-          { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
-        ],
+        params: getAppointmentGraphSearchParams(appointmentId),
       })
     ).unbundle();
 
@@ -102,78 +96,99 @@ async function main(): Promise<void> {
     ) as any;
 
     const questionnaireUrl = `${questionnaire.resource.url}|${questionnaire.resource.version}`;
-
     const today = DateTime.now().toUTC().toFormat('yyyy-MM-dd');
 
     console.log('Converting to seed format with placeholders...');
 
-    const filteredResources = resources.filter((r: any) => r.resourceType !== 'Location');
+    // Filter out Location (we use placeholder) and sort by resourceType
+    const filteredResources = resources
+      .filter((r: any) => r.resourceType !== 'Location')
+      .sort((a: any, b: any) => a.resourceType.localeCompare(b.resourceType));
 
-    // Build UUID map for internal references
-    const idToUuid = new Map<string, string>();
-    filteredResources.forEach((r: any) => {
-      if (r.id) {
-        idToUuid.set(r.id, `urn:uuid:${crypto.randomUUID()}`);
+    // Validate all resources have required fields
+    filteredResources.forEach((r: any, index: number) => {
+      if (!r.resourceType) {
+        throw new Error(`Resource at index ${index} is missing resourceType`);
+      }
+      if (!r.id) {
+        throw new Error(`Resource ${r.resourceType} at index ${index} is missing id`);
       }
     });
 
-    const entries = filteredResources.map((resource: any) => {
-      const uuid = idToUuid.get(resource.id) || `urn:uuid:${crypto.randomUUID()}`;
+    // Build ID → fullUrl map using format: urn:uuid:ResourceType-OriginalId
+    const idToFullUrl = new Map<string, string>();
+
+    filteredResources.forEach((r: any) => {
+      idToFullUrl.set(r.id, `urn:uuid:${r.resourceType}-${r.id}`);
+    });
+
+    // Prepare output directory (clean before generation)
+    const seedDataDir = join(__dirname, '../apps/ehr/tests/e2e-utils/seed-data');
+    const resourcesDir = join(seedDataDir, 'resources');
+
+    if (existsSync(resourcesDir)) {
+      rmSync(resourcesDir, { recursive: true });
+    }
+    mkdirSync(resourcesDir, { recursive: true });
+
+    // Process and save each resource
+    filteredResources.forEach((resource: any) => {
+      const type = resource.resourceType;
+      const resourceId = resource.id;
+      const fullUrl = idToFullUrl.get(resourceId)!;
+
+      // Remove id and clean meta
       const { id: _id, meta, ...rest } = resource;
-      let cleanedMeta: any = undefined;
+      let cleanedResource: any = rest;
 
       if (meta?.tag) {
-        const cleanedTags = meta.tag.filter((tag: any) => tag.system !== 'E2E_TEST_RESOURCE_PROCESS_ID');
+        const cleanedTags = meta.tag.filter((tag: any) => tag.system !== E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM);
         if (cleanedTags.length > 0) {
-          cleanedMeta = { tag: cleanedTags };
+          cleanedResource = { ...rest, meta: { tag: cleanedTags } };
         }
       }
 
-      const resourceWithMeta = cleanedMeta ? { ...rest, meta: cleanedMeta } : rest;
+      // Replace references with fullUrl placeholders
+      let jsonStr = JSON.stringify(cleanedResource);
 
-      let jsonStr = JSON.stringify(resourceWithMeta);
-
-      idToUuid.forEach((uuid, id) => {
-        jsonStr = jsonStr.replace(new RegExp(`"${resource.resourceType}/${id}"`, 'g'), `"${uuid}"`);
-        jsonStr = jsonStr.replace(new RegExp(`"Patient/${id}"`, 'g'), `"${uuid}"`);
-        jsonStr = jsonStr.replace(new RegExp(`"Appointment/${id}"`, 'g'), `"${uuid}"`);
-        jsonStr = jsonStr.replace(new RegExp(`"Encounter/${id}"`, 'g'), `"${uuid}"`);
-        jsonStr = jsonStr.replace(new RegExp(`"RelatedPerson/${id}"`, 'g'), `"${uuid}"`);
-        jsonStr = jsonStr.replace(new RegExp(`"Slot/${id}"`, 'g'), `"${uuid}"`);
-        jsonStr = jsonStr.replace(new RegExp(`"Person/${id}"`, 'g'), `"${uuid}"`);
+      idToFullUrl.forEach((fullUrl, id) => {
+        // Replace all reference patterns for this id
+        const patterns = [
+          `"Patient/${id}"`,
+          `"Appointment/${id}"`,
+          `"Encounter/${id}"`,
+          `"RelatedPerson/${id}"`,
+          `"Slot/${id}"`,
+          `"Person/${id}"`,
+          `"${type}/${id}"`,
+        ];
+        patterns.forEach((pattern) => {
+          jsonStr = jsonStr.split(pattern).join(`"${fullUrl}"`);
+        });
       });
 
-      jsonStr = jsonStr.replace(new RegExp(`Location/${locationId}`, 'g'), 'Location/{{locationId}}');
+      // Replace environment-specific values with placeholders
+      jsonStr = jsonStr.split(`Location/${locationId}`).join('Location/{{locationId}}');
       if (scheduleId) {
-        jsonStr = jsonStr.replace(new RegExp(`Schedule/${scheduleId}`, 'g'), 'Schedule/{{scheduleId}}');
+        jsonStr = jsonStr.split(`Schedule/${scheduleId}`).join('Schedule/{{scheduleId}}');
       }
-      jsonStr = jsonStr.replace(
-        new RegExp(questionnaireUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
-        '{{questionnaireUrl}}'
-      );
-      jsonStr = jsonStr.replace(new RegExp(today, 'g'), '{{date}}');
+      jsonStr = jsonStr.split(questionnaireUrl).join('{{questionnaireUrl}}');
+      jsonStr = jsonStr.split(today).join('{{date}}');
+      // eliminate timezone issues with early morning appointments
+      jsonStr = jsonStr.replace(/\{\{date\}\}T\d\d:/g, '{{date}}T12:');
 
-      const processedResource = JSON.parse(jsonStr);
-
-      return {
-        request: {
-          method: 'POST',
-          url: `/${resource.resourceType}`,
-        },
-        fullUrl: uuid,
-        resource: processedResource,
+      const entry = {
+        fullUrl,
+        request: { method: 'POST', url: `/${type}` },
+        resource: JSON.parse(jsonStr),
       };
+
+      // Sort keys and save (use resourceId for unique file names)
+      const fileName = `${type}-${resourceId}.json`;
+      writeFileSync(join(resourcesDir, fileName), JSON.stringify(entry, null, 2));
     });
 
-    const bundle = {
-      resourceType: 'Bundle',
-      type: 'transaction',
-      entry: entries,
-    };
-
-    const outputPath = join(__dirname, '../apps/ehr/tests/e2e-utils/seed-data/seed-ehr-appointment-data.json');
-    writeFileSync(outputPath, JSON.stringify(bundle, null, 2));
-    console.log(`Saved to: ${outputPath}`);
+    console.log(`Saved ${filteredResources.length} resource files to: ${resourcesDir}`);
 
     console.log('🧹 Cleaning up resources...');
     await handler.cleanupResources();

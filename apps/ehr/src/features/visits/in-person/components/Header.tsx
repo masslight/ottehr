@@ -17,7 +17,6 @@ import {
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
-import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
@@ -28,6 +27,7 @@ import {
   formatDateToMDYWithTime,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
+  getFullestAvailableName,
   getInsuranceNameFromCoverage,
   PaymentVariant,
   PRACTITIONER_CODINGS,
@@ -48,6 +48,9 @@ import { InternalNotes } from './InternalNotes';
 import { PrintVisitLabelButton } from './PrintVisitLabelButton';
 
 const HeaderWrapper = styled(Box)(({ theme }) => ({
+  position: 'sticky',
+  top: 0,
+  zIndex: 100,
   backgroundColor: theme.palette.background.paper,
   padding: '8px 16px 8px 0',
   borderBottom: `1px solid ${theme.palette.divider}`,
@@ -129,12 +132,15 @@ export const Header = (): JSX.Element => {
   const theme = useTheme();
 
   const {
-    resources: { appointment, patient, encounter: encounterValues, location: locationResource },
+    resources: { appointment: appointmentValues, patient, encounter: encounterValues },
     mappedData,
-    visitState,
+    appointment,
+    practitioners,
+    group,
+    location,
+    locations,
+    encounter,
     appointmentRefetch,
-    followUpOriginEncounter,
-    followupEncounters,
     selectedEncounterId,
   } = useAppointmentData();
 
@@ -145,43 +151,56 @@ export const Header = (): JSX.Element => {
     patientId: patient?.id ?? null,
   });
 
+  const { visitType } = useGetAppointmentAccessibility();
+  const isFollowup = visitType === 'follow-up';
+
   const { chartData } = useChartData();
-  const { encounter, location } = visitState;
+
   const effectiveEncounterId = selectedEncounterId ?? encounter?.id;
 
-  const findEncounterById = (id?: string): Encounter | undefined => {
-    if (!id) return undefined;
-    const foundInFollowups = (followupEncounters || []).find((e) => e.id === id);
-    if (foundInFollowups) return foundInFollowups;
-    if (followUpOriginEncounter?.id === id) return followUpOriginEncounter;
-    return undefined;
-  };
+  const start = encounter?.period?.start ?? appointmentValues?.start;
 
-  const isMainEncounter = !effectiveEncounterId || effectiveEncounterId === followUpOriginEncounter?.id;
+  let optionalVisitLabel = '';
 
-  const currentEncounter = isMainEncounter ? followUpOriginEncounter : findEncounterById(effectiveEncounterId);
+  if (isFollowup) {
+    const locationRef = encounter?.location?.[0]?.location?.reference;
+    if (locationRef) {
+      const locationId = locationRef.split('/')[1];
+      const matchedLocation = locations.find((location) => location?.id === locationId);
 
-  const start = isMainEncounter ? appointment?.start : currentEncounter?.period?.start;
+      optionalVisitLabel = matchedLocation?.name ?? '';
+    }
+  } else {
+    if (!optionalVisitLabel && appointment?.participant?.length) {
+      const nonPatientParticipant = appointment.participant.find(
+        (p) => typeof p?.actor?.reference === 'string' && !p.actor.reference.includes('Patient/')
+      );
 
-  let locationName = '';
+      const ref = nonPatientParticipant?.actor?.reference;
 
-  const locationRef = currentEncounter?.location?.[0]?.location?.reference;
-  if (locationRef) {
-    const locationId = locationRef.split('/')[1];
-    const allLocations = [...(visitState?.location ? [visitState.location] : []), ...[locationResource]];
-    const matchedLocation = allLocations.find((loc) => loc?.id === locationId);
+      if (ref) {
+        const [type, id] = ref.split('/');
 
-    locationName = matchedLocation?.name ?? '';
+        if (type === 'Location' && location?.name) {
+          optionalVisitLabel = location.name;
+        }
+
+        if (type === 'HealthcareService' && group?.name) {
+          optionalVisitLabel = group.name;
+        }
+
+        const visitOwner = practitioners?.find((p) => p?.id === id);
+        if (type === 'Practitioner' && visitOwner) {
+          optionalVisitLabel = getFullestAvailableName(visitOwner) ?? '';
+        }
+      }
+    }
   }
-
-  locationName = locationName || location?.name || '';
 
   const userTimezone = DateTime.local().zoneName;
   const { date = '', time = '' } = formatDateToMDYWithTime(start, userTimezone) ?? {};
-  const visitText = `Visit: ${date} ${time}${locationName ? ` | ${locationName}` : ''}`.trim();
+  const visitText = `Visit: ${date} ${time}${optionalVisitLabel ? ` | ${optionalVisitLabel}` : ''}`.trim();
 
-  const { visitType } = useGetAppointmentAccessibility();
-  const isFollowup = visitType === 'follow-up';
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
   const paymentVariant = formatLabelValue(
@@ -231,7 +250,7 @@ export const Header = (): JSX.Element => {
     }
   }, [shouldRefetchPractitioners, refetch]);
 
-  const reasonForVisit = formatLabelValue(appointment?.description, 'Reason for Visit');
+  const reasonForVisit = formatLabelValue(appointmentValues?.description, 'Reason for Visit');
   const userId = formatLabelValue(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const {
@@ -343,7 +362,7 @@ export const Header = (): JSX.Element => {
                   <Grid item>
                     <Link
                       component={RouterLink}
-                      to={`/visit/${appointment?.id}`}
+                      to={`/visit/${appointmentValues?.id}`}
                       variant="body2"
                       sx={{
                         color: theme.palette.text.secondary,

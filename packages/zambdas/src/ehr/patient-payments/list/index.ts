@@ -1,16 +1,10 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Account, PaymentNotice } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { Account } from 'fhir/r4b';
 import Stripe from 'stripe';
 import {
-  CardPaymentDTO,
-  CashPaymentDTO,
-  checkForStripeCustomerDeletedError,
-  convertPaymentNoticeListToCashPaymentDTOs,
   FHIR_RESOURCE_NOT_FOUND,
   getSecret,
-  getStripeCustomerIdFromAccount,
   INVALID_INPUT_ERROR,
   isValidUUID,
   ListPatientPaymentInput,
@@ -18,7 +12,6 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
-  PatientPaymentDTO,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -27,12 +20,12 @@ import {
   getAuth0Token,
   getStripeClient,
   lambdaResponse,
-  STRIPE_PAYMENT_ID_SYSTEM,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
+import { getPaymentsForPatient } from '../helpers';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
@@ -90,91 +83,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 interface EffectInput extends ListPatientPaymentInput {
+  oystehrClient: Oystehr;
   stripeClient: Stripe;
   patientAccount: Account;
-  fhirPaymentNotices: PaymentNotice[];
 }
 const performEffect = async (input: EffectInput): Promise<ListPatientPaymentResponse> => {
-  const { patientAccount: account, patientId, encounterId, stripeClient, fhirPaymentNotices } = input;
-  const stripePayments: Stripe.PaymentIntent[] = [];
-  const paymentMethods: Stripe.PaymentMethod[] = [];
-  const customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
-  if (encounterId && customerId) {
-    if (customerId) {
-      try {
-        const [paymentIntents, pms] = await Promise.all([
-          stripeClient.paymentIntents.search({
-            query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
-            limit: 20, // default is 10
-          }),
-          stripeClient.paymentMethods.list({
-            customer: customerId,
-            type: 'card',
-          }),
-        ]);
+  const { patientAccount: account, patientId, encounterId, oystehrClient, stripeClient } = input;
 
-        console.log('Payment Intent created:', JSON.stringify(paymentIntents, null, 2));
-        stripePayments.push(...paymentIntents.data);
-        paymentMethods.push(...pms.data);
-      } catch (error) {
-        console.error('Error fetching payment intents or payment methods for encounter:', error);
-        throw checkForStripeCustomerDeletedError(error);
-      }
-    }
-  } else if (customerId) {
-    try {
-      const [paymentIntents, pms] = await Promise.all([
-        stripeClient.paymentIntents.list({
-          customer: getStripeCustomerIdFromAccount(account),
-        }),
-        stripeClient.paymentMethods.list({
-          customer: customerId,
-          type: 'card',
-        }),
-      ]);
-      stripePayments.push(...paymentIntents.data);
-      paymentMethods.push(...pms.data);
-    } catch (error) {
-      console.error('Error fetching payment intents or payment methods:', error);
-      throw checkForStripeCustomerDeletedError(error);
-    }
-  }
-
-  const cardPayments: CardPaymentDTO[] = fhirPaymentNotices
-    .flatMap((paymentNotice) => {
-      const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
-      if (!pnStripeId) {
-        // not a card payment, skip!
-        return [];
-      }
-      const paymentIntent = stripePayments.find((pi) => pi.id === pnStripeId);
-      const stripePaymentId = paymentIntent ? paymentIntent.id : pnStripeId;
-      const last4 = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.last4;
-      const paymentMethodId = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.id;
-      const dateISO = DateTime.fromISO(paymentNotice.created).toISO();
-      if (!dateISO || !paymentNotice.id) {
-        console.log('missing data for payment notice:', paymentNotice.id, 'dateISO', dateISO);
-        return [];
-      }
-      return {
-        paymentMethod: 'card' as const,
-        stripePaymentId,
-        amountInCents: (paymentNotice.amount.value ?? 0) * 100,
-        description: paymentIntent?.description ?? undefined,
-        stripePaymentMethodId: paymentMethodId,
-        fhirPaymentNotificationId: paymentNotice.id,
-        cardLast4: last4,
-        dateISO,
-      };
-    })
-    .slice(0, 20); // We only fetch the last 20 payments from stripe, which should be more than enough for pretty much any real world use case
-
-  // todo: the data here should be fetched from candid and then linked to the payment notice ala stripe,
-  // but that awaits the candid integration portion
-  const cashPayments: CashPaymentDTO[] = convertPaymentNoticeListToCashPaymentDTOs(fhirPaymentNotices, encounterId);
-
-  const payments: PatientPaymentDTO[] = [...cardPayments, ...cashPayments].sort((a, b) => {
-    return DateTime.fromISO(b.dateISO).toMillis() - DateTime.fromISO(a.dateISO).toMillis();
+  const payments = await getPaymentsForPatient({
+    oystehrClient,
+    stripeClient,
+    account,
+    patientId,
+    encounterId,
   });
 
   return {
@@ -212,19 +133,12 @@ const complexValidation = async (
     });
   }
 
-  const fhirPaymentNotices: PaymentNotice[] = (
-    await oystehrClient.fhir.search<PaymentNotice>({
-      resourceType: 'PaymentNotice',
-      params,
-    })
-  ).unbundle();
-
   return {
     patientId,
     encounterId,
     stripeClient,
     patientAccount: account,
-    fhirPaymentNotices,
+    oystehrClient,
   };
 };
 

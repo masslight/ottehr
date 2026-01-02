@@ -1,4 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
+import { PROJECT_NAME } from 'utils';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 export const CURRENT_MEDICATIONS_PRESENT_LABEL = 'Patient takes medication currently';
@@ -17,6 +18,7 @@ export class Locators {
   page: Page;
   scheduleInPersonVisitButton: Locator;
   scheduleVirtualVisitButton: Locator;
+  startVirtualVisitButton: Locator;
   differentFamilyMember: Locator;
   continueButton: Locator;
   reserveButton: Locator;
@@ -259,6 +261,7 @@ export class Locators {
     this.page = page;
     this.scheduleInPersonVisitButton = page.getByTestId(dataTestIds.scheduleInPersonVisitButton);
     this.scheduleVirtualVisitButton = page.getByTestId(dataTestIds.scheduleVirtualVisitButton);
+    this.startVirtualVisitButton = page.getByTestId(dataTestIds.startVirtualVisitButton);
     this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
     this.differentFamilyMember = page.getByTestId(dataTestIds.differentFamilyMember);
     this.continueButton = page.getByTestId(dataTestIds.continueButton);
@@ -266,7 +269,7 @@ export class Locators {
       this.continueButton = page.getByText('Continue');
     }
     this.flowHeading = page.getByTestId(dataTestIds.flowPageTitle);
-    this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
+    this.thankYouHeading = page.getByRole('heading', { name: `Thank you for choosing ${PROJECT_NAME}!` });
     this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
     this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
     this.checkInHeading = page.getByRole('heading', { name: 'You are checked in!' });
@@ -573,17 +576,27 @@ export class Locators {
     await this.page.getByText('Loading...').waitFor({ state: 'hidden' });
   }
 
-  async continueOrDifferentFamilyMember(): Promise<void> {
-    if (await this.differentFamilyMember.isEnabled()) {
-      await this.selectDifferentFamilyMember();
-    } else {
-      await this.clickContinueButton();
-    }
-  }
   async selectDifferentFamilyMember(): Promise<void> {
-    await this.differentFamilyMember
-      .locator('input[type="radio"]')
-      .click({ timeout: 40_000, noWaitAfter: true, force: true });
+    const selectPatientPage = this.page.getByRole('heading', { name: 'Welcome Back!' });
+    const patientInfoPage = this.page.getByRole('heading', { name: 'About the patient' });
+
+    try {
+      await Promise.race([
+        selectPatientPage.waitFor({ state: 'visible', timeout: 10_000 }),
+        patientInfoPage.waitFor({ state: 'visible', timeout: 10_000 }),
+      ]);
+
+      if (await selectPatientPage.isVisible()) {
+        await this.differentFamilyMember
+          .locator('input[type="radio"]')
+          .click({ timeout: 40_000, noWaitAfter: true, force: true });
+      }
+      // if we're on the patient info page, then the select patient page was skipped. do nothing
+
+      await this.clickContinueButton();
+    } catch {
+      throw new Error('Timeout waiting for either "Welcome Back!" or "About the patient" heading');
+    }
   }
   async clickContinueButton(awaitNavigation = false): Promise<unknown> {
     await expect(this.continueButton).toBeEnabled();

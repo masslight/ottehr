@@ -9,6 +9,9 @@ export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 // recommended from Dorn as a good length (also matches the len currently used when oystehr sets the order number)
 export const ORDER_NUMBER_LEN = 20;
 
+// currently using for PID level NTEs (order level notes) & OBR-13
+export const HL7_NOTE_CHAR_LIMIT = 300;
+
 export const PSC_HOLD_CONFIG = {
   system: 'psc-identifier',
   code: 'psc',
@@ -310,5 +313,18 @@ export const LAB_CLIENT_BILL_COVERAGE_TYPE_CODING = {
 };
 
 export const LAB_OBS_VALUE_WITH_PRECISION_EXT = 'https://extensions.fhir.oystehr.com/obx-5-quantity-with-precision';
+
+export const LABS_COMMUNICATION_CATEGORY_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/lab-communication-type';
+export const LAB_ORDER_LEVEL_NOTE_CATEGORY = {
+  system: LABS_COMMUNICATION_CATEGORY_SYSTEM,
+  code: 'order-level-note',
+  display: 'Lab Order Note',
+};
+export const LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY = {
+  system: LABS_COMMUNICATION_CATEGORY_SYSTEM,
+  code: 'clinical-info',
+  display: 'Relevant clinical information',
+};
 
 export const DEFAULT_OYSTEHR_LABS_HL7_SYSTEM = '(HL7_V2)';

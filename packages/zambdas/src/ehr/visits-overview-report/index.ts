@@ -171,16 +171,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const isTelemedicine = isTelemedAppointment(appointment);
       const isInPerson = isInPersonAppointment(appointment);
 
-      // Extract date from appointment start time in local timezone (America/New_York)
+      // Extract date from appointment
       let appointmentDate = 'unknown';
       if (appointment.start) {
         try {
-          // Convert UTC appointment time to America/New_York timezone and extract date
+          // extract date and format as YYYY-MM-DD
           const appointmentDateTime = new Date(appointment.start);
-          const localDate = appointmentDateTime.toLocaleDateString('en-CA', {
-            timeZone: 'America/New_York',
-          }); // en-CA gives YYYY-MM-DD format
-          appointmentDate = localDate;
+          const year = appointmentDateTime.getFullYear();
+          const month = String(appointmentDateTime.getMonth() + 1).padStart(2, '0');
+          const day = String(appointmentDateTime.getDate()).padStart(2, '0');
+          appointmentDate = `${year}-${month}-${day}`;
         } catch (error) {
           console.warn('Failed to parse appointment date:', appointment.start, error);
           captureException(error);

@@ -18,6 +18,7 @@ import {
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
+  Reference,
   Schedule,
   ServiceRequest,
   Slot,
@@ -69,6 +70,8 @@ import {
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PATIENT_BILLING_ACCOUNT_TYPE,
+  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
+  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
   SR_REVOKED_REASON_EXT,
 } from 'utils';
 import { parseLabOrderStatusWithSpecificTask } from '../get-lab-orders/helpers';
@@ -445,6 +448,7 @@ export const makeEncounterLabResults = async (
   const documentReferences: DocumentReference[] = [];
   const activeExternalLabServiceRequests: ServiceRequest[] = [];
   const activeInHouseLabServiceRequests: ServiceRequest[] = [];
+  const reflexTestsPending: string[] = []; // array of test names pending;
   const serviceRequestMap: Record<string, { resource: ServiceRequest; type: LabType }> = {};
   const diagnosticReportMap: Record<string, DiagnosticReport> = {};
 
@@ -468,6 +472,17 @@ export const makeEncounterLabResults = async (
             if (!isManual) activeExternalLabServiceRequests.push(resource);
           }
           if (isInHouseLabServiceRequest) activeInHouseLabServiceRequests.push(resource);
+        }
+
+        const reflexTestTriggered = resource.meta?.tag?.find(
+          (t) => t.system === SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM
+        );
+        if (reflexTestTriggered) {
+          const testIsPending = reflexTestTriggered.code === SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES.pending;
+          if (testIsPending) {
+            const testName = reflexTestTriggered.display ?? 'reflex test';
+            reflexTestsPending.push(testName);
+          }
         }
       }
     }
@@ -576,6 +591,7 @@ export const makeEncounterLabResults = async (
 
   const inHouseLabResultConfig: EncounterInHouseLabResult = {
     resultsPending: inHouseResultsPending,
+    reflexTestsPending: reflexTestsPending.length > 0 ? reflexTestsPending : undefined,
     labOrderResults: inHouseLabOrderResults,
   };
   return { externalLabResultConfig, inHouseLabResultConfig };
@@ -1083,7 +1099,7 @@ export type ResourcesByDr = {
 };
 
 export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => {
-  const drMap: ResourcesByDr = {};
+  const drMap = new Map<string, AllResources>();
   const readyTasksMap: Record<string, Task> = {};
   const completedTasksMap: Record<string, Task> = {};
   const patientsMap: Record<string, Patient> = {};
@@ -1093,7 +1109,7 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'DiagnosticReport' && resource.id) {
-      drMap[resource.id] = { diagnosticReport: resource, readyTasks: [], completedTasks: [] };
+      drMap.set(resource.id, { diagnosticReport: resource, readyTasks: [], completedTasks: [] });
     }
     if (resource.resourceType === 'Organization') {
       const isLabOrg = !!resource.identifier?.some((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM);
@@ -1121,7 +1137,8 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
       encountersMap[resource.id] = resource;
     }
   });
-  Object.values(drMap).forEach((drResources) => {
+
+  for (const [drId, drResources] of drMap) {
     const dr = drResources.diagnosticReport;
     const isPatientSubject = dr.subject?.reference?.startsWith('Patient/');
     if (isPatientSubject) {
@@ -1132,7 +1149,7 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
       }
     }
     const orgPerformerId = dr.performer
-      ?.find((p) => p.reference?.startsWith('Organization/'))
+      ?.find((p: Reference) => p.reference?.startsWith('Organization/'))
       ?.reference?.replace('Organization/', '');
     if (orgPerformerId) {
       const org = labOrgMap[orgPerformerId];
@@ -1143,13 +1160,19 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
       const encounter = encountersMap[encounterId];
       drResources.encounter = encounter;
     }
-  });
+    drMap.set(drId, drResources);
+  }
+
   Object.values(readyTasksMap).forEach((task) => {
     const relatedDrId = task.basedOn
       ?.find((ref) => ref.reference?.startsWith('DiagnosticReport'))
       ?.reference?.replace('DiagnosticReport/', '');
     if (relatedDrId) {
-      drMap[relatedDrId].readyTasks.push(task);
+      const existingResourcesByDr = drMap.get(relatedDrId);
+      if (existingResourcesByDr) {
+        existingResourcesByDr.readyTasks.push(task);
+        drMap.set(relatedDrId, existingResourcesByDr);
+      }
     }
   });
   Object.values(completedTasksMap).forEach((task) => {
@@ -1158,24 +1181,37 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
       ?.reference?.replace('DiagnosticReport/', '');
 
     if (relatedDrId) {
-      drMap[relatedDrId].completedTasks.push(task);
-    }
-  });
-  currentResultPDFDocRefs.forEach((docRef) => {
-    const relatedDrId = docRef.context?.related
-      ?.find((ref) => ref.reference?.startsWith('DiagnosticReport/'))
-      ?.reference?.replace('DiagnosticReport/', '');
-    const isLabGeneratedResultDoc = docRefIsLabGeneratedResult(docRef);
-    if (relatedDrId) {
-      if (isLabGeneratedResultDoc) {
-        drMap[relatedDrId].labGeneratedResultPdfDocumentReference = docRef;
-      } else {
-        drMap[relatedDrId].resultPdfDocumentReference = docRef;
+      const existingResourcesByDr = drMap.get(relatedDrId);
+      if (existingResourcesByDr) {
+        existingResourcesByDr.completedTasks.push(task);
+        drMap.set(relatedDrId, existingResourcesByDr);
       }
     }
   });
+  currentResultPDFDocRefs.forEach((docRef) => {
+    console.log('matching DR to docRef id:', docRef.id);
+    const isLabGeneratedResultDoc = docRefIsLabGeneratedResult(docRef);
 
-  return drMap;
+    docRef.context?.related?.forEach((relatedDrRef) => {
+      const relatedDrId = relatedDrRef.reference?.startsWith('DiagnosticReport/')
+        ? relatedDrRef.reference.replace('DiagnosticReport/', '')
+        : undefined;
+      if (relatedDrId && drMap.has(relatedDrId)) {
+        const existingResourcesByDr = drMap.get(relatedDrId)!; // safe to use ! here because of the .has check above
+        if (isLabGeneratedResultDoc) {
+          console.log('we found a labGeneratedResult doc. relatedDrId is', relatedDrId);
+          existingResourcesByDr.labGeneratedResultPdfDocumentReference = docRef;
+        } else {
+          existingResourcesByDr.resultPdfDocumentReference = docRef;
+        }
+        drMap.set(relatedDrId, existingResourcesByDr);
+      }
+    });
+  });
+
+  const output = Object.fromEntries(drMap);
+  console.log('returning from groupResourcesByDr', JSON.stringify(output));
+  return output;
 };
 
 export const formatResourcesIntoDiagnosticReportLabDTO = async (
@@ -1331,4 +1367,15 @@ export const parseAccessionNumberFromDr = (result: DiagnosticReport): string => 
   }
 
   return NOT_FOUND;
+};
+
+// todo labs team - this logic will change when we implement workers comp, but for now
+// we will just ignore those types of accounts to restore functionality
+export const accountIsPatientBill = (account: Account): boolean => {
+  const patientBillSystem = PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0].system;
+  const patientBillCode = PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0].code;
+  const isPatientBill = account.type?.coding?.some(
+    (coding) => coding.system === patientBillSystem && coding.code === patientBillCode
+  );
+  return !!isPatientBill;
 };

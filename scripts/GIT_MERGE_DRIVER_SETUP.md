@@ -80,3 +80,28 @@ Or remove the lines from `.gitattributes`:
 # package.json merge=package-version
 # package-lock.json merge=package-version
 ```
+
+## Seed Data Merge Driver (for Downstream Repositories)
+
+The repository also includes an "ours" merge driver for seed data files in `apps/ehr/tests/e2e-utils/seed-data/resources/`. This keeps the downstream version of seed data files during merges from upstream.
+
+### How It Works
+
+1. `.gitattributes` specifies `merge=ours` for seed data JSON files
+2. The `merge.ours.driver=true` config uses the `true` command, which always exits successfully without modifying the file
+3. When downstream merges from upstream, their customized seed data remains untouched
+
+### Manual Setup
+
+If you need to configure this manually:
+
+```bash
+git config merge.ours.driver true
+```
+
+### When to Regenerate Seed Data
+
+Downstream repositories should regenerate their seed data at appropriate times, such as:
+- After pulling upstream changes that affect test infrastructure
+- After updating questionnaires or other FHIR resources that seed data depends on
+- When test data contracts change

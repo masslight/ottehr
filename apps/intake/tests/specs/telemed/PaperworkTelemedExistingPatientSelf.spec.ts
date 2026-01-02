@@ -1,130 +1,96 @@
 // cSpell:ignore VVPPS
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { BOOKING_CONFIG, chooseJson, CreateAppointmentResponse, shouldShowServiceCategorySelectionPage } from 'utils';
+import * as fs from 'fs';
+import * as path from 'path';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import {
   CARD_NUMBER,
   Paperwork,
   PATIENT_ADDRESS,
-  PATIENT_ADDRESS_LINE_2,
   PATIENT_CITY,
   PATIENT_ZIP,
   RELATIONSHIP_RESPONSIBLE_PARTY_SELF,
 } from '../../utils/Paperwork';
-import { FillingInfo } from '../../utils/telemed/FillingInfo';
-import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
+import { TelemedNoRpNoInsReqPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
-let flowClass: PrebookTelemedFlow;
-let bookingData: Awaited<ReturnType<PrebookTelemedFlow['startVisitFullFlow']>>;
-let filledPaperwork: Awaited<ReturnType<Paperwork['fillPaperworkAllFieldsTelemed']>>;
-let fillingInfo: FillingInfo;
 let paperwork: Paperwork;
 let locator: Locators;
 let commonLocatorsHelper: CommonLocatorsHelper;
-const appointmentIds: string[] = [];
+let patient: TelemedNoRpNoInsReqPatient;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
-  page.on('response', async (response) => {
-    if (response.url().includes('/create-appointment/')) {
-      const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
-      if (!appointmentIds.includes(appointmentId)) {
-        appointmentIds.push(appointmentId);
-      }
-    }
-  });
-  flowClass = new PrebookTelemedFlow(page);
   paperwork = new Paperwork(page);
   locator = new Locators(page);
-  fillingInfo = new FillingInfo(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
-  bookingData = await flowClass.startVisitFullFlow();
+
+  const testDataPath = path.join('test-data', 'telemedNoRpNoInsReqPatient.json');
+  patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {
   await page.close();
   await context.close();
 });
 
-test.describe('Virtual visit. Check paperwork is prefilled for existing patient. Payment - card, responsible party - self', () => {
-  test.beforeAll(async () => {
-    test.setTimeout(200000);
-    await page.goto(bookingData.bookingURL);
-    await paperwork.clickProceedToPaperwork();
-    filledPaperwork = await paperwork.fillPaperworkAllFieldsTelemed('card', 'self');
-    await locator.finishButton.click();
-    await page.waitForTimeout(1_000);
-    await page.goto('/home');
-    await locator.scheduleVirtualVisitButton.click();
-    if (shouldShowServiceCategorySelectionPage({ serviceMode: 'in-person', visitType: 'prebook' })) {
-      const availableCategories = BOOKING_CONFIG.serviceCategories || [];
-      const firstCategory = availableCategories[0]!;
+test.describe.parallel('Telemed - Prefilled Paperwork, Responsible Party: Self, Payment: Card', () => {
+  test('VVPPS-1. Responsible party', async () => {
+    await test.step('VVPPS-1.1. Open Responsible party page directly', async () => {
+      await page.goto(`paperwork/${patient.appointmentId}/responsible-party`);
+      await paperwork.checkCorrectPageOpens('Responsible party information');
+    });
 
-      if (firstCategory) {
-        await page.getByText(firstCategory.display).click();
+    await test.step('VVPPS-1.2. Check all fields have prefilled values', async () => {
+      const { y, m, d } = patient.dob;
+      const humanReadableDob = commonLocatorsHelper.getMonthDay(m, d);
+      if (!humanReadableDob) {
+        throw new Error('DOB data is null');
       }
-    }
-    await paperwork.checkCorrectPageOpens('Book a visit');
-    await flowClass.selectTimeLocationAndContinue();
+      await expect(locator.responsiblePartyFirstName).toHaveValue(patient.firstName);
+      await expect(locator.responsiblePartyLastName).toHaveValue(patient.lastName);
+      await expect(locator.responsiblePartyBirthSex).toHaveValue(patient.birthSex);
+      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
+        `${humanReadableDob?.monthNumber}/${humanReadableDob?.dayNumber}/${y}`
+      );
+      await expect(locator.responsiblePartyRelationship).toHaveValue(RELATIONSHIP_RESPONSIBLE_PARTY_SELF);
+      await expect(locator.responsiblePartyCity).toHaveValue(PATIENT_CITY);
+      await expect(locator.responsiblePartyState).toHaveValue(patient.state);
+      await expect(locator.responsiblePartyZip).toHaveValue(PATIENT_ZIP);
+      await expect(locator.responsiblePartyAddress1).toHaveValue(PATIENT_ADDRESS);
+      // fill only required fields and this isn't required
+      // await expect(locator.responsiblePartyAddress2).toHaveValue(PATIENT_ADDRESS_LINE_2);
+      await expect(locator.responsiblePartyNumber).toHaveValue(
+        paperwork.formatPhoneNumber(process.env.PHONE_NUMBER || '')
+      );
+      await expect(locator.responsiblePartyEmail).toHaveValue(patient.email);
+    });
+  });
 
-    await page
-      .getByTestId(`${bookingData.patientBasicInfo.firstName} ${bookingData.patientBasicInfo.lastName}`)
-      .locator('input[type="radio"]')
-      .click({ timeout: 40_000, noWaitAfter: true, force: true });
+  test('VVPPS-2. Payment option', async () => {
+    await test.step('VVPPS-2.1. Open Payment option page directly', async () => {
+      await page.goto(`paperwork/${patient.appointmentId}/payment-option`);
+      await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
+    });
 
-    await locator.continueButton.click();
-    await fillingInfo.fillCorrectDOB(
-      bookingData.patientBasicInfo.dob.m,
-      bookingData.patientBasicInfo.dob.d,
-      bookingData.patientBasicInfo.dob.y
-    );
-    await locator.continueButton.click();
-    await paperwork.checkCorrectPageOpens('About the patient');
-    await fillingInfo.fillTelemedReasonForVisit();
-    await locator.continueButton.click();
-    await paperwork.checkCorrectPageOpens('Review and submit');
-    await locator.reserveButton.click();
-    await paperwork.checkCorrectPageOpens('Thank you for choosing Ottehr!');
+    await test.step('VVPPS-2.2. Check screen does not have preselected card option', async () => {
+      await expect(locator.selfPayOption).not.toBeChecked();
+    });
   });
-  test('VVPPS-1 Check Responsible party has prefilled values', async () => {
-    const dob = commonLocatorsHelper.getMonthDay(
-      bookingData.patientBasicInfo.dob.m,
-      bookingData.patientBasicInfo.dob.d
-    );
-    if (!dob) {
-      throw new Error('DOB data is null');
-    }
-    await page.goto(`paperwork/${appointmentIds[1]}/responsible-party`);
-    await expect(locator.responsiblePartyFirstName).toHaveValue(bookingData.patientBasicInfo.firstName);
-    await expect(locator.responsiblePartyLastName).toHaveValue(bookingData.patientBasicInfo.lastName);
-    await expect(locator.responsiblePartyBirthSex).toHaveValue(bookingData.patientBasicInfo.birthSex);
-    await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
-      `${dob?.monthNumber}/${dob?.dayNumber}/${bookingData.patientBasicInfo.dob.y}`
-    );
-    await expect(locator.responsiblePartyRelationship).toHaveValue(RELATIONSHIP_RESPONSIBLE_PARTY_SELF);
-    await expect(locator.responsiblePartyCity).toHaveValue(PATIENT_CITY);
-    await expect(locator.responsiblePartyState).toHaveValue(filledPaperwork.stateValue);
-    await expect(locator.responsiblePartyZip).toHaveValue(PATIENT_ZIP);
-    await expect(locator.responsiblePartyAddress1).toHaveValue(PATIENT_ADDRESS);
-    await expect(locator.responsiblePartyAddress2).toHaveValue(PATIENT_ADDRESS_LINE_2);
-    await expect(locator.responsiblePartyNumber).toHaveValue(
-      paperwork.formatPhoneNumber(process.env.PHONE_NUMBER || '')
-    );
-    await expect(locator.responsiblePartyEmail).toHaveValue(bookingData.patientBasicInfo.email);
-  });
-  test('VVPPS-2 Check Payment screen does not have preselected card option', async () => {
-    await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
-    await expect(locator.selfPayOption).not.toBeChecked();
-  });
-  // TODO: Need to remove skip when https://github.com/masslight/ottehr/issues/1988 is fixed
-  test.skip('VVPPS-3 Check Card payment has prefilled and preselected card', async () => {
-    await page.goto(`paperwork/${appointmentIds[1]}/card-payment`);
-    const lastFour = CARD_NUMBER.slice(-4);
-    const masked = `XXXX - XXXX - XXXX - ${lastFour}`;
-    await expect(locator.selectedCard).toBeChecked();
-    await expect(locator.cardNumberFilled).toHaveText(masked);
+
+  test('VVPPS-3. Card payment', async () => {
+    await test.step('VVPPS-3.1. Open Card payment page directly', async () => {
+      await page.goto(`paperwork/${patient.appointmentId}/card-payment`);
+      await paperwork.checkCorrectPageOpens('Credit card details');
+    });
+
+    await test.step('VVPPS-3.2. Check screen has prefilled and preselected card', async () => {
+      const lastFour = CARD_NUMBER.slice(-4);
+      const masked = `XXXX - XXXX - XXXX - ${lastFour}`;
+      await expect(locator.selectedCard).toBeChecked();
+      await expect(locator.cardNumberFilled).toHaveText(masked);
+    });
   });
 });

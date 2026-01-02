@@ -264,9 +264,11 @@ export class PaperworkTelemed {
   }
 
   async checkAdditionalQuestions(flags: Awaited<ReturnType<FillingInfo['fillAdditionalQuestions']>>) {
-    await expect(this.locators.covidSymptoms(flags.covid)).toBeChecked();
-    await expect(this.locators.testedPositiveCovid(flags.test)).toBeChecked();
-    await expect(this.locators.travelUSA(flags.travel)).toBeChecked();
+    // Only verify questions that were actually filled (questions are optional based on config)
+    for (const [fhirField, answer] of Object.entries(flags)) {
+      const locator = this.page.locator(`div[aria-labelledby='${fhirField}-label'] input[value='${answer}']`);
+      await expect(locator).toBeChecked();
+    }
   }
 
   async fillAndCheckSelfPay() {
@@ -364,11 +366,11 @@ export class PaperworkTelemed {
   }
 
   async fillAndCheckReasonForVisit() {
-    const reasonForVisit = await this.fillingInfo.fillReasonForVisit();
+    const reasonForVisit = await this.fillingInfo.fillVisitReason();
 
     await this.nextBackClick();
 
-    await this.checkReasonForVisit(reasonForVisit);
+    await this.checkReasonForVisit(reasonForVisit.reason);
   }
 
   async checkReasonForVisit(reasonForVisit: string) {
