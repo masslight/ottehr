@@ -8,7 +8,7 @@ import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
 import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
 import { UploadDocs } from '../../utils/UploadDocs';
-import { TelemedPatientTestData } from '../0_paperworkSetup/types';
+import { TelemedNoPwPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
@@ -17,7 +17,7 @@ let paperworkTelemed: PaperworkTelemed;
 let locator: Locators;
 let uploadDocs: UploadDocs;
 let commonLocatorsHelper: CommonLocatorsHelper;
-let patient: TelemedPatientTestData;
+let patient: TelemedNoPwPatient;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -28,7 +28,7 @@ test.beforeAll(async ({ browser }) => {
   uploadDocs = new UploadDocs(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
 
-  const testDataPath = path.join('test-data', 'telemedPatientWithoutPaperwork.json');
+  const testDataPath = path.join('test-data', 'telemedNoPwPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {
@@ -614,16 +614,18 @@ test.describe.parallel('Telemed - No Paperwork Filled Yet', () => {
     });
 
     await test.step('PRPI-6. Select self - check fields are prefilled with correct values', async () => {
-      const { y: year, m: month, d: day } = patient.dateOfBirth;
-      const dob = commonLocatorsHelper.getMonthDay(month, day);
-      if (!dob) {
+      const { y, m, d } = patient.dob;
+      const humanReadableDob = commonLocatorsHelper.getMonthDay(m, d);
+      if (!humanReadableDob) {
         throw new Error('DOB data is null');
       }
       await paperwork.fillResponsiblePartyDataSelf();
       await expect(locator.responsiblePartyFirstName).toHaveValue(patient.firstName);
       await expect(locator.responsiblePartyLastName).toHaveValue(patient.lastName);
       await expect(locator.responsiblePartyBirthSex).toHaveValue(patient.birthSex);
-      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
+      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
+        `${humanReadableDob?.monthNumber}/${humanReadableDob?.dayNumber}/${y}`
+      );
     });
 
     await test.step('PRPI-7. Select self - check fields are disabled', async () => {

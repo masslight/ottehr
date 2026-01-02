@@ -66,7 +66,7 @@ test.describe('In-person visit', async () => {
   //   await patientInfoPage.inPersonHeader().verifyStatus('ready for provider');
   // });
 
-  test.describe('happy path', () => {
+  test.describe('happy path', { tag: '@smoke' }, () => {
     const PROCESS_ID = `inPersonVisit.spec.ts-${DateTime.now().toMillis()}`;
     let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined;
     let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined;
@@ -149,7 +149,7 @@ test.describe('In-person visit', async () => {
     });
 
     test.afterAll(async () => {
-      await resourceHandler.cleanupResources();
+      await resourceHandler.cleanupResources(page);
       await page.close();
       await context.close();
     });

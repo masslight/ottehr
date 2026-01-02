@@ -23,6 +23,14 @@ on:
           - staging
           - demo
         default: 'local'
+      mode:
+        description: 'Tests running mode'
+        required: false
+        type: choice
+        options:
+          - normal
+          - smoke
+        default: 'normal'
   workflow_call:
     inputs:
       environment:
@@ -396,7 +404,12 @@ jobs:
           if [ "$ENV" == "local" ]; then
             npm run intake:e2e:local:specs
           else
-            npm run intake:e2e:$ENV:specs
+            MODE="${{ inputs.mode }}"
+            if [ "$MODE" == "smoke" ]; then
+              npm run intake:e2e:$ENV:smoke
+            else
+              npm run intake:e2e:$ENV:specs
+            fi
           fi
         env:
           CI: true

@@ -207,6 +207,7 @@ export class ResourceHandler {
 
 - **ENV**: Determines configuration set (`local`, `demo`, `staging`, `testing`) and cascades through entire system
 - **INTEGRATION_TEST**: Controls resource creation method (batch vs application endpoints)
+- **SMOKE TEST**:  Controls picking the right patient and avoid cleanup (for production environments)
 - **CI**: Auto-detected, affects retry logic, worker count, and artifact capture settings
 - **UI Flag**: Enables headed mode for debugging instead of headless execution
 - **Auth Credentials**: System automatically uses enhanced test credentials when available
