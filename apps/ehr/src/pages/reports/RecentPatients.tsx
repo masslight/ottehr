@@ -18,7 +18,7 @@ import { DataGrid, GridColDef, GridToolbarContainer, GridToolbarExport } from '@
 import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { RecentPatientRecord, RecentPatientsReportZambdaOutput } from 'utils';
+import type { RecentPatientsReportZambdaOutput } from 'utils';
 import { getRecentPatientsReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
@@ -221,7 +221,6 @@ export default function RecentPatients(): React.ReactElement {
           flex: 1,
           minWidth: 150,
           sortable: true,
-          valueGetter: (_value: any, row: RecentPatientRecord) => row?.mostRecentVisit?.serviceCategory || '',
         },
         {
           field: 'patientStatus',
@@ -244,34 +243,22 @@ export default function RecentPatients(): React.ReactElement {
           flex: 1,
           minWidth: 150,
           sortable: true,
-          valueGetter: (_value: any, row: RecentPatientRecord) => {
-            if (!row?.mostRecentVisit?.date) return '';
-            const date = DateTime.fromISO(row.mostRecentVisit.date);
-            return date.toFormat('MMM dd, yyyy');
-          },
         },
       ] as GridColDef[],
     []
   );
 
-  // Prepare statistics
-  const statistics = useMemo(() => {
-    if (!reportData) {
-      return {
-        totalPatients: 0,
-        newPatients: 0,
-        existingPatients: 0,
-      };
-    }
+  // Transform data to flatten nested fields for DataGrid
+  const transformedRows = useMemo(() => {
+    if (!reportData) return [];
 
-    const newPatients = reportData.patients.filter((p) => p.patientStatus === 'new').length;
-    const existingPatients = reportData.patients.filter((p) => p.patientStatus === 'existing').length;
-
-    return {
-      totalPatients: reportData.totalPatients,
-      newPatients,
-      existingPatients,
-    };
+    return reportData.patients.map((patient) => ({
+      ...patient,
+      serviceCategory: patient.mostRecentVisit?.serviceCategory || '',
+      mostRecentVisitDate: patient.mostRecentVisit?.date
+        ? DateTime.fromISO(patient.mostRecentVisit.date).toFormat('MMM dd, yyyy')
+        : '',
+    }));
   }, [reportData]);
 
   return (
@@ -344,51 +331,6 @@ export default function RecentPatients(): React.ReactElement {
           </Button>
         </Box>
 
-        {/* Statistics Cards */}
-        {reportData && (
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <Box
-              sx={{
-                flex: 1,
-                minWidth: 200,
-                p: 2,
-                bgcolor: 'primary.light',
-                borderRadius: 1,
-                color: 'primary.contrastText',
-              }}
-            >
-              <Typography variant="h6">Total Patients</Typography>
-              <Typography variant="h3">{statistics.totalPatients}</Typography>
-            </Box>
-            <Box
-              sx={{
-                flex: 1,
-                minWidth: 200,
-                p: 2,
-                bgcolor: 'success.light',
-                borderRadius: 1,
-                color: 'success.contrastText',
-              }}
-            >
-              <Typography variant="h6">New Patients</Typography>
-              <Typography variant="h3">{statistics.newPatients}</Typography>
-            </Box>
-            <Box
-              sx={{
-                flex: 1,
-                minWidth: 200,
-                p: 2,
-                bgcolor: 'info.light',
-                borderRadius: 1,
-                color: 'info.contrastText',
-              }}
-            >
-              <Typography variant="h6">Existing Patients</Typography>
-              <Typography variant="h3">{statistics.existingPatients}</Typography>
-            </Box>
-          </Box>
-        )}
-
         {/* Error display */}
         {error && (
           <Alert severity="error" onClose={() => setError(null)}>
@@ -410,7 +352,7 @@ export default function RecentPatients(): React.ReactElement {
               Patients for {getDateRangeLabel(dateFilter)}
             </Typography>
             <DataGrid
-              rows={reportData.patients}
+              rows={transformedRows}
               columns={columns}
               getRowId={(row) => row.patientId}
               initialState={{
