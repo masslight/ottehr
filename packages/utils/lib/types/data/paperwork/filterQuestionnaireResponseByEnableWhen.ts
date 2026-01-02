@@ -40,6 +40,8 @@ export const filterQuestionnaireResponseByEnableWhen = (
 
       if (!shouldShow) {
         console.log(`Filtering out item ${responseItem.linkId} - hidden by enableWhen condition`);
+        console.log(`  enableWhen: ${JSON.stringify(itemDef.enableWhen)}`);
+        console.log(`  values for question: ${JSON.stringify(values[itemDef.enableWhen?.[0]?.question || ''])}`);
       }
 
       return shouldShow;
