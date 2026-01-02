@@ -116,6 +116,12 @@ export default function Reports(): React.ReactElement {
       path: '/reports/workflow-efficiency',
     },
     {
+      title: 'Recent Patients',
+      description: 'View list of recent patients with contact information and visit details',
+      icon: <AssessmentIcon />,
+      path: '/reports/recent-patients',
+    },
+    {
       title: 'Invoiceable patients',
       description: 'View invoiceable patients report',
       icon: <SummarizeIcon />,
