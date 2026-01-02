@@ -129,13 +129,19 @@ export const getObservationValueElements = (
     case 'vital-respiration-rate':
       return [`${historyEntry.value}/min`];
     case 'vital-weight': {
-      const kgStr = formatWeightKg(historyEntry.value) + ' kg';
-      const lbsStr = formatWeightLbs(historyEntry.value) + ' lbs';
-      if (vitalsConfig['vital-weight'].unit == 'kg') {
-        return [kgStr, ` = ${lbsStr}`];
-      } else {
-        return [lbsStr, ` = ${kgStr}`];
+      if (historyEntry.extraWeightOptions?.includes('patient_refused')) {
+        return ['Patient Refused'];
       }
+      if (historyEntry.value) {
+        const kgStr = formatWeightKg(historyEntry.value) + ' kg';
+        const lbsStr = formatWeightLbs(historyEntry.value) + ' lbs';
+        if (vitalsConfig['vital-weight'].unit == 'kg') {
+          return [kgStr, ` = ${lbsStr}`];
+        } else {
+          return [lbsStr, ` = ${kgStr}`];
+        }
+      }
+      return [];
     }
     case 'vital-height':
       return [

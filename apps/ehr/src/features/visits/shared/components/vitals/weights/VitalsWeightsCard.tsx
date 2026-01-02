@@ -39,6 +39,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
   }, [setIsCollapsed]);
 
   const latestWeightKg = currentObs[0]?.value;
+  const isPatientRefused = currentObs[0]?.extraWeightOptions?.includes('patient_refused');
 
   const [isPatientRefusedOptionSelected, setOptionRefusedOptionSelected] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -118,7 +119,11 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
 
   const title =
     `Weight (${vitalsConfig['vital-weight'].unit}) ` +
-    (latestWeightKg ? formatWeight(latestWeightKg, vitalsConfig['vital-weight'].unit) : '');
+    (isPatientRefused
+      ? 'Patient Refused'
+      : latestWeightKg
+      ? formatWeight(latestWeightKg, vitalsConfig['vital-weight'].unit)
+      : '');
 
   return (
     <Box sx={{ mt: 3 }}>
