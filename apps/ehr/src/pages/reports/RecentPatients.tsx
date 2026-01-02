@@ -2,7 +2,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import {
   Alert,
   Box,
-  Button,
   Chip,
   CircularProgress,
   FormControl,
@@ -19,6 +18,7 @@ import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { RecentPatientsReportZambdaOutput } from 'utils';
+import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils';
 import { getRecentPatientsReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
@@ -104,12 +104,69 @@ export default function RecentPatients(): React.ReactElement {
           throw new Error('Oystehr client not available');
         }
 
-        const response = await getRecentPatientsReport(oystehrZambda, {
-          dateRange: { start, end },
-          locationId: locationFilter !== 'all' ? locationFilter : undefined,
-        });
+        // Calculate the date range in days
+        const startDate = DateTime.fromISO(start);
+        const endDate = DateTime.fromISO(end);
+        const daysDifference = endDate.diff(startDate, 'days').days;
 
-        setReportData(response);
+        console.log(`Date range is ${daysDifference.toFixed(2)} days`);
+
+        // If the date range is <= DEFAULT_BATCH_DAYS days, make a single request
+        if (daysDifference <= DEFAULT_BATCH_DAYS) {
+          console.log('Making single request for date range');
+          const response = await getRecentPatientsReport(oystehrZambda, {
+            dateRange: { start, end },
+            locationId: locationFilter !== 'all' ? locationFilter : undefined,
+          });
+
+          setReportData(response);
+        } else {
+          // Split the date range into DEFAULT_BATCH_DAYS-day batches
+          const batches = splitDateRangeIntoBatches(start, end, DEFAULT_BATCH_DAYS);
+          console.log(`Splitting date range into ${batches.length} batches of up to ${DEFAULT_BATCH_DAYS} days each`);
+
+          // Fetch data for each batch in parallel
+          const batchPromises = batches.map(async (batch, index) => {
+            console.log(`Fetching batch ${index + 1}/${batches.length}: ${batch.start} to ${batch.end}`);
+            const response = await getRecentPatientsReport(oystehrZambda, {
+              dateRange: batch,
+              locationId: locationFilter !== 'all' ? locationFilter : undefined,
+            });
+            console.log(`Batch ${index + 1} returned ${response.patients.length} patients`);
+            return response.patients;
+          });
+
+          // Wait for all batches to complete
+          const batchResults = await Promise.all(batchPromises);
+
+          // Combine all patients from all batches
+          const allPatients = batchResults.flat();
+          console.log(`Total patients across all batches: ${allPatients.length}`);
+
+          // Remove duplicates by patientId (a patient might appear in multiple batches)
+          const uniquePatients = Array.from(
+            new Map(allPatients.map((patient) => [patient.patientId, patient])).values()
+          );
+          console.log(`Unique patients after deduplication: ${uniquePatients.length}`);
+
+          // Sort by last name, then first name (same as backend)
+          uniquePatients.sort((a, b) => {
+            const lastNameCompare = a.lastName.localeCompare(b.lastName);
+            if (lastNameCompare !== 0) return lastNameCompare;
+            return a.firstName.localeCompare(b.firstName);
+          });
+
+          // Construct the combined response
+          const combinedResponse: RecentPatientsReportZambdaOutput = {
+            message: 'Successfully retrieved recent patients report',
+            totalPatients: uniquePatients.length,
+            patients: uniquePatients,
+            dateRange: { start, end },
+            locationId: locationFilter !== 'all' ? locationFilter : undefined,
+          };
+
+          setReportData(combinedResponse);
+        }
       } catch (err) {
         console.error('Error fetching recent patients report:', err);
         setError('Failed to load recent patients report. Please try again.');
@@ -336,10 +393,6 @@ export default function RecentPatients(): React.ReactElement {
               {/* TODO: Add actual locations from API */}
             </Select>
           </FormControl>
-
-          <Button variant="contained" onClick={() => fetchReport(dateFilter)} disabled={loading}>
-            Generate Report
-          </Button>
         </Box>
 
         {/* Error display */}
@@ -369,6 +422,9 @@ export default function RecentPatients(): React.ReactElement {
               initialState={{
                 pagination: {
                   paginationModel: { pageSize: 25 },
+                },
+                sorting: {
+                  sortModel: [{ field: 'mostRecentVisitDate', sort: 'desc' }],
                 },
               }}
               pageSizeOptions={[10, 25, 50, 100]}
