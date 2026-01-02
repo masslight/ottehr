@@ -17,7 +17,6 @@ export * from './lambda';
 export * from './patients';
 export * from './pdf';
 export * from './practitioners';
-export * from './questionnaire.helpers';
 export * from './queueingUtils';
 export * from './resources.helpers';
 export * from './rolesUtils';

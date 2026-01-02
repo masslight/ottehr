@@ -10,8 +10,8 @@ import {
   QuestionnaireResponseItemAnswer,
   Schedule,
 } from 'fhir/r4b';
-import { formatDateToMDYWithTime, getAppointmentType } from 'utils';
-import { assertDefined, fetchQuestionnaireFromCanonicalUrl, resolveTimezone } from '../../shared';
+import { formatDateToMDYWithTime, getAppointmentType, getCanonicalQuestionnaire } from 'utils';
+import { assertDefined, resolveTimezone } from '../../shared';
 
 export interface Document {
   patientInfo: PatientInfo;
@@ -62,11 +62,13 @@ export async function createDocument(
   location?: Location
 ): Promise<Document> {
   const canonicalUrl = assertDefined(questionnaireResponse.questionnaire, 'questionnaireResponse.questionnaire');
-  const questionnaire = await fetchQuestionnaireFromCanonicalUrl(canonicalUrl, oystehr);
+  const [url, version] = canonicalUrl.split('|');
 
-  if (!questionnaire) {
-    throw new Error(`Failed to fetch questionnaire: ${canonicalUrl}`);
+  if (!url || !version) {
+    throw new Error(`Invalid canonical URL format: ${canonicalUrl}. Expected format: "url|version"`);
   }
+
+  const questionnaire = await getCanonicalQuestionnaire({ url, version }, oystehr);
 
   const [subjectType, subjectId] = (questionnaireResponse.subject?.reference ?? '').split('/');
   if (subjectType !== 'Patient') {
