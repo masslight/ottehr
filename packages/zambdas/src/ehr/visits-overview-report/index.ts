@@ -6,6 +6,7 @@ import {
   DailyVisitCount,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
+  getInPersonVisitStatus,
   getSecret,
   isInPersonAppointment,
   isTelemedAppointment,
@@ -137,9 +138,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       `Total resources found across ${pageCount} pages: ${allResources.length} (${appointments.length} appointments, ${locations.length} locations, ${encounters.length} encounters, ${practitioners.length} practitioners)`
     );
 
-    if (appointments.length === 0) {
+    // Create encounter map for quick lookups to determine visit status
+    const encounterMap = new Map<string, Encounter>();
+    encounters.forEach((encounter) => {
+      const appointmentRef = encounter.appointment?.[0]?.reference;
+      if (appointmentRef && encounter.id) {
+        encounterMap.set(appointmentRef, encounter);
+      }
+    });
+
+    // Filter out cancelled and no show visits
+    const activeAppointments = appointments.filter((appointment) => {
+      if (!appointment.id) return false;
+      const encounter = encounterMap.get(`Appointment/${appointment.id}`);
+      if (!encounter) return true; // Keep appointments without encounters
+      const visitStatus = getInPersonVisitStatus(appointment, encounter);
+      return visitStatus !== 'cancelled' && visitStatus !== 'no show';
+    });
+
+    console.log(
+      `Filtered appointments: ${appointments.length} total, ${activeAppointments.length} active (excluded ${
+        appointments.length - activeAppointments.length
+      } cancelled/no show visits)`
+    );
+
+    if (activeAppointments.length === 0) {
       const response: VisitsOverviewReportZambdaOutput = {
-        message: 'No appointments found for the specified date range',
+        message: 'No active appointments found for the specified date range',
         totalAppointments: 0,
         appointmentTypes: [
           { type: 'In-Person', count: 0, percentage: 0 },
@@ -166,7 +191,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Group appointments by date and type for chart data
     const dailyVisitsMap = new Map<string, { inPerson: number; telemed: number }>();
 
-    appointments.forEach((appointment) => {
+    activeAppointments.forEach((appointment) => {
       // Determine appointment type based on meta tags
       const isTelemedicine = isTelemedAppointment(appointment);
       const isInPerson = isInPersonAppointment(appointment);
@@ -205,12 +230,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // Note: Skip appointments that don't have a clear type - they won't be counted
     });
 
-    const totalAppointments = appointments.length;
+    const totalAppointments = activeAppointments.length;
 
     // Process location-based visit counts
     const locationVisitsMap = new Map<string, { locationId: string; inPerson: number; telemed: number }>();
 
-    appointments.forEach((appointment) => {
+    activeAppointments.forEach((appointment) => {
       // Get location reference from appointment
       const participantWithLocation = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'));
 
@@ -265,15 +290,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       { practitionerId: string; role: 'Attending Provider' | 'Intake Performer'; inPerson: number; telemed: number }
     >();
 
-    // Create maps for quick lookups
-    const encounterMap = new Map<string, Encounter>();
-    encounters.forEach((encounter) => {
-      const appointmentRef = encounter.appointment?.[0]?.reference;
-      if (appointmentRef && encounter.id) {
-        encounterMap.set(appointmentRef, encounter);
-      }
-    });
-
+    // Create practitioner map for quick lookups
     const practitionerMap = new Map<string, Practitioner>();
     practitioners.forEach((practitioner) => {
       if (practitioner.id) {
@@ -281,7 +298,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     });
 
-    appointments.forEach((appointment) => {
+    activeAppointments.forEach((appointment) => {
       if (!appointment.id) return;
 
       // Check if appointment is telemedicine or in-person (using same logic as daily visits)
