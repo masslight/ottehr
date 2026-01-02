@@ -84,12 +84,10 @@ export const LAB_DR_TYPE_TAG = {
   code: {
     reflex: LabType.reflex,
     unsolicited: LabType.unsolicited,
-    attachment: LabType.pdfAttachment,
   },
   display: {
     reflex: 'reflex',
     unsolicited: 'unsolicited',
-    attachment: 'PDF Attachment',
   },
 } as const;
 

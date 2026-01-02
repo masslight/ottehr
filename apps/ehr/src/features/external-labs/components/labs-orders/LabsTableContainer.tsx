@@ -10,14 +10,13 @@ import {
   LabOrdersSearchBy,
   LabsTableColumn,
   openPdf,
-  PdfAttachmentDTO,
   ReflexLabDTO,
 } from 'utils';
 import { LabsTable } from './LabsTable';
 import { LabsTableBundleHeaderRow } from './LabsTableBundleHeaderRow';
 
 type LabsTableContainerProps<SearchBy extends LabOrdersSearchBy> = {
-  labOrders: (LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO)[];
+  labOrders: (LabOrderListPageDTO | ReflexLabDTO)[];
   orderBundleName: string;
   abnPdfUrl: string | undefined;
   orderPdfUrl: string | undefined;
@@ -122,7 +121,7 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
       .filter((order) => order.orderNumber && failedOrderNumbers.includes(order.orderNumber));
     await submitOrders(true, labs);
   };
-  function isLabOrder(order: LabOrderListPageDTO | ReflexLabDTO | PdfAttachmentDTO): order is LabOrderListPageDTO {
+  function isLabOrder(order: LabOrderListPageDTO | ReflexLabDTO): order is LabOrderListPageDTO {
     return !('drCentricResultType' in order);
   }
 

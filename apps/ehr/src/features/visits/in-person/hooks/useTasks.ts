@@ -138,7 +138,7 @@ export const useGetTasks = ({
         resourceType: 'Task',
         params,
       });
-      const tasks = bundle.unbundle().filter(filterTasks).map(fhirTaskToTask);
+      const tasks = bundle.unbundle().map(fhirTaskToTask);
       return {
         tasks,
         total: bundle.total ?? -1,
@@ -221,15 +221,6 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
     },
   });
 };
-
-function filterTasks(task: FhirTask): boolean {
-  const category = task.groupIdentifier?.value ?? '';
-  if (category === LAB_ORDER_TASK.category) {
-    const labTypeString = getInputString(LAB_ORDER_TASK.input.drTag, task);
-    if (labTypeString === LabType.pdfAttachment) return false;
-  }
-  return true;
-}
 
 export const useCreateManualTask = (): UseMutationResult<void, Error, CreateManualTaskRequest> => {
   const { oystehrZambda } = useApiClients();

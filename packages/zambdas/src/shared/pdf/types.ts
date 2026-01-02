@@ -293,9 +293,7 @@ export type ResultDataConfig =
   | { type: LabType.external; data: ExternalLabResultsData }
   | { type: LabType.inHouse; data: InHouseLabResultsData }
   | { type: LabType.unsolicited; data: UnsolicitedExternalLabResultsData }
-  | { type: LabType.reflex; data: ReflexExternalLabResultsData }
-  | { type: LabType.pdfAttachment; data: ReflexExternalLabResultsData };
-
+  | { type: LabType.reflex; data: ReflexExternalLabResultsData };
 export interface VisitNoteData extends PdfExaminationBlockData {
   patientName: string;
   patientDOB: string;
