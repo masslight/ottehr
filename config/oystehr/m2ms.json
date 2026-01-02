@@ -67,9 +67,7 @@
           "effect": "Allow"
         },
         {
-          "resource": [
-            "Z3:#{var/PROJECT_ID}-school-work-notes/*"
-          ],
+          "resource": ["Z3:#{var/PROJECT_ID}-school-work-notes/*"],
           "action": ["Z3:DeleteObject"],
           "effect": "Allow"
         },
@@ -102,8 +100,8 @@
       "description": "This M2M Client is used by the PACS Poll service",
       "accessPolicy": [
         {
-          "resource": ["FHIR:ServiceRequest:*"],
-          "action": ["Read", "Search", "Update"],
+          "resource": ["FHIR:ServiceRequest"],
+          "action": ["FHIR:Read", "FHIR:Search", "FHIR:Update"],
           "effect": "Allow"
         }
       ]
