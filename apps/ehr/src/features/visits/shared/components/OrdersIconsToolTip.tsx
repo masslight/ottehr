@@ -53,7 +53,6 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     const unreadStatuses = [
       ExternalLabsStatus.pending,
       ExternalLabsStatus.prelim,
-      ExternalLabsStatus.sent, // todo this is final status???
       ExternalLabsStatus.corrected,
       ExternalLabsStatus['rejected abn'],
       ExternalLabsStatus['cancelled by lab'],
@@ -75,7 +74,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
   }
 
   if (inHouseLabOrders?.length) {
-    const unreadStatuses: TestStatus[] = ['ORDERED', 'COLLECTED', 'FINAL']; // todo this is all statuses possible, is it ok that all of them are 'unread'?
+    const unreadStatuses: TestStatus[] = ['ORDERED', 'COLLECTED', 'FINAL'];
     const inHouseLabOrderConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['In-House Labs'],
       title: 'In-House Labs',
