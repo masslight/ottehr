@@ -23,7 +23,7 @@ import {
   PROVIDER_TYPE_EXTENSION_URL,
   SLUG_SYSTEM,
 } from '../fhir';
-import { patientScreeningQuestionsConfig } from '../ottehr-config/questionnaire';
+import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
 import {
   appointmentTypeLabels,
   appointmentTypeMap,

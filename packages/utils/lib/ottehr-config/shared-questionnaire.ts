@@ -47,8 +47,25 @@ const ReferenceDataSourceSchema = z
   );
 const FormFieldsLogicalFieldSchema = z.object({
   key: z.string(),
-  type: z.enum(['string', 'date', 'boolean']),
+  type: z.enum(['string', 'date', 'boolean', 'choice']),
   initialValue: z.union([z.string(), z.boolean()]).optional(),
+  options: z
+    .array(
+      z.object({
+        label: z.string(),
+        value: z.string(),
+      })
+    )
+    .optional(),
+});
+
+const FormFieldsDisplayFieldSchema = z.object({
+  key: z.string(),
+  type: z.literal('display'),
+  text: z.string(),
+  element: z.enum(['h3', 'p']).optional(),
+  triggers: z.array(triggerSchema).optional(),
+  enableBehavior: z.enum(['all', 'any']).default('any').optional(),
 });
 
 const FormFieldsValueTypeSchema = z
@@ -69,8 +86,11 @@ const FormFieldsValueTypeSchema = z
     triggers: z.array(triggerSchema).optional(),
     dynamicPopulation: dynamicPopulationSchema.optional(),
     enableBehavior: z.enum(['all', 'any']).default('any').optional(),
-    disabledDisplay: z.enum(['hidden', 'disabled']).default('disabled'),
+    disabledDisplay: z.enum(['hidden', 'disabled', 'protected']).default('disabled'),
     initialValue: z.union([z.string(), z.boolean()]).optional(),
+    inputWidth: z.enum(['s', 'm', 'l']).optional(),
+    autocomplete: z.string().optional(),
+    permissibleValue: z.union([z.boolean(), z.string()]).optional(),
   })
   .refine(
     (data) => {
@@ -100,9 +120,10 @@ const FormFieldsValueTypeSchema = z
   );
 
 export type FormFieldsItem = z.infer<typeof FormFieldsValueTypeSchema>;
+export type FormFieldsDisplayItem = z.infer<typeof FormFieldsDisplayFieldSchema>;
 export type FormFieldsLogicalItem = z.infer<typeof FormFieldsLogicalFieldSchema>;
 
-export const FormFieldItemRecordSchema = z.record(FormFieldsValueTypeSchema);
+export const FormFieldItemRecordSchema = z.record(z.union([FormFieldsValueTypeSchema, FormFieldsDisplayFieldSchema]));
 export type FormFieldItemRecord = z.infer<typeof FormFieldItemRecordSchema>;
 export const FormFieldLogicalItemRecordSchema = z.record(FormFieldsLogicalFieldSchema);
 export type FormFieldLogicalItemRecord = z.infer<typeof FormFieldLogicalItemRecordSchema>;
@@ -199,6 +220,28 @@ const createAnswerLoadingOptionsExtension = (
   };
 };
 
+const createInputWidthExtension = (width: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/input-width',
+  valueString: width,
+});
+
+const createAutocompleteExtension = (autocomplete: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete',
+  valueString: autocomplete,
+});
+
+const createPreferredElementExtension = (element: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/preferred-element',
+  valueString: element,
+});
+
+const createPermissibleValueExtension = (
+  value: boolean | string
+): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/permissible-value',
+  ...(typeof value === 'boolean' ? { valueBoolean: value } : { valueString: value }),
+});
+
 const createEnableWhen = (trigger: FormFieldTrigger): QuestionnaireItem['enableWhen'] => {
   const enableWhen: any = {
     question: trigger.targetQuestionLinkId,
@@ -214,6 +257,39 @@ const createEnableWhen = (trigger: FormFieldTrigger): QuestionnaireItem['enableW
   }
 
   return enableWhen;
+};
+
+const convertDisplayFieldToQuestionnaireItem = (field: FormFieldsDisplayItem): QuestionnaireItem => {
+  const item: QuestionnaireItem = {
+    linkId: field.key,
+    type: 'display',
+    text: field.text,
+  };
+
+  const extensions: any[] = [];
+
+  if (field.element) {
+    extensions.push(createPreferredElementExtension(field.element));
+  }
+
+  // Add enableWhen from triggers
+  if (field.triggers && field.triggers.length > 0) {
+    const enableTriggers = field.triggers.filter((t) => t.effect.includes('enable'));
+    if (enableTriggers.length > 0) {
+      item.enableWhen = enableTriggers.flatMap((i) => createEnableWhen(i)!);
+    }
+
+    // Add enableBehavior if specified
+    if (field.enableBehavior && item.enableWhen && item.enableWhen.length > 1) {
+      item.enableBehavior = field.enableBehavior;
+    }
+  }
+
+  if (extensions.length > 0) {
+    item.extension = extensions;
+  }
+
+  return item;
 };
 
 const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: boolean): QuestionnaireItem => {
@@ -262,6 +338,18 @@ const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: 
     }
   }
 
+  if (field.inputWidth) {
+    extensions.push(createInputWidthExtension(field.inputWidth));
+  }
+
+  if (field.autocomplete) {
+    extensions.push(createAutocompleteExtension(field.autocomplete));
+  }
+
+  if (field.permissibleValue !== undefined) {
+    extensions.push(createPermissibleValueExtension(field.permissibleValue));
+  }
+
   // Add enableWhen from triggers
   if (field.triggers && field.triggers.length > 0) {
     const enableTriggers = field.triggers.filter((t) => t.effect.includes('enable'));
@@ -294,9 +382,14 @@ const convertLogicalItemToQuestionnaireItem = (field: FormFieldsLogicalItem): Qu
   const item: QuestionnaireItem = {
     linkId: field.key,
     type: field.type,
-    required: false,
+    required: field.type === 'boolean' || field.type === 'choice',
     readOnly: true,
   };
+
+  // Add answer options for choice types
+  if (field.type === 'choice' && field.options) {
+    item.answerOption = field.options.map((opt) => ({ valueString: opt.value }));
+  }
 
   // Add initial value if provided
   if (field.initialValue !== undefined) {
@@ -305,6 +398,14 @@ const convertLogicalItemToQuestionnaireItem = (field: FormFieldsLogicalItem): Qu
     } else if (field.type === 'string' || field.type === 'date') {
       item.initial = [{ valueString: field.initialValue as string }];
     }
+  }
+
+  // Add disabled-display extension for hidden logical fields
+  const extensions: any[] = [];
+  extensions.push(createDisabledDisplayExtension('hidden'));
+
+  if (extensions.length > 0) {
+    item.extension = extensions;
   }
 
   return item;
@@ -359,8 +460,13 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
 
         // Convert each field to a questionnaire item
         for (const [, field] of Object.entries(items)) {
-          const isRequired = section.requiredFields?.includes(field.key) ?? false;
-          const questionnaireItem = convertFormFieldToQuestionnaireItem(field, isRequired);
+          let questionnaireItem: QuestionnaireItem;
+          if (field.type === 'display') {
+            questionnaireItem = convertDisplayFieldToQuestionnaireItem(field as FormFieldsDisplayItem);
+          } else {
+            const isRequired = section.requiredFields?.includes(field.key) ?? false;
+            questionnaireItem = convertFormFieldToQuestionnaireItem(field as FormFieldsItem, isRequired);
+          }
           groupItem.item!.push(questionnaireItem);
         }
 
@@ -385,8 +491,13 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
 
       // Convert each field to a questionnaire item
       for (const [, field] of Object.entries(section.items)) {
-        const isRequired = section.requiredFields?.includes(field.key) ?? false;
-        const questionnaireItem = convertFormFieldToQuestionnaireItem(field, isRequired);
+        let questionnaireItem: QuestionnaireItem;
+        if (field.type === 'display') {
+          questionnaireItem = convertDisplayFieldToQuestionnaireItem(field as FormFieldsDisplayItem);
+        } else {
+          const isRequired = section.requiredFields?.includes(field.key) ?? false;
+          questionnaireItem = convertFormFieldToQuestionnaireItem(field as FormFieldsItem, isRequired);
+        }
         groupItem.item!.push(questionnaireItem);
       }
 
