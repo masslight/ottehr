@@ -4359,6 +4359,14 @@ const FormFields = {
         substituteText: 'New York pharmacy information',
       },
     ],
+    complexValidation: {
+      type: 'pharmacy availability',
+      triggerWhen: {
+        question: 'patient-zip',
+        operator: '=',
+        answer: '10001',
+      },
+    },
     items: {
       name: {
         key: 'pharmacy-name',

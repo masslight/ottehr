@@ -142,6 +142,17 @@ const TextWhenSchema = z.object({
   substituteText: z.string(),
 });
 
+const ComplexValidationTriggerWhenSchema = z.object({
+  question: z.string(),
+  operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
+  answer: z.string(),
+});
+
+const ComplexValidationSchema = z.object({
+  type: z.string(),
+  triggerWhen: ComplexValidationTriggerWhenSchema,
+});
+
 export const FormSectionSimpleSchema = z.object({
   linkId: z.string(),
   title: z.string(),
@@ -154,6 +165,7 @@ export const FormSectionSimpleSchema = z.object({
   enableBehavior: z.enum(['all', 'any']).optional(),
   reviewText: z.string().optional(),
   textWhen: z.array(TextWhenSchema).optional(),
+  complexValidation: ComplexValidationSchema.optional(),
 });
 
 export const FormSectionArraySchema = z.object({
@@ -168,6 +180,7 @@ export const FormSectionArraySchema = z.object({
   enableBehavior: z.enum(['all', 'any']).optional(),
   reviewText: z.string().optional(),
   textWhen: z.array(TextWhenSchema).optional(),
+  complexValidation: ComplexValidationSchema.optional(),
 });
 
 export type FormFieldSection = z.infer<typeof FormSectionSimpleSchema> | z.infer<typeof FormSectionArraySchema>;
@@ -292,6 +305,35 @@ const createTextWhenExtension = (
     {
       url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text',
       valueString: textWhen.substituteText,
+    },
+  ],
+});
+
+const createComplexValidationExtension = (
+  validation: z.infer<typeof ComplexValidationSchema>
+): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation',
+  extension: [
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-type',
+      valueString: validation.type,
+    },
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerWhen',
+      extension: [
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerQuestion',
+          valueString: validation.triggerWhen.question,
+        },
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerOperator',
+          valueString: validation.triggerWhen.operator,
+        },
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/complex-validation-triggerAnswer',
+          valueString: validation.triggerWhen.answer,
+        },
+      ],
     },
   ],
 });
@@ -517,6 +559,10 @@ const applyGroupLevelProperties = (
   const groupExtensions: any[] = [];
   if (section.reviewText) {
     groupExtensions.push(createReviewTextExtension(section.reviewText));
+  }
+
+  if (section.complexValidation) {
+    groupExtensions.push(createComplexValidationExtension(section.complexValidation));
   }
 
   if (section.textWhen && section.textWhen.length > 0) {
