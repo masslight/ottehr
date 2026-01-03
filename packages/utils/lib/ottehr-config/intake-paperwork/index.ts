@@ -4362,7 +4362,135 @@ const FormFields = {
     hiddenFields: [],
     requiredFields: [],
   },
-  // TODO: paymentOption - requires group-level extensions (complex-validation, text-when, review-text) and answer-option extensions
+  paymentOptionDefault: {
+    linkId: 'payment-option-default-page',
+    title: 'How would you like to pay for your visit?',
+    reviewText: 'Insurance details',
+    logicalItems: {
+      appointmentServiceCategory: {
+        key: 'appointment-service-category',
+        type: 'string',
+      },
+    },
+    enableWhen: [
+      {
+        question: 'appointment-service-category',
+        operator: '!=',
+        answerString: 'occupational-medicine',
+      },
+      {
+        question: 'appointment-service-category',
+        operator: '!=',
+        answerString: 'workmans-comp',
+      },
+    ],
+    enableBehavior: 'all',
+    items: {
+      paymentOption: {
+        key: 'payment-option-default',
+        label: 'Select payment option',
+        text: 'Select payment option',
+        type: 'choice',
+        options: [
+          { label: 'I have insurance', value: 'I have insurance' },
+          { label: 'I will pay without insurance', value: 'I will pay without insurance' },
+        ],
+      },
+      selfPayAlert: {
+        key: 'self-pay-alert-text-default',
+        text: 'By choosing to proceed with self-pay without insurance, you agree to pay $100 at the time of service.',
+        type: 'display',
+        triggers: [
+          {
+            targetQuestionLinkId: 'payment-option-default',
+            effect: ['enable'],
+            operator: '=',
+            answerString: 'I will pay without insurance',
+          },
+        ],
+      },
+    },
+    hiddenFields: [],
+    requiredFields: ['payment-option-default'],
+  },
+  paymentOptionOccupational: {
+    linkId: 'payment-option-occupational-page',
+    title: 'Who is paying for the visit?',
+    reviewText: 'Insurance details',
+    enableWhen: [
+      {
+        question: 'appointment-service-category',
+        operator: '=',
+        answerString: 'occupational-medicine',
+      },
+    ],
+    items: {
+      paymentOption: {
+        key: 'payment-option-occupational',
+        label: 'Select payment option',
+        text: 'Select payment option',
+        type: 'choice',
+        options: [
+          { label: 'Self', value: 'I will pay without insurance' },
+          { label: 'Employer', value: 'Employer' },
+        ],
+      },
+      selfPayAlert: {
+        key: 'self-pay-alert-text-occupational',
+        text: 'By choosing to proceed with self-pay without insurance, you agree to pay $100 at the time of service.',
+        type: 'display',
+        triggers: [
+          {
+            targetQuestionLinkId: 'payment-option-occupational',
+            effect: ['enable'],
+            operator: '=',
+            answerString: 'I will pay without insurance',
+          },
+        ],
+      },
+    },
+    hiddenFields: [],
+    requiredFields: ['payment-option-occupational'],
+  },
+  paymentOptionWorkmans: {
+    linkId: 'payment-option-workmans-page',
+    title: 'Who is responsible for the claim?',
+    reviewText: 'Insurance details',
+    enableWhen: [
+      {
+        question: 'appointment-service-category',
+        operator: '=',
+        answerString: 'workmans-comp',
+      },
+    ],
+    items: {
+      paymentOption: {
+        key: 'payment-option-workmans',
+        label: 'Select payment option',
+        text: 'Select payment option',
+        type: 'choice',
+        options: [
+          { label: 'Insurance', value: 'I have insurance' },
+          { label: 'Employer', value: 'Employer' },
+        ],
+      },
+      selfPayAlert: {
+        key: 'self-pay-alert-text-workmans',
+        text: 'By choosing to proceed with self-pay without insurance, you agree to pay $100 at the time of service.',
+        type: 'display',
+        triggers: [
+          {
+            targetQuestionLinkId: 'payment-option-workmans',
+            effect: ['enable'],
+            operator: '=',
+            answerString: 'I will pay without insurance',
+          },
+        ],
+      },
+    },
+    hiddenFields: [],
+    requiredFields: ['payment-option-workmans'],
+  },
   cardPayment: {
     linkId: 'card-payment-page',
     title: 'Credit card details',
@@ -5008,6 +5136,9 @@ const FormFieldsSchema = z.object({
   patientDetails: FormSectionSimpleSchema,
   primaryCarePhysician: FormSectionSimpleSchema,
   pharmacy: FormSectionSimpleSchema,
+  paymentOptionDefault: FormSectionSimpleSchema,
+  paymentOptionOccupational: FormSectionSimpleSchema,
+  paymentOptionWorkmans: FormSectionSimpleSchema,
   cardPayment: FormSectionSimpleSchema,
   responsibleParty: FormSectionSimpleSchema,
   employerInformation: FormSectionSimpleSchema,
