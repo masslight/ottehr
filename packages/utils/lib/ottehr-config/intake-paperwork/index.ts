@@ -4293,6 +4293,13 @@ const FormFields = {
   primaryCarePhysician: {
     linkId: 'primary-care-physician-page',
     title: 'Primary Care Physician',
+    enableWhen: [
+      {
+        question: 'contact-information-page.patient-street-address-2',
+        operator: '!=',
+        answerString: 'conditional-filter-test-1234',
+      },
+    ],
     items: {
       firstName: {
         key: 'pcp-first',
@@ -4834,7 +4841,97 @@ const FormFields = {
     ],
   },
   // TODO: photoId - requires attachment type support
-  // TODO: consentForms - requires group-level extensions and enableWhen, plus permissible-value extension
+  consentForms: {
+    linkId: 'consent-forms-page',
+    title: 'Complete consent forms',
+    reviewText: 'Consent forms',
+    enableWhen: [
+      {
+        question: '$status',
+        operator: '!=',
+        answerString: 'completed',
+      },
+      {
+        question: '$status',
+        operator: '!=',
+        answerString: 'amended',
+      },
+    ],
+    enableBehavior: 'all',
+    items: {
+      hipaaAcknowledgement: {
+        key: 'hipaa-acknowledgement',
+        label: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
+        text: 'I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)',
+        type: 'boolean',
+        triggers: [
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
+        permissibleValue: true,
+        disabledDisplay: 'protected',
+      },
+      consentToTreat: {
+        key: 'consent-to-treat',
+        label:
+          'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
+        text: 'I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)',
+        type: 'boolean',
+        triggers: [
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
+        permissibleValue: true,
+        disabledDisplay: 'protected',
+      },
+      signature: {
+        key: 'signature',
+        label: 'Signature',
+        text: 'Signature',
+        type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
+        disabledDisplay: 'protected',
+      },
+    },
+    hiddenFields: [],
+    requiredFields: ['hipaa-acknowledgement', 'consent-to-treat', 'signature'],
+  },
   // TODO: medicalHistory - needs Medical History dataType support
 };
 
@@ -4846,6 +4943,7 @@ const FormFieldsSchema = z.object({
   responsibleParty: FormSectionSimpleSchema,
   employerInformation: FormSectionSimpleSchema,
   emergencyContact: FormSectionSimpleSchema,
+  consentForms: FormSectionSimpleSchema,
 });
 
 const hiddenFormSections: string[] = [];

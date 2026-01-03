@@ -127,6 +127,14 @@ export const FormFieldItemRecordSchema = z.record(z.union([FormFieldsValueTypeSc
 export type FormFieldItemRecord = z.infer<typeof FormFieldItemRecordSchema>;
 export const FormFieldLogicalItemRecordSchema = z.record(FormFieldsLogicalFieldSchema);
 export type FormFieldLogicalItemRecord = z.infer<typeof FormFieldLogicalItemRecordSchema>;
+const GroupLevelEnableWhenSchema = z.object({
+  question: z.string(),
+  operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
+  answerBoolean: z.boolean().optional(),
+  answerString: z.string().optional(),
+  answerDateTime: z.string().optional(),
+});
+
 export const FormSectionSimpleSchema = z.object({
   linkId: z.string(),
   title: z.string(),
@@ -134,6 +142,10 @@ export const FormSectionSimpleSchema = z.object({
   logicalItems: FormFieldLogicalItemRecordSchema.optional(),
   hiddenFields: z.array(z.string()).optional(),
   requiredFields: z.array(z.string()).optional(),
+  // Group-level properties
+  enableWhen: z.array(GroupLevelEnableWhenSchema).optional(),
+  enableBehavior: z.enum(['all', 'any']).optional(),
+  reviewText: z.string().optional(),
 });
 
 export const FormSectionArraySchema = z.object({
@@ -143,6 +155,10 @@ export const FormSectionArraySchema = z.object({
   logicalItems: FormFieldLogicalItemRecordSchema.optional(),
   hiddenFields: z.array(z.string()).optional(),
   requiredFields: z.array(z.string()).optional(),
+  // Group-level properties
+  enableWhen: z.array(GroupLevelEnableWhenSchema).optional(),
+  enableBehavior: z.enum(['all', 'any']).optional(),
+  reviewText: z.string().optional(),
 });
 
 export type FormFieldSection = z.infer<typeof FormSectionSimpleSchema> | z.infer<typeof FormSectionArraySchema>;
@@ -242,6 +258,11 @@ const createPermissibleValueExtension = (
   ...(typeof value === 'boolean' ? { valueBoolean: value } : { valueString: value }),
 });
 
+const createReviewTextExtension = (reviewText: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/review-text',
+  valueString: reviewText,
+});
+
 const createEnableWhen = (trigger: FormFieldTrigger): QuestionnaireItem['enableWhen'] => {
   const enableWhen: any = {
     question: trigger.targetQuestionLinkId,
@@ -257,6 +278,23 @@ const createEnableWhen = (trigger: FormFieldTrigger): QuestionnaireItem['enableW
   }
 
   return enableWhen;
+};
+
+const createGroupEnableWhen = (enableWhen: z.infer<typeof GroupLevelEnableWhenSchema>): any => {
+  const result: any = {
+    question: enableWhen.question,
+    operator: enableWhen.operator,
+  };
+
+  if (enableWhen.answerBoolean !== undefined) {
+    result.answerBoolean = enableWhen.answerBoolean;
+  } else if (enableWhen.answerString !== undefined) {
+    result.answerString = enableWhen.answerString;
+  } else if (enableWhen.answerDateTime !== undefined) {
+    result.answerDateTime = enableWhen.answerDateTime;
+  }
+
+  return result;
 };
 
 const convertDisplayFieldToQuestionnaireItem = (field: FormFieldsDisplayItem): QuestionnaireItem => {
@@ -428,6 +466,31 @@ export const QuestionnaireConfigSchema = z.object({
 });
 type QuestionnaireConfigType = z.infer<typeof QuestionnaireConfigSchema>;
 
+const applyGroupLevelProperties = (
+  groupItem: QuestionnaireItem,
+  section: z.infer<typeof FormSectionSimpleSchema> | z.infer<typeof FormSectionArraySchema>
+): void => {
+  // Apply group-level enableWhen
+  if (section.enableWhen && section.enableWhen.length > 0) {
+    groupItem.enableWhen = section.enableWhen.map((ew) => createGroupEnableWhen(ew));
+  }
+
+  // Apply group-level enableBehavior
+  if (section.enableBehavior && groupItem.enableWhen && groupItem.enableWhen.length > 1) {
+    groupItem.enableBehavior = section.enableBehavior;
+  }
+
+  // Apply group-level extensions
+  const groupExtensions: any[] = [];
+  if (section.reviewText) {
+    groupExtensions.push(createReviewTextExtension(section.reviewText));
+  }
+
+  if (groupExtensions.length > 0) {
+    groupItem.extension = groupExtensions;
+  }
+};
+
 export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigType): Questionnaire['item'] => {
   const questionnaireItems: QuestionnaireItem[] = [];
 
@@ -470,6 +533,9 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
           groupItem.item!.push(questionnaireItem);
         }
 
+        // Apply group-level properties
+        applyGroupLevelProperties(groupItem, section);
+
         questionnaireItems.push(groupItem);
       });
     } else {
@@ -500,6 +566,9 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
         }
         groupItem.item!.push(questionnaireItem);
       }
+
+      // Apply group-level properties
+      applyGroupLevelProperties(groupItem, section);
 
       questionnaireItems.push(groupItem);
     }
