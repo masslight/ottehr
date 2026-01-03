@@ -85,6 +85,7 @@ import {
   isoStringFromDateComponents,
   isValidUUID,
   mapBirthSexToGender,
+  OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
   OrderedCoverages,
   OrderedCoveragesWithSubscribers,
   OTTEHR_MODULE,
@@ -2063,7 +2064,7 @@ const buildEmployerOrganization = (details: EmployerInformation, id?: string): O
         ]
       : undefined;
 
-  const employerOrgCode = 'employer';
+  const employerOrgCode = 'workmans-comp-employer';
 
   // fhir dictates that an Organization SHALL at least have a name or an identifier, and possibly more than one
   // adding this id allows users to enter employee data with out an employee name
@@ -2090,18 +2091,18 @@ const buildEmployerOrganization = (details: EmployerInformation, id?: string): O
   };
 };
 
-const buildWorkersCompAccountResource = (
+const buildEmployerAccountResource = (
   patientId: string,
-  employerInformation: EmployerInformation,
   existingAccount: Account | undefined,
-  organizationReference: string
+  organizationReference: string,
+  accountTypeCoding: CodeableConcept | undefined,
+  employerInformation?: EmployerInformation
 ): Account => {
   const patientReference = `Patient/${patientId}`;
   const baseAccount: Account = existingAccount ? { ...existingAccount } : { resourceType: 'Account', status: 'active' };
 
   const subject = ensurePatientSubject(baseAccount.subject, patientReference);
   const guarantor = mergeGuarantors(baseAccount.guarantor, organizationReference);
-  const workersCompCoding = WORKERS_COMP_ACCOUNT_TYPE?.coding ?? [];
 
   const organizationIdFromReference = organizationReference.startsWith('Organization/')
     ? organizationReference.split('/')[1]
@@ -2112,9 +2113,9 @@ const buildWorkersCompAccountResource = (
     resourceType: 'Account',
     status: 'active',
     type: {
-      coding: [...workersCompCoding],
+      coding: [...(accountTypeCoding?.coding || [])],
     },
-    name: employerInformation.employerName,
+    name: employerInformation?.employerName,
     subject,
     owner: { reference: organizationReference },
     guarantor,
@@ -2123,6 +2124,23 @@ const buildWorkersCompAccountResource = (
           (resource) => !(resource.resourceType === 'Organization' && resource.id === organizationIdFromReference)
         )
       : baseAccount.contained,
+  };
+};
+
+const getOccupationalMedicineEmployerInformation = (
+  items: QuestionnaireResponseItem[]
+): { occupationalMedicineEmployerReference: Reference } | undefined => {
+  const getAnswerReference = (linkId: string): Reference | undefined =>
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueReference;
+
+  const occupationalMedicineEmployerReference = getAnswerReference('occupational-medicine-employer');
+
+  if (!occupationalMedicineEmployerReference) {
+    return undefined;
+  }
+
+  return {
+    occupationalMedicineEmployerReference,
   };
 };
 
@@ -2360,6 +2378,7 @@ export interface GetAccountOperationsInput {
   preserveOmittedCoverages?: boolean;
   existingEmergencyContact?: RelatedPerson;
   existingWorkersCompAccount?: Account;
+  existingOccupationalMedicineAccount?: Account;
   existingEmployerOrganization?: Organization;
 }
 
@@ -2373,6 +2392,8 @@ export interface GetAccountOperationsOutput {
   employerOrganizationPut?: BatchInputPutRequest<Organization>;
   workersCompAccountPost?: Account;
   workersCompAccountPut?: BatchInputPutRequest<Account>;
+  occupationalMedicineAccountPost?: Account;
+  occupationalMedicineAccountPut?: BatchInputPutRequest<Account>;
 }
 
 // this function is exported for testing purposes
@@ -2387,6 +2408,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     preserveOmittedCoverages,
     existingEmergencyContact,
     existingWorkersCompAccount,
+    existingOccupationalMedicineAccount,
     existingEmployerOrganization,
   } = input;
 
@@ -2403,6 +2425,12 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     emergencyContactData !== undefined ? buildEmergencyContactAddress(emergencyContactData, patient) : undefined;
 
   const employerInformation = getEmployerInformation(flattenedItems);
+  const occupationalMedicineEmployerInformation = getOccupationalMedicineEmployerInformation(flattenedItems);
+  let occupationalMedicineEmployerReference;
+  if (occupationalMedicineEmployerInformation) {
+    occupationalMedicineEmployerReference =
+      occupationalMedicineEmployerInformation.occupationalMedicineEmployerReference;
+  }
   /*console.log(
     'insurance plan resources',
     JSON.stringify(insurancePlanResources, null, 2),
@@ -2429,15 +2457,18 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   let employerOrganizationPut: BatchInputPutRequest<Organization> | undefined;
   let workersCompAccountPost: Account | undefined;
   let workersCompAccountPut: BatchInputPutRequest<Account> | undefined;
+  let occupationalMedicineAccountPost: Account | undefined;
+  let occupationalMedicineAccountPut: BatchInputPutRequest<Account> | undefined;
 
   console.log(
-    'getting account operations for patient, guarantorData, emergencyContactData, coverages, account, employerInformation',
+    'getting account operations for patient, guarantorData, emergencyContactData, coverages, account, employerInformation, occupationalMedicineEmployerInformation',
     JSON.stringify(patient, null, 2),
     JSON.stringify(guarantorData, null, 2),
     JSON.stringify(emergencyContactData, null, 2),
     JSON.stringify(existingCoverages, null, 2),
     JSON.stringify(existingAccount, null, 2),
-    JSON.stringify(employerInformation, null, 2)
+    JSON.stringify(employerInformation, null, 2),
+    JSON.stringify(occupationalMedicineEmployerInformation, null, 2)
   );
 
   // note: We're not assuming existing Coverages, if there are any, come from the Account resource; they could be free-floating.
@@ -2638,11 +2669,12 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       };
     }
 
-    const workersCompAccountResource = buildWorkersCompAccountResource(
+    const workersCompAccountResource = buildEmployerAccountResource(
       patient.id!,
-      employerInformation,
       existingWorkersCompAccount,
-      employerOrganizationReference
+      employerOrganizationReference,
+      WORKERS_COMP_ACCOUNT_TYPE,
+      employerInformation
     );
 
     if (existingWorkersCompAccount?.id) {
@@ -2659,6 +2691,29 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     }
   }
 
+  if (occupationalMedicineEmployerReference?.reference) {
+    const occupationalMedicineAccountResource = buildEmployerAccountResource(
+      patient.id!,
+      existingOccupationalMedicineAccount,
+      occupationalMedicineEmployerReference.reference,
+      OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE,
+      employerInformation
+    );
+
+    if (existingOccupationalMedicineAccount?.id) {
+      occupationalMedicineAccountPut = {
+        method: 'PUT',
+        url: `Account/${existingOccupationalMedicineAccount.id}`,
+        resource: {
+          ...occupationalMedicineAccountResource,
+          id: existingOccupationalMedicineAccount.id,
+        },
+      };
+    } else {
+      occupationalMedicineAccountPost = occupationalMedicineAccountResource;
+    }
+  }
+
   return {
     coveragePosts,
     accountPost,
@@ -2669,6 +2724,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     employerOrganizationPut,
     workersCompAccountPost,
     workersCompAccountPut,
+    occupationalMedicineAccountPost,
+    occupationalMedicineAccountPut,
   };
 };
 
@@ -3360,19 +3417,39 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   let existingAccount: Account | undefined;
   let existingGuarantorResource: RelatedPerson | Patient | undefined;
   let workersCompAccount: Account | undefined;
+  let occupationalMedicineAccount: Account | undefined;
 
   if (accountResources.length > 0) {
     existingAccount = accountResources.find((account) => accountMatchesType(account, PATIENT_BILLING_ACCOUNT_TYPE));
     workersCompAccount = accountResources.find((account) => accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE));
+    occupationalMedicineAccount = accountResources.find((account) =>
+      accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
+    );
     if (!existingAccount) {
-      existingAccount = accountResources.find((account) => !accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE));
+      existingAccount = accountResources.find(
+        (account) =>
+          !accountMatchesType(account, WORKERS_COMP_ACCOUNT_TYPE) &&
+          !accountMatchesType(account, OCCUPATIONAL_MEDICINE_ACCOUNT_TYPE)
+      );
     }
   }
 
   const employerOrganization: Organization | undefined = resources.find(
     (res): res is Organization =>
       res.resourceType === 'Organization' &&
-      organizationMatchesType(res, codeableConcept('employer', FHIR_EXTENSION.Organization.organizationType.url))
+      organizationMatchesType(
+        res,
+        codeableConcept('workmans-comp-employer', FHIR_EXTENSION.Organization.organizationType.url)
+      )
+  );
+
+  const occupationalMedicineEmployerOrganization: Organization | undefined = resources.find(
+    (res): res is Organization =>
+      res.resourceType === 'Organization' &&
+      organizationMatchesType(
+        res,
+        codeableConcept('occupational-medicine-employer', FHIR_EXTENSION.Organization.organizationType.url)
+      )
   );
 
   const existingCoverages: OrderedCoveragesWithSubscribers = {};
@@ -3476,7 +3553,9 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     patient,
     account: existingAccount,
     workersCompAccount,
+    occupationalMedicineAccount,
     employerOrganization,
+    occupationalMedicineEmployerOrganization,
     coverages: existingCoverages,
     insuranceOrgs,
     guarantorResource: existingGuarantorResource,
@@ -3590,6 +3669,7 @@ export const updatePatientAccountFromQuestionnaire = async (
     guarantorResource: existingGuarantorResource,
     emergencyContactResource: existingEmergencyContact,
     workersCompAccount: existingWorkersCompAccount,
+    occupationalMedicineAccount: existingOccupationalMedicineAccount,
     employerOrganization: existingEmployerOrganization,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
 
@@ -3608,6 +3688,7 @@ export const updatePatientAccountFromQuestionnaire = async (
     preserveOmittedCoverages,
     existingEmergencyContact,
     existingWorkersCompAccount,
+    existingOccupationalMedicineAccount,
     existingEmployerOrganization,
   });
 
@@ -3623,6 +3704,8 @@ export const updatePatientAccountFromQuestionnaire = async (
     employerOrganizationPut,
     workersCompAccountPost,
     workersCompAccountPut,
+    occupationalMedicineAccountPost,
+    occupationalMedicineAccountPut,
   } = accountOperations;
 
   const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient | Organization>[] = [
@@ -3639,6 +3722,9 @@ export const updatePatientAccountFromQuestionnaire = async (
   if (workersCompAccountPut) {
     transactionRequests.push(workersCompAccountPut);
   }
+  if (occupationalMedicineAccountPut) {
+    transactionRequests.push(occupationalMedicineAccountPut);
+  }
   if (accountPost) {
     transactionRequests.push({
       url: '/Account',
@@ -3651,6 +3737,13 @@ export const updatePatientAccountFromQuestionnaire = async (
       url: '/Account',
       method: 'POST',
       resource: workersCompAccountPost,
+    });
+  }
+  if (occupationalMedicineAccountPost) {
+    transactionRequests.push({
+      url: '/Account',
+      method: 'POST',
+      resource: occupationalMedicineAccountPost,
     });
   }
   if (emergencyContactPost) {

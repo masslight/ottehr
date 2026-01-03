@@ -284,6 +284,11 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           items: itemItems,
           employerOrganization: accountInfo?.employerOrganization,
         });
+      } else if (OCCUPATIONAL_MEDICINE_EMPLOYER_ITEMS.includes(item.linkId)) {
+        return mapOccupationalMedicineEmployerToQuestionnaireResponseItems({
+          items: itemItems,
+          occupationalMedicineEmployerOrganization: accountInfo?.occupationalMedicineEmployerOrganization,
+        });
       } else if (item.linkId === 'photo-id-page') {
         return itemItems.map((item) => {
           let answer: QuestionnaireResponseItemAnswer[] | undefined;
@@ -379,6 +384,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
     insuranceOrgs,
     emergencyContactResource,
     pharmacy,
+    occupationalMedicineEmployerOrganization,
     employerOrganization,
     overriddenItems = [],
   } = input;
@@ -443,6 +449,12 @@ export const makePrepopulatedItemsFromPatientRecord = (
         return mapEmployerToQuestionnaireResponseItems({
           items: itemItems,
           employerOrganization,
+        });
+      }
+      if (OCCUPATIONAL_MEDICINE_EMPLOYER_ITEMS.includes(item.linkId)) {
+        return mapOccupationalMedicineEmployerToQuestionnaireResponseItems({
+          items: itemItems,
+          occupationalMedicineEmployerOrganization,
         });
       }
       return [];
@@ -1006,6 +1018,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
 };
 
 const EMPLOYER_ITEMS = ['employer-information-page'];
+const OCCUPATIONAL_MEDICINE_EMPLOYER_ITEMS = ['occupational-medicine-employer-information-page'];
 
 interface MapEmployerItemsInput {
   items: QuestionnaireItem[];
@@ -1078,6 +1091,40 @@ const mapEmployerToQuestionnaireResponseItems = (input: MapEmployerItemsInput): 
         if (fax) answer = makeAnswer(fax);
         break;
       }
+    }
+
+    return {
+      linkId,
+      answer,
+    };
+  });
+};
+
+interface MapOccupationalMedicineEmployerItemsInput {
+  items: QuestionnaireItem[];
+  occupationalMedicineEmployerOrganization?: Organization;
+}
+
+const mapOccupationalMedicineEmployerToQuestionnaireResponseItems = (
+  input: MapOccupationalMedicineEmployerItemsInput
+): QuestionnaireResponseItem[] => {
+  const { occupationalMedicineEmployerOrganization, items } = input;
+  let occupationalMedicineEmployerReference: Reference | undefined;
+  if (occupationalMedicineEmployerOrganization) {
+    occupationalMedicineEmployerReference = {
+      reference: `Organization/${occupationalMedicineEmployerOrganization.id}`,
+      display: occupationalMedicineEmployerOrganization.name,
+    };
+  }
+
+  return items.map((item) => {
+    let answer: QuestionnaireResponseItemAnswer[] | undefined;
+    const { linkId } = item;
+
+    switch (linkId) {
+      case 'occupational-medicine-employer':
+        answer = makeAnswer(occupationalMedicineEmployerReference, 'Reference');
+        break;
     }
 
     return {

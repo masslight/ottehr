@@ -6,6 +6,7 @@ import {
   makeAnswer,
   makePrepopulatedItemsFromPatientRecord,
   ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE,
   ORG_TYPE_PAYER_CODE,
   PrePopulationFromPatientRecordInput,
 } from '../../main';
@@ -738,6 +739,26 @@ const FormFields = {
     hiddenFields: [],
     requiredFields: [],
   },
+  occupationalMedicineEmployerInformation: {
+    linkId: 'occupational-medicine-employer-information-page',
+    title: 'Employer - Occupational Medicine',
+    items: {
+      employerName: {
+        key: 'occupational-medicine-employer',
+        type: 'reference',
+        label: 'Employer name',
+        dataSource: {
+          answerSource: {
+            resourceType: 'Organization',
+            query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_OCCUPATIONAL_MEDICINE_EMPLOYER_CODE}`,
+            prependedIdentifier: '1',
+          },
+        },
+      },
+    },
+  },
+  hiddenFields: [],
+  requiredFields: [],
 };
 
 const FormFieldsSchema = z.object({
@@ -750,6 +771,7 @@ const FormFieldsSchema = z.object({
   emergencyContact: FormSectionSimpleSchema,
   preferredPharmacy: FormSectionSimpleSchema,
   employerInformation: FormSectionSimpleSchema,
+  occupationalMedicineEmployerInformation: FormSectionSimpleSchema,
 });
 
 const hiddenFormSections: string[] = [];
