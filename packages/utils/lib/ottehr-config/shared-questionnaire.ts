@@ -48,6 +48,8 @@ const ReferenceDataSourceSchema = z
 const FormFieldsLogicalFieldSchema = z.object({
   key: z.string(),
   type: z.enum(['string', 'date', 'boolean', 'choice']),
+  required: z.boolean().optional().default(true),
+  dataType: QuestionnaireDataTypeSchema.optional(),
   initialValue: z.union([z.string(), z.boolean()]).optional(),
   options: z
     .array(
@@ -571,7 +573,7 @@ const convertLogicalItemToQuestionnaireItem = (field: FormFieldsLogicalItem): Qu
   const item: QuestionnaireItem = {
     linkId: field.key,
     type: field.type,
-    required: field.type === 'boolean' || field.type === 'choice',
+    required: field.required ?? true,
     readOnly: true,
   };
 
@@ -589,8 +591,15 @@ const convertLogicalItemToQuestionnaireItem = (field: FormFieldsLogicalItem): Qu
     }
   }
 
-  // Add disabled-display extension for hidden logical fields
+  // Add extensions for logical fields
   const extensions: any[] = [];
+
+  // Add dataType extension if specified
+  if (field.dataType) {
+    extensions.push(createDataTypeExtension(field.dataType));
+  }
+
+  // Add disabled-display extension for hidden logical fields
   extensions.push(createDisabledDisplayExtension('hidden'));
 
   if (extensions.length > 0) {

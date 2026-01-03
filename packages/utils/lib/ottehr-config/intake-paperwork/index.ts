@@ -4099,6 +4099,7 @@ const FormFields = {
       patientBirthDate: {
         key: 'patient-birthdate',
         type: 'date',
+        dataType: 'DOB',
       },
       patientBirthSex: {
         key: 'patient-birth-sex',
@@ -4108,6 +4109,7 @@ const FormFields = {
       patientBirthSexMissing: {
         key: 'patient-birth-sex-missing',
         type: 'boolean',
+        required: false,
       },
     },
     items: {
