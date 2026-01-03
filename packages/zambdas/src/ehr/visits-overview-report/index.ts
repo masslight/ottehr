@@ -151,7 +151,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const activeAppointments = appointments.filter((appointment) => {
       if (!appointment.id) return false;
       const encounter = encounterMap.get(`Appointment/${appointment.id}`);
-      if (!encounter) return true; // Keep appointments without encounters
+      if (!encounter) return false;
       const visitStatus = getInPersonVisitStatus(appointment, encounter);
       return visitStatus !== 'cancelled' && visitStatus !== 'no show';
     });
