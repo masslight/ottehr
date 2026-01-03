@@ -82,7 +82,7 @@ const FormFieldsAttachmentFieldSchema = z.object({
 const FormFieldsValueTypeSchema = z
   .object({
     key: z.string(),
-    type: z.enum(['string', 'date', 'choice', 'boolean', 'reference']),
+    type: z.enum(['string', 'text', 'date', 'choice', 'boolean', 'reference']),
     label: z.string(),
     dataType: QuestionnaireDataTypeSchema.optional(),
     options: z
@@ -525,16 +525,16 @@ const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: 
     extensions.push(createInputWidthExtension(field.inputWidth));
   }
 
+  if (field.placeholder) {
+    extensions.push(createPlaceholderExtension(field.placeholder));
+  }
+
   if (field.autocomplete) {
     extensions.push(createAutocompleteExtension(field.autocomplete));
   }
 
   if (field.permissibleValue !== undefined) {
     extensions.push(createPermissibleValueExtension(field.permissibleValue));
-  }
-
-  if (field.placeholder) {
-    extensions.push(createPlaceholderExtension(field.placeholder));
   }
 
   if (field.infoTextSecondary) {
@@ -683,15 +683,7 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
           item: [],
         };
 
-        // Add logical items first (only for the first item in array-based sections)
-        if (section.logicalItems && index === 0) {
-          for (const [, logicalField] of Object.entries(section.logicalItems)) {
-            const logicalItem = convertLogicalItemToQuestionnaireItem(logicalField);
-            groupItem.item!.push(logicalItem);
-          }
-        }
-
-        // Convert each field to a questionnaire item
+        // Convert each field to a questionnaire item first
         for (const [, field] of Object.entries(items)) {
           let questionnaireItem: QuestionnaireItem;
           if (field.type === 'display') {
@@ -709,6 +701,14 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
           groupItem.item!.push(questionnaireItem);
         }
 
+        // Add logical items after regular fields (only for the first item in array-based sections)
+        if (section.logicalItems && index === 0) {
+          for (const [, logicalField] of Object.entries(section.logicalItems)) {
+            const logicalItem = convertLogicalItemToQuestionnaireItem(logicalField);
+            groupItem.item!.push(logicalItem);
+          }
+        }
+
         // Apply group-level properties
         applyGroupLevelProperties(groupItem, section);
 
@@ -723,15 +723,7 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
         item: [],
       };
 
-      // Add logical items first
-      if (section.logicalItems) {
-        for (const [, logicalField] of Object.entries(section.logicalItems)) {
-          const logicalItem = convertLogicalItemToQuestionnaireItem(logicalField);
-          groupItem.item!.push(logicalItem);
-        }
-      }
-
-      // Convert each field to a questionnaire item
+      // Convert each field to a questionnaire item first
       for (const [, field] of Object.entries(section.items)) {
         let questionnaireItem: QuestionnaireItem;
         if (field.type === 'display') {
@@ -744,6 +736,14 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
           questionnaireItem = convertFormFieldToQuestionnaireItem(field as FormFieldsItem, isRequired);
         }
         groupItem.item!.push(questionnaireItem);
+      }
+
+      // Add logical items after regular fields
+      if (section.logicalItems) {
+        for (const [, logicalField] of Object.entries(section.logicalItems)) {
+          const logicalItem = convertLogicalItemToQuestionnaireItem(logicalField);
+          groupItem.item!.push(logicalItem);
+        }
       }
 
       // Apply group-level properties

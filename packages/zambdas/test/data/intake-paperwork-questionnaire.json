@@ -714,6 +714,7 @@
           "linkId": "pcp-address",
           "text": "Address",
           "type": "string",
+          "required": false,
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/placeholder",
@@ -2576,6 +2577,7 @@
         {
           "linkId": "valid-card-on-file",
           "type": "boolean",
+          "required": false,
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
@@ -2604,7 +2606,7 @@
       "item": [
         {
           "linkId": "responsible-party-page-caption",
-          "text": "A responsible party is the individual responsible for the visit’s financial obligations. If the patient is not their own responsible party, then the responsible party must be the patient’s legal guardian or legal designee.",
+          "text": "A responsible party is the individual responsible for the visit's financial obligations. If the patient is not their own responsible party, then the responsible party must be the patient's legal guardian or legal designee.",
           "type": "display",
           "extension": [
             {
@@ -2797,6 +2799,7 @@
           "linkId": "responsible-party-address-2",
           "text": "Address line 2 (optional)",
           "type": "string",
+          "required": false,
           "enableWhen": [
             {
               "question": "responsible-party-relationship",
@@ -3094,7 +3097,6 @@
               "answerString": "Self"
             }
           ],
-          "enableBehavior": "all",
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
@@ -3122,7 +3124,6 @@
               "answerString": "Self"
             }
           ],
-          "enableBehavior": "all",
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
@@ -3511,7 +3512,6 @@
               "answerBoolean": true
             }
           ],
-          "enableBehavior": "all",
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
@@ -3527,6 +3527,7 @@
           "linkId": "emergency-contact-address-2",
           "text": "Address line 2 (optional)",
           "type": "string",
+          "required": false,
           "enableWhen": [
             {
               "question": "emergency-contact-address-as-patient",
@@ -3534,7 +3535,6 @@
               "answerBoolean": true
             }
           ],
-          "enableBehavior": "all",
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
@@ -3558,7 +3558,6 @@
               "answerBoolean": true
             }
           ],
-          "enableBehavior": "all",
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -3744,7 +3743,6 @@
               "answerBoolean": true
             }
           ],
-          "enableBehavior": "all",
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
@@ -3772,7 +3770,6 @@
               "answerBoolean": true
             }
           ],
-          "enableBehavior": "all",
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
@@ -4044,6 +4041,7 @@
         {
           "linkId": "medical-history-questionnaire",
           "type": "boolean",
+          "required": false,
           "extension": [
             {
               "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",

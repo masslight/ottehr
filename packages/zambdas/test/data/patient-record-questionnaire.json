@@ -5,23 +5,6 @@
     "text": "Patient summary",
     "item": [
       {
-        "linkId": "should-display-ssn-field",
-        "type": "boolean",
-        "required": false,
-        "readOnly": true,
-        "initial": [
-          {
-            "valueBoolean": false
-          }
-        ]
-      },
-      {
-        "linkId": "ssn-field-required",
-        "type": "boolean",
-        "required": false,
-        "readOnly": true
-      },
-      {
         "linkId": "patient-first-name",
         "type": "string",
         "text": "First name",
@@ -137,6 +120,35 @@
                 "valueBoolean": true
               }
             ]
+          }
+        ]
+      },
+      {
+        "linkId": "should-display-ssn-field",
+        "type": "boolean",
+        "required": true,
+        "readOnly": true,
+        "initial": [
+          {
+            "valueBoolean": false
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          }
+        ]
+      },
+      {
+        "linkId": "ssn-field-required",
+        "type": "boolean",
+        "required": true,
+        "readOnly": true,
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
           }
         ]
       }
@@ -389,7 +401,7 @@
             "valueString": "Been there with another family member"
           },
           {
-            "valueString": "Pediatrician/Healthcare Professional"
+            "valueString": "Healthcare Professional"
           },
           {
             "valueString": "Google/Internet search"

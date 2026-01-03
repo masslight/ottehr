@@ -294,7 +294,7 @@ const formValueSets = {
   pointOfDiscoveryOptions: [
     { label: 'Friend/Family', value: 'Friend/Family' },
     { label: 'Been there with another family member', value: 'Been there with another family member' },
-    { label: 'Pediatrician/Healthcare Professional', value: 'Pediatrician/Healthcare Professional' },
+    { label: 'Healthcare Professional', value: 'Healthcare Professional' },
     { label: 'Google/Internet search', value: 'Google/Internet search' },
     { label: 'Internet ad', value: 'Internet ad' },
     { label: 'Social media community group', value: 'Social media community group' },

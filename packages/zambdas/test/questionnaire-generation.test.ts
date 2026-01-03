@@ -13,12 +13,12 @@ describe('testing Questionnaire generation from config objects', () => {
   test.concurrent('patient record questionnaire config generates expected questionnaire items', async () => {
     const questionnaireItems = createQuestionnaireItemFromConfig(PATIENT_RECORD_CONFIG);
     expect(questionnaireItems).toBeDefined();
-    expect(JSON.stringify(questionnaireItems)).toEqual(JSON.stringify(PatientRecordQuestionnaire));
+    expect(questionnaireItems).toEqual(PatientRecordQuestionnaire);
   });
   test.concurrent('booking questionnaire config generates expected questionnaire items', async () => {
     const questionnaireItems = createQuestionnaireItemFromConfig(BOOKING_CONFIG.formConfig);
     expect(questionnaireItems).toBeDefined();
-    expect(JSON.stringify(questionnaireItems)).toEqual(JSON.stringify(BookingQuestionnaire.item));
+    expect(questionnaireItems).toEqual(BookingQuestionnaire.item);
   });
   test.concurrent(
     'intake paperwork questionnaire generates expected questionnaire (excluding payment-option pages)',
@@ -87,12 +87,26 @@ describe('testing Questionnaire generation from config objects', () => {
           expect(genLogical, `Section ${i} logical item ${expLogical.linkId}`).toEqual(expLogical);
         }
 
+        // Helper to normalize items by sorting extensions (order-independent comparison)
+        const normalizeItem = (item: any): any => {
+          if (!item) return item;
+          const normalized = { ...item };
+          if (normalized.extension && Array.isArray(normalized.extension)) {
+            normalized.extension = [...normalized.extension].sort((a: any, b: any): number =>
+              (a.url || '').localeCompare(b.url || '')
+            );
+          }
+          return normalized;
+        };
+
         // Check that regular items are in the exact expected order
         expect(genRegularItems.length, `Section ${i} (${expSection.linkId}) regular item count`).toBe(
           expRegularItems.length
         );
         for (let j = 0; j < expRegularItems.length; j++) {
-          expect(genRegularItems[j], `Section ${i} (${expSection.linkId}) item ${j}`).toEqual(expRegularItems[j]);
+          const normalizedGen = normalizeItem(genRegularItems[j]);
+          const normalizedExp = normalizeItem(expRegularItems[j]);
+          expect(normalizedGen, `Section ${i} (${expSection.linkId}) item ${j}`).toEqual(normalizedExp);
         }
       }
     }

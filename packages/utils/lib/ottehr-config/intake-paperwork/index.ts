@@ -4230,12 +4230,14 @@ const FormFields = {
         text: 'Preferred pronouns',
         type: 'choice',
         options: formValueSets.pronounOptions,
+        infoTextSecondary:
+          'Pronoun responses are kept confidential in our system and are used to help us best respect how our patients wish to be addressed.',
       },
       pronounsCustom: {
         key: 'patient-pronouns-custom',
         label: 'My pronouns',
         text: 'My pronouns',
-        type: 'string',
+        type: 'text',
         triggers: [
           {
             targetQuestionLinkId: 'patient-pronouns',
@@ -4330,6 +4332,7 @@ const FormFields = {
         label: 'Address',
         text: 'Address',
         type: 'string',
+        placeholder: 'Street address, City, State, ZIP',
         autocomplete: 'section-pcp shipping street-address',
       },
       phoneNumber: {
@@ -4588,12 +4591,12 @@ const FormFields = {
         disabledDisplay: 'protected',
         dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
       },
-      phoneNumber: {
-        key: 'responsible-party-number',
-        label: 'Phone',
-        text: 'Phone',
-        type: 'string',
-        dataType: 'Phone Number',
+      birthSex: {
+        key: 'responsible-party-birth-sex',
+        label: 'Birth sex',
+        text: 'Birth sex',
+        type: 'choice',
+        options: formValueSets.birthSexOptions,
         triggers: [
           {
             targetQuestionLinkId: 'responsible-party-relationship',
@@ -4603,29 +4606,12 @@ const FormFields = {
           },
         ],
         disabledDisplay: 'protected',
-        dynamicPopulation: { sourceLinkId: 'patient-number' },
-      },
-      email: {
-        key: 'responsible-party-email',
-        label: 'Email',
-        text: 'Email',
-        type: 'string',
-        dataType: 'Email',
-        triggers: [
-          {
-            targetQuestionLinkId: 'responsible-party-relationship',
-            effect: ['enable'],
-            operator: '!=',
-            answerString: 'Self',
-          },
-        ],
-        disabledDisplay: 'protected',
-        dynamicPopulation: { sourceLinkId: 'patient-email' },
+        dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
       },
       addressSameAsPatient: {
         key: 'responsible-party-address-as-patient',
-        label: "Responsible party address is the same as patient's address",
-        text: "Responsible party address is the same as patient's address",
+        label: "Responsible party's address is the same as patient's address",
+        text: "Responsible party's address is the same as patient's address",
         type: 'boolean',
         triggers: [
           {
@@ -4638,8 +4624,8 @@ const FormFields = {
       },
       streetAddress: {
         key: 'responsible-party-address',
-        label: 'Street address',
-        text: 'Street address',
+        label: 'Address',
+        text: 'Address',
         type: 'string',
         triggers: [
           {
@@ -4661,8 +4647,8 @@ const FormFields = {
       },
       streetAddress2: {
         key: 'responsible-party-address-2',
-        label: 'Address line 2',
-        text: 'Address line 2',
+        label: 'Address line 2 (optional)',
+        text: 'Address line 2 (optional)',
         type: 'string',
         triggers: [
           {
@@ -4756,6 +4742,40 @@ const FormFields = {
         disabledDisplay: 'protected',
         dynamicPopulation: { sourceLinkId: 'patient-zip' },
       },
+      phoneNumber: {
+        key: 'responsible-party-number',
+        label: 'Phone number (optional)',
+        text: 'Phone number (optional)',
+        type: 'string',
+        dataType: 'Phone Number',
+        triggers: [
+          {
+            targetQuestionLinkId: 'responsible-party-relationship',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'Self',
+          },
+        ],
+        disabledDisplay: 'protected',
+        dynamicPopulation: { sourceLinkId: 'patient-number' },
+      },
+      email: {
+        key: 'responsible-party-email',
+        label: 'Email',
+        text: 'Email',
+        type: 'string',
+        dataType: 'Email',
+        triggers: [
+          {
+            targetQuestionLinkId: 'responsible-party-relationship',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'Self',
+          },
+        ],
+        disabledDisplay: 'protected',
+        dynamicPopulation: { sourceLinkId: 'patient-email' },
+      },
     },
     hiddenFields: [],
     requiredFields: [
@@ -4763,6 +4783,7 @@ const FormFields = {
       'responsible-party-first-name',
       'responsible-party-last-name',
       'responsible-party-date-of-birth',
+      'responsible-party-birth-sex',
       'responsible-party-address',
       'responsible-party-city',
       'responsible-party-state',
@@ -4815,17 +4836,24 @@ const FormFields = {
         dataType: 'ZIP',
         inputWidth: 's',
       },
+      contactText: {
+        key: 'employer-contact-text',
+        text: 'Employer Contact',
+        type: 'display',
+      },
       contactFirstName: {
         key: 'employer-contact-first-name',
         label: 'First name',
         text: 'First name',
         type: 'string',
+        inputWidth: 'm',
       },
       contactLastName: {
         key: 'employer-contact-last-name',
         label: 'Last name',
         text: 'Last name',
         type: 'string',
+        inputWidth: 'm',
       },
       contactTitle: {
         key: 'employer-contact-title',
@@ -4842,14 +4870,30 @@ const FormFields = {
       },
       contactPhone: {
         key: 'employer-contact-phone',
-        label: 'Phone',
-        text: 'Phone',
+        label: 'Mobile',
+        text: 'Mobile',
+        type: 'string',
+        dataType: 'Phone Number',
+      },
+      contactFax: {
+        key: 'employer-contact-fax',
+        label: 'Fax',
+        text: 'Fax',
         type: 'string',
         dataType: 'Phone Number',
       },
     },
     hiddenFields: [],
-    requiredFields: ['employer-name', 'employer-address', 'employer-city', 'employer-state', 'employer-zip'],
+    requiredFields: [
+      'employer-name',
+      'employer-address',
+      'employer-city',
+      'employer-state',
+      'employer-zip',
+      'employer-contact-first-name',
+      'employer-contact-last-name',
+      'employer-contact-phone',
+    ],
   },
   emergencyContact: {
     linkId: 'emergency-contact-page',
@@ -4993,6 +5037,7 @@ const FormFields = {
       'emergency-contact-number',
       'emergency-contact-address',
       'emergency-contact-city',
+      'emergency-contact-state',
       'emergency-contact-zip',
     ],
   },
@@ -5096,6 +5141,53 @@ const FormFields = {
         label: 'Signature',
         text: 'Signature',
         type: 'string',
+        dataType: 'Signature',
+        triggers: [
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
+        disabledDisplay: 'protected',
+      },
+      fullName: {
+        key: 'full-name',
+        label: 'Full name',
+        text: 'Full name',
+        type: 'string',
+        triggers: [
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'completed',
+          },
+          {
+            targetQuestionLinkId: '$status',
+            effect: ['enable'],
+            operator: '!=',
+            answerString: 'amended',
+          },
+        ],
+        enableBehavior: 'all',
+        autocomplete: 'section-consent-forms shipping name',
+        disabledDisplay: 'protected',
+      },
+      consentFormSignerRelationship: {
+        key: 'consent-form-signer-relationship',
+        label: 'Relationship to the patient',
+        text: 'Relationship to the patient',
+        type: 'choice',
+        options: formValueSets.relationshipOptions,
         triggers: [
           {
             targetQuestionLinkId: '$status',
@@ -5115,7 +5207,13 @@ const FormFields = {
       },
     },
     hiddenFields: [],
-    requiredFields: ['hipaa-acknowledgement', 'consent-to-treat', 'signature'],
+    requiredFields: [
+      'hipaa-acknowledgement',
+      'consent-to-treat',
+      'signature',
+      'full-name',
+      'consent-form-signer-relationship',
+    ],
   },
   medicalHistory: {
     linkId: 'medical-history-page',
