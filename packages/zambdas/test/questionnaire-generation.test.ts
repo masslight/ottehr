@@ -50,19 +50,19 @@ describe('testing Questionnaire generation from config objects', () => {
         const genSection = generatedSections![i];
 
         // Compare section-level properties
-        expect(genSection.linkId, `Section ${i} linkId`).toBe(expSection.linkId);
-        expect(genSection.text, `Section ${i} text`).toBe(expSection.text);
-        expect(genSection.type, `Section ${i} type`).toBe(expSection.type);
+        expect(genSection.linkId).toBe(expSection.linkId);
+        expect(genSection.text).toBe(expSection.text);
+        expect(genSection.type).toBe(expSection.type);
 
         // Compare section-level extensions if present
         if (expSection.extension) {
-          expect(genSection.extension, `Section ${i} extensions`).toEqual(expSection.extension);
+          expect(genSection.extension).toEqual(expSection.extension);
         }
         if (expSection.enableWhen) {
-          expect(genSection.enableWhen, `Section ${i} enableWhen`).toEqual(expSection.enableWhen);
+          expect(genSection.enableWhen).toEqual(expSection.enableWhen);
         }
         if (expSection.enableBehavior) {
-          expect(genSection.enableBehavior, `Section ${i} enableBehavior`).toBe(expSection.enableBehavior);
+          expect(genSection.enableBehavior).toBe(expSection.enableBehavior);
         }
 
         // Separate logical items from regular items
@@ -78,13 +78,13 @@ describe('testing Questionnaire generation from config objects', () => {
         const expLogicalIds = new Set(expLogicalItems.map((i: any): string => i.linkId));
         const genLogicalIds = new Set(genLogicalItems.map((i: any): string => i.linkId));
 
-        expect(genLogicalIds, `Section ${i} (${expSection.linkId}) logical item linkIds`).toEqual(expLogicalIds);
+        expect(genLogicalIds).toEqual(expLogicalIds);
 
         // For each logical item, check that it exists with the same properties (order-independent)
         for (const expLogical of expLogicalItems) {
           const genLogical = genLogicalItems.find((g: any) => g.linkId === expLogical.linkId);
-          expect(genLogical, `Section ${i} logical item ${expLogical.linkId} exists`).toBeDefined();
-          expect(genLogical, `Section ${i} logical item ${expLogical.linkId}`).toEqual(expLogical);
+          expect(genLogical).toBeDefined();
+          expect(genLogical).toEqual(expLogical);
         }
 
         // Helper to normalize items by sorting extensions (order-independent comparison)
@@ -100,13 +100,11 @@ describe('testing Questionnaire generation from config objects', () => {
         };
 
         // Check that regular items are in the exact expected order
-        expect(genRegularItems.length, `Section ${i} (${expSection.linkId}) regular item count`).toBe(
-          expRegularItems.length
-        );
+        expect(genRegularItems.length).toBe(expRegularItems.length);
         for (let j = 0; j < expRegularItems.length; j++) {
           const normalizedGen = normalizeItem(genRegularItems[j]);
           const normalizedExp = normalizeItem(expRegularItems[j]);
-          expect(normalizedGen, `Section ${i} (${expSection.linkId}) item ${j}`).toEqual(normalizedExp);
+          expect(normalizedGen).toEqual(normalizedExp);
         }
       }
     }
