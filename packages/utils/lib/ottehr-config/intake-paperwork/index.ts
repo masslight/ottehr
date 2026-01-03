@@ -4345,28 +4345,6 @@ const FormFields = {
   pharmacy: {
     linkId: 'pharmacy-page',
     title: 'Preferred pharmacy',
-    textWhen: [
-      {
-        question: 'patient-state',
-        operator: '=',
-        answer: 'CA',
-        substituteText: 'California pharmacy information',
-      },
-      {
-        question: 'patient-state',
-        operator: '=',
-        answer: 'NY',
-        substituteText: 'New York pharmacy information',
-      },
-    ],
-    complexValidation: {
-      type: 'pharmacy availability',
-      triggerWhen: {
-        question: 'patient-zip',
-        operator: '=',
-        answer: '10001',
-      },
-    },
     items: {
       name: {
         key: 'pharmacy-name',
@@ -4385,7 +4363,33 @@ const FormFields = {
     requiredFields: [],
   },
   // TODO: paymentOption - requires group-level extensions (complex-validation, text-when, review-text) and answer-option extensions
-  // TODO: cardPayment - needs Payment Validation dataType support
+  cardPayment: {
+    linkId: 'card-payment-page',
+    title: 'Credit card details',
+    items: {
+      validCardOnFile: {
+        key: 'valid-card-on-file',
+        label: '',
+        type: 'boolean',
+        dataType: 'Payment Validation',
+      },
+      detailsText: {
+        key: 'card-payment-details-text',
+        text: 'If you choose not to enter your credit card information in advance, payment (cash or credit) will be required upon arrival.',
+        type: 'display',
+        triggers: [
+          {
+            targetQuestionLinkId: 'card-payment-details-text',
+            effect: ['enable'],
+            operator: '=',
+            answerString: '-',
+          },
+        ],
+      },
+    },
+    hiddenFields: [],
+    requiredFields: [],
+  },
   responsibleParty: {
     linkId: 'responsible-party-page',
     title: 'Responsible party information',
@@ -4862,7 +4866,36 @@ const FormFields = {
       'emergency-contact-zip',
     ],
   },
-  // TODO: photoId - requires attachment type support
+  photoId: {
+    linkId: 'photo-id-page',
+    title: 'Photo ID',
+    items: {
+      caption: {
+        key: 'photo-id-page-caption',
+        text: "Please upload a Photo ID, Driver's License, or Passport for an adult, either yourself or the parent/guardian when accompanying a child. ",
+        type: 'display',
+        element: 'p',
+      },
+      photoIdFront: {
+        key: 'photo-id-front',
+        label: 'Take a picture of the front side of your Photo ID (optional)',
+        type: 'attachment',
+        dataType: 'Image',
+        attachmentText: 'Take a picture of the **front side** of your Photo ID',
+        documentType: '55188-7',
+      },
+      photoIdBack: {
+        key: 'photo-id-back',
+        label: 'Take a picture of the back side of your Photo ID (optional)',
+        type: 'attachment',
+        dataType: 'Image',
+        attachmentText: 'Take a picture of the **back side** of your Photo ID',
+        documentType: '55188-7',
+      },
+    },
+    hiddenFields: [],
+    requiredFields: [],
+  },
   consentForms: {
     linkId: 'consent-forms-page',
     title: 'Complete consent forms',
@@ -4954,7 +4987,20 @@ const FormFields = {
     hiddenFields: [],
     requiredFields: ['hipaa-acknowledgement', 'consent-to-treat', 'signature'],
   },
-  // TODO: medicalHistory - needs Medical History dataType support
+  medicalHistory: {
+    linkId: 'medical-history-page',
+    title: 'Medical history',
+    items: {
+      questionnaire: {
+        key: 'medical-history-questionnaire',
+        label: '',
+        type: 'boolean',
+        dataType: 'Medical History',
+      },
+    },
+    hiddenFields: [],
+    requiredFields: [],
+  },
 };
 
 const FormFieldsSchema = z.object({
@@ -4962,10 +5008,13 @@ const FormFieldsSchema = z.object({
   patientDetails: FormSectionSimpleSchema,
   primaryCarePhysician: FormSectionSimpleSchema,
   pharmacy: FormSectionSimpleSchema,
+  cardPayment: FormSectionSimpleSchema,
   responsibleParty: FormSectionSimpleSchema,
   employerInformation: FormSectionSimpleSchema,
   emergencyContact: FormSectionSimpleSchema,
+  photoId: FormSectionSimpleSchema,
   consentForms: FormSectionSimpleSchema,
+  medicalHistory: FormSectionSimpleSchema,
 });
 
 const hiddenFormSections: string[] = [];

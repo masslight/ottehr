@@ -68,6 +68,15 @@ const FormFieldsDisplayFieldSchema = z.object({
   enableBehavior: z.enum(['all', 'any']).default('any').optional(),
 });
 
+const FormFieldsAttachmentFieldSchema = z.object({
+  key: z.string(),
+  type: z.literal('attachment'),
+  label: z.string(),
+  dataType: QuestionnaireDataTypeSchema.optional(),
+  attachmentText: z.string().optional(),
+  documentType: z.string().optional(),
+});
+
 const FormFieldsValueTypeSchema = z
   .object({
     key: z.string(),
@@ -91,6 +100,8 @@ const FormFieldsValueTypeSchema = z
     inputWidth: z.enum(['s', 'm', 'l']).optional(),
     autocomplete: z.string().optional(),
     permissibleValue: z.union([z.boolean(), z.string()]).optional(),
+    placeholder: z.string().optional(),
+    infoTextSecondary: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -121,9 +132,12 @@ const FormFieldsValueTypeSchema = z
 
 export type FormFieldsItem = z.infer<typeof FormFieldsValueTypeSchema>;
 export type FormFieldsDisplayItem = z.infer<typeof FormFieldsDisplayFieldSchema>;
+export type FormFieldsAttachmentItem = z.infer<typeof FormFieldsAttachmentFieldSchema>;
 export type FormFieldsLogicalItem = z.infer<typeof FormFieldsLogicalFieldSchema>;
 
-export const FormFieldItemRecordSchema = z.record(z.union([FormFieldsValueTypeSchema, FormFieldsDisplayFieldSchema]));
+export const FormFieldItemRecordSchema = z.record(
+  z.union([FormFieldsValueTypeSchema, FormFieldsDisplayFieldSchema, FormFieldsAttachmentFieldSchema])
+);
 export type FormFieldItemRecord = z.infer<typeof FormFieldItemRecordSchema>;
 export const FormFieldLogicalItemRecordSchema = z.record(FormFieldsLogicalFieldSchema);
 export type FormFieldLogicalItemRecord = z.infer<typeof FormFieldLogicalItemRecordSchema>;
@@ -280,6 +294,28 @@ const createPermissibleValueExtension = (
   ...(typeof value === 'boolean' ? { valueBoolean: value } : { valueString: value }),
 });
 
+const createPlaceholderExtension = (placeholder: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/placeholder',
+  valueString: placeholder,
+});
+
+const createInfoTextSecondaryExtension = (infoText: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/information-text-secondary',
+  valueString: infoText,
+});
+
+const createAttachmentTextExtension = (
+  attachmentText: string
+): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/attachment-text',
+  valueString: attachmentText,
+});
+
+const createDocumentTypeExtension = (documentType: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/document-type',
+  valueString: documentType,
+});
+
 const createReviewTextExtension = (reviewText: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/review-text',
   valueString: reviewText,
@@ -405,6 +441,38 @@ const convertDisplayFieldToQuestionnaireItem = (field: FormFieldsDisplayItem): Q
   return item;
 };
 
+const convertAttachmentFieldToQuestionnaireItem = (
+  field: FormFieldsAttachmentItem,
+  isRequired: boolean
+): QuestionnaireItem => {
+  const item: QuestionnaireItem = {
+    linkId: field.key,
+    type: 'attachment',
+    text: field.label,
+    required: isRequired,
+  };
+
+  const extensions: any[] = [];
+
+  if (field.attachmentText) {
+    extensions.push(createAttachmentTextExtension(field.attachmentText));
+  }
+
+  if (field.dataType) {
+    extensions.push(createDataTypeExtension(field.dataType));
+  }
+
+  if (field.documentType) {
+    extensions.push(createDocumentTypeExtension(field.documentType));
+  }
+
+  if (extensions.length > 0) {
+    item.extension = extensions;
+  }
+
+  return item;
+};
+
 const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: boolean): QuestionnaireItem => {
   const item: QuestionnaireItem = {
     linkId: field.key,
@@ -461,6 +529,14 @@ const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: 
 
   if (field.permissibleValue !== undefined) {
     extensions.push(createPermissibleValueExtension(field.permissibleValue));
+  }
+
+  if (field.placeholder) {
+    extensions.push(createPlaceholderExtension(field.placeholder));
+  }
+
+  if (field.infoTextSecondary) {
+    extensions.push(createInfoTextSecondaryExtension(field.infoTextSecondary));
   }
 
   // Add enableWhen from triggers
@@ -611,6 +687,12 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
           let questionnaireItem: QuestionnaireItem;
           if (field.type === 'display') {
             questionnaireItem = convertDisplayFieldToQuestionnaireItem(field as FormFieldsDisplayItem);
+          } else if (field.type === 'attachment') {
+            const isRequired = section.requiredFields?.includes(field.key) ?? false;
+            questionnaireItem = convertAttachmentFieldToQuestionnaireItem(
+              field as FormFieldsAttachmentItem,
+              isRequired
+            );
           } else {
             const isRequired = section.requiredFields?.includes(field.key) ?? false;
             questionnaireItem = convertFormFieldToQuestionnaireItem(field as FormFieldsItem, isRequired);
@@ -645,6 +727,9 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
         let questionnaireItem: QuestionnaireItem;
         if (field.type === 'display') {
           questionnaireItem = convertDisplayFieldToQuestionnaireItem(field as FormFieldsDisplayItem);
+        } else if (field.type === 'attachment') {
+          const isRequired = section.requiredFields?.includes(field.key) ?? false;
+          questionnaireItem = convertAttachmentFieldToQuestionnaireItem(field as FormFieldsAttachmentItem, isRequired);
         } else {
           const isRequired = section.requiredFields?.includes(field.key) ?? false;
           questionnaireItem = convertFormFieldToQuestionnaireItem(field as FormFieldsItem, isRequired);
