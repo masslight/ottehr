@@ -135,6 +135,13 @@ const GroupLevelEnableWhenSchema = z.object({
   answerDateTime: z.string().optional(),
 });
 
+const TextWhenSchema = z.object({
+  question: z.string(),
+  operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
+  answer: z.string(),
+  substituteText: z.string(),
+});
+
 export const FormSectionSimpleSchema = z.object({
   linkId: z.string(),
   title: z.string(),
@@ -146,6 +153,7 @@ export const FormSectionSimpleSchema = z.object({
   enableWhen: z.array(GroupLevelEnableWhenSchema).optional(),
   enableBehavior: z.enum(['all', 'any']).optional(),
   reviewText: z.string().optional(),
+  textWhen: z.array(TextWhenSchema).optional(),
 });
 
 export const FormSectionArraySchema = z.object({
@@ -159,6 +167,7 @@ export const FormSectionArraySchema = z.object({
   enableWhen: z.array(GroupLevelEnableWhenSchema).optional(),
   enableBehavior: z.enum(['all', 'any']).optional(),
   reviewText: z.string().optional(),
+  textWhen: z.array(TextWhenSchema).optional(),
 });
 
 export type FormFieldSection = z.infer<typeof FormSectionSimpleSchema> | z.infer<typeof FormSectionArraySchema>;
@@ -261,6 +270,30 @@ const createPermissibleValueExtension = (
 const createReviewTextExtension = (reviewText: string): NonNullable<QuestionnaireItem['extension']>[number] => ({
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/review-text',
   valueString: reviewText,
+});
+
+const createTextWhenExtension = (
+  textWhen: z.infer<typeof TextWhenSchema>
+): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when',
+  extension: [
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-question',
+      valueString: textWhen.question,
+    },
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-operator',
+      valueString: textWhen.operator,
+    },
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-answer',
+      valueString: textWhen.answer,
+    },
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/text-when-substitute-text',
+      valueString: textWhen.substituteText,
+    },
+  ],
 });
 
 const createEnableWhen = (trigger: FormFieldTrigger): QuestionnaireItem['enableWhen'] => {
@@ -484,6 +517,12 @@ const applyGroupLevelProperties = (
   const groupExtensions: any[] = [];
   if (section.reviewText) {
     groupExtensions.push(createReviewTextExtension(section.reviewText));
+  }
+
+  if (section.textWhen && section.textWhen.length > 0) {
+    section.textWhen.forEach((tw) => {
+      groupExtensions.push(createTextWhenExtension(tw));
+    });
   }
 
   if (groupExtensions.length > 0) {

@@ -4345,6 +4345,20 @@ const FormFields = {
   pharmacy: {
     linkId: 'pharmacy-page',
     title: 'Preferred pharmacy',
+    textWhen: [
+      {
+        question: 'patient-state',
+        operator: '=',
+        answer: 'CA',
+        substituteText: 'California pharmacy information',
+      },
+      {
+        question: 'patient-state',
+        operator: '=',
+        answer: 'NY',
+        substituteText: 'New York pharmacy information',
+      },
+    ],
     items: {
       name: {
         key: 'pharmacy-name',
