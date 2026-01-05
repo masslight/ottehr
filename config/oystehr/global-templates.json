@@ -32412,7 +32412,7 @@
               "coding": [
                 {
                   "system": "http://hl7.org/fhir/sid/icd-10",
-                  "code": "S01.01A",
+                  "code": "S01.01XA",
                   "display": "Laceration without foreign body of scalp, initial encounter"
                 }
               ]
@@ -37279,7 +37279,7 @@
               "coding": [
                 {
                   "system": "http://hl7.org/fhir/sid/icd-10",
-                  "code": "W57A",
+                  "code": "W57.XXXA",
                   "display": "Bitten or stung by nonvenomous insect and other nonvenomous arthropods, initial encounter"
                 }
               ]
@@ -38835,7 +38835,7 @@
               "coding": [
                 {
                   "system": "http://hl7.org/fhir/sid/icd-10",
-                  "code": "S69.91A",
+                  "code": "S69.91XA",
                   "display": "Unspecified injury of right wrist, hand and finger(s), initial encounter"
                 }
               ]
@@ -39276,7 +39276,7 @@
               "coding": [
                 {
                   "system": "http://hl7.org/fhir/sid/icd-10",
-                  "code": "S69.92A",
+                  "code": "S69.92XA",
                   "display": "Unspecified injury of left wrist, hand and finger(s), initial encounter"
                 }
               ]
@@ -41279,7 +41279,7 @@
               "coding": [
                 {
                   "system": "http://hl7.org/fhir/sid/icd-10",
-                  "code": "S09.90A",
+                  "code": "S09.90XA",
                   "display": "Unspecified injury of head, initial encounter"
                 }
               ]
