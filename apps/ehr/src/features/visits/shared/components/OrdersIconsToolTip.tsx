@@ -50,7 +50,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
   const orderConfigs: OrderToolTipConfig[] = [];
 
   if (externalLabOrders?.length) {
-    const unreadStatuses = [
+    const pendingBadgeStatuses = [
       ExternalLabsStatus.pending,
       ExternalLabsStatus.prelim,
       ExternalLabsStatus.corrected,
@@ -61,43 +61,43 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       icon: sidebarMenuIcons['External Labs'],
       title: 'External Labs',
       tableUrl: getExternalLabOrdersUrl(appointment.id),
-      unreadBadge: Boolean(externalLabOrders.find((ord) => unreadStatuses.includes(ord.orderStatus))),
+      unreadBadge: Boolean(externalLabOrders.find((ord) => pendingBadgeStatuses.includes(ord.orderStatus))),
       orders: externalLabOrders.map((order) => ({
         fhirResourceId: order.serviceRequestId,
         itemDescription: order.testItem,
         detailPageUrl: getExternalLabOrderEditUrl(appointment.id, order.serviceRequestId),
         statusChip: <LabsOrderStatusChip status={order.orderStatus} />,
-        unreadBadge: unreadStatuses.includes(order.orderStatus),
+        unreadBadge: pendingBadgeStatuses.includes(order.orderStatus),
       })),
     };
     orderConfigs.push(externalLabOrderConfig);
   }
 
   if (inHouseLabOrders?.length) {
-    const unreadStatuses: TestStatus[] = ['ORDERED', 'COLLECTED', 'FINAL'];
+    const pendingBadgeStatuses: TestStatus[] = ['ORDERED', 'COLLECTED', 'FINAL'];
     const inHouseLabOrderConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['In-House Labs'],
       title: 'In-House Labs',
       tableUrl: getInHouseLabsUrl(appointment.id),
-      unreadBadge: Boolean(inHouseLabOrders.find((ord) => unreadStatuses.includes(ord.status))),
+      unreadBadge: Boolean(inHouseLabOrders.find((ord) => pendingBadgeStatuses.includes(ord.status))),
       orders: inHouseLabOrders.map((order) => ({
         fhirResourceId: order.serviceRequestId,
         itemDescription: order.testItemName,
         detailPageUrl: getInHouseLabOrderDetailsUrl(appointment.id, order.serviceRequestId),
         statusChip: <InHouseLabsStatusChip status={order.status} />,
-        unreadBadge: unreadStatuses.includes(order.status),
+        unreadBadge: pendingBadgeStatuses.includes(order.status),
       })),
     };
     orderConfigs.push(inHouseLabOrderConfig);
   }
 
   if (nursingOrders?.length) {
-    const unreadStatuses = [NursingOrdersStatus.pending];
+    const pendingBadgeStatuses = [NursingOrdersStatus.pending];
     const nursingOrdersConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['Nursing Orders'],
       title: 'Nursing Orders',
       tableUrl: getNursingOrdersUrl(appointment.id),
-      unreadBadge: Boolean(nursingOrders.find((ord) => unreadStatuses.includes(ord.status))),
+      unreadBadge: Boolean(nursingOrders.find((ord) => pendingBadgeStatuses.includes(ord.status))),
       orders: nursingOrders
         .filter((order) => order.status !== NursingOrdersStatus.cancelled)
         .map((order) => ({
@@ -105,20 +105,20 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
           itemDescription: order.note,
           detailPageUrl: getNursingOrderDetailsUrl(appointment.id, order.serviceRequestId),
           statusChip: <NursingOrdersStatusChip status={order.status} />,
-          unreadBadge: unreadStatuses.includes(order.status),
+          unreadBadge: pendingBadgeStatuses.includes(order.status),
         })),
     };
     if (nursingOrdersConfig.orders.length > 0) orderConfigs.push(nursingOrdersConfig);
   }
 
   if (filteredInHouseMedications?.length) {
-    const unreadStatuses = [MedicationOrderStatuses.pending];
+    const pendingBadgeStatuses = [MedicationOrderStatuses.pending];
     const inHouseMedicationConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['Med. Administration'],
       title: 'In-House Medications',
       tableUrl: getInHouseMedicationMARUrl(appointment.id),
       unreadBadge: Boolean(
-        filteredInHouseMedications.find((ord) => unreadStatuses.includes(ord.status as MedicationOrderStatuses))
+        filteredInHouseMedications.find((ord) => pendingBadgeStatuses.includes(ord.status as MedicationOrderStatuses))
       ),
       orders: filteredInHouseMedications.map((med) => {
         const isPending = med.status === 'pending';
@@ -131,7 +131,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
           itemDescription: med.medicationName,
           detailPageUrl: targetUrl,
           statusChip: <MedicationStatusChip medication={med} />,
-          unreadBadge: unreadStatuses.includes(med.status as MedicationOrderStatuses),
+          unreadBadge: pendingBadgeStatuses.includes(med.status as MedicationOrderStatuses),
         };
       }),
     };
@@ -139,18 +139,22 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
   }
 
   if (radiologyOrders?.length) {
-    const unreadStatuses = [RadiologyOrderStatus.pending, RadiologyOrderStatus.preliminary, RadiologyOrderStatus.final];
+    const pendingBadgeStatuses = [
+      RadiologyOrderStatus.pending,
+      RadiologyOrderStatus.preliminary,
+      RadiologyOrderStatus.final,
+    ];
     const radiologyOrdersConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['Radiology'],
       title: 'Radiology Orders',
       tableUrl: getRadiologyUrl(appointment.id),
-      unreadBadge: Boolean(radiologyOrders.find((ord) => unreadStatuses.includes(ord.status))),
+      unreadBadge: Boolean(radiologyOrders.find((ord) => pendingBadgeStatuses.includes(ord.status))),
       orders: radiologyOrders.map((order) => ({
         fhirResourceId: order.serviceRequestId,
         itemDescription: order.studyType,
         detailPageUrl: getRadiologyOrderEditUrl(appointment.id, order.serviceRequestId),
         statusChip: <RadiologyTableStatusChip status={order.status} />,
-        unreadBadge: unreadStatuses.includes(order.status),
+        unreadBadge: pendingBadgeStatuses.includes(order.status),
       })),
     };
     orderConfigs.push(radiologyOrdersConfig);
@@ -205,7 +209,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
                     '& .MuiBadge-badge': {
                       width: '9px',
                       height: '9px',
-                      borderRadius: '10px',
+                      borderRadius: '50%',
                       top: '4px',
                       right: '11px',
                     },
