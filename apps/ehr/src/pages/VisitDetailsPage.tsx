@@ -595,9 +595,7 @@ export default function VisitDetailsPage(): ReactElement {
       queryClient.setQueryData<EHRVisitDetails>(['get-visit-details', appointmentID], (old) =>
         old ? { ...old, appointment: updatedAppt } : old
       );
-      const errorsCopy = errors;
-      delete errorsCopy.hopError;
-      setErrors(errorsCopy);
+      setErrors(({ hopError: _hopError, ...rest }) => rest);
       setHopQueueDialogOpen(false);
     },
     onError: (error) => {
@@ -978,9 +976,7 @@ export default function VisitDetailsPage(): ReactElement {
                   <CustomDialog
                     open={hopQueueDialogOpen}
                     handleClose={() => {
-                      const errorsCopy = errors;
-                      delete errorsCopy.hopError;
-                      setErrors(errorsCopy);
+                      setErrors(({ hopError: _hopError, ...rest }) => rest);
                       setHopQueueDialogOpen(false);
                     }}
                     closeButton={false}
