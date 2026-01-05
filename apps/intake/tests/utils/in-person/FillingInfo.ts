@@ -1,6 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { assert } from 'console';
-import { BOOKING_CONFIG } from 'utils';
+import { BOOKING_CONFIG, VALUE_SETS } from 'utils';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class FillingInfo {
@@ -18,8 +18,8 @@ export class FillingInfo {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
-  private reasonForVisit = [BOOKING_CONFIG.reasonForVisitOptions[0]];
-  private cancelReason = BOOKING_CONFIG.cancelReasonOptions.slice();
+  private reasonForVisit = [VALUE_SETS.reasonForVisitOptions[0].value];
+  private cancelReason = VALUE_SETS.cancelReasonOptions.slice();
   private months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   getRandomString() {
@@ -107,7 +107,7 @@ export class FillingInfo {
   }
 
   async cancelPrebookVisit() {
-    const randomCancelReason = this.getRandomElement(this.cancelReason);
+    const randomCancelReason = this.getRandomElement(this.cancelReason.map((option) => option.label));
     await this.page.getByRole('button', { name: 'Cancel' }).click();
     await this.page.locator('#cancellationReason').click();
     await this.page.getByRole('option', { name: randomCancelReason }).click();

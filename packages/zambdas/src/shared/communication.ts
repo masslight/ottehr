@@ -2,6 +2,7 @@ import Oystehr, { TransactionalSMSSendParams } from '@oystehr/sdk';
 import sendgrid from '@sendgrid/mail';
 import { Appointment, Patient } from 'fhir/r4b';
 import {
+  BRANDING_CONFIG,
   DynamicTemplateDataRecord,
   EmailTemplate,
   ErrorReportTemplateData,
@@ -15,13 +16,11 @@ import {
   SecretsKeys,
   SENDGRID_CONFIG,
   SendgridConfig,
-  SUPPORT_EMAIL,
   TelemedCancelationTemplateData,
   TelemedCompletionTemplateData,
   TelemedConfirmationTemplateData,
   TelemedInvitationTemplateData,
 } from 'utils';
-import { BRANDING_CONFIG } from 'utils/lib/configuration/branding';
 import { sendErrors } from './errors';
 import { getRelatedPersonForPatient } from './patients';
 
@@ -182,7 +181,7 @@ class EmailClient {
   async sendErrorEmail(to: string | string[], templateData: ErrorReportTemplateData): Promise<void> {
     const recipients = typeof to === 'string' ? [to] : [...to];
 
-    const ottehrSupportEmail = SUPPORT_EMAIL;
+    const ottehrSupportEmail = BRANDING_CONFIG.email.sender;
     if (!recipients.includes(ottehrSupportEmail)) {
       recipients.push(ottehrSupportEmail);
     }

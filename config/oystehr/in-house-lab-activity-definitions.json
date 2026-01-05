@@ -111,9 +111,7 @@
               ],
               "text": "Flu B"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-FluB-valid-valueSet"
@@ -203,9 +201,7 @@
               ],
               "text": "Glucose"
             },
-            "permittedDataType": [
-              "Quantity"
-            ],
+            "permittedDataType": ["Quantity"],
             "quantitativeDetails": {
               "unit": {
                 "coding": [
@@ -369,9 +365,7 @@
               ],
               "text": "Flu-Vid"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Flu-Vid-valid-valueSet"
@@ -519,9 +513,7 @@
               ],
               "text": "Rapid Strep A"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-RapidStrepA-valid-valueSet"
@@ -674,9 +666,7 @@
               ],
               "text": "Rapid Influenza B"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-RapidInfluenzaB-valid-valueSet"
@@ -892,9 +882,7 @@
               ],
               "text": "Glucose"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Glucose-valid-valueSet"
@@ -1010,9 +998,7 @@
               ],
               "text": "Bilirubin"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Bilirubin-valid-valueSet"
@@ -1126,9 +1112,7 @@
               ],
               "text": "Ketone"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Ketone-valid-valueSet"
@@ -1170,9 +1154,7 @@
               ],
               "text": "Specific gravity"
             },
-            "permittedDataType": [
-              "Quantity"
-            ],
+            "permittedDataType": ["Quantity"],
             "quantitativeDetails": {
               "decimalPrecision": 3
             },
@@ -1290,9 +1272,7 @@
               ],
               "text": "Blood"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Blood-valid-valueSet"
@@ -1324,9 +1304,7 @@
               ],
               "text": "pH"
             },
-            "permittedDataType": [
-              "Quantity"
-            ],
+            "permittedDataType": ["Quantity"],
             "quantitativeDetails": {
               "decimalPrecision": 1
             },
@@ -1452,9 +1430,7 @@
               ],
               "text": "Protein"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Protein-valid-valueSet"
@@ -1496,9 +1472,7 @@
               ],
               "text": "Urobilinogen"
             },
-            "permittedDataType": [
-              "Quantity"
-            ],
+            "permittedDataType": ["Quantity"],
             "quantitativeDetails": {
               "decimalPrecision": 1,
               "unit": {
@@ -1600,9 +1574,7 @@
               ],
               "text": "Nitrite"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Nitrite-valid-valueSet"
@@ -1716,9 +1688,7 @@
               ],
               "text": "Leukocytes"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Leukocytes-valid-valueSet"
@@ -1865,9 +1835,7 @@
               ],
               "text": "Urine Pregnancy Test (HCG)"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-UrinePregnancyTestHCG-valid-valueSet"
@@ -2020,9 +1988,7 @@
               ],
               "text": "Rapid RSV"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-RapidRSV-valid-valueSet"
@@ -2170,9 +2136,7 @@
               ],
               "text": "ID Now Strep"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-IDNowStrep-valid-valueSet"
@@ -2320,9 +2284,7 @@
               ],
               "text": "COVID-19 Antigen"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-COVID-19Antigen-valid-valueSet"
@@ -2470,9 +2432,7 @@
               ],
               "text": "Flu A"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-FluA-valid-valueSet"
@@ -2620,9 +2580,7 @@
               ],
               "text": "Monospot test"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-Monospottest-valid-valueSet"
@@ -2775,9 +2733,7 @@
               ],
               "text": "Rapid COVID-19 Antigen"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-RapidCOVID-19Antigen-valid-valueSet"
@@ -2925,9 +2881,7 @@
               ],
               "text": "Stool Guaiac"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-StoolGuaiac-valid-valueSet"
@@ -3085,9 +3039,7 @@
               ],
               "text": "RSV"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-RSV-valid-valueSet"
@@ -3240,9 +3192,7 @@
               ],
               "text": "Rapid Influenza A"
             },
-            "permittedDataType": [
-              "CodeableConcept"
-            ],
+            "permittedDataType": ["CodeableConcept"],
             "validCodedValueSet": {
               "type": "ValueSet",
               "reference": "#contained-RapidInfluenzaA-valid-valueSet"
@@ -3279,6 +3229,355 @@
           ]
         }
       }
+    },
+    "activity-definition-snellen-test-1_0_0": {
+      "resource": {
+        "resourceType": "ActivityDefinition",
+        "status": "active",
+        "kind": "ServiceRequest",
+        "code": {
+          "coding": [
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code",
+              "code": "Snellen Test"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "code": "99173"
+            }
+          ]
+        },
+        "title": "Snellen Test",
+        "name": "Snellen Test",
+        "participant": [
+          {
+            "type": "device",
+            "role": {
+              "coding": [
+                {
+                  "system": "http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role",
+                  "code": "manual",
+                  "display": "Snellen Chart"
+                },
+                {
+                  "system": "http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role",
+                  "code": "analyzer",
+                  "display": "Unknown"
+                }
+              ]
+            }
+          }
+        ],
+        "observationRequirement": [
+          {
+            "type": "ObservationDefinition",
+            "reference": "#contained-lefteye-component-string-observationDef-id"
+          },
+          {
+            "type": "ObservationDefinition",
+            "reference": "#contained-righteye-component-string-observationDef-id"
+          }
+        ],
+        "contained": [
+          {
+            "id": "contained-lefteye-component-string-observationDef-id",
+            "resourceType": "ObservationDefinition",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "79883-5"
+                }
+              ],
+              "text": "Left Eye"
+            },
+            "permittedDataType": ["string"],
+            "extension": [
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/valueset-display",
+                "valueString": "Free Text"
+              },
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/observation-definition-validation",
+                "valueCoding": {
+                  "system": "http://ottehr.org/fhir/StructureDefinition/text-format-validation",
+                  "code": "^\\d+\\/\\d+(?:.\\d+)?(?:-\\d+\\/\\d+)?$",
+                  "display": "#/#"
+                }
+              }
+            ]
+          },
+          {
+            "id": "contained-righteye-component-string-observationDef-id",
+            "resourceType": "ObservationDefinition",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "79882-7"
+                }
+              ],
+              "text": "Right Eye"
+            },
+            "permittedDataType": ["string"],
+            "extension": [
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/valueset-display",
+                "valueString": "Free Text"
+              },
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/observation-definition-validation",
+                "valueCoding": {
+                  "system": "http://ottehr.org/fhir/StructureDefinition/text-format-validation",
+                  "code": "^\\d+\\/\\d+(?:.\\d+)?(?:-\\d+\\/\\d+)?$",
+                  "display": "#/#"
+                }
+              }
+            ]
+          }
+        ],
+        "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/SnellenTest",
+        "version": "1.0.0",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "in-house-lab-test-definition"
+            }
+          ]
+        }
+      }
+    },
+    "activity-definition-alcohol-test-1_0_0": {
+      "resource": {
+        "resourceType": "ActivityDefinition",
+        "status": "active",
+        "kind": "ServiceRequest",
+        "code": {
+          "coding": [
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code",
+              "code": "Alcohol Test"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "code": "82075"
+            }
+          ]
+        },
+        "title": "Alcohol Test",
+        "name": "Alcohol Test",
+        "participant": [
+          {
+            "type": "device",
+            "role": {
+              "coding": [
+                {
+                  "system": "http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role",
+                  "code": "analyzer",
+                  "display": "breathalyzer"
+                }
+              ]
+            }
+          }
+        ],
+        "observationRequirement": [
+          {
+            "type": "ObservationDefinition",
+            "reference": "#contained-bac-component-quantity-observationDef-id"
+          }
+        ],
+        "contained": [
+          {
+            "id": "contained-bac-component-quantity-observationDef-id",
+            "resourceType": "ObservationDefinition",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "5641-6"
+                }
+              ],
+              "text": "BAC"
+            },
+            "permittedDataType": [
+              "Quantity"
+            ],
+            "quantitativeDetails": {
+              "unit": {
+                "coding": [
+                  {
+                    "system": "http://unitsofmeasure.org/",
+                    "code": "%"
+                  }
+                ]
+              }
+            },
+            "qualifiedInterval": [
+              {
+                "category": "reference",
+                "range": {
+                  "low": {
+                    "value": 0
+                  },
+                  "high": {
+                    "value": 0.02
+                  }
+                }
+              }
+            ],
+            "extension": [
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/valueset-display",
+                "valueString": "Numeric"
+              }
+            ]
+          }
+        ],
+        "extension": [
+          {
+            "url": "http://ottehr.org/fhir/StructureDefinition/reflex-test-logic",
+            "extension": [
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/reflex-test-to-run",
+                "valueCanonical": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholConfirmationTest|1.0.0"
+              },
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/reflex-test-to-run-name",
+                "valueString": "Alcohol Confirmation Test"
+              },
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/reflex-trigger-alert",
+                "valueString": "Alcohol ≥ 0.02% requires a confirmation test"
+              },
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/reflex-condition",
+                "valueExpression": {
+                  "description": "BAC >= 0.02",
+                  "language": "text/fhirpath",
+                  "expression": "%resource.code.coding.where(code = '82075').exists() and %resource.valueQuantity.value >= 0.02"
+                }
+              }
+            ]
+          }
+        ],
+        "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholTest",
+        "version": "1.0.0",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "in-house-lab-test-definition"
+            }
+          ]
+        }
+      }
+    },
+    "activity-definition-alcohol-confirmation-test-1_0_0": {
+      "resource": {
+        "resourceType": "ActivityDefinition",
+        "status": "active",
+        "kind": "ServiceRequest",
+        "code": {
+          "coding": [
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code",
+              "code": "Alcohol Confirmation Test"
+            },
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "code": "82075C"
+            }
+          ]
+        },
+        "title": "Alcohol Confirmation Test",
+        "name": "Alcohol Confirmation Test",
+        "participant": [
+          {
+            "type": "device",
+            "role": {
+              "coding": [
+                {
+                  "system": "http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role",
+                  "code": "analyzer",
+                  "display": "breathalyzer"
+                }
+              ]
+            }
+          }
+        ],
+        "observationRequirement": [
+          {
+            "type": "ObservationDefinition",
+            "reference": "#contained-bac-component-quantity-observationDef-id"
+          }
+        ],
+        "contained": [
+          {
+            "id": "contained-bac-component-quantity-observationDef-id",
+            "resourceType": "ObservationDefinition",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://loinc.org",
+                  "code": "5641-6"
+                }
+              ],
+              "text": "BAC"
+            },
+            "permittedDataType": [
+              "Quantity"
+            ],
+            "quantitativeDetails": {
+              "unit": {
+                "coding": [
+                  {
+                    "system": "http://unitsofmeasure.org/",
+                    "code": "%"
+                  }
+                ]
+              }
+            },
+            "qualifiedInterval": [
+              {
+                "category": "reference",
+                "range": {
+                  "low": {
+                    "value": 0
+                  },
+                  "high": {
+                    "value": 0.02
+                  }
+                }
+              }
+            ],
+            "extension": [
+              {
+                "url": "http://ottehr.org/fhir/StructureDefinition/valueset-display",
+                "valueString": "Numeric"
+              }
+            ]
+          }
+        ],
+        "relatedArtifact": [
+          {
+            "resource": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholTest|1.0.0",
+            "type": "depends-on",
+            "display": "reflex relationship"
+          }
+        ],
+        "url": "https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholConfirmationTest",
+        "version": "1.0.0",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes",
+              "code": "in-house-lab-test-definition"
+            }
+          ]
+        }
+      }
     }
   }
 }
+

@@ -5,7 +5,14 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     silent: true,
-    testTimeout: 20000,
-    exclude: ['*/integration/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+    testTimeout: 180000, // 3 minutes
+    hookTimeout: 30000, // 30 seconds
+    teardownTimeout: 30000, // 30 seconds
+    globalSetup: './test/helpers/integration-global-setup.ts',
+    server: {
+      deps: {
+        inline: [/@sentry/, /utils/],
+      },
+    },
   },
 });

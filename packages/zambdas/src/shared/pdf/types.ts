@@ -1,6 +1,9 @@
 import {
   Appointment,
+  Coding,
+  Consent,
   DocumentReference,
+  Encounter,
   Location,
   Organization,
   Patient,
@@ -18,6 +21,7 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   ObservationDTO,
   OrderedCoveragesWithSubscribers,
+  PatientPaymentDTO,
   QuantityComponent,
   SupportedObsImgAttachmentTypes,
   VitalsVisitNoteData,
@@ -210,12 +214,14 @@ export interface InHouseLabResult {
   units?: string;
   rangeString?: string[];
   rangeQuantity?: QuantityComponent;
+  interpretationCoding: Coding | undefined;
 }
 export interface InHouseLabResultConfig {
   collectionDate: string;
   finalResultDateTime: DateTime;
   specimenSource: string;
   results: InHouseLabResult[];
+  testName: string;
 }
 
 export type ResultSpecimenInfo = {
@@ -447,6 +453,7 @@ export interface PdfSection<TData, TSectionData> {
   preferredWidth?: 'full' | 'column';
   extractImages?: (sectionData: TSectionData) => ImageReference[];
   render: (client: PdfClient, sectionData: TSectionData, styles: PdfStyles, assets: PdfAssets) => void;
+  skip?: boolean;
 }
 
 export interface VisitInfo extends PdfData {
@@ -461,10 +468,16 @@ export interface PatientInfo extends PdfData {
   fullName: string;
   preferredName: string;
   dob: string;
+  unconfirmedDOB?: string;
   sex: Gender;
   id: string;
   phone: string;
   reasonForVisit: string;
+  authorizedNonlegalGuardians: string;
+  suffix: string;
+  pronouns: string;
+  patientSex: string;
+  ssn: string;
 }
 
 export interface ContactInfo extends PdfData {
@@ -475,15 +488,22 @@ export interface ContactInfo extends PdfData {
   zip: string;
   patientMobile: string;
   patientEmail: string;
-  sendMarketingMessages: boolean;
+  patientPreferredCommunicationMethod: string;
 }
 
 export interface PatientDetails extends PdfData {
   patientsEthnicity: string;
   patientsRace: string;
-  pronouns: string;
   howDidYouHearAboutUs: string;
+  patientSexualOrientation: string;
+  patientGenderIdentity: string;
+  patientGenderIdentityDetails: string;
+  patientSendMarketing: boolean;
   preferredLanguage: string;
+  patientCommonWellConsent: boolean;
+}
+
+export interface PrimaryCarePhysician extends PdfData {
   pcpName: string;
   pcpPracticeName: string;
   pcpAddress: string;
@@ -518,6 +538,16 @@ export interface InsuranceInfo extends PdfData {
   secondary: Insurance;
 }
 
+interface Payment {
+  date: string;
+  label: string;
+  amount: string;
+}
+
+export interface PatientPaymentsInfo extends PdfData {
+  payments: Payment[];
+}
+
 export interface ResponsiblePartyInfo extends PdfData {
   relationship: string;
   fullName: string;
@@ -532,6 +562,34 @@ export interface ResponsiblePartyInfo extends PdfData {
   zip: string;
 }
 
+export interface EmergencyContactInfo extends PdfData {
+  relationship: string;
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  phone: string;
+  streetAddress: string;
+  addressLineOptional: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
+export interface EmployerInfo extends PdfData {
+  employerName: string;
+  streetAddress: string;
+  addressLineOptional: string;
+  city: string;
+  state: string;
+  zip: string;
+  firstName: string;
+  lastName: string;
+  title: string;
+  email: string;
+  phone: string;
+  fax: string;
+}
+
 export interface consentFormsInfo extends PdfData {
   isSigned: boolean;
   signature: string;
@@ -539,10 +597,17 @@ export interface consentFormsInfo extends PdfData {
   relationship: string;
   date: string;
   ip: string;
+  consentIsAttested: boolean;
+}
+
+export interface pharmacyInfo extends PdfData {
+  name: string;
+  address: string;
 }
 
 export interface VisitDetailsInput {
   patient: Patient;
+  encounter: Encounter;
   appointment: Appointment;
   location?: Location;
   timezone: string;
@@ -552,7 +617,11 @@ export interface VisitDetailsInput {
   insuranceOrgs: Organization[];
   guarantorResource?: RelatedPerson | Patient;
   documents: DocumentReference[];
+  emergencyContactResource?: RelatedPerson;
+  employerOrganization?: Organization;
+  consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
+  payments: PatientPaymentDTO[];
 }
 
 export interface VisitDataInput {
@@ -568,6 +637,9 @@ export interface PatientDataInput {
 
 export interface PatientDetailsInput {
   patient: Patient;
+}
+
+export interface PrimaryCarePhysicianInput {
   physician?: Practitioner;
 }
 
@@ -578,6 +650,25 @@ export interface InsuranceDataInput {
 
 export interface ResponsiblePartyInput {
   guarantorResource?: RelatedPerson | Patient;
+}
+
+export interface ConsentsDataInput {
+  encounter: Encounter;
+  consents: Consent[];
+  questionnaireResponse?: QuestionnaireResponse;
+  timezone: string;
+}
+
+export interface EmergencyContactDataInput {
+  emergencyContactResource?: RelatedPerson;
+}
+
+export interface EmployerDataInput {
+  employer?: Organization;
+}
+
+export interface PatientPaymentsDataInput {
+  payments: PatientPaymentDTO[];
 }
 
 export interface UploadMetadata {
@@ -654,10 +745,15 @@ export interface VisitDetailsData extends PdfData {
   patient: PatientInfo;
   contact: ContactInfo;
   details: PatientDetails;
+  pcp: PrimaryCarePhysician;
   insurances: InsuranceInfo;
   responsibleParty: ResponsiblePartyInfo;
+  emergencyContact: EmergencyContactInfo;
+  employer: EmployerInfo;
   consentForms: consentFormsInfo;
   documents: Documents;
+  pharmacy: pharmacyInfo;
+  paymentHistory: PatientPaymentsInfo;
 }
 export interface GetPaymentDataResponse {
   chargeUuid: string;

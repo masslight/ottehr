@@ -19,6 +19,7 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getAppointmentGraphSearchParams } from 'utils';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
 const PROCESS_ID = `contractTests-${DateTime.now().toMillis()}`;
@@ -609,79 +610,14 @@ const cleanOrganization = (organization: Organization): Organization => {
 };
 
 const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[]> => {
-  return (
+  const baseResults = (
     await (
       await e2eHandler.apiClient
-    ).fhir.search<Appointment>({
+    ).fhir.search<FhirResource>({
       resourceType: 'Appointment',
-      params: [
-        {
-          name: '_id',
-          value: appointmentId,
-        },
-        {
-          name: '_include',
-          value: 'Appointment:patient',
-        },
-        {
-          name: '_include',
-          value: 'Appointment:slot',
-        },
-        {
-          name: '_include',
-          value: 'Appointment:location',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'RelatedPerson:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Encounter:appointment',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'DocumentReference:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'QuestionnaireResponse:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Person:relatedperson',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'List:subject',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Consent:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Account:patient',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Account:owner',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Observation:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'ServiceRequest:encounter',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'ClinicalImpression:encounter',
-        },
-      ],
+      params: getAppointmentGraphSearchParams(appointmentId),
     })
   ).unbundle();
 
-  // Note it does not include AuditEvent yet but could?
+  return baseResults;
 };

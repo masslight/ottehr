@@ -1375,3 +1375,12 @@ export const getInsuranceNameFromCoverage = (coverage: Coverage): string | undef
 export function getPatientReferenceFromAccount(account: Account): string | undefined {
   return account.subject?.find((subj) => subj.reference?.includes('Patient/'))?.reference;
 }
+
+export function getResponsiblePartyFromAccount(
+  account: Account,
+  resources: Resource[]
+): Patient | RelatedPerson | undefined {
+  const responsiblePartyRef = getActiveAccountGuarantorReference(account);
+  if (!responsiblePartyRef) return undefined;
+  return takeContainedOrFind<RelatedPerson | Patient>(responsiblePartyRef, resources, account);
+}

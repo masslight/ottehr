@@ -1,8 +1,9 @@
 import { expect, Page } from '@playwright/test';
 import { assert } from 'console';
 import { DateTime } from 'luxon';
-import { BOOKING_CONFIG } from 'utils';
+import { BOOKING_CONFIG, patientScreeningQuestionsConfig, VALUE_SETS } from 'utils';
 import { Locators } from '../locators';
+import { FlagsData } from '../Paperwork';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class FillingInfo {
@@ -28,7 +29,7 @@ export class FillingInfo {
   }
 
   // randomize in tests maybe not a good idea, left one option for now
-  private reasonForVisit = [BOOKING_CONFIG.reasonForVisitOptions[0]];
+  private reasonForVisit = [VALUE_SETS.reasonForVisitOptions[0].value];
   private ethnicity = ['Hispanic or Latino', 'Not Hispanic or Latino', 'Decline to Specify'];
   private race = ['American Indian or Alaska Native'];
   private discovery = ['Friend/Family'];
@@ -288,15 +289,28 @@ export class FillingInfo {
   }
 
   async fillAdditionalQuestions() {
-    const covid = 'Yes';
-    const test = 'No';
-    const travel = 'Yes';
+    const result = {} as FlagsData;
 
-    await this.locators.covidSymptoms(covid).click();
-    await this.locators.testedPositiveCovid(test).click();
-    await this.locators.travelUSA(travel).click();
+    // Get questions from config that exist in questionnaire (shown in intake additional questions)
+    const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((f) => f.existsInQuestionnaire);
 
-    return { covid, test, travel };
+    for (const field of questionnaireFields) {
+      // Use first option as answer (typically 'Yes')
+      const answer = field.options?.[0]?.label ?? 'Yes';
+
+      // Build locator dynamically based on fhirField from config
+      const locator = this.page.locator(`div[aria-labelledby='${field.fhirField}-label'] input[value='${answer}']`);
+
+      const questionExists = await locator.isVisible({ timeout: 2000 }).catch(() => false);
+      if (questionExists) {
+        await locator.click();
+        result[field.fhirField as keyof FlagsData] = answer;
+      } else {
+        console.log(`Question "${field.question}" (${field.fhirField}) not found on page, skipping`);
+      }
+    }
+
+    return result;
   }
 
   async selectRandomSlot(): Promise<{ time: string; fullSlot: string }> {

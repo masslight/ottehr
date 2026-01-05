@@ -1,6 +1,8 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { DispositionCard } from '../../shared/components/DispositionCard';
+import { FormsCard } from '../../shared/components/FormsCard';
 import { Loader } from '../../shared/components/Loader';
 import { PageTitle } from '../../shared/components/PageTitle';
 import { PatientInstructionsCard } from '../../shared/components/plan-tab/PatientInstructionsCard';
@@ -31,6 +33,7 @@ export const Plan: FC<PlanProps> = () => {
       <PatientInstructionsCard />
       <DispositionCard />
       <SchoolWorkExcuseCard />
+      {FEATURE_FLAGS.FORMS_ENABLED && <FormsCard />}
     </Stack>
   );
 };

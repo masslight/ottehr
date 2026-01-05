@@ -32,6 +32,7 @@ import { useParams } from 'react-router-dom';
 import {
   createZ3Object,
   generatePaperworkPdf,
+  getOrCreateVisitDetailsPdf,
   getPatientVisitDetails,
   getPatientVisitFiles,
   updatePatientVisitDetails,
@@ -42,14 +43,16 @@ import ImageUploader from 'src/components/ImageUploader';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { TelemedAppointmentStatusChip } from 'src/components/TelemedAppointmentStatusChip';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
-  BOOKING_CONFIG,
   DocumentInfo,
   DocumentType,
   EHRVisitDetails,
   FHIR_EXTENSION,
   FhirAppointmentType,
+  formatDateForDisplay,
   getFirstName,
   getFullName,
   getInPersonVisitStatus,
@@ -64,6 +67,7 @@ import {
   TelemedAppointmentStatus,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
+  VALUE_SETS,
   VisitDocuments,
   VisitStatusLabel,
 } from 'utils';
@@ -97,7 +101,6 @@ import {
   getCriticalUpdateTagOp,
   NoteHistory,
 } from '../helpers/activityLogsUtils';
-import { formatDateUsingSlashes } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
@@ -199,6 +202,7 @@ export default function VisitDetailsPage(): ReactElement {
   const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
   const [paperworkPdfLoading, setPaperworkPdfLoading] = React.useState<boolean>(false);
+  const [visitDetailsPdfLoading, setVisitDetailsPdfLoading] = React.useState<boolean>(false);
 
   const [consentAttested, setConsentAttested] = useState<boolean | null>(null);
 
@@ -220,6 +224,24 @@ export default function VisitDetailsPage(): ReactElement {
   const [scannerFileType, setScannerFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
   const [uploadingFileType, setUploadingFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
   const user = useEvolveUser();
+
+  const apiClient = useOystehrAPIClient();
+
+  const { status: accountStatus } = useGetPatientAccount({
+    apiClient,
+    patientId: patient?.id ?? null,
+  });
+
+  const { data: insuranceData } = useGetPatientCoverages(
+    {
+      apiClient,
+      patientId: patient?.id ?? null,
+    },
+    undefined,
+    {
+      enabled: accountStatus === 'success',
+    }
+  );
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
 
@@ -571,7 +593,7 @@ export default function VisitDetailsPage(): ReactElement {
   const locationTimeZone = visitDetailsData?.visitTimezone || '';
   const appointmentStartTime = DateTime.fromISO(appointment?.start ?? '').setZone(locationTimeZone);
   const appointmentTime = appointmentStartTime.toLocaleString(DateTime.TIME_SIMPLE);
-  const appointmentDate = formatDateUsingSlashes(appointmentStartTime.toISO() || '', locationTimeZone);
+  const appointmentDate = formatDateForDisplay(appointmentStartTime.toISO() || '', locationTimeZone);
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, locationTimeZone);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, locationTimeZone);
 
@@ -737,6 +759,26 @@ export default function VisitDetailsPage(): ReactElement {
     }
   };
 
+  const downloadVisitDetailsPdf = async (): Promise<void> => {
+    if (!appointmentID) {
+      enqueueSnackbar('No appointment ID found.', { variant: 'error' });
+      return;
+    }
+
+    setVisitDetailsPdfLoading(true);
+
+    try {
+      const response = await getOrCreateVisitDetailsPdf(oystehrZambda!, {
+        appointmentId: appointmentID,
+      });
+      await downloadDocument(response.documentReference.split('/')[1]);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('Failed to generate PDF.', { variant: 'error' });
+    } finally {
+      setVisitDetailsPdfLoading(false);
+    }
+  };
   return (
     <PageContainer>
       <>
@@ -761,20 +803,21 @@ export default function VisitDetailsPage(): ReactElement {
                   ]}
                 />
               </Grid>
-              <LoadingButton
-                variant="outlined"
-                sx={{
-                  borderRadius: '20px',
-                  textTransform: 'none',
-                  height: 'fit-content',
-                }}
-                loading={paperworkPdfLoading}
-                color="primary"
-                disabled={isLoadingDocuments || !patient?.id}
-                onClick={downloadPaperworkPdf}
-              >
-                Paperwork PDF
-              </LoadingButton>
+              <Grid item container xs={6} justifyContent="flex-end">
+                <LoadingButton
+                  variant="outlined"
+                  sx={{
+                    borderRadius: '20px',
+                    textTransform: 'none',
+                  }}
+                  loading={visitDetailsPdfLoading}
+                  color="primary"
+                  disabled={isLoadingDocuments || !encounter?.id}
+                  onClick={downloadVisitDetailsPdf}
+                >
+                  Visit Details PDF
+                </LoadingButton>
+              </Grid>
             </Grid>
             {/* page title row */}
             <Grid container direction="row" marginTop={1}>
@@ -998,7 +1041,7 @@ export default function VisitDetailsPage(): ReactElement {
                         patientDetails={{
                           ...(unconfirmedDOB
                             ? {
-                                "Patient's date of birth (Unmatched)": formatDateUsingSlashes(unconfirmedDOB),
+                                "Patient's date of birth (Unmatched)": formatDateForDisplay(unconfirmedDOB),
                               }
                             : {}),
                           'Reason for visit': `${reasonForVisit} ${additionalDetails ? `- ${additionalDetails}` : ''}`,
@@ -1129,12 +1172,14 @@ export default function VisitDetailsPage(): ReactElement {
                     <Grid item>
                       <PatientPaymentList
                         patient={patient}
+                        appointment={appointment}
                         loading={loading}
                         encounterId={encounter?.id ?? ''}
                         responsibleParty={{
                           fullName: visitDetailsData?.responsiblePartyName || '',
                           email: visitDetailsData?.responsiblePartyEmail || '',
                         }}
+                        insuranceCoverages={insuranceData}
                       />
                     </Grid>
                     <Grid item>
@@ -1190,6 +1235,19 @@ export default function VisitDetailsPage(): ReactElement {
         <Grid container direction="row">
           <Grid item sx={{ marginLeft: { xs: 0, sm: 8 }, marginTop: 2, marginBottom: 50 }}>
             <Stack direction="row" spacing={1} useFlexGap>
+              <LoadingButton
+                variant="outlined"
+                sx={{
+                  borderRadius: '20px',
+                  textTransform: 'none',
+                }}
+                loading={paperworkPdfLoading}
+                color="primary"
+                disabled={isLoadingDocuments || !patient?.id}
+                onClick={downloadPaperworkPdf}
+              >
+                Patient Paperwork PDF
+              </LoadingButton>
               <LoadingButton
                 loading={activityLogsLoading}
                 variant="outlined"
@@ -1268,9 +1326,9 @@ export default function VisitDetailsPage(): ReactElement {
                           )
                         }
                       >
-                        {BOOKING_CONFIG.reasonForVisitOptions.map((reason) => (
-                          <MenuItem key={reason} value={reason}>
-                            {reason}
+                        {VALUE_SETS.reasonForVisitOptions.map((reason) => (
+                          <MenuItem key={reason.value} value={reason.value}>
+                            {reason.label}
                           </MenuItem>
                         ))}
                       </Select>
@@ -1320,7 +1378,7 @@ export default function VisitDetailsPage(): ReactElement {
                   <Grid item width="35%">
                     Original DOB:
                   </Grid>
-                  <Grid item>{formatDateUsingSlashes(patient?.birthDate)}</Grid>
+                  <Grid item>{formatDateForDisplay(patient?.birthDate)}</Grid>
                 </Grid>
 
                 {unconfirmedDOB && (
@@ -1328,7 +1386,7 @@ export default function VisitDetailsPage(): ReactElement {
                     <Grid item width="35%">
                       Unmatched DOB:
                     </Grid>
-                    <Grid item>{formatDateUsingSlashes(unconfirmedDOB)}</Grid>
+                    <Grid item>{formatDateForDisplay(unconfirmedDOB)}</Grid>
                   </Grid>
                 )}
               </Grid>

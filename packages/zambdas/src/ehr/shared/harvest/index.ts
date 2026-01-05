@@ -20,6 +20,7 @@ import {
   DocumentReference,
   FhirResource,
   Flag,
+  Identifier,
   List,
   Location,
   Organization,
@@ -52,6 +53,7 @@ import {
   deduplicateContactPoints,
   deduplicateIdentifiers,
   deduplicateObjectsByStrictKeyValEquality,
+  EMPLOYER_ORG_IDENTIFIER_SYSTEM,
   extractResourceTypeAndPath,
   FHIR_BASE_URL,
   FHIR_EXTENSION,
@@ -79,7 +81,6 @@ import {
   INSURANCE_CARD_CODE,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
-  InsurancePlanTypes,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   isValidUUID,
@@ -113,6 +114,7 @@ import {
   SUBSCRIBER_RELATIONSHIP_CODE_MAP,
   takeContainedOrFind,
   uploadPDF,
+  VALUE_SETS,
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
@@ -1156,16 +1158,15 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
       return operations;
     }
 
-    let newContained: Patient['contained'] = [newPCP];
-
-    if (currentContainedPCP) {
-      newContained = (patient.contained ?? []).map((resource) => {
-        if (resource.id === currentContainedPCP?.id) {
-          return newPCP;
-        }
-        return resource;
-      });
-    }
+    const existingContained = patient.contained ?? [];
+    const newContained: Patient['contained'] = currentContainedPCP
+      ? existingContained.map((resource) => {
+          if (resource.id === currentContainedPCP.id) {
+            return newPCP;
+          }
+          return resource;
+        })
+      : [...existingContained.filter((resource) => resource.id !== newPCP.id), newPCP];
 
     operations.push({
       op: patient.contained != undefined ? 'replace' : 'add',
@@ -2062,6 +2063,12 @@ const buildEmployerOrganization = (details: EmployerInformation, id?: string): O
         ]
       : undefined;
 
+  const employerOrgCode = 'employer';
+
+  // fhir dictates that an Organization SHALL at least have a name or an identifier, and possibly more than one
+  // adding this id allows users to enter employee data with out an employee name
+  const employerOrgIdentifier: Identifier = { system: EMPLOYER_ORG_IDENTIFIER_SYSTEM, value: employerOrgCode };
+
   return {
     resourceType: 'Organization',
     id,
@@ -2069,12 +2076,13 @@ const buildEmployerOrganization = (details: EmployerInformation, id?: string): O
     address,
     telecom: telecom.length ? telecom : undefined,
     contact: contactEntry,
+    identifier: [employerOrgIdentifier],
     type: [
       {
         coding: [
           {
             system: FHIR_EXTENSION.Organization.organizationType.url,
-            code: 'employer',
+            code: employerOrgCode,
           },
         ],
       },
@@ -2251,7 +2259,8 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
   };
-  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === typeCode)?.coverageCoding;
+  const coverageTypeCoding = VALUE_SETS.insuranceTypeOptions.find((planType) => planType.candidCode === typeCode)
+    ?.coverageCoding;
   if (coverageTypeCoding) coverage.type?.coding?.push(coverageTypeCoding);
 
   if (additionalInformation) {
@@ -3521,6 +3530,8 @@ export const getAccountAndCoverageResourcesForPatient = async (
     })
   ).unbundle();
   console.timeEnd('querying for Patient account resources');
+
+  console.log(`fetched ${accountAndCoverageResources?.length} resources related to Patient/${patientId}`);
 
   const patientResource = accountAndCoverageResources.find(
     (r) => r.resourceType === 'Patient' && r.id === patientId

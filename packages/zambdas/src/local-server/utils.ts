@@ -170,10 +170,14 @@ function parseArgs(args: string[]): Record<string, string> {
 }
 
 const cliParams = parseArgs(process.argv.slice(2));
-const pathToEnvFile = cliParams['env'];
+let pathToEnvFile = cliParams['env'];
 const useIac = cliParams['iac'];
+if (!pathToEnvFile && process.env.ENV) {
+  pathToEnvFile = `.env/${process.env.ENV}.json`;
+}
 let populateSecretsPromise: Promise<void>;
 if (pathToEnvFile) {
+  console.log('Found env file at', pathToEnvFile);
   populateSecretsPromise = populateSecrets({ pathToEnvFile, useIac });
 }
 

@@ -36,7 +36,7 @@ export const ExamForm: FC<ExamFormProps> = ({ form, abnormal = false }) => {
     return formConfig;
   }, [form.fields, fieldNames]);
 
-  const { value: fields, update, isLoading } = useExamObservations(observationNames);
+  const { value: fields, update, delete: deleteObservations, isLoading } = useExamObservations(observationNames);
   const abnormalFields = fields.filter((field) => field.value);
 
   const [value, setValue] = useState(abnormalFields.length > 0);
@@ -84,7 +84,7 @@ export const ExamForm: FC<ExamFormProps> = ({ form, abnormal = false }) => {
     const field = fields.find((field) => field.field === name);
 
     if (field) {
-      update({ ...field, note: undefined, value: false });
+      deleteObservations(field);
     }
   };
 
@@ -98,7 +98,7 @@ export const ExamForm: FC<ExamFormProps> = ({ form, abnormal = false }) => {
     } else {
       setSavedFields(abnormalFields);
       if (abnormalFields.length > 0) {
-        update(abnormalFields.map((field) => ({ ...field, value: false })));
+        deleteObservations(abnormalFields);
       }
     }
   };

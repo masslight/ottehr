@@ -57,7 +57,7 @@ export default function VisitsOverview(): React.ReactElement {
 
   const getDateRange = useCallback(
     (filter: string, selectedDate?: string): { start: string; end: string } => {
-      const now = DateTime.now().setZone('America/New_York');
+      const now = DateTime.now();
 
       switch (filter) {
         case 'today':
@@ -84,15 +84,15 @@ export default function VisitsOverview(): React.ReactElement {
           };
         case 'custom': {
           if (!selectedDate) return { start: '', end: '' };
-          const customDateTime = DateTime.fromISO(selectedDate).setZone('America/New_York');
+          const customDateTime = DateTime.fromISO(selectedDate);
           return {
             start: customDateTime.startOf('day').toISO() ?? '',
             end: customDateTime.endOf('day').toISO() ?? '',
           };
         }
         case 'customRange': {
-          const startDateTime = DateTime.fromISO(customStartDate).setZone('America/New_York');
-          const endDateTime = DateTime.fromISO(customEndDate).setZone('America/New_York');
+          const startDateTime = DateTime.fromISO(customStartDate);
+          const endDateTime = DateTime.fromISO(customEndDate);
           return {
             start: startDateTime.startOf('day').toISO() ?? '',
             end: endDateTime.endOf('day').toISO() ?? '',
@@ -112,6 +112,7 @@ export default function VisitsOverview(): React.ReactElement {
     async (filter: string): Promise<void> => {
       setLoading(true);
       setError(null);
+      setReportData(null);
 
       try {
         const { start, end } = getDateRange(filter, customDate);
@@ -138,34 +139,38 @@ export default function VisitsOverview(): React.ReactElement {
     void fetchReport(dateFilter);
   }, [dateFilter, fetchReport]);
 
+  // Trigger fetch when custom date changes
+  useEffect(() => {
+    if (dateFilter === 'custom') {
+      void fetchReport('custom');
+    }
+  }, [customDate, dateFilter, fetchReport]);
+
+  // Trigger fetch when custom date range changes
+  useEffect(() => {
+    if (dateFilter === 'customRange') {
+      void fetchReport('customRange');
+    }
+  }, [customStartDate, customEndDate, dateFilter, fetchReport]);
+
   const handleDateFilterChange = (event: SelectChangeEvent<string>): void => {
     const newFilter = event.target.value;
     setDateFilter(newFilter);
-    void fetchReport(newFilter);
   };
 
   const handleCustomDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const newDate = event.target.value;
     setCustomDate(newDate);
-    if (dateFilter === 'custom') {
-      void fetchReport('custom');
-    }
   };
 
   const handleCustomStartDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const newDate = event.target.value;
     setCustomStartDate(newDate);
-    if (dateFilter === 'customRange') {
-      void fetchReport('customRange');
-    }
   };
 
   const handleCustomEndDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const newDate = event.target.value;
     setCustomEndDate(newDate);
-    if (dateFilter === 'customRange') {
-      void fetchReport('customRange');
-    }
   };
 
   const getDateRangeLabel = useCallback(

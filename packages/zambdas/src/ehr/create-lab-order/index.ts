@@ -5,6 +5,7 @@ import {
   Account,
   ActivityDefinition,
   Coding,
+  Communication,
   Coverage,
   Encounter,
   FhirResource,
@@ -34,6 +35,7 @@ import {
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_CLIENT_BILL_COVERAGE_TYPE_CODING,
+  LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY,
   LAB_ORDER_TASK,
   LAB_ORG_TYPE_CODING,
   LabPaymentMethod,
@@ -56,6 +58,7 @@ import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHa
 import { createOystehrClient } from '../../shared/helpers';
 import { createTask } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types';
+import { labOrderCommunicationType } from '../get-lab-orders/helpers';
 import { accountIsPatientBill, sortCoveragesByPriority } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -73,6 +76,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       secrets,
       orderingLocation: modifiedOrderingLocation,
       selectedPaymentMethod,
+      clinicalInfoNoteByUser,
     } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -107,7 +111,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
 
     const orgId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
-    const { labOrganization, coverageDetails, patient, existingOrderNumber, orderingLocation } =
+    const { labOrganization, coverageDetails, patient, existingOrderNumber, orderingLocation, orderLevelNote } =
       await getAdditionalResources(
         orderableItem,
         encounter,
@@ -168,6 +172,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         text: diagnosis?.display,
       };
     });
+    const requisitionNumber = existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN);
     const serviceRequestConfig: ServiceRequest = {
       resourceType: 'ServiceRequest',
       status: 'draft',
@@ -199,7 +204,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       identifier: [
         {
           system: OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
-          value: existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN),
+          value: requisitionNumber,
         },
       ],
     };
@@ -209,6 +214,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         reference: `Location/${orderingLocation.id}`,
       },
     ];
+    const serviceRequestSupportingInfo: Reference[] = [];
 
     console.log('selected payment method', selectedPaymentMethod);
     if (coverageDetails.type === LabPaymentMethod.Insurance) {
@@ -253,6 +259,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         },
       ];
     }
+
     if (specimenFullUrlArr.length > 0) {
       serviceRequestConfig.specimen = specimenFullUrlArr.map((url) => ({
         type: 'Specimen',
@@ -311,12 +318,11 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         fullUrl: aoeQRFullUrl,
       };
       requests.push(postQrRequest);
-      serviceRequestConfig.supportingInfo = [
-        {
-          type: 'QuestionnaireResponse',
-          reference: aoeQRFullUrl,
-        },
-      ];
+
+      serviceRequestSupportingInfo.push({
+        type: 'QuestionnaireResponse',
+        reference: aoeQRFullUrl,
+      });
     }
 
     const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
@@ -331,6 +337,44 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         reference: provenanceFullUrl,
       },
     ];
+
+    if (clinicalInfoNoteByUser) {
+      console.log('adding request to create a communication resources for clinical info notes');
+      const communicationConfig: Communication = {
+        resourceType: 'Communication',
+        status: 'completed',
+        identifier: [
+          {
+            system: OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+            value: requisitionNumber,
+          },
+        ],
+        basedOn: [{ reference: serviceRequestFullUrl }],
+        category: [
+          {
+            coding: [LAB_ORDER_CLINICAL_INFO_COMM_CATEGORY],
+          },
+        ],
+        payload: [{ contentString: clinicalInfoNoteByUser }],
+      };
+      const communicationFullUrl = `urn:uuid:${randomUUID()}`;
+
+      requests.push({
+        method: 'POST',
+        url: '/Communication',
+        resource: communicationConfig,
+        fullUrl: communicationFullUrl,
+      });
+
+      serviceRequestSupportingInfo.push({
+        type: 'Communication',
+        reference: communicationFullUrl,
+      });
+    }
+
+    if (serviceRequestSupportingInfo.length > 0) {
+      serviceRequestConfig.supportingInfo = serviceRequestSupportingInfo;
+    }
 
     requests.push({
       method: 'POST',
@@ -349,6 +393,18 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       resource: serviceRequestConfig,
       fullUrl: serviceRequestFullUrl,
     });
+
+    if (orderLevelNote) {
+      console.log(
+        'since an order level note exists for this order, we must add the new service request to its based-on'
+      );
+      requests.push({
+        method: 'PATCH',
+        url: `Communication/${orderLevelNote.id}`,
+        operations: [{ op: 'add', path: `/basedOn/-`, value: { reference: serviceRequestFullUrl } }],
+        ifMatch: orderLevelNote.meta?.versionId ? `W/"${orderLevelNote.meta.versionId}"` : undefined,
+      });
+    }
 
     console.log('making transaction request');
     await oystehr.fhir.transaction({ requests });
@@ -513,6 +569,7 @@ const getAdditionalResources = async (
   coverageDetails: CreateLabCoverageDetails;
   existingOrderNumber: string | undefined;
   orderingLocation: Location;
+  orderLevelNote: Communication | undefined;
 }> => {
   const labName = orderableItem.lab.labName;
   const labGuid = orderableItem.lab.labGuid;
@@ -522,7 +579,7 @@ const getAdditionalResources = async (
   };
   const encounterResourceSearch: BatchInputRequest<Patient | Coverage | Account> = {
     method: 'GET',
-    url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_revinclude:iterate=Coverage:patient&_revinclude:iterate=Account:patient&_revinclude:iterate=ServiceRequest:encounter`,
+    url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_revinclude:iterate=Coverage:patient&_revinclude:iterate=Account:patient&_revinclude:iterate=ServiceRequest:encounter&_revinclude:iterate=Communication:based-on`,
   };
   const orderingLocationSearch: BatchInputRequest<Location> = {
     method: 'GET',
@@ -549,13 +606,14 @@ const getAdditionalResources = async (
   const draftServiceRequests: ServiceRequest[] = [];
   const serviceRequestsForBundle: ServiceRequest[] = [];
   const patientSearchResults: Patient[] = [];
+  const orderLevelNotes: Communication[] = [];
   let orderingLocation: Location | undefined = undefined;
   let clientOrg: Organization | undefined = undefined;
   let clientBillCoverage: Coverage | undefined = undefined;
 
-  const resources = flattenBundleResources<Organization | Coverage | Patient | Account | ServiceRequest | Location>(
-    searchResults
-  );
+  const resources = flattenBundleResources<
+    Organization | Coverage | Patient | Account | ServiceRequest | Location | Communication
+  >(searchResults);
 
   console.log('parsing resources from search');
   resources.forEach((resource) => {
@@ -595,7 +653,10 @@ const getAdditionalResources = async (
       )
         orderingLocation = resource;
     }
-
+    if (resource.resourceType === 'Communication') {
+      const labCommType = labOrderCommunicationType(resource);
+      if (labCommType === 'order-level-note') orderLevelNotes.push(resource);
+    }
     // we will use these to determine if the current order is able to be bundled with any existing
     // anything past draft status is automatically in a different bundle
     if (resource.resourceType === 'ServiceRequest' && resource.status === 'draft') {
@@ -707,12 +768,15 @@ const getAdditionalResources = async (
       throw EXTERNAL_LAB_ERROR(`Unknown selected payment method ${selectedPaymentMethod}`);
   }
 
+  const orderLevelNote = getExistingOrderLevelNote(orderLevelNotes, existingOrderNumber);
+
   return {
     labOrganization,
     patient,
     coverageDetails,
     existingOrderNumber,
     orderingLocation,
+    orderLevelNote,
   };
 };
 
@@ -863,3 +927,31 @@ function getLabGuidFromClientBillCoverage(coverage: Coverage): string | undefine
   }
   return labGuidFromClientBillCoverage;
 }
+
+const getExistingOrderLevelNote = (
+  orderLevelNotes: Communication[] | undefined,
+  existingOrderNumber: string | undefined
+): Communication | undefined => {
+  if (!orderLevelNotes || !existingOrderNumber) return;
+
+  console.log(
+    'checking communications for an order level note linked to this existing order number',
+    existingOrderNumber
+  );
+  const notesForThisOrder = orderLevelNotes.filter(
+    (comm) =>
+      comm.identifier?.find(
+        (id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM && id.value === existingOrderNumber
+      )
+  );
+  console.log('number of notesForThisOrder found', notesForThisOrder.length);
+  if (notesForThisOrder.length === 0) return;
+  if (notesForThisOrder.length > 1) {
+    throw new Error(
+      `Resources for this bundle are misconfigured. More than one order level note exists. These are the Ids: ${notesForThisOrder.map(
+        (comm) => `Communication/${comm.id}`
+      )}`
+    );
+  }
+  return notesForThisOrder[0];
+};

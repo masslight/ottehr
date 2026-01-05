@@ -33,6 +33,7 @@ import {
   GetPaperworkAnswers,
   RelationshipOption,
   ServiceMode,
+  VALUE_SETS,
 } from 'utils';
 import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { getAuth0Token } from './auth/getAuth0Token';
@@ -43,7 +44,7 @@ import {
   TEST_EMPLOYEE_2,
   TestEmployee,
 } from './resource/employees';
-import fastSeedData from './seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
+import fastSeedData from './seed-data';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -82,8 +83,9 @@ export const PATIENT_LINE_2 = 'Apt 4B';
 export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTAL_CODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
-
-export const PATIENT_INSURANCE_PLAN_TYPE = '09';
+const insuranceOption1 = VALUE_SETS.insuranceTypeOptions[0];
+const insuranceOptions2 = VALUE_SETS.insuranceTypeOptions[2];
+export const PATIENT_INSURANCE_PLAN_TYPE = `${insuranceOption1.candidCode} - ${insuranceOption1.label}`;
 export const PATIENT_INSURANCE_MEMBER_ID = '123123';
 export const PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME = 'John';
 export const PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME = 'Doe';
@@ -98,7 +100,7 @@ export const PATIENT_INSURANCE_POLICY_HOLDER_STATE = 'CA';
 export const PATIENT_INSURANCE_POLICY_HOLDER_ZIP = '92000';
 export const PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED: RelationshipOption = 'Parent';
 
-export const PATIENT_INSURANCE_PLAN_TYPE_2 = '12';
+export const PATIENT_INSURANCE_PLAN_TYPE_2 = `${insuranceOptions2.candidCode} - ${insuranceOptions2.label}`;
 export const PATIENT_INSURANCE_MEMBER_ID_2 = '234234';
 export const PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME = 'Jane';
 export const PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME = 'Doe';
@@ -128,6 +130,7 @@ export type CreateTestAppointmentInput = {
   telemedLocationState?: string;
   selectedLocationId?: string;
   skipPaperwork?: boolean;
+  serviceCategory?: 'urgent-care' | 'occupational-medicine' | 'workmans-comp';
 };
 
 export class ResourceHandler {
@@ -168,7 +171,7 @@ export class ResourceHandler {
     });
   }
 
-  private async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
+  public async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
     try {
       const address: Address = {
         city: inputParams?.city ?? PATIENT_CITY,
@@ -220,6 +223,7 @@ export class ResourceHandler {
         paperworkAnswers: this.#paperworkAnswers,
         appointmentMetadata: getProcessMetaTag(this.#processId!),
         skipPaperwork: inputParams?.skipPaperwork,
+        serviceCategory: inputParams?.serviceCategory,
       });
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
@@ -422,6 +426,36 @@ export class ResourceHandler {
     }
   }
 
+  async waitTillVisitNotePdfCreated(): Promise<DocumentReference> {
+    const apiClient = await this.apiClient;
+
+    try {
+      for (let i = 0; i < 20; i++) {
+        const searchResult = await apiClient.fhir.search<DocumentReference>({
+          resourceType: 'DocumentReference',
+          params: [
+            { name: 'encounter', value: `Encounter/${this.encounter.id}` },
+            { name: 'patient', value: `Patient/${this.patient.id}` },
+            { name: 'type', value: '75498-6' },
+          ],
+        });
+
+        const documentReferences = searchResult.unbundle() as DocumentReference[];
+
+        if (documentReferences.length > 0) {
+          return documentReferences[0];
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      throw new Error(`Visit Note PDF DocumentReference wasn't created for encounter ${this.encounter.id}`);
+    } catch (e) {
+      console.error('Error during waitTillVisitNotePdfCreated', e);
+      throw e;
+    }
+  }
+
   async setEmployees(): Promise<void> {
     const apiClient = await this.apiClient;
     const authToken = await this.#authToken;
@@ -498,6 +532,18 @@ export class ResourceHandler {
       throw new Error(`Patient for appointment ${appointmentId} not found`);
     }
     return patientId;
+  }
+
+  async tagAppointmentForCleanup(appointmentId: string): Promise<void> {
+    const apiClient = await this.apiClient;
+    const appointment = await apiClient.fhir.get<Appointment>({
+      resourceType: 'Appointment',
+      id: appointmentId,
+    });
+
+    const taggedAppointment = addProcessIdMetaTagToResource(appointment, this.#processId!) as Appointment;
+
+    await apiClient.fhir.update<Appointment>(taggedAppointment);
   }
 
   async getTestsUserAndPractitioner(): Promise<{

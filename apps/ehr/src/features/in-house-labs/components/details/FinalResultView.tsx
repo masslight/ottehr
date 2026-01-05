@@ -33,12 +33,43 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
     return acc;
   }, []);
 
-  const isRepeatable = testDetails?.some((detail) => detail.labDetails.repeatable);
+  const buttonsToDisplay = testDetails?.reduce(
+    (acc: { repeat: boolean; reflexTest: string | undefined }, detail) => {
+      const labDetails = detail.labDetails;
+      if (labDetails.repeatable) acc.repeat = true;
+      // todo labs if theres every a case where more than one test can be triggered, some work will have to be done here.
+      // but also the design might change at that point so i wont handle now
+      if (labDetails?.reflexAlert) {
+        const reflexTestName = labDetails.reflexAlert.testName;
+        const reflexTestCanonUrl = labDetails.reflexAlert.canonicalUrl;
+        const reflexTestWasRun = !!testDetails.some((test) => {
+          const testUrl = `${test.labDetails.adUrl}|${test.labDetails.adVersion}`;
+          return testUrl === reflexTestCanonUrl;
+        });
+        // this drives if we show the button or not, if its already been run currently we don't show the button
+        if (reflexTestName && !reflexTestWasRun) acc.reflexTest = reflexTestName;
+      }
+      return acc;
+    },
+    { repeat: false, reflexTest: undefined }
+  );
+
   const handleRepeatOnClick = (): void => {
     navigate(`/in-person/${testDetails?.[0].appointmentId}/in-house-lab-orders/create`, {
       state: {
         testItemName: testDetails?.[0]?.testItemName,
         diagnoses: diagnoses,
+        type: 'repeat',
+      },
+    });
+  };
+
+  const handleReflexTestOrderClick = (testName: string): void => {
+    navigate(`/in-person/${testDetails?.[0].appointmentId}/in-house-lab-orders/create`, {
+      state: {
+        testItemName: testName,
+        diagnoses: diagnoses,
+        type: 'reflex',
       },
     });
   };
@@ -79,7 +110,7 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
             Results PDF
           </Button>
         )}
-        {isRepeatable && (
+        {buttonsToDisplay?.repeat && (
           <Button variant="outlined" onClick={handleRepeatOnClick} sx={{ borderRadius: '50px', px: 4 }}>
             Repeat
           </Button>
@@ -91,9 +122,18 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
       ))}
 
       <Box display="flex" justifyContent="space-between" alignItems="center" mt={3}>
-        <Button variant="outlined" onClick={onBack} sx={{ borderRadius: '50px', px: 4 }}>
+        <Button variant="outlined" onClick={onBack} sx={{ borderRadius: '50px', px: 4, textTransform: 'none' }}>
           Back
         </Button>
+        {buttonsToDisplay?.reflexTest && (
+          <Button
+            variant="outlined"
+            onClick={() => handleReflexTestOrderClick(buttonsToDisplay.reflexTest || '')}
+            sx={{ borderRadius: '50px', px: 4, textTransform: 'none' }}
+          >
+            {`Order ${buttonsToDisplay.reflexTest}`}
+          </Button>
+        )}
       </Box>
     </Box>
   );

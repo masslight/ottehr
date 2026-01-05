@@ -300,6 +300,7 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
     prescriptionId: medRequest.identifier?.find(
       (identifier) => identifier.system === 'https://identifiers.fhir.oystehr.com/erx-prescription-id'
     )?.value,
+    encounterId: medRequest.encounter?.reference?.split('/')?.[1],
   };
 }
 

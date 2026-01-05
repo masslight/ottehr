@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to run tests on'
+        description: "Environment to run tests on"
         required: false
         type: choice
         options:
           - local
           - e2e
-        default: 'local'
+        default: "local"
   workflow_call:
     inputs:
       environment:
@@ -49,7 +49,7 @@ jobs:
         with:
           repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
-          path: 'secrets'
+          path: "secrets"
 
       - name: Setup secrets
         run: |
@@ -93,29 +93,23 @@ jobs:
       - name: Unit tests
         run: npm run test
         env:
+          ENV: ${{ steps.env.outputs.environment }}
           CI: true
-          NODE_OPTIONS: '--max-old-space-size=8192'
+          NODE_OPTIONS: "--max-old-space-size=8192"
 
       - name: Patient component tests
         run: cd apps/intake && npm run component-tests
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
-          NODE_OPTIONS: '--max-old-space-size=8192'
+          NODE_OPTIONS: "--max-old-space-size=8192"
 
       - name: EHR component tests
         run: cd apps/ehr && npm run component-tests
         env:
           ENV: ${{ steps.env.outputs.environment }}
           CI: true
-          NODE_OPTIONS: '--max-old-space-size=8192'
-
-      - name: Integration tests
-        run: npm run integration:zambdas
-        env:
-          ENV: ${{ steps.env.outputs.environment }}
-          CI: true
-          NODE_OPTIONS: '--max-old-space-size=8192'
+          NODE_OPTIONS: "--max-old-space-size=8192"
 
       - name: Set GitHub Commit Status
         if: github.event_name == 'workflow_dispatch'

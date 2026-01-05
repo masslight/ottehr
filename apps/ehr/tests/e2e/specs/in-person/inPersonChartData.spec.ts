@@ -36,7 +36,7 @@ let SURGERY: string;
 
 const DIAGNOSIS_CODE = 'J45.901';
 const DIAGNOSIS_NAME = 'injury';
-const E_M_CODE = '99201';
+const E_M_CODE = '99202';
 const CPT_CODE = '24640';
 const CPT_CODE_2 = '72146';
 

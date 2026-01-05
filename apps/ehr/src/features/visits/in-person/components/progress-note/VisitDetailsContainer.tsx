@@ -6,12 +6,12 @@ import { VisitNoteItem } from 'src/features/visits/shared/components/VisitNoteIt
 import { useChartFields } from 'src/features/visits/shared/hooks/useChartFields';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import {
+  formatDateForDisplay,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
 } from 'utils';
-import { formatDateUsingSlashes } from '../../../../../helpers/formatDateTime';
 import { ButtonRounded } from '../RoundedButton';
 
 export const VisitDetailsContainer: FC = () => {
@@ -28,7 +28,7 @@ export const VisitDetailsContainer: FC = () => {
     .valueString;
   const subscriberID = getQuestionnaireResponseByLinkId('insurance-member-id', questionnaireResponse)?.answer?.[0]
     .valueString;
-  const date = formatDateUsingSlashes(appointment?.start);
+  const date = formatDateForDisplay(appointment?.start);
 
   const facility = location?.name;
   const admitterId = getAdmitterPractitionerId(encounter);
