@@ -127,11 +127,92 @@ jobs:
           npm run terraform-init -- -input=false
           npm run apply-$ENV
 
-  automated-tests:
+  generate-seed-data:
     needs: deploy
     if: |
       always() && !cancelled() &&
       (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
+      (inputs.run_automated_tests || inputs.run_ehr_e2e) &&
+      (inputs.environment == 'local' || inputs.environment == 'e2e')
+    runs-on: ubuntu-latest-4-cores
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Restore node modules
+        id: npm-cache-restore
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+            deploy/node_modules
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-cache-
+
+      - name: Install dependencies
+        if: steps.npm-cache-restore.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Check out secrets repo
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
+        with:
+          repository: ${{ inputs.secrets_repository }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          path: 'secrets'
+
+      - name: Setup environment
+        run: |
+          mkdir -p packages/zambdas/.env
+          cp secrets/zambdas/* packages/zambdas/.env
+          mkdir -p apps/ehr/env apps/intake/env
+          cp secrets/ehr/app/tests.*.json apps/ehr/env/
+          cp secrets/ehr/app/.env* apps/ehr/env/
+          cp secrets/intake/app/tests.*.json apps/intake/env/
+          cp secrets/intake/app/.env* apps/intake/env/
+
+      - name: Restore Playwright browsers
+        id: playwright-cache-restore
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Generate seed data (start services, login test, generate seed data)
+        run: |
+          # Use run-e2e.ts with --generate-seed-data flag
+          # This will: start zambdas + EHR frontend → run login test → generate seed data → cleanup
+          ENV=${{ inputs.environment }} npm run ehr:generate-seed-data
+        env:
+          CI: true
+
+      - name: Cache seed data
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: apps/ehr/tests/e2e-utils/seed-data/resources/
+          key: seed-data-${{ inputs.environment }}-${{ github.sha }}-${{ github.run_id }}
+
+  automated-tests:
+    needs: [deploy, generate-seed-data]
+    if: |
+      always() && !cancelled() &&
+      (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
+      (needs.generate-seed-data.result == 'success' || needs.generate-seed-data.result == 'skipped') &&
       inputs.run_automated_tests &&
       !contains(inputs.pr_body, '/skip-automated-tests')
     uses: ./.github/workflows/automated-tests.yml
@@ -140,10 +221,11 @@ jobs:
       environment: ${{ inputs.environment }}
 
   ehr-e2e-tests:
-    needs: deploy
+    needs: [deploy, generate-seed-data]
     if: |
       always() && !cancelled() &&
       (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
+      (needs.generate-seed-data.result == 'success' || needs.generate-seed-data.result == 'skipped') &&
       inputs.run_ehr_e2e
     uses: ./.github/workflows/e2e-ehr.yml
     secrets: inherit
@@ -163,7 +245,7 @@ jobs:
 
   # Create status check aliases for required checks
   status-aliases:
-    needs: [deploy, ehr-e2e-tests, intake-e2e-tests]
+    needs: [deploy, generate-seed-data, ehr-e2e-tests, intake-e2e-tests]
     if: always() && !cancelled() && inputs.is_pull_request
     runs-on: ubuntu-latest
     permissions:

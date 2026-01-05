@@ -9,6 +9,7 @@ const SMOKE_TEST = process.env.SMOKE_TEST || 'false';
 const isUI = process.argv.includes('--ui');
 const isLoginOnly = process.argv.includes('--login-only');
 const isSpecsOnly = process.argv.includes('--specs-only');
+const isGenerateSeedData = process.argv.includes('--generate-seed-data');
 const isEnvWithZambdaLocalServer = ENV === 'local' || ENV === 'e2e';
 const isEnvWithFrontendLocalServer = ENV === 'local' || ENV === 'e2e' || isCI;
 const testFileArg = process.argv.find((arg) => arg.startsWith('--test-file='));
@@ -182,13 +183,20 @@ const waitForZambdas = async (): Promise<void> => {
 };
 
 const generateSeedData = async (): Promise<void> => {
+  // On CI, seed data is only generated when --generate-seed-data flag is used
+  // Locally, seed data is generated automatically for EHR tests
+  if (isCI && !isGenerateSeedData) {
+    console.log('Skipping seed data generation on CI (not in generate-seed-data mode)');
+    return;
+  }
+
   if (appName !== 'ehr') {
     return; // Only generate for EHR tests
   }
 
   try {
     console.log(`Generating seed data for ${ENV} environment...`);
-    execSync('npm run seed', {
+    execSync(`npx env-cmd -f apps/ehr/env/tests.${ENV}.json tsx scripts/generate-seed-data.ts`, {
       stdio: 'inherit',
       env: { ...process.env, ENV },
     });
@@ -297,6 +305,39 @@ function runTests(): void {
     specs.on('close', (code) => {
       clearPorts();
       process.exit(code ?? 1);
+    });
+    return;
+  }
+
+  if (isGenerateSeedData) {
+    // Seed data generation is only supported for EHR app
+    if (appName !== 'ehr') {
+      console.error(`Error: --generate-seed-data is only supported for EHR app, but got: ${appName}`);
+      process.exit(1);
+    }
+
+    console.log(`Running login test and seed data generation for ${appName}...`);
+    const loginTest = createTestProcess('login', appName);
+
+    loginTest.on('close', (loginCode) => {
+      if (loginCode === 0) {
+        console.log('Login test passed, generating seed data...');
+        generateSeedData()
+          .then(() => {
+            console.log('Seed data generation complete!');
+            clearPorts();
+            process.exit(0);
+          })
+          .catch((error) => {
+            console.error('Seed generation failed:', error);
+            clearPorts();
+            process.exit(1);
+          });
+      } else {
+        console.error('Login test failed');
+        clearPorts();
+        process.exit(loginCode ?? 1);
+      }
     });
     return;
   }
