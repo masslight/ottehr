@@ -52,7 +52,6 @@ export const LabsTableBundleHeaderRow = ({
       return;
     }
     if (orderNote.length > HL7_NOTE_CHAR_LIMIT) {
-      setNoteError(`Note must be under ${HL7_NOTE_CHAR_LIMIT} characters long, length of note: ${orderNote.length}`);
       return;
     }
     setSavingNote(true);
@@ -180,9 +179,16 @@ export const LabsTableBundleHeaderRow = ({
                 multiline
                 rows={2}
                 value={orderNote}
+                inputProps={{ maxLength: HL7_NOTE_CHAR_LIMIT }}
                 onChange={(e) => {
                   setOrderNote(e.target.value);
                 }}
+                error={!!(orderNote && orderNote?.length >= HL7_NOTE_CHAR_LIMIT)}
+                helperText={
+                  orderNote && orderNote?.length >= HL7_NOTE_CHAR_LIMIT
+                    ? `Input cannot be more than ${HL7_NOTE_CHAR_LIMIT} characters`
+                    : ''
+                }
               ></TextField>
             )}
           </Box>

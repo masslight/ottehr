@@ -2,7 +2,7 @@ import { expect, Page } from '@playwright/test';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TEST_PATIENT_EMAIL, TEST_PATIENT_FIRST_NAME, TEST_PATIENT_LAST_NAME } from 'test-utils';
-import { BOOKING_CONFIG, genderMap } from 'utils';
+import { genderMap, VALUE_SETS } from 'utils';
 import { BaseFillingInfo } from './BaseFillingInfo';
 import { Locators } from './locators';
 import { ResourceHandler } from './resource-handler';
@@ -61,7 +61,7 @@ export abstract class BaseFlow {
         birthSex: patient.gender || genderMap.female,
         email: patient?.telecom?.find((t) => t.system === 'email')?.value || TEST_PATIENT_EMAIL,
         thisEmailBelongsTo: 'Patient',
-        reasonForVisit: BOOKING_CONFIG.reasonForVisitOptions[0],
+        reasonForVisit: VALUE_SETS.reasonForVisitOptions[0].value,
         dob: {
           m: dobDateTime.toFormat('MMM'),
           d: dobDateTime.toFormat('d'),

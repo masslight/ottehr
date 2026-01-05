@@ -1,7 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { assert } from 'console';
 import { TEST_PATIENT_EMAIL, TEST_PATIENT_FIRST_NAME, TEST_PATIENT_LAST_NAME } from 'test-utils';
-import { BOOKING_CONFIG, genderMap } from 'utils';
+import { BOOKING_CONFIG, genderMap, VALUE_SETS } from 'utils';
 import { BaseFillingInfo } from '../BaseFillingInfo';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
@@ -12,9 +12,8 @@ export class FillingInfo extends BaseFillingInfo {
     this.page = page;
   }
 
-  // todo grab from config!
-  private reasonForVisit = [BOOKING_CONFIG.reasonForVisitOptions[0]];
-  private cancelReason = BOOKING_CONFIG.cancelReasonOptions.slice();
+  private reasonForVisit = [VALUE_SETS.reasonForVisitOptions[0].value];
+  private cancelReason = VALUE_SETS.cancelReasonOptions.slice();
 
   getRandomString() {
     return Math.random().toString().slice(2, 7);
@@ -123,7 +122,7 @@ export class FillingInfo extends BaseFillingInfo {
   }
 
   async cancelPrebookVisit() {
-    const randomCancelReason = this.getRandomElement(this.cancelReason);
+    const randomCancelReason = this.getRandomElement(this.cancelReason.map((option) => option.label));
     await this.page.getByRole('button', { name: 'Cancel' }).click();
     await this.page.locator('#cancellationReason').click();
     await this.page.getByRole('option', { name: randomCancelReason }).click();

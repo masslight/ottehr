@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 import { expect, Page } from '@playwright/test';
+import { BRANDING_CONFIG } from 'utils';
 export class UIDesign {
   page: Page;
   constructor(page: Page) {
@@ -56,7 +57,7 @@ export class UIDesign {
     await expect(link).toHaveAttribute('href', 'https://www.example.com/survey');
     // await expect(page.getByRole('button', { name: '-minute survey' })).toBeVisible();
     await expect(this.page.getByRole('button', { name: 'Register another patient' })).toBeVisible();
-    await expect(this.page.getByRole('img', { name: 'Ottehr In Person' })).toBeVisible();
+    await expect(this.page.getByRole('img', { name: `${BRANDING_CONFIG.projectName} In Person` })).toBeVisible();
     await expect(this.page.getByRole('button', { name: 'Logout' })).toBeVisible();
     await expect(this.page.getByLabel('Help button')).toBeVisible();
   }
@@ -71,7 +72,7 @@ export class UIDesign {
     await expect(link).toHaveAttribute('href', 'https://www.example.com/survey');
     // await expect(page.getByRole('button', { name: '-minute survey' })).toBeVisible();
     await expect(this.page.getByRole('button', { name: 'Register another patient' })).toBeVisible();
-    await expect(this.page.getByRole('img', { name: 'Ottehr In Person' })).toBeVisible();
+    await expect(this.page.getByRole('img', { name: `${BRANDING_CONFIG.projectName} In Person` })).toBeVisible();
     await expect(this.page.getByRole('button', { name: 'Logout' })).toBeVisible();
     await expect(this.page.getByLabel('Help button')).toBeVisible();
   }
