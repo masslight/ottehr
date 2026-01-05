@@ -12,6 +12,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
+import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Row } from 'src/components/layout';
@@ -222,6 +223,21 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       }
       console.log('Eligibility check result:', result);
 
+      if (
+        result &&
+        mapSimpleStatusToDetailedStatus(result.status) !== InsuranceEligibilityCheckStatus.eligibilityConfirmed
+      ) {
+        enqueueSnackbar(
+          `Eligibility check failed. ${result.errors
+            .map((error: any) => error.code)
+            .map((error: any) => error.text)
+            .join(', ')}`,
+          {
+            variant: 'error',
+          }
+        );
+      }
+
       const currentInsuranceCode = getValues(FormFields.insurancePlanType.key);
       if (!currentInsuranceCode) {
         const insuranceCodeTemp = result?.coverageDetails?.insurance?.insuranceCode;
@@ -374,7 +390,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     return (
       <>
         <Typography variant="body1" color={theme.palette.primary.dark}>
-          Individual Deductible
+          {detail.name}
         </Typography>
         {detail.total !== undefined && detail.paid !== undefined && (
           <LinearProgress

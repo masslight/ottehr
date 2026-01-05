@@ -21,6 +21,7 @@ import {
 import { DateTime } from 'luxon';
 import { Color, PDFImage } from 'pdf-lib';
 import {
+  BRANDING_CONFIG,
   BUCKET_NAMES,
   compareDates,
   convertActivityDefinitionToTestItem,
@@ -63,13 +64,12 @@ import {
   OYSTEHR_OBS_CONTENT_TYPES,
   PERFORMING_PHYSICIAN_EXTENSION_URLS,
   PERFORMING_SITE_INFO_EXTENSION_URLS,
-  PROJECT_NAME,
   quantityRangeFormat,
   Secrets,
   SupportedObsImgAttachmentTypes,
   TestItemComponent,
 } from 'utils';
-import { fetchResultResourcesForRepeatServiceRequest } from '../../ehr/shared/in-house-labs';
+import { fetchResultResourcesForRelatedServiceRequest } from '../../ehr/shared/in-house-labs';
 import {
   getExternalLabOrderResourcesViaDiagnosticReport,
   getExternalLabOrderResourcesViaServiceRequest,
@@ -590,7 +590,7 @@ export async function createInHouseLabResultPDF(
   secrets: Secrets | null,
   token: string,
   activityDefinition: ActivityDefinition,
-  serviceRequestsRelatedViaRepeat: ServiceRequest[] | undefined,
+  relatedServiceRequests: ServiceRequest[] | undefined,
   specimen: Specimen
 ): Promise<void> {
   console.log('starting create in-house lab result pdf');
@@ -613,11 +613,11 @@ export async function createInHouseLabResultPDF(
   );
 
   let additionalResultsForRelatedSrs: InHouseLabResultConfig[] = [];
-  if (serviceRequestsRelatedViaRepeat) {
-    console.log('configuring additional results for related repeat tests');
-    additionalResultsForRelatedSrs = await getAdditionalResultsForRepeats(
+  if (relatedServiceRequests) {
+    console.log('configuring additional results for related tests');
+    additionalResultsForRelatedSrs = await getAdditionalResultsForRelated(
       oystehr,
-      serviceRequestsRelatedViaRepeat,
+      relatedServiceRequests,
       activityDefinition,
       timezone
     );
@@ -835,7 +835,10 @@ async function drawCommonLabsElements(
   console.log(
     `Drawing location name. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
-  pdfClient.drawText(`${PROJECT_NAME ? PROJECT_NAME + ' ' : ''}${data.locationName || ''}`, textStyles.textBoldRight);
+  pdfClient.drawText(
+    `${BRANDING_CONFIG.projectName ? BRANDING_CONFIG.projectName + ' ' : ''}${data.locationName || ''}`,
+    textStyles.textBoldRight
+  );
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   const locationCityStateZip = `${data.locationCity?.toUpperCase() || ''}${data.locationCity ? ', ' : ''}${
@@ -1279,7 +1282,7 @@ async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData)
   pdfClient.newLine(30);
 
   for (const labResult of data.inHouseLabResults) {
-    pdfClient.drawText(data.testName.toUpperCase(), textStyles.header);
+    pdfClient.drawText(labResult.testName.toUpperCase(), textStyles.header);
 
     pdfClient = drawFieldLine(pdfClient, textStyles, 'Specimen source:', labResult.specimenSource);
     pdfClient.newLine(STANDARD_FONT_SIZE);
@@ -1617,22 +1620,26 @@ const getFormattedInHouseLabResults = async (
     finalResultDateTime,
     specimenSource,
     results,
+    testName: activityDefinition.title || '',
   };
 
   return resultConfig;
 };
 
-const getAdditionalResultsForRepeats = async (
+const getAdditionalResultsForRelated = async (
   oystehr: Oystehr,
-  repeatTestingSrs: ServiceRequest[],
+  relatedSRs: ServiceRequest[],
   activityDefinition: ActivityDefinition,
   timezone: string | undefined
 ): Promise<InHouseLabResultConfig[]> => {
-  const { srResourceMap } = await fetchResultResourcesForRepeatServiceRequest(oystehr, repeatTestingSrs);
+  const { additionalActivityDefinitions, srResourceMap } = await fetchResultResourcesForRelatedServiceRequest(
+    oystehr,
+    relatedSRs
+  );
   const configs: InHouseLabResultConfig[] = [];
 
   for (const [srId, resources] of Object.entries(srResourceMap)) {
-    const { observations, tasks, specimens } = resources;
+    const { observations, tasks, specimens, relatedAdUrlCanonicalUrl } = resources;
     const inputRequestTask = tasks.find(
       (task) => task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)
     );
@@ -1640,9 +1647,20 @@ const getAdditionalResultsForRepeats = async (
     if (!inputRequestTask || !specimen) {
       throw new Error(`issue getting inputRequestTask or specimen for repeat service request: ${srId}`);
     }
+    let relatedAd = activityDefinition;
+    if (relatedAdUrlCanonicalUrl) {
+      if (relatedAdUrlCanonicalUrl !== `${activityDefinition.url}|${activityDefinition.version}`) {
+        additionalActivityDefinitions.forEach((AD) => {
+          const canonicalUrl = `${AD.url}|${AD.version}`;
+          if (relatedAdUrlCanonicalUrl === canonicalUrl) {
+            relatedAd = AD;
+          }
+        });
+      }
+    }
     const config = await getFormattedInHouseLabResults(
       oystehr,
-      activityDefinition,
+      relatedAd,
       observations,
       specimen,
       inputRequestTask,

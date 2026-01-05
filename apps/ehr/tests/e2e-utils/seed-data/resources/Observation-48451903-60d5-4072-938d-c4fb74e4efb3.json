@@ -1,0 +1,29 @@
+{
+  "fullUrl": "urn:uuid:Observation-48451903-60d5-4072-938d-c4fb74e4efb3",
+  "request": {
+    "method": "POST",
+    "url": "/Observation"
+  },
+  "resource": {
+    "resourceType": "Observation",
+    "subject": {
+      "reference": "urn:uuid:Patient-027ae680-cc77-4c94-a0a8-74a0fee782e1"
+    },
+    "encounter": {
+      "reference": "urn:uuid:Encounter-d5977f9d-0895-442b-9c42-1338e315b801"
+    },
+    "status": "final",
+    "valueBoolean": true,
+    "code": {
+      "text": "Moves all extremities symmetrically"
+    },
+    "meta": {
+      "tag": [
+        {
+          "code": "moves-all-extremities-symmetrically",
+          "system": "https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field"
+        }
+      ]
+    }
+  }
+}

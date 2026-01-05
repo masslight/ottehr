@@ -2,7 +2,7 @@ import { Typography } from '@mui/material';
 import { FC } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { CancellationReasonOptionsTelemed } from 'utils';
+import { VALUE_SETS } from 'utils';
 import { safelyCaptureException } from 'utils/lib/frontend/sentry';
 import { intakeFlowPageRoute } from '../../App';
 import { CustomDialog } from '../../components/CustomDialog';
@@ -60,10 +60,7 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appoint
             name: 'cancellationReason',
             label: 'Cancelation reason',
             required: true,
-            selectOptions: Object.keys(CancellationReasonOptionsTelemed).map((value: string) => ({
-              label: value,
-              value: value,
-            })),
+            selectOptions: VALUE_SETS.cancelReasonOptionsVirtual,
           },
         ]}
         controlButtons={{

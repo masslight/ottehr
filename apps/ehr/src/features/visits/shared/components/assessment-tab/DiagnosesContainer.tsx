@@ -46,7 +46,10 @@ export const DiagnosesContainer: FC = () => {
   const onAdd = (value: IcdSearchResponse['codes'][number]): void => {
     const preparedValue = { ...value, isPrimary: !primaryDiagnosis };
     const newDiagnoses = [...diagnoses, preparedValue];
+    const previousDiagnoses = [...diagnoses];
 
+    // Optimistic update
+    setPartialChartData({ diagnosis: newDiagnoses }, { invalidateQueries: false });
     saveChartData(
       {
         diagnosis: [preparedValue],
@@ -60,18 +63,33 @@ export const DiagnosesContainer: FC = () => {
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while adding diagnosis. Please try again.', { variant: 'error' });
+          // Rollback to previous state
           setPartialChartData({
-            diagnosis: diagnoses,
+            diagnosis: previousDiagnoses,
           });
         },
       }
     );
-    setPartialChartData({ diagnosis: newDiagnoses });
   };
 
   const onDelete = async (resourceId: string): Promise<void> => {
-    let localDiagnoses = diagnoses;
-    const preparedValue = localDiagnoses.find((item) => item.resourceId === resourceId)!;
+    const preparedValue = diagnoses.find((item) => item.resourceId === resourceId)!;
+    const prevDiagnoses = [...diagnoses];
+    let optimisticDiagnoses = diagnoses.filter((item) => item.resourceId !== resourceId);
+
+    if (preparedValue.isPrimary && otherDiagnoses.length > 0) {
+      const firstAppropriateDiagnosis = otherDiagnoses.find((diagnosis) => !diagnosis.code.startsWith('W'));
+
+      if (firstAppropriateDiagnosis) {
+        // Optimistically promote to primary
+        optimisticDiagnoses = optimisticDiagnoses.map((item) =>
+          item.resourceId === firstAppropriateDiagnosis.resourceId ? { ...item, isPrimary: true } : item
+        );
+      }
+    }
+
+    // Optimistic update
+    setPartialChartData({ diagnosis: optimisticDiagnoses }, { invalidateQueries: false });
 
     await deleteChartData(
       {
@@ -80,17 +98,16 @@ export const DiagnosesContainer: FC = () => {
       {
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting diagnosis. Please try again.', { variant: 'error' });
+          setPartialChartData({ diagnosis: prevDiagnoses });
         },
       }
     );
-    localDiagnoses = localDiagnoses.filter((item) => item.resourceId !== resourceId);
 
     if (preparedValue.isPrimary && otherDiagnoses.length > 0) {
       const firstAppropriateDiagnosis = otherDiagnoses.find((diagnosis) => !diagnosis.code.startsWith('W'));
 
       if (firstAppropriateDiagnosis) {
         const otherDiagnosis = { ...firstAppropriateDiagnosis, isPrimary: true };
-        const prevDiagnoses = [...localDiagnoses];
 
         saveChartData(
           {
@@ -100,7 +117,7 @@ export const DiagnosesContainer: FC = () => {
             onSuccess: (data) => {
               const updatedDiagnoses = data.chartData.diagnosis;
               setPartialChartData({
-                diagnosis: getUpdatedDiagnoses(prevDiagnoses, updatedDiagnoses),
+                diagnosis: getUpdatedDiagnoses(optimisticDiagnoses, updatedDiagnoses),
               });
             },
             onError: () => {
@@ -109,18 +126,15 @@ export const DiagnosesContainer: FC = () => {
                 { variant: 'error' }
               );
               setPartialChartData({
-                diagnosis: prevDiagnoses,
+                diagnosis: optimisticDiagnoses.map((item) =>
+                  item.resourceId === otherDiagnosis.resourceId ? { ...item, isPrimary: false } : item
+                ),
               });
             },
           }
         );
-
-        localDiagnoses = localDiagnoses.map((item) =>
-          item.resourceId === otherDiagnosis.resourceId ? otherDiagnosis : item
-        );
       }
     }
-    setPartialChartData({ diagnosis: localDiagnoses });
   };
 
   const onMakePrimary = (resourceId: string): void => {
@@ -130,6 +144,20 @@ export const DiagnosesContainer: FC = () => {
     previousAndNewValues.push({ ...value, isPrimary: true }); // prepared diagnosis
     if (primaryDiagnosis) previousAndNewValues.push({ ...primaryDiagnosis, isPrimary: false }); // previous diagnosis
 
+    // Optimistic update
+    const optimisticDiagnoses = diagnoses.map((item) => {
+      if (item.isPrimary) {
+        return { ...item, isPrimary: false };
+      }
+      if (item.resourceId === resourceId) {
+        return { ...item, isPrimary: true };
+      }
+      return item;
+    });
+
+    // Optimistic update
+    setPartialChartData({ diagnosis: optimisticDiagnoses }, { invalidateQueries: false });
+
     saveChartData(
       {
         diagnosis: previousAndNewValues,
@@ -138,31 +166,20 @@ export const DiagnosesContainer: FC = () => {
         onSuccess: (data) => {
           const updatedDiagnoses = data.chartData.diagnosis;
           setPartialChartData({
-            diagnosis: getUpdatedDiagnoses(diagnoses, updatedDiagnoses),
+            diagnosis: getUpdatedDiagnoses(optimisticDiagnoses, updatedDiagnoses),
           });
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while changing primary diagnosis. Please try again.', {
             variant: 'error',
           });
+          // Rollback to previous state
           setPartialChartData({
             diagnosis: oldDiagnoses,
           });
         },
       }
     );
-
-    setPartialChartData({
-      diagnosis: diagnoses.map((item) => {
-        if (item.isPrimary) {
-          return { ...item, isPrimary: false };
-        }
-        if (item.resourceId === resourceId) {
-          return { ...item, isPrimary: true };
-        }
-        return item;
-      }),
-    });
   };
 
   const handleSetup = (): void => {

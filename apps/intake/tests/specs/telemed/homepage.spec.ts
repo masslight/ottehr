@@ -20,6 +20,7 @@ test.describe.parallel('THP. Telemed Homepage', () => {
     });
   });
 
+  // why is this in the "telemed homepage" spec?
   test('THP-2. Should open Book In-Person Visit', async ({ page }) => {
     await page.goto('/home');
     await page.getByRole('button', { name: 'Schedule an In-Person Visit' }).click();
@@ -33,7 +34,20 @@ test.describe.parallel('THP. Telemed Homepage', () => {
       }
     }
 
-    await expect(page.getByRole('heading', { name: 'Book a visit', level: 2 })).toBeVisible({
+    if (BOOKING_CONFIG.inPersonPrebookRoutingParams.some((param) => param.key === 'bookingOn') === false) {
+      // if there is no bookingOn param, the location selector will be presented
+      // and we need to select a location before proceeding
+      const locationSelector = page.locator('#bookable-autocomplete');
+      await expect(locationSelector).toBeVisible();
+      await locationSelector.click();
+      await page.getByRole('option', { disabled: false }).first().click();
+    }
+
+    await expect(
+      page.getByRole('tablist', {
+        name: 'Appointment tabs for switching between appointments slots for today and tomorrow',
+      })
+    ).toBeVisible({
       timeout: 15000,
     });
   });

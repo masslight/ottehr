@@ -2,7 +2,7 @@ import z from 'zod';
 import { isValidUUID } from '../../helpers';
 import { QAndQRResponse } from '../data';
 
-export const GetQuestionnaireParamsSchema = z.object({
+export const GetBookingQuestionnaireParamsSchema = z.object({
   slotId: z
     .string()
     .nonempty()
@@ -25,8 +25,8 @@ export const GetQuestionnaireParamsSchema = z.object({
     ),
 });
 
-export type GetQuestionnaireParams = z.infer<typeof GetQuestionnaireParamsSchema>;
+export type GetBookingQuestionnaireParams = z.infer<typeof GetBookingQuestionnaireParamsSchema>;
 
-export interface GetQuestionnaireResponse extends QAndQRResponse {
+export interface GetBookingQuestionnaireResponse extends QAndQRResponse {
   title?: string;
 }

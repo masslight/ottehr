@@ -44,6 +44,7 @@ on:
       - "packages/zambdas/**"
       - "packages/utils/**"
       - "packages/ui-components/**"
+      - packages/spec/**
       - "scripts/**"
       - ".github/**"
       - ".prettierignore"
@@ -57,6 +58,7 @@ on:
       - "packages/zambdas/**"
       - "packages/utils/**"
       - "packages/ui-components/**"
+      - packages/spec/**
       - "scripts/**"
       - ".github/**"
       - ".prettierignore"

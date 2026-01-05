@@ -15,23 +15,32 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 app.use(cors());
 
-Object.entries(zambdasSpec.zambdas).forEach(([_key, spec]) => {
-  const executeOrExecutePublic = spec.type === 'http_auth' ? 'execute' : 'execute-public';
-  const path = `/local/zambda/${spec.name}/${executeOrExecutePublic}`;
-  app.post(path, async (req, res) => {
-    const { index } = await import(`../../${spec.src}`);
-    await expressLambda(index, req, res);
-  });
-  app.head('/', async (req, res) => {
-    res.send({
-      status: 200,
+// Register routes lazily to avoid Vite SSR import issues during module initialization
+function registerRoutes(): void {
+  Object.entries(zambdasSpec.zambdas).forEach(([_key, spec]) => {
+    const executeOrExecutePublic = spec.type === 'http_auth' ? 'execute' : 'execute-public';
+    const path = `/local/zambda/${spec.name}/${executeOrExecutePublic}`;
+    app.post(path, async (req, res) => {
+      const { index } = await import(`../../${spec.src}`);
+      await expressLambda(index, req, res);
     });
+    app.head('/', async (req, res) => {
+      res.send({
+        status: 200,
+      });
+    });
+    console.log(`Registered POST: ${path}`);
   });
-  console.log(`Registered POST: ${path}`);
-});
+}
 
-app.listen(3000, () => {
-  console.log(`Zambda local server is running on port 3000`);
-});
+// Register routes immediately (will be called by tests or when server starts)
+registerRoutes();
+
+// Only start the server if not in test environment
+if (process.env.VITEST !== 'true') {
+  app.listen(3000, () => {
+    console.log(`Zambda local server is running on port 3000`);
+  });
+}
 
 export default app;

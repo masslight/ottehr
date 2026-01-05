@@ -226,6 +226,10 @@ function restoreY(pdfClient: PdfClient, draw: () => void): void {
   pdfClient.setY(y);
 }
 
-function formatMoney(cents: number): string {
-  return '$' + cents / 100 + '.' + String(cents % 100).padStart(2, '0');
+export function formatMoney(cents: number): string {
+  const formatMoneyTemp = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  });
+  return formatMoneyTemp.format(cents / 100);
 }

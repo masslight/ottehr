@@ -6,9 +6,8 @@ import { VisitNoteItem } from 'src/features/visits/shared/components/VisitNoteIt
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { getPatientName } from 'src/shared/utils';
-import { calculatePatientAge, getPatientAddress, standardizePhoneNumber } from 'utils';
+import { calculatePatientAge, formatDateForDisplay, getPatientAddress, standardizePhoneNumber } from 'utils';
 import { EditPatientDialog } from '../../../../../components/dialogs';
-import { formatDateUsingSlashes } from '../../../../../helpers/formatDateTime';
 
 export const PatientInformationContainer: FC = () => {
   const { patient } = useAppointmentData();
@@ -17,7 +16,7 @@ export const PatientInformationContainer: FC = () => {
 
   const name = getPatientName(patient?.name).fullDisplayName;
   const dob =
-    patient?.birthDate && `${formatDateUsingSlashes(patient.birthDate)} (${calculatePatientAge(patient.birthDate)})`;
+    patient?.birthDate && `${formatDateForDisplay(patient.birthDate)} (${calculatePatientAge(patient.birthDate)})`;
 
   const sex = patient?.gender && capitalize(patient.gender);
   const phone = standardizePhoneNumber(patient?.telecom?.find((obj) => obj.system === 'phone')?.value);

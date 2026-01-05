@@ -685,6 +685,78 @@ export const testItems: TestItem[] = [
       },
     ],
   },
+  {
+    name: 'Alcohol Test',
+    methods: {
+      analyzer: { device: 'breathalyzer' },
+    },
+    method: 'breathalyzer',
+    device: 'breathalyzer',
+    cptCode: ['82075'],
+    loincCode: ['5641-6'],
+    repeatTest: false,
+    components: [
+      {
+        componentName: 'BAC',
+        loincCode: ['5641-6'],
+        dataType: 'Quantity' as const,
+        normalRange: {
+          low: 0,
+          high: 0.02,
+          unit: '%',
+        },
+        display: {
+          type: 'Numeric',
+          nullOption: false,
+        },
+        reflexLogic: {
+          testToRun: {
+            testName: 'Alcohol Confirmation Test',
+            // this will need to be updated to match the current version of the AD
+            testCanonicalUrl: 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholConfirmationTest|1.0.0',
+          },
+          triggerAlert: 'Alcohol ≥ 0.02% requires a confirmation test',
+          condition: {
+            description: 'BAC >= 0.02',
+            language: 'text/fhirpath',
+            expression:
+              "%resource.code.coding.where(code = '82075').exists() and %resource.valueQuantity.value >= 0.02",
+          },
+        },
+      },
+    ],
+  },
+  {
+    name: 'Alcohol Confirmation Test',
+    methods: {
+      analyzer: { device: 'breathalyzer' },
+    },
+    method: 'breathalyzer',
+    device: 'breathalyzer',
+    cptCode: ['82075C'],
+    loincCode: ['5641-6'],
+    repeatTest: false,
+    components: [
+      {
+        componentName: 'BAC',
+        loincCode: ['5641-6'],
+        dataType: 'Quantity' as const,
+        normalRange: {
+          low: 0,
+          high: 0.02,
+          unit: '%',
+        },
+        display: {
+          type: 'Numeric',
+          nullOption: false,
+        },
+        reflexLogic: {
+          // this will need to be updated to match the current version of the AD
+          parentTestUrl: 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholTest|1.0.0',
+        },
+      },
+    ],
+  },
 ];
 
 // console.log('testItems in module:', testItems);
