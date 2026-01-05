@@ -24,7 +24,7 @@ import {
 import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import { useMutation, UseMutationResult, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Appointment, Attachment, Flag, Patient } from 'fhir/r4b';
+import { Appointment, Attachment, Flag, Organization } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
@@ -64,6 +64,8 @@ import {
   getUnconfirmedDOBForAppointment,
   isApiError,
   isInPersonAppointment,
+  OrderedCoveragesWithSubscribers,
+  PatientAccountResponse,
   TelemedAppointmentStatus,
   UpdateVisitDetailsInput,
   UpdateVisitFilesInput,
@@ -182,6 +184,34 @@ interface SavedCardItem {
 
 type SavedCardCategory = 'id' | 'primary-ins' | 'secondary-ins';
 
+const usePatientData = (
+  patientId?: string
+): {
+  account?: PatientAccountResponse;
+  insurance?: {
+    coverages: OrderedCoveragesWithSubscribers;
+    insuranceOrgs: Organization[];
+  };
+  isFetching: boolean;
+} => {
+  const apiClient = useOystehrAPIClient();
+
+  const accountQuery = useGetPatientAccount({
+    apiClient,
+    patientId: patientId ?? null,
+  });
+
+  const coveragesQuery = useGetPatientCoverages({ apiClient, patientId: patientId ?? null }, undefined, {
+    enabled: accountQuery.status === 'success',
+  });
+
+  return {
+    account: accountQuery.data,
+    insurance: coveragesQuery.data,
+    isFetching: accountQuery.isFetching || coveragesQuery.isFetching,
+  };
+};
+
 export default function VisitDetailsPage(): ReactElement {
   // variables
   const { id: appointmentID } = useParams();
@@ -193,9 +223,6 @@ export default function VisitDetailsPage(): ReactElement {
   const queryClient = useQueryClient();
 
   // state variables
-  const [patient, setPatient] = useState<Patient | undefined>(undefined);
-  const [appointment, setAppointment] = useState<Appointment | undefined>(undefined);
-  const [paperworkModifiedFlag, setPaperworkModifiedFlag] = useState<Flag | undefined>(undefined);
   const [status, setStatus] = useState<VisitStatusLabel | TelemedAppointmentStatus | undefined>(undefined);
   const [errors, setErrors] = useState<{ hopError?: string }>({});
   const [toastMessage, setToastMessage] = React.useState<string | undefined>(undefined);
@@ -212,7 +239,6 @@ export default function VisitDetailsPage(): ReactElement {
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState<boolean>(false);
   const [hopQueueDialogOpen, setHopQueueDialogOpen] = useState<boolean>(false);
-  const [hopLoading, setHopLoading] = useState<boolean>(false);
   const [photoZoom, setPhotoZoom] = useState<boolean>(false);
   const [zoomedIdx, setZoomedIdx] = useState<number>(0);
   const [issueDialogOpen, setIssueDialogOpen] = useState<boolean>(false);
@@ -224,26 +250,6 @@ export default function VisitDetailsPage(): ReactElement {
   const [scannerFileType, setScannerFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
   const [uploadingFileType, setUploadingFileType] = useState<UpdateVisitFilesInput['fileType'] | null>(null);
   const user = useEvolveUser();
-
-  const apiClient = useOystehrAPIClient();
-
-  const { status: accountStatus } = useGetPatientAccount({
-    apiClient,
-    patientId: patient?.id ?? null,
-  });
-
-  const { data: insuranceData } = useGetPatientCoverages(
-    {
-      apiClient,
-      patientId: patient?.id ?? null,
-    },
-    undefined,
-    {
-      enabled: accountStatus === 'success',
-    }
-  );
-
-  const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
 
   const {
     data: imageFileData,
@@ -420,27 +426,42 @@ export default function VisitDetailsPage(): ReactElement {
     queryKey: ['get-visit-details', appointmentID],
 
     queryFn: async (): Promise<EHRVisitDetails> => {
-      if (oystehrZambda && appointmentID) {
-        return getPatientVisitDetails(oystehrZambda, { appointmentId: appointmentID }).then((details) => {
-          setAppointment(details.appointment);
-          setPatient(details.patient);
-          setConsentAttested(details.consentIsAttested);
-          setPaperworkModifiedFlag(
-            details.flags.find(
-              (resource: Flag) =>
-                resource.status === 'active' && resource?.meta?.tag?.find((tag) => tag.code === 'paperwork-edit')
-            ) as Flag | undefined
-          );
-          return details;
-        });
+      if (!oystehrZambda || !appointmentID) {
+        throw new Error('fhir client not defined or appointmentId not provided');
       }
-      throw new Error('fhir client not defined or appointmentId not provided');
+      return getPatientVisitDetails(oystehrZambda!, { appointmentId: appointmentID! });
     },
     enabled: Boolean(oystehrZambda) && appointmentID !== undefined,
   });
 
+  const appointment = visitDetailsData?.appointment;
+  const patient = visitDetailsData?.patient;
+  const patientId = patient?.id;
+  const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
+
+  useEffect(() => {
+    if (serverConsentAttested !== null && consentAttested === null) {
+      setConsentAttested(serverConsentAttested);
+    }
+  }, [serverConsentAttested, consentAttested]);
+
+  const hasConsentChanged = consentAttested !== serverConsentAttested;
+
+  const paperworkModifiedFlag = useMemo(
+    () =>
+      visitDetailsData?.flags.find(
+        (resource: Flag) =>
+          resource.status === 'active' && resource?.meta?.tag?.find((tag) => tag.code === 'paperwork-edit')
+      ) as Flag | undefined,
+    [visitDetailsData?.flags]
+  );
+
   const encounter = visitDetailsData?.encounter;
   const qrId = visitDetailsData?.qrId;
+
+  const { insurance: insuranceData } = usePatientData(patientId);
+
+  const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patientId ?? '');
 
   const { fullName, patientFirstName, patientMiddleName, patientLastName } = useMemo(() => {
     let fullName = '';
@@ -527,51 +548,66 @@ export default function VisitDetailsPage(): ReactElement {
     }
   };
 
-  async function dismissPaperworkModifiedFlag(): Promise<void> {
-    if (!oystehr) {
-      throw new Error('Oystehr client not found.');
-    }
-    await oystehr.fhir.patch({
-      resourceType: 'Flag',
-      id: paperworkModifiedFlag?.id || '',
-      operations: [
-        {
-          op: 'replace',
-          path: '/status',
-          value: 'inactive',
-        },
-      ],
-    });
-    setPaperworkModifiedFlag(undefined);
-  }
+  const dismissPaperworkFlagMutation = useMutation({
+    mutationFn: async (flagId: string) => {
+      if (!oystehr) {
+        throw new Error('Oystehr client not found.');
+      }
+      return oystehr.fhir.patch({
+        resourceType: 'Flag',
+        id: flagId,
+        operations: [
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'inactive',
+          },
+        ],
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['get-visit-details', appointmentID],
+      });
+    },
+  });
 
-  const hopInQueue = async (): Promise<void> => {
-    setHopLoading(true);
-    const now = DateTime.now().toISO();
-    if (appointment?.id && now) {
+  const hopInQueueMutation = useMutation({
+    mutationFn: async () => {
+      if (!appointment?.id || !oystehr || !user) {
+        throw new Error('Missing required data');
+      }
+
+      const now = DateTime.now().toISO();
       const operation = getPatchOperationForNewMetaTag(appointment, {
         system: HOP_QUEUE_URI,
         code: now,
       });
-      const updateTag = getCriticalUpdateTagOp(appointment, `Staff ${user?.email ? user.email : `(${user?.id})`}`);
-      try {
-        const updatedAppt = await oystehr?.fhir.patch<Appointment>({
-          resourceType: 'Appointment',
-          id: appointment.id,
-          operations: [operation, updateTag],
-        });
-        setAppointment(updatedAppt);
-        const errorsCopy = errors;
-        delete errorsCopy.hopError;
-        setErrors(errorsCopy);
-        setHopQueueDialogOpen(false);
-      } catch (e) {
-        console.error('error hopping queue', e);
-        setErrors({ ...errors, hopError: 'There was an error moving this appointment to next' });
-      }
-      setHopLoading(false);
-    }
-  };
+      const updateTag = getCriticalUpdateTagOp(appointment, `Staff ${user?.email ?? `(${user?.id})`}`);
+
+      return oystehr.fhir.patch<Appointment>({
+        resourceType: 'Appointment',
+        id: appointment.id,
+        operations: [operation, updateTag],
+      });
+    },
+    onSuccess: (updatedAppt) => {
+      queryClient.setQueryData<EHRVisitDetails>(['get-visit-details', appointmentID], (old) =>
+        old ? { ...old, appointment: updatedAppt } : old
+      );
+      const errorsCopy = errors;
+      delete errorsCopy.hopError;
+      setErrors(errorsCopy);
+      setHopQueueDialogOpen(false);
+    },
+    onError: (error) => {
+      console.error('Error hopping queue:', error);
+      setErrors((prev) => ({
+        ...prev,
+        hopError: 'There was an error moving this appointment to next',
+      }));
+    },
+  });
 
   useEffect(() => {
     if (visitDetailsError) {
@@ -798,7 +834,7 @@ export default function VisitDetailsPage(): ReactElement {
               <Grid item xs={6}>
                 <CustomBreadcrumbs
                   chain={[
-                    { link: `/patient/${patient?.id}`, children: 'Visit Details' },
+                    { link: `/patient/${patientId}`, children: 'Visit Details' },
                     { link: '#', children: appointment?.id || <Skeleton width={150} /> },
                   ]}
                 />
@@ -951,9 +987,9 @@ export default function VisitDetailsPage(): ReactElement {
                     title="Move to next"
                     description={`Are you sure you want to move ${patient?.name?.[0]?.family}, ${patient?.name?.[0]?.given?.[0]} to next?`}
                     closeButtonText="Cancel"
-                    handleConfirm={async () => await hopInQueue()}
+                    handleConfirm={() => hopInQueueMutation.mutate()}
                     confirmText="Move to next"
-                    confirmLoading={hopLoading}
+                    confirmLoading={hopInQueueMutation.isPending}
                     error={errors?.hopError}
                   />
                 </>
@@ -974,7 +1010,11 @@ export default function VisitDetailsPage(): ReactElement {
                   title="Paperwork was updated:"
                   dateTime={paperworkModifiedFlag.period?.start}
                   timezone={locationTimeZone}
-                  onDismiss={dismissPaperworkModifiedFlag}
+                  onDismiss={async () => {
+                    if (paperworkModifiedFlag?.id) {
+                      await dismissPaperworkFlagMutation.mutateAsync(paperworkModifiedFlag.id);
+                    }
+                  }}
                   color={otherColors.warningText}
                   backgroundColor={otherColors.warningBackground}
                   icon={<WarningAmberIcon sx={{ color: otherColors.warningIcon }} />}
@@ -1158,7 +1198,7 @@ export default function VisitDetailsPage(): ReactElement {
                                     });
                                 }}
                                 loading={bookingDetailsMutation.isPending && editDialogConfig.type === 'closed'}
-                                disabled={consentAttested === visitDetailsData?.consentIsAttested}
+                                disabled={!hasConsentChanged}
                               >
                                 Save
                               </LoadingButton>
@@ -1189,9 +1229,8 @@ export default function VisitDetailsPage(): ReactElement {
                         curNoteAndHistory={notesHistory}
                         user={user}
                         oystehr={oystehr}
-                        setAppointment={setAppointment}
                         getAndSetHistoricResources={getAndSetHistoricResources}
-                      ></AppointmentNotesHistory>
+                      />
                     </Grid>
                   </Grid>
                 </Grid>
@@ -1202,7 +1241,7 @@ export default function VisitDetailsPage(): ReactElement {
                 About this patient
               </Typography>
               <PatientAccountComponent
-                id={patient?.id}
+                id={patientId}
                 loadingComponent={<Skeleton width={200} height={40} />}
                 renderBackButton={false}
               />
@@ -1243,7 +1282,7 @@ export default function VisitDetailsPage(): ReactElement {
                 }}
                 loading={paperworkPdfLoading}
                 color="primary"
-                disabled={isLoadingDocuments || !patient?.id}
+                disabled={isLoadingDocuments || !patientId}
                 onClick={downloadPaperworkPdf}
               >
                 Patient Paperwork PDF
