@@ -1,6 +1,6 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { HospitalizationOptions } from 'src/features/visits/in-person/components/hospitalization/hospitalization_options';
+import { HospitalizationOptions } from 'src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
 import { expectHospitalizationPage } from 'tests/e2e/page/HospitalizationPage';
 import {
   expectInPersonProgressNotePage,

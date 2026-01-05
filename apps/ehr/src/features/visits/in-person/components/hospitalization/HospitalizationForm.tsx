@@ -11,7 +11,7 @@ import { useChartDataArrayValue } from 'src/features/visits/shared/hooks/useChar
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { HospitalizationDTO } from 'utils';
-import { HospitalizationOptions } from './hospitalization_options';
+import { HospitalizationOptions } from './hospitalizationOptions';
 
 export const HospitalizationForm: FC = () => {
   const methods = useForm<{
