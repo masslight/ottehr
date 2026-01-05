@@ -6,6 +6,7 @@ import * as path from 'path';
 import { addProcessIdMetaTagToAppointment } from 'test-utils';
 import { ResourceHandler } from 'tests/utils/resource-handler';
 import {
+  BOOKING_CONFIG,
   chooseJson,
   CreateAppointmentResponse,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
@@ -14,7 +15,12 @@ import {
   SLUG_SYSTEM,
 } from 'utils';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
-import { Paperwork, PatientDetailsData, PatientDetailsRequiredData } from '../../utils/Paperwork';
+import {
+  Paperwork,
+  PatientDetailsData,
+  PatientDetailsRequiredData,
+  PrimaryCarePhysicianData,
+} from '../../utils/Paperwork';
 import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
 import { WalkInTelemedFlow } from '../../utils/telemed/WalkInTelemedFlow';
 import {
@@ -233,7 +239,7 @@ test.beforeAll(async () => {
 //       fill in any paperwork.
 // ---------------------------------------------------------------------------------------------------------------------
 
-test.describe.parallel('In-Person: Create test patients and appointments', () => {
+test.describe.parallel('In-Person: Create test patients and appointments', { tag: '@smoke' }, () => {
   test('Create patient without responsible party, with card payment, filling only required fields', async ({
     page,
   }) => {
@@ -397,8 +403,11 @@ test.describe.parallel('In-Person: Create test patients and appointments', () =>
   });
 });
 
-test.describe.parallel('Telemed: Create test patients and appointments', () => {
+test.describe.parallel('Telemed: Create test patients and appointments', { tag: '@smoke' }, () => {
   test('Create patient with responsible party, with insurance payment, filling all fields', async ({ page }) => {
+    if (!BOOKING_CONFIG.homepageOptions.includes('schedule-virtual-visit')) {
+      test.skip();
+    }
     const { flowClass, paperwork } = await test.step('Set up playwright', async () => {
       addAppointmentToIdsAndAddMetaTag(page, processId);
       const flowClass = new PrebookTelemedFlow(page);
@@ -433,7 +442,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', () => {
         state: filledPaperwork.state,
         // todo because i'm not great at type conditional types apparently
         patientDetailsData: filledPaperwork.patientDetailsData as PatientDetailsData,
-        pcpData: filledPaperwork.pcpData!,
+        pcpData: filledPaperwork.pcpData as PrimaryCarePhysicianData,
         insuranceData: filledPaperwork.insuranceData!,
         secondaryInsuranceData: filledPaperwork.secondaryInsuranceData!,
         responsiblePartyData: filledPaperwork.responsiblePartyData!,

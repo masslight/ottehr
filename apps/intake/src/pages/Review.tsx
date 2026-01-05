@@ -215,7 +215,7 @@ const Review = (): JSX.Element => {
           {reviewItems.map((item) => (
             <TableRow key={item.name}>
               <TableCell sx={{ paddingTop: 2, paddingBottom: 2, paddingLeft: 0, paddingRight: 0 }}>
-                <Typography color="secondary.main" data-testid={item.testId}>
+                <Typography color="primary.main" data-testid={item.testId}>
                   {item.name}
                 </Typography>
               </TableCell>

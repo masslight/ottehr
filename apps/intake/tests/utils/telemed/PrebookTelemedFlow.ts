@@ -1,16 +1,11 @@
 import { expect } from '@playwright/test';
 import { E2E_TELEMED_LOCATION_NAME } from 'tests/specs/0_paperworkSetup/setup.spec';
-import { PROJECT_NAME, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
+import { BRANDING_CONFIG, DEPLOYED_TELEMED_LOCATIONS, PROJECT_NAME, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
+import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
 import { TelemedPaperworkReturn } from '../Paperwork';
-import {
-  BaseTelemedFlow,
-  FilledPaperworkInput,
-  PatientBasicInfo,
-  SlotAndLocation,
-  StartVisitResponse,
-} from './BaseTelemedFlow';
+import { BaseTelemedFlow, FilledPaperworkInput, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
 
 export class PrebookTelemedFlow extends BaseTelemedFlow {
   // flow steps:
@@ -33,6 +28,15 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     const slotAndLocation = await this.selectTimeLocationAndContinue();
 
     let patientBasicInfo: PatientBasicInfo;
+
+    if (process.env.SMOKE_TEST === 'true') {
+      try {
+        patient = await this.findTestPatient();
+      } catch {
+        console.warn('Test patient not found, proceeding to create a new patient.');
+      }
+    }
+
     if (patient) {
       await this.findAndSelectExistingPatient(patient);
       patientBasicInfo = patient;
@@ -43,7 +47,7 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     await this.locator.clickReserveButton();
 
     await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
-    await expect(this.locator.flowHeading).toHaveText(`Thank you for choosing ${PROJECT_NAME}!`);
+    await expect(this.locator.flowHeading).toHaveText(`Thank you for choosing ${BRANDING_CONFIG.projectName}!`);
 
     const timeBlock = this.page.getByTestId(dataTestIds.thankYouPageSelectedTimeBlock);
     await expect(timeBlock).toHaveText(slotAndLocation.slot?.fullSlot ?? '');
@@ -79,6 +83,7 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
       payment,
       responsibleParty,
       requiredOnly: requiredOnly || false,
+      patientBasicInfo,
     });
   }
 

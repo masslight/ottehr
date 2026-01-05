@@ -1,7 +1,7 @@
 import { otherColors } from '@theme/colors';
-import { PROJECT_NAME } from 'utils';
+import { BRANDING_CONFIG } from 'utils';
 
-export const IOSAppCookieName = `${PROJECT_NAME}iOSApp`;
+export const IOSAppCookieName = `${BRANDING_CONFIG.projectName}iOSApp`;
 
 export const DIFFERENT_FAMILY_MEMBER_DATA = {
   label: 'Different family member',

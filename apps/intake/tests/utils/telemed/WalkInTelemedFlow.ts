@@ -2,15 +2,10 @@ import { expect } from '@playwright/test';
 import { E2E_TELEMED_LOCATION_NAME } from 'tests/specs/0_paperworkSetup/setup.spec';
 import { shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
+import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
 import { TelemedPaperworkReturn } from '../Paperwork';
-import {
-  BaseTelemedFlow,
-  FilledPaperworkInput,
-  PatientBasicInfo,
-  SlotAndLocation,
-  StartVisitResponse,
-} from './BaseTelemedFlow';
+import { BaseTelemedFlow, FilledPaperworkInput, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
 
 export class WalkInTelemedFlow extends BaseTelemedFlow {
   // flow steps:
@@ -100,7 +95,6 @@ export class WalkInTelemedFlow extends BaseTelemedFlow {
     await this.page.getByPlaceholder('Search or select').click();
     const locationOption = this.page.locator('[role="option"]').getByText(E2E_TELEMED_LOCATION_NAME, { exact: true });
     const location = await locationOption.textContent();
-    console.log('Video call location: ', location);
     await locationOption.click();
     await this.continue();
 

@@ -366,11 +366,11 @@ export class PaperworkTelemed {
   }
 
   async fillAndCheckReasonForVisit() {
-    const reasonForVisit = await this.fillingInfo.fillReasonForVisit();
+    const reasonForVisit = await this.fillingInfo.fillVisitReason();
 
     await this.nextBackClick();
 
-    await this.checkReasonForVisit(reasonForVisit);
+    await this.checkReasonForVisit(reasonForVisit.reason);
   }
 
   async checkReasonForVisit(reasonForVisit: string) {
