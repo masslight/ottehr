@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 import { E2E_TELEMED_LOCATION_NAME } from 'tests/specs/0_paperworkSetup/setup.spec';
-import { BRANDING_CONFIG, DEPLOYED_TELEMED_LOCATIONS, PROJECT_NAME, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
+import { BRANDING_CONFIG, shouldShowServiceCategorySelectionPage, uuidRegex } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { PatientBasicInfo } from '../BaseFlow';
 import { CancelPage } from '../CancelPage';
