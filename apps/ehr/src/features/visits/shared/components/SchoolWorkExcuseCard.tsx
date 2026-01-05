@@ -154,6 +154,7 @@ export const SchoolWorkExcuseCard: FC = () => {
           leftColumn={
             <ExcuseCard
               label="School excuse"
+              type="school"
               excuse={schoolExcuse}
               onDelete={onDelete}
               onPublish={onPublish}
@@ -166,6 +167,7 @@ export const SchoolWorkExcuseCard: FC = () => {
           rightColumn={
             <ExcuseCard
               label="Work excuse"
+              type="work"
               excuse={workExcuse}
               onDelete={onDelete}
               onPublish={onPublish}

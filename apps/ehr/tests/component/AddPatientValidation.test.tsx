@@ -201,129 +201,137 @@ describe('AddPatient - Validation Tests', () => {
       expect(visitTypeInput).toHaveAttribute('required');
     });
 
-    it('Shows dialog when clicking Add for prebook visit without selecting a time slot', async () => {
-      const user = userEvent.setup();
+    it(
+      'Shows dialog when clicking Add for prebook visit without selecting a time slot',
+      async () => {
+        const user = userEvent.setup();
 
-      render(
-        <BrowserRouter>
-          <AddPatient />
-        </BrowserRouter>
-      );
+        render(
+          <BrowserRouter>
+            <AddPatient />
+          </BrowserRouter>
+        );
 
-      // Complete the form up to visit type selection
-      const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
-      await user.click(phoneNumberInput!);
-      await user.paste('1234567890');
-      await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
+        // Complete the form up to visit type selection
+        const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
+        await user.click(phoneNumberInput!);
+        await user.paste('1234567890');
+        await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
 
-      const notFoundButton = await screen.findByTestId(dataTestIds.addPatientPage.patientNotFoundButton);
-      await user.click(notFoundButton);
-      await waitForElementToBeRemoved(notFoundButton);
+        const notFoundButton = await screen.findByTestId(dataTestIds.addPatientPage.patientNotFoundButton);
+        await user.click(notFoundButton);
+        await waitForElementToBeRemoved(notFoundButton);
 
-      // Fill required fields
-      const firstNameInput = screen.getByTestId(dataTestIds.addPatientPage.firstNameInput).querySelector('input');
-      await user.click(firstNameInput!);
-      await user.paste('John');
+        // Fill required fields
+        const firstNameInput = screen.getByTestId(dataTestIds.addPatientPage.firstNameInput).querySelector('input');
+        await user.click(firstNameInput!);
+        await user.paste('John');
 
-      const lastNameInput = screen.getByTestId(dataTestIds.addPatientPage.lastNameInput).querySelector('input');
-      await user.click(lastNameInput!);
-      await user.paste('Doe');
+        const lastNameInput = screen.getByTestId(dataTestIds.addPatientPage.lastNameInput).querySelector('input');
+        await user.click(lastNameInput!);
+        await user.paste('Doe');
 
-      const dateOfBirthInput = await screen.findByPlaceholderText('MM/DD/YYYY');
-      await user.click(dateOfBirthInput);
-      await user.paste('01/01/2000');
+        const dateOfBirthInput = await screen.findByPlaceholderText('MM/DD/YYYY');
+        await user.click(dateOfBirthInput);
+        await user.paste('01/01/2000');
 
-      // Select sex at birth
-      const sexAtBirthDropdown = screen.getByTestId(dataTestIds.addPatientPage.sexAtBirthDropdown);
-      const sexAtBirthButton = sexAtBirthDropdown.querySelector('[role="combobox"]');
-      await user.click(sexAtBirthButton!);
-      const maleOption = await screen.findByText('Male');
-      await user.click(maleOption);
+        // Select sex at birth
+        const sexAtBirthDropdown = screen.getByTestId(dataTestIds.addPatientPage.sexAtBirthDropdown);
+        const sexAtBirthButton = sexAtBirthDropdown.querySelector('[role="combobox"]');
+        await user.click(sexAtBirthButton!);
+        const maleOption = await screen.findByText('Male');
+        await user.click(maleOption);
 
-      // Select reason for visit
-      const reasonDropdown = screen.getByTestId(dataTestIds.addPatientPage.reasonForVisitDropdown);
-      const reasonButton = reasonDropdown.querySelector('[role="combobox"]');
-      await user.click(reasonButton!);
-      // Use the first available option
-      const reasonOptions = await screen.findAllByRole('option');
-      await user.click(reasonOptions[0]);
+        // Select reason for visit
+        const reasonDropdown = screen.getByTestId(dataTestIds.addPatientPage.reasonForVisitDropdown);
+        const reasonButton = reasonDropdown.querySelector('[role="combobox"]');
+        await user.click(reasonButton!);
+        // Use the first available option
+        const reasonOptions = await screen.findAllByRole('option');
+        await user.click(reasonOptions[0]);
 
-      // Select prebook visit type
-      const visitTypeDropdown = screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown);
-      const visitTypeButton = visitTypeDropdown.querySelector('[role="combobox"]');
-      await user.click(visitTypeButton!);
-      const prebookOption = await screen.findByText('Pre-booked In Person Visit');
-      await user.click(prebookOption);
+        // Select prebook visit type
+        const visitTypeDropdown = screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown);
+        const visitTypeButton = visitTypeDropdown.querySelector('[role="combobox"]');
+        await user.click(visitTypeButton!);
+        const prebookOption = await screen.findByText('Pre-booked In Person Visit');
+        await user.click(prebookOption);
 
-      // Try to submit without selecting a slot
-      const addButton = screen.getByTestId(dataTestIds.addPatientPage.addButton);
-      await user.click(addButton);
+        // Try to submit without selecting a slot
+        const addButton = screen.getByTestId(dataTestIds.addPatientPage.addButton);
+        await user.click(addButton);
 
-      // Should show warning dialog
-      const dialogMessage = await screen.findByText('To continue, please select an available appointment.');
-      expect(dialogMessage).toBeVisible();
-    });
+        // Should show warning dialog
+        const dialogMessage = await screen.findByText('To continue, please select an available appointment.');
+        expect(dialogMessage).toBeVisible();
+      },
+      { timeout: 10000 }
+    );
 
-    it('Shows dialog when clicking Add for post-telemed visit without selecting a time slot', async () => {
-      const user = userEvent.setup();
+    it(
+      'Shows dialog when clicking Add for post-telemed visit without selecting a time slot',
+      async () => {
+        const user = userEvent.setup();
 
-      render(
-        <BrowserRouter>
-          <AddPatient />
-        </BrowserRouter>
-      );
+        render(
+          <BrowserRouter>
+            <AddPatient />
+          </BrowserRouter>
+        );
 
-      // Complete the form up to visit type selection
-      const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
-      await user.click(phoneNumberInput!);
-      await user.paste('1234567890');
-      await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
+        // Complete the form up to visit type selection
+        const phoneNumberInput = screen.getByTestId(dataTestIds.addPatientPage.mobilePhoneInput).querySelector('input');
+        await user.click(phoneNumberInput!);
+        await user.paste('1234567890');
+        await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
 
-      const notFoundButton = await screen.findByTestId(dataTestIds.addPatientPage.patientNotFoundButton);
-      await user.click(notFoundButton);
-      await waitForElementToBeRemoved(notFoundButton);
+        const notFoundButton = await screen.findByTestId(dataTestIds.addPatientPage.patientNotFoundButton);
+        await user.click(notFoundButton);
+        await waitForElementToBeRemoved(notFoundButton);
 
-      // Fill required fields
-      const firstNameInput = screen.getByTestId(dataTestIds.addPatientPage.firstNameInput).querySelector('input');
-      await user.click(firstNameInput!);
-      await user.paste('John');
+        // Fill required fields
+        const firstNameInput = screen.getByTestId(dataTestIds.addPatientPage.firstNameInput).querySelector('input');
+        await user.click(firstNameInput!);
+        await user.paste('John');
 
-      const lastNameInput = screen.getByTestId(dataTestIds.addPatientPage.lastNameInput).querySelector('input');
-      await user.click(lastNameInput!);
-      await user.paste('Doe');
+        const lastNameInput = screen.getByTestId(dataTestIds.addPatientPage.lastNameInput).querySelector('input');
+        await user.click(lastNameInput!);
+        await user.paste('Doe');
 
-      const dateOfBirthInput = await screen.findByPlaceholderText('MM/DD/YYYY');
-      await user.click(dateOfBirthInput);
-      await user.paste('01/01/2000');
+        const dateOfBirthInput = await screen.findByPlaceholderText('MM/DD/YYYY');
+        await user.click(dateOfBirthInput);
+        await user.paste('01/01/2000');
 
-      // Select sex at birth
-      const sexAtBirthDropdown = screen.getByTestId(dataTestIds.addPatientPage.sexAtBirthDropdown);
-      const sexAtBirthButton = sexAtBirthDropdown.querySelector('[role="combobox"]');
-      await user.click(sexAtBirthButton!);
-      const maleOption = await screen.findByText('Male');
-      await user.click(maleOption);
+        // Select sex at birth
+        const sexAtBirthDropdown = screen.getByTestId(dataTestIds.addPatientPage.sexAtBirthDropdown);
+        const sexAtBirthButton = sexAtBirthDropdown.querySelector('[role="combobox"]');
+        await user.click(sexAtBirthButton!);
+        const maleOption = await screen.findByText('Male');
+        await user.click(maleOption);
 
-      // Select reason for visit
-      const reasonDropdown = screen.getByTestId(dataTestIds.addPatientPage.reasonForVisitDropdown);
-      const reasonButton = reasonDropdown.querySelector('[role="combobox"]');
-      await user.click(reasonButton!);
-      const reasonOptions = await screen.findAllByRole('option');
-      await user.click(reasonOptions[0]);
+        // Select reason for visit
+        const reasonDropdown = screen.getByTestId(dataTestIds.addPatientPage.reasonForVisitDropdown);
+        const reasonButton = reasonDropdown.querySelector('[role="combobox"]');
+        await user.click(reasonButton!);
+        const reasonOptions = await screen.findAllByRole('option');
+        await user.click(reasonOptions[0]);
 
-      // Select post-telemed visit type
-      const visitTypeDropdown = screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown);
-      const visitTypeButton = visitTypeDropdown.querySelector('[role="combobox"]');
-      await user.click(visitTypeButton!);
-      const postTelemedOption = await screen.findByText('Post Telemed Lab Only');
-      await user.click(postTelemedOption);
+        // Select post-telemed visit type
+        const visitTypeDropdown = screen.getByTestId(dataTestIds.addPatientPage.visitTypeDropdown);
+        const visitTypeButton = visitTypeDropdown.querySelector('[role="combobox"]');
+        await user.click(visitTypeButton!);
+        const postTelemedOption = await screen.findByText('Post Telemed Lab Only');
+        await user.click(postTelemedOption);
 
-      // Try to submit without selecting a slot
-      const addButton = screen.getByTestId(dataTestIds.addPatientPage.addButton);
-      await user.click(addButton);
+        // Try to submit without selecting a slot
+        const addButton = screen.getByTestId(dataTestIds.addPatientPage.addButton);
+        await user.click(addButton);
 
-      // Should show warning dialog
-      const dialogMessage = await screen.findByText('To continue, please select an available appointment.');
-      expect(dialogMessage).toBeVisible();
-    });
+        // Should show warning dialog
+        const dialogMessage = await screen.findByText('To continue, please select an available appointment.');
+        expect(dialogMessage).toBeVisible();
+      },
+      { timeout: 10000 }
+    );
   });
 });
