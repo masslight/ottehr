@@ -459,7 +459,7 @@ export default function VisitDetailsPage(): ReactElement {
   const encounter = visitDetailsData?.encounter;
   const qrId = visitDetailsData?.qrId;
 
-  const { insurance: insuranceData } = usePatientData(patientId);
+  const { insurance: insuranceData, isFetching } = usePatientData(patientId);
 
   const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patientId ?? '');
 
@@ -1209,7 +1209,7 @@ export default function VisitDetailsPage(): ReactElement {
                       <PatientPaymentList
                         patient={patient}
                         appointment={appointment}
-                        loading={loading}
+                        loading={loading || isFetching}
                         encounterId={encounter?.id ?? ''}
                         responsibleParty={{
                           fullName: visitDetailsData?.responsiblePartyName || '',
