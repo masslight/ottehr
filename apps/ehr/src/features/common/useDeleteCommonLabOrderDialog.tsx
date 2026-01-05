@@ -33,16 +33,20 @@ const defaultLocalesConstants = {
       Are you sure you want to delete this order <strong>{testItemName}</strong>?
       <br />
       <br />
-      Deleting this order will also remove any additional associated diagnoses.
-      {testItemStatus && ['sent', 'received'].includes(testItemStatus) && (
+      {testItemStatus ? 'Deleting this order will also remove any additional associated diagnoses. ' : ''}Any results
+      associated with this order will also be deleted.
+      {testItemStatus && ['sent', 'received', 'reviewed'].includes(testItemStatus) && (
         <>
           <br />
           <br />
-          <strong>{`This lab is already ${testItemStatus}. Are you sure you want to delete the electronic record of it? This action cannot be undone.`}</strong>
+          <strong>{`This lab is already ${testItemStatus}. Are you sure you want to delete the electronic record of it?`}</strong>
           <br />
           {testItemStatus === 'sent' && <>Deleting this lab order may result in unsolicited results.</>}
         </>
       )}
+      <br />
+      <br />
+      <strong>This action is final and cannot be undone.</strong>
     </>
   ),
   deleteOrderDialogKeepButton: 'Keep',
