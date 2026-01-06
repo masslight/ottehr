@@ -710,11 +710,6 @@
         "type": "choice",
         "text": "Insurance carrier",
         "required": true,
-        "answerOption": [
-          {
-            "valueString": "09"
-          }
-        ],
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options",
@@ -1292,11 +1287,6 @@
         "type": "choice",
         "text": "Insurance carrier",
         "required": true,
-        "answerOption": [
-          {
-            "valueString": "09"
-          }
-        ],
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options",

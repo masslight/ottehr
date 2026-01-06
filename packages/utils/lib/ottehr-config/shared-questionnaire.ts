@@ -2,7 +2,7 @@ import { Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import z from 'zod';
 import { AnswerOptionSourceSchema, QuestionnaireDataTypeSchema } from '../types/data/paperwork/paperwork.types';
 
-const triggerEffectSchema = z.enum(['enable', 'require']);
+const triggerEffectSchema = z.enum(['enable', 'require', 'filter']);
 const triggerSchema = z
   .object({
     targetQuestionLinkId: z.string(),
@@ -61,6 +61,13 @@ const FormFieldsLogicalFieldSchema = z.object({
     .optional(),
 });
 
+const TextWhenSchema = z.object({
+  question: z.string(),
+  operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
+  answer: z.string(),
+  substituteText: z.string(),
+});
+
 const FormFieldsDisplayFieldSchema = z.object({
   key: z.string(),
   type: z.literal('display'),
@@ -68,6 +75,7 @@ const FormFieldsDisplayFieldSchema = z.object({
   element: z.enum(['h3', 'p']).optional(),
   triggers: z.array(triggerSchema).optional(),
   enableBehavior: z.enum(['all', 'any']).default('any').optional(),
+  textWhen: z.array(TextWhenSchema).optional(),
 });
 
 const FormFieldsAttachmentFieldSchema = z.object({
@@ -104,6 +112,7 @@ const FormFieldsValueTypeSchema = z
     permissibleValue: z.union([z.boolean(), z.string()]).optional(),
     placeholder: z.string().optional(),
     infoTextSecondary: z.string().optional(),
+    element: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -151,13 +160,6 @@ const GroupLevelEnableWhenSchema = z.object({
   answerDateTime: z.string().optional(),
 });
 
-const TextWhenSchema = z.object({
-  question: z.string(),
-  operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
-  answer: z.string(),
-  substituteText: z.string(),
-});
-
 const ComplexValidationTriggerWhenSchema = z.object({
   question: z.string(),
   operator: z.enum(['exists', '=', '!=', '>', '<', '>=', '<=']),
@@ -182,6 +184,8 @@ export const FormSectionSimpleSchema = z.object({
   reviewText: z.string().optional(),
   textWhen: z.array(TextWhenSchema).optional(),
   complexValidation: ComplexValidationSchema.optional(),
+  element: z.string().optional(),
+  triggers: z.array(triggerSchema).optional(),
 });
 
 export const FormSectionArraySchema = z.object({
@@ -197,6 +201,8 @@ export const FormSectionArraySchema = z.object({
   reviewText: z.string().optional(),
   textWhen: z.array(TextWhenSchema).optional(),
   complexValidation: ComplexValidationSchema.optional(),
+  element: z.string().optional(),
+  triggers: z.array(triggerSchema).optional(),
 });
 
 export type FormFieldSection = z.infer<typeof FormSectionSimpleSchema> | z.infer<typeof FormSectionArraySchema>;
@@ -216,6 +222,36 @@ const createFillFromWhenDisabledExtension = (
 ): NonNullable<QuestionnaireItem['extension']>[number] => ({
   url: 'https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled',
   valueString: sourceLinkId,
+});
+
+const createFilterWhenExtension = (trigger: FormFieldTrigger): NonNullable<QuestionnaireItem['extension']>[number] => ({
+  url: 'https://fhir.zapehr.com/r4/StructureDefinitions/filter-when',
+  extension: [
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question',
+      valueString: trigger.targetQuestionLinkId,
+    },
+    {
+      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator',
+      valueString: trigger.operator,
+    },
+    ...(trigger.answerBoolean !== undefined
+      ? [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer',
+            valueBoolean: trigger.answerBoolean,
+          },
+        ]
+      : []),
+    ...(trigger.answerString !== undefined
+      ? [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer',
+            valueString: trigger.answerString,
+          },
+        ]
+      : []),
+  ],
 });
 
 const createRequireWhenExtension = (
@@ -423,6 +459,13 @@ const convertDisplayFieldToQuestionnaireItem = (field: FormFieldsDisplayItem): Q
     extensions.push(createPreferredElementExtension(field.element));
   }
 
+  // Add textWhen extensions
+  if (field.textWhen && field.textWhen.length > 0) {
+    field.textWhen.forEach((tw) => {
+      extensions.push(createTextWhenExtension(tw));
+    });
+  }
+
   // Add enableWhen from triggers
   if (field.triggers && field.triggers.length > 0) {
     const enableTriggers = field.triggers.filter((t) => t.effect.includes('enable'));
@@ -496,7 +539,6 @@ const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: 
 
   // Handle reference type for dynamic data source
   if (field.type === 'reference' && field.dataSource) {
-    item.answerOption = [{ valueString: '09' }]; // Placeholder, will be replaced dynamically
     const answerLoadingExt = createAnswerLoadingOptionsExtension(field.dataSource);
     if (answerLoadingExt) {
       item.extension = [answerLoadingExt];
@@ -541,6 +583,10 @@ const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: 
     extensions.push(createInfoTextSecondaryExtension(field.infoTextSecondary));
   }
 
+  if (field.element) {
+    extensions.push(createPreferredElementExtension(field.element));
+  }
+
   // Add enableWhen from triggers
   if (field.triggers && field.triggers.length > 0) {
     const enableTriggers = field.triggers.filter((t) => t.effect.includes('enable'));
@@ -553,6 +599,14 @@ const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: 
     if (requireTriggers.length > 0) {
       requireTriggers.forEach((trigger) => {
         extensions.push(createRequireWhenExtension(trigger));
+      });
+    }
+
+    // Add filter-when extension
+    const filterTriggers = field.triggers.filter((t) => t.effect.includes('filter'));
+    if (filterTriggers.length > 0) {
+      filterTriggers.forEach((trigger) => {
+        extensions.push(createFilterWhenExtension(trigger));
       });
     }
 
@@ -630,9 +684,32 @@ const applyGroupLevelProperties = (
   groupItem: QuestionnaireItem,
   section: z.infer<typeof FormSectionSimpleSchema> | z.infer<typeof FormSectionArraySchema>
 ): void => {
-  // Apply group-level enableWhen
+  // Convert triggers with 'enable' effect to enableWhen
+  const enableWhens: any[] = [];
+
   if (section.enableWhen && section.enableWhen.length > 0) {
-    groupItem.enableWhen = section.enableWhen.map((ew) => createGroupEnableWhen(ew));
+    enableWhens.push(...section.enableWhen.map((ew) => createGroupEnableWhen(ew)));
+  }
+
+  if (section.triggers && section.triggers.length > 0) {
+    const enableTriggers = section.triggers.filter((t) => t.effect.includes('enable'));
+    enableTriggers.forEach((trigger) => {
+      const enableWhen: any = {
+        question: trigger.targetQuestionLinkId,
+        operator: trigger.operator,
+      };
+      if (trigger.answerBoolean !== undefined) {
+        enableWhen.answerBoolean = trigger.answerBoolean;
+      }
+      if (trigger.answerString !== undefined) {
+        enableWhen.answerString = trigger.answerString;
+      }
+      enableWhens.push(enableWhen);
+    });
+  }
+
+  if (enableWhens.length > 0) {
+    groupItem.enableWhen = enableWhens;
   }
 
   // Apply group-level enableBehavior
@@ -654,6 +731,10 @@ const applyGroupLevelProperties = (
     section.textWhen.forEach((tw) => {
       groupExtensions.push(createTextWhenExtension(tw));
     });
+  }
+
+  if (section.element) {
+    groupExtensions.push(createPreferredElementExtension(section.element));
   }
 
   if (groupExtensions.length > 0) {

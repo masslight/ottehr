@@ -334,7 +334,25 @@ export const makeValidationSchema = (
           console.log('page not found');
           return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
         }
+
+        // Build values object from all pages for enableWhen evaluation
+        const allValues = buildEnableWhenContext(context?.parent ?? []);
+
+        // Check if this page is enabled
+        const isPageEnabled = evalEnableWhen(
+          questionItem,
+          items,
+          allValues,
+          context?.options?.context?.questionnaireResponse
+        );
+
+        // Skip validation entirely for disabled pages
+        if (!isPageEnabled) {
+          return value;
+        }
+
         if (answerItem === undefined) {
+          // Only check for required fields if the page is enabled
           if (questionItem.item?.some((i) => evalRequired(i, context))) {
             return context.createError({ message: 'Item not found' });
           } else {
@@ -874,6 +892,64 @@ export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values
   } else {
     return recursiveGroupTransform(items, output);
   }
+};
+
+/*
+  Builds a context object from response items that supports both:
+  1. Dotted path resolution (e.g., 'contact-information-page.appointment-service-category')
+  2. Direct item lookup (e.g., 'appointment-service-category')
+
+  This is required for evalEnableWhen to correctly resolve cross-page references.
+*/
+const buildEnableWhenContext = (responseItems: any[]): { [key: string]: any } => {
+  return responseItems.reduce((acc: any, page: any) => {
+    if (page?.linkId) {
+      // Add page with its items for nested path resolution
+      acc[page.linkId] = page;
+      // Also add individual items at top level for direct lookup
+      if (page?.item) {
+        page.item.forEach((item: any) => {
+          if (item?.linkId) {
+            acc[item.linkId] = item;
+          }
+        });
+      }
+    }
+    return acc;
+  }, {});
+};
+
+/*
+  Given a list of questionnaire pages and their corresponding response items,
+  filter out pages that are disabled based on their enableWhen conditions.
+  Disabled pages have their items normalized to { linkId } without any item array.
+*/
+export const filterDisabledPages = (
+  questionnaireItems: IntakeQuestionnaireItem[],
+  responseItems: QuestionnaireResponseItem[],
+  questionnaireResponse?: QuestionnaireResponse
+): QuestionnaireResponseItem[] => {
+  // Build context from all response items for enableWhen evaluation
+  const allValues = buildEnableWhenContext(responseItems);
+
+  return responseItems.map((responsePage) => {
+    const questionnairePage = questionnaireItems.find((qi) => qi.linkId === responsePage.linkId);
+
+    if (!questionnairePage) {
+      return responsePage;
+    }
+
+    // Check if page is enabled
+    const isPageEnabled = evalEnableWhen(questionnairePage, questionnaireItems, allValues, questionnaireResponse);
+
+    // If page is disabled, return only the linkId (no items)
+    if (!isPageEnabled) {
+      return { linkId: responsePage.linkId };
+    }
+
+    // If page is enabled, return as-is
+    return responsePage;
+  });
 };
 
 const recursivePathEval = (context: any, question: string, value?: any): any | undefined => {

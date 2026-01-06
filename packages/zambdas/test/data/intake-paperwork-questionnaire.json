@@ -422,6 +422,18 @@
           "text": "Yes! I would like to receive helpful text messages from Ottehr regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.",
           "type": "boolean",
           "required": false
+        },
+        {
+          "linkId": "appointment-service-category",
+          "type": "string",
+          "required": true,
+          "readOnly": true,
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+              "valueString": "hidden"
+            }
+          ]
         }
       ]
     },
@@ -2566,6 +2578,44 @@
               "valueString": "hidden"
             }
           ]
+        }
+      ]
+    },
+    {
+      "linkId": "occupational-medicine-employer-information-page",
+      "type": "group",
+      "text": "Employer information",
+      "enableWhen": [
+        {
+          "question": "contact-information-page.appointment-service-category",
+          "operator": "=",
+          "answerString": "occupational-medicine"
+        }
+      ],
+      "item": [
+        {
+          "linkId": "occupational-medicine-employer",
+          "text": "Employer",
+          "type": "choice",
+          "extension": [
+            {
+              "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/strategy",
+                  "valueString": "dynamic"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
+                  "valueExpression": {
+                    "language": "application/x-fhir-query",
+                    "expression": "Organization?active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer"
+                  }
+                }
+              ]
+            }
+          ],
+          "required": false
         }
       ]
     },
