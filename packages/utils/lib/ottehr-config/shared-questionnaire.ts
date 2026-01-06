@@ -138,14 +138,40 @@ const FormFieldsAttachmentFieldSchema = FormFieldsValueTypeBaseSchema.extend({
   documentType: z.string().optional(),
 });
 
+// Nested group schema - uses z.lazy() for recursion
+const FormFieldsGroupFieldSchema: z.ZodType<any> = z.lazy(() =>
+  z.object({
+    key: z.string(),
+    type: z.literal('group'),
+    text: z.string().optional(),
+    items: z.record(
+      z.union([
+        FormFieldsValueTypeSchema,
+        FormFieldsDisplayFieldSchema,
+        FormFieldsAttachmentFieldSchema,
+        FormFieldsGroupFieldSchema,
+      ])
+    ),
+    triggers: z.array(triggerSchema).optional(),
+    enableBehavior: z.enum(['all', 'any']).default('any').optional(),
+    extension: z.array(z.any()).optional(),
+  })
+);
+
 export type FormFieldsDisplayItem = z.infer<typeof FormFieldsDisplayFieldSchema>;
 export type FormFieldsAttachmentItem = z.infer<typeof FormFieldsAttachmentFieldSchema>;
 export type FormFieldsLogicalItem = z.infer<typeof FormFieldsLogicalFieldSchema>;
+export type FormFieldsGroupItem = z.infer<typeof FormFieldsGroupFieldSchema>;
 export type FormFieldsInputItem = z.infer<typeof FormFieldsValueTypeSchema> | FormFieldsAttachmentItem;
-export type FormFieldsItem = FormFieldsInputItem | FormFieldsDisplayItem;
+export type FormFieldsItem = FormFieldsInputItem | FormFieldsDisplayItem | FormFieldsGroupItem;
 
 export const FormFieldItemRecordSchema = z.record(
-  z.union([FormFieldsValueTypeSchema, FormFieldsDisplayFieldSchema, FormFieldsAttachmentFieldSchema])
+  z.union([
+    FormFieldsValueTypeSchema,
+    FormFieldsDisplayFieldSchema,
+    FormFieldsAttachmentFieldSchema,
+    FormFieldsGroupFieldSchema,
+  ])
 );
 export type FormFieldItemRecord = z.infer<typeof FormFieldItemRecordSchema>;
 export const FormFieldLogicalItemRecordSchema = z.record(FormFieldsLogicalFieldSchema);
@@ -516,6 +542,68 @@ const convertAttachmentFieldToQuestionnaireItem = (
   return item;
 };
 
+const convertGroupFieldToQuestionnaireItem = (
+  field: FormFieldsGroupItem,
+  requiredFields?: string[]
+): QuestionnaireItem => {
+  const item: QuestionnaireItem = {
+    linkId: field.key,
+    type: 'group',
+    item: [],
+  };
+
+  if (field.text) {
+    item.text = field.text;
+  }
+
+  // Convert nested items
+  for (const [, nestedField] of Object.entries(field.items)) {
+    let questionnaireItem: QuestionnaireItem;
+    const typedField = nestedField as any;
+    if (typedField.type === 'display') {
+      questionnaireItem = convertDisplayFieldToQuestionnaireItem(typedField as FormFieldsDisplayItem);
+    } else if (typedField.type === 'attachment') {
+      const isRequired = requiredFields?.includes(typedField.key) ?? false;
+      questionnaireItem = convertAttachmentFieldToQuestionnaireItem(typedField as FormFieldsAttachmentItem, isRequired);
+    } else if (typedField.type === 'group') {
+      questionnaireItem = convertGroupFieldToQuestionnaireItem(typedField as FormFieldsGroupItem, requiredFields);
+    } else {
+      const isRequired = requiredFields?.includes(typedField.key) ?? false;
+      questionnaireItem = convertFormFieldToQuestionnaireItem(typedField as FormFieldsItem, isRequired);
+    }
+    item.item!.push(questionnaireItem);
+  }
+
+  // Add enableWhen from triggers
+  if (field.triggers && field.triggers.length > 0) {
+    const enableTriggers = field.triggers.filter((t: any) => t.effect.includes('enable'));
+    if (enableTriggers.length > 0) {
+      item.enableWhen = enableTriggers.flatMap((i: any) => createEnableWhen(i)!);
+    }
+
+    const filterTriggers = field.triggers.filter((t: any) => t.effect.includes('filter'));
+    if (filterTriggers.length > 0) {
+      if (!item.extension) item.extension = [];
+      filterTriggers.forEach((trigger: any) => {
+        item.extension!.push(createFilterWhenExtension(trigger));
+      });
+    }
+
+    // Add enableBehavior if specified
+    if (field.enableBehavior && item.enableWhen && item.enableWhen.length > 1) {
+      item.enableBehavior = field.enableBehavior;
+    }
+  }
+
+  // Add any custom extensions
+  if (field.extension) {
+    if (!item.extension) item.extension = [];
+    item.extension.push(...field.extension);
+  }
+
+  return item;
+};
+
 const convertFormFieldToQuestionnaireItem = (
   anyKindOfField: FormFieldsItem,
   isRequired: boolean
@@ -531,6 +619,10 @@ const convertFormFieldToQuestionnaireItem = (
 
   if (item.type === 'display') {
     return convertDisplayFieldToQuestionnaireItem(anyKindOfField as FormFieldsDisplayItem);
+  }
+
+  if (item.type === 'group') {
+    return convertGroupFieldToQuestionnaireItem(anyKindOfField as FormFieldsGroupItem);
   }
 
   const field: FormFieldsInputItem = anyKindOfField as FormFieldsInputItem;
@@ -778,17 +870,23 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
         // Convert each field to a questionnaire item first
         for (const [, field] of Object.entries(items)) {
           let questionnaireItem: QuestionnaireItem;
-          if (field.type === 'display') {
-            questionnaireItem = convertDisplayFieldToQuestionnaireItem(field as FormFieldsDisplayItem);
-          } else if (field.type === 'attachment') {
-            const isRequired = section.requiredFields?.includes(field.key) ?? false;
+          const typedField = field as any;
+          if (typedField.type === 'display') {
+            questionnaireItem = convertDisplayFieldToQuestionnaireItem(typedField as FormFieldsDisplayItem);
+          } else if (typedField.type === 'attachment') {
+            const isRequired = section.requiredFields?.includes(typedField.key) ?? false;
             questionnaireItem = convertAttachmentFieldToQuestionnaireItem(
-              field as FormFieldsAttachmentItem,
+              typedField as FormFieldsAttachmentItem,
               isRequired
             );
+          } else if (typedField.type === 'group') {
+            questionnaireItem = convertGroupFieldToQuestionnaireItem(
+              typedField as FormFieldsGroupItem,
+              section.requiredFields
+            );
           } else {
-            const isRequired = section.requiredFields?.includes(field.key) ?? false;
-            questionnaireItem = convertFormFieldToQuestionnaireItem(field as FormFieldsItem, isRequired);
+            const isRequired = section.requiredFields?.includes(typedField.key) ?? false;
+            questionnaireItem = convertFormFieldToQuestionnaireItem(typedField as FormFieldsItem, isRequired);
           }
           groupItem.item!.push(questionnaireItem);
         }
@@ -818,14 +916,23 @@ export const createQuestionnaireItemFromConfig = (config: QuestionnaireConfigTyp
       // Convert each field to a questionnaire item first
       for (const [, field] of Object.entries(section.items)) {
         let questionnaireItem: QuestionnaireItem;
-        if (field.type === 'display') {
-          questionnaireItem = convertDisplayFieldToQuestionnaireItem(field as FormFieldsDisplayItem);
-        } else if (field.type === 'attachment') {
-          const isRequired = section.requiredFields?.includes(field.key) ?? false;
-          questionnaireItem = convertAttachmentFieldToQuestionnaireItem(field as FormFieldsAttachmentItem, isRequired);
+        const typedField = field as any;
+        if (typedField.type === 'display') {
+          questionnaireItem = convertDisplayFieldToQuestionnaireItem(typedField as FormFieldsDisplayItem);
+        } else if (typedField.type === 'attachment') {
+          const isRequired = section.requiredFields?.includes(typedField.key) ?? false;
+          questionnaireItem = convertAttachmentFieldToQuestionnaireItem(
+            typedField as FormFieldsAttachmentItem,
+            isRequired
+          );
+        } else if (typedField.type === 'group') {
+          questionnaireItem = convertGroupFieldToQuestionnaireItem(
+            typedField as FormFieldsGroupItem,
+            section.requiredFields
+          );
         } else {
-          const isRequired = section.requiredFields?.includes(field.key) ?? false;
-          questionnaireItem = convertFormFieldToQuestionnaireItem(field as FormFieldsItem, isRequired);
+          const isRequired = section.requiredFields?.includes(typedField.key) ?? false;
+          questionnaireItem = convertFormFieldToQuestionnaireItem(typedField as FormFieldsItem, isRequired);
         }
         groupItem.item!.push(questionnaireItem);
       }
