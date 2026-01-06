@@ -1,11 +1,11 @@
 {
   "schema-version": "2025-09-25",
   "fhirResources": {
-    "questionnaire-in-person-previsit-1_1_3": {
+    "questionnaire-in-person-previsit-1_1_4": {
       "resource": {
         "resourceType": "Questionnaire",
         "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-        "version": "1.1.3",
+        "version": "1.1.4",
         "name": "in-person_pre-visit_paperwork",
         "title": "in-person pre-visit paperwork",
         "status": "active",
@@ -2567,6 +2567,36 @@
                   {
                     "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
                     "valueString": "hidden"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "occupational-medicine-employer-information-page",
+            "type": "group",
+            "text": "Employer information",
+            "item": [
+              {
+                "linkId": "occupational-medicine-employer",
+                "text": "Employer",
+                "type": "choice",
+                "extension": [
+                  {
+                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/answer-loading-options",
+                    "extension": [
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/strategy",
+                        "valueString": "dynamic"
+                      },
+                      {
+                        "url": "https://fhir.zapehr.com/r4/StructureDefinitions/source",
+                        "valueExpression": {
+                          "language": "application/x-fhir-query",
+                          "expression": "Organization?active:not=false&type=http://terminology.hl7.org/CodeSystem/organization-type|occupational-medicine-employer"
+                        }
+                      }
+                    ]
                   }
                 ]
               }
