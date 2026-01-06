@@ -76,75 +76,73 @@ const FormFieldsDisplayFieldSchema = z.object({
   triggers: z.array(triggerSchema).optional(),
   enableBehavior: z.enum(['all', 'any']).default('any').optional(),
   textWhen: z.array(TextWhenSchema).optional(),
+  disabledDisplay: z.literal('hidden').optional().default('hidden'),
 });
 
-const FormFieldsAttachmentFieldSchema = z.object({
+const FormFieldsValueTypeBaseSchema = z.object({
   key: z.string(),
-  type: z.literal('attachment'),
+  type: z.enum(['string', 'text', 'date', 'choice', 'boolean', 'reference']),
   label: z.string(),
   dataType: QuestionnaireDataTypeSchema.optional(),
+  options: z
+    .array(
+      z.object({
+        label: z.string(),
+        value: z.string(),
+      })
+    )
+    .optional(),
+  dataSource: ReferenceDataSourceSchema.optional(),
+  triggers: z.array(triggerSchema).optional(),
+  dynamicPopulation: dynamicPopulationSchema.optional(),
+  enableBehavior: z.enum(['all', 'any']).default('any').optional(),
+  disabledDisplay: z.enum(['hidden', 'disabled', 'protected']).default('disabled'),
+  initialValue: z.union([z.string(), z.boolean()]).optional(),
+  inputWidth: z.enum(['s', 'm', 'l']).optional(),
+  autocomplete: z.string().optional(),
+  permissibleValue: z.union([z.boolean(), z.string()]).optional(),
+  placeholder: z.string().optional(),
+  infoTextSecondary: z.string().optional(),
+  element: z.string().optional(),
+});
+
+const FormFieldsValueTypeSchema = FormFieldsValueTypeBaseSchema.refine(
+  (data) => {
+    if (data.type === 'choice') {
+      return (
+        Array.isArray(data.options) || {
+          message: 'Options must be provided for choice types',
+        }
+      );
+    }
+    return true;
+  },
+  {
+    message: 'Options must be provided for choice types',
+  }
+).refine(
+  (data) => {
+    if (data.type === 'reference') {
+      return data.dataSource !== undefined;
+    }
+    return true;
+  },
+  {
+    message: 'dataSource must be provided for reference types',
+  }
+);
+
+const FormFieldsAttachmentFieldSchema = FormFieldsValueTypeBaseSchema.extend({
+  type: z.literal('attachment'),
   attachmentText: z.string().optional(),
   documentType: z.string().optional(),
 });
 
-const FormFieldsValueTypeSchema = z
-  .object({
-    key: z.string(),
-    type: z.enum(['string', 'text', 'date', 'choice', 'boolean', 'reference']),
-    label: z.string(),
-    dataType: QuestionnaireDataTypeSchema.optional(),
-    options: z
-      .array(
-        z.object({
-          label: z.string(),
-          value: z.string(),
-        })
-      )
-      .optional(),
-    dataSource: ReferenceDataSourceSchema.optional(),
-    triggers: z.array(triggerSchema).optional(),
-    dynamicPopulation: dynamicPopulationSchema.optional(),
-    enableBehavior: z.enum(['all', 'any']).default('any').optional(),
-    disabledDisplay: z.enum(['hidden', 'disabled', 'protected']).default('disabled'),
-    initialValue: z.union([z.string(), z.boolean()]).optional(),
-    inputWidth: z.enum(['s', 'm', 'l']).optional(),
-    autocomplete: z.string().optional(),
-    permissibleValue: z.union([z.boolean(), z.string()]).optional(),
-    placeholder: z.string().optional(),
-    infoTextSecondary: z.string().optional(),
-    element: z.string().optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.type === 'choice') {
-        return (
-          Array.isArray(data.options) || {
-            message: 'Options must be provided for choice types',
-          }
-        );
-      }
-      return true;
-    },
-    {
-      message: 'Options must be provided for choice types',
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.type === 'reference') {
-        return data.dataSource !== undefined;
-      }
-      return true;
-    },
-    {
-      message: 'dataSource must be provided for reference types',
-    }
-  );
-
-export type FormFieldsItem = z.infer<typeof FormFieldsValueTypeSchema>;
 export type FormFieldsDisplayItem = z.infer<typeof FormFieldsDisplayFieldSchema>;
 export type FormFieldsAttachmentItem = z.infer<typeof FormFieldsAttachmentFieldSchema>;
 export type FormFieldsLogicalItem = z.infer<typeof FormFieldsLogicalFieldSchema>;
+export type FormFieldsInputItem = z.infer<typeof FormFieldsValueTypeSchema> | FormFieldsAttachmentItem;
+export type FormFieldsItem = FormFieldsInputItem | FormFieldsDisplayItem;
 
 export const FormFieldItemRecordSchema = z.record(
   z.union([FormFieldsValueTypeSchema, FormFieldsDisplayFieldSchema, FormFieldsAttachmentFieldSchema])
@@ -518,14 +516,27 @@ const convertAttachmentFieldToQuestionnaireItem = (
   return item;
 };
 
-const convertFormFieldToQuestionnaireItem = (field: FormFieldsItem, isRequired: boolean): QuestionnaireItem => {
+const convertFormFieldToQuestionnaireItem = (
+  anyKindOfField: FormFieldsItem,
+  isRequired: boolean
+): QuestionnaireItem => {
   const item: QuestionnaireItem = {
-    linkId: field.key,
-    type: field.type === 'reference' ? 'choice' : (field.type as any),
+    linkId: anyKindOfField.key,
+    type: anyKindOfField.type === 'reference' ? 'choice' : (anyKindOfField.type as any),
   };
 
+  if (item.type === 'attachment') {
+    return convertAttachmentFieldToQuestionnaireItem(anyKindOfField as FormFieldsAttachmentItem, isRequired);
+  }
+
+  if (item.type === 'display') {
+    return convertDisplayFieldToQuestionnaireItem(anyKindOfField as FormFieldsDisplayItem);
+  }
+
+  const field: FormFieldsInputItem = anyKindOfField as FormFieldsInputItem;
+
   // Add text if label is provided
-  if (field.label) {
+  if ((field as FormFieldsInputItem).label) {
     item.text = field.label;
   }
 

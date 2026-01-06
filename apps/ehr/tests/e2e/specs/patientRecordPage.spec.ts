@@ -27,6 +27,9 @@ import {
   DEMO_VISIT_STREET_ADDRESS,
   DEMO_VISIT_STREET_ADDRESS_OPTIONAL,
   DEMO_VISIT_ZIP,
+  FormFieldsAttachmentItem,
+  FormFieldsDisplayItem,
+  FormFieldsInputItem,
   FormFieldsItem,
   PATIENT_RECORD_CONFIG,
   unpackFhirResponse,
@@ -145,12 +148,17 @@ const PatientSummaryHidden = HIDDEN_SECTIONS.includes(SECTIONS.patientSummary.li
 
 // Helper to get conditionally rendered fields from config
 const getConditionalFields = (
-  items: Record<string, FormFieldsItem>,
+  items: Record<string, FormFieldsItem | FormFieldsDisplayItem | FormFieldsAttachmentItem>,
   controlFieldKey: string
 ): { key: string; label: string; shouldBeRequired: boolean; disabledDisplay: string }[] => {
   return Object.values(items)
     .filter((item) => {
       if (!item.triggers || item.triggers.length === 0) return false;
+      // Display fields are always hidden when disabled
+      if (item.type === 'display') {
+        return item.triggers.some((trigger) => trigger.targetQuestionLinkId === controlFieldKey);
+      }
+      // For other fields, check disabledDisplay
       if (!item.disabledDisplay || item.disabledDisplay === 'disabled') return false;
       if (!item.label) return false;
       return item.triggers.some((trigger) => trigger.targetQuestionLinkId === controlFieldKey);
@@ -161,9 +169,9 @@ const getConditionalFields = (
       );
       return {
         key: item.key,
-        label: item.label || '',
+        label: item.type === 'display' ? item.text : item.label || '',
         shouldBeRequired,
-        disabledDisplay: item.disabledDisplay || 'disabled',
+        disabledDisplay: item.type === 'display' ? 'hidden' : item.disabledDisplay || 'disabled',
       };
     });
 };
@@ -590,11 +598,11 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
         if (PatientSummaryHidden) {
           test.skip();
         }
-        const requiredFields: FormFieldsItem[] = [];
+        const requiredFields: FormFieldsInputItem[] = [];
         for (const field of PATIENT_RECORD_CONFIG.FormFields.patientSummary.requiredFields ?? []) {
           const requiredField = Object.values(patientSummary).find((item) => item.key === field);
-          if (requiredField) {
-            requiredFields.push(requiredField);
+          if (requiredField && requiredField.type !== 'display') {
+            requiredFields.push(requiredField as FormFieldsInputItem);
           }
         }
         // note: choice and reference fields are skipped because they cannot be cleared in the application
@@ -620,10 +628,10 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
         if (ContactInformationHidden) {
           test.skip();
         }
-        const requiredFields: FormFieldsItem[] = [];
+        const requiredFields: FormFieldsInputItem[] = [];
         for (const field of PATIENT_RECORD_CONFIG.FormFields.patientContactInformation.requiredFields ?? []) {
           const requiredField = Object.values(contactInformation).find((item) => item.key === field);
-          if (requiredField) {
+          if (requiredField && requiredField.type !== 'display') {
             requiredFields.push(requiredField);
           }
         }
@@ -803,6 +811,13 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
 
         // Find all responsible party fields that have dynamicPopulation
         for (const [fieldName, fieldConfig] of Object.entries(responsibleParty)) {
+          if (
+            fieldConfig.type === 'display' ||
+            fieldConfig.type === 'attachment' ||
+            !('dynamicPopulation' in fieldConfig)
+          )
+            continue;
+
           if (fieldConfig.dynamicPopulation?.sourceLinkId) {
             const patientFieldKey = fieldConfig.dynamicPopulation.sourceLinkId;
 
@@ -994,6 +1009,8 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
             primaryCarePhysician[
               Object.keys(primaryCarePhysician).find((k) => primaryCarePhysician[k].key === field.key)!
             ];
+          if (fieldConfig.type === 'display') continue; // Skip display fields
+
           if (fieldConfig.dataType === 'Phone Number') {
             await patientInformationPage.clearPhoneField(field.key);
           } else {
@@ -1016,10 +1033,10 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
           test.skip();
         }
         // Get required fields from config
-        const requiredFields: FormFieldsItem[] = [];
+        const requiredFields: FormFieldsInputItem[] = [];
         for (const field of PATIENT_RECORD_CONFIG.FormFields.emergencyContact.requiredFields ?? []) {
           const requiredField = Object.values(emergencyContact).find((item) => item.key === field);
-          if (requiredField) {
+          if (requiredField && requiredField.type !== 'display' && requiredField.type !== 'attachment') {
             requiredFields.push(requiredField);
           }
         }
