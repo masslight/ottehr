@@ -742,6 +742,12 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: '_include:iterate',
       value: 'Slot:schedule',
     },
+
+    // "revoked" SRs are essentially deleted
+    {
+      name: 'status:not',
+      value: 'revoked',
+    },
   ];
 
   // chart data case

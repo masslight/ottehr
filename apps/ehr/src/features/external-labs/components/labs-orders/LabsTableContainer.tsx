@@ -5,6 +5,7 @@ import { submitLabOrder } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  ExternalLabsStatus,
   GetLabOrdersParameters,
   LabOrderListPageDTO,
   LabOrdersSearchBy,
@@ -31,6 +32,7 @@ type LabsTableContainerProps<SearchBy extends LabOrdersSearchBy> = {
   }: {
     serviceRequestId: string;
     testItemName: string;
+    testItemStatus: ExternalLabsStatus;
   }) => void;
   DeleteOrderDialog: ReactElement<any, string | JSXElementConstructor<any>> | null;
   handleRejectedAbn?: (serviceRequestId: string) => Promise<void>;
