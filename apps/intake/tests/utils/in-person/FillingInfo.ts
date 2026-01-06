@@ -148,7 +148,7 @@ export class FillingInfo extends BaseFillingInfo {
     assert(firstCategory.display);
 
     if (firstCategory) {
-      await this.page.getByText(firstCategory.display).click();
+      await this.page.getByRole('button', { name: firstCategory.display }).click();
     }
   }
 }
