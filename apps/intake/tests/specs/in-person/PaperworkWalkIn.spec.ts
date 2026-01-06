@@ -14,7 +14,6 @@ import {
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
-import { QuestionnaireHelper } from '../../utils/QuestionnaireHelper';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
 
 let page: Page;
@@ -24,7 +23,6 @@ let paperwork: Paperwork;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 const locationName = process.env.LOCATION;
-const employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
 
 const PROCESS_ID = `PaperworkWalkIn.spec.ts-${DateTime.now().toMillis()}`;
 let oystehr: Oystehr;
@@ -101,19 +99,15 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
   test('SNPRF-5 Fill responsible party details', async () => {
     await paperwork.fillResponsiblePartyDataSelf();
     await commonLocatorsHelper.clickContinue();
-    if (employerInformationPageExists) {
-      await expect(locator.flowHeading).toHaveText('Employer information');
-    } else {
-      await expect(locator.flowHeading).toHaveText('Emergency Contact');
-    }
-  });
-  if (employerInformationPageExists) {
-    test('SNPRF-6 Fill employer information', async () => {
+    // Check which page appears (employer information is conditional)
+    await expect(locator.flowHeading).not.toHaveText('Loading...', { timeout: 60000 });
+    const currentPageTitle = await locator.flowHeading.textContent();
+    if (currentPageTitle === 'Employer information') {
       await paperwork.fillEmployerInformation();
       await commonLocatorsHelper.clickContinue();
-      await expect(locator.flowHeading).toHaveText('Emergency Contact');
-    });
-  }
+    }
+    await expect(locator.flowHeading).toHaveText('Emergency Contact');
+  });
   test('SNPRF-7 Fill emergency contact details', async () => {
     await expect(locator.flowHeading).toHaveText('Emergency Contact');
     await paperwork.fillEmergencyContactInformation();

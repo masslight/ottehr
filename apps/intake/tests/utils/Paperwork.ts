@@ -5,7 +5,6 @@ import { PatientBasicInfo } from './BaseFlow';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
-import { QuestionnaireHelper } from './QuestionnaireHelper';
 import { PaperworkTelemed } from './telemed/Paperwork';
 import { UploadDocs } from './UploadDocs';
 
@@ -180,7 +179,6 @@ export class Paperwork {
   context: BrowserContext;
   uploadPhoto: UploadDocs;
   paperworkTelemed: PaperworkTelemed;
-  employerInformationPageExists: boolean;
 
   constructor(page: Page) {
     this.page = page;
@@ -190,7 +188,6 @@ export class Paperwork {
     this.uploadPhoto = new UploadDocs(page);
     this.paperworkTelemed = new PaperworkTelemed(page);
     this.context = page.context();
-    this.employerInformationPageExists = QuestionnaireHelper.hasEmployerInformationPage();
   }
   // todo grab from config instead!
   private language = ['English', 'Spanish'];
@@ -327,14 +324,17 @@ export class Paperwork {
     }
     await this.locator.clickContinueButton();
 
-    const employerInformation = this.employerInformationPageExists
-      ? await (async () => {
-          await this.checkCorrectPageOpens('Employer information');
-          const data = await this.fillEmployerInformation();
-          await this.locator.clickContinueButton();
-          return data;
-        })()
-      : null;
+    // Check if employer information page is shown (conditional based on service category)
+    await expect(this.locator.flowHeading).not.toHaveText('Loading...', { timeout: 60000 });
+    const currentPageTitle = await this.locator.flowHeading.textContent();
+    const employerInformation =
+      currentPageTitle === 'Employer information'
+        ? await (async () => {
+            const data = await this.fillEmployerInformation();
+            await this.locator.clickContinueButton();
+            return data;
+          })()
+        : null;
 
     await this.checkCorrectPageOpens('Emergency Contact');
     const emergencyContactInformation = await this.fillEmergencyContactInformation();

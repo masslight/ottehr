@@ -903,7 +903,7 @@ export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values
 
   This is required for evalEnableWhen to correctly resolve cross-page references.
 */
-const buildEnableWhenContext = (responseItems: any[]): { [key: string]: any } => {
+export const buildEnableWhenContext = (responseItems: any[]): { [key: string]: any } => {
   return responseItems.reduce((acc: any, page: any) => {
     if (page?.linkId) {
       // Add page with its items for nested path resolution
