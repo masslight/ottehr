@@ -1127,7 +1127,9 @@ const mapOccupationalMedicineEmployerToQuestionnaireResponseItems = (
 
     switch (linkId) {
       case 'occupational-medicine-employer':
-        answer = makeAnswer(occupationalMedicineEmployerReference, 'Reference');
+        answer = occupationalMedicineEmployerReference
+          ? makeAnswer(occupationalMedicineEmployerReference, 'Reference')
+          : undefined;
         break;
     }
 
