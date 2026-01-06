@@ -1546,7 +1546,7 @@ const hiddenFormSections: string[] = [];
 const questionnaireBaseDefaults: QuestionnaireBase = {
   resourceType: 'Questionnaire',
   url: 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson',
-  version: '1.1.3',
+  version: '1.1.4',
   name: 'in-person_pre-visit_paperwork',
   title: 'in-person pre-visit paperwork',
   status: 'active',
