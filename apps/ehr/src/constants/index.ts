@@ -101,6 +101,7 @@ export const PatientGuarantorFields = [
 export const InsurancePriorityFields = [
   FormFields.insurance.items[0].insurancePriority.key,
   FormFields.insurance.items[1].insurancePriority.key,
+  FormFields.insurance.items[2].insurancePriority.key,
 ];
 
 // Generate additional questions from configuration

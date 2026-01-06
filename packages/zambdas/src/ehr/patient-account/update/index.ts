@@ -339,6 +339,7 @@ const complexValidation = async (input: BasicInput): Promise<FinishedInput> => {
 
   const questionnaireItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
   const validationSchema = makeValidationSchema(questionnaireItems, undefined);
+
   // when a coverage is added via the add coverage modal, a single item with the data for the added coverage is sent to
   // this endpoint. passing this allows us to refrain from removing any existing coverages from the account when a new one is added.
   try {

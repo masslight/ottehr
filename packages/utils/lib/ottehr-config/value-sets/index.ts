@@ -263,6 +263,7 @@ const formValueSets = {
   insurancePriorityOptions: [
     { label: 'Primary', value: 'Primary' },
     { label: 'Secondary', value: 'Secondary' },
+    { label: 'Workers Comp', value: 'Workers Comp' },
   ],
   insuranceTypeOptions,
   languageOptions: [

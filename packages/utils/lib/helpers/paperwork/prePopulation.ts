@@ -691,7 +691,12 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
   });
 };
 
-const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2', 'payment-option-page'];
+const COVERAGE_ITEMS = [
+  'insurance-section',
+  'insurance-section-2',
+  'insurance-section-workers-comp',
+  'payment-option-page',
+];
 interface MapCoverageItemsInput {
   items: QuestionnaireItem[];
   coverages: PatientAccountResponse['coverages'];
@@ -751,16 +756,19 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
 
   // console.log('mapping coverages to questionnaire response items', items, coverages);
 
-  const { primary, secondary, primarySubscriber, secondarySubscriber } = coverages;
+  const { primary, secondary, primarySubscriber, secondarySubscriber, workersComp } = coverages;
 
   let primaryInsurancePlanReference: Reference | undefined;
   let secondaryInsurancePlanReference: Reference | undefined;
+  let workersCompInsurancePlanReference: Reference | undefined;
 
   let primaryMemberId = '';
   let secondaryMemberId = '';
+  let workersCompMemberId = '';
 
   let primaryPlanType: string | undefined;
   let secondaryPlanType: string | undefined;
+  let workersCompPlanType: string | undefined;
 
   if (primary) {
     const payerId = primary.class?.[0].value;
@@ -784,6 +792,17 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     }
   }
 
+  if (workersComp) {
+    const payerId = workersComp.class?.[0].value;
+    const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
+    if (payerId && org) {
+      workersCompInsurancePlanReference = {
+        reference: `Organization/${org.id}`,
+        display: org.name,
+      };
+    }
+  }
+
   if (primary) {
     primaryMemberId =
       primary.identifier?.find(
@@ -796,12 +815,23 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
         (i) => i.type?.coding?.[0]?.code === 'MB' && i.assigner?.reference === secondary.payor[0]?.reference
       )?.value ?? '';
   }
+  if (workersComp) {
+    workersCompMemberId =
+      workersComp.identifier?.find(
+        (i) =>
+          i.type?.coding?.[0]?.code === 'MB' &&
+          workersComp.payor.find((payor) => payor.reference === i.assigner?.reference)
+      )?.value ?? '';
+  }
 
   if (primary) {
     primaryPlanType = getCandidPlanTypeCodeFromCoverage(primary);
   }
   if (secondary) {
     secondaryPlanType = getCandidPlanTypeCodeFromCoverage(secondary);
+  }
+  if (workersComp) {
+    workersCompPlanType = getCandidPlanTypeCodeFromCoverage(workersComp);
   }
 
   const primarySubscriberDoB = primarySubscriber?.birthDate ?? '';
@@ -883,17 +913,26 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       if (linkId === 'insurance-carrier-2' && secondaryInsurancePlanReference) {
         answer = makeAnswer(secondaryInsurancePlanReference, 'Reference');
       }
+      if (linkId === 'insurance-carrier-workers-comp' && workersCompInsurancePlanReference) {
+        answer = makeAnswer(workersCompInsurancePlanReference, 'Reference');
+      }
       if (linkId === 'insurance-plan-type' && primaryPlanType) {
         answer = makeAnswer(primaryPlanType);
       }
       if (linkId === 'insurance-plan-type-2' && secondaryPlanType) {
         answer = makeAnswer(secondaryPlanType);
       }
+      if (linkId === 'insurance-plan-type-workers-comp' && workersCompPlanType) {
+        answer = makeAnswer(workersCompPlanType);
+      }
       if (linkId === 'insurance-member-id' && primaryMemberId) {
         answer = makeAnswer(primaryMemberId);
       }
       if (linkId === 'insurance-member-id-2' && secondaryMemberId) {
         answer = makeAnswer(secondaryMemberId);
+      }
+      if (linkId === 'insurance-member-id-workers-comp' && workersCompMemberId) {
+        answer = makeAnswer(workersCompMemberId);
       }
       if (linkId === 'policy-holder-first-name' && primarySubscriberFirstName) {
         answer = makeAnswer(primarySubscriberFirstName);
@@ -993,6 +1032,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       }
       if (linkId === 'display-secondary-insurance') {
         answer = secondary ? makeAnswer(true, 'Boolean') : makeAnswer(false, 'Boolean');
+      }
+      if (linkId === 'insurance-priority-workers-comp') {
+        answer = workersComp ? makeAnswer('Workers Comp') : undefined;
       }
       if (linkId === 'appointment-service-category' && appointmentServiceCategory) {
         answer = makeAnswer(appointmentServiceCategory);

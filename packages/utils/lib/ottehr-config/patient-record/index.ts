@@ -45,6 +45,12 @@ const InsuredPersonNotSelfTrigger: FormFieldTrigger = {
   operator: '!=',
   answerString: formValueSets.relationshipToInsuredOptions[0].value,
 };
+const EnableWhenNotWorkersCompTrigger: FormFieldTrigger = {
+  targetQuestionLinkId: 'insurance-priority',
+  effect: ['require'],
+  operator: '!=',
+  answerString: 'Workers Comp',
+};
 const InsuredAddressNotSameAsPatientTrigger: FormFieldTrigger = {
   targetQuestionLinkId: 'policy-holder-address-as-patient',
   effect: ['enable'],
@@ -228,7 +234,7 @@ const FormFields = {
     ],
   },
   insurance: {
-    linkId: ['insurance-section', 'insurance-section-2'],
+    linkId: ['insurance-section', 'insurance-section-2', 'insurance-section-workers-comp'],
     title: 'Insurance information',
     items: [
       {
@@ -256,12 +262,17 @@ const FormFields = {
           label: 'Insurance type',
           options: insurancePlanTypeOptions,
         },
-        memberId: { key: 'insurance-member-id', type: 'string', label: 'Member ID' },
+        memberId: {
+          key: 'insurance-member-id',
+          type: 'string',
+          label: 'Member ID',
+          triggers: [EnableWhenNotWorkersCompTrigger],
+        },
         firstName: {
           key: 'policy-holder-first-name',
           type: 'string',
           label: "Policy holder's first name",
-          triggers: [InsuredPersonNotSelfTrigger],
+          triggers: [InsuredPersonNotSelfTrigger, EnableWhenNotWorkersCompTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-first-name' },
         },
         middleName: {
@@ -275,7 +286,7 @@ const FormFields = {
           key: 'policy-holder-last-name',
           type: 'string',
           label: "Policy holder's last name",
-          triggers: [InsuredPersonNotSelfTrigger],
+          triggers: [InsuredPersonNotSelfTrigger, EnableWhenNotWorkersCompTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-last-name' },
         },
         birthDate: {
@@ -283,7 +294,7 @@ const FormFields = {
           type: 'date',
           label: "Policy holder's date of birth",
           dataType: 'DOB',
-          triggers: [InsuredPersonNotSelfTrigger],
+          triggers: [InsuredPersonNotSelfTrigger, EnableWhenNotWorkersCompTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-birthdate' },
         },
         birthSex: {
@@ -291,7 +302,7 @@ const FormFields = {
           type: 'choice',
           label: "Policy holder's birth sex",
           options: formValueSets.birthSexOptions,
-          triggers: [InsuredPersonNotSelfTrigger],
+          triggers: [InsuredPersonNotSelfTrigger, EnableWhenNotWorkersCompTrigger],
           dynamicPopulation: { sourceLinkId: 'patient-birth-sex' },
         },
         policyHolderAddressAsPatient: {
@@ -304,7 +315,11 @@ const FormFields = {
           key: 'policy-holder-address',
           type: 'string',
           label: "Policy holder's address",
-          triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
+          triggers: [
+            InsuredPersonNotSelfTrigger,
+            InsuredAddressNotSameAsPatientTrigger,
+            EnableWhenNotWorkersCompTrigger,
+          ],
           dynamicPopulation: { sourceLinkId: 'patient-street-address' },
           enableBehavior: 'all',
         },
@@ -320,7 +335,11 @@ const FormFields = {
           key: 'policy-holder-city',
           type: 'string',
           label: 'City',
-          triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
+          triggers: [
+            InsuredPersonNotSelfTrigger,
+            InsuredAddressNotSameAsPatientTrigger,
+            EnableWhenNotWorkersCompTrigger,
+          ],
           dynamicPopulation: { sourceLinkId: 'patient-city' },
           enableBehavior: 'all',
         },
@@ -329,7 +348,11 @@ const FormFields = {
           type: 'choice',
           label: 'State',
           options: formValueSets.stateOptions,
-          triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
+          triggers: [
+            InsuredPersonNotSelfTrigger,
+            InsuredAddressNotSameAsPatientTrigger,
+            EnableWhenNotWorkersCompTrigger,
+          ],
           dynamicPopulation: { sourceLinkId: 'patient-state' },
           enableBehavior: 'all',
         },
@@ -338,7 +361,11 @@ const FormFields = {
           type: 'string',
           label: 'ZIP',
           dataType: 'ZIP',
-          triggers: [InsuredPersonNotSelfTrigger, InsuredAddressNotSameAsPatientTrigger],
+          triggers: [
+            InsuredPersonNotSelfTrigger,
+            InsuredAddressNotSameAsPatientTrigger,
+            EnableWhenNotWorkersCompTrigger,
+          ],
           dynamicPopulation: { sourceLinkId: 'patient-zip' },
           enableBehavior: 'all',
         },
@@ -347,6 +374,7 @@ const FormFields = {
           type: 'choice',
           label: "Patient's relationship to insured",
           options: formValueSets.relationshipToInsuredOptions,
+          triggers: [EnableWhenNotWorkersCompTrigger],
         },
         additionalInformation: {
           key: 'insurance-additional-information',
@@ -477,22 +505,40 @@ const FormFields = {
           label: 'Additional insurance information',
         },
       },
+      {
+        insurancePriority: {
+          key: 'insurance-priority-workers-comp',
+          type: 'choice',
+          label: 'Type',
+          options: [{ label: 'Workers Comp', value: 'Workers Comp' }],
+        },
+        insuranceCarrier: {
+          key: 'insurance-carrier-workers-comp',
+          type: 'reference',
+          label: 'Insurance carrier',
+          dataSource: {
+            answerSource: {
+              resourceType: 'Organization',
+              query: `type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+              prependedIdentifier: 'http://terminology.hl7.org/CodeSystem/v2-0203',
+            },
+          },
+        },
+        insurancePlanType: {
+          key: 'insurance-plan-type-workers-comp',
+          type: 'choice',
+          label: 'Insurance type',
+          options: insurancePlanTypeOptions,
+        },
+        memberId: { key: 'insurance-member-id-workers-comp', type: 'string', label: 'Member ID' },
+      },
     ],
     hiddenFields: [],
     requiredFields: [
+      'insurance-priority',
       'insurance-carrier',
       'insurance-plan-type',
       'insurance-member-id',
-      'policy-holder-first-name',
-      'policy-holder-last-name',
-      'policy-holder-date-of-birth',
-      'policy-holder-birth-sex',
-      'policy-holder-address',
-      'policy-holder-city',
-      'policy-holder-state',
-      'policy-holder-zip',
-      'patient-relationship-to-insured',
-      'insurance-priority',
       // assuming it won't be a problem to have the fields from both insurance sections in the same array here since the two fields behave
       // identically when they're included
       'insurance-carrier-2',

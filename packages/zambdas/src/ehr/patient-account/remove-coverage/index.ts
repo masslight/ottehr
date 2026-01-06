@@ -174,7 +174,6 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
   }
   const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
   const effectInput: Partial<EffectInput> = {
-    account: accountAndCoverages.account,
     providerProfileReference,
     patientId,
   };
@@ -183,9 +182,15 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
 
   if (coverages.primary && coverages.primary.id === coverageId) {
     coverage = coverages.primary;
+    effectInput.account = accountAndCoverages.account;
   }
   if (coverages.secondary && coverages.secondary.id === coverageId) {
     coverage = coverages.secondary;
+    effectInput.account = accountAndCoverages.account;
+  }
+  if (coverages.workersComp && coverages.workersComp.id === coverageId) {
+    coverage = coverages.workersComp;
+    effectInput.account = accountAndCoverages.workersCompAccount;
   }
 
   if (!coverage) {

@@ -72,7 +72,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
     } as any,
   });
 
-  const { control, formState, handleSubmit, setValue } = methods;
+  const { control, formState, handleSubmit, setValue, watch } = methods;
   const { errors, defaultValues } = formState;
 
   const { insurancePlans } = usePatientStore();
@@ -86,6 +86,9 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
   } = useUpdatePatientAccount(() => {
     void queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
   }, 'Coverage added to patient account successfully.');
+
+  const insurancePriority = watch(insurance.insurancePriority.key);
+  const workersComp = insurancePriority === 'Workers Comp';
 
   const onSubmit = (data: any): void => {
     // send the data to a zambda
@@ -118,7 +121,8 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
     <Dialog
       open={open}
       onClose={onClose}
-      PaperProps={{ sx: { p: 2, maxWidth: 'none' } }}
+      fullWidth
+      PaperProps={{ sx: { p: 2, maxWidth: 'none', minHeight: '680px' } }}
       data-testid={dataTestIds.addInsuranceDialog.id}
     >
       <DialogTitle
@@ -277,188 +281,198 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            {/* Empty grid item to maintain proper column alignment after adding the insurance type field */}
-            <Grid item xs={6}></Grid>
-            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersFirstName}>
-              <LabeledField label="Policy holder's first name" required error={!!errors[insurance.firstName.key]}>
-                <FormTextField
-                  variant="outlined"
-                  name={insurance.firstName.key}
-                  control={control}
-                  defaultValue={''}
-                  rules={{
-                    required: REQUIRED_FIELD_ERROR_MESSAGE,
-                  }}
-                />
-              </LabeledField>
-            </Grid>
-            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersMiddleName}>
-              <LabeledField label="Policy holder's middle name">
-                <FormTextField
-                  InputLabelProps={{
-                    shrink: true,
-                    sx: {
-                      fontWeight: 'bold',
-                    },
-                  }}
-                  variant="outlined"
-                  name={insurance.middleName.key}
-                  control={control}
-                  defaultValue={''}
-                />
-              </LabeledField>
-            </Grid>
-            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersLastName}>
-              <LabeledField label="Policy holder's last name" required error={!!errors[insurance.lastName.key]}>
-                <FormTextField
-                  variant="outlined"
-                  name={insurance.lastName.key}
-                  control={control}
-                  defaultValue={''}
-                  rules={{
-                    required: REQUIRED_FIELD_ERROR_MESSAGE,
-                  }}
-                />
-              </LabeledField>
-            </Grid>
-            <Grid item xs={3}>
-              <LabeledField label="Policy holder's date of birth" required error={!!errors[insurance.birthDate.key]}>
-                <BasicDatePicker
-                  name={insurance.birthDate.key}
-                  variant="outlined"
-                  control={control}
-                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-                  defaultValue={''}
-                  dataTestId={dataTestIds.addInsuranceDialog.policyHoldersDateOfBirth}
-                  component="Field"
-                />
-              </LabeledField>
-            </Grid>
-            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersSex}>
-              <LabeledField label="Policy holder's sex" required error={!!errors[insurance.birthSex.key]}>
-                <FormSelect
-                  variant="outlined"
-                  name={insurance.birthSex.key}
-                  control={control}
-                  defaultValue={''}
-                  options={VALUE_SETS.birthSexOptions}
-                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-                />
-              </LabeledField>
-            </Grid>
-            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.relationship}>
-              <LabeledField
-                label="Patient’s relationship to insured"
-                required
-                error={!!errors[insurance.relationship.key]}
-              >
-                <FormSelect
-                  variant="outlined"
-                  name={insurance.relationship.key}
-                  control={control}
-                  defaultValue={''}
-                  options={VALUE_SETS.relationshipToInsuredOptions}
-                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-                />
-              </LabeledField>
-            </Grid>
-            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.streetAddress}>
-              <LabeledField label="Street address" required error={!!errors[insurance.streetAddress.key]}>
-                <FormTextField
-                  placeholder="No., Street"
-                  variant="outlined"
-                  name={insurance.streetAddress.key}
-                  control={control}
-                  defaultValue={''}
-                  rules={{
-                    required: REQUIRED_FIELD_ERROR_MESSAGE,
-                  }}
-                />
-              </LabeledField>
-            </Grid>
-            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.addressLine2}>
-              <LabeledField label="Address line 2">
-                <FormTextField
-                  placeholder="No., Street"
-                  variant="outlined"
-                  name={insurance.addressLine2.key}
-                  control={control}
-                  defaultValue={''}
-                />
-              </LabeledField>
-            </Grid>
-            <Grid item xs={1} data-testid={dataTestIds.addInsuranceDialog.city}>
-              <LabeledField label="City" required error={!!errors[insurance.city.key]}>
-                <FormTextField
-                  variant="outlined"
-                  name={insurance.city.key}
-                  control={control}
-                  defaultValue={''}
-                  rules={{
-                    required: REQUIRED_FIELD_ERROR_MESSAGE,
-                  }}
-                />
-              </LabeledField>
-            </Grid>
-            <Grid item xs={1}>
-              <LabeledField label="State" required error={!!errors[insurance.state.key]}>
-                <Controller
-                  name={insurance.state.key}
-                  control={control}
-                  defaultValue={null}
-                  rules={{
-                    required: REQUIRED_FIELD_ERROR_MESSAGE,
-                    validate: (value) => !value || VALUE_SETS.stateOptions.some((option) => option.value === value),
-                  }}
-                  render={({ field: { onChange, value }, fieldState: { error } }) => (
-                    <Autocomplete
-                      data-testid={dataTestIds.addInsuranceDialog.state}
-                      options={VALUE_SETS.stateOptions}
-                      value={(VALUE_SETS.stateOptions.find((option) => option.value === value) || null) as Option}
-                      getOptionLabel={(option) => option.label || ''}
-                      isOptionEqualToValue={(option, value) => option?.value === value?.value || (!option && !value)}
-                      onChange={(_, newValue) => {
-                        onChange(newValue?.value || null);
+            {!workersComp && (
+              <>
+                {/* Empty grid item to maintain proper column alignment after adding the insurance type field */}
+                <Grid item xs={6}></Grid>
+                <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersFirstName}>
+                  <LabeledField label="Policy holder's first name" required error={!!errors[insurance.firstName.key]}>
+                    <FormTextField
+                      variant="outlined"
+                      name={insurance.firstName.key}
+                      control={control}
+                      defaultValue={''}
+                      rules={{
+                        required: REQUIRED_FIELD_ERROR_MESSAGE,
                       }}
-                      disableClearable
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          required
-                          error={!!error}
-                          placeholder="Select"
-                          helperText={error?.message}
+                    />
+                  </LabeledField>
+                </Grid>
+                <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersMiddleName}>
+                  <LabeledField label="Policy holder's middle name">
+                    <FormTextField
+                      InputLabelProps={{
+                        shrink: true,
+                        sx: {
+                          fontWeight: 'bold',
+                        },
+                      }}
+                      variant="outlined"
+                      name={insurance.middleName.key}
+                      control={control}
+                      defaultValue={''}
+                    />
+                  </LabeledField>
+                </Grid>
+                <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersLastName}>
+                  <LabeledField label="Policy holder's last name" required error={!!errors[insurance.lastName.key]}>
+                    <FormTextField
+                      variant="outlined"
+                      name={insurance.lastName.key}
+                      control={control}
+                      defaultValue={''}
+                      rules={{
+                        required: REQUIRED_FIELD_ERROR_MESSAGE,
+                      }}
+                    />
+                  </LabeledField>
+                </Grid>
+                <Grid item xs={3}>
+                  <LabeledField
+                    label="Policy holder's date of birth"
+                    required
+                    error={!!errors[insurance.birthDate.key]}
+                  >
+                    <BasicDatePicker
+                      name={insurance.birthDate.key}
+                      variant="outlined"
+                      control={control}
+                      rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                      defaultValue={''}
+                      dataTestId={dataTestIds.addInsuranceDialog.policyHoldersDateOfBirth}
+                      component="Field"
+                    />
+                  </LabeledField>
+                </Grid>
+                <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersSex}>
+                  <LabeledField label="Policy holder's sex" required error={!!errors[insurance.birthSex.key]}>
+                    <FormSelect
+                      variant="outlined"
+                      name={insurance.birthSex.key}
+                      control={control}
+                      defaultValue={''}
+                      options={VALUE_SETS.birthSexOptions}
+                      rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                    />
+                  </LabeledField>
+                </Grid>
+                <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.relationship}>
+                  <LabeledField
+                    label="Patient’s relationship to insured"
+                    required
+                    error={!!errors[insurance.relationship.key]}
+                  >
+                    <FormSelect
+                      variant="outlined"
+                      name={insurance.relationship.key}
+                      control={control}
+                      defaultValue={''}
+                      options={VALUE_SETS.relationshipToInsuredOptions}
+                      rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                    />
+                  </LabeledField>
+                </Grid>
+                <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.streetAddress}>
+                  <LabeledField label="Street address" required error={!!errors[insurance.streetAddress.key]}>
+                    <FormTextField
+                      placeholder="No., Street"
+                      variant="outlined"
+                      name={insurance.streetAddress.key}
+                      control={control}
+                      defaultValue={''}
+                      rules={{
+                        required: REQUIRED_FIELD_ERROR_MESSAGE,
+                      }}
+                    />
+                  </LabeledField>
+                </Grid>
+                <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.addressLine2}>
+                  <LabeledField label="Address line 2">
+                    <FormTextField
+                      placeholder="No., Street"
+                      variant="outlined"
+                      name={insurance.addressLine2.key}
+                      control={control}
+                      defaultValue={''}
+                    />
+                  </LabeledField>
+                </Grid>
+                <Grid item xs={1} data-testid={dataTestIds.addInsuranceDialog.city}>
+                  <LabeledField label="City" required error={!!errors[insurance.city.key]}>
+                    <FormTextField
+                      variant="outlined"
+                      name={insurance.city.key}
+                      control={control}
+                      defaultValue={''}
+                      rules={{
+                        required: REQUIRED_FIELD_ERROR_MESSAGE,
+                      }}
+                    />
+                  </LabeledField>
+                </Grid>
+                <Grid item xs={1}>
+                  <LabeledField label="State" required error={!!errors[insurance.state.key]}>
+                    <Controller
+                      name={insurance.state.key}
+                      control={control}
+                      defaultValue={null}
+                      rules={{
+                        required: REQUIRED_FIELD_ERROR_MESSAGE,
+                        validate: (value) => !value || VALUE_SETS.stateOptions.some((option) => option.value === value),
+                      }}
+                      render={({ field: { onChange, value }, fieldState: { error } }) => (
+                        <Autocomplete
+                          data-testid={dataTestIds.addInsuranceDialog.state}
+                          options={VALUE_SETS.stateOptions}
+                          value={(VALUE_SETS.stateOptions.find((option) => option.value === value) || null) as Option}
+                          getOptionLabel={(option) => option.label || ''}
+                          isOptionEqualToValue={(option, value) =>
+                            option?.value === value?.value || (!option && !value)
+                          }
+                          onChange={(_, newValue) => {
+                            onChange(newValue?.value || null);
+                          }}
+                          disableClearable
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              required
+                              error={!!error}
+                              placeholder="Select"
+                              helperText={error?.message}
+                            />
+                          )}
                         />
                       )}
                     />
-                  )}
-                />
-              </LabeledField>
-            </Grid>
-            <Grid item xs={1} data-testid={dataTestIds.addInsuranceDialog.zip}>
-              <LabeledField label="ZIP" required error={!!errors[insurance.zip.key]}>
-                <FormTextField
-                  variant="outlined"
-                  name={insurance.zip.key}
-                  control={control}
-                  defaultValue={''}
-                  rules={{
-                    required: REQUIRED_FIELD_ERROR_MESSAGE,
-                    validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
-                  }}
-                />
-              </LabeledField>
-            </Grid>
-            <Grid item xs={9} data-testid={dataTestIds.addInsuranceDialog.additionalInformation}>
-              <LabeledField label="Additional insurance information">
-                <FormTextField
-                  variant="outlined"
-                  name={insurance.additionalInformation.key}
-                  control={control}
-                  defaultValue={''}
-                />
-              </LabeledField>
-            </Grid>
+                  </LabeledField>
+                </Grid>
+                <Grid item xs={1} data-testid={dataTestIds.addInsuranceDialog.zip}>
+                  <LabeledField label="ZIP" required error={!!errors[insurance.zip.key]}>
+                    <FormTextField
+                      variant="outlined"
+                      name={insurance.zip.key}
+                      control={control}
+                      defaultValue={''}
+                      rules={{
+                        required: REQUIRED_FIELD_ERROR_MESSAGE,
+                        validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
+                      }}
+                    />
+                  </LabeledField>
+                </Grid>
+                <Grid item xs={9} data-testid={dataTestIds.addInsuranceDialog.additionalInformation}>
+                  <LabeledField label="Additional insurance information">
+                    <FormTextField
+                      variant="outlined"
+                      name={insurance.additionalInformation.key}
+                      control={control}
+                      defaultValue={''}
+                    />
+                  </LabeledField>
+                </Grid>
+              </>
+            )}
           </Grid>
         </DialogContent>
       </FormProvider>

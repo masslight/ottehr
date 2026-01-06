@@ -46,7 +46,7 @@ import {
 } from '../hooks/useGetPatient';
 import { createInsurancePlanDto, usePatientStore } from '../state/patient.store';
 
-const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2'];
+const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2', 'insurance-section-workers-comp'];
 const ANSWER_TYPES: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = [
   'String',
   'Boolean',
@@ -176,6 +176,9 @@ const usePatientData = (
     }
     if (insuranceData.coverages.secondary) {
       result.push({ resource: insuranceData.coverages.secondary, startingPriority: 2 });
+    }
+    if (insuranceData.coverages.workersComp) {
+      result.push({ resource: insuranceData.coverages.workersComp, startingPriority: 3 });
     }
 
     return result;
@@ -391,7 +394,6 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   if (!patient) return null;
 
   const currentlyAssignedPriorities = watch(InsurancePriorityFields);
-
   return (
     <div>
       {isFetching && <LoadingScreen />}

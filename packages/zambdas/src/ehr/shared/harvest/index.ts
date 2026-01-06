@@ -1543,6 +1543,7 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
   let firstInsuranceDetails: InsuranceDetails | undefined;
   let secondPolicyHolder = getSecondaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
   let secondInsuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources, '-2');
+
   if (!isSecondaryOnly) {
     firstPolicyHolder = getPrimaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
     firstInsuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);
@@ -1565,33 +1566,90 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
   const priority1 = flattenedPaperwork.find((item) => item.linkId === 'insurance-priority')?.answer?.[0].valueString;
   const priority2 = flattenedPaperwork.find((item) => item.linkId === 'insurance-priority-2')?.answer?.[0].valueString;
 
-  const { primaryInsurance, secondaryInsurance } = resolveInsurancePriorities(
-    firstInsurance,
-    secondInsurance,
-    priority1,
-    priority2
-  );
+  if (priority1 === 'Primary' || priority1 === 'Secondary' || priority2 === 'Primary' || priority2 === 'Secondary') {
+    const { primaryInsurance, secondaryInsurance } = resolveInsurancePriorities(
+      firstInsurance,
+      secondInsurance,
+      priority1,
+      priority2
+    );
 
-  if (primaryInsurance) {
-    const primaryCoverage = createCoverageResource({
-      patientId,
-      order: 1,
-      insurance: {
-        ...primaryInsurance,
-      },
-    });
-    newCoverages.primary = primaryCoverage;
+    if (primaryInsurance) {
+      const primaryCoverage = createCoverageResource({
+        patientId,
+        order: 1,
+        insurance: {
+          ...primaryInsurance,
+        },
+      });
+      newCoverages.primary = primaryCoverage;
+    }
+
+    if (secondaryInsurance) {
+      const secondaryCoverage = createCoverageResource({
+        patientId,
+        order: 2,
+        insurance: {
+          ...secondaryInsurance,
+        },
+      });
+      newCoverages.secondary = secondaryCoverage;
+    }
   }
+  if (
+    priority1 === 'Workers Comp' ||
+    flattenedPaperwork.find((item) => item.linkId === 'insurance-priority-workers-comp')
+  ) {
+    let insuranceDetails: InsuranceDetails | undefined;
+    let memberId: string | undefined;
+    let typeCode: string | undefined;
+    if (priority1 === 'Workers Comp') {
+      // Create workers comp insurance
+      insuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);
+      memberId = flattenedPaperwork.find((item) => item.linkId === 'insurance-member-id')?.answer?.[0]?.valueString;
+      typeCode = flattenedPaperwork.find((item) => item.linkId === 'insurance-plan-type')?.answer?.[0]?.valueString;
+    } else {
+      // Update workers comp insurance
+      insuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources, '-workers-comp');
+      memberId = flattenedPaperwork.find((item) => item.linkId === 'insurance-member-id-workers-comp')?.answer?.[0]
+        ?.valueString;
+      typeCode = flattenedPaperwork.find((item) => item.linkId === 'insurance-plan-type-workers-comp')?.answer?.[0]
+        ?.valueString;
+    }
+    const payerId = getPayerId(insuranceDetails?.org);
 
-  if (secondaryInsurance) {
-    const secondaryCoverage = createCoverageResource({
-      patientId,
-      order: 2,
-      insurance: {
-        ...secondaryInsurance,
-      },
-    });
-    newCoverages.secondary = secondaryCoverage;
+    if (memberId && insuranceDetails?.org && typeCode && payerId) {
+      const workersCompCoverage: Coverage = {
+        id: `urn:uuid:${randomUUID()}`,
+        identifier: [createCoverageMemberIdentifier(memberId, insuranceDetails.org)],
+        resourceType: 'Coverage',
+        status: 'active',
+        subscriber: {
+          reference: `Patient/${patientId}`,
+        },
+        beneficiary: {
+          type: 'Patient',
+          reference: `Patient/${patientId}`,
+        },
+        type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
+        payor: [{ reference: `Organization/${insuranceDetails.org.id}` }],
+        class: [
+          {
+            type: {
+              coding: [
+                {
+                  system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
+                  code: 'plan',
+                },
+              ],
+            },
+            value: payerId,
+            name: `${insuranceDetails.org.name ?? ''}`,
+          },
+        ],
+      };
+      newCoverages.workersComp = workersCompCoverage;
+    }
   }
   let coverage: Account['coverage'] | undefined;
   if (newCoverages.primary || newCoverages.secondary) {
@@ -2176,7 +2234,7 @@ const getEmployerInformation = (items: QuestionnaireResponseItem[]): EmployerInf
 
 interface CreateCoverageResourceInput {
   patientId: string;
-  order: number;
+  order?: number;
   insurance: {
     org: Organization;
     policyHolder: PolicyHolder;
@@ -2410,6 +2468,31 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     JSON.stringify(flattenedItems, null, 2)
   );*/
 
+  let employerOrganizationPost: BatchInputPostRequest<Organization> | undefined;
+  let employerOrganizationPut: BatchInputPutRequest<Organization> | undefined;
+  let workersCompAccountPost: Account | undefined;
+  let workersCompAccountPut: BatchInputPutRequest<Account> | undefined;
+  let employerOrganizationReference: string | undefined;
+
+  if (employerInformation) {
+    if (existingEmployerOrganization?.id) {
+      employerOrganizationReference = `Organization/${existingEmployerOrganization.id}`;
+      employerOrganizationPut = {
+        method: 'PUT',
+        url: `Organization/${existingEmployerOrganization.id}`,
+        resource: buildEmployerOrganization(employerInformation, existingEmployerOrganization.id),
+      };
+    } else {
+      employerOrganizationReference = `urn:uuid:${randomUUID()}`;
+      employerOrganizationPost = {
+        method: 'POST',
+        url: 'Organization',
+        fullUrl: employerOrganizationReference,
+        resource: buildEmployerOrganization(employerInformation),
+      };
+    }
+  }
+
   const { orderedCoverages: questionnaireCoverages } = getCoverageResources({
     questionnaireResponse: {
       item: flattenedItems,
@@ -2425,10 +2508,6 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   const puts: BatchInputPutRequest<Account | RelatedPerson>[] = [];
   let accountPost: Account | undefined;
   let emergencyContactPost: BatchInputPostRequest<RelatedPerson> | undefined;
-  let employerOrganizationPost: BatchInputPostRequest<Organization> | undefined;
-  let employerOrganizationPut: BatchInputPutRequest<Organization> | undefined;
-  let workersCompAccountPost: Account | undefined;
-  let workersCompAccountPut: BatchInputPutRequest<Account> | undefined;
 
   console.log(
     'getting account operations for patient, guarantorData, emergencyContactData, coverages, account, employerInformation',
@@ -2505,7 +2584,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     const newAccount = createAccount({
       patientId: patient.id!,
       guarantor: guarantors,
-      coverage: suggestedNewCoverageObject,
+      coverage: suggestedNewCoverageObject?.filter((item) => item.priority === 1 || item.priority === 2),
       contained,
     });
     accountPost = newAccount;
@@ -2522,7 +2601,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       ...existingAccount,
       guarantor: guarantors,
       contained,
-      coverage: suggestedNewCoverageObject,
+      coverage: suggestedNewCoverageObject?.filter((item) => item.priority === 1 || item.priority === 2),
     };
 
     puts.push({
@@ -2530,6 +2609,31 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       url: `Account/${existingAccount.id}`,
       resource: updatedAccount,
     });
+  }
+
+  if (existingWorkersCompAccount === undefined && employerInformation && employerOrganizationReference) {
+    const workersCompAccountResource = buildWorkersCompAccountResource(
+      patient.id!,
+      employerInformation,
+      existingWorkersCompAccount,
+      employerOrganizationReference
+    );
+
+    workersCompAccountPost = workersCompAccountResource;
+  } else if (existingWorkersCompAccount) {
+    const updatedWorkersCompAccount: Account = {
+      ...existingWorkersCompAccount,
+      coverage:
+        existingWorkersCompAccount.coverage ||
+        suggestedNewCoverageObject?.filter((item) => item.priority !== 1 && item.priority !== 2),
+    };
+    if (existingWorkersCompAccount.coverage !== updatedWorkersCompAccount.coverage) {
+      workersCompAccountPut = {
+        method: 'PUT',
+        url: `Account/${existingWorkersCompAccount?.id}`,
+        resource: updatedWorkersCompAccount,
+      };
+    }
   }
 
   // Emergency Contact
@@ -2618,47 +2722,6 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     };
   }
 
-  if (employerInformation) {
-    let employerOrganizationReference: string | undefined;
-
-    if (existingEmployerOrganization?.id) {
-      employerOrganizationReference = `Organization/${existingEmployerOrganization.id}`;
-      employerOrganizationPut = {
-        method: 'PUT',
-        url: `Organization/${existingEmployerOrganization.id}`,
-        resource: buildEmployerOrganization(employerInformation, existingEmployerOrganization.id),
-      };
-    } else {
-      employerOrganizationReference = `urn:uuid:${randomUUID()}`;
-      employerOrganizationPost = {
-        method: 'POST',
-        url: 'Organization',
-        fullUrl: employerOrganizationReference,
-        resource: buildEmployerOrganization(employerInformation),
-      };
-    }
-
-    const workersCompAccountResource = buildWorkersCompAccountResource(
-      patient.id!,
-      employerInformation,
-      existingWorkersCompAccount,
-      employerOrganizationReference
-    );
-
-    if (existingWorkersCompAccount?.id) {
-      workersCompAccountPut = {
-        method: 'PUT',
-        url: `Account/${existingWorkersCompAccount.id}`,
-        resource: {
-          ...workersCompAccountResource,
-          id: existingWorkersCompAccount.id,
-        },
-      };
-    } else {
-      workersCompAccountPost = workersCompAccountResource;
-    }
-  }
-
   return {
     coveragePosts,
     accountPost,
@@ -2720,6 +2783,7 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
   const existingSecondaryCoverage = existingCoverages.secondary;
   const existingPrimarySubscriber = existingCoverages.primarySubscriber;
   const existingSecondarySubscriber = existingCoverages.secondarySubscriber;
+  const existingWorkersCompCoverage = existingCoverages.workersComp;
 
   // here we're assuming a resource is persisted if it has an id that is a valid uuid
   const existingPrimarySubscriberIsPersisted = isValidUUID(existingPrimarySubscriber?.id ?? '');
@@ -2932,6 +2996,25 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
         priority: 2,
       });
     }
+  }
+
+  if (!existingWorkersCompCoverage && newCoverages.workersComp) {
+    console.log('adding workers comp coverage to suggested coverages');
+    suggestedNewCoverageObject.push({
+      coverage: { reference: newCoverages.workersComp.id },
+    });
+  } else if (
+    existingWorkersCompCoverage?.id &&
+    newCoverages.workersComp &&
+    (!coveragesAreSame(existingWorkersCompCoverage, newCoverages.workersComp) ||
+      existingWorkersCompCoverage.type?.coding?.[0].code !== newCoverages.workersComp.type?.coding?.[0].code)
+  ) {
+    console.log('adding workers comp coverage updates to patch operations');
+    const ops = patchOpsForCoverage({
+      source: newCoverages.workersComp,
+      target: existingWorkersCompCoverage,
+    });
+    addCoverageUpdates(existingWorkersCompCoverage.id, ops);
   }
 
   const newPrimaryCoverage = suggestedNewCoverageObject.find((c) => c.priority === 1)?.coverage;
@@ -3432,6 +3515,12 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     }
   }
 
+  if (workersCompAccount?.coverage) {
+    existingCoverages.workersComp = coverageResources.find((coverage) => {
+      return coverage.id === workersCompAccount?.coverage?.[0]?.coverage?.reference?.split('/')[1];
+    });
+  }
+
   const primarySubscriberReference = existingCoverages.primary?.subscriber?.reference;
   if (primarySubscriberReference && existingCoverages.primary) {
     const subscriberResult = takeContainedOrFind<RelatedPerson>(
@@ -3487,6 +3576,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
 enum InsuranceCarrierKeys {
   primary = 'insurance-carrier',
   secondary = 'insurance-carrier-2',
+  workersComp = 'insurance-carrier-workers-comp',
 }
 
 export const getAccountAndCoverageResourcesForPatient = async (
@@ -3580,6 +3670,10 @@ export const updatePatientAccountFromQuestionnaire = async (
   const secondaryInsuranceOrg = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.secondary)
     ?.answer?.[0]?.valueReference?.reference;
   if (secondaryInsuranceOrg) insuranceOrgs.push(secondaryInsuranceOrg);
+
+  const workersCompInsuranceOrg = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.workersComp)
+    ?.answer?.[0]?.valueReference?.reference;
+  if (workersCompInsuranceOrg) insuranceOrgs.push(workersCompInsuranceOrg);
 
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
 

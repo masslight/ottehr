@@ -36,7 +36,7 @@ export const InsuranceSection: FC<{
         }
       />
     ))}
-    {coverages.length < 2 && (
+    {coverages.length < 3 && (
       <Button
         data-testid={dataTestIds.patientInformationPage.addInsuranceButton}
         variant="outlined"

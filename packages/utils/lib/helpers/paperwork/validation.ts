@@ -582,6 +582,7 @@ const evalEnableWhenItem = (
   values: { [itemLinkId: string]: QuestionnaireResponseItem },
   items: QuestionnaireItem[]
 ): boolean => {
+  console.log('testing');
   const { answerString, answerBoolean, answerDate, answerInteger, question, operator } = enableWhen;
   const questionPathNodes = question.split('.');
 

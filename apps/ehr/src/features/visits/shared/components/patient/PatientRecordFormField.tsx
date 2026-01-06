@@ -258,6 +258,12 @@ const PatientRecordFormFieldContent: FC<PatientRecordFormFieldProps> = ({
     mask = '000-00-0000';
   }
 
+  if (item.key === 'insurance-priority') {
+    // Only include primary and secondary options when updating insurance types
+    // Workers comp can be selected when adding a new insurance but primary and secondary insurance types can't be updated to it
+    item.options = item.options?.filter((option) => option.value === 'Primary' || option.value === 'Secondary');
+  }
+
   const InputElement = (() => {
     switch (item.type) {
       case 'choice':
