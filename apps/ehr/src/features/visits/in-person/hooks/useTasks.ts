@@ -138,6 +138,7 @@ export const useGetTasks = ({
         resourceType: 'Task',
         params,
       });
+      // can probably remove filterTasks, leaving for now because we have a handful of tasks in prod that will get pulled on in a weird way if removed
       const tasks = bundle.unbundle().filter(filterTasks).map(fhirTaskToTask);
       return {
         tasks,
@@ -222,11 +223,13 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
   });
 };
 
+// this is probably not needed
+// pdf attachment results are no longer saved in diagnostic reports so these tasks are not getting made anymore
 function filterTasks(task: FhirTask): boolean {
   const category = task.groupIdentifier?.value ?? '';
   if (category === LAB_ORDER_TASK.category) {
     const labTypeString = getInputString(LAB_ORDER_TASK.input.drTag, task);
-    if (labTypeString === LabType.pdfAttachment) return false;
+    if (labTypeString === 'pdfAttachment') return false;
   }
   return true;
 }

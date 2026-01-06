@@ -9,14 +9,13 @@ import {
   LabOrderListPageDTO,
   LabOrdersSearchBy,
   LabsTableColumn,
-  PdfAttachmentDTO,
   ReflexLabDTO,
 } from 'utils';
 import { LabsTableRow } from './LabsTableRow';
 
 interface LabsTableProps {
   columns: LabsTableColumn[];
-  labOrders: (LabOrderDTO<LabOrdersSearchBy> | ReflexLabDTO | PdfAttachmentDTO)[];
+  labOrders: (LabOrderDTO<LabOrdersSearchBy> | ReflexLabDTO)[];
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
@@ -43,7 +42,7 @@ export const LabsTable = ({
     navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
   };
 
-  const onRowClickForDrDrivenResult = (result: ReflexLabDTO | PdfAttachmentDTO): void => {
+  const onRowClickForDrDrivenResult = (result: ReflexLabDTO): void => {
     if (!result.appointmentId || !result.resultsDetails?.[0].diagnosticReportId) {
       console.error(`Unable to navigate to dr result row, missing appointmentId or dr id`, result);
       throw new Error('Unable to navigate to dr result row, missing appointmentId or dr id');
