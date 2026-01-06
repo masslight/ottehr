@@ -156,7 +156,7 @@ test.describe('Immunization Page mutating tests', () => {
       });
     });
 
-    await test.step('IM-2.1 Verify immunization details on progress note', async () => {
+    await test.step('IM-2.2 Verify immunization details on progress note', async () => {
       const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
       await progressNotePage.verifyVaccine(VACCINE_A);
     });
