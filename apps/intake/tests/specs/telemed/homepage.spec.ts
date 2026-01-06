@@ -11,7 +11,7 @@ test.describe.parallel('THP. Telemed Homepage', () => {
       const firstCategory = availableCategories[0]!;
 
       if (firstCategory) {
-        await page.getByText(firstCategory.display).click();
+        await page.getByRole('button', { name: firstCategory.display }).click();
       }
     }
 
@@ -30,7 +30,7 @@ test.describe.parallel('THP. Telemed Homepage', () => {
       const firstCategory = availableCategories[0]!;
 
       if (firstCategory) {
-        await page.getByText(firstCategory.display).click();
+        await page.getByRole('button', { name: firstCategory.display }).click();
       }
     }
 
