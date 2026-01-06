@@ -738,7 +738,12 @@ test.describe('Telemed tracking board checks, buttons, chart data filling', () =
             .first();
           await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
           await waitForChartDataDeletion(page);
-          await expect(medicalConditionListItem).not.toBeVisible();
+          // Check that there are no more medical condition items with this text
+          await expect(
+            page
+              .getByTestId(dataTestIds.medicalConditions.medicalConditionListItem)
+              .filter({ hasText: new RegExp(conditionName, 'i') })
+          ).toHaveCount(0);
         });
 
         await test.step('Confirm deletion in hpi tab', async () => {
