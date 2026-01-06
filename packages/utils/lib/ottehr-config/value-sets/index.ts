@@ -441,6 +441,14 @@ const formValueSets = {
     { label: 'WI', value: 'WI' },
     { label: 'WY', value: 'WY' },
   ],
+  patientPaymentPageOptions: [
+    { label: 'I have insurance', value: 'I have insurance' },
+    { label: 'I will pay without insurance', value: 'I will pay without insurance' },
+  ],
+  patientOccMedPaymentPageOptions: [
+    { label: 'Self', value: 'Self' },
+    { label: 'Employer', value: 'Employer' },
+  ],
 };
 
 export const VALUE_SETS = mergeAndFreezeConfigObjects(formValueSets, OVERRIDES);

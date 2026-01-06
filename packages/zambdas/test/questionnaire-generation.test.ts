@@ -1,7 +1,7 @@
 import {
   BOOKING_CONFIG,
   createQuestionnaireItemFromConfig,
-  INTAKE_PAPERWORK_QUESTIONNAIRE,
+  IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE,
   PATIENT_RECORD_CONFIG,
 } from 'utils';
 import BookingQuestionnaire from './data/booking-questionnaire.json' assert { type: 'json' };
@@ -23,7 +23,7 @@ describe('testing Questionnaire generation from config objects', () => {
   test.concurrent(
     'intake paperwork questionnaire generates expected questionnaire (excluding payment-option pages)',
     async () => {
-      const generatedQuestionnaire = INTAKE_PAPERWORK_QUESTIONNAIRE();
+      const generatedQuestionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
       expect(generatedQuestionnaire).toBeDefined();
 
       // Filter out payment-option pages (we changed the structure from the original)

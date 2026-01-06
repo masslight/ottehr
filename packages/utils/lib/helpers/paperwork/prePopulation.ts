@@ -25,6 +25,7 @@ import {
   LanguageOption,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
+import { INSURANCE_PAY_OPTION } from '../../ottehr-config';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
@@ -207,6 +208,9 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           }
           if (linkId === 'patient-birth-sex-missing' && patientSex == undefined) {
             answer = makeAnswer(true, 'Boolean');
+          }
+          if (linkId === 'appointment-service-category' && appointmentServiceCategory) {
+            answer = makeAnswer(appointmentServiceCategory);
           }
 
           return {
@@ -858,7 +862,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let paymentOptionValue: string | undefined;
 
   if (primaryInsurancePlanReference || secondaryInsurancePlanReference) {
-    paymentOptionValue = 'I have insurance';
+    paymentOptionValue = INSURANCE_PAY_OPTION;
   }
 
   return items

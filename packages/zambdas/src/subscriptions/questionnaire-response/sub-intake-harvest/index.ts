@@ -22,9 +22,11 @@ import {
   getPatchOperationsForNewMetaTags,
   getRelatedPersonForPatient,
   getSecret,
+  INSURANCE_PAY_OPTION,
   IntakeQuestionnaireItem,
   PaymentVariant,
   SecretsKeys,
+  SELF_PAY_OPTION,
   updateEncounterPaymentVariantExtension,
 } from 'utils';
 import {
@@ -187,8 +189,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     const preserveOmittedCoverages =
       qr.item
         ?.find((item) => item.linkId === 'payment-option-page')
-        ?.item?.find((subItem) => subItem.linkId === 'payment-option')?.answer?.[0]?.valueString ===
-      'I will pay without insurance';
+        ?.item?.find((subItem) => subItem.linkId === 'payment-option')?.answer?.[0]?.valueString === SELF_PAY_OPTION;
     await updatePatientAccountFromQuestionnaire(
       { patientId: patientResource.id, questionnaireResponseItem: qr.item ?? [], preserveOmittedCoverages },
       oystehr
@@ -304,7 +305,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
         (response: QuestionnaireResponseItem) => response.linkId === 'payment-option'
       )?.answer?.[0]?.valueString;
       let paymentVariant: PaymentVariant = PaymentVariant.selfPay;
-      if (paymentOption === 'I have insurance') {
+      if (paymentOption === INSURANCE_PAY_OPTION) {
         paymentVariant = PaymentVariant.insurance;
       }
       if (paymentOption === 'Employer') {

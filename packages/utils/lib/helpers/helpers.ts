@@ -23,6 +23,7 @@ import {
   PROVIDER_TYPE_EXTENSION_URL,
   SLUG_SYSTEM,
 } from '../fhir';
+import { INSURANCE_PAY_OPTION, SELF_PAY_OPTION } from '../ottehr-config';
 import { patientScreeningQuestionsConfig } from '../ottehr-config/screening-questions';
 import {
   appointmentTypeLabels,
@@ -725,7 +726,7 @@ export function getPaymentOptionSelfPayAnswers(): PatchPaperworkParameters['answ
     item: [
       {
         linkId: 'payment-option',
-        answer: [{ valueString: 'I will pay without insurance' }],
+        answer: [{ valueString: SELF_PAY_OPTION }],
       },
     ],
   };
@@ -1052,7 +1053,7 @@ export function getPaymentOptionInsuranceAnswers({
         linkId: 'payment-option',
         answer: [
           {
-            valueString: 'I have insurance',
+            valueString: INSURANCE_PAY_OPTION,
           },
         ],
       },

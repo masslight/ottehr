@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import {
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   flattenItems,
+  INSURANCE_PAY_OPTION,
   isValidUUID,
   ORG_TYPE_CODE_SYSTEM,
   ORG_TYPE_PAYER_CODE,
@@ -2946,7 +2947,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
           linkId: 'payment-option',
           answer: [
             {
-              valueString: 'I have insurance',
+              valueString: INSURANCE_PAY_OPTION,
             },
           ],
         },
