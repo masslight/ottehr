@@ -456,6 +456,7 @@ test.describe.parallel('Telemed: Create test patients and appointments', { tag: 
       };
       console.log('telemedNoPwPatient', JSON.stringify(telemedNoPwPatient));
       writeTestData('telemedNoPwPatient.json', telemedNoPwPatient);
+      console.log('✓ Created telemedNoPwPatient test data.'); // delete this, just trying to trigger tests
     });
   });
 });
