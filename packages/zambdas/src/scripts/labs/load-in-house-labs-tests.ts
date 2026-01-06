@@ -8,6 +8,7 @@ import {
   ObservationDefinitionQualifiedInterval,
   ObservationDefinitionQuantitativeDetails,
   Reference,
+  RelatedArtifact,
   ValueSet,
 } from 'fhir/r4b';
 import fs from 'fs';
@@ -22,7 +23,16 @@ import {
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
   LabComponentValueSetConfig,
   OD_DISPLAY_CONFIG,
+  OD_VALUE_VALIDATION_CONFIG,
+  REFLEX_ARTIFACT_DISPLAY,
+  REFLEX_TEST_ALERT_URL,
+  REFLEX_TEST_CONDITION_LANGUAGES,
+  REFLEX_TEST_CONDITION_URL,
+  REFLEX_TEST_LOGIC_URL,
+  REFLEX_TEST_TO_RUN_NAME_URL,
+  REFLEX_TEST_TO_RUN_URL,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
+  Validation,
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../../shared';
 import { testItems as baseTestItems } from '../data/base-in-house-lab-seed-data';
@@ -116,19 +126,92 @@ const makeObsDefExtension = (item: TestItemComponent): Extension[] => {
     valueString: display,
   };
   const extension: Extension[] = [displayExt];
-  if (item.display?.nullOption) {
+
+  if (item.dataType === 'string') {
+    // handle at least the string validation
+    if (item.display.validations) {
+      for (const [key, val] of Object.entries(item.display.validations)) {
+        if (key === 'format') {
+          extension.push({
+            url: OD_VALUE_VALIDATION_CONFIG.url,
+            valueCoding: {
+              system: OD_VALUE_VALIDATION_CONFIG.formatValidation.url,
+              code: val.value,
+              display: val.display,
+            },
+          });
+        }
+      }
+    }
+  } else if (item.display?.nullOption) {
     extension.push(IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG);
   }
 
   return extension;
 };
 
-const makeActivityDefinitionRepeatableExtension = (item: TestItem): Extension[] | undefined => {
+const makeRelatedArtifact = (item: TestItem): RelatedArtifact[] | undefined => {
+  const parentTestUrls: string[] = [];
+  item.components.forEach((component) => {
+    if (component.reflexLogic) {
+      if ('parentTestUrl' in component.reflexLogic) parentTestUrls.push(component.reflexLogic.parentTestUrl);
+    }
+  });
+  if (parentTestUrls.length === 0) return;
+
+  const artifacts: RelatedArtifact[] = [];
+  parentTestUrls.forEach((url) => {
+    const artifact: RelatedArtifact = {
+      resource: url,
+      type: 'depends-on',
+      display: REFLEX_ARTIFACT_DISPLAY,
+    };
+    artifacts.push(artifact);
+  });
+  return artifacts;
+};
+
+const makeActivityExtension = (item: TestItem): Extension[] | undefined => {
   const extension: Extension[] = [];
   if (item.repeatTest) {
     extension.push({
       url: REPEATABLE_TEXT_EXTENSION_CONFIG.url,
       valueString: REPEATABLE_TEXT_EXTENSION_CONFIG.valueString,
+    });
+  }
+  const reflexLogics: ReflexLogic[] = [];
+  item.components.forEach((component) => {
+    if (component.reflexLogic) {
+      if ('testToRun' in component.reflexLogic) reflexLogics.push(component.reflexLogic);
+    }
+  });
+  if (reflexLogics.length) {
+    reflexLogics.forEach((logic) => {
+      extension.push({
+        url: REFLEX_TEST_LOGIC_URL,
+        extension: [
+          {
+            url: REFLEX_TEST_TO_RUN_URL,
+            valueCanonical: logic.testToRun.testCanonicalUrl,
+          },
+          {
+            url: REFLEX_TEST_TO_RUN_NAME_URL,
+            valueString: logic.testToRun.testName,
+          },
+          {
+            url: REFLEX_TEST_ALERT_URL,
+            valueString: logic.triggerAlert,
+          },
+          {
+            url: REFLEX_TEST_CONDITION_URL,
+            valueExpression: {
+              description: logic.condition.description,
+              language: logic.condition.language,
+              expression: logic.condition.expression,
+            },
+          },
+        ],
+      });
     });
   }
 
@@ -213,7 +296,7 @@ const getComponentObservationDefinition = (
     }
 
     contained.push(validValueSet, abnormalValueSet, refRangeValueSet, obsDef);
-  } else {
+  } else if (item.dataType === 'Quantity') {
     if (!item.normalRange) {
       throw new Error(`No normalRange for quantity type component ${componentName} ${JSON.stringify(item)}`);
     }
@@ -222,7 +305,13 @@ const getComponentObservationDefinition = (
     obsDef.qualifiedInterval = [makeQualifiedInterval(item)];
     obsDef.extension = makeObsDefExtension(item);
     contained.push(obsDef);
+  } else if (item.dataType === 'string') {
+    obsDef.extension = makeObsDefExtension(item);
+    contained.push(obsDef);
+  } else {
+    throw new Error(`Got unrecognized component item: ${JSON.stringify(item)}`);
   }
+
   return {
     obsDef,
     contained,
@@ -411,7 +500,8 @@ async function main(): Promise<void> {
           },
         ],
       },
-      extension: makeActivityDefinitionRepeatableExtension(testItem),
+      relatedArtifact: makeRelatedArtifact(testItem),
+      extension: makeActivityExtension(testItem),
     };
 
     activityDefinitions.push(activityDef);
@@ -506,9 +596,26 @@ interface TestItemMethods {
   analyzer?: { device: string };
   machine?: { device: string };
 }
+
+interface ReflexLogic {
+  // you may want to generate the AD for the reflex test first to be sure they match
+  // these need to match the reflex test activity definition
+  testToRun: {
+    testName: string;
+    testCanonicalUrl: string;
+  };
+  // this what will be shown on the front end when conditions are met
+  triggerAlert: string;
+  condition: {
+    description: string; // human readable description of what is being evaluated, purely informational
+    language: typeof REFLEX_TEST_CONDITION_LANGUAGES.fhirPath; // the only language we are set up to handle at the moment, code changes are needed if we want to handle something else
+    expression: string; // should be something that fhirPath can accept
+  };
+}
 interface BaseComponent {
   componentName: string;
   loincCode: string[];
+  reflexLogic?: ReflexLogic | { parentTestUrl: string };
 }
 
 export interface CodeableConceptComponent extends BaseComponent {
@@ -531,7 +638,16 @@ interface QuantityComponent extends BaseComponent {
   };
 }
 
-type TestItemComponent = CodeableConceptComponent | QuantityComponent;
+// labs todo: may want to add units or a reference range in the future
+interface StringComponent extends BaseComponent {
+  dataType: 'string';
+  display: {
+    type: 'Free Text';
+    validations?: Validation;
+  };
+}
+
+type TestItemComponent = CodeableConceptComponent | QuantityComponent | StringComponent;
 export interface TestItem {
   name: string;
   methods: TestItemMethods;

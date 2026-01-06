@@ -47,7 +47,7 @@ export const getLabOrderRelatedResources = async (
           },
           {
             name: '_revinclude:iterate',
-            value: 'Communication:based-on', // order level notes
+            value: 'Communication:based-on', // order level notes & clinical info notes
           },
         ],
       })
@@ -58,17 +58,19 @@ export const getLabOrderRelatedResources = async (
       tasks: Task[];
       conditions: Condition[];
       encounters: Encounter[];
-      orderLevelNotes: Communication[];
+      orderLevelNotesByUser: Communication[];
+      clinicalInfoNotesByUser: Communication[];
     };
     const initAccumulator: accType = {
       serviceRequests: [],
       tasks: [],
       conditions: [],
       encounters: [],
-      orderLevelNotes: [],
+      orderLevelNotesByUser: [],
+      clinicalInfoNotesByUser: [],
     };
-    const { serviceRequests, tasks, conditions, encounters, orderLevelNotes } = serviceRequestResponse.reduce(
-      (acc, resource) => {
+    const { serviceRequests, tasks, conditions, encounters, orderLevelNotesByUser, clinicalInfoNotesByUser } =
+      serviceRequestResponse.reduce((acc, resource) => {
         if (resource.resourceType === 'ServiceRequest' && resource.id === params.serviceRequestId) {
           acc.serviceRequests.push(resource);
         } else if (
@@ -82,17 +84,17 @@ export const getLabOrderRelatedResources = async (
           acc.encounters.push(resource);
         } else if (resource.resourceType === 'Communication') {
           const labCommType = labOrderCommunicationType(resource);
-          if (labCommType === 'order-level-note') acc.orderLevelNotes.push(resource);
+          if (labCommType === 'order-level-note') acc.orderLevelNotesByUser.push(resource);
+          if (labCommType === 'clinical-info-note') acc.clinicalInfoNotesByUser.push(resource);
         }
         return acc;
-      },
-      initAccumulator
-    );
+      }, initAccumulator);
 
     let communications: ExternalLabCommunications | undefined;
-    if (orderLevelNotes.length > 0) {
+    if (orderLevelNotesByUser.length > 0 || clinicalInfoNotesByUser.length > 0) {
       communications = {
-        orderLevelNotes,
+        orderLevelNotesByUser,
+        clinicalInfoNotesByUser,
       };
     }
 
@@ -164,11 +166,11 @@ export const getLabOrderRelatedResources = async (
   }
 };
 
-export const makeCommunicationRequest = (
+export const makeCommunicationRequestForOrderNote = (
   orderLevelNotes: Communication[] | undefined,
   serviceRequest: ServiceRequest
 ): BatchInputPatchRequest<Communication> | BatchInputDeleteRequest | undefined => {
-  if (!orderLevelNotes) return;
+  if (!orderLevelNotes || orderLevelNotes.length === 0) return;
 
   if (orderLevelNotes.length !== 1) {
     throw new Error(
@@ -208,4 +210,29 @@ export const makeCommunicationRequest = (
     };
     return communicationPatchRequest;
   }
+};
+
+export const makeCommunicationRequestForClinicalInfoNote = (
+  clinicalInfoNotesByUser: Communication[] | undefined,
+  serviceRequest: ServiceRequest
+): BatchInputDeleteRequest | undefined => {
+  if (!clinicalInfoNotesByUser || clinicalInfoNotesByUser.length === 0) return;
+
+  if (clinicalInfoNotesByUser.length > 1) {
+    // if there is more than one clinical info note, something has gone wrong
+    throw new Error(
+      `Something is misconfigured with notes for the lab you are trying to delete, related: ServiceRequest/${
+        serviceRequest.id
+      } ${clinicalInfoNotesByUser.map((note) => `Communication/${note.id}`)}`
+    );
+  }
+
+  const clinicalInfoNote = clinicalInfoNotesByUser[0];
+  if (clinicalInfoNote.basedOn?.length !== 1) {
+    // if there is more than one service request linked to this note, something has gone wrong
+    throw new Error(`Something is misconfigured with the clinical info note for the lab you are trying to delete`);
+  }
+  if (!clinicalInfoNote.id) throw new Error(`communication is missing an id ${clinicalInfoNote.id}`);
+
+  return makeDeleteResourceRequest('Communication', clinicalInfoNote.id);
 };

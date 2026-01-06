@@ -1,6 +1,6 @@
 {
   "name": "deploy",
-  "version": "1.23.13",
+  "version": "1.24.25",
   "description": "Scripts for generating HCL and interacting with Terraform",
   "scripts": {
     "build": "tsc --noEmit",
@@ -15,10 +15,13 @@
     "apply-staging": "./apply.sh staging",
     "apply-demo": "./apply.sh demo",
     "terraform-init": "terraform init --backend-config=./backend.config",
-    "terraform-setup": "npm run terraform-init && terraform workspace new e2e && terraform workspace new local && terraform workspace new development && terraform workspace new testing && terraform workspace new staging && terraform workspace new demo && terraform workspace select local"
+    "terraform-setup": "npm run terraform-init && terraform workspace new e2e && terraform workspace new local && terraform workspace new development && terraform workspace new testing && terraform workspace new staging && terraform workspace new demo && terraform workspace select local",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
-    "@types/node": "^24.2.1"
+    "@types/node": "^24.2.1",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "utils": "*"

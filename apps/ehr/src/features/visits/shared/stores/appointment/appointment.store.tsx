@@ -19,8 +19,13 @@ import {
   QuestionnaireResponse,
 } from 'fhir/r4b';
 import { useCallback, useEffect, useMemo } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { APPOINTMENT_REFRESH_INTERVAL, CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from 'src/constants';
+import { useParams, useSearchParams } from 'react-router-dom';
+import {
+  APPOINTMENT_REFRESH_INTERVAL,
+  CHART_DATA_QUERY_KEY,
+  CHART_FIELDS_QUERY_KEY,
+  QUERY_STALE_TIME,
+} from 'src/constants';
 import { useExamObservations } from 'src/features/visits/telemed/hooks/useExamObservations';
 import {
   createRefreshableAppointmentData,
@@ -126,9 +131,12 @@ export type ChartDataState = {
 };
 
 interface ChartDataStateUpdater {
-  setPartialChartData: (value: Partial<GetChartDataResponse>) => void;
+  setPartialChartData: (value: Partial<GetChartDataResponse>, opts?: { invalidateQueries?: boolean }) => void;
   updateObservation: (observation: ObservationDTO) => void;
-  chartDataSetState: (updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>)) => void;
+  chartDataSetState: (
+    updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>),
+    opts?: { invalidateQueries?: boolean }
+  ) => void;
   chartDataRefetch: () => any;
   chartDataError: any;
 }
@@ -174,8 +182,7 @@ export const useAppointmentData = (
   AppointmentStateUpdater &
   ReactQueryState => {
   const { id: appointmentIdFromUrl } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const appointmentId = appointmentIdFromProps || appointmentIdFromUrl;
   const queryClient = useQueryClient();
   const { data: currentState, isLoading, isFetching, refetch, error, isPending } = useGetAppointment({ appointmentId });
@@ -225,16 +232,12 @@ export const useAppointmentData = (
     if (isLoading || isPending) {
       return;
     }
-    const encounterIdFromLocation = (
-      location.state as {
-        encounterId?: string;
-      }
-    )?.encounterId;
-    if (encounterIdFromLocation && !isLoading && !isPending) {
-      setSelectedEncounter(encounterIdFromLocation);
-      navigate('.', { replace: true });
+    const encounterIdFromUrl = searchParams.get('encounterId');
+
+    if (encounterIdFromUrl) {
+      setSelectedEncounter(encounterIdFromUrl);
     }
-  }, [isLoading, isPending, location.state, navigate, setSelectedEncounter]);
+  }, [isLoading, isPending, searchParams, setSelectedEncounter]);
 
   const getSelectedEncounter = useCallback(() => {
     const state = currentState || APPOINTMENT_INITIAL;
@@ -593,6 +596,7 @@ export const useChartData = ({
   onError,
   enabled = true,
   refetchInterval,
+  refetchOnMount,
   encounterId: paramEncounterId,
 }: {
   appointmentId?: string;
@@ -601,6 +605,7 @@ export const useChartData = ({
   enabled?: boolean;
   shouldUpdateExams?: boolean; // todo: migrate this to the separate hook
   refetchInterval?: number;
+  refetchOnMount?: boolean;
   encounterId?: string;
 } = {}): {
   refetch: () => Promise<void>;
@@ -628,7 +633,7 @@ export const useChartData = ({
     isFetched,
     isPending,
   } = useGetChartData(
-    { apiClient, encounterId, enabled, refetchInterval, requestKey: CHART_DATA_QUERY_KEY },
+    { apiClient, encounterId, enabled, refetchInterval, refetchOnMount, requestKey: CHART_DATA_QUERY_KEY },
     (data) => {
       if (!data) {
         return;
@@ -645,7 +650,10 @@ export const useChartData = ({
   );
 
   const setQueryCache = useCallback(
-    (updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>)) => {
+    (
+      updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>),
+      opts: { invalidateQueries?: boolean } = { invalidateQueries: true }
+    ) => {
       queryClient.setQueryData(queryKey, (prevData: ChartDataResponse | null) => {
         const currentState = {
           chartData: prevData || chartDataResponse || undefined,
@@ -660,17 +668,20 @@ export const useChartData = ({
       void queryClient.invalidateQueries({
         queryKey: [CHART_DATA_QUERY_KEY, encounterId],
         exact: false,
-        refetchType: 'active',
+        refetchType: opts.invalidateQueries ? 'active' : 'none',
       });
     },
     [queryClient, queryKey, chartDataResponse, isLoading, encounterId]
   );
 
   const setPartialChartData = useCallback(
-    (data: Partial<ChartDataResponse>) => {
-      setQueryCache((state) => ({
-        chartData: { ...state.chartData, patientId: state.chartData?.patientId || '', ...data },
-      }));
+    (data: Partial<ChartDataResponse>, opts: { invalidateQueries?: boolean } = { invalidateQueries: true }) => {
+      setQueryCache(
+        (state) => ({
+          chartData: { ...state.chartData, patientId: state.chartData?.patientId || '', ...data },
+        }),
+        opts
+      );
     },
     [setQueryCache]
   );
@@ -744,6 +755,7 @@ export const useGetChartData = (
     requestedFields,
     enabled,
     refetchInterval,
+    refetchOnMount,
     requestKey,
   }: {
     apiClient: OystehrTelemedAPIClient | null;
@@ -751,6 +763,7 @@ export const useGetChartData = (
     requestedFields?: ChartDataRequestedFields;
     enabled?: boolean;
     refetchInterval?: number;
+    refetchOnMount?: boolean;
     requestKey: typeof CHART_DATA_QUERY_KEY | typeof CHART_FIELDS_QUERY_KEY;
   },
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getChartData']>> | null) => void,
@@ -775,8 +788,9 @@ export const useGetChartData = (
     },
 
     enabled: !!apiClient && !!encounterId && !!user && enabled,
-    staleTime: 0, // TODO: screening note is not refreshed after saving on the progress note screen, fix this and similar cases and add staleTime with default QUERY_STALE_TIME
+    staleTime: QUERY_STALE_TIME,
     refetchInterval: refetchInterval || false,
+    refetchOnMount: refetchOnMount ?? true,
   });
 
   useSuccessQuery(query.data, onSuccess);

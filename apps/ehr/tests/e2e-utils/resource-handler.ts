@@ -1,9 +1,11 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import { Page } from '@playwright/test';
 import {
   Address,
   Appointment,
   ClinicalImpression,
   Consent,
+  ContactPoint,
   DocumentReference,
   Encounter,
   FhirResource,
@@ -30,11 +32,14 @@ import {
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
   formatPhoneNumber,
+  genderMap,
   GetPaperworkAnswers,
   RelationshipOption,
   ServiceMode,
+  VALUE_SETS,
 } from 'utils';
 import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
+import { VisitDetailsPage } from '../../tests/e2e/page/VisitDetailsPage';
 import { getAuth0Token } from './auth/getAuth0Token';
 import {
   inviteTestEmployeeUser,
@@ -64,26 +69,31 @@ export function getAccessTokenFromUserJson(): string {
   return token;
 }
 
+const IS_SMOKE_TEST = process.env.SMOKE_TEST === 'true' || false;
+
 const EightDigitsString = '20250519';
 
-export const PATIENT_FIRST_NAME = 'Jon';
-export const PATIENT_LAST_NAME = 'Snow';
-export const PATIENT_GENDER = 'Male';
+export const PATIENT_FIRST_NAME = IS_SMOKE_TEST ? 'Katie' : 'Jon';
+export const PATIENT_LAST_NAME = IS_SMOKE_TEST ? 'Patient' : 'Snow';
+export const PATIENT_GENDER = IS_SMOKE_TEST ? 'Female' : 'Male';
 
 export const PATIENT_BIRTHDAY = '2002-07-07';
 export const PATIENT_BIRTH_DATE_SHORT = '07/07/2002';
 export const PATIENT_BIRTH_DATE_LONG = 'July 07, 2002';
 
 export const PATIENT_PHONE_NUMBER = '21' + EightDigitsString;
-export const PATIENT_EMAIL = `john.doe.${EightDigitsString}3@example.com`;
+export const PATIENT_EMAIL = IS_SMOKE_TEST
+  ? `ykulik+${PATIENT_FIRST_NAME}${PATIENT_LAST_NAME}@masslight.com`
+  : `john.doe.${EightDigitsString}3@example.com`;
 export const PATIENT_CITY = 'New York';
 export const PATIENT_LINE = `${EightDigitsString} Test Line`;
 export const PATIENT_LINE_2 = 'Apt 4B';
 export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTAL_CODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
-
-export const PATIENT_INSURANCE_PLAN_TYPE = '09';
+const insuranceOption1 = VALUE_SETS.insuranceTypeOptions[0];
+const insuranceOptions2 = VALUE_SETS.insuranceTypeOptions[2];
+export const PATIENT_INSURANCE_PLAN_TYPE = `${insuranceOption1.candidCode} - ${insuranceOption1.label}`;
 export const PATIENT_INSURANCE_MEMBER_ID = '123123';
 export const PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME = 'John';
 export const PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME = 'Doe';
@@ -98,7 +108,7 @@ export const PATIENT_INSURANCE_POLICY_HOLDER_STATE = 'CA';
 export const PATIENT_INSURANCE_POLICY_HOLDER_ZIP = '92000';
 export const PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED: RelationshipOption = 'Parent';
 
-export const PATIENT_INSURANCE_PLAN_TYPE_2 = '12';
+export const PATIENT_INSURANCE_PLAN_TYPE_2 = `${insuranceOptions2.candidCode} - ${insuranceOptions2.label}`;
 export const PATIENT_INSURANCE_MEMBER_ID_2 = '234234';
 export const PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME = 'Jane';
 export const PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME = 'Doe';
@@ -128,6 +138,7 @@ export type CreateTestAppointmentInput = {
   telemedLocationState?: string;
   selectedLocationId?: string;
   skipPaperwork?: boolean;
+  serviceCategory?: 'urgent-care' | 'occupational-medicine' | 'workmans-comp';
 };
 
 export class ResourceHandler {
@@ -168,7 +179,26 @@ export class ResourceHandler {
     });
   }
 
-  private async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
+  private async findTestPatientResource(): Promise<Patient | null> {
+    const oystehr = await this.apiClient;
+    const patientSearchResults = await oystehr.fhir.search<Patient>({
+      resourceType: 'Patient',
+      params: [
+        {
+          name: 'given',
+          value: 'Katie',
+        },
+        {
+          name: 'family',
+          value: 'Patient',
+        },
+      ],
+    });
+    const patient = patientSearchResults.unbundle()[0] as Patient;
+    return patient;
+  }
+
+  public async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
     try {
       const address: Address = {
         city: inputParams?.city ?? PATIENT_CITY,
@@ -177,17 +207,53 @@ export class ResourceHandler {
         postalCode: inputParams?.postalCode ?? PATIENT_POSTAL_CODE,
       };
 
-      const patientData = {
-        firstNames: [inputParams?.firstName ?? PATIENT_FIRST_NAME],
-        lastNames: [inputParams?.lastName ?? PATIENT_LAST_NAME],
-        numberOfAppointments: 1,
-        reasonsForVisit: [inputParams?.reasonsForVisit ?? PATIENT_REASON_FOR_VISIT],
-        phoneNumbers: [inputParams?.phoneNumber ?? PATIENT_PHONE_NUMBER],
-        emails: [inputParams?.email ?? PATIENT_EMAIL],
-        gender: inputParams?.gender ?? PATIENT_GENDER.toLowerCase(),
-        birthDate: inputParams?.birthDate ?? PATIENT_BIRTHDAY,
-        address: [address],
-      };
+      let patientData = {};
+      let phoneNumber = formatPhoneNumber(PATIENT_PHONE_NUMBER)!;
+
+      console.log('Initial phone number:', phoneNumber);
+
+      if (IS_SMOKE_TEST) {
+        console.log('In SMOKE_TEST mode using Katie Patient');
+        // if it's SMOKE_TEST mode - find Katie Patient patient resource and use it to create appointment
+        const testPatient = await this.findTestPatientResource();
+
+        if (!testPatient) {
+          console.log('Katie Patient not found, will create new patient for Katie Patient');
+        } else {
+          patientData = {
+            firstNames: [testPatient?.name?.[0]?.given?.[0] ?? ''],
+            lastNames: [testPatient?.name?.[0]?.family ?? ''],
+            numberOfAppointments: 1,
+            reasonsForVisit: [inputParams?.reasonsForVisit ?? PATIENT_REASON_FOR_VISIT],
+            phoneNumbers: [
+              testPatient?.telecom
+                ?.find((telecom: ContactPoint) => telecom.system === 'phone')
+                ?.value?.replace('+1', '') || PATIENT_PHONE_NUMBER,
+            ],
+            emails: [testPatient?.telecom?.find((telecom: ContactPoint) => telecom.system === 'email')?.value ?? ''],
+            gender: testPatient?.gender ?? genderMap.female,
+            birthDate: testPatient?.birthDate ?? '',
+          };
+          phoneNumber = formatPhoneNumber(
+            testPatient?.telecom?.find((telecom: ContactPoint) => telecom.system === 'phone')?.value ||
+              PATIENT_PHONE_NUMBER
+          )!;
+        }
+      }
+
+      if (!IS_SMOKE_TEST || Object.keys(patientData).length === 0) {
+        patientData = {
+          firstNames: [inputParams?.firstName ?? PATIENT_FIRST_NAME],
+          lastNames: [inputParams?.lastName ?? PATIENT_LAST_NAME],
+          numberOfAppointments: 1,
+          reasonsForVisit: [inputParams?.reasonsForVisit ?? PATIENT_REASON_FOR_VISIT],
+          phoneNumbers: [inputParams?.phoneNumber ?? PATIENT_PHONE_NUMBER],
+          emails: [inputParams?.email ?? PATIENT_EMAIL],
+          gender: inputParams?.gender ?? PATIENT_GENDER.toLowerCase(),
+          birthDate: inputParams?.birthDate ?? PATIENT_BIRTHDAY,
+          address: [address],
+        };
+      }
 
       if (!process.env.PROJECT_API_ZAMBDA_URL) {
         throw new Error('PROJECT_API_ZAMBDA_URL is not set');
@@ -205,11 +271,13 @@ export class ResourceHandler {
         throw new Error('PROJECT_ID is not set');
       }
 
+      console.log(formatPhoneNumber(PATIENT_PHONE_NUMBER)!, phoneNumber);
+
       // Create appointment and related resources using zambda
       const appointmentData = await createSampleAppointments({
         oystehr: await this.apiClient,
         authToken: getAccessTokenFromUserJson(),
-        phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+        phoneNumber,
         createAppointmentZambdaId: this.#createAppointmentZambdaId,
         zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
         serviceMode: this.#flow === 'telemed' ? ServiceMode.virtual : ServiceMode['in-person'],
@@ -220,6 +288,7 @@ export class ResourceHandler {
         paperworkAnswers: this.#paperworkAnswers,
         appointmentMetadata: getProcessMetaTag(this.#processId!),
         skipPaperwork: inputParams?.skipPaperwork,
+        serviceCategory: inputParams?.serviceCategory,
       });
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
@@ -343,7 +412,19 @@ export class ResourceHandler {
     };
   }
 
-  public async cleanupResources(): Promise<void> {
+  public async cleanupResources(page?: Page): Promise<void> {
+    if (process.env.SMOKE_TEST === 'true') {
+      console.log('Smoke test mode detected, canceling visits through UI');
+      if (!page) {
+        throw new Error('Page instance parameter is required to cancel visit in smoke test mode');
+      }
+      await page?.goto(`/visit/${this.appointment.id!}`);
+      const visitDetails = new VisitDetailsPage(page!);
+      await visitDetails.clickCancelVisitButton();
+      await visitDetails.selectCancelationReason(VALUE_SETS.cancelReasonOptions[0].label);
+      await visitDetails.clickCancelButtonFromDialogue();
+      return;
+    }
     console.log('------------------------------------------------------------');
     console.log('Starting resource cleanup');
     // TODO: here we should change appointment id to encounter id when we'll fix this bug in frontend,
@@ -418,6 +499,36 @@ export class ResourceHandler {
       throw new Error("Appointment wasn't harvested by sub-intake-harvest module");
     } catch (e) {
       console.error('Error during waitTillHarvestingDone', e);
+      throw e;
+    }
+  }
+
+  async waitTillVisitNotePdfCreated(): Promise<DocumentReference> {
+    const apiClient = await this.apiClient;
+
+    try {
+      for (let i = 0; i < 20; i++) {
+        const searchResult = await apiClient.fhir.search<DocumentReference>({
+          resourceType: 'DocumentReference',
+          params: [
+            { name: 'encounter', value: `Encounter/${this.encounter.id}` },
+            { name: 'patient', value: `Patient/${this.patient.id}` },
+            { name: 'type', value: '75498-6' },
+          ],
+        });
+
+        const documentReferences = searchResult.unbundle() as DocumentReference[];
+
+        if (documentReferences.length > 0) {
+          return documentReferences[0];
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
+      throw new Error(`Visit Note PDF DocumentReference wasn't created for encounter ${this.encounter.id}`);
+    } catch (e) {
+      console.error('Error during waitTillVisitNotePdfCreated', e);
       throw e;
     }
   }

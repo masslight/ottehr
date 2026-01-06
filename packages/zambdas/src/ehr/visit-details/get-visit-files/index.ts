@@ -84,38 +84,7 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
     };
   }
 
-  // Search for DocumentReferences
-  const documentReferenceResources: DocumentReference[] = [];
-  const docRefBundle = await oystehr.fhir.batch<DocumentReference>({
-    requests: [
-      {
-        // Consent
-        method: 'GET',
-        url: `/DocumentReference?status=current&_sort=-_lastUpdated&subject=Patient/${patientId}&related=Appointment/${appointmentId}&type=${PAPERWORK_CONSENT_CODE_UNIQUE.system}|${PAPERWORK_CONSENT_CODE_UNIQUE.code},${LOINC_SYSTEM}|${PRIVACY_POLICY_CODE}`,
-      },
-      {
-        // Photo IDs
-        method: 'GET',
-        url: `/DocumentReference?_sort=-_lastUpdated&status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}|${PHOTO_ID_CARD_CODE}`,
-      },
-      {
-        // Insurance Cards
-        method: 'GET',
-        url: `/DocumentReference?_sort=-_lastUpdated&status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}|${INSURANCE_CARD_CODE}`,
-      },
-    ],
-  });
-
-  const bundleEntries = docRefBundle?.entry;
-  bundleEntries?.forEach((bundleEntry: BundleEntry) => {
-    const bundleResource = bundleEntry.resource as Bundle;
-    bundleResource.entry?.forEach((entry) => {
-      const docRefResource = entry.resource as DocumentReference;
-      if (docRefResource) {
-        documentReferenceResources.push(docRefResource);
-      }
-    });
-  });
+  const documentReferenceResources = await searchDocumentReferencesForVisit(oystehr, patientId, appointmentId);
 
   // Get document info
   const z3Documents: DocumentInfo[] = [];
@@ -190,6 +159,46 @@ async function getFileResources(input: GetFilesInput, oystehr: Oystehr, userToke
       .flatMap((doc) => (doc.presignedUrl ? [doc.presignedUrl] : []));
   }
   return documents;
+}
+
+export async function searchDocumentReferencesForVisit(
+  oystehr: Oystehr,
+  patientId: string,
+  appointmentId: string
+): Promise<DocumentReference[]> {
+  const documentReferenceResources: DocumentReference[] = [];
+  const docRefBundle = await oystehr.fhir.batch<DocumentReference>({
+    requests: [
+      {
+        // Consent
+        method: 'GET',
+        url: `/DocumentReference?status=current&_sort=-_lastUpdated&subject=Patient/${patientId}&related=Appointment/${appointmentId}&type=${PAPERWORK_CONSENT_CODE_UNIQUE.system}|${PAPERWORK_CONSENT_CODE_UNIQUE.code},${LOINC_SYSTEM}|${PRIVACY_POLICY_CODE}`,
+      },
+      {
+        // Photo IDs
+        method: 'GET',
+        url: `/DocumentReference?_sort=-_lastUpdated&status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}|${PHOTO_ID_CARD_CODE}`,
+      },
+      {
+        // Insurance Cards
+        method: 'GET',
+        url: `/DocumentReference?_sort=-_lastUpdated&status=current&related=Patient/${patientId}&type=${LOINC_SYSTEM}|${INSURANCE_CARD_CODE}`,
+      },
+    ],
+  });
+
+  const bundleEntries = docRefBundle?.entry;
+  bundleEntries?.forEach((bundleEntry: BundleEntry) => {
+    const bundleResource = bundleEntry.resource as Bundle;
+    bundleResource.entry?.forEach((entry) => {
+      const docRefResource = entry.resource as DocumentReference;
+      if (docRefResource) {
+        documentReferenceResources.push(docRefResource);
+      }
+    });
+  });
+
+  return documentReferenceResources;
 }
 
 interface EffectInput {

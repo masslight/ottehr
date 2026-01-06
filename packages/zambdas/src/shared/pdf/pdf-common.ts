@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { PDFImage } from 'pdf-lib';
-import { getPresignedURL, Secrets, uploadPDF } from 'utils';
+import { getPresignedURL, PATIENT_RECORD_CONFIG, Secrets, uploadPDF } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { PDF_CLIENT_STYLES } from './pdf-consts';
 import { createPdfClient, PdfInfo } from './pdf-utils';
@@ -141,7 +141,6 @@ const renderPdfHeader = <TData extends PdfData>(
 
   pdfClient.setLeftBound(rightX + 10);
   pdfClient.setRightBound(originalRight);
-  pdfClient.setY(headerStartY);
 
   pdfClient.drawText(config.title, styles.textStyles.header);
 
@@ -158,7 +157,7 @@ const renderPdfHeader = <TData extends PdfData>(
     }
   }
 
-  rightHeight = pdfClient.getY() - headerStartY;
+  rightHeight = headerStartY - pdfClient.getY();
 
   if (config.leftSection) {
     const leftData = config.leftSection.dataSelector(data);
@@ -173,7 +172,7 @@ const renderPdfHeader = <TData extends PdfData>(
 
         config.leftSection.render(pdfClient, leftData, styles, assets);
 
-        leftHeight = pdfClient.getY() - headerStartY;
+        leftHeight = headerStartY - pdfClient.getY();
       }
     }
   }
@@ -182,7 +181,7 @@ const renderPdfHeader = <TData extends PdfData>(
   pdfClient.setRightBound(originalRight);
 
   const maxHeight = Math.max(leftHeight, rightHeight);
-  pdfClient.setY(headerStartY + maxHeight);
+  pdfClient.setY(headerStartY - maxHeight);
 
   pdfClient.drawSeparatedLine(styles.lineStyles.separator);
 };
@@ -421,4 +420,45 @@ export const generatePdf = async <TInput, TData extends PdfData>(
   const pdfInfo = await uploadPdfToStorage(pdfBytes, uploadMetadata, secrets, token);
 
   return { pdfInfo, attached: data.attachmentDocRefs };
+};
+
+export interface PdfSectionConfig {
+  configKey: keyof typeof PATIENT_RECORD_CONFIG.FormFields;
+  isHidden: boolean;
+  hiddenFields: Set<string>;
+}
+
+export const createSectionConfig = (configKey: keyof typeof PATIENT_RECORD_CONFIG.FormFields): PdfSectionConfig => {
+  const section = PATIENT_RECORD_CONFIG.FormFields[configKey];
+
+  const isHidden = Array.isArray(section.linkId)
+    ? PATIENT_RECORD_CONFIG.hiddenFormSections.some((hiddenSection) => section.linkId.includes(hiddenSection))
+    : PATIENT_RECORD_CONFIG.hiddenFormSections.includes(section.linkId);
+
+  return {
+    configKey,
+    isHidden,
+    hiddenFields: new Set(section.hiddenFields ?? []),
+  };
+};
+
+export const fieldFilter = (config: PdfSectionConfig) => {
+  return (fieldKey: string): boolean => {
+    return !config.hiddenFields.has(fieldKey);
+  };
+};
+
+export const createConfiguredSection = <TData, TSectionData>(
+  configKey: keyof typeof PATIENT_RECORD_CONFIG.FormFields,
+  sectionFactory: (shouldShow: (fieldKey: string) => boolean) => PdfSection<TData, TSectionData>
+): PdfSection<TData, TSectionData> => {
+  const config = createSectionConfig(configKey);
+  const shouldShow = fieldFilter(config);
+
+  const section = sectionFactory(shouldShow);
+
+  return {
+    ...section,
+    skip: config.isHidden,
+  };
 };

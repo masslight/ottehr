@@ -50,7 +50,22 @@ export interface QuantityComponent extends BaseComponent {
   displayType: 'Numeric';
 }
 
-export type TestItemComponent = CodeableConceptComponent | QuantityComponent;
+interface ValidationValueAndDisplay {
+  value: string | number;
+  display?: string;
+}
+export interface Validation {
+  format?: ValidationValueAndDisplay;
+  // minLength?: number; // labs todo: can include these in the future but omitted now for sake of time
+  // maxLength?: number;
+}
+export interface StringComponent extends BaseComponent {
+  dataType: 'string';
+  displayType: 'Free Text';
+  validations?: Validation;
+}
+
+export type TestItemComponent = CodeableConceptComponent | QuantityComponent | StringComponent;
 
 export interface TestItem {
   name: string;
@@ -60,9 +75,11 @@ export interface TestItem {
   cptCode: string[];
   repeatable: boolean;
   components: {
+    // todo labs im not sure we ever have an instance where a test has both of these and i think we should assert that in this type
     groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
   };
+  reflexAlert: { alert: string; testName: string; canonicalUrl: string } | undefined; // for now we are only ever expecting one alert but this might change in the future
   adUrl: string;
   adVersion: string;
   note?: string;

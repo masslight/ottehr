@@ -649,6 +649,114 @@ export const testItems: TestItem[] = [
       },
     ],
   },
+  {
+    name: 'Snellen Test',
+    methods: {
+      manual: { device: 'Snellen Chart' },
+      analyzer: { device: 'Unknown' },
+    },
+    method: 'Manual',
+    device: 'Snellen Chart',
+    cptCode: ['99173'],
+    loincCode: ['98497-1'], // Visual Acuity Panel
+    repeatTest: false,
+    components: [
+      {
+        componentName: 'Left Eye',
+        loincCode: ['79883-5'], // Visual acuity uncorrected Left eye by Snellen eye chart
+        dataType: 'string' as const,
+        display: {
+          type: 'Free Text',
+          validations: {
+            format: { value: '^\\d+\\/\\d+(?:.\\d+)?(?:-\\d+\\/\\d+)?$', display: '#/#' }, // the regex allows values like "20/20", "20/12.5", "20/60-20/70"
+          },
+        },
+      },
+      {
+        componentName: 'Right Eye',
+        loincCode: ['79882-7'], // Visual acuity uncorrected Right eye by Snellen eye chart
+        dataType: 'string' as const,
+        display: {
+          type: 'Free Text',
+          validations: {
+            format: { value: '^\\d+\\/\\d+(?:.\\d+)?(?:-\\d+\\/\\d+)?$', display: '#/#' }, // the regex allows values like "20/20", "20/12.5", "20/60-20/70"
+          },
+        },
+      },
+    ],
+  },
+  {
+    name: 'Alcohol Test',
+    methods: {
+      analyzer: { device: 'breathalyzer' },
+    },
+    method: 'breathalyzer',
+    device: 'breathalyzer',
+    cptCode: ['82075'],
+    loincCode: ['5641-6'],
+    repeatTest: false,
+    components: [
+      {
+        componentName: 'BAC',
+        loincCode: ['5641-6'],
+        dataType: 'Quantity' as const,
+        normalRange: {
+          low: 0,
+          high: 0.02,
+          unit: '%',
+        },
+        display: {
+          type: 'Numeric',
+          nullOption: false,
+        },
+        reflexLogic: {
+          testToRun: {
+            testName: 'Alcohol Confirmation Test',
+            // this will need to be updated to match the current version of the AD
+            testCanonicalUrl: 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholConfirmationTest|1.0.0',
+          },
+          triggerAlert: 'Alcohol ≥ 0.02% requires a confirmation test',
+          condition: {
+            description: 'BAC >= 0.02',
+            language: 'text/fhirpath',
+            expression:
+              "%resource.code.coding.where(code = '82075').exists() and %resource.valueQuantity.value >= 0.02",
+          },
+        },
+      },
+    ],
+  },
+  {
+    name: 'Alcohol Confirmation Test',
+    methods: {
+      analyzer: { device: 'breathalyzer' },
+    },
+    method: 'breathalyzer',
+    device: 'breathalyzer',
+    cptCode: ['82075C'],
+    loincCode: ['5641-6'],
+    repeatTest: false,
+    components: [
+      {
+        componentName: 'BAC',
+        loincCode: ['5641-6'],
+        dataType: 'Quantity' as const,
+        normalRange: {
+          low: 0,
+          high: 0.02,
+          unit: '%',
+        },
+        display: {
+          type: 'Numeric',
+          nullOption: false,
+        },
+        reflexLogic: {
+          // this will need to be updated to match the current version of the AD
+          parentTestUrl: 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/AlcoholTest|1.0.0',
+        },
+      },
+    ],
+  },
 ];
 
 // console.log('testItems in module:', testItems);

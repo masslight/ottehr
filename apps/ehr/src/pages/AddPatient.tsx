@@ -19,7 +19,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
 import {
-  BOOKING_CONFIG,
   CreateAppointmentInputParams,
   CreateSlotParams,
   getAppointmentDurationFromSlot,
@@ -30,6 +29,7 @@ import {
   ScheduleType,
   ServiceMode,
   SLUG_SYSTEM,
+  VALUE_SETS,
 } from 'utils';
 import { createAppointment, createSlot, getLocations } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -294,9 +294,9 @@ export default function AddPatient(): JSX.Element {
                           required
                           onChange={(event) => setReasonForVisit(event.target.value)}
                         >
-                          {BOOKING_CONFIG.reasonForVisitOptions.map((reason) => (
-                            <MenuItem key={reason} value={reason}>
-                              {reason}
+                          {VALUE_SETS.reasonForVisitOptions.map((reason) => (
+                            <MenuItem key={reason.value} value={reason.value}>
+                              {reason.label}
                             </MenuItem>
                           ))}
                         </Select>

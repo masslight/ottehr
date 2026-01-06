@@ -541,7 +541,7 @@ export const handleAddOrderLevelNote = async ({
 
   const communicationConfig: Communication = {
     resourceType: 'Communication',
-    status: 'completed', // todo sarah confirm this makes sense
+    status: 'completed',
     identifier: [
       {
         system: OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,

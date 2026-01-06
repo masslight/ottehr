@@ -24,10 +24,14 @@ import {
   getSecret,
   IN_HOUSE_LAB_ERROR,
   IN_HOUSE_LAB_TASK,
+  IN_HOUSE_TEST_CODE_SYSTEM,
   isApiError,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
+  REFLEX_ARTIFACT_DISPLAY,
   Secrets,
   SecretsKeys,
+  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES,
+  SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -226,6 +230,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return activeDefinition;
     })();
 
+    let parentTestCanonicalUrl: string | undefined;
+    activityDefinition.relatedArtifact?.forEach((artifact) => {
+      const isDependent = artifact.type === 'depends-on';
+      const isRelatedViaReflex = artifact.display === REFLEX_ARTIFACT_DISPLAY;
+
+      if (isDependent && isRelatedViaReflex) {
+        // todo labs this will take the last one it finds, so if we ever have a test be triggered by multiple parents, we'll need to update this
+        parentTestCanonicalUrl = artifact.resource;
+      }
+    });
+
     const encounter = (() => {
       const targetEncounter = encounterSearchResults.find((encounter) => encounter.id === encounterId);
       if (!targetEncounter) throw Error('Encounter not found');
@@ -246,7 +261,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return accountSearchResults[0];
     })();
 
-    const initialServiceRequest = (() => {
+    // this logic assumes we won't have any repeat reflex - you can only be one :)
+    const initialServiceRequest = await (async () => {
       if (isRepeatTest) {
         if (!initialServiceRequestResources || initialServiceRequestResources.length === 0) {
           throw IN_HOUSE_LAB_ERROR(
@@ -270,6 +286,39 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
         const initialSR = possibleInitialSRs[0];
         return initialSR;
+      } else if (parentTestCanonicalUrl) {
+        console.log('searching for parent test', parentTestCanonicalUrl);
+        // we should be able to search service request by this but looks like a fhir bug so will need to do some more round about searching here
+        const serviceRequestSearch = (
+          await oystehr.fhir.search<ServiceRequest>({
+            resourceType: 'ServiceRequest',
+            params: [
+              {
+                name: 'encounter',
+                value: `Encounter/${encounterId}`,
+              },
+              {
+                name: 'code',
+                value: `${IN_HOUSE_TEST_CODE_SYSTEM}|`,
+              },
+              {
+                name: '_sort',
+                value: '-_lastUpdated',
+              },
+            ],
+          })
+        ).unbundle();
+        const parentRequest = serviceRequestSearch.find((sr) => {
+          const isParentTest = sr.instantiatesCanonical?.some((url) => url === parentTestCanonicalUrl);
+          const hasPendingTestTag = sr.meta?.tag?.find(
+            (t) =>
+              t.system === SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_SYSTEM &&
+              t.code === SERVICE_REQUEST_REFLEX_TRIGGERED_TAG_CODES.pending
+          );
+          return isParentTest && hasPendingTestTag;
+        });
+        console.log('parentRequest', parentRequest?.id);
+        return parentRequest;
       }
       return;
     })();
@@ -342,7 +391,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
       instantiatesCanonical: [`${activityDefinition.url}|${activityDefinition.version}`],
     };
-    // if an initialServiceRequest is defined, the test being ordered is repeat and should be linked to the
+    // if an initialServiceRequest is defined, the test being ordered is repeat OR reflex and should be linked to the
     // original test represented by initialServiceRequest
     if (initialServiceRequest) {
       serviceRequestConfig.basedOn = [

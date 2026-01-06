@@ -12,14 +12,14 @@ import {
   PATIENT_ZIP,
   RELATIONSHIP_RESPONSIBLE_PARTY_SELF,
 } from '../../utils/Paperwork';
-import { TelemedWalkInPatientTestData } from '../0_paperworkSetup/types';
+import { TelemedNoRpNoInsReqPatient } from '../0_paperworkSetup/types';
 
 let page: Page;
 let context: BrowserContext;
 let paperwork: Paperwork;
 let locator: Locators;
 let commonLocatorsHelper: CommonLocatorsHelper;
-let patient: TelemedWalkInPatientTestData;
+let patient: TelemedNoRpNoInsReqPatient;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -28,7 +28,7 @@ test.beforeAll(async ({ browser }) => {
   locator = new Locators(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
 
-  const testDataPath = path.join('test-data', 'walkInTelemedPatient.json');
+  const testDataPath = path.join('test-data', 'telemedNoRpNoInsReqPatient.json');
   patient = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 });
 test.afterAll(async () => {
@@ -44,15 +44,17 @@ test.describe.parallel('Telemed - Prefilled Paperwork, Responsible Party: Self, 
     });
 
     await test.step('VVPPS-1.2. Check all fields have prefilled values', async () => {
-      const { y: year, m: month, d: day } = patient.dateOfBirth;
-      const dob = commonLocatorsHelper.getMonthDay(month, day);
-      if (!dob) {
+      const { y, m, d } = patient.dob;
+      const humanReadableDob = commonLocatorsHelper.getMonthDay(m, d);
+      if (!humanReadableDob) {
         throw new Error('DOB data is null');
       }
       await expect(locator.responsiblePartyFirstName).toHaveValue(patient.firstName);
       await expect(locator.responsiblePartyLastName).toHaveValue(patient.lastName);
       await expect(locator.responsiblePartyBirthSex).toHaveValue(patient.birthSex);
-      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(`${dob?.monthNumber}/${dob?.dayNumber}/${year}`);
+      await expect(locator.responsiblePartyDOBAnswer).toHaveValue(
+        `${humanReadableDob?.monthNumber}/${humanReadableDob?.dayNumber}/${y}`
+      );
       await expect(locator.responsiblePartyRelationship).toHaveValue(RELATIONSHIP_RESPONSIBLE_PARTY_SELF);
       await expect(locator.responsiblePartyCity).toHaveValue(PATIENT_CITY);
       await expect(locator.responsiblePartyState).toHaveValue(patient.state);

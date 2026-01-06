@@ -39,7 +39,7 @@ const getPractitionerName = (practitioner?: Practitioner): string | undefined =>
   return `${familyName}, ${givenName}`.trim();
 };
 
-const medicationStatusMapper = {
+export const medicationStatusMapper = {
   loading: {
     background: {
       primary: '#B3E5FC',

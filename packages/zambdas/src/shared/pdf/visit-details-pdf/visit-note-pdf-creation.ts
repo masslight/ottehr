@@ -285,8 +285,7 @@ function composeDataForPdf(
   const otherDiagnoses = diagnoses.filter((item) => !item.isPrimary).map((item) => item.display);
 
   // --- MDM ---
-  // const medicalDecision = additionalChartData?.medicalDecision?.text;
-  const medicalDecision = '';
+  const medicalDecision = additionalChartData?.medicalDecision?.text;
 
   // --- E&M ---
   const emCode = chartData?.emCode?.display;
@@ -603,9 +602,10 @@ function parseExamFieldsFromExamObservations(
             Object.entries(component.options).forEach(([optionName, option]) => {
               const observation = examObservations[optionName];
               if (observation && typeof observation.value === 'boolean' && observation.value === true) {
+                const description = option.description ? ` (${option.description})` : '';
                 selectedOptions.push({
                   field: optionName,
-                  label: `${component.label}: ${option.label}`,
+                  label: `${component.label}: ${option.label}${description}`,
                   abnormal: section === 'abnormal',
                 });
               }

@@ -1,4 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
+import { BRANDING_CONFIG } from 'utils';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 export const CURRENT_MEDICATIONS_PRESENT_LABEL = 'Patient takes medication currently';
@@ -268,7 +269,9 @@ export class Locators {
       this.continueButton = page.getByText('Continue');
     }
     this.flowHeading = page.getByTestId(dataTestIds.flowPageTitle);
-    this.thankYouHeading = page.getByRole('heading', { name: 'Thank you for choosing Ottehr!' });
+    this.thankYouHeading = page.getByRole('heading', {
+      name: `Thank you for choosing ${BRANDING_CONFIG.projectName}!`,
+    });
     this.startInPersonVisitButton = page.getByTestId(dataTestIds.startInPersonVisitButton);
     this.confirmWalkInButton = page.getByRole('button', { name: 'Confirm this walk-in time' });
     this.checkInHeading = page.getByRole('heading', { name: 'You are checked in!' });
@@ -279,7 +282,7 @@ export class Locators {
     this.editPaperwork = page.getByRole('button', { name: 'Edit paperwork' });
     this.backButton = page.getByTestId(dataTestIds.backButton);
     this.bookAgainButton = page.getByRole('button', { name: 'Book again' });
-    this.homeScreenHeading = page.getByRole('heading', { name: 'Welcome to Ottehr' });
+    this.homeScreenHeading = page.getByRole('heading', { name: `Welcome to ${BRANDING_CONFIG.projectName}` });
     this.numberErrorText = page.getByText('Phone number must be 10 digits in the format (xxx) xxx-xxxx');
     this.emailErrorText = page.getByText('Email is not valid');
     this.zipErrorText = page.getByText('ZIP Code must be 5 numbers');
@@ -575,13 +578,6 @@ export class Locators {
     await this.page.getByText('Loading...').waitFor({ state: 'hidden' });
   }
 
-  async continueOrDifferentFamilyMember(): Promise<void> {
-    if (await this.differentFamilyMember.isEnabled()) {
-      await this.selectDifferentFamilyMember();
-    } else {
-      await this.clickContinueButton();
-    }
-  }
   async selectDifferentFamilyMember(): Promise<void> {
     const selectPatientPage = this.page.getByRole('heading', { name: 'Welcome Back!' });
     const patientInfoPage = this.page.getByRole('heading', { name: 'About the patient' });
@@ -598,6 +594,8 @@ export class Locators {
           .click({ timeout: 40_000, noWaitAfter: true, force: true });
       }
       // if we're on the patient info page, then the select patient page was skipped. do nothing
+
+      await this.clickContinueButton();
     } catch {
       throw new Error('Timeout waiting for either "Welcome Back!" or "About the patient" heading');
     }

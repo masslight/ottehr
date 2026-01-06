@@ -1,4 +1,5 @@
 import { BrowserContext, Page, test } from '@playwright/test';
+import { ActivityDefinition } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DocumentProcedurePage,
@@ -18,6 +19,7 @@ import { PerformTestPage } from 'tests/e2e/page/PerformTestPage';
 import { ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
+import { convertActivityDefinitionToTestItem, TestItem } from 'utils';
 import inHouseLabActivityDefinitionsJson from '../../../../../../config/oystehr/in-house-lab-activity-definitions.json' assert { type: 'json' };
 import procedureBodySides from '../../../../../../config/oystehr/procedure-body-sides.json' assert { type: 'json' };
 import procedureBodySites from '../../../../../../config/oystehr/procedure-body-sites.json' assert { type: 'json' };
@@ -213,8 +215,19 @@ test.describe('In-house labs page', async () => {
   };
 
   const TEST_TYPE_TO_CPT: Record<string, string> = {};
+  const radioEntryTestItems: TestItem[] = [];
+  const selectAndNumericTestItems: TestItem[] = [];
 
   Object.values(inHouseLabActivityDefinitionsJson.fhirResources).forEach((resource) => {
+    const fhirActivityDefinition = resource.resource as ActivityDefinition;
+    const testItem = convertActivityDefinitionToTestItem(fhirActivityDefinition);
+
+    if (testItem.components.radioComponents.length > 0 && testItem.components.groupedComponents.length === 0) {
+      radioEntryTestItems.push(testItem);
+    } else if (testItem.components.radioComponents.length === 0 && testItem.components.groupedComponents.length > 0) {
+      selectAndNumericTestItems.push(testItem);
+    }
+
     const coding = resource.resource.code.coding;
     const name = coding.find(
       (coding) => coding.system === 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code'
@@ -226,13 +239,13 @@ test.describe('In-house labs page', async () => {
   });
 
   test('IHL-1 In-house labs. Happy Path', async () => {
-    let TEST_TYPE: string;
+    let TEST_NAME: string;
     await test.step('IHL-1.1 Open In-house Labs and place order', async () => {
       const orderInHouseLabPage = await prepareAndOpenInHouseLabsPage(page);
       await orderInHouseLabPage.verifyOrderAndPrintLabeButtonDisabled();
       await orderInHouseLabPage.verifyOrderInHouseLabButtonDisabled();
-      TEST_TYPE = await orderInHouseLabPage.selectTestType();
-      const CPT_CODE = TEST_TYPE_TO_CPT[TEST_TYPE];
+      TEST_NAME = await orderInHouseLabPage.selectRadioEntryInHouseLab(radioEntryTestItems);
+      const CPT_CODE = TEST_TYPE_TO_CPT[TEST_NAME];
       await orderInHouseLabPage.verifyCPTCode(CPT_CODE);
       await orderInHouseLabPage.verifyOrderInHouseLabButtonEnabled();
       await orderInHouseLabPage.verifyOrderAndPrintLabelButtonEnabled();
@@ -241,7 +254,7 @@ test.describe('In-house labs page', async () => {
 
     await test.step('IHL-1.2 Collect sample', async () => {
       const orderDetailsPage = await expectOrderDetailsPage(page);
-      await orderDetailsPage.collectSamplePage.verifyTestName(TEST_TYPE);
+      await orderDetailsPage.collectSamplePage.verifyTestName(TEST_NAME);
       await orderDetailsPage.collectSamplePage.verifyMarkAsCollectedButtonDisabled();
       await orderDetailsPage.collectSamplePage.verifyStatus(STATUS.ORDERED);
       await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
@@ -268,7 +281,7 @@ test.describe('In-house labs page', async () => {
 
     await test.step('IHL-1.5 Verify Progress Note shows IHL entry', async () => {
       const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-      await progressNotePage.verifyInHouseLabs(SECTION_TITLE, TEST_TYPE);
+      await progressNotePage.verifyInHouseLabs(SECTION_TITLE, TEST_NAME);
     });
   });
 
