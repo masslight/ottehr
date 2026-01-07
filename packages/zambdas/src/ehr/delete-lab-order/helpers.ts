@@ -13,35 +13,12 @@ import {
 import { ExternalLabCommunications } from 'utils';
 import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { labOrderCommunicationType } from '../get-lab-orders/helpers';
+import { makeSoftDeleteStatusPatchRequest } from '../lab/shared/helpers';
 import { DeleteLabOrderZambdaInputValidated } from './validateRequestParameters';
 
 export const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInputDeleteRequest => ({
   method: 'DELETE',
   url: `${resourceType}/${id}`,
-});
-
-export const makeStatusPatchRequest = (
-  resourceType:
-    | 'ServiceRequest'
-    | 'QuestionnaireResponse'
-    | 'Task'
-    | 'Communication'
-    | 'DocumentReference'
-    | 'DiagnosticReport',
-  status: 'revoked' | 'entered-in-error' | 'cancelled',
-  id: string
-): BatchInputPatchRequest<
-  ServiceRequest | QuestionnaireResponse | Task | Communication | DocumentReference | DiagnosticReport
-> => ({
-  method: 'PATCH',
-  url: `${resourceType}/${id}`,
-  operations: [
-    {
-      op: 'replace',
-      path: '/status',
-      value: status,
-    },
-  ],
 });
 
 export const getLabOrderRelatedResources = async (
@@ -266,7 +243,7 @@ export const makeCommunicationRequestForOrderNote = (
     if (sameServiceRequest && orderLevelNote.id) {
       console.log('will delete the order level note communication', orderLevelNote.id);
       return {
-        batchRequest: makeStatusPatchRequest('Communication', 'entered-in-error', orderLevelNote.id),
+        batchRequest: makeSoftDeleteStatusPatchRequest('Communication', orderLevelNote.id),
         targetReference: { reference: `Communication/${orderLevelNote.id}` },
       };
     } else {
@@ -315,7 +292,7 @@ export const makeCommunicationRequestForClinicalInfoNote = (
   if (!clinicalInfoNote.id) throw new Error(`communication is missing an id ${clinicalInfoNote.id}`);
 
   return {
-    batchRequest: makeStatusPatchRequest('Communication', 'entered-in-error', clinicalInfoNote.id),
+    batchRequest: makeSoftDeleteStatusPatchRequest('Communication', clinicalInfoNote.id),
     targetReference: { reference: `Communication/${clinicalInfoNote.id}` },
   };
 };
