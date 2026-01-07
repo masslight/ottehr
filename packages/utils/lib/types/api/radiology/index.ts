@@ -1,4 +1,4 @@
-import { Pagination } from '../../data/pagination.types';
+import { DetailPageTask, Pagination } from 'utils';
 
 export interface CreateRadiologyZambdaOrderInput {
   encounterId: string;
@@ -41,7 +41,6 @@ export enum RadiologyOrderStatus {
   final = 'final',
   reviewed = 'reviewed',
 }
-
 export interface GetRadiologyOrderListZambdaOrder {
   serviceRequestId: string;
   appointmentId: string;
@@ -55,6 +54,7 @@ export interface GetRadiologyOrderListZambdaOrder {
   result?: string;
   clinicalHistory?: string;
   history?: RadiologyOrderHistoryRow[];
+  task?: DetailPageTask;
 }
 
 export type RadiologyOrderHistoryRow = {

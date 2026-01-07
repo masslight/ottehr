@@ -2,15 +2,20 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DiagnosticReport, Encounter, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
 import {
+  DetailPageTask,
+  formatDate,
+  getExtension,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
   GetRadiologyOrderListZambdaOutput,
   getSecret,
   isPositiveNumberOrZero,
   Pagination,
+  RADIOLOGY_TASK,
   RadiologyOrderHistoryRow,
   RadiologyOrderStatus,
   SecretsKeys,
+  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -213,10 +218,11 @@ const parseResultsToOrder = (
 
   let status: RadiologyOrderStatus | undefined;
 
-  // TODO add task for 'reviewed' feature.
-  // const myReviewTask = tasks.find((task) => {
-  //   task.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
-  // });
+  const myReviewTask = tasks.find(
+    (task) => task.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
+  );
+  console.log('myReviewTask found: ', myReviewTask?.id);
+  let finalReviewTask: DetailPageTask | undefined;
 
   // Get all diagnostic reports related to this service request
   const relatedDiagnosticReports = diagnosticReports.filter(
@@ -237,10 +243,33 @@ const parseResultsToOrder = (
   } else if (bestDiagnosticReport?.status === 'preliminary') {
     status = RadiologyOrderStatus.preliminary;
   } else if (bestDiagnosticReport?.status === 'final') {
-    // && myReviewTask?.status === 'ready') {
-    status = RadiologyOrderStatus.final;
-    // } else if (myReviewTask?.status === 'completed') {
-    //   status = RadiologyOrderStatus.reviewed;
+    if (myReviewTask?.status === 'completed') {
+      status = RadiologyOrderStatus.reviewed;
+    } else {
+      status = RadiologyOrderStatus.final;
+      const orderDate = serviceRequest.extension?.find(
+        (ext) => ext.url === SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL
+      )?.valueDateTime;
+      finalReviewTask = {
+        id: myReviewTask?.id || '',
+        category: RADIOLOGY_TASK.category,
+        createdDate: myReviewTask?.authoredOn ?? '',
+        title: 'Review Radiology Final Results',
+        subtitle: `Ordered by ${providerFirstName} ${providerLastName} on ${formatDate(
+          orderDate ?? '',
+          'MM/dd/yyyy h:mm a'
+        )}`,
+        status: myReviewTask?.status || 'unknown',
+        assignee: myReviewTask?.owner
+          ? {
+              id: myReviewTask.owner?.reference?.split('/')?.[1] ?? '',
+              name: myReviewTask.owner?.display ?? '',
+              date: getExtension(myReviewTask.owner, TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime ?? '',
+            }
+          : undefined,
+        completable: true,
+      };
+    }
   } else {
     throw new Error('Order is in an invalid state, could not determine status.');
   }
@@ -264,6 +293,7 @@ const parseResultsToOrder = (
     result,
     clinicalHistory,
     history,
+    task: finalReviewTask,
   };
 };
 

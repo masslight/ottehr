@@ -12,39 +12,22 @@ import {
   LAB_ORDER_TASK,
   LabType,
   MANUAL_TASK,
+  RADIOLOGY_TASK,
+  Task,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
   TASK_CATEGORY_IDENTIFIER,
   TASK_INPUT_SYSTEM,
   TASK_LOCATION_SYSTEM,
   TaskAlertCode,
 } from 'utils';
+import { getRadiologyOrderEditUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
+const GO_TO_ORDER = 'Go to Order';
 
 export const TASKS_PAGE_SIZE = 20;
-
-export interface Task {
-  id: string;
-  category: string;
-  createdDate: string;
-  title: string;
-  subtitle: string;
-  details?: string;
-  status: string;
-  action?: {
-    name: string;
-    link: string;
-  };
-  assignee?: {
-    id: string;
-    name: string;
-    date: string;
-  };
-  alert?: TaskAlertCode;
-  completable: boolean;
-}
 
 export interface TasksSearchParams {
   assignedTo?: string | null;
@@ -428,6 +411,25 @@ function fhirTaskToTask(task: FhirTask): Task {
         name: GO_TO_TASK,
         link: `/patient/${patientReference.reference?.split('/')?.[1]}`,
       };
+    }
+  }
+  if (category === RADIOLOGY_TASK.category) {
+    // const patientName = getInputString(IN_HOUSE_LAB_TASK.input.patientName, task);
+    const code = getCoding(task.code, RADIOLOGY_TASK.system)?.code ?? '';
+    const appointmentId = getInputString(IN_HOUSE_LAB_TASK.input.appointmentId, task) ?? '';
+    const orderId =
+      task.basedOn
+        ?.find((ref) => ref.reference?.startsWith('ServiceRequest/'))
+        ?.reference?.replace('ServiceRequest/', '') ?? '';
+    const link = getRadiologyOrderEditUrl(appointmentId, orderId);
+    action = { name: GO_TO_ORDER, link };
+
+    const orderDate = getInputString(RADIOLOGY_TASK.input.orderDate, task);
+    const providerName = getInputString(LAB_ORDER_TASK.input.providerName, task);
+    subtitle = `Ordered by ${providerName} on ${orderDate ? formatDate(orderDate) : ''}`;
+
+    if (code === RADIOLOGY_TASK.code.reviewFinalResultTask) {
+      title = `Review Radiology Final Results`;
     }
   }
   return {

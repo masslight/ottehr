@@ -3,15 +3,17 @@ import React from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
-import { formatDate, Task, useAssignTask } from 'src/features/visits/in-person/hooks/useTasks';
+import { formatDate, useAssignTask } from 'src/features/visits/in-person/hooks/useTasks';
+import { DetailPageTask, Task } from 'utils';
 import { CategoryChip } from './CategoryChip';
 
 interface Props {
-  task: Task;
+  task: Task | DetailPageTask;
   handleClose: () => void;
+  refetchData?: () => void;
 }
 
-export const AssignTaskDialog: React.FC<Props> = ({ task, handleClose }) => {
+export const AssignTaskDialog: React.FC<Props> = ({ task, handleClose, refetchData }) => {
   const methods = useForm();
   const assignee = methods.watch('assignee');
   const { mutateAsync: assignTask } = useAssignTask();
@@ -23,6 +25,7 @@ export const AssignTaskDialog: React.FC<Props> = ({ task, handleClose }) => {
         name: assignee.name,
       },
     });
+    if (refetchData) refetchData();
   };
   return (
     <InPersonModal
