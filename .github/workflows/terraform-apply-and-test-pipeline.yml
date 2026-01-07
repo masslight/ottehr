@@ -37,7 +37,7 @@ on:
         type: boolean
         default: false
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "apps/ehr/**"
       - "apps/intake/**"
